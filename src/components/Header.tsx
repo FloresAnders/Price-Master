@@ -13,28 +13,28 @@ export default function Header() {
               v1.0
             </span>
           </div>
-          
+
           <nav className="hidden md:flex space-x-8">
-            <a 
-              href="#scanner" 
+            <a
+              href="#scanner"
               className="text-gray-600 hover:text-gray-900 transition-colors"
             >
               Scanner
             </a>
-            <a 
-              href="#calculator" 
+            <a
+              href="#calculator"
               className="text-gray-600 hover:text-gray-900 transition-colors"
             >
               Calculator
             </a>
-            <a 
-              href="#converter" 
+            <a
+              href="#converter"
               className="text-gray-600 hover:text-gray-900 transition-colors"
             >
               Converter
             </a>
           </nav>
-          
+
           <div className="flex items-center space-x-2">
             <div className="text-sm text-gray-500">
               {new Date().toLocaleDateString()}
