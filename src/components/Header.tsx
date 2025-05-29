@@ -96,12 +96,15 @@ export default function Header() {
             </span>
           </div>
           <div className="flex items-center space-x-3">
-            <div
-              className="text-sm"
-              style={{ color: 'var(--tab-text)' }}
-            >
-              {mounted ? date : '...'}
-            </div>
+            {/* Avoid hydration mismatch by rendering only on client */}
+            {mounted && (
+              <div
+                className="text-sm"
+                style={{ color: 'var(--tab-text)' }}
+              >
+                {date}
+              </div>
+            )}
             <ThemeToggle />
           </div>
         </div>
@@ -109,4 +112,3 @@ export default function Header() {
     </header>
   );
 }
-
