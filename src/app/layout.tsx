@@ -6,8 +6,11 @@ import { ThemeProvider } from 'next-themes';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata = {
-  title: 'Tu App',
+  title: 'Price Master',
   description: 'Descripción de tu app',
+  icons: {
+    icon: '/barcode.ico',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
