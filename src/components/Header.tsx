@@ -93,46 +93,12 @@ export default function Header() {
               v1.0
             </span>
           </div>
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-
-          <nav className="hidden md:flex space-x-8">
-            <a
-              href="#scanner"
-              className="text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              Scanner
-            </a>
-            <a
-              href="#calculator"
-              className="text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              Calculator
-            </a>
-            <a
-              href="#converter"
-              className="text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              Converter
-            </a>
-          </nav>
-
-          <div className="flex items-center space-x-2">
-            <div className="text-sm text-gray-500">
-              {new Date().toLocaleDateString()}
-=======
-=======
->>>>>>> Stashed changes
           <div className="flex items-center space-x-3">
             <div
               className="text-sm"
               style={{ color: 'var(--tab-text)' }}
             >
               {date}
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
             </div>
             <ThemeToggle />
           </div>

@@ -272,8 +272,6 @@ export default function BarcodeScanner({ onDetect }: Props) {
     };
   }, []);
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
   return (
     <div className="flex flex-col gap-4 p-6 bg-white rounded-lg shadow-md">
       <div className="text-center">
@@ -281,7 +279,7 @@ export default function BarcodeScanner({ onDetect }: Props) {
           Pega una imagen (Ctrl+V) o sube un archivo
         </p>
       </div>
-      
+
       {/* NUEVO: Notificación de copia automática */}
       {copySuccess && (
         <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-bounce">
@@ -291,7 +289,7 @@ export default function BarcodeScanner({ onDetect }: Props) {
           <span className="font-medium">¡Código copiado automáticamente!</span>
         </div>
       )}
-      
+
       {/* Input para mostrar el código detectado */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -313,165 +311,17 @@ export default function BarcodeScanner({ onDetect }: Props) {
               Copiar
             </button>
           )}
-=======
-return (
-  <div className="flex flex-col gap-4 p-6 rounded-lg shadow-md" style={{ backgroundColor: 'var(--card-bg)', color: 'var(--foreground)' }}>
-    <div className="text-center">
-      <p className="text-sm text-gray-500">Pega una imagen (Ctrl+V) o sube un archivo</p>
-    </div>
-
-    {copySuccess && (
-      <div className="fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-bounce"
-           style={{ backgroundColor: 'var(--badge-bg)', color: 'var(--badge-text)' }}>
-        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-        </svg>
-        <span className="font-medium">¡Código copiado automáticamente!</span>
-      </div>
-    )}
-
-    <div>
-      <label className="block text-sm font-medium mb-1">Código detectado:</label>
-      <div className="flex gap-2">
-        <input
-          type="text"
-          value={code}
-          readOnly
-          placeholder="Aquí aparecerá el código escaneado"
-          className="flex-1 px-3 py-2 rounded-md focus:outline-none focus:ring-2"
-          style={{
-            backgroundColor: 'var(--input-bg)',
-            borderColor: 'var(--input-border)',
-            borderWidth: '1px'
-          }}
-        />
-        {code && (
-          <button
-            onClick={handleCopyCode}
-            className="px-3 py-2 text-sm rounded-md focus:outline-none focus:ring-2"
-            style={{
-              backgroundColor: 'var(--button-bg)',
-              color: 'var(--button-text)'
-            }}
-            onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--button-hover)'}
-            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'var(--button-bg)'}
-          >
-            Copiar
-          </button>
-        )}
-      </div>
-    </div>
-
-    <div>
-      <label className="block text-sm font-medium mb-2">Seleccionar imagen:</label>
-      <div
-        className="relative border-2 border-dashed rounded-lg p-6 transition-colors cursor-pointer"
-        style={{ borderColor: 'var(--input-border)' }}
-        onDragOver={(e) => {
-          e.preventDefault();
-          e.currentTarget.classList.add('bg-indigo-50');
-        }}
-        onDragLeave={(e) => {
-          e.currentTarget.classList.remove('bg-indigo-50');
-        }}
-        onDrop={(e) => {
-          e.currentTarget.classList.remove('bg-indigo-50');
-          handleDrop(e);
-        }}
-        onClick={handleDropAreaClick}
-      >
-        <div className="text-center pointer-events-none">
-          <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <div className="mt-4">
-            <p className="text-sm text-gray-600">
-              <span className="font-medium text-indigo-600 hover:text-indigo-500">Haz clic para seleccionar</span> o arrastra una imagen aquí
-            </p>
-            <p className="text-xs text-gray-500 mt-1">PNG, JPG, GIF hasta 10MB</p>
-          </div>
         </div>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleFileUpload}
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-          onClick={(e) => e.stopPropagation()}
-        />
       </div>
-    </div>
-
-    {(code || error || imagePreview) && (
-      <div className="flex justify-center">
-        <button
-          onClick={handleClear}
-          className="px-6 py-2 text-sm rounded-md focus:outline-none focus:ring-2"
-          style={{
-            backgroundColor: 'var(--button-bg)',
-            color: 'var(--button-text)'
-          }}
-          onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--button-hover)'}
-          onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'var(--button-bg)'}
-        >
-          Limpiar Todo
-        </button>
-      </div>
-    )}
-
-    {isLoading && (
-      <div className="text-center p-3 rounded" style={{ backgroundColor: 'var(--input-bg)', color: 'var(--tab-text-active)' }}>
-        <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 mr-2" style={{ borderColor: 'var(--tab-text-active)' }}></div>
-        <p className="inline">Procesando imagen...</p>
-      </div>
-    )}
-
-    {error && (
-      <div className="text-center text-red-600 bg-red-50 p-3 rounded">
-        <p className="text-sm">{error}</p>
-        <button
-          onClick={handleClear}
-          className="mt-2 text-xs bg-red-100 hover:bg-red-200 px-2 py-1 rounded"
-        >
-          Intentar de nuevo
-        </button>
-      </div>
-    )}
-
-    {imagePreview && (
-      <div className="border rounded-lg overflow-hidden">
-        <img
-          ref={imgRef}
-          src={imagePreview}
-          alt="Preview"
-          className="w-full max-h-48 object-contain"
-          style={{ backgroundColor: 'var(--input-bg)' }}
-        />
-      </div>
-    )}
-
-    {code && !isLoading && (
-      <div className="text-center p-3 rounded" style={{ backgroundColor: 'var(--badge-bg)', color: 'var(--badge-text)' }}>
-        <div className="flex items-center justify-center gap-2 mb-2">
-          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-          </svg>
-          <p className="text-sm font-medium">¡Código detectado y copiado exitosamente!</p>
->>>>>>> Stashed changes
-        </div>
-        <p className="text-xs">Código: <span className="font-mono bg-white px-1 rounded">{code}</span></p>
-        <p className="text-xs mt-1 text-green-500">✓ Copiado al portapapeles automáticamente</p>
-      </div>
-<<<<<<< Updated upstream
 
       {/* Área de carga de imagen */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Seleccionar imagen:
         </label>
-        
+
         {/* Zona de drag and drop */}
-        <div 
+        <div
           className="relative border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-indigo-400 transition-colors cursor-pointer"
           onDragOver={(e) => {
             e.preventDefault();
@@ -502,7 +352,7 @@ return (
               </p>
             </div>
           </div>
-          
+
           <input
             ref={fileInputRef}
             type="file"
@@ -513,162 +363,6 @@ return (
           />
         </div>
       </div>
-
-      {/* Botón de limpiar */}
-      {(code || error || imagePreview) && (
-        <div className="flex justify-center">
-          <button
-            onClick={handleClear}
-            className="px-6 py-2 text-sm bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
-          >
-            Limpiar Todo
-          </button>
-        </div>
-      )}
-
-      {/* Indicador de carga */}
-      {isLoading && (
-        <div className="text-center text-indigo-600 bg-indigo-50 p-3 rounded">
-          <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600 mr-2"></div>
-          <p className="inline">Procesando imagen...</p>
-        </div>
-      )}
-
-      {/* Mensaje de error */}
-      {error && (
-        <div className="text-center text-red-600 bg-red-50 p-3 rounded">
-          <p className="text-sm">{error}</p>
-          <button
-            onClick={handleClear}
-            className="mt-2 text-xs bg-red-100 hover:bg-red-200 px-2 py-1 rounded"
-          >
-            Intentar de nuevo
-          </button>
-        </div>
-      )}
-
-      {/* Preview de la imagen */}
-      {imagePreview && (
-        <div className="border rounded-lg overflow-hidden">
-          <img
-            ref={imgRef}
-            src={imagePreview}
-            alt="Preview"
-            className="w-full max-h-48 object-contain bg-gray-50"
-          />
-        </div>
-      )}
-      
-      {/* Mensaje de éxito - MODIFICADO */}
-      {code && !isLoading && (
-        <div className="text-center text-green-600 bg-green-50 p-3 rounded">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-            </svg>
-            <p className="text-sm font-medium">¡Código detectado y copiado exitosamente!</p>
-          </div>
-          <p className="text-xs">Código: <span className="font-mono bg-white px-1 rounded">{code}</span></p>
-          <p className="text-xs mt-1 text-green-500">✓ Copiado al portapapeles automáticamente</p>
-        </div>
-      )}
-    </div>
-  );
-}
-=======
-    )}
-  </div>
-);
-}
->>>>>>> Stashed changes
-=======
-return (
-  <div className="flex flex-col gap-4 p-6 rounded-lg shadow-md" style={{ backgroundColor: 'var(--card-bg)', color: 'var(--foreground)' }}>
-    <div className="text-center">
-      <p className="text-sm text-gray-500">Pega una imagen (Ctrl+V) o sube un archivo</p>
-    </div>
-
-    {copySuccess && (
-      <div className="fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-bounce"
-           style={{ backgroundColor: 'var(--badge-bg)', color: 'var(--badge-text)' }}>
-        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-        </svg>
-        <span className="font-medium">¡Código copiado automáticamente!</span>
-      </div>
-    )}
-
-    <div>
-      <label className="block text-sm font-medium mb-1">Código detectado:</label>
-      <div className="flex gap-2">
-        <input
-          type="text"
-          value={code}
-          readOnly
-          placeholder="Aquí aparecerá el código escaneado"
-          className="flex-1 px-3 py-2 rounded-md focus:outline-none focus:ring-2"
-          style={{
-            backgroundColor: 'var(--input-bg)',
-            borderColor: 'var(--input-border)',
-            borderWidth: '1px'
-          }}
-        />
-        {code && (
-          <button
-            onClick={handleCopyCode}
-            className="px-3 py-2 text-sm rounded-md focus:outline-none focus:ring-2"
-            style={{
-              backgroundColor: 'var(--button-bg)',
-              color: 'var(--button-text)'
-            }}
-            onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--button-hover)'}
-            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'var(--button-bg)'}
-          >
-            Copiar
-          </button>
-        )}
-      </div>
-    </div>
-
-    <div>
-      <label className="block text-sm font-medium mb-2">Seleccionar imagen:</label>
-      <div
-        className="relative border-2 border-dashed rounded-lg p-6 transition-colors cursor-pointer"
-        style={{ borderColor: 'var(--input-border)' }}
-        onDragOver={(e) => {
-          e.preventDefault();
-          e.currentTarget.classList.add('bg-indigo-50');
-        }}
-        onDragLeave={(e) => {
-          e.currentTarget.classList.remove('bg-indigo-50');
-        }}
-        onDrop={(e) => {
-          e.currentTarget.classList.remove('bg-indigo-50');
-          handleDrop(e);
-        }}
-        onClick={handleDropAreaClick}
-      >
-        <div className="text-center pointer-events-none">
-          <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <div className="mt-4">
-            <p className="text-sm text-gray-600">
-              <span className="font-medium text-indigo-600 hover:text-indigo-500">Haz clic para seleccionar</span> o arrastra una imagen aquí
-            </p>
-            <p className="text-xs text-gray-500 mt-1">PNG, JPG, GIF hasta 10MB</p>
-          </div>
-        </div>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleFileUpload}
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-          onClick={(e) => e.stopPropagation()}
-        />
-      </div>
-    </div>
 
     {(code || error || imagePreview) && (
       <div className="flex justify-center">
@@ -706,31 +400,31 @@ return (
       </div>
     )}
 
-    {imagePreview && (
-      <div className="border rounded-lg overflow-hidden">
-        <img
-          ref={imgRef}
-          src={imagePreview}
-          alt="Preview"
-          className="w-full max-h-48 object-contain"
-          style={{ backgroundColor: 'var(--input-bg)' }}
-        />
-      </div>
-    )}
-
-    {code && !isLoading && (
-      <div className="text-center p-3 rounded" style={{ backgroundColor: 'var(--badge-bg)', color: 'var(--badge-text)' }}>
-        <div className="flex items-center justify-center gap-2 mb-2">
-          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-          </svg>
-          <p className="text-sm font-medium">¡Código detectado y copiado exitosamente!</p>
+      {/* Preview de la imagen */}
+      {imagePreview && (
+        <div className="border rounded-lg overflow-hidden">
+          <img
+            ref={imgRef}
+            src={imagePreview}
+            alt="Preview"
+            className="w-full max-h-48 object-contain bg-gray-50"
+          />
         </div>
-        <p className="text-xs">Código: <span className="font-mono bg-white px-1 rounded">{code}</span></p>
-        <p className="text-xs mt-1 text-green-500">✓ Copiado al portapapeles automáticamente</p>
-      </div>
-    )}
-  </div>
-);
+      )}
+
+      {/* Mensaje de éxito - MODIFICADO */}
+      {code && !isLoading && (
+        <div className="text-center text-green-600 bg-green-50 p-3 rounded">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+            <p className="text-sm font-medium">¡Código detectado y copiado exitosamente!</p>
+          </div>
+          <p className="text-xs">Código: <span className="font-mono bg-white px-1 rounded">{code}</span></p>
+          <p className="text-xs mt-1 text-green-500">✓ Copiado al portapapeles automáticamente</p>
+        </div>
+      )}
+    </div>
+  );
 }
->>>>>>> Stashed changes

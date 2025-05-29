@@ -1,15 +1,3 @@
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-'use client';
-import { useState } from 'react';
-import Header from '@/components/Header';
-import BarcodeScanner from '@/components/BarcodeScanner';
-import PriceCalculator from '@/components/PriceCalculator';
-import TextConversion from '@/components/TextConversion';
-import ScanHistory from '@/components/ScanHistory';
-=======
-=======
->>>>>>> Stashed changes
 // app/page.tsx
 'use client'
 
@@ -19,11 +7,7 @@ import BarcodeScanner from '@/components/BarcodeScanner'
 import PriceCalculator from '@/components/PriceCalculator'
 import TextConversion from '@/components/TextConversion'
 import ScanHistory from '@/components/ScanHistory'
-import Footer from '@/components/Footer'
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
+
 
 type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'history'
 
