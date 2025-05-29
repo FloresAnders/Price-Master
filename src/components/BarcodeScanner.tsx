@@ -214,6 +214,15 @@ export default function BarcodeScanner({ onDetect }: Props) {
     }
   };
 
+  // NUEVA FUNCIÓN: Manejar click en el área de drop
+  const handleDropAreaClick = (event: React.MouseEvent) => {
+    // Solo abrir el diálogo si el click fue directamente en el área de drop
+    // y no en el input file (que ya tiene su propio evento)
+    if (event.target === event.currentTarget) {
+      fileInputRef.current?.click();
+    }
+  };
+
   // Limpiar recursos al desmontar
   useEffect(() => {
     const handlePasteEvent = (e: ClipboardEvent) => handlePaste(e);
@@ -267,7 +276,7 @@ export default function BarcodeScanner({ onDetect }: Props) {
           Seleccionar imagen:
         </label>
         
-        {/* Zona de drag and drop */}
+        {/* Zona de drag and drop - CORREGIDA */}
         <div 
           className="relative border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-indigo-400 transition-colors cursor-pointer"
           onDragOver={(e) => {
@@ -281,9 +290,9 @@ export default function BarcodeScanner({ onDetect }: Props) {
             e.currentTarget.classList.remove('border-indigo-400', 'bg-indigo-50');
             handleDrop(e);
           }}
-          onClick={() => fileInputRef.current?.click()}
+          onClick={handleDropAreaClick} // CAMBIADO: Nueva función
         >
-          <div className="text-center">
+          <div className="text-center pointer-events-none"> {/* AÑADIDO: pointer-events-none */}
             <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
               <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
@@ -306,6 +315,7 @@ export default function BarcodeScanner({ onDetect }: Props) {
             accept="image/*"
             onChange={handleFileUpload}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            onClick={(e) => e.stopPropagation()} // AÑADIDO: Prevenir propagación
           />
         </div>
       </div>
