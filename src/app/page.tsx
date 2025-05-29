@@ -1,208 +1,43 @@
 'use client';
 import { useState } from 'react';
 import Header from '@/components/Header';
-import BarcodeScanner from '@/components/BarcodeScanner';
-import PriceCalculator from '@/components/PriceCalculator';
-import TextConversion from '@/components/TextConversion';
-import ScanHistory from '@/components/ScanHistory';
 import Footer from '@/components/Footer';
-
-
-type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'history';
+import TabNavigation from '@/components/TabNavigation';
+import TabHeader from '@/components/TabHeader';
+import TabContent from '@/components/TabContent';
+import { useTabConfig } from '@/hooks/useTabConfig';
+import { useScanHistory } from '@/hooks/useScanHistory';
+import { ActiveTab } from '@/types';
 
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('scanner');
-  const [scanHistory, setScanHistory] = useState<string[]>([]);
+  const { scanHistory, handleCodeDetected, clearHistory } = useScanHistory();
+  const tabs = useTabConfig({ scanHistoryCount: scanHistory.length });
 
-  // Función para manejar códigos detectados por el escáner
-  const handleCodeDetected = (code: string) => {
-    setScanHistory(prev => {
-      // Evitar duplicados consecutivos
-      if (prev[0] === code) return prev;
-      // Mantener solo los últimos 20 escaneos
-      return [code, ...prev.slice(0, 19)];
-    });
-  };
-
-  // Configuración de las pestañas
-  const tabs = [
-    {
-      id: 'scanner' as ActiveTab,
-      name: 'Escáner',
-      icon: '📷',
-      description: 'Escanear códigos de barras'
-    },
-    {
-      id: 'calculator' as ActiveTab,
-      name: 'Calculadora',
-      icon: '🧮',
-      description: 'Calcular precios con descuentos'
-    },
-    {
-      id: 'converter' as ActiveTab,
-      name: 'Conversor',
-      icon: '🔤',
-      description: 'Convertir y transformar texto'
-    },
-    {
-      id: 'history' as ActiveTab,
-      name: 'Historial',
-      icon: '📋',
-      description: 'Ver códigos escaneados',
-      badge: scanHistory.length > 0 ? scanHistory.length : undefined
-    }
-  ];
+  const handleGoToScanner = () => setActiveTab('scanner');
 
   return (
     <>
       <Header />
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Navegación por pestañas */}
-        <div className="mb-8">
-          <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`
-                    group relative min-w-0 flex-1 overflow-hidden py-4 px-1 text-center text-sm font-medium hover:text-gray-700 focus:z-10 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors
-                    ${activeTab === tab.id
-                      ? 'text-indigo-600 border-b-2 border-indigo-500'
-                      : 'text-gray-500 border-b-2 border-transparent hover:border-gray-300'
-                    }
-                  `}
-                >
-                  <div className="flex items-center justify-center space-x-2">
-                    <span className="text-lg">{tab.icon}</span>
-                    <span className="hidden sm:inline">{tab.name}</span>
-                    {tab.badge && (
-                      <span className="ml-1 py-0.5 px-2 rounded-full text-xs bg-indigo-100 text-indigo-600">
-                        {tab.badge}
-                      </span>
-                    )}
-                  </div>
-                  <span className="absolute inset-x-0 bottom-0 h-0.5 bg-indigo-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-200" />
-                </button>
-              ))}
-            </nav>
-          </div>
-        </div>
+        <TabNavigation
+          tabs={tabs}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        />
 
-        {/* Descripción de la pestaña activa */}
-        <div className="mb-6">
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              {tabs.find(tab => tab.id === activeTab)?.name}
-            </h2>
-            <p className="text-gray-600">
-              {tabs.find(tab => tab.id === activeTab)?.description}
-            </p>
-          </div>
-        </div>
+        <TabHeader
+          tabs={tabs}
+          activeTab={activeTab}
+        />
 
-        {/* Contenido de las pestañas */}
-        <div className="space-y-8">
-          {activeTab === 'scanner' && (
-            <div className="max-w-4xl mx-auto">
-              <BarcodeScanner onDetect={handleCodeDetected} />
-
-              {/* Tips para el escáner */}
-              <div className="mt-6 bg-blue-50 rounded-lg p-4">
-                <h3 className="font-medium text-blue-800 mb-2">💡 Consejos para mejores resultados:</h3>
-                <ul className="text-sm text-blue-700 space-y-1">
-                  <li>• Asegúrate de que el código de barras esté bien iluminado</li>
-                  <li>• La imagen debe estar enfocada y sin borrosidad</li>
-                  <li>• Puedes pegar imágenes directamente con Ctrl+V</li>
-                  <li>• Soporta múltiples formatos: EAN-13, Code-128, QR, UPC-A</li>
-                </ul>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'calculator' && (
-            <div className="max-w-6xl mx-auto">
-              <PriceCalculator />
-
-              {/* Información adicional */}
-              <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-green-50 rounded-lg p-4">
-                  <h3 className="font-medium text-green-800 mb-2">🇨🇷 Para Costa Rica:</h3>
-                  <p className="text-sm text-green-700">
-                    IVA configurado al 13% por defecto. Puedes cambiarlo según tus necesidades.
-                  </p>
-                </div>
-                <div className="bg-yellow-50 rounded-lg p-4">
-                  <h3 className="font-medium text-yellow-800 mb-2">💰 Cálculo inteligente:</h3>
-                  <p className="text-sm text-yellow-700">
-                    El descuento se aplica primero, luego se calcula el impuesto sobre el precio con descuento.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'converter' && (
-            <div className="max-w-6xl mx-auto">
-              <TextConversion />
-
-              {/* Casos de uso */}
-              <div className="mt-6 bg-purple-50 rounded-lg p-4">
-                <h3 className="font-medium text-purple-800 mb-2">🔧 Casos de uso comunes:</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-purple-700">
-                  <div>
-                    <p><strong>Para programadores:</strong></p>
-                    <ul className="ml-4 space-y-1">
-                      <li>• camelCase para variables</li>
-                      <li>• snake_case para Python</li>
-                      <li>• kebab-case para CSS</li>
-                    </ul>
-                  </div>
-                  <div>
-                    <p><strong>Para documentos:</strong></p>
-                    <ul className="ml-4 space-y-1">
-                      <li>• Títulos profesionales</li>
-                      <li>• Conversión de mayúsculas/minúsculas</li>
-                      <li>• Análisis de texto con estadísticas</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'history' && (
-            <div className="max-w-4xl mx-auto">
-              <ScanHistory history={scanHistory} />
-
-              {scanHistory.length > 0 && (
-                <div className="mt-6 flex justify-center">
-                  <button
-                    onClick={() => setScanHistory([])}
-                    className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors"
-                  >
-                    Limpiar Historial
-                  </button>
-                </div>
-              )}
-
-              {scanHistory.length === 0 && (
-                <div className="mt-6 text-center">
-                  <div className="text-6xl mb-4">📱</div>
-                  <p className="text-gray-500 mb-4">
-                    Aún no has escaneado ningún código de barras
-                  </p>
-                  <button
-                    onClick={() => setActiveTab('scanner')}
-                    className="px-6 py-3 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors"
-                  >
-                    Ir al Escáner
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        <TabContent
+          activeTab={activeTab}
+          scanHistory={scanHistory}
+          onCodeDetected={handleCodeDetected}
+          onGoToScanner={handleGoToScanner}
+          onClearHistory={clearHistory}
+        />
       </main>
       <Footer />
     </>
