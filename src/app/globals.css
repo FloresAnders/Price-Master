@@ -1,27 +1,65 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
+  /* Variables modo claro */
   :root {
-    --background: #0a0a0a;
-    --foreground: #000000;
-  }
-}
+    --background: #ffffff;
+    --foreground: #171717;
+    --font-base: Arial, Helvetica, sans-serif;
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-  @apply bg-slate-50 font-sans;
+    /* Componentes generales */
+    --card-bg: #f9f9f9;
+    --input-bg: #f3f4f6;
+    --input-border: #d1d5db;
+    --button-bg: #f3f4f6;
+    --button-text: #1f2937;
+    --button-hover: #e5e7eb;
+
+    /* Navegación de pestañas */
+    --tab-text: #6b7280;              /* gray-500 */
+    --tab-text-active: #4338ca;       /* indigo-600 */
+    --tab-border: transparent;
+    --tab-border-active: #4338ca;     /* indigo-600 */
+    --tab-hover-text: #4b5563;        /* gray-700 */
+
+    /* Badge */
+    --badge-bg: #e0e7ff;              /* indigo-100 */
+    --badge-text: #4338ca;            /* indigo-600 */
+  }
+
+  /* Variables modo oscuro */
+  .dark :root,
+  :root.dark {
+    --background: #171717;
+    --foreground: #ffffff;
+    --font-base: Arial, Helvetica, sans-serif;
+
+    /* Componentes generales */
+    --card-bg: #1f2937;               /* gray-800 */
+    --input-bg: #374151;              /* gray-700 */
+    --input-border: #4b5563;          /* gray-600 */
+    --button-bg: #374151;             /* gray-700 */
+    --button-text: #e5e7eb;           /* gray-200 */
+    --button-hover: #4b5563;          /* gray-600 */
+
+    /* Navegación de pestañas */
+    --tab-text: #9ca3af;              /* gray-400 */
+    --tab-text-active: #a5b4fc;       /* indigo-300 */
+    --tab-border: transparent;
+    --tab-border-active: #a5b4fc;     /* indigo-300 */
+    --tab-hover-text: #d1d5db;        /* gray-300 */
+
+    /* Badge */
+    --badge-bg: #4338ca;              /* indigo-700 */
+    --badge-text: #e0e7ff;            /* indigo-100 */
+  }
+
+  /* Estilos globales */
+  html,
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-base);
+    @apply antialiased;
+  }
 }

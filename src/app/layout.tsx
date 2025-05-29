@@ -1,30 +1,27 @@
-import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
-import "./globals.css";
+// app/layout.tsx
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
+import './globals.css';
+import { Inter } from 'next/font/google';
+import { ThemeProvider } from 'next-themes';
 
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-});
+const inter = Inter({ subsets: ['latin'] });
 
-export const metadata: Metadata = {
-  title: 'PriceMaster',
-  description: 'Gestión de precios con PriceMaster',
+export const metadata = {
+  title: 'Tu App',
+  description: 'Descripción de tu app',
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{ children: React.ReactNode }>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        {children}
+    <html lang="en" suppressHydrationWarning>
+      <body>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <div className={inter.className + ' min-h-screen'}>
+            {children}
+          </div>
+        </ThemeProvider>
       </body>
     </html>
-  );
+  )
 }
+
