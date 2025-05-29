@@ -9,6 +9,7 @@ export default function BarcodeScanner({ onDetect }: Props) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [imagePreview, setImagePreview] = useState('');
+  const [copySuccess, setCopySuccess] = useState(false); // NUEVO: Estado para mostrar éxito de copia
   const imgRef = useRef<HTMLImageElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null);
@@ -36,12 +37,52 @@ export default function BarcodeScanner({ onDetect }: Props) {
     }
   }, []);
 
+  // NUEVA FUNCIÓN: Copiar código automáticamente
+  const copyCodeToClipboard = async (codeText: string) => {
+    try {
+      await navigator.clipboard.writeText(codeText);
+      console.log('Código copiado automáticamente al portapapeles:', codeText);
+      setCopySuccess(true);
+      
+      // Ocultar mensaje de éxito después de 3 segundos
+      setTimeout(() => {
+        setCopySuccess(false);
+      }, 3000);
+      
+      return true;
+    } catch (err) {
+      console.error('Error al copiar automáticamente:', err);
+      // Fallback para navegadores que no soportan clipboard API
+      try {
+        const textArea = document.createElement('textarea');
+        textArea.value = codeText;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        
+        setCopySuccess(true);
+        setTimeout(() => {
+          setCopySuccess(false);
+        }, 3000);
+        
+        return true;
+      } catch (fallbackErr) {
+        console.error('Error en fallback de copia:', fallbackErr);
+        return false;
+      }
+    }
+  };
+
   // Función para limpiar el estado
   const clearState = () => {
     setCode('');
     setError('');
     setImagePreview('');
     setIsLoading(false);
+    setCopySuccess(false); // NUEVO: Limpiar estado de copia
   };
 
   // Función para procesar la imagen y detectar código de barras
@@ -95,6 +136,11 @@ export default function BarcodeScanner({ onDetect }: Props) {
       console.log('Código detectado:', detectedCode);
       
       setCode(detectedCode);
+      
+      // NUEVO: Copiar automáticamente al portapapeles
+      await copyCodeToClipboard(detectedCode);
+      
+      // Llamar callback si existe
       if (onDetect) {
         onDetect(detectedCode);
       }
@@ -195,29 +241,18 @@ export default function BarcodeScanner({ onDetect }: Props) {
     console.log('Estado limpiado');
   };
 
-  // Copiar código al portapapeles
+  // Copiar código al portapapeles manualmente
   const handleCopyCode = async () => {
     if (code) {
-      try {
-        await navigator.clipboard.writeText(code);
-        console.log('Código copiado al portapapeles');
-      } catch (err) {
-        console.error('Error al copiar:', err);
-        // Fallback para navegadores que no soportan clipboard API
-        const textArea = document.createElement('textarea');
-        textArea.value = code;
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
+      const success = await copyCodeToClipboard(code);
+      if (!success) {
+        setError('No se pudo copiar el código al portapapeles');
       }
     }
   };
 
-  // NUEVA FUNCIÓN: Manejar click en el área de drop
+  // Manejar click en el área de drop
   const handleDropAreaClick = (event: React.MouseEvent) => {
-    // Solo abrir el diálogo si el click fue directamente en el área de drop
-    // y no en el input file (que ya tiene su propio evento)
     if (event.target === event.currentTarget) {
       fileInputRef.current?.click();
     }
@@ -240,11 +275,20 @@ export default function BarcodeScanner({ onDetect }: Props) {
   return (
     <div className="flex flex-col gap-4 p-6 bg-white rounded-lg shadow-md">
       <div className="text-center">
-        <h3 className="font-medium text-gray-700 mb-2">Escáner de Códigos de Barras</h3>
         <p className="text-sm text-gray-500">
           Pega una imagen (Ctrl+V) o sube un archivo
         </p>
       </div>
+      
+      {/* NUEVO: Notificación de copia automática */}
+      {copySuccess && (
+        <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-bounce">
+          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+          </svg>
+          <span className="font-medium">¡Código copiado automáticamente!</span>
+        </div>
+      )}
       
       {/* Input para mostrar el código detectado */}
       <div>
@@ -276,7 +320,7 @@ export default function BarcodeScanner({ onDetect }: Props) {
           Seleccionar imagen:
         </label>
         
-        {/* Zona de drag and drop - CORREGIDA */}
+        {/* Zona de drag and drop */}
         <div 
           className="relative border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-indigo-400 transition-colors cursor-pointer"
           onDragOver={(e) => {
@@ -290,9 +334,9 @@ export default function BarcodeScanner({ onDetect }: Props) {
             e.currentTarget.classList.remove('border-indigo-400', 'bg-indigo-50');
             handleDrop(e);
           }}
-          onClick={handleDropAreaClick} // CAMBIADO: Nueva función
+          onClick={handleDropAreaClick}
         >
-          <div className="text-center pointer-events-none"> {/* AÑADIDO: pointer-events-none */}
+          <div className="text-center pointer-events-none">
             <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
               <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
@@ -315,7 +359,7 @@ export default function BarcodeScanner({ onDetect }: Props) {
             accept="image/*"
             onChange={handleFileUpload}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            onClick={(e) => e.stopPropagation()} // AÑADIDO: Prevenir propagación
+            onClick={(e) => e.stopPropagation()}
           />
         </div>
       </div>
@@ -365,11 +409,17 @@ export default function BarcodeScanner({ onDetect }: Props) {
         </div>
       )}
       
-      {/* Mensaje de éxito */}
+      {/* Mensaje de éxito - MODIFICADO */}
       {code && !isLoading && (
         <div className="text-center text-green-600 bg-green-50 p-3 rounded">
-          <p className="text-sm font-medium">¡Código detectado exitosamente!</p>
-          <p className="text-xs mt-1">Código: <span className="font-mono bg-white px-1 rounded">{code}</span></p>
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+            <p className="text-sm font-medium">¡Código detectado y copiado exitosamente!</p>
+          </div>
+          <p className="text-xs">Código: <span className="font-mono bg-white px-1 rounded">{code}</span></p>
+          <p className="text-xs mt-1 text-green-500">✓ Copiado al portapapeles automáticamente</p>
         </div>
       )}
     </div>
