@@ -275,7 +275,6 @@ export default function BarcodeScanner({ onDetect }: Props) {
   return (
     <div className="flex flex-col gap-4 p-6 bg-white rounded-lg shadow-md">
       <div className="text-center">
-        <h3 className="font-medium text-gray-700 mb-2">Escáner de Códigos de Barras</h3>
         <p className="text-sm text-gray-500">
           Pega una imagen (Ctrl+V) o sube un archivo
         </p>
