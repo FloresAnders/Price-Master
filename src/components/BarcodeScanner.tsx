@@ -19,16 +19,22 @@ export default function BarcodeScanner({ onDetect }: Props) {
     try {
       const hints = new Map();
       hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+        // Códigos 1D existentes
         BarcodeFormat.EAN_13,
+        BarcodeFormat.EAN_8,        // Nuevo
         BarcodeFormat.CODE_128,
         BarcodeFormat.CODE_39,
+        BarcodeFormat.CODE_93,      // Nuevo
         BarcodeFormat.UPC_A,
-        BarcodeFormat.QR_CODE,
+        BarcodeFormat.UPC_E,        // Nuevo
         BarcodeFormat.ITF,
         BarcodeFormat.CODABAR,
+        BarcodeFormat.RSS_14,       // Nuevo
+        BarcodeFormat.RSS_EXPANDED, // Nuevo
+
       ]);
       hints.set(DecodeHintType.TRY_HARDER, true);
-      
+
       codeReaderRef.current = new BrowserMultiFormatReader(hints);
       console.log('BarcodeReader inicializado correctamente');
     } catch (err) {
@@ -36,19 +42,18 @@ export default function BarcodeScanner({ onDetect }: Props) {
       setError('Error al inicializar el escáner de códigos de barras');
     }
   }, []);
-
   // NUEVA FUNCIÓN: Copiar código automáticamente
   const copyCodeToClipboard = async (codeText: string) => {
     try {
       await navigator.clipboard.writeText(codeText);
       console.log('Código copiado automáticamente al portapapeles:', codeText);
       setCopySuccess(true);
-      
+
       // Ocultar mensaje de éxito después de 3 segundos
       setTimeout(() => {
         setCopySuccess(false);
       }, 3000);
-      
+
       return true;
     } catch (err) {
       console.error('Error al copiar automáticamente:', err);
@@ -62,12 +67,12 @@ export default function BarcodeScanner({ onDetect }: Props) {
         textArea.select();
         document.execCommand('copy');
         document.body.removeChild(textArea);
-        
+
         setCopySuccess(true);
         setTimeout(() => {
           setCopySuccess(false);
         }, 3000);
-        
+
         return true;
       } catch (fallbackErr) {
         console.error('Error en fallback de copia:', fallbackErr);
@@ -88,7 +93,7 @@ export default function BarcodeScanner({ onDetect }: Props) {
   // Función para procesar la imagen y detectar código de barras
   const processImage = async (imageSrc: string) => {
     console.log('Iniciando procesamiento de imagen...');
-    
+
     if (!codeReaderRef.current) {
       console.error('CodeReader no está inicializado');
       setError('El escáner no está inicializado correctamente');
@@ -99,11 +104,11 @@ export default function BarcodeScanner({ onDetect }: Props) {
     clearState();
     setIsLoading(true);
     setImagePreview(imageSrc);
-    
+
     try {
       // Crear una nueva imagen para procesar
       const img = new Image();
-      
+
       // Promesa para cargar la imagen
       const imageLoaded = new Promise<HTMLImageElement>((resolve, reject) => {
         img.onload = () => {
@@ -118,7 +123,7 @@ export default function BarcodeScanner({ onDetect }: Props) {
       });
 
       const loadedImg = await imageLoaded;
-      
+
       // Asignar la imagen al ref también para mostrarla
       if (imgRef.current) {
         imgRef.current.src = imageSrc;
@@ -128,24 +133,24 @@ export default function BarcodeScanner({ onDetect }: Props) {
       await new Promise(resolve => setTimeout(resolve, 200));
 
       console.log('Intentando decodificar código de barras...');
-      
+
       // Intentar decodificar el código de barras usando la imagen cargada
       const result = await codeReaderRef.current.decodeFromImageElement(loadedImg);
       const detectedCode = result.getText();
-      
+
       console.log('Código detectado:', detectedCode);
-      
+
       setCode(detectedCode);
-      
+
       // NUEVO: Copiar automáticamente al portapapeles
       await copyCodeToClipboard(detectedCode);
-      
+
       // Llamar callback si existe
       if (onDetect) {
         onDetect(detectedCode);
       }
       setError(''); // Limpiar cualquier error anterior
-      
+
     } catch (err) {
       console.error('Error al procesar imagen:', err);
       setError('No se pudo detectar un código de barras en la imagen. Asegúrate de que la imagen contenga un código de barras visible y bien iluminado.');
@@ -163,7 +168,7 @@ export default function BarcodeScanner({ onDetect }: Props) {
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       console.log('Item tipo:', item.type);
-      
+
       if (item.type.startsWith('image/')) {
         event.preventDefault();
         const file = item.getAsFile();
@@ -189,7 +194,7 @@ export default function BarcodeScanner({ onDetect }: Props) {
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     console.log('Archivo seleccionado:', file?.name, file?.type);
-    
+
     if (file && file.type.startsWith('image/')) {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -202,7 +207,7 @@ export default function BarcodeScanner({ onDetect }: Props) {
         setError('Error al leer el archivo de imagen');
       };
       reader.readAsDataURL(file);
-      
+
       // Limpiar el input para permitir seleccionar la misma imagen de nuevo
       event.target.value = '';
     } else {
@@ -215,7 +220,7 @@ export default function BarcodeScanner({ onDetect }: Props) {
     event.preventDefault();
     const file = event.dataTransfer.files[0];
     console.log('Archivo arrastrado:', file?.name, file?.type);
-    
+
     if (file && file.type.startsWith('image/')) {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -261,9 +266,9 @@ export default function BarcodeScanner({ onDetect }: Props) {
   // Limpiar recursos al desmontar
   useEffect(() => {
     const handlePasteEvent = (e: ClipboardEvent) => handlePaste(e);
-    
+
     window.addEventListener('paste', handlePasteEvent);
-    
+
     return () => {
       window.removeEventListener('paste', handlePasteEvent);
       if (codeReaderRef.current) {
@@ -279,7 +284,7 @@ export default function BarcodeScanner({ onDetect }: Props) {
           Pega una imagen (Ctrl+V) o sube un archivo
         </p>
       </div>
-      
+
       {/* NUEVO: Notificación de copia automática */}
       {copySuccess && (
         <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-bounce">
@@ -289,7 +294,7 @@ export default function BarcodeScanner({ onDetect }: Props) {
           <span className="font-medium">¡Código copiado automáticamente!</span>
         </div>
       )}
-      
+
       {/* Input para mostrar el código detectado */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -319,9 +324,9 @@ export default function BarcodeScanner({ onDetect }: Props) {
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Seleccionar imagen:
         </label>
-        
+
         {/* Zona de drag and drop */}
-        <div 
+        <div
           className="relative border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-indigo-400 transition-colors cursor-pointer"
           onDragOver={(e) => {
             e.preventDefault();
@@ -352,7 +357,7 @@ export default function BarcodeScanner({ onDetect }: Props) {
               </p>
             </div>
           </div>
-          
+
           <input
             ref={fileInputRef}
             type="file"
@@ -408,7 +413,7 @@ export default function BarcodeScanner({ onDetect }: Props) {
           />
         </div>
       )}
-      
+
       {/* Mensaje de éxito - MODIFICADO */}
       {code && !isLoading && (
         <div className="text-center text-green-600 bg-green-50 p-3 rounded">
