@@ -20,7 +20,7 @@ export default function PriceCalculator() {
       // Calcular descuento
       const discountValue = (price * discountPercent) / 100;
       const priceAfterDiscount = price - discountValue;
-      
+
       // Calcular impuesto sobre el precio con descuento
       const taxValue = (priceAfterDiscount * taxPercent) / 100;
       const final = priceAfterDiscount + taxValue;
@@ -135,7 +135,7 @@ export default function PriceCalculator() {
         <div className="space-y-4">
           <div className="bg-gray-50 rounded-lg p-4">
             <h3 className="font-medium text-gray-700 mb-3">Cálculo Detallado</h3>
-            
+
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-600">Precio Original:</span>
@@ -143,30 +143,30 @@ export default function PriceCalculator() {
                   {formatCurrency(parseFloat(originalPrice) || 0)}
                 </span>
               </div>
-              
+
               {discountAmount > 0 && (
                 <div className="flex justify-between text-red-600">
                   <span>Descuento ({discount}%):</span>
                   <span>-{formatCurrency(discountAmount)}</span>
                 </div>
               )}
-              
+
               <div className="flex justify-between">
                 <span className="text-gray-600">Subtotal:</span>
                 <span className="font-medium">
                   {formatCurrency((parseFloat(originalPrice) || 0) - discountAmount)}
                 </span>
               </div>
-              
+
               {taxAmount > 0 && (
                 <div className="flex justify-between text-blue-600">
                   <span>Impuesto ({tax}%):</span>
                   <span>+{formatCurrency(taxAmount)}</span>
                 </div>
               )}
-              
+
               <hr className="my-2" />
-              
+
               <div className="flex justify-between text-lg font-bold text-gray-900">
                 <span>Total:</span>
                 <span>{formatCurrency(finalPrice)}</span>
@@ -181,7 +181,7 @@ export default function PriceCalculator() {
               {originalPrice && (
                 <>
                   <p>
-                    Ahorro: {formatCurrency(discountAmount)} 
+                    Ahorro: {formatCurrency(discountAmount)}
                     {discountAmount > 0 && ` (${discount}%)`}
                   </p>
                   <p>

@@ -54,7 +54,7 @@ export default function HomePage() {
   return (
     <>
       <Header />
-      
+
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Navegación por pestañas */}
         <div className="mb-8">
@@ -105,7 +105,7 @@ export default function HomePage() {
           {activeTab === 'scanner' && (
             <div className="max-w-4xl mx-auto">
               <BarcodeScanner onDetect={handleCodeDetected} />
-              
+
               {/* Tips para el escáner */}
               <div className="mt-6 bg-blue-50 rounded-lg p-4">
                 <h3 className="font-medium text-blue-800 mb-2">💡 Consejos para mejores resultados:</h3>
@@ -122,7 +122,7 @@ export default function HomePage() {
           {activeTab === 'calculator' && (
             <div className="max-w-6xl mx-auto">
               <PriceCalculator />
-              
+
               {/* Información adicional */}
               <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-green-50 rounded-lg p-4">
@@ -144,7 +144,7 @@ export default function HomePage() {
           {activeTab === 'converter' && (
             <div className="max-w-6xl mx-auto">
               <TextConversion />
-              
+
               {/* Casos de uso */}
               <div className="mt-6 bg-purple-50 rounded-lg p-4">
                 <h3 className="font-medium text-purple-800 mb-2">🔧 Casos de uso comunes:</h3>
@@ -173,7 +173,7 @@ export default function HomePage() {
           {activeTab === 'history' && (
             <div className="max-w-4xl mx-auto">
               <ScanHistory history={scanHistory} />
-              
+
               {scanHistory.length > 0 && (
                 <div className="mt-6 flex justify-center">
                   <button
@@ -184,7 +184,7 @@ export default function HomePage() {
                   </button>
                 </div>
               )}
-              
+
               {scanHistory.length === 0 && (
                 <div className="mt-6 text-center">
                   <div className="text-6xl mb-4">📱</div>
