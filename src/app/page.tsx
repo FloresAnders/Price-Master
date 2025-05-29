@@ -8,6 +8,13 @@ import PriceCalculator from '@/components/PriceCalculator'
 import TextConversion from '@/components/TextConversion'
 import ScanHistory from '@/components/ScanHistory'
 import Footer from '@/components/Footer'
+import {
+  Camera,
+  Calculator,
+  Type,
+  ClipboardList
+} from 'lucide-react'
+
 
 type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'history'
 
@@ -26,17 +33,18 @@ export default function HomePage() {
 
   // Configuración de las pestañas
   const tabs = [
-    { id: 'scanner' as ActiveTab, name: 'Escáner', icon: '📷', description: 'Escanear códigos de barras' },
-    { id: 'calculator' as ActiveTab, name: 'Calculadora', icon: '🧮', description: 'Calcular precios con descuentos' },
-    { id: 'converter' as ActiveTab, name: 'Conversor', icon: '🔤', description: 'Convertir y transformar texto' },
+    { id: 'scanner' as ActiveTab, name: 'Escáner', icon: Camera, description: 'Escanear códigos de barras' },
+    { id: 'calculator' as ActiveTab, name: 'Calculadora', icon: Calculator, description: 'Calcular precios con descuentos' },
+    { id: 'converter' as ActiveTab, name: 'Conversor', icon: Type, description: 'Convertir y transformar texto' },
     {
       id: 'history' as ActiveTab,
       name: 'Historial',
-      icon: '📋',
+      icon: ClipboardList,
       description: 'Ver códigos escaneados',
       badge: scanHistory.length > 0 ? scanHistory.length : undefined
     }
   ]
+
 
   return (
     <>
@@ -58,7 +66,7 @@ export default function HomePage() {
                     }`}
                 >
                   <div className="flex items-center justify-center space-x-2">
-                    <span className="text-lg">{tab.icon}</span>
+                    <tab.icon className="w-5 h-5" />
                     <span className="hidden sm:inline">{tab.name}</span>
                     {tab.badge && (
                       <span
