@@ -3,9 +3,11 @@ import { useState, useEffect } from 'react';
 
 export default function PriceCalculator() {
   const [originalPrice, setOriginalPrice] = useState('');
+  const [profit, setProfit] = useState(''); // Nueva funcionalidad de utilidad
   const [discount, setDiscount] = useState('');
   const [tax, setTax] = useState('13'); // IVA por defecto en Costa Rica
   const [finalPrice, setFinalPrice] = useState(0);
+  const [profitAmount, setProfitAmount] = useState(0); // Monto de utilidad
   const [discountAmount, setDiscountAmount] = useState(0);
   const [taxAmount, setTaxAmount] = useState(0);
   const [currency, setCurrency] = useState('CRC');
@@ -13,27 +15,34 @@ export default function PriceCalculator() {
   // Calcular precio final
   useEffect(() => {
     const price = parseFloat(originalPrice) || 0;
+    const profitPercent = parseFloat(profit) || 0;
     const discountPercent = parseFloat(discount) || 0;
     const taxPercent = parseFloat(tax) || 0;
 
     if (price > 0) {
-      // Calcular descuento
-      const discountValue = (price * discountPercent) / 100;
-      const priceAfterDiscount = price - discountValue;
+      // Calcular utilidad sobre el precio original
+      const profitValue = (price * profitPercent) / 100;
+      const priceAfterProfit = price + profitValue;
       
-      // Calcular impuesto sobre el precio con descuento
+      // Calcular descuento sobre el precio con utilidad
+      const discountValue = (priceAfterProfit * discountPercent) / 100;
+      const priceAfterDiscount = priceAfterProfit - discountValue;
+      
+      // Calcular impuesto sobre el precio con utilidad y descuento
       const taxValue = (priceAfterDiscount * taxPercent) / 100;
       const final = priceAfterDiscount + taxValue;
 
+      setProfitAmount(profitValue);
       setDiscountAmount(discountValue);
       setTaxAmount(taxValue);
       setFinalPrice(final);
     } else {
+      setProfitAmount(0);
       setDiscountAmount(0);
       setTaxAmount(0);
       setFinalPrice(0);
     }
-  }, [originalPrice, discount, tax]);
+  }, [originalPrice, profit, discount, tax]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-CR', {
@@ -45,9 +54,11 @@ export default function PriceCalculator() {
 
   const handleClear = () => {
     setOriginalPrice('');
+    setProfit('');
     setDiscount('');
     setTax('13');
     setFinalPrice(0);
+    setProfitAmount(0);
     setDiscountAmount(0);
     setTaxAmount(0);
   };
@@ -59,7 +70,7 @@ export default function PriceCalculator() {
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Precio Original
+              Precio Original (Costo)
             </label>
             <div className="relative">
               <input
@@ -79,6 +90,21 @@ export default function PriceCalculator() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
+              Utilidad (%)
+            </label>
+            <input
+              type="number"
+              value={profit}
+              onChange={(e) => setProfit(e.target.value)}
+              placeholder="0"
+              step="0.1"
+              min="0"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Descuento (%)
             </label>
             <input
@@ -89,7 +115,7 @@ export default function PriceCalculator() {
               step="0.1"
               min="0"
               max="100"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
             />
           </div>
 
@@ -105,7 +131,7 @@ export default function PriceCalculator() {
               step="0.1"
               min="0"
               max="100"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
@@ -138,9 +164,23 @@ export default function PriceCalculator() {
             
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-600">Precio Original:</span>
+                <span className="text-gray-600">Precio Original (Costo):</span>
                 <span className="font-medium">
                   {formatCurrency(parseFloat(originalPrice) || 0)}
+                </span>
+              </div>
+              
+              {profitAmount > 0 && (
+                <div className="flex justify-between text-green-600">
+                  <span>Utilidad ({profit}%):</span>
+                  <span>+{formatCurrency(profitAmount)}</span>
+                </div>
+              )}
+
+              <div className="flex justify-between">
+                <span className="text-gray-600">Precio de Venta:</span>
+                <span className="font-medium">
+                  {formatCurrency((parseFloat(originalPrice) || 0) + profitAmount)}
                 </span>
               </div>
               
@@ -154,7 +194,7 @@ export default function PriceCalculator() {
               <div className="flex justify-between">
                 <span className="text-gray-600">Subtotal:</span>
                 <span className="font-medium">
-                  {formatCurrency((parseFloat(originalPrice) || 0) - discountAmount)}
+                  {formatCurrency((parseFloat(originalPrice) || 0) + profitAmount - discountAmount)}
                 </span>
               </div>
               
@@ -181,7 +221,11 @@ export default function PriceCalculator() {
               {originalPrice && (
                 <>
                   <p>
-                    Ahorro: {formatCurrency(discountAmount)} 
+                    Utilidad: {formatCurrency(profitAmount)} 
+                    {profitAmount > 0 && ` (${profit}%)`}
+                  </p>
+                  <p>
+                    Descuento: {formatCurrency(discountAmount)} 
                     {discountAmount > 0 && ` (${discount}%)`}
                   </p>
                   <p>
@@ -196,15 +240,31 @@ export default function PriceCalculator() {
             </div>
           </div>
 
-          {/* Calculadora rápida de porcentajes */}
-          <div className="bg-yellow-50 rounded-lg p-4">
-            <h4 className="font-medium text-yellow-800 mb-2">Descuentos Comunes</h4>
+          {/* Calculadora rápida de utilidades */}
+          <div className="bg-green-50 rounded-lg p-4">
+            <h4 className="font-medium text-green-800 mb-2">Utilidades Comunes</h4>
             <div className="grid grid-cols-2 gap-2 text-sm">
-              {[10, 15, 20, 25, 30, 50].map((percent) => (
+              {[20, 30, 40, 50, 75, 100].map((percent) => (
+                <button
+                  key={percent}
+                  onClick={() => setProfit(percent.toString())}
+                  className="px-2 py-1 bg-green-100 hover:bg-green-200 rounded text-green-800 transition-colors"
+                >
+                  {percent}%
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Calculadora rápida de descuentos */}
+          <div className="bg-red-50 rounded-lg p-4">
+            <h4 className="font-medium text-red-800 mb-2">Descuentos Comunes</h4>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              {[5, 10, 15, 20, 25, 30].map((percent) => (
                 <button
                   key={percent}
                   onClick={() => setDiscount(percent.toString())}
-                  className="px-2 py-1 bg-yellow-100 hover:bg-yellow-200 rounded text-yellow-800 transition-colors"
+                  className="px-2 py-1 bg-red-100 hover:bg-red-200 rounded text-red-800 transition-colors"
                 >
                   {percent}%
                 </button>
