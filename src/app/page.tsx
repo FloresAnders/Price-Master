@@ -1,103 +1,226 @@
-import Image from "next/image";
+'use client';
+import { useState } from 'react';
+import Header from '@/components/Header';
+import BarcodeScanner from '@/components/BarcodeScanner';
+import PriceCalculator from '@/components/PriceCalculator';
+import TextConversion from '@/components/TextConversion';
+import ScanHistory from '@/components/ScanHistory';
 
-export default function Home() {
+type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'history';
+
+export default function HomePage() {
+  const [activeTab, setActiveTab] = useState<ActiveTab>('scanner');
+  const [scanHistory, setScanHistory] = useState<string[]>([]);
+
+  // Función para manejar códigos detectados por el escáner
+  const handleCodeDetected = (code: string) => {
+    setScanHistory(prev => {
+      // Evitar duplicados consecutivos
+      if (prev[0] === code) return prev;
+      // Mantener solo los últimos 20 escaneos
+      return [code, ...prev.slice(0, 19)];
+    });
+  };
+
+  // Configuración de las pestañas
+  const tabs = [
+    {
+      id: 'scanner' as ActiveTab,
+      name: 'Escáner',
+      icon: '📷',
+      description: 'Escanear códigos de barras'
+    },
+    {
+      id: 'calculator' as ActiveTab,
+      name: 'Calculadora',
+      icon: '🧮',
+      description: 'Calcular precios con descuentos'
+    },
+    {
+      id: 'converter' as ActiveTab,
+      name: 'Conversor',
+      icon: '🔤',
+      description: 'Convertir y transformar texto'
+    },
+    {
+      id: 'history' as ActiveTab,
+      name: 'Historial',
+      icon: '📋',
+      description: 'Ver códigos escaneados',
+      badge: scanHistory.length > 0 ? scanHistory.length : undefined
+    }
+  ];
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <>
+      <Header />
+      
+      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Navegación por pestañas */}
+        <div className="mb-8">
+          <div className="border-b border-gray-200">
+            <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`
+                    group relative min-w-0 flex-1 overflow-hidden py-4 px-1 text-center text-sm font-medium hover:text-gray-700 focus:z-10 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors
+                    ${activeTab === tab.id
+                      ? 'text-indigo-600 border-b-2 border-indigo-500'
+                      : 'text-gray-500 border-b-2 border-transparent hover:border-gray-300'
+                    }
+                  `}
+                >
+                  <div className="flex items-center justify-center space-x-2">
+                    <span className="text-lg">{tab.icon}</span>
+                    <span className="hidden sm:inline">{tab.name}</span>
+                    {tab.badge && (
+                      <span className="ml-1 py-0.5 px-2 rounded-full text-xs bg-indigo-100 text-indigo-600">
+                        {tab.badge}
+                      </span>
+                    )}
+                  </div>
+                  <span className="absolute inset-x-0 bottom-0 h-0.5 bg-indigo-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-200" />
+                </button>
+              ))}
+            </nav>
+          </div>
+        </div>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+        {/* Descripción de la pestaña activa */}
+        <div className="mb-6">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              {tabs.find(tab => tab.id === activeTab)?.name}
+            </h2>
+            <p className="text-gray-600">
+              {tabs.find(tab => tab.id === activeTab)?.description}
+            </p>
+          </div>
+        </div>
+
+        {/* Contenido de las pestañas */}
+        <div className="space-y-8">
+          {activeTab === 'scanner' && (
+            <div className="max-w-4xl mx-auto">
+              <BarcodeScanner onDetect={handleCodeDetected} />
+              
+              {/* Tips para el escáner */}
+              <div className="mt-6 bg-blue-50 rounded-lg p-4">
+                <h3 className="font-medium text-blue-800 mb-2">💡 Consejos para mejores resultados:</h3>
+                <ul className="text-sm text-blue-700 space-y-1">
+                  <li>• Asegúrate de que el código de barras esté bien iluminado</li>
+                  <li>• La imagen debe estar enfocada y sin borrosidad</li>
+                  <li>• Puedes pegar imágenes directamente con Ctrl+V</li>
+                  <li>• Soporta múltiples formatos: EAN-13, Code-128, QR, UPC-A</li>
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'calculator' && (
+            <div className="max-w-6xl mx-auto">
+              <PriceCalculator />
+              
+              {/* Información adicional */}
+              <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-green-50 rounded-lg p-4">
+                  <h3 className="font-medium text-green-800 mb-2">🇨🇷 Para Costa Rica:</h3>
+                  <p className="text-sm text-green-700">
+                    IVA configurado al 13% por defecto. Puedes cambiarlo según tus necesidades.
+                  </p>
+                </div>
+                <div className="bg-yellow-50 rounded-lg p-4">
+                  <h3 className="font-medium text-yellow-800 mb-2">💰 Cálculo inteligente:</h3>
+                  <p className="text-sm text-yellow-700">
+                    El descuento se aplica primero, luego se calcula el impuesto sobre el precio con descuento.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'converter' && (
+            <div className="max-w-6xl mx-auto">
+              <TextConversion />
+              
+              {/* Casos de uso */}
+              <div className="mt-6 bg-purple-50 rounded-lg p-4">
+                <h3 className="font-medium text-purple-800 mb-2">🔧 Casos de uso comunes:</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-purple-700">
+                  <div>
+                    <p><strong>Para programadores:</strong></p>
+                    <ul className="ml-4 space-y-1">
+                      <li>• camelCase para variables</li>
+                      <li>• snake_case para Python</li>
+                      <li>• kebab-case para CSS</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <p><strong>Para documentos:</strong></p>
+                    <ul className="ml-4 space-y-1">
+                      <li>• Títulos profesionales</li>
+                      <li>• Conversión de mayúsculas/minúsculas</li>
+                      <li>• Análisis de texto con estadísticas</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'history' && (
+            <div className="max-w-4xl mx-auto">
+              <ScanHistory history={scanHistory} />
+              
+              {scanHistory.length > 0 && (
+                <div className="mt-6 flex justify-center">
+                  <button
+                    onClick={() => setScanHistory([])}
+                    className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors"
+                  >
+                    Limpiar Historial
+                  </button>
+                </div>
+              )}
+              
+              {scanHistory.length === 0 && (
+                <div className="mt-6 text-center">
+                  <div className="text-6xl mb-4">📱</div>
+                  <p className="text-gray-500 mb-4">
+                    Aún no has escaneado ningún código de barras
+                  </p>
+                  <button
+                    onClick={() => setActiveTab('scanner')}
+                    className="px-6 py-3 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors"
+                  >
+                    Ir al Escáner
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
+
+      {/* Footer */}
+      <footer className="bg-white border-t border-gray-200 mt-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex justify-between items-center text-sm text-gray-500">
+            <div>
+              © 2024 Price Master - Herramientas para el manejo de precios
+            </div>
+            <div className="flex space-x-4">
+              <span>Next.js 15</span>
+              <span>•</span>
+              <span>React 19</span>
+              <span>•</span>
+              <span>Tailwind CSS</span>
+            </div>
+          </div>
+        </div>
       </footer>
-    </div>
+    </>
   );
 }
