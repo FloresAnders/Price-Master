@@ -273,7 +273,7 @@ export default function BarcodeScanner({ onDetect }: Props) {
   }, []);
 
 return (
-  <div className="flex flex-col gap-4 p-6 rounded-lg shadow-md" style={{ backgroundColor: 'var(--card-bg)', color: 'var(--foreground)' }}>
+  <div className="w-full max-w-5xl mx-auto flex flex-col gap-6 p-8 rounded-xl shadow-lg" style={{ backgroundColor: 'var(--card-bg)', color: 'var(--foreground)' }}>
     <div className="text-center">
       <p className="text-sm text-gray-500">Pega una imagen (Ctrl+V) o sube un archivo</p>
     </div>
@@ -288,8 +288,8 @@ return (
       </div>
     )}
 
-    <div>
-      <label className="block text-sm font-medium mb-1">Código detectado:</label>
+    <div className="mb-4 tex-align-center">
+      <label className="block text-sm font-medium mb-1 mx-auto text-center w-fit mb-5">Código detectado:</label>
       <div className="flex gap-2">
         <input
           type="text"
@@ -321,7 +321,7 @@ return (
     </div>
 
     <div>
-      <label className="block text-sm font-medium mb-2">Seleccionar imagen:</label>
+      <label className="block text-sm font-medium mb-1 mx-auto text-center w-fit mb-5">Seleccionar imagen:</label>
       <div
         className="relative border-2 border-dashed rounded-lg p-6 transition-colors cursor-pointer"
         style={{ borderColor: 'var(--input-border)' }}

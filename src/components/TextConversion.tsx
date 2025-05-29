@@ -5,15 +5,15 @@ export default function TextConversion() {
   const [text, setText] = useState('');
 
   return (
-    <div className="flex flex-col gap-2 p-4 rounded-lg shadow" style={{ background: 'var(--card-bg)' }}>
-      <label className="font-medium" style={{ color: 'var(--foreground)' }}>
-        Text to Convert
-      </label>
+    <div
+      className="flex flex-col items-center justify-center gap-6 p-8 rounded-xl shadow-lg w-full max-w-4xl mx-auto"
+      style={{ background: 'var(--card-bg)' }}
+    >
       <input
         type="text"
         value={text}
         onChange={(e) => setText(e.target.value)}
-        className="form-input w-full rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        className="form-input w-full text-xl px-6 py-4 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
         placeholder="Escribe aquí..."
         style={{
           background: 'var(--input-bg)',
@@ -21,10 +21,10 @@ export default function TextConversion() {
           color: 'var(--foreground)',
         }}
       />
-      <div className="flex gap-2 mt-2">
+      <div className="flex flex-col sm:flex-row gap-4 w-full mt-4">
         <button
           onClick={() => setText(text.toUpperCase())}
-          className="px-4 py-2 rounded transition-colors"
+          className="w-full px-6 py-4 text-xl rounded-md transition-colors font-medium"
           style={{
             background: 'var(--button-bg)',
             color: 'var(--button-text)',
@@ -36,7 +36,7 @@ export default function TextConversion() {
         </button>
         <button
           onClick={() => setText(text.toLowerCase())}
-          className="px-4 py-2 rounded transition-colors"
+          className="w-full px-6 py-4 text-xl rounded-md transition-colors font-medium"
           style={{
             background: 'var(--button-bg)',
             color: 'var(--button-text)',
