@@ -60,9 +60,11 @@ function ThemeToggle() {
 }
 
 export default function Header() {
-  const [date, setDate] = useState<string>('');
+  const [date, setDate] = useState('');
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     setDate(new Date().toLocaleDateString());
   }, []);
 
@@ -98,7 +100,7 @@ export default function Header() {
               className="text-sm"
               style={{ color: 'var(--tab-text)' }}
             >
-              {date}
+              {mounted ? date : '...'}
             </div>
             <ThemeToggle />
           </div>
@@ -107,3 +109,4 @@ export default function Header() {
     </header>
   );
 }
+

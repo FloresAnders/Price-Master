@@ -8,7 +8,6 @@ import PriceCalculator from '@/components/PriceCalculator'
 import TextConversion from '@/components/TextConversion'
 import ScanHistory from '@/components/ScanHistory'
 
-
 type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'history'
 
 export default function HomePage() {
