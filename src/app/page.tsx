@@ -9,10 +9,11 @@ import TextConversion from '@/components/TextConversion'
 import ScanHistory from '@/components/ScanHistory'
 import Footer from '@/components/Footer'
 import {
-  Camera,
   Calculator,
+  Smartphone,
   Type,
-  ClipboardList
+  ClipboardList,
+  Scan,
 } from 'lucide-react'
 
 
@@ -33,7 +34,7 @@ export default function HomePage() {
 
   // Configuración de las pestañas
   const tabs = [
-    { id: 'scanner' as ActiveTab, name: 'Escáner', icon: Camera, description: 'Escanear códigos de barras' },
+    { id: 'scanner' as ActiveTab, name: 'Escáner', icon: Scan, description: 'Escanear códigos de barras' },
     { id: 'calculator' as ActiveTab, name: 'Calculadora', icon: Calculator, description: 'Calcular precios con descuentos' },
     { id: 'converter' as ActiveTab, name: 'Conversor', icon: Type, description: 'Convertir y transformar texto' },
     {
@@ -163,7 +164,9 @@ export default function HomePage() {
                 </div>
               ) : (
                 <div className="mt-6 text-center">
-                  <div className="text-6xl mb-4">📱</div>
+                  <div className="mb-4 flex justify-center">
+                    <Smartphone className="w-16 h-16 text-gray-500 dark:text-gray-300" />
+                  </div>
                   <p className="text-gray-500 mb-4">Aún no has escaneado ningún código de barras</p>
                   <button
                     onClick={() => setActiveTab('scanner')}

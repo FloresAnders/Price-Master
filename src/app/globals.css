@@ -51,7 +51,7 @@
 
     /* Badge */
     --badge-bg: #4338ca;              /* indigo-700 */
-    --badge-text: #e0e7ff;            /* indigo-100 */
+    --badge-text: #000000;            /* indigo-100 */
   }
 
   /* Estilos globales */
