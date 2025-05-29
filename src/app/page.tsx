@@ -7,6 +7,7 @@ import BarcodeScanner from '@/components/BarcodeScanner'
 import PriceCalculator from '@/components/PriceCalculator'
 import TextConversion from '@/components/TextConversion'
 import ScanHistory from '@/components/ScanHistory'
+import Footer from '@/components/Footer'
 
 type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'history'
 
@@ -168,24 +169,9 @@ export default function HomePage() {
           )}
         </div>
       </main>
+      <Footer />
 
-      {/* Footer */}
-      <footer className="bg-white border-t border-gray-200 mt-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center text-sm text-gray-500">
-            <div>
-              © 2024 Price Master - Herramientas para el manejo de precios
-            </div>
-            <div className="flex space-x-4">
-              <span>Next.js 15</span>
-              <span>•</span>
-              <span>React 19</span>
-              <span>•</span>
-              <span>Tailwind CSS</span>
-            </div>
-          </div>
-        </div>
-      </footer>
+      {/* Estilos personalizados */}
     </>
   );
 }
