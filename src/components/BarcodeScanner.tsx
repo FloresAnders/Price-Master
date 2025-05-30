@@ -285,7 +285,7 @@ export default function BarcodeScanner({ onDetect }: Props) {
             value={code}
             readOnly
             placeholder="Aquí aparecerá el código escaneado"
-            className="flex-1 px-3 py-2 rounded-md focus:outline-none focus:ring-2"
+            className="flex-1 px-3 py-2 text-center rounded-md focus:outline-none focus:ring-2"
             style={{
               backgroundColor: 'var(--input-bg)',
               borderColor: 'var(--input-border)',
