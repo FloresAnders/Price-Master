@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useRef, useEffect } from 'react';
-import { BrowserMultiFormatReader, DecodeHintType, BarcodeFormat } from '@zxing/library';
+import { scanImageData } from '@undecaf/zbar-wasm';
 
 type Props = { onDetect?: (code: string) => void };
 
@@ -9,47 +9,17 @@ export default function BarcodeScanner({ onDetect }: Props) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [imagePreview, setImagePreview] = useState('');
-  const [copySuccess, setCopySuccess] = useState(false); // NUEVO: Estado para mostrar éxito de copia
+  const [copySuccess, setCopySuccess] = useState(false);
   const imgRef = useRef<HTMLImageElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null);
 
-  // Inicializar el lector con configuración
-  useEffect(() => {
-    try {
-      const hints = new Map();
-      hints.set(DecodeHintType.POSSIBLE_FORMATS, [
-        // Códigos 1D existentes
-        BarcodeFormat.EAN_13,
-        BarcodeFormat.EAN_8,        // Nuevo
-        BarcodeFormat.CODE_128,
-        BarcodeFormat.CODE_39,
-        BarcodeFormat.CODE_93,      // Nuevo
-        BarcodeFormat.UPC_A,
-        BarcodeFormat.UPC_E,        // Nuevo
-        BarcodeFormat.ITF,
-        BarcodeFormat.CODABAR,
-        BarcodeFormat.RSS_14,       // Nuevo
-        BarcodeFormat.RSS_EXPANDED, // Nuevo
-
-      ]);
-      hints.set(DecodeHintType.TRY_HARDER, true);
-
-      codeReaderRef.current = new BrowserMultiFormatReader(hints);
-      console.log('BarcodeReader inicializado correctamente');
-    } catch (err) {
-      console.error('Error al inicializar BarcodeReader:', err);
-      setError('Error al inicializar el escáner de códigos de barras');
-    }
-  }, []);
-  // NUEVA FUNCIÓN: Copiar código automáticamente
+  // Función para copiar código al portapapeles
   const copyCodeToClipboard = async (codeText: string) => {
     try {
       await navigator.clipboard.writeText(codeText);
       console.log('Código copiado automáticamente al portapapeles:', codeText);
       setCopySuccess(true);
-
-      // Ocultar mensaje de éxito después de 3 segundos
+      
       setTimeout(() => {
         setCopySuccess(false);
       }, 3000);
@@ -87,29 +57,30 @@ export default function BarcodeScanner({ onDetect }: Props) {
     setError('');
     setImagePreview('');
     setIsLoading(false);
-    setCopySuccess(false); // NUEVO: Limpiar estado de copia
+    setCopySuccess(false);
   };
 
-  // Función para procesar la imagen y detectar código de barras
+  // Función para procesar la imagen y detectar código de barras con zbar-wasm
   const processImage = async (imageSrc: string) => {
-    console.log('Iniciando procesamiento de imagen...');
-
-    if (!codeReaderRef.current) {
-      console.error('CodeReader no está inicializado');
-      setError('El escáner no está inicializado correctamente');
-      return;
-    }
-
+    console.log('Iniciando procesamiento de imagen con zbar-wasm...');
+    
     // Limpiar estado anterior
     clearState();
     setIsLoading(true);
     setImagePreview(imageSrc);
 
     try {
+      // Crear canvas para procesar la imagen
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      
+      if (!context) {
+        throw new Error('No se pudo crear el contexto del canvas');
+      }
+
       // Crear una nueva imagen para procesar
       const img = new Image();
-
-      // Promesa para cargar la imagen
+      
       const imageLoaded = new Promise<HTMLImageElement>((resolve, reject) => {
         img.onload = () => {
           console.log('Imagen cargada correctamente:', img.width, 'x', img.height);
@@ -119,38 +90,54 @@ export default function BarcodeScanner({ onDetect }: Props) {
           console.error('Error al cargar imagen:', err);
           reject(new Error('No se pudo cargar la imagen'));
         };
+        img.crossOrigin = 'anonymous'; // Para evitar problemas de CORS
         img.src = imageSrc;
       });
 
       const loadedImg = await imageLoaded;
-
-      // Asignar la imagen al ref también para mostrarla
+      
+      // Configurar canvas con las dimensiones de la imagen
+      canvas.width = loadedImg.naturalWidth;
+      canvas.height = loadedImg.naturalHeight;
+      
+      // Dibujar la imagen en el canvas
+      context.drawImage(loadedImg, 0, 0);
+      
+      // Obtener ImageData del canvas
+      const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+      
+      // Asignar la imagen al ref para mostrarla
       if (imgRef.current) {
         imgRef.current.src = imageSrc;
       }
 
-      // Pequeña pausa para asegurar que todo esté listo
-      await new Promise(resolve => setTimeout(resolve, 200));
-
-      console.log('Intentando decodificar código de barras...');
-
-      // Intentar decodificar el código de barras usando la imagen cargada
-      const result = await codeReaderRef.current.decodeFromImageElement(loadedImg);
-      const detectedCode = result.getText();
-
-      console.log('Código detectado:', detectedCode);
-
-      setCode(detectedCode);
-
-      // NUEVO: Copiar automáticamente al portapapeles
-      await copyCodeToClipboard(detectedCode);
-
-      // Llamar callback si existe
-      if (onDetect) {
-        onDetect(detectedCode);
+      console.log('Intentando decodificar código de barras con zbar-wasm...');
+      
+      // Usar zbar-wasm para escanear la imagen
+      const symbols = await scanImageData(imageData);
+      
+      if (symbols && symbols.length > 0) {
+        // Tomar el primer símbolo encontrado
+        const firstSymbol = symbols[0];
+        const detectedCode = firstSymbol.decode();
+        
+        console.log('Código detectado:', detectedCode);
+        console.log('Tipo de código:', firstSymbol.typeName);
+        
+        setCode(detectedCode);
+        
+        // Copiar automáticamente al portapapeles
+        await copyCodeToClipboard(detectedCode);
+        
+        // Llamar callback si existe
+        if (onDetect) {
+          onDetect(detectedCode);
+        }
+        setError(''); // Limpiar cualquier error anterior
+      } else {
+        throw new Error('No se detectaron códigos de barras en la imagen');
       }
-      setError(''); // Limpiar cualquier error anterior
-
+      
     } catch (err) {
       console.error('Error al procesar imagen:', err);
       setError('No se pudo detectar un código de barras en la imagen. Asegúrate de que la imagen contenga un código de barras visible y bien iluminado.');
@@ -263,7 +250,7 @@ export default function BarcodeScanner({ onDetect }: Props) {
     }
   };
 
-  // Limpiar recursos al desmontar
+  // Configurar event listeners
   useEffect(() => {
     const handlePasteEvent = (e: ClipboardEvent) => handlePaste(e);
 
@@ -271,23 +258,18 @@ export default function BarcodeScanner({ onDetect }: Props) {
 
     return () => {
       window.removeEventListener('paste', handlePasteEvent);
-      if (codeReaderRef.current) {
-        codeReaderRef.current.reset();
-      }
     };
   }, []);
 
   return (
-    <div className="flex flex-col gap-4 p-6 bg-white rounded-lg shadow-md">
+    <div className="w-full max-w-5xl mx-auto flex flex-col gap-6 p-8 rounded-xl shadow-lg" style={{ backgroundColor: 'var(--card-bg)', color: 'var(--foreground)' }}>
       <div className="text-center">
-        <p className="text-sm text-gray-500">
-          Pega una imagen (Ctrl+V) o sube un archivo
-        </p>
+        <p className="text-sm text-gray-500">Pega una imagen (Ctrl+V) o sube un archivo</p>
       </div>
 
-      {/* NUEVO: Notificación de copia automática */}
       {copySuccess && (
-        <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-bounce">
+        <div className="fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-bounce"
+             style={{ backgroundColor: 'var(--badge-bg)', color: 'var(--badge-text)' }}>
           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
           </svg>
@@ -295,23 +277,31 @@ export default function BarcodeScanner({ onDetect }: Props) {
         </div>
       )}
 
-      {/* Input para mostrar el código detectado */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Código detectado:
-        </label>
+      <div className="mb-4 tex-align-center">
+        <label className="block text-sm font-medium mx-auto text-center w-fit mb-5">Código detectado:</label>
         <div className="flex gap-2">
           <input
             type="text"
             value={code}
             readOnly
             placeholder="Aquí aparecerá el código escaneado"
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="flex-1 px-3 py-2 text-center rounded-md focus:outline-none focus:ring-2"
+            style={{
+              backgroundColor: 'var(--input-bg)',
+              borderColor: 'var(--input-border)',
+              borderWidth: '1px'
+            }}
           />
           {code && (
             <button
               onClick={handleCopyCode}
-              className="px-3 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="px-3 py-2 text-sm rounded-md focus:outline-none focus:ring-2"
+              style={{
+                backgroundColor: 'var(--button-bg)',
+                color: 'var(--button-text)'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--button-hover)'}
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'var(--button-bg)'}
             >
               Copiar
             </button>
@@ -319,24 +309,20 @@ export default function BarcodeScanner({ onDetect }: Props) {
         </div>
       </div>
 
-      {/* Área de carga de imagen */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Seleccionar imagen:
-        </label>
-
-        {/* Zona de drag and drop */}
+        <label className="block text-sm font-medium mx-auto text-center w-fit mb-5">Seleccionar imagen:</label>
         <div
-          className="relative border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-indigo-400 transition-colors cursor-pointer"
+          className="relative border-2 border-dashed rounded-lg p-6 transition-colors cursor-pointer"
+          style={{ borderColor: 'var(--input-border)' }}
           onDragOver={(e) => {
             e.preventDefault();
-            e.currentTarget.classList.add('border-indigo-400', 'bg-indigo-50');
+            e.currentTarget.classList.add('bg-indigo-50');
           }}
           onDragLeave={(e) => {
-            e.currentTarget.classList.remove('border-indigo-400', 'bg-indigo-50');
+            e.currentTarget.classList.remove('bg-indigo-50');
           }}
           onDrop={(e) => {
-            e.currentTarget.classList.remove('border-indigo-400', 'bg-indigo-50');
+            e.currentTarget.classList.remove('bg-indigo-50');
             handleDrop(e);
           }}
           onClick={handleDropAreaClick}
@@ -347,17 +333,11 @@ export default function BarcodeScanner({ onDetect }: Props) {
             </svg>
             <div className="mt-4">
               <p className="text-sm text-gray-600">
-                <span className="font-medium text-indigo-600 hover:text-indigo-500">
-                  Haz clic para seleccionar
-                </span>
-                {' '}o arrastra una imagen aquí
+                <span className="font-medium text-indigo-600 hover:text-indigo-500">Haz clic para seleccionar</span> o arrastra una imagen aquí
               </p>
-              <p className="text-xs text-gray-500 mt-1">
-                PNG, JPG, GIF hasta 10MB
-              </p>
+              <p className="text-xs text-gray-500 mt-1">PNG, JPG, GIF hasta 10MB</p>
             </div>
           </div>
-
           <input
             ref={fileInputRef}
             type="file"
@@ -369,27 +349,30 @@ export default function BarcodeScanner({ onDetect }: Props) {
         </div>
       </div>
 
-      {/* Botón de limpiar */}
       {(code || error || imagePreview) && (
         <div className="flex justify-center">
           <button
             onClick={handleClear}
-            className="px-6 py-2 text-sm bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
+            className="px-6 py-2 text-sm rounded-md focus:outline-none focus:ring-2"
+            style={{
+              backgroundColor: 'var(--button-bg)',
+              color: 'var(--button-text)'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--button-hover)'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'var(--button-bg)'}
           >
             Limpiar Todo
           </button>
         </div>
       )}
 
-      {/* Indicador de carga */}
       {isLoading && (
-        <div className="text-center text-indigo-600 bg-indigo-50 p-3 rounded">
-          <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600 mr-2"></div>
-          <p className="inline">Procesando imagen...</p>
+        <div className="text-center p-3 rounded" style={{ backgroundColor: 'var(--input-bg)', color: 'var(--tab-text-active)' }}>
+          <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 mr-2" style={{ borderColor: 'var(--tab-text-active)' }}></div>
+          <p className="inline">Procesando imagen con zbar-wasm...</p>
         </div>
       )}
 
-      {/* Mensaje de error */}
       {error && (
         <div className="text-center text-red-600 bg-red-50 p-3 rounded">
           <p className="text-sm">{error}</p>
@@ -402,21 +385,22 @@ export default function BarcodeScanner({ onDetect }: Props) {
         </div>
       )}
 
-      {/* Preview de la imagen */}
       {imagePreview && (
         <div className="border rounded-lg overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             ref={imgRef}
             src={imagePreview}
             alt="Preview"
-            className="w-full max-h-48 object-contain bg-gray-50"
+            className="w-full max-h-48 object-contain"
+            style={{ backgroundColor: 'var(--input-bg)' }}
           />
+
         </div>
       )}
 
-      {/* Mensaje de éxito - MODIFICADO */}
       {code && !isLoading && (
-        <div className="text-center text-green-600 bg-green-50 p-3 rounded">
+        <div className="text-center p-3 rounded" style={{ backgroundColor: 'var(--badge-bg)', color: 'var(--badge-text)' }}>
           <div className="flex items-center justify-center gap-2 mb-2">
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />

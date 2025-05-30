@@ -10,18 +10,14 @@ export default function PriceCalculator() {
   const [taxAmount, setTaxAmount] = useState(0);
   const [currency, setCurrency] = useState('CRC');
 
-  // Calcular precio final
   useEffect(() => {
     const price = parseFloat(originalPrice) || 0;
     const discountPercent = parseFloat(discount) || 0;
     const taxPercent = parseFloat(tax) || 0;
 
     if (price > 0) {
-      // Calcular descuento
       const discountValue = (price * discountPercent) / 100;
       const priceAfterDiscount = price - discountValue;
-
-      // Calcular impuesto sobre el precio con descuento
       const taxValue = (priceAfterDiscount * taxPercent) / 100;
       const final = priceAfterDiscount + taxValue;
 
@@ -53,12 +49,11 @@ export default function PriceCalculator() {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
+    <div className="rounded-lg shadow-md p-6" style={{ background: 'var(--card-bg)', color: 'var(--foreground)' }}>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Columna de entrada */}
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium mb-1">
               Precio Original
             </label>
             <div className="relative">
@@ -69,18 +64,21 @@ export default function PriceCalculator() {
                 placeholder="0.00"
                 step="0.01"
                 min="0"
-                className="w-full px-3 py-2 pl-8 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2 pl-8 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                style={{
+                  background: 'var(--input-bg)',
+                  border: '1px solid var(--input-border)',
+                  color: 'var(--foreground)',
+                }}
               />
-              <span className="absolute left-3 top-2.5 text-gray-500 text-sm">
+              <span className="absolute left-3 top-2.5 text-sm" style={{ color: 'var(--foreground)' }}>
                 {currency === 'CRC' ? '₡' : '$'}
               </span>
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Descuento (%)
-            </label>
+            <label className="block text-sm font-medium mb-1">Descuento (%)</label>
             <input
               type="number"
               value={discount}
@@ -89,14 +87,17 @@ export default function PriceCalculator() {
               step="0.1"
               min="0"
               max="100"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              style={{
+                background: 'var(--input-bg)',
+                border: '1px solid var(--input-border)',
+                color: 'var(--foreground)',
+              }}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Impuesto (%)
-            </label>
+            <label className="block text-sm font-medium mb-1">Impuesto (%)</label>
             <input
               type="number"
               value={tax}
@@ -105,18 +106,26 @@ export default function PriceCalculator() {
               step="0.1"
               min="0"
               max="100"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              style={{
+                background: 'var(--input-bg)',
+                border: '1px solid var(--input-border)',
+                color: 'var(--foreground)',
+              }}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Moneda
-            </label>
+            <label className="block text-sm font-medium mb-1">Moneda</label>
             <select
               value={currency}
               onChange={(e) => setCurrency(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              style={{
+                background: 'var(--input-bg)',
+                border: '1px solid var(--input-border)',
+                color: 'var(--foreground)',
+              }}
             >
               <option value="CRC">Colones (₡)</option>
               <option value="USD">Dólares ($)</option>
@@ -125,20 +134,23 @@ export default function PriceCalculator() {
 
           <button
             onClick={handleClear}
-            className="w-full px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
+            className="w-full px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500"
+            style={{
+              background: 'var(--button-bg)',
+              color: 'var(--button-text)',
+            }}
           >
             Limpiar
           </button>
         </div>
 
-        {/* Columna de resultados */}
         <div className="space-y-4">
-          <div className="bg-gray-50 rounded-lg p-4">
-            <h3 className="font-medium text-gray-700 mb-3">Cálculo Detallado</h3>
+          <div className="rounded-lg p-4" style={{ background: 'var(--input-bg)' }}>
+            <h3 className="font-medium mb-3">Cálculo Detallado</h3>
 
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-600">Precio Original:</span>
+                <span>Precio Original:</span>
                 <span className="font-medium">
                   {formatCurrency(parseFloat(originalPrice) || 0)}
                 </span>
@@ -152,7 +164,7 @@ export default function PriceCalculator() {
               )}
 
               <div className="flex justify-between">
-                <span className="text-gray-600">Subtotal:</span>
+                <span>Subtotal:</span>
                 <span className="font-medium">
                   {formatCurrency((parseFloat(originalPrice) || 0) - discountAmount)}
                 </span>
@@ -167,17 +179,16 @@ export default function PriceCalculator() {
 
               <hr className="my-2" />
 
-              <div className="flex justify-between text-lg font-bold text-gray-900">
+              <div className="flex justify-between text-lg font-bold">
                 <span>Total:</span>
                 <span>{formatCurrency(finalPrice)}</span>
               </div>
             </div>
           </div>
 
-          {/* Resumen visual */}
-          <div className="bg-indigo-50 rounded-lg p-4">
-            <h4 className="font-medium text-indigo-800 mb-2">Resumen</h4>
-            <div className="text-sm text-indigo-700">
+          <div className="rounded-lg p-4" style={{ background: '#e0e7ff', color: 'var(--badge-text)' }}>
+            <h4 className="font-medium mb-2">Resumen</h4>
+            <div className="text-sm">
               {originalPrice && (
                 <>
                   <p>
@@ -196,15 +207,18 @@ export default function PriceCalculator() {
             </div>
           </div>
 
-          {/* Calculadora rápida de porcentajes */}
-          <div className="bg-yellow-50 rounded-lg p-4">
-            <h4 className="font-medium text-yellow-800 mb-2">Descuentos Comunes</h4>
+          <div className="rounded-lg p-4" style={{ background: 'var(--button-hover)', color: '#92400e' }}>
+            <h4 className="font-medium mb-2">Descuentos Comunes</h4>
             <div className="grid grid-cols-2 gap-2 text-sm">
               {[10, 15, 20, 25, 30, 50].map((percent) => (
                 <button
                   key={percent}
                   onClick={() => setDiscount(percent.toString())}
-                  className="px-2 py-1 bg-yellow-100 hover:bg-yellow-200 rounded text-yellow-800 transition-colors"
+                  className="px-2 py-1 rounded transition-colors"
+                  style={{
+                    background: 'var(--button-bg)',
+                    color: 'var(--button-text)',
+                  }}
                 >
                   {percent}%
                 </button>
