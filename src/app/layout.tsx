@@ -11,6 +11,11 @@ export const metadata = {
   icons: {
     icon: '/barcode.ico',
   },
+  viewport: 'width=device-width, initial-scale=1',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: 'white' },
+    { media: '(prefers-color-scheme: dark)', color: 'black' },
+  ],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -18,8 +23,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning>
       <body>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <div className={inter.className + ' min-h-screen'}>
-            {children}
+          <div className={`${inter.className} min-h-screen`}>
+            <main>
+              {children}
+            </main>
           </div>
         </ThemeProvider>
       </body>
