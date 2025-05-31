@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@ericblade/quagga2": "^1.8.4",
     "@undecaf/zbar-wasm": "^0.11.0",
     "@zxing/library": "^0.21.3",
     "lucide-react": "^0.511.0",
