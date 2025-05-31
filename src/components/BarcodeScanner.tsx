@@ -12,6 +12,13 @@ type Props = {
   onDetect?: (code: string) => void;
 };
 
+// Definimos el tipo mínimo que necesitamos de Quagga.ResultObject
+interface QuaggaResultObject {
+  codeResult?: {
+    code: string;
+  };
+}
+
 export default function BarcodeScanner({ onDetect }: Props) {
   // Estados principales
   const [code, setCode] = useState<string>('');
@@ -278,7 +285,7 @@ export default function BarcodeScanner({ onDetect }: Props) {
       Quagga.decodeSingle(
         {
           src: canvas.toDataURL('image/png'),
-          numOfWorkers: 0, // Para imagen estática
+          numOfWorkers: 0,
           decoder: {
             readers: [
               'code_128_reader',
@@ -292,10 +299,16 @@ export default function BarcodeScanner({ onDetect }: Props) {
             ],
           },
           locate: true,
+          debug: {
+            drawBoundingBox: false,
+            showFrequency: false,
+            drawScanline: false,
+            showPattern: false,
+          },
         },
-        (result: any) => {
+        (result: QuaggaResultObject | null) => {
           if (result && result.codeResult && result.codeResult.code) {
-            resolve(result.codeResult.code as string);
+            resolve(result.codeResult.code);
           } else {
             resolve(null);
           }
@@ -396,13 +409,15 @@ export default function BarcodeScanner({ onDetect }: Props) {
         } else {
           setError('No se detectó ningún código de barras en la imagen.');
         }
-      } catch (err: any) {
-        setError(err.message || 'Error desconocido al procesar la imagen.');
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error ? err.message : 'Error desconocido al procesar la imagen.';
+        setError(message);
       } finally {
         setIsLoading(false);
       }
     },
-    [onDetect]
+    [onDetect, detectBasicPatternWithOrientation]
   );
 
   // --------------------------------------------------------------------------------
@@ -420,7 +435,7 @@ export default function BarcodeScanner({ onDetect }: Props) {
         inputStream: {
           type: 'LiveStream',
           constraints: {
-            facingMode: 'environment', // Cámara trasera si existe
+            facingMode: 'environment',
           },
           target: liveStreamRef.current,
         },
@@ -444,9 +459,9 @@ export default function BarcodeScanner({ onDetect }: Props) {
         },
         locate: true,
         numOfWorkers: navigator.hardwareConcurrency || 2,
-        frequency: 5, // escaneos por segundo
+        frequency: 5,
       },
-      (err: any) => {
+      (err: unknown) => {
         if (err) {
           console.error('Error al inicializar Quagga 2 en cámara:', err);
           setError('No se pudo acceder a la cámara.');
@@ -457,11 +472,11 @@ export default function BarcodeScanner({ onDetect }: Props) {
     );
 
     // Handler de Quagga 2 al detectar un código
-    const onQuaggaDetected = (data: any) => {
-      if (data && data.codeResult && data.codeResult.code) {
-        const cameraCode = data.codeResult.code as string;
+    const onQuaggaDetected = (data: QuaggaResultObject) => {
+      if (data.codeResult && data.codeResult.code) {
+        const cameraCode = data.codeResult.code;
 
-        // 1) Detener todo (Quagga + ZBar interval)
+        // Detener todo (Quagga + ZBar interval)
         Quagga.stop();
         Quagga.offDetected(onQuaggaDetected);
         Quagga.offProcessed();
@@ -471,7 +486,7 @@ export default function BarcodeScanner({ onDetect }: Props) {
         }
         setCameraActive(false);
 
-        // 2) Tomar snapshot del video actual
+        // Tomar snapshot del video actual
         if (liveStreamRef.current) {
           const videoElem = liveStreamRef.current.querySelector(
             'video'
@@ -489,7 +504,7 @@ export default function BarcodeScanner({ onDetect }: Props) {
           }
         }
 
-        // 3) Actualizar estado con el código detectado
+        // Actualizar estado con el código detectado
         setCode(cameraCode);
         setDetectionMethod('Cámara (Quagga 2)');
         copyCodeToClipboard(cameraCode);
@@ -499,13 +514,10 @@ export default function BarcodeScanner({ onDetect }: Props) {
 
     Quagga.onDetected(onQuaggaDetected);
 
-    // Handler “onProcessed” de Quagga (opcional, ya inactivo)
-    Quagga.onProcessed((result: any) => {
-      // No dibujamos nada, pues “drawBoundingBox” está en false
-    });
+    // onProcessed sin resultado porque desactivamos debug drawing
+    Quagga.onProcessed(() => {});
 
     // === Configurar un intervalo para ZBar‑WASM cada 500ms ===
-    // Creamos un canvas “oculto” para capturar frames
     if (!hiddenCanvasRef.current) {
       hiddenCanvasRef.current = document.createElement('canvas');
     }
@@ -515,7 +527,6 @@ export default function BarcodeScanner({ onDetect }: Props) {
         'video'
       ) as HTMLVideoElement | null;
       if (videoElem && videoElem.readyState === 4) {
-        // Video listo y reproduciéndose
         const vWidth = videoElem.videoWidth;
         const vHeight = videoElem.videoHeight;
         if (vWidth > 0 && vHeight > 0) {
@@ -531,7 +542,7 @@ export default function BarcodeScanner({ onDetect }: Props) {
             if (symbols && symbols.length > 0) {
               const zbarCode = symbols[0].decode();
 
-              // 1) Detener Quagga y limpiar interval
+              // Detener Quagga y limpiar interval
               Quagga.stop();
               Quagga.offDetected(onQuaggaDetected);
               Quagga.offProcessed();
@@ -541,7 +552,7 @@ export default function BarcodeScanner({ onDetect }: Props) {
               }
               setCameraActive(false);
 
-              // 2) Capturar el mismo frame como snapshot
+              // Capturar el mismo frame como snapshot
               const canvas2 = document.createElement('canvas');
               canvas2.width = vWidth;
               canvas2.height = vHeight;
@@ -552,7 +563,7 @@ export default function BarcodeScanner({ onDetect }: Props) {
                 setImagePreview(snapshot2);
               }
 
-              // 3) Actualizar estado con el código detectado por ZBar
+              // Actualizar estado con el código detectado por ZBar
               setCode(zbarCode);
               setDetectionMethod('Cámara (ZBar‑WASM)');
               copyCodeToClipboard(zbarCode);
@@ -563,9 +574,8 @@ export default function BarcodeScanner({ onDetect }: Props) {
           }
         }
       }
-    }, 500); // cada 500ms
-
-  }, [onDetect]);
+    }, 500);
+  }, [onDetect, detectBasicPatternWithOrientation]);
 
   const stopCameraScan = useCallback(() => {
     Quagga.stop();
