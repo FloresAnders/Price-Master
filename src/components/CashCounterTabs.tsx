@@ -40,21 +40,21 @@ function CalculatorModal({ isOpen, onClose }: CalculatorModalProps) {
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-[var(--card-bg)] rounded-2xl shadow-xl w-full max-w-xs p-6 relative">
+      <div className="bg-[var(--card-bg)] rounded-2xl shadow-xl w-full max-w-[20rem] p-4 relative">
         <button
-          className="absolute top-3 right-3 text-[var(--foreground)] hover:text-gray-500"
+          className="absolute top-2 right-2 text-[var(--foreground)] hover:text-gray-500"
           onClick={onClose}
           aria-label="Cerrar calculadora"
         >
           <XCircle className="w-6 h-6" />
         </button>
-        <h2 className="text-center font-semibold mb-4 text-[var(--foreground)] text-lg">
+        <h2 className="text-center font-semibold mb-2 text-[var(--foreground)] text-base">
           Calculadora
         </h2>
-        <div className="border rounded-lg mb-4 h-12 flex items-center justify-end px-3 bg-[var(--input-bg)]">
-          <span className="text-xl text-[var(--foreground)]">{display || '0'}</span>
+        <div className="border rounded-lg mb-3 h-10 flex items-center justify-end px-2 bg-[var(--input-bg)]">
+          <span className="text-lg text-[var(--foreground)]">{display || '0'}</span>
         </div>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-4 gap-1">
           {[
             '7',
             '8',
@@ -76,14 +76,14 @@ function CalculatorModal({ isOpen, onClose }: CalculatorModalProps) {
             <button
               key={btn}
               onClick={() => handleButtonClick(btn)}
-              className="bg-[var(--button-bg)] hover:bg-[var(--button-hover)] rounded-lg py-3 text-base text-[var(--foreground)] flex items-center justify-center"
+              className="bg-[var(--button-bg)] hover:bg-[var(--button-hover)] rounded py-2 text-sm text-[var(--foreground)] flex items-center justify-center"
             >
               {btn}
             </button>
           ))}
           <button
             onClick={() => handleButtonClick('=')}
-            className="col-span-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 mt-2"
+            className="col-span-4 bg-blue-600 hover:bg-blue-700 text-white rounded py-2 mt-1 text-sm"
           >
             =
           </button>
@@ -220,9 +220,12 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
 
   return (
     <div className="relative p-4 bg-[var(--card-bg)] rounded-2xl shadow-lg w-full">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="font-semibold text-[var(--foreground)] text-lg">{data.name}</h3>
-        <div className="flex space-x-2">
+      {/* Encabezado: nombre centrado, iconos a la derecha */}
+      <div className="relative flex items-center mb-4">
+        <h3 className="flex-1 text-center font-semibold text-[var(--foreground)] text-lg">
+          {data.name}
+        </h3>
+        <div className="absolute right-0 flex space-x-2">
           <button
             onClick={onCurrencyOpen}
             className="text-green-600 hover:text-green-800"
@@ -240,7 +243,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
         </div>
       </div>
 
-      {/* Botón para monto adicional fijo (ahora a la misma altura que la calculadora) */}
+      {/* Botón para monto adicional fijo */}
       <div className="fixed bottom-32 left-6 z-20">
         <button
           onClick={() => setShowExtra((prev) => !prev)}
@@ -254,24 +257,24 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
       {/* Input de monto adicional estilo modal */}
       {showExtra && (
         <div className="fixed bottom-96 left-6 z-20">
-          <div className="bg-[var(--card-bg)] rounded-2xl shadow-xl w-full max-w-xs p-6 relative">
+          <div className="bg-[var(--card-bg)] rounded-2xl shadow-xl w-full max-w-[20rem] p-4 relative">
             <button
-              className="absolute top-3 right-3 text-[var(--foreground)] hover:text-gray-500"
+              className="absolute top-2 right-2 text-[var(--foreground)] hover:text-gray-500"
               onClick={() => setShowExtra(false)}
               aria-label="Cerrar monto adicional"
             >
               <XCircle className="w-6 h-6" />
             </button>
-            <h2 className="text-center font-semibold mb-4 text-[var(--foreground)] text-lg">
+            <h2 className="text-center font-semibold mb-2 text-[var(--foreground)] text-base">
               Monto Adicional
             </h2>
-            <div className="border rounded-lg mb-4 h-12 flex items-center justify-end px-3 bg-[var(--input-bg)]">
+            <div className="border rounded-lg mb-3 h-10 flex items-center justify-end px-2 bg-[var(--input-bg)]">
               <input
                 type="text"
                 inputMode="numeric"
                 value={extraAmount === 0 ? '' : String(extraAmount)}
                 onChange={handleExtraChange}
-                className="w-full px-3 py-2 border-none bg-transparent text-[var(--foreground)] text-right text-lg focus:outline-none"
+                className="w-full px-2 py-1 border-none bg-transparent text-[var(--foreground)] text-right text-base focus:outline-none"
                 placeholder="0"
               />
               <button
@@ -294,45 +297,29 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
           return (
             <div
               key={den.value}
-              className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-[var(--input-bg)] rounded-lg p-3"
+              className="flex flex-col items-center bg-[var(--input-bg)] rounded-lg p-3"
             >
-              {/* Denominación centrada en móvil */}
-              <div className="flex-1 mb-2 sm:mb-0 flex justify-center sm:justify-start">
-                <span className="text-[var(--foreground)] text-center sm:text-left">{den.label}</span>
-              </div>
-
-              {/* Controles de cantidad centrados con input manual */}
-              <div className="flex items-center space-x-4 mb-2 sm:mb-0 justify-center">
+              <span className="text-[var(--foreground)] mb-2">{den.label}</span>
+              <div className="flex flex-row items-center space-x-4 mb-2">
                 <button
                   onClick={() => handleDecrement(den.value)}
-                  className="p-1 bg-[var(--button-bg)] hover:bg-[var(--button-hover)] rounded-full"
+                  className="p-2 bg-red-500 hover:bg-red-600 rounded-full"
                   aria-label={`Disminuir ${den.label}`}
                 >
-                  <MinusCircle className="w-6 h-6 text-[var(--button-text)]" />
+                  <MinusCircle className="w-8 h-8 text-white" />
                 </button>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={count === 0 ? '' : String(count)}
-                  onChange={(e) => handleManualChange(den.value, e.target.value)}
-                  className="w-12 text-center bg-[var(--background)] border border-[var(--input-border)] rounded py-1 text-[var(--foreground)]"
-                  placeholder="0"
-                />
+                <span className="text-[var(--foreground)]">{count}</span>
                 <button
                   onClick={() => handleIncrement(den.value)}
-                  className="p-1 bg-[var(--button-bg)] hover:bg-[var(--button-hover)] rounded-full"
+                  className="p-2 bg-green-500 hover:bg-green-600 rounded-full"
                   aria-label={`Aumentar ${den.label}`}
                 >
-                  <PlusCircle className="w-6 h-6 text-[var(--button-text)]" />
+                  <PlusCircle className="w-8 h-8 text-white" />
                 </button>
               </div>
-
-              {/* Subtotal */}
-              <div className="flex justify-center sm:justify-end">
-                <span className="font-medium text-[var(--foreground)]">
-                  {currency === 'CRC' ? formatCRC(subtotal) : formatUSD(subtotal)}
-                </span>
-              </div>
+              <span className="font-medium text-[var(--foreground)]">
+                {currency === 'CRC' ? formatCRC(subtotal) : formatUSD(subtotal)}
+              </span>
             </div>
           );
         })}
@@ -340,7 +327,9 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
 
       {/* Total fijo al fondo de la tarjeta */}
       <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 w-[90%] bg-[var(--button-bg)] rounded-lg p-4 flex justify-between items-center shadow-lg z-10">
-        <span className="text-lg font-semibold text-[var(--foreground)] text-center sm:text-left">Total:</span>
+        <span className="text-lg font-semibold text-[var(--foreground)] text-center sm:text-left">
+          Total:
+        </span>
         <span className="text-xl font-bold text-[var(--foreground)] text-center sm:text-right">
           {currency === 'CRC' ? formatCRC(computeTotal()) : formatUSD(computeTotal())}
         </span>
@@ -366,23 +355,23 @@ function RenameModal({ isOpen, currentName, onSave, onClose }: RenameModalProps)
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-[var(--card-bg)] rounded-2xl shadow-xl w-full max-w-xs p-6 relative">
+      <div className="bg-[var(--card-bg)] rounded-2xl shadow-xl w-full max-w-[20rem] p-4 relative">
         <button
-          className="absolute top-3 right-3 text-[var(--foreground)] hover:text-gray-500"
+          className="absolute top-2 right-2 text-[var(--foreground)] hover:text-gray-500"
           onClick={onClose}
           aria-label="Cerrar renombrar"
         >
           <XCircle className="w-6 h-6" />
         </button>
-        <h2 className="text-center font-semibold mb-4 text-[var(--foreground)] text-lg">
+        <h2 className="text-center font-semibold mb-2 text-[var(--foreground)] text-base">
           Renombrar Contador
         </h2>
-        <div className="border rounded-lg mb-4 h-12 flex items-center justify-end px-3 bg-[var(--input-bg)]">
+        <div className="border rounded-lg mb-3 h-10 flex items-center justify-end px-2 bg-[var(--input-bg)]">
           <input
             type="text"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            className="w-full px-3 py-2 border-none bg-transparent text-[var(--foreground)] text-right text-lg focus:outline-none"
+            className="w-full px-2 py-1 border-none bg-transparent text-[var(--foreground)] text-right text-base focus:outline-none"
           />
         </div>
         <button
@@ -390,7 +379,7 @@ function RenameModal({ isOpen, currentName, onSave, onClose }: RenameModalProps)
             onSave(newName.trim() === '' ? currentName : newName);
             onClose();
           }}
-          className="w-full bg-purple-600 hover:bg-purple-700 text-white rounded-lg py-2 mt-2"
+          className="w-full bg-purple-600 hover:bg-purple-700 text-white rounded-lg py-2"
         >
           Guardar
         </button>
@@ -416,18 +405,18 @@ function CurrencyModal({ isOpen, currentCurrency, onSave, onClose }: CurrencyMod
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-[var(--card-bg)] rounded-2xl shadow-xl w-full max-w-xs p-6 relative">
+      <div className="bg-[var(--card-bg)] rounded-2xl shadow-xl w-full max-w-[20rem] p-4 relative">
         <button
-          className="absolute top-3 right-3 text-[var(--foreground)] hover:text-gray-500"
+          className="absolute top-2 right-2 text-[var(--foreground)] hover:text-gray-500"
           onClick={onClose}
           aria-label="Cerrar moneda"
         >
           <XCircle className="w-6 h-6" />
         </button>
-        <h2 className="text-center font-semibold mb-4 text-[var(--foreground)] text-lg">
+        <h2 className="text-center font-semibold mb-2 text-[var(--foreground)] text-base">
           Seleccionar Moneda
         </h2>
-        <div className="flex justify-around mb-4">
+        <div className="flex justify-around mb-3">
           <button
             onClick={() => setSelected('CRC')}
             className={`px-4 py-2 rounded-lg ${
@@ -454,7 +443,7 @@ function CurrencyModal({ isOpen, currentCurrency, onSave, onClose }: CurrencyMod
             onSave(selected);
             onClose();
           }}
-          className="w-full bg-purple-600 hover:bg-purple-700 text-white rounded-lg py-2 mt-2"
+          className="w-full bg-purple-600 hover:bg-purple-700 text-white rounded-lg py-2"
         >
           Guardar
         </button>
@@ -536,25 +525,31 @@ export default function CashCounterTabs() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 bg-[var(--background)] min-h-screen">
-      <h1 className="text-2xl font-bold mb-4 text-[var(--foreground)]">Contadores de Efectivo</h1>
+      <h1 className="text-2xl text-center font-bold mb-4 text-[var(--foreground)]">Cash Counter</h1>
       <div className="flex space-x-2 mb-4 overflow-x-auto">
         {tabsData.map((tab, idx) => (
-          <button
-            key={idx}
-            onClick={() => setActiveTab(idx)}
-            onDoubleClick={() => {
-              setRenameIndex(idx);
-              setRenameModalOpen(true);
-            }}
-            className={`px-4 py-2 rounded-full flex-shrink-0 text-sm font-medium flex items-center ${
-              idx === activeTab
-                ? 'bg-[var(--card-bg)] text-[var(--foreground)] shadow'
-                : 'bg-[var(--input-bg)] text-[var(--tab-text)] hover:bg-[var(--button-hover)]'
-            }`}
-          >
-            <span className="truncate max-w-[100px]">{tab.name}</span>
-            <Edit3 className="w-4 h-4 ml-2 text-[var(--tab-text)] opacity-50 hover:opacity-100" />
-          </button>
+          <div key={idx} className="relative">
+            <button
+              onClick={() => setActiveTab(idx)}
+              className={`px-4 py-2 rounded-full flex-shrink-0 text-sm font-medium flex items-center ${
+                idx === activeTab
+                  ? 'bg-[var(--card-bg)] text-[var(--foreground)] shadow'
+                  : 'bg-[var(--input-bg)] text-[var(--tab-text)] hover:bg-[var(--button-hover)]'
+              }`}
+            >
+              <span className="truncate w-[8rem] text-center">{tab.name}</span>
+            </button>
+            <button
+              onClick={() => {
+                setRenameIndex(idx);
+                setRenameModalOpen(true);
+              }}
+              className="absolute top-1/2 left-[7.5rem] p-1 -translate-y-1/2 bg-transparent"
+              aria-label={`Renombrar contador ${idx + 1}`}
+            >
+              <Edit3 className="w-5 h-5 text-white" />
+            </button>
+          </div>
         ))}
         <button
           onClick={addNewTab}
