@@ -543,8 +543,8 @@ function CurrencyModal({ isOpen, currentCurrency, onSave, onClose }: CurrencyMod
           <button
             onClick={() => setSelected('CRC')}
             className={`px-4 py-2 rounded-lg ${selected === 'CRC'
-                ? 'bg-purple-600 text-white'
-                : 'bg-[var(--input-bg)] text-[var(--foreground)] hover:bg-[var(--button-hover)]'
+              ? 'bg-purple-600 text-white'
+              : 'bg-[var(--input-bg)] text-[var(--foreground)] hover:bg-[var(--button-hover)]'
               }`}
           >
             Colones (CRC)
@@ -552,8 +552,8 @@ function CurrencyModal({ isOpen, currentCurrency, onSave, onClose }: CurrencyMod
           <button
             onClick={() => setSelected('USD')}
             className={`px-4 py-2 rounded-lg ${selected === 'USD'
-                ? 'bg-purple-600 text-white'
-                : 'bg-[var(--input-bg)] text-[var(--foreground)] hover:bg-[var(--button-hover)]'
+              ? 'bg-purple-600 text-white'
+              : 'bg-[var(--input-bg)] text-[var(--foreground)] hover:bg-[var(--button-hover)]'
               }`}
           >
             Dólares (USD)
@@ -659,8 +659,8 @@ export default function CashCounterTabs() {
             <button
               onClick={() => setActiveTab(idx)}
               className={`px-4 py-2 rounded-full flex-shrink-0 text-sm font-medium flex items-center ${idx === activeTab
-                  ? 'bg-[var(--card-bg)] text-[var(--foreground)] shadow'
-                  : 'bg-[var(--input-bg)] text-[var(--tab-text)] hover:bg-[var(--button-hover)]'
+                ? 'bg-[var(--card-bg)] text-[var(--foreground)] shadow border-2 border-green-900'
+                : 'bg-[var(--input-bg)] text-[var(--tab-text)] hover:bg-[var(--button-hover)] border-2 border-transparent'
                 }`}
             >
               <span className="truncate w-[8rem] text-center">{tab.name}</span>
