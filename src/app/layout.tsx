@@ -9,7 +9,7 @@ export const metadata = {
   title: 'Price Master',
   description: 'Calcula, cuenta, escanea. Todo en uno.',
   icons: {
-    icon: '/favicon.ico',
+    icon: '/money.png',
   },
 
 };
