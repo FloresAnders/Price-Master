@@ -242,13 +242,15 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
           {/* Botón para limpiar todos los contadores */}
           <button
             onClick={() => {
-              const resetBills: BillsMap = {};
-              denominaciones.forEach((den) => {
-                resetBills[den.value] = 0;
-              });
-              setBills(resetBills);
-              setExtraAmount(0);
-              notifyParent(resetBills, 0, currency);
+              if (confirm('¿Seguro que deseas limpiar todos los montos?')) {
+                const resetBills: BillsMap = {};
+                denominaciones.forEach((den) => {
+                  resetBills[den.value] = 0;
+                });
+                setBills(resetBills);
+                setExtraAmount(0);
+                notifyParent(resetBills, 0, currency);
+              }
             }}
             className="text-yellow-500 hover:text-yellow-700"
             aria-label="Limpiar todos los montos"
@@ -373,8 +375,8 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
                   extraAmount === 0
                     ? ''
                     : currency === 'CRC'
-                    ? formatCRC(extraAmount)
-                    : formatUSD(extraAmount)
+                      ? formatCRC(extraAmount)
+                      : formatUSD(extraAmount)
                 }
                 onChange={handleExtraChange}
                 className="w-full px-2 py-1 border-none bg-transparent text-[var(--foreground)] text-right text-base focus:outline-none"
@@ -401,10 +403,9 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
             <div
               key={den.value}
               className={`flex flex-col sm:flex-row sm:items-center sm:justify-between rounded-lg p-3 
-                ${
-                  count === 0
-                    ? 'border-2 border-gray-400'
-                    : 'border-2 border-green-800'
+                ${count === 0
+                  ? 'border-2 border-gray-400'
+                  : 'border-2 border-green-800'
                 } bg-[var(--input-bg)]`}
             >
               {/* Denominación: centrado y con texto más pequeño en móvil */}
@@ -541,21 +542,19 @@ function CurrencyModal({ isOpen, currentCurrency, onSave, onClose }: CurrencyMod
         <div className="flex justify-around mb-3">
           <button
             onClick={() => setSelected('CRC')}
-            className={`px-4 py-2 rounded-lg ${
-              selected === 'CRC'
+            className={`px-4 py-2 rounded-lg ${selected === 'CRC'
                 ? 'bg-purple-600 text-white'
                 : 'bg-[var(--input-bg)] text-[var(--foreground)] hover:bg-[var(--button-hover)]'
-            }`}
+              }`}
           >
             Colones (CRC)
           </button>
           <button
             onClick={() => setSelected('USD')}
-            className={`px-4 py-2 rounded-lg ${
-              selected === 'USD'
+            className={`px-4 py-2 rounded-lg ${selected === 'USD'
                 ? 'bg-purple-600 text-white'
                 : 'bg-[var(--input-bg)] text-[var(--foreground)] hover:bg-[var(--button-hover)]'
-            }`}
+              }`}
           >
             Dólares (USD)
           </button>
@@ -659,11 +658,10 @@ export default function CashCounterTabs() {
           <div key={idx} className="relative">
             <button
               onClick={() => setActiveTab(idx)}
-              className={`px-4 py-2 rounded-full flex-shrink-0 text-sm font-medium flex items-center ${
-                idx === activeTab
+              className={`px-4 py-2 rounded-full flex-shrink-0 text-sm font-medium flex items-center ${idx === activeTab
                   ? 'bg-[var(--card-bg)] text-[var(--foreground)] shadow'
                   : 'bg-[var(--input-bg)] text-[var(--tab-text)] hover:bg-[var(--button-hover)]'
-              }`}
+                }`}
             >
               <span className="truncate w-[8rem] text-center">{tab.name}</span>
             </button>
