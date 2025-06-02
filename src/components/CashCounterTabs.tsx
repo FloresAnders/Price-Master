@@ -673,7 +673,7 @@ export default function CashCounterTabs() {
               className="absolute top-1/2 left-[7.5rem] p-1 -translate-y-1/2 bg-transparent"
               aria-label={`Renombrar contador ${idx + 1}`}
             >
-              <Edit3 className="w-5 h-5 text-white" />
+              <Edit3 className="w-5 h-5" />
             </button>
           </div>
         ))}
