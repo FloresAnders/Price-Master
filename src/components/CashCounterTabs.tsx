@@ -98,7 +98,7 @@ type BillsMap = Record<number, number>;
 type CashCounterData = {
   name: string;
   bills: BillsMap;
-  extraAmount: number; // en colones enteros
+  extraAmount: number;
   currency: 'CRC' | 'USD';
 };
 
@@ -111,7 +111,8 @@ type CashCounterProps = {
 };
 
 function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCounterProps) {
-  const denominaciones = [
+  // Denominaciones fijas según moneda
+  const denominacionesCRC = [
     { label: '₡ 20 000', value: 20000 },
     { label: '₡ 10 000', value: 10000 },
     { label: '₡ 5 000', value: 5000 },
@@ -122,6 +123,18 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
     { label: '₡ 50', value: 50 },
     { label: '₡ 25', value: 25 },
   ];
+
+  const denominacionesUSD = [
+    { label: '$ 100', value: 100 },
+    { label: '$ 50', value: 50 },
+    { label: '$ 20', value: 20 },
+    { label: '$ 10', value: 10 },
+    { label: '$ 5', value: 5 },
+    { label: '$ 1', value: 1 },
+  ];
+
+  const denominaciones =
+    data.currency === 'CRC' ? denominacionesCRC : denominacionesUSD;
 
   // Estado interno local
   const [bills, setBills] = useState<BillsMap>({ ...data.bills });
@@ -163,7 +176,6 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
   };
 
   const handleManualChange = (value: number, newCount: string) => {
-    // Usamos string para evitar ceros iniciales; convertimos a número al validar
     const parsed = parseInt(newCount, 10);
     const sanitized = isNaN(parsed) || parsed < 0 ? 0 : parsed;
     const newBills = { ...bills, [value]: sanitized };
@@ -186,16 +198,14 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
     }).format(num);
   };
 
-  const formatUSD = (numColones: number) => {
-    const usd = numColones / 600;
+  const formatUSD = (num: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
-      minimumFractionDigits: 2,
-    }).format(usd);
+      minimumFractionDigits: 0,
+    }).format(num);
   };
 
-  // Manejador del input de monto adicional (solo dígitos)
   const handleExtraChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const onlyNums = e.target.value.replace(/\D/g, '');
     const parsed = onlyNums === '' ? 0 : parseInt(onlyNums, 10);
@@ -215,7 +225,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
         <div className="flex space-x-2">
           <button
             onClick={onCurrencyOpen}
-            className="text-purple-600 hover:text-purple-800"
+            className="text-green-600 hover:text-green-800"
             aria-label="Cambiar moneda"
           >
             <DollarSign className="w-6 h-6" />
@@ -230,8 +240,8 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
         </div>
       </div>
 
-      {/* Botón para monto adicional fijo, estilo igual a calculadora */}
-      <div className="fixed bottom-28 left-6 z-20">
+      {/* Botón para monto adicional fijo (ahora a la misma altura que la calculadora) */}
+      <div className="fixed bottom-32 left-6 z-20">
         <button
           onClick={() => setShowExtra((prev) => !prev)}
           className="bg-green-500 text-white rounded-full w-16 h-16 flex items-center justify-center shadow-xl"
@@ -243,7 +253,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
 
       {/* Input de monto adicional estilo modal */}
       {showExtra && (
-        <div className="fixed bottom-36 left-6 z-20">
+        <div className="fixed bottom-96 left-6 z-20">
           <div className="bg-[var(--card-bg)] rounded-2xl shadow-xl w-full max-w-xs p-6 relative">
             <button
               className="absolute top-3 right-3 text-[var(--foreground)] hover:text-gray-500"
@@ -469,7 +479,6 @@ export default function CashCounterTabs() {
     const saved = window.localStorage.getItem('cashCounters');
     if (saved) {
       const parsed: CashCounterData[] = JSON.parse(saved);
-      // Asegurarse de que cada entrada tenga name
       const normalized = parsed.map((item, idx) => ({
         name: item.name || `Contador ${idx + 1}`,
         bills: item.bills,
