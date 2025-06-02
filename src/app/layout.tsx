@@ -9,9 +9,9 @@ export const metadata = {
   title: 'Price Master',
   description: 'Calcula, cuenta, escanea. Todo en uno.',
   icons: {
-    icon: '@/favicon.ico',
+    icon: '/favicon.ico',
   },
-  // Removed viewport and themeColor from metadata
+
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
