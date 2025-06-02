@@ -8,16 +8,19 @@ import PriceCalculator from '@/components/PriceCalculator'
 import TextConversion from '@/components/TextConversion'
 import ScanHistory from '@/components/ScanHistory'
 import Footer from '@/components/Footer'
+import CashCounterTabs from '@/components/CashCounterTabs'   // <-- Importamos el componente nuevo
 import {
   Calculator,
   Smartphone,
   Type,
   ClipboardList,
+  Banknote,
   Scan,
 } from 'lucide-react'
 
 
-type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'history'
+// 1) Ampliamos ActiveTab para incluir "cashcounter"
+type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'history'
 
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('scanner')
@@ -32,11 +35,17 @@ export default function HomePage() {
     ))
   }
 
-  // Configuración de las pestañas
+  // 2) Agregamos la entrada "cashcounter" en el array de tabs
   const tabs = [
     { id: 'scanner' as ActiveTab, name: 'Escáner', icon: Scan, description: 'Escanear códigos de barras' },
     { id: 'calculator' as ActiveTab, name: 'Calculadora', icon: Calculator, description: 'Calcular precios con descuentos' },
     { id: 'converter' as ActiveTab, name: 'Conversor', icon: Type, description: 'Convertir y transformar texto' },
+    {
+      id: 'cashcounter' as ActiveTab,
+      name: 'Contador Efectivo',
+      icon: Banknote,
+      description: 'Contar billetes y monedas (CRC/USD)',
+    },
     {
       id: 'history' as ActiveTab,
       name: 'Historial',
@@ -45,7 +54,6 @@ export default function HomePage() {
       badge: scanHistory.length > 0 ? scanHistory.length : undefined
     }
   ]
-
 
   return (
     <>
@@ -85,12 +93,17 @@ export default function HomePage() {
 
         {/* Descripción de la pestaña activa */}
         <div className="mb-6 text-center">
-          <h2 className="text-2xl font-bold mb-2">{tabs.find(t => t.id === activeTab)?.name}</h2>
-          <p className="text-[var(--tab-text)]">{tabs.find(t => t.id === activeTab)?.description}</p>
+          <h2 className="text-2xl font-bold mb-2">
+            {tabs.find(t => t.id === activeTab)?.name}
+          </h2>
+          <p className="text-[var(--tab-text)]">
+            {tabs.find(t => t.id === activeTab)?.description}
+          </p>
         </div>
 
         {/* Contenido de las pestañas */}
         <div className="space-y-8">
+          {/* SCANNER */}
           {activeTab === 'scanner' && (
             <div className="max-w-4xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4">
               <BarcodeScanner onDetect={handleCodeDetected} />
@@ -106,6 +119,7 @@ export default function HomePage() {
             </div>
           )}
 
+          {/* CALCULATOR */}
           {activeTab === 'calculator' && (
             <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4">
               <PriceCalculator />
@@ -116,12 +130,13 @@ export default function HomePage() {
                 </div>
                 <div className="bg-yellow-50 rounded-lg p-4">
                   <h3 className="font-medium text-yellow-800 mb-2">💰 Cálculo inteligente:</h3>
-                  <p className="text-sm text-yellow-700">El descuento se aplica primero, luego se calcula el impuesto sobre el precio con descuento.</p>
+                  <p className="text-sm text-yellow-700">El descuento se aplica primero y luego se calcula el impuesto sobre el precio con descuento.</p>
                 </div>
               </div>
             </div>
           )}
 
+          {/* CONVERTER */}
           {activeTab === 'converter' && (
             <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4">
               <TextConversion />
@@ -149,6 +164,15 @@ export default function HomePage() {
             </div>
           )}
 
+          {/* CASHCOUNTER (Contador Efectivo) */}
+          {activeTab === 'cashcounter' && (
+            <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4">
+              {/* Aquí renderizamos nuestro componente de contadores de billetes y monedas */}
+              <CashCounterTabs />
+            </div>
+          )}
+
+          {/* HISTORY */}
           {activeTab === 'history' && (
             <div className="max-w-4xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4">
               <ScanHistory history={scanHistory} />
@@ -180,8 +204,6 @@ export default function HomePage() {
         </div>
       </main>
       <Footer />
-
-      {/* Estilos personalizados */}
     </>
-  );
+  )
 }
