@@ -1,14 +1,14 @@
 // app/page.tsx
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Header from '@/components/Header'
 import BarcodeScanner from '@/components/BarcodeScanner'
 import PriceCalculator from '@/components/PriceCalculator'
 import TextConversion from '@/components/TextConversion'
 import ScanHistory from '@/components/ScanHistory'
 import Footer from '@/components/Footer'
-import CashCounterTabs from '@/components/CashCounterTabs'   // <-- Importamos el componente nuevo
+import CashCounterTabs from '@/components/CashCounterTabs'
 import {
   Calculator,
   Smartphone,
@@ -18,11 +18,11 @@ import {
   Scan,
 } from 'lucide-react'
 
-
 // 1) Ampliamos ActiveTab para incluir "cashcounter"
 type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'history'
 
 export default function HomePage() {
+  // 2) Estado para la pestaña activa
   const [activeTab, setActiveTab] = useState<ActiveTab>('scanner')
   const [scanHistory, setScanHistory] = useState<string[]>([])
 
@@ -35,29 +35,50 @@ export default function HomePage() {
     ))
   }
 
-  // 2) Agregamos la entrada "cashcounter" en el array de tabs
+  // 3) Lista de pestañas
   const tabs = [
     { id: 'scanner' as ActiveTab, name: 'Escáner', icon: Scan, description: 'Escanear códigos de barras' },
     { id: 'calculator' as ActiveTab, name: 'Calculadora', icon: Calculator, description: 'Calcular precios con descuentos' },
     { id: 'converter' as ActiveTab, name: 'Conversor', icon: Type, description: 'Convertir y transformar texto' },
-    {
-      id: 'cashcounter' as ActiveTab,
-      name: 'Contador Efectivo',
-      icon: Banknote,
-      description: 'Contar billetes y monedas (CRC/USD)',
+    { 
+      id: 'cashcounter' as ActiveTab, 
+      name: 'Contador Efectivo', 
+      icon: Banknote, 
+      description: 'Contar billetes y monedas (CRC/USD)' 
     },
-    {
-      id: 'history' as ActiveTab,
-      name: 'Historial',
-      icon: ClipboardList,
-      description: 'Ver códigos escaneados',
-      badge: scanHistory.length > 0 ? scanHistory.length : undefined
+    { 
+      id: 'history' as ActiveTab, 
+      name: 'Historial', 
+      icon: ClipboardList, 
+      description: 'Ver códigos escaneados', 
+      badge: scanHistory.length > 0 ? scanHistory.length : undefined 
     }
   ]
+
+  // 4) Al montar, leemos el hash de la URL y marcamos la pestaña correspondiente
+  useEffect(() => {
+    // Solo en cliente (window existe)
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash.replace('#', '') as ActiveTab
+      // Si coincide con alguna pestaña válida, la activamos
+      if (['scanner','calculator','converter','cashcounter','history'].includes(hash)) {
+        setActiveTab(hash)
+      }
+    }
+  }, [])
+
+  // 5) Cada vez que cambie activeTab, actualizamos el hash en la URL
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // Por ejemplo: https://.../#cashcounter
+      window.history.replaceState(null, '', `#${activeTab}`)
+    }
+  }, [activeTab])
 
   return (
     <>
       <Header />
+
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Navegación por pestañas */}
         <div className="mb-8">
@@ -167,7 +188,6 @@ export default function HomePage() {
           {/* CASHCOUNTER (Contador Efectivo) */}
           {activeTab === 'cashcounter' && (
             <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4">
-              {/* Aquí renderizamos nuestro componente de contadores de billetes y monedas */}
               <CashCounterTabs />
             </div>
           )}
@@ -203,6 +223,7 @@ export default function HomePage() {
           )}
         </div>
       </main>
+
       <Footer />
     </>
   )
