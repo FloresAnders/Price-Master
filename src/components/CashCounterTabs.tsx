@@ -289,35 +289,49 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
         </div>
       )}
 
-      {/* Lista de denominaciones desplazable */}
-      <div className="space-y-4 max-h-[50vh] overflow-y-auto mb-32 mt-4">
+      {/* Lista de denominaciones sin scroll interno */}
+      <div className="space-y-4 mt-4 mb-32">
         {denominaciones.map((den) => {
           const count = bills[den.value] || 0;
           const subtotal = den.value * count;
           return (
             <div
               key={den.value}
-              className="flex flex-col items-center bg-[var(--input-bg)] rounded-lg p-3"
+              className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-[var(--input-bg)] rounded-lg p-3"
             >
-              <span className="text-[var(--foreground)] mb-2">{den.label}</span>
-              <div className="flex flex-row items-center space-x-4 mb-2">
+              {/* Denominación: centrado y con texto más pequeño en móvil */}
+              <span className="text-[var(--foreground)] text-sm sm:text-base mb-2 sm:mb-0 sm:w-1/4 text-center sm:text-left">
+                {den.label}
+              </span>
+
+              {/* Controles de cantidad y input manual */}
+              <div className="flex items-center space-x-2 w-full sm:w-1/4 justify-center mb-2 sm:mb-0">
                 <button
                   onClick={() => handleDecrement(den.value)}
                   className="p-2 bg-red-500 hover:bg-red-600 rounded-full"
                   aria-label={`Disminuir ${den.label}`}
                 >
-                  <MinusCircle className="w-8 h-8 text-white" />
+                  <MinusCircle className="w-6 h-6 text-white" />
                 </button>
-                <span className="text-[var(--foreground)]">{count}</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={count === 0 ? '' : String(count)}
+                  onChange={(e) => handleManualChange(den.value, e.target.value)}
+                  className="w-12 text-center bg-[var(--background)] border border-[var(--input-border)] rounded py-1 text-[var(--foreground)] text-sm"
+                  placeholder="0"
+                />
                 <button
                   onClick={() => handleIncrement(den.value)}
                   className="p-2 bg-green-500 hover:bg-green-600 rounded-full"
                   aria-label={`Aumentar ${den.label}`}
                 >
-                  <PlusCircle className="w-8 h-8 text-white" />
+                  <PlusCircle className="w-6 h-6 text-white" />
                 </button>
               </div>
-              <span className="font-medium text-[var(--foreground)]">
+
+              {/* Subtotal: alineado a la derecha en escritorio, centrado en móvil */}
+              <span className="font-medium text-[var(--foreground)] text-sm sm:text-base sm:w-1/4 text-center sm:text-right">
                 {currency === 'CRC' ? formatCRC(subtotal) : formatUSD(subtotal)}
               </span>
             </div>
@@ -326,8 +340,8 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
       </div>
 
       {/* Total fijo al fondo de la tarjeta */}
-      <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 w-[90%] bg-[var(--button-bg)] rounded-lg p-4 flex justify-between items-center shadow-lg z-10">
-        <span className="text-lg font-semibold text-[var(--foreground)] text-center sm:text-left">
+      <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 w-[90%] bg-[var(--card-bg)] rounded-lg p-4 flex flex-col sm:flex-row justify-between items-center shadow-lg z-10">
+        <span className="text-lg font-semibold text-[var(--foreground)] text-center sm:text-left mb-2 sm:mb-0">
           Total:
         </span>
         <span className="text-xl font-bold text-[var(--foreground)] text-center sm:text-right">
@@ -525,7 +539,9 @@ export default function CashCounterTabs() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 bg-[var(--background)] min-h-screen">
-      <h1 className="text-2xl text-center font-bold mb-4 text-[var(--foreground)]">Cash Counter</h1>
+      <h1 className="text-2xl text-center font-bold mb-4 text-[var(--foreground)]">
+        Cash Counter
+      </h1>
       <div className="flex space-x-2 mb-4 overflow-x-auto">
         {tabsData.map((tab, idx) => (
           <div key={idx} className="relative">
