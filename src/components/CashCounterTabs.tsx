@@ -403,8 +403,8 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
               className={`flex flex-col sm:flex-row sm:items-center sm:justify-between rounded-lg p-3 
                 ${
                   count === 0
-                    ? 'border-2 border-red-500'
-                    : 'border-2 border-green-500'
+                    ? 'border-2 border-gray-400'
+                    : 'border-2 border-green-800'
                 } bg-[var(--input-bg)]`}
             >
               {/* Denominación: centrado y con texto más pequeño en móvil */}
