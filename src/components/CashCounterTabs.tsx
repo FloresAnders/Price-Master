@@ -405,7 +405,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
               className={`flex flex-col sm:flex-row sm:items-center sm:justify-between rounded-lg p-3 
                 ${count === 0
                   ? 'border-2 border-gray-400'
-                  : 'border-2 border-green-800'
+                  : 'border-2 border-green-600'
                 } bg-[var(--input-bg)]`}
             >
               {/* Denominación: centrado y con texto más pequeño en móvil */}
@@ -449,7 +449,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
       </div>
 
       {/* Total fijo al fondo de la tarjeta */}
-      <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 w-[90%] bg-[var(--button-bg)] rounded-lg p-4 flex flex-col sm:flex-row justify-between items-center shadow-lg z-10">
+      <div className="fixed bottom-6 border-2 border-gray-600 left-1/2 transform -translate-x-1/2 w-[90%] bg-[var(--button-bg)] rounded-lg p-4 flex flex-col sm:flex-row justify-between items-center shadow-lg z-10">
         <span className="text-lg font-semibold text-[var(--foreground)] text-center sm:text-left mb-2 sm:mb-0">
           Total:
         </span>
