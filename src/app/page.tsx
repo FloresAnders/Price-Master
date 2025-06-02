@@ -23,7 +23,7 @@ type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'histo
 
 export default function HomePage() {
   // 2) Estado para la pestaña activa
-  const [activeTab, setActiveTab] = useState<ActiveTab>('scanner')
+  const [activeTab, setActiveTab] = useState<ActiveTab>('cashcounter')
   const [scanHistory, setScanHistory] = useState<string[]>([])
 
   // Función para manejar códigos detectados por el escáner
