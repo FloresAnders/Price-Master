@@ -9,6 +9,7 @@ import {
   DollarSign,
   Edit3,
   Inbox,
+  Eraser,
 } from 'lucide-react';
 
 type CalculatorModalProps = {
@@ -133,8 +134,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
     { label: '$ 1', value: 1 },
   ];
 
-  const denominaciones =
-    data.currency === 'CRC' ? denominacionesCRC : denominacionesUSD;
+  const denominaciones = data.currency === 'CRC' ? denominacionesCRC : denominacionesUSD;
 
   // Estado interno local
   const [bills, setBills] = useState<BillsMap>({ ...data.bills });
@@ -183,6 +183,17 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
     notifyParent(newBills, extraAmount, currency);
   };
 
+  // Limpia todos los contadores a cero
+  const handleClearAll = () => {
+    const resetBills: BillsMap = {};
+    denominaciones.forEach((den) => {
+      resetBills[den.value] = 0;
+    });
+    setBills(resetBills);
+    setExtraAmount(0);
+    notifyParent(resetBills, 0, currency);
+  };
+
   const computeTotal = (): number => {
     const sumBills = Object.entries(bills).reduce((acc, [den, count]) => {
       return acc + Number(den) * Number(count);
@@ -226,6 +237,14 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
           {data.name}
         </h3>
         <div className="absolute right-0 flex space-x-2">
+          {/* Botón para limpiar todos los contadores */}
+          <button
+            onClick={handleClearAll}
+            className="text-yellow-500 hover:text-yellow-700"
+            aria-label="Limpiar todos los montos"
+          >
+            <Eraser className="w-6 h-6" />
+          </button>
           <button
             onClick={onCurrencyOpen}
             className="text-green-600 hover:text-green-800"
@@ -234,7 +253,12 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
             <DollarSign className="w-6 h-6" />
           </button>
           <button
-            onClick={() => onDelete(id)}
+            onClick={() => {
+              // Confirmación antes de eliminar
+              if (confirm('¿Seguro que deseas eliminar este contador?')) {
+                onDelete(id);
+              }
+            }}
             className="text-red-500 hover:text-red-700"
             aria-label={`Eliminar contador ${id + 1}`}
           >
@@ -340,7 +364,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
       </div>
 
       {/* Total fijo al fondo de la tarjeta */}
-      <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 w-[90%] bg-[var(--card-bg)] rounded-lg p-4 flex flex-col sm:flex-row justify-between items-center shadow-lg z-10">
+      <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 w-[90%] bg-[var(--card-bg-900)] rounded-lg p-4 flex flex-col sm:flex-row justify-between items-center shadow-lg z-10">
         <span className="text-lg font-semibold text-[var(--foreground)] text-center sm:text-left mb-2 sm:mb-0">
           Total:
         </span>
@@ -538,7 +562,7 @@ export default function CashCounterTabs() {
   };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 bg-[var(--background)] min-h-screen">
+    <div className="p-4 sm:p-6 lg:p-8 bg-[var(--background)] min-h-screen pb-32">
       <h1 className="text-2xl text-center font-bold mb-4 text-[var(--foreground)]">
         Cash Counter
       </h1>

@@ -35,6 +35,7 @@
     --font-base: Arial, Helvetica, sans-serif;
 
     /* Componentes generales */
+    --card-bg-900: #121820;               /* gray-900 */
     --card-bg: #1f2937;               /* gray-800 */
     --input-bg: #374151;              /* gray-700 */
     --input-border: #4b5563;          /* gray-600 */
