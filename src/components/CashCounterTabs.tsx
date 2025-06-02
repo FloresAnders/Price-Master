@@ -10,6 +10,8 @@ import {
   Edit3,
   Inbox,
   Eraser,
+  Download,
+  Upload,
 } from 'lucide-react';
 
 type CalculatorModalProps = {
@@ -194,6 +196,57 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
     notifyParent(resetBills, 0, currency);
   };
 
+  const handleDownload = () => {
+    // Aquí puedes implementar la lógica para descargar los datos.
+    // Por ejemplo, podrías transformar `data.bills` a CSV o JSON y disparar la descarga.
+    const content = JSON.stringify({ name: data.name, bills, extraAmount, currency });
+    const blob = new Blob([content], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${data.name}_datos.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleUpload = () => {
+    // Aquí puedes implementar la lógica para subir/importar datos desde otro equipo.
+    // Por simplicidad, abrimos un input de tipo "file" que acepte JSON.
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json';
+    input.onchange = (e: any) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const parsed = JSON.parse(ev.target?.result as string);
+          // Asegurarse de que el JSON coincida con nuestra interfaz
+          if (
+            parsed &&
+            typeof parsed.name === 'string' &&
+            typeof parsed.extraAmount === 'number' &&
+            (parsed.currency === 'CRC' || parsed.currency === 'USD') &&
+            typeof parsed.bills === 'object'
+          ) {
+            // Actualizamos con los datos importados
+            setBills(parsed.bills);
+            setExtraAmount(parsed.extraAmount);
+            setCurrency(parsed.currency);
+            notifyParent(parsed.bills, parsed.extraAmount, parsed.currency);
+          } else {
+            alert('Archivo JSON inválido para Cash Counter.');
+          }
+        } catch {
+          alert('Error al parsear el archivo JSON.');
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  };
+
   const computeTotal = (): number => {
     const sumBills = Object.entries(bills).reduce((acc, [den, count]) => {
       return acc + Number(den) * Number(count);
@@ -245,6 +298,23 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
           >
             <Eraser className="w-6 h-6" />
           </button>
+          {/* Botón para descargar datos */}
+          <button
+            onClick={handleDownload}
+            className="text-blue-500 hover:text-blue-700"
+            aria-label="Descargar datos"
+          >
+            <Download className="w-6 h-6" />
+          </button>
+          {/* Botón para subir/importar datos */}
+          <button
+            onClick={handleUpload}
+            className="text-blue-500 hover:text-blue-700"
+            aria-label="Subir datos"
+          >
+            <Upload className="w-6 h-6" />
+          </button>
+          {/* Botón para cambiar moneda */}
           <button
             onClick={onCurrencyOpen}
             className="text-green-600 hover:text-green-800"
@@ -252,9 +322,9 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
           >
             <DollarSign className="w-6 h-6" />
           </button>
+          {/* Botón para eliminar contador (con confirmación) */}
           <button
             onClick={() => {
-              // Confirmación antes de eliminar
               if (confirm('¿Seguro que deseas eliminar este contador?')) {
                 onDelete(id);
               }
@@ -563,9 +633,7 @@ export default function CashCounterTabs() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 bg-[var(--background)] min-h-screen pb-32">
-      <h1 className="text-2xl text-center font-bold mb-4 text-[var(--foreground)]">
-        Cash Counter
-      </h1>
+      <h1 className="text-2xl text-center font-bold mb-4 text-[var(--foreground)]">Cash Counter</h1>
       <div className="flex space-x-2 mb-4 overflow-x-auto">
         {tabsData.map((tab, idx) => (
           <div key={idx} className="relative">
