@@ -116,24 +116,24 @@ type CashCounterProps = {
 function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCounterProps) {
   // Denominaciones fijas según moneda
   const denominacionesCRC = [
-    { label: '₡ 20 000', value: 20000 },
-    { label: '₡ 10 000', value: 10000 },
-    { label: '₡ 5 000', value: 5000 },
-    { label: '₡ 2 000', value: 2000 },
-    { label: '₡ 1 000', value: 1000 },
-    { label: '₡ 500', value: 500 },
-    { label: '₡ 100', value: 100 },
-    { label: '₡ 50', value: 50 },
-    { label: '₡ 25', value: 25 },
+    { label: '₡ 20 000', value: 20000 },
+    { label: '₡ 10 000', value: 10000 },
+    { label: '₡ 5 000', value: 5000 },
+    { label: '₡ 2 000', value: 2000 },
+    { label: '₡ 1 000', value: 1000 },
+    { label: '₡ 500', value: 500 },
+    { label: '₡ 100', value: 100 },
+    { label: '₡ 50', value: 50 },
+    { label: '₡ 25', value: 25 },
   ];
 
   const denominacionesUSD = [
-    { label: '$ 100', value: 100 },
-    { label: '$ 50', value: 50 },
-    { label: '$ 20', value: 20 },
-    { label: '$ 10', value: 10 },
-    { label: '$ 5', value: 5 },
-    { label: '$ 1', value: 1 },
+    { label: '$ 100', value: 100 },
+    { label: '$ 50', value: 50 },
+    { label: '$ 20', value: 20 },
+    { label: '$ 10', value: 10 },
+    { label: '$ 5', value: 5 },
+    { label: '$ 1', value: 1 },
   ];
 
   const denominaciones = data.currency === 'CRC' ? denominacionesCRC : denominacionesUSD;
@@ -178,68 +178,12 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
   };
 
   const handleManualChange = (value: number, newCount: string) => {
-    const parsed = parseInt(newCount, 10);
+    // Usamos string para evitar ceros iniciales; convertimos a número al validar
+    const parsed = parseInt(newCount.replace(/^0+/, ''), 10);
     const sanitized = isNaN(parsed) || parsed < 0 ? 0 : parsed;
     const newBills = { ...bills, [value]: sanitized };
     setBills(newBills);
     notifyParent(newBills, extraAmount, currency);
-  };
-
-  // Limpia todos los contadores a cero
-  const handleClearAll = () => {
-    const resetBills: BillsMap = {};
-    denominaciones.forEach((den) => {
-      resetBills[den.value] = 0;
-    });
-    setBills(resetBills);
-    setExtraAmount(0);
-    notifyParent(resetBills, 0, currency);
-  };
-
-  const handleDownload = () => {
-    const content = JSON.stringify({ name: data.name, bills, extraAmount, currency });
-    const blob = new Blob([content], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${data.name}_datos.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleUpload = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'application/json';
-    input.onchange = (e: Event) => {
-      const target = e.target as HTMLInputElement;
-      const file = target.files?.[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        try {
-          const parsed = JSON.parse(ev.target?.result as string);
-          if (
-            parsed &&
-            typeof parsed.name === 'string' &&
-            typeof parsed.extraAmount === 'number' &&
-            (parsed.currency === 'CRC' || parsed.currency === 'USD') &&
-            typeof parsed.bills === 'object'
-          ) {
-            setBills(parsed.bills);
-            setExtraAmount(parsed.extraAmount);
-            setCurrency(parsed.currency);
-            notifyParent(parsed.bills, parsed.extraAmount, parsed.currency);
-          } else {
-            alert('Archivo JSON inválido para Cash Counter.');
-          }
-        } catch {
-          alert('Error al parsear el archivo JSON.');
-        }
-      };
-      reader.readAsText(file);
-    };
-    input.click();
   };
 
   const computeTotal = (): number => {
@@ -265,11 +209,24 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
     }).format(num);
   };
 
+  // Manejador del input de monto adicional (formateo instantáneo)
   const handleExtraChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const onlyNums = e.target.value.replace(/\D/g, '');
-    const parsed = onlyNums === '' ? 0 : parseInt(onlyNums, 10);
-    setExtraAmount(parsed);
-    notifyParent(bills, parsed, currency);
+    let raw = e.target.value;
+    if (currency === 'CRC') {
+      // Solo dígitos
+      raw = raw.replace(/\D/g, '');
+      const parsed = raw === '' ? 0 : parseInt(raw, 10);
+      setExtraAmount(parsed);
+      notifyParent(bills, parsed, currency);
+    } else {
+      // Permitir dígitos y punto
+      raw = raw.replace(/[^0-9.]/g, '');
+      const parsedFloat = parseFloat(raw);
+      const parsed = isNaN(parsedFloat) ? 0 : parsedFloat;
+      // Guardamos en centavos para USD
+      setExtraAmount(parsed);
+      notifyParent(bills, parsed, currency);
+    }
   };
 
   const handleExtraClear = () => {
@@ -284,7 +241,15 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
         <div className="flex space-x-4 mb-2">
           {/* Botón para limpiar todos los contadores */}
           <button
-            onClick={handleClearAll}
+            onClick={() => {
+              const resetBills: BillsMap = {};
+              denominaciones.forEach((den) => {
+                resetBills[den.value] = 0;
+              });
+              setBills(resetBills);
+              setExtraAmount(0);
+              notifyParent(resetBills, 0, currency);
+            }}
             className="text-yellow-500 hover:text-yellow-700"
             aria-label="Limpiar todos los montos"
           >
@@ -292,7 +257,16 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
           </button>
           {/* Botón para descargar datos */}
           <button
-            onClick={handleDownload}
+            onClick={() => {
+              const content = JSON.stringify({ name: data.name, bills, extraAmount, currency });
+              const blob = new Blob([content], { type: 'application/json' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `${data.name}_datos.json`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
             className="text-blue-500 hover:text-blue-700"
             aria-label="Descargar datos"
           >
@@ -300,7 +274,40 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
           </button>
           {/* Botón para subir/importar datos */}
           <button
-            onClick={handleUpload}
+            onClick={() => {
+              const input = document.createElement('input');
+              input.type = 'file';
+              input.accept = 'application/json';
+              input.onchange = (e: Event) => {
+                const target = e.target as HTMLInputElement;
+                const file = target.files?.[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                  try {
+                    const parsed = JSON.parse(ev.target?.result as string);
+                    if (
+                      parsed &&
+                      typeof parsed.name === 'string' &&
+                      typeof parsed.extraAmount === 'number' &&
+                      (parsed.currency === 'CRC' || parsed.currency === 'USD') &&
+                      typeof parsed.bills === 'object'
+                    ) {
+                      setBills(parsed.bills);
+                      setExtraAmount(parsed.extraAmount);
+                      setCurrency(parsed.currency);
+                      notifyParent(parsed.bills, parsed.extraAmount, parsed.currency);
+                    } else {
+                      alert('Archivo JSON inválido para Cash Counter.');
+                    }
+                  } catch {
+                    alert('Error al parsear el archivo JSON.');
+                  }
+                };
+                reader.readAsText(file);
+              };
+              input.click();
+            }}
             className="text-blue-500 hover:text-blue-700"
             aria-label="Subir datos"
           >
@@ -362,7 +369,13 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
               <input
                 type="text"
                 inputMode="numeric"
-                value={extraAmount === 0 ? '' : String(extraAmount)}
+                value={
+                  extraAmount === 0
+                    ? ''
+                    : currency === 'CRC'
+                    ? formatCRC(extraAmount)
+                    : formatUSD(extraAmount)
+                }
                 onChange={handleExtraChange}
                 className="w-full px-2 py-1 border-none bg-transparent text-[var(--foreground)] text-right text-base focus:outline-none"
                 placeholder="0"
@@ -387,7 +400,12 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
           return (
             <div
               key={den.value}
-              className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-[var(--input-bg)] rounded-lg p-3"
+              className={`flex flex-col sm:flex-row sm:items-center sm:justify-between rounded-lg p-3 
+                ${
+                  count === 0
+                    ? 'border-2 border-red-500'
+                    : 'border-2 border-green-500'
+                } bg-[var(--input-bg)]`}
             >
               {/* Denominación: centrado y con texto más pequeño en móvil */}
               <span className="text-[var(--foreground)] text-sm sm:text-base mb-2 sm:mb-0 sm:w-1/4 text-center sm:text-left">
@@ -430,7 +448,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
       </div>
 
       {/* Total fijo al fondo de la tarjeta */}
-      <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 w-[90%] bg-[var(--card-bg-900)] rounded-lg p-4 flex flex-col sm:flex-row justify-between items-center shadow-lg z-10">
+      <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 w-[90%] bg-[var(--button-bg)] rounded-lg p-4 flex flex-col sm:flex-row justify-between items-center shadow-lg z-10">
         <span className="text-lg font-semibold text-[var(--foreground)] text-center sm:text-left mb-2 sm:mb-0">
           Total:
         </span>
@@ -624,7 +642,13 @@ export default function CashCounterTabs() {
   };
 
   const handleCurrencySave = (newCurrency: 'CRC' | 'USD') => {
-    updateTab(activeTab, { ...tabsData[activeTab], currency: newCurrency });
+    // Resetea contadores y extraAmount al cambiar moneda
+    updateTab(activeTab, {
+      ...tabsData[activeTab],
+      currency: newCurrency,
+      bills: {},
+      extraAmount: 0,
+    });
   };
 
   return (
