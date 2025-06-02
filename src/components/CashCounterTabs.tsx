@@ -197,8 +197,6 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
   };
 
   const handleDownload = () => {
-    // Aquí puedes implementar la lógica para descargar los datos.
-    // Por ejemplo, podrías transformar `data.bills` a CSV o JSON y disparar la descarga.
     const content = JSON.stringify({ name: data.name, bills, extraAmount, currency });
     const blob = new Blob([content], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -210,19 +208,17 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
   };
 
   const handleUpload = () => {
-    // Aquí puedes implementar la lógica para subir/importar datos desde otro equipo.
-    // Por simplicidad, abrimos un input de tipo "file" que acepte JSON.
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'application/json';
-    input.onchange = (e: any) => {
-      const file = e.target.files?.[0];
+    input.onchange = (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      const file = target.files?.[0];
       if (!file) return;
       const reader = new FileReader();
       reader.onload = (ev) => {
         try {
           const parsed = JSON.parse(ev.target?.result as string);
-          // Asegurarse de que el JSON coincida con nuestra interfaz
           if (
             parsed &&
             typeof parsed.name === 'string' &&
@@ -230,7 +226,6 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
             (parsed.currency === 'CRC' || parsed.currency === 'USD') &&
             typeof parsed.bills === 'object'
           ) {
-            // Actualizamos con los datos importados
             setBills(parsed.bills);
             setExtraAmount(parsed.extraAmount);
             setCurrency(parsed.currency);
@@ -284,12 +279,9 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
 
   return (
     <div className="relative p-4 bg-[var(--card-bg)] rounded-2xl shadow-lg w-full">
-      {/* Encabezado: nombre centrado, iconos a la derecha */}
-      <div className="relative flex items-center mb-4">
-        <h3 className="flex-1 text-center font-semibold text-[var(--foreground)] text-lg">
-          {data.name}
-        </h3>
-        <div className="absolute right-0 flex space-x-2">
+      {/* Header reorganizado para móvil: iconos centrados arriba, nombre debajo */}
+      <div className="flex flex-col items-center mb-4">
+        <div className="flex space-x-4 mb-2">
           {/* Botón para limpiar todos los contadores */}
           <button
             onClick={handleClearAll}
@@ -335,6 +327,10 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
             <Trash2 className="w-6 h-6" />
           </button>
         </div>
+        {/* Nombre del contador centrado, debajo de los iconos */}
+        <h3 className="text-center font-semibold text-[var(--foreground)] text-lg">
+          {data.name}
+        </h3>
       </div>
 
       {/* Botón para monto adicional fijo */}
