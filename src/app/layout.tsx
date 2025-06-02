@@ -7,9 +7,9 @@ const inter = Inter({ subsets: ['latin'] });
 
 export const metadata = {
   title: 'Price Master',
-  description: 'Descripción de tu app',
+  description: 'Calcula, cuenta, escanea. Todo en uno.',
   icons: {
-    icon: '/barcode.ico',
+    icon: '@/favicon.ico',
   },
   // Removed viewport and themeColor from metadata
 };
