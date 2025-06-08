@@ -2,12 +2,10 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import Header from '@/components/Header'
 import BarcodeScanner from '@/components/BarcodeScanner'
 import PriceCalculator from '@/components/PriceCalculator'
 import TextConversion from '@/components/TextConversion'
 import ScanHistory from '@/components/ScanHistory'
-import Footer from '@/components/Footer'
 import CashCounterTabs from '@/components/CashCounterTabs'
 import {
   Calculator,
@@ -17,6 +15,7 @@ import {
   Banknote,
   Scan,
 } from 'lucide-react'
+import type { ScanHistoryEntry } from '@/types/barcode'
 
 // 1) Ampliamos ActiveTab para incluir "cashcounter"
 type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'history'
@@ -24,15 +23,66 @@ type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'histo
 export default function HomePage() {
   // 2) Estado para la pestaña activa
   const [activeTab, setActiveTab] = useState<ActiveTab>('cashcounter')
-  const [scanHistory, setScanHistory] = useState<string[]>([])
+  const [scanHistory, setScanHistory] = useState<ScanHistoryEntry[]>([])
+  const [notification, setNotification] = useState<{ message: string; color: string } | null>(null);
+
+  // LocalStorage: load on mount
+  useEffect(() => {
+    const stored = localStorage.getItem('scanHistory')
+    if (stored) {
+      try {
+        setScanHistory(JSON.parse(stored))
+      } catch {}
+    }
+  }, [])
+  // LocalStorage: save on change
+  useEffect(() => {
+    localStorage.setItem('scanHistory', JSON.stringify(scanHistory))
+  }, [scanHistory])
 
   // Función para manejar códigos detectados por el escáner
   const handleCodeDetected = (code: string) => {
-    setScanHistory(prev => (
-      prev[0] === code
-        ? prev
-        : [code, ...prev.slice(0, 19)]
-    ))
+    setScanHistory(prev => {
+      if (prev[0]?.code === code) return prev
+      // Si ya existe, lo sube al tope pero mantiene el nombre
+      const existing = prev.find(e => e.code === code)
+      const newEntry: ScanHistoryEntry = existing ? { ...existing, code } : { code }
+      const filtered = prev.filter(e => e.code !== code)
+      return [newEntry, ...filtered].slice(0, 20)
+    })
+  }
+
+  // Helper to show notification
+  const showNotification = (message: string, color: string = 'green') => {
+    setNotification({ message, color });
+    setTimeout(() => setNotification(null), 2000);
+  }
+
+  // Handler: copiar
+  const handleCopy = (code: string) => {
+    navigator.clipboard.writeText(code);
+    showNotification('¡Código copiado!', 'green');
+  }
+  // Handler: eliminar
+  const handleDelete = (code: string) => {
+    setScanHistory(prev => prev.filter(e => e.code !== code));
+    showNotification('Código eliminado', 'red');
+  }
+  // Handler: eliminar primer dígito
+  const handleRemoveLeadingZero = (code: string) => {
+    setScanHistory(prev => prev.map(e =>
+      e.code === code && code.length > 1 && code[0] === '0'
+        ? { ...e, code: code.slice(1) }
+        : e
+    ));
+    showNotification('Primer dígito eliminado', 'blue');
+  }
+  // Handler: renombrar
+  const handleRename = (code: string, name: string) => {
+    setScanHistory(prev => prev.map(e =>
+      e.code === code ? { ...e, name } : e
+    ));
+    showNotification('Nombre actualizado', 'indigo');
   }
 
   // 3) Lista de pestañas
@@ -77,9 +127,16 @@ export default function HomePage() {
 
   return (
     <>
-      <Header />
-
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {notification && (
+          <div
+            className={`fixed top-6 right-6 z-50 px-6 py-3 rounded-xl shadow-2xl flex items-center gap-2 font-semibold animate-fade-in-down bg-${notification.color}-500 text-white`}
+            style={{ minWidth: 180, textAlign: 'center' }}
+          >
+            {notification.message}
+          </div>
+        )}
+
         {/* Navegación por pestañas */}
         <div className="mb-8">
           <nav className="border-b border-[var(--input-border)]">
@@ -127,7 +184,21 @@ export default function HomePage() {
           {/* SCANNER */}
           {activeTab === 'scanner' && (
             <div className="max-w-4xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4">
-              <BarcodeScanner onDetect={handleCodeDetected} />
+              <div className="flex flex-col lg:flex-row gap-6">
+                <div className="flex-1">
+                  <BarcodeScanner onDetect={handleCodeDetected} />
+                </div>
+                <div className="w-full lg:w-80">
+                  <ScanHistory
+                    history={scanHistory}
+                    onCopy={handleCopy}
+                    onDelete={handleDelete}
+                    onRemoveLeadingZero={handleRemoveLeadingZero}
+                    onRename={handleRename}
+                    notify={showNotification}
+                  />
+                </div>
+              </div>
               <div className="mt-6 bg-blue-50 rounded-lg p-4">
                 <h3 className="font-medium text-blue-800 mb-2">💡 Consejos para mejores resultados:</h3>
                 <ul className="text-sm text-blue-700 space-y-1">
@@ -195,7 +266,14 @@ export default function HomePage() {
           {/* HISTORY */}
           {activeTab === 'history' && (
             <div className="max-w-4xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4">
-              <ScanHistory history={scanHistory} />
+              <ScanHistory
+                history={scanHistory}
+                onCopy={handleCopy}
+                onDelete={handleDelete}
+                onRemoveLeadingZero={handleRemoveLeadingZero}
+                onRename={handleRename}
+                notify={showNotification}
+              />
               {scanHistory.length > 0 ? (
                 <div className="mt-6 flex justify-center">
                   <button
@@ -223,8 +301,6 @@ export default function HomePage() {
           )}
         </div>
       </main>
-
-      <Footer />
     </>
   )
 }

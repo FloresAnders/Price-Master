@@ -45,29 +45,3 @@ export function ThemeToggle() {
     </button>
   )
 }
-
-// Versión alternativa con tres opciones (light, dark, system)
-export function ThemeSelector() {
-  const [mounted, setMounted] = useState(false)
-  const { theme, setTheme } = useTheme()
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  if (!mounted) {
-    return <div className="w-32 h-10 bg-gray-200 dark:bg-gray-800 rounded-lg" />
-  }
-
-  return (
-    <select
-      value={theme as string}
-      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setTheme(e.target.value)}
-      className="px-3 py-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-    >
-      <option value="light">Claro</option>
-      <option value="dark">Oscuro</option>
-      <option value="system">Sistema</option>
-    </select>
-  )
-}
