@@ -204,7 +204,7 @@ export function useBarcodeScanner(onDetect?: (code: string) => void) {
     let zbarInterval: number | null = null;
     let lastZbarCode = '';
     let lastQuaggaCode = '';
-    let cleanupRef: HTMLDivElement | null = liveStreamRef.current;
+    const cleanupRef: HTMLDivElement | null = liveStreamRef.current;
     async function startCamera() {
       try {
         const Quagga = (await import('@ericblade/quagga2')).default;

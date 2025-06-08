@@ -22,6 +22,23 @@ type CalculatorModalProps = {
 function CalculatorModal({ isOpen, onClose }: CalculatorModalProps) {
   const [display, setDisplay] = useState<string>('');
 
+  const handleButtonClick = React.useCallback((value: string) => {
+    if (value === '=') {
+      try {
+        const result = eval(display);
+        setDisplay(String(result));
+      } catch {
+        setDisplay('Error');
+      }
+      return;
+    }
+    if (value === 'C') {
+      setDisplay('');
+      return;
+    }
+    setDisplay((prev) => prev + value);
+  }, [display]);
+
   // Permitir uso de teclado
   useEffect(() => {
     if (!isOpen) return;
@@ -53,24 +70,7 @@ function CalculatorModal({ isOpen, onClose }: CalculatorModalProps) {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, display]);
-
-  const handleButtonClick = (value: string) => {
-    if (value === '=') {
-      try {
-        const result = eval(display);
-        setDisplay(String(result));
-      } catch {
-        setDisplay('Error');
-      }
-      return;
-    }
-    if (value === 'C') {
-      setDisplay('');
-      return;
-    }
-    setDisplay((prev) => prev + value);
-  };
+  }, [isOpen, handleButtonClick, onClose]);
 
   if (!isOpen) return null;
   return (
