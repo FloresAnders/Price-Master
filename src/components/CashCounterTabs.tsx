@@ -22,6 +22,39 @@ type CalculatorModalProps = {
 function CalculatorModal({ isOpen, onClose }: CalculatorModalProps) {
   const [display, setDisplay] = useState<string>('');
 
+  // Permitir uso de teclado
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
+      if (e.key === 'Enter' || e.key === '=') {
+        handleButtonClick('=');
+        e.preventDefault();
+        return;
+      }
+      if (e.key === 'c' || e.key === 'C') {
+        handleButtonClick('C');
+        e.preventDefault();
+        return;
+      }
+      if (['+', '-', '*', '/','.'].includes(e.key)) {
+        handleButtonClick(e.key);
+        e.preventDefault();
+        return;
+      }
+      if (/^[0-9]$/.test(e.key)) {
+        handleButtonClick(e.key);
+        e.preventDefault();
+        return;
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, display]);
+
   const handleButtonClick = (value: string) => {
     if (value === '=') {
       try {
