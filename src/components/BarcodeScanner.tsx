@@ -39,7 +39,7 @@ export default function BarcodeScanner({ onDetect }: BarcodeScannerProps) {
   const slideUp = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 } };
 
   return (
-    <div className="w-full max-w-3xl mx-auto flex flex-col gap-8 p-8 rounded-2xl shadow-2xl transition-colors duration-500 bg-[var(--card-bg)] text-[var(--foreground)] border border-[var(--input-border)]">
+    <div className="w-full max-w-3xl mx-auto flex flex-col gap-8 p-8 rounded-2xl shadow-2xl transition-colors duration-500 bg-[var(--card-bg)] text-[var(--foreground)] border border-[var(--input-border)] barcode-mobile">
       {/* Encabezado y botón toggle Cámara */}
       <motion.div {...slideUp} transition={{ duration: 0.5 }} className="text-center flex flex-col items-center gap-3">
         <div className="p-4 rounded-full bg-gradient-to-tr from-indigo-500 to-blue-400 text-white shadow-xl">
@@ -89,25 +89,27 @@ export default function BarcodeScanner({ onDetect }: BarcodeScannerProps) {
 
       {/* Mostrar código detectado */}
       <motion.div {...slideUp} transition={{ duration: 0.5 }} className="mb-4 text-center">
-        <label className="block text-sm font-medium mx-auto text-center w-fit mb-2 text-zinc-700 dark:text-zinc-200">
+        <label className="block text-sm font-medium mx-auto text-center w-fit mb-2 text-[var(--foreground)]">
           Código detectado:
         </label>
-        <div className="flex gap-2 justify-center">
+        <div className="flex gap-2 justify-center flex-col sm:flex-row items-center w-full">
           <input
             type="text"
             value={code}
             readOnly
             placeholder="Aquí aparecerá el código escaneado"
-            className="flex-1 max-w-md px-3 py-2 text-center rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-colors duration-300 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-100 font-mono text-lg shadow-sm"
+            className="flex-1 max-w-md px-3 py-2 text-center rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-colors duration-300 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-100 font-mono text-lg shadow-sm w-full"
           />
           {code && (
-            <button
-              onClick={handleCopyCode}
-              className="px-3 py-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-colors duration-300 flex items-center gap-1 bg-indigo-500 hover:bg-indigo-600 text-white font-semibold shadow"
-            >
-              <CopyIcon className="w-4 h-4" />
-              Copiar
-            </button>
+            <div className="w-full sm:w-auto mt-2 sm:mt-0 flex justify-center">
+              <button
+                onClick={handleCopyCode}
+                className="px-3 py-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-colors duration-300 flex items-center gap-1 bg-indigo-500 hover:bg-indigo-600 text-white font-semibold shadow w-full sm:w-auto"
+              >
+                <CopyIcon className="w-4 h-4" />
+                Copiar
+              </button>
+            </div>
           )}
         </div>
         {detectionMethod && (
@@ -144,7 +146,7 @@ export default function BarcodeScanner({ onDetect }: BarcodeScannerProps) {
       {/* Área de carga de imagen (solo si cameraActive===false) */}
       {!cameraActive && (
         <motion.div {...slideUp} transition={{ duration: 0.5 }}>
-          <label className="block text-sm font-medium mx-auto text-center w-fit mb-2 text-zinc-700 dark:text-zinc-200">
+          <label className="block text-sm font-medium mx-auto text-center w-fit mb-2 text-[var(--foreground)]">
             Seleccionar imagen:
           </label>
           <div

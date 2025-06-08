@@ -80,7 +80,7 @@ export function useBarcodeScanner(onDetect?: (code: string) => void) {
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         let detectedCode = '';
         let usedMethod = '';
-        // 1. ZBar‑WASM
+        // 1. ZBar‑WASM (prioridad máxima)
         try {
           const symbols = await scanImageData(imageData);
           if (symbols && symbols.length > 0) {
@@ -88,9 +88,10 @@ export function useBarcodeScanner(onDetect?: (code: string) => void) {
             usedMethod = 'ZBar‑WASM';
           }
         } catch {}
-        // 2. Quagga2
+        // 2. Quagga2 (solo si ZBar no detecta nada, y solo si la imagen es muy clara)
         if (!detectedCode) {
           try {
+            // Solo usar Quagga si la imagen es muy nítida (opcional: podrías agregar un chequeo de contraste o tamaño)
             const quaggaResult = await detectWithQuagga2(imageData);
             if (quaggaResult) {
               detectedCode = quaggaResult;
@@ -219,6 +220,8 @@ export function useBarcodeScanner(onDetect?: (code: string) => void) {
               type: 'LiveStream',
               constraints: {
                 facingMode: 'environment',
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
               },
               target: liveStreamRef.current,
             },
@@ -233,10 +236,17 @@ export function useBarcodeScanner(onDetect?: (code: string) => void) {
                 'i2of5_reader',
                 'code_93_reader',
               ],
+              debug: {
+                drawBoundingBox: true,
+                showFrequency: true,
+                drawScanline: true,
+                showPattern: true,
+              },
+              multiple: false,
             },
             locate: true,
-            numOfWorkers: 1,
-            frequency: 5,
+            numOfWorkers: 2,
+            frequency: 10,
           },
           (err: unknown) => {
             if (err) {
@@ -247,20 +257,7 @@ export function useBarcodeScanner(onDetect?: (code: string) => void) {
             Quagga.start();
           }
         );
-        // Quagga2 detection
-        Quagga.onDetected((data: { codeResult?: { code: string | null } }) => {
-          if (data.codeResult && data.codeResult.code && data.codeResult.code !== lastQuaggaCode) {
-            lastQuaggaCode = data.codeResult.code;
-            setCode(data.codeResult.code);
-            setDetectionMethod('Cámara (Quagga2)');
-            copyCodeToClipboard(data.codeResult.code);
-            if (onDetect) onDetect(data.codeResult.code);
-            Quagga.stop();
-            setCameraActive(false);
-            if (zbarInterval) window.clearInterval(zbarInterval);
-          }
-        });
-        // ZBar-WASM cada 500ms
+        // --- ZBar-WASM cada 500ms: PRIORIDAD ---
         zbarInterval = window.setInterval(async () => {
           if (!liveStreamRef.current) return;
           const videoElem = liveStreamRef.current.querySelector('video') as HTMLVideoElement | null;
@@ -276,6 +273,7 @@ export function useBarcodeScanner(onDetect?: (code: string) => void) {
               ctx.drawImage(videoElem, 0, 0, vWidth, vHeight);
               const frameData = ctx.getImageData(0, 0, vWidth, vHeight);
               try {
+                // PRIMERO ZBAR
                 const symbols = await scanImageData(frameData);
                 if (symbols && symbols.length > 0) {
                   const zbarCode = symbols[0].decode();
@@ -288,12 +286,33 @@ export function useBarcodeScanner(onDetect?: (code: string) => void) {
                     Quagga.stop();
                     setCameraActive(false);
                     if (zbarInterval) window.clearInterval(zbarInterval);
+                    return;
                   }
                 }
+                // SOLO SI ZBAR NO DETECTA, USAR QUAGGA
+                // (NO hacer nada aquí, Quagga.onDetected solo se ejecuta si ZBar no detecta nada)
               } catch {}
             }
           }
         }, 500);
+        // Quagga2 detection SOLO SI ZBar no detecta
+        Quagga.offDetected(); // Elimina cualquier listener anterior para evitar duplicados
+        Quagga.onDetected((data: { codeResult?: { code: string | null } }) => {
+          if (lastZbarCode) return; // Si ZBar ya detectó, ignorar Quagga
+          const code = data.codeResult?.code;
+          // Validación extra: solo aceptar códigos con longitud y formato válidos
+          const valid = typeof code === 'string' && /^[0-9A-Za-z\-\+\.\$\/\%]+$/.test(code) && code.length >= 8 && code.length <= 20;
+          if (valid && code !== lastQuaggaCode) {
+            lastQuaggaCode = code;
+            setCode(code);
+            setDetectionMethod('Cámara (Quagga2)');
+            copyCodeToClipboard(code);
+            if (onDetect) onDetect(code);
+            Quagga.stop();
+            setCameraActive(false);
+            if (zbarInterval) window.clearInterval(zbarInterval);
+          }
+        });
       } catch {
         setError('Error al iniciar la cámara.');
         setCameraActive(false);

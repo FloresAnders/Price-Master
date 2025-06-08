@@ -63,4 +63,80 @@
     font-family: var(--font-base);
     @apply antialiased;
   }
+
+  @media (max-width: 640px) {
+    /* Ajusta el padding y el gap del contenedor principal */
+    .barcode-mobile {
+      padding: 1rem !important;
+      gap: 1.25rem !important;
+    }
+    /* Botones y entradas ocupan todo el ancho, pero solo los que no están en un row de historial */
+    .barcode-mobile > .flex,
+    .barcode-mobile > .flex-col,
+    .barcode-mobile > .flex-row {
+      flex-direction: column !important;
+      gap: 0.5rem !important;
+      align-items: stretch !important;
+    }
+    /* Centrado forzado para todos los elementos principales */
+    .barcode-mobile, .barcode-mobile *:not(.text-left):not(.text-right) {
+      text-align: center !important;
+      justify-content: center !important;
+      align-items: center !important;
+    }
+    /* Historial: los rows de historial mantienen horizontalidad y centran iconos */
+    .barcode-mobile .scan-history-row {
+      flex-direction: row !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 0.5rem !important;
+    }
+    .barcode-mobile .scan-history-row button {
+      width: auto !important;
+      min-width: 0 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      padding: 0.5rem !important;
+      font-size: 1.1rem !important;
+    }
+    .barcode-mobile .scan-history-row .w-5,
+    .barcode-mobile .scan-history-row .h-5 {
+      width: 1.5rem !important;
+      height: 1.5rem !important;
+    }
+    /* Botones e inputs generales */
+    .barcode-mobile input[type="text"],
+    .barcode-mobile button {
+      width: 100% !important;
+      min-width: 0 !important;
+      font-size: 1rem !important;
+      padding-left: 0.75rem !important;
+      padding-right: 0.75rem !important;
+    }
+    .barcode-mobile .w-10,
+    .barcode-mobile .w-14,
+    .barcode-mobile .w-16 {
+      width: 2.5rem !important;
+      height: 2.5rem !important;
+    }
+    .barcode-mobile .max-w-md,
+    .barcode-mobile .max-w-3xl {
+      max-width: 100% !important;
+    }
+    .barcode-mobile .p-8 {
+      padding: 1rem !important;
+    }
+    .barcode-mobile .rounded-2xl {
+      border-radius: 1rem !important;
+    }
+    .barcode-mobile .fixed.top-6.right-6 {
+      top: 1rem !important;
+      right: 1rem !important;
+      left: 1rem !important;
+      width: auto !important;
+      max-width: calc(100vw - 2rem) !important;
+      justify-content: center !important;
+    }
+  }
 }
