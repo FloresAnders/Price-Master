@@ -25,7 +25,6 @@ function CalculatorModal({ isOpen, onClose }: CalculatorModalProps) {
   const handleButtonClick = (value: string) => {
     if (value === '=') {
       try {
-        // eslint-disable-next-line no-eval
         const result = eval(display);
         setDisplay(String(result));
       } catch {

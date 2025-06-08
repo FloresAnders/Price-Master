@@ -1,7 +1,7 @@
 'use client';
 import React, { useState } from 'react';
 import { Copy, Trash2, Edit3, ArrowLeftCircle } from 'lucide-react';
-import type { ScanHistoryProps as BaseScanHistoryProps, ScanHistoryEntry } from '../types/barcode';
+import type { ScanHistoryProps as BaseScanHistoryProps } from '../types/barcode';
 
 interface ScanHistoryProps extends BaseScanHistoryProps {
   notify?: (msg: string, color?: string) => void;
