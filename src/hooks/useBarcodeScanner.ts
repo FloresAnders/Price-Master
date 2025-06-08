@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { scanImageData } from '@undecaf/zbar-wasm';
 import { detectBasicPatternWithOrientation, preprocessImage, detectWithQuagga2 } from '../utils/barcodeUtils';
 
@@ -198,6 +198,135 @@ export function useBarcodeScanner(onDetect?: (code: string) => void) {
   const toggleCamera = useCallback(() => {
     setCameraActive((prev) => !prev);
   }, []);
+
+  // --- Cámara: iniciar/detener Quagga2 LiveStream ---
+  useEffect(() => {
+    let zbarInterval: number | null = null;
+    let lastZbarCode = '';
+    let lastQuaggaCode = '';
+    let cleanupRef: HTMLDivElement | null = liveStreamRef.current;
+    async function startCamera() {
+      try {
+        const Quagga = (await import('@ericblade/quagga2')).default;
+        if (!liveStreamRef.current) {
+          setError('No se encontró el contenedor de video para la cámara.');
+          setCameraActive(false);
+          return;
+        }
+        Quagga.init(
+          {
+            inputStream: {
+              type: 'LiveStream',
+              constraints: {
+                facingMode: 'environment',
+              },
+              target: liveStreamRef.current,
+            },
+            decoder: {
+              readers: [
+                'code_128_reader',
+                'ean_reader',
+                'ean_8_reader',
+                'code_39_reader',
+                'codabar_reader',
+                'upc_reader',
+                'i2of5_reader',
+                'code_93_reader',
+              ],
+            },
+            locate: true,
+            numOfWorkers: 1,
+            frequency: 5,
+          },
+          (err: unknown) => {
+            if (err) {
+              setError('No se pudo acceder a la cámara.');
+              setCameraActive(false);
+              return;
+            }
+            Quagga.start();
+          }
+        );
+        // Quagga2 detection
+        Quagga.onDetected((data: { codeResult?: { code: string | null } }) => {
+          if (data.codeResult && data.codeResult.code && data.codeResult.code !== lastQuaggaCode) {
+            lastQuaggaCode = data.codeResult.code;
+            setCode(data.codeResult.code);
+            setDetectionMethod('Cámara (Quagga2)');
+            copyCodeToClipboard(data.codeResult.code);
+            if (onDetect) onDetect(data.codeResult.code);
+            Quagga.stop();
+            setCameraActive(false);
+            if (zbarInterval) window.clearInterval(zbarInterval);
+          }
+        });
+        // ZBar-WASM cada 500ms
+        zbarInterval = window.setInterval(async () => {
+          if (!liveStreamRef.current) return;
+          const videoElem = liveStreamRef.current.querySelector('video') as HTMLVideoElement | null;
+          if (videoElem && videoElem.readyState === 4) {
+            const vWidth = videoElem.videoWidth;
+            const vHeight = videoElem.videoHeight;
+            if (vWidth > 0 && vHeight > 0) {
+              const canvas = document.createElement('canvas');
+              canvas.width = vWidth;
+              canvas.height = vHeight;
+              const ctx = canvas.getContext('2d');
+              if (!ctx) return;
+              ctx.drawImage(videoElem, 0, 0, vWidth, vHeight);
+              const frameData = ctx.getImageData(0, 0, vWidth, vHeight);
+              try {
+                const symbols = await scanImageData(frameData);
+                if (symbols && symbols.length > 0) {
+                  const zbarCode = symbols[0].decode();
+                  if (zbarCode && zbarCode !== lastZbarCode) {
+                    lastZbarCode = zbarCode;
+                    setCode(zbarCode);
+                    setDetectionMethod('Cámara (ZBar‑WASM)');
+                    copyCodeToClipboard(zbarCode);
+                    if (onDetect) onDetect(zbarCode);
+                    Quagga.stop();
+                    setCameraActive(false);
+                    if (zbarInterval) window.clearInterval(zbarInterval);
+                  }
+                }
+              } catch {}
+            }
+          }
+        }, 500);
+      } catch {
+        setError('Error al iniciar la cámara.');
+        setCameraActive(false);
+      }
+    }
+    if (cameraActive) {
+      startCamera();
+    } else {
+      (async () => {
+        try {
+          const Quagga = (await import('@ericblade/quagga2')).default;
+          Quagga.stop();
+        } catch {}
+        if (zbarInterval) window.clearInterval(zbarInterval);
+        if (cleanupRef) {
+          while (cleanupRef.firstChild) cleanupRef.removeChild(cleanupRef.firstChild);
+        }
+      })();
+    }
+    return () => {
+      (async () => {
+        try {
+          const Quagga = (await import('@ericblade/quagga2')).default;
+          Quagga.stop();
+        } catch {}
+        if (zbarInterval) window.clearInterval(zbarInterval);
+        if (cleanupRef) {
+          while (cleanupRef.firstChild) cleanupRef.removeChild(cleanupRef.firstChild);
+        }
+      })();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cameraActive]);
 
   return {
     code,
