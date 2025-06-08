@@ -1,8 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { scanImageData } from '@undecaf/zbar-wasm';
-import Quagga from '@ericblade/quagga2';
 import { detectBasicPatternWithOrientation, preprocessImage, detectWithQuagga2 } from '../utils/barcodeUtils';
-import type { QuaggaResultObject } from '../types/barcode';
 
 export function useBarcodeScanner(onDetect?: (code: string) => void) {
   const [code, setCode] = useState('');

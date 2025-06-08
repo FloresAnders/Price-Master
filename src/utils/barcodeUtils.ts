@@ -1,5 +1,4 @@
 // Funciones utilitarias para BarcodeScanner
-import type { QuaggaResultObject } from '../types/barcode';
 
 // --- Detección básica de patrones (fallback si ZBar y Quagga2 fallan) ---
 export function detectBasicPatternWithOrientation(imageData: ImageData): string | null {
@@ -168,18 +167,17 @@ export function preprocessImage(imageData: ImageData): ImageData {
 
 // --- Decodificación con Quagga2 (imagen estática) ---
 export async function detectWithQuagga2(imageData: ImageData): Promise<string | null> {
+  // Import dinámico para evitar require y problemas SSR
+  const Quagga = (await import('@ericblade/quagga2')).default;
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    return null;
+  }
+  canvas.width = imageData.width;
+  canvas.height = imageData.height;
+  ctx.putImageData(imageData, 0, 0);
   return new Promise((resolve) => {
-    // @ts-ignore
-    const Quagga = require('@ericblade/quagga2');
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      resolve(null);
-      return;
-    }
-    canvas.width = imageData.width;
-    canvas.height = imageData.height;
-    ctx.putImageData(imageData, 0, 0);
     Quagga.decodeSingle(
       {
         src: canvas.toDataURL('image/png'),
@@ -199,7 +197,7 @@ export async function detectWithQuagga2(imageData: ImageData): Promise<string | 
         locate: true,
         debug: false,
       },
-      (result: any) => {
+      (result: { codeResult?: { code: string | null } } | undefined) => {
         if (result && result.codeResult && result.codeResult.code) {
           resolve(result.codeResult.code);
         } else {
