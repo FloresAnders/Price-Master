@@ -57,7 +57,12 @@ function CalculatorModal({ isOpen, onClose }: CalculatorModalProps) {
         e.preventDefault();
         return;
       }
-      if (['+', '-', '*', '/','.'].includes(e.key)) {
+      if (e.key === 'Backspace') {
+        setDisplay((prev) => prev.slice(0, -1));
+        e.preventDefault();
+        return;
+      }
+      if (["+", "-", "*", "/", "."].includes(e.key)) {
         handleButtonClick(e.key);
         e.preventDefault();
         return;
@@ -175,6 +180,10 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
   const [extraAmount, setExtraAmount] = useState<number>(data.extraAmount);
   const [currency, setCurrency] = useState<'CRC' | 'USD'>(data.currency);
   const [showExtra, setShowExtra] = useState<boolean>(false);
+
+  // Estado para apertura de caja y venta actual
+  const [aperturaCaja, setAperturaCaja] = useState<number | ''>('');
+  const [ventaActual, setVentaActual] = useState<number | ''>('');
 
   // Sincronizar props → estado interno
   useEffect(() => {
@@ -422,6 +431,43 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
                 <Trash2 className="w-5 h-5" />
               </button>
             </div>
+            {/* Inputs adicionales */}
+            <div className="mb-2">
+              <label className="block text-[var(--foreground)] text-sm mb-1">Apertura de caja</label>
+              <input
+                type="number"
+                min="0"
+                value={aperturaCaja}
+                onChange={e => setAperturaCaja(e.target.value === '' ? '' : Number(e.target.value))}
+                className="w-full px-2 py-1 border rounded bg-[var(--input-bg)] text-[var(--foreground)] text-base focus:outline-none"
+                placeholder="0"
+              />
+            </div>
+            <div className="mb-2">
+              <label className="block text-[var(--foreground)] text-sm mb-1">Venta actual</label>
+              <input
+                type="number"
+                min="0"
+                value={ventaActual}
+                onChange={e => setVentaActual(e.target.value === '' ? '' : Number(e.target.value))}
+                className="w-full px-2 py-1 border rounded bg-[var(--input-bg)] text-[var(--foreground)] text-base focus:outline-none"
+                placeholder="0"
+              />
+            </div>
+            {/* Mensaje de sobrante/faltante */}
+            {aperturaCaja !== '' && ventaActual !== '' && (
+              (() => {
+                const montoRestante = computeTotal() - Number(ventaActual);
+                const diferencia = Math.abs(montoRestante - Number(aperturaCaja));
+                if (montoRestante > Number(aperturaCaja)) {
+                  return <div className="mt-2 text-green-600 font-semibold text-center">Sobrante: {currency === 'CRC' ? formatCRC(diferencia) : formatUSD(diferencia)}</div>;
+                } else if (montoRestante < Number(aperturaCaja)) {
+                  return <div className="mt-2 text-red-600 font-semibold text-center">Faltante: {currency === 'CRC' ? formatCRC(diferencia) : formatUSD(diferencia)}</div>;
+                } else {
+                  return <div className="mt-2 text-[var(--foreground)] font-semibold text-center">Sin sobrante ni faltante</div>;
+                }
+              })()
+            )}
           </div>
         </div>
       )}
@@ -485,6 +531,20 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
         <span className="text-lg font-semibold text-[var(--foreground)] text-center sm:text-left mb-2 sm:mb-0">
           Total:
         </span>
+        {/* Mensaje de sobrante/faltante entre el total y el monto */}
+        {aperturaCaja !== '' && ventaActual !== '' && (
+          (() => {
+            const montoRestante = computeTotal() - Number(ventaActual);
+            const diferencia = Math.abs(montoRestante - Number(aperturaCaja));
+            if (montoRestante > Number(aperturaCaja)) {
+              return <span className="text-green-600 font-semibold text-center mx-2">Sobrante: {currency === 'CRC' ? formatCRC(diferencia) : formatUSD(diferencia)}</span>;
+            } else if (montoRestante < Number(aperturaCaja)) {
+              return <span className="text-red-600 font-semibold text-center mx-2">Faltante: {currency === 'CRC' ? formatCRC(diferencia) : formatUSD(diferencia)}</span>;
+            } else {
+              return <span className="text-[var(--foreground)] font-semibold text-center mx-2">Sin sobrante ni faltante</span>;
+            }
+          })()
+        )}
         <span className="text-xl font-bold text-[var(--foreground)] text-center sm:text-right">
           {currency === 'CRC' ? formatCRC(computeTotal()) : formatUSD(computeTotal())}
         </span>

@@ -7,6 +7,8 @@ import PriceCalculator from '@/components/PriceCalculator'
 import TextConversion from '@/components/TextConversion'
 import ScanHistory from '@/components/ScanHistory'
 import CashCounterTabs from '@/components/CashCounterTabs'
+import ControlHorario from '@/components/ControlHorario'
+import DataEditor from '@/edit/DataEditor'
 import {
   Calculator,
   Smartphone,
@@ -14,11 +16,14 @@ import {
   ClipboardList,
   Banknote,
   Scan,
+  Clock,
+  Settings,
 } from 'lucide-react'
 import type { ScanHistoryEntry } from '@/types/barcode'
+import TimingControl from '@/components/TimingControl'
 
-// 1) Ampliamos ActiveTab para incluir "cashcounter"
-type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'history'
+// 1) Ampliamos ActiveTab para incluir "cashcounter", "controlhorario" y "edit"
+type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'history' | 'timingcontrol' | 'controlhorario' | 'edit'
 
 export default function HomePage() {
   // 2) Estado para la pestaña activa
@@ -83,9 +88,7 @@ export default function HomePage() {
       e.code === code ? { ...e, name } : e
     ));
     showNotification('Nombre actualizado', 'indigo');
-  }
-
-  // 3) Lista de pestañas
+  }  // 3) Lista de pestañas
   const tabs = [
     { id: 'scanner' as ActiveTab, name: 'Escáner', icon: Scan, description: 'Escanear códigos de barras' },
     { id: 'calculator' as ActiveTab, name: 'Calculadora', icon: Calculator, description: 'Calcular precios con descuentos' },
@@ -102,16 +105,17 @@ export default function HomePage() {
       icon: ClipboardList, 
       description: 'Ver códigos escaneados', 
       badge: scanHistory.length > 0 ? scanHistory.length : undefined 
-    }
+    },
+    { id: 'timingcontrol' as ActiveTab, name: 'Control Tiempos', icon: Smartphone, description: 'Registro de venta de tiempos' },
+    { id: 'controlhorario' as ActiveTab, name: 'Control Horario', icon: Clock, description: 'Registro de horarios de trabajo' },
   ]
 
   // 4) Al montar, leemos el hash de la URL y marcamos la pestaña correspondiente
   useEffect(() => {
     // Solo en cliente (window existe)
     if (typeof window !== 'undefined') {
-      const hash = window.location.hash.replace('#', '') as ActiveTab
-      // Si coincide con alguna pestaña válida, la activamos
-      if (['scanner','calculator','converter','cashcounter','history'].includes(hash)) {
+      const hash = window.location.hash.replace('#', '') as ActiveTab      // Si coincide con alguna pestaña válida, la activamos
+      if (['scanner','calculator','converter','cashcounter','history','timingcontrol','controlhorario','edit'].includes(hash)) {
         setActiveTab(hash)
       }
     }
@@ -231,27 +235,6 @@ export default function HomePage() {
           {activeTab === 'converter' && (
             <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4">
               <TextConversion />
-              <div className="mt-6 bg-purple-50 rounded-lg p-4">
-                <h3 className="font-medium text-purple-800 mb-2">🔧 Casos de uso comunes:</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-purple-700">
-                  <div>
-                    <p><strong>Para programadores:</strong></p>
-                    <ul className="ml-4 space-y-1">
-                      <li>• camelCase para variables</li>
-                      <li>• snake_case para Python</li>
-                      <li>• kebab-case para CSS</li>
-                    </ul>
-                  </div>
-                  <div>
-                    <p><strong>Para documentos:</strong></p>
-                    <ul className="ml-4 space-y-1">
-                      <li>• Títulos profesionales</li>
-                      <li>• Conversión de mayúsculas/minúsculas</li>
-                      <li>• Análisis de texto con estadísticas</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
             </div>
           )}
 
@@ -297,6 +280,19 @@ export default function HomePage() {
                 </div>
               )}
             </div>
+          )}          {/* CONTROL TIEMPOS */}
+          {activeTab === 'timingcontrol' && (
+            <div className="max-w-4xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4 min-h-[300px] flex flex-col items-center justify-center">
+              <TimingControl />
+            </div>
+          )}          {/* CONTROL HORARIO */}
+          {activeTab === 'controlhorario' && (
+            <ControlHorario />
+          )}
+
+          {/* EDITOR DE DATOS */}
+          {activeTab === 'edit' && (
+            <DataEditor />
           )}
         </div>
       </main>
