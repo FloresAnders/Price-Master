@@ -1,49 +1,10 @@
 import React, { useState } from 'react';
+import locationsData from '../data/locations.json';
+import sorteosData from '../data/sorteos.json';
+import type { Location, Sorteo } from '../types/timing';
 
-const LOCATIONS = [
-    { label: 'PALMARES', value: 'PALMARES', names: ['VIVIANA', 'ANGEL', 'ALVARO', 'GABRIEL', 'ANDERS'] },
-    { label: 'SINAI', value: 'SINAI', names: ['ARIANNA', 'FABIAN', 'ANDERS', 'ALVARO', 'GABRIEL'] },
-    { label: 'SAN VITO', value: 'SAN VITO', names: ['VANESSA', 'KEVIN'] },
-    { label: 'COOPABUENA', value: 'COOPABUENA', names: ['NIDSY', 'YESI', 'NAZARETH'] },
-];
-
-const SORTEOS = [
-    'TICA TARDE REV',
-    'REVENTADO TARDE (R)',
-    'TICA TARDE',
-    'TICA DÍA REV',
-    'REVENTADO DÍA (R)',
-    'TICA DÍA',
-    'TICA NOCHE REV',
-    'REVENTADO NOCHE (R)',
-    'TICA NOCHE/Loteria/Chances',
-    'NICA DE LA TARDE',
-    'NICA ESPECIAL TARDE',
-    'NICA DE LAS ONCE',
-    'NICA ESPECIAL ONCE',
-    'NICA NOCHE',
-    'NICA ESPECIAL NOCHE',
-    'NICA 6 PM SÁBADO',
-    'NICA ESPECIAL 6PM SAB',
-    'LA ANGUILA TARDE',
-    'LA SUERTE TARDE',
-    'HONDURAS 3PM',
-    'DOMINICANA DÍA',
-    'NEW YORK DÍA',
-    'SALVADOREÑA MAÑANA',
-    'HONDURAS 11AM',
-    'LA SUERTE MAÑANA',
-    'LA PRIMERA DÍA',
-    'LA ANGUILA MAÑANA',
-    'SALVADOREÑA NOCHE',
-    'HONDURAS 9PM',
-    'NY NOCHE',
-    'DOMINICANA NOCHE',
-    'LA ANGUILA NOCHE',
-    'LA PRIMERA NOCHE',
-    'LOTEKA',
-
-];
+const LOCATIONS: Location[] = locationsData as Location[];
+const SORTEOS: Sorteo[] = sorteosData as Sorteo[];
 
 const INITIAL_ROWS = 4;
 
