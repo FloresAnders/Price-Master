@@ -11,37 +11,38 @@ const SORTEOS = [
     'TICA TARDE REV',
     'REVENTADO TARDE (R)',
     'TICA TARDE',
-    'LA ANGUILA TARDE',
-    'LA SUERTE TARDE',
-    'NICA DE LA TARDE',
-    'NICA ESPECIAL TARDE',
-    'HONDURAS 3PM',
     'TICA DÍA REV',
     'REVENTADO DÍA (R)',
     'TICA DÍA',
-    'DOMINICANA DÍA',
-    'NEW YORK DÍA',
+    'TICA NOCHE REV',
+    'REVENTADO NOCHE (R)',
+    'TICA NOCHE/Loteria/Chances',
+    'NICA DE LA TARDE',
+    'NICA ESPECIAL TARDE',
     'NICA DE LAS ONCE',
     'NICA ESPECIAL ONCE',
+    'NICA NOCHE',
+    'NICA ESPECIAL NOCHE',
+    'NICA 6 PM SÁBADO',
+    'NICA ESPECIAL 6PM SAB',
+    'LA ANGUILA TARDE',
+    'LA SUERTE TARDE',
+    'HONDURAS 3PM',
+    'DOMINICANA DÍA',
+    'NEW YORK DÍA',
     'SALVADOREÑA MAÑANA',
     'HONDURAS 11AM',
     'LA SUERTE MAÑANA',
     'LA PRIMERA DÍA',
     'LA ANGUILA MAÑANA',
-    'NICA NOCHE',
-    'NICA ESPECIAL NOCHE',
     'SALVADOREÑA NOCHE',
     'HONDURAS 9PM',
     'NY NOCHE',
-    'TICA NOCHE REV',
-    'REVENTADO NOCHE (R)',
-    'TICA NOCHE/Loteria/Chances',
     'DOMINICANA NOCHE',
     'LA ANGUILA NOCHE',
-    'NICA 6 PM SÁBADO',
-    'NICA ESPECIAL 6PM SAB',
     'LA PRIMERA NOCHE',
     'LOTEKA',
+
 ];
 
 const INITIAL_ROWS = 4;
@@ -59,6 +60,7 @@ export default function TimingControl() {
             sorteo: '',
             amount: '',
             time: '',
+            cliente: '',
         }))
     );
     const [showSummary, setShowSummary] = useState(false);
@@ -84,60 +86,73 @@ export default function TimingControl() {
     };
 
     const addRow = () => {
-        setRows(prev => ([...prev, { name: '', sorteo: '', amount: '', time: '' }]));
+        setRows(prev => ([...prev, { name: '', sorteo: '', amount: '', time: '', cliente: '' }]));
     };
 
     React.useEffect(() => {
         const saved = localStorage.getItem('timingControlRows_' + location);
         if (saved) {
             try {
-                setRows(JSON.parse(saved));
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed)) {
+                    setRows(parsed.map((row: any) => ({
+                        name: row.name || '',
+                        sorteo: row.sorteo || '',
+                        amount: row.amount || '',
+                        time: row.time || '',
+                        cliente: row.cliente || '',
+                    })));
+                }
             } catch { }
         } else {
-            setRows(Array.from({ length: INITIAL_ROWS }, () => ({ name: '', sorteo: '', amount: '', time: '' })));
+            setRows(Array.from({ length: INITIAL_ROWS }, () => ({ name: '', sorteo: '', amount: '', time: '', cliente: '' })));
         }
     }, [location]);
 
     React.useEffect(() => {
         localStorage.setItem('timingControlRows_' + location, JSON.stringify(rows));
-    }, [rows, location]);
-
-    return (
-        <div className="w-full relative">
+    }, [rows, location]); return (
+        <div className="rounded-lg shadow-md p-6" style={{ background: 'var(--card-bg)', color: 'var(--foreground)' }}>
             {showSummary && (
-                <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center">
-                    <div className="bg-white dark:bg-[var(--card-bg)] rounded-2xl shadow-2xl p-6 min-w-[320px] max-w-[90vw] relative">
+                <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+                    <div className="rounded-2xl shadow-xl p-6 min-w-[320px] max-w-[90vw] relative" style={{ background: 'var(--card-bg)', color: 'var(--foreground)' }}>
                         <button
-                            className="absolute top-2 right-2 text-gray-500 hover:text-red-600 text-xl font-bold"
+                            className="absolute top-2 right-2 hover:text-gray-500"
+                            style={{ color: 'var(--foreground)' }}
                             onClick={() => setShowSummary(false)}
                             aria-label="Cerrar resumen"
                         >
-                            ×
+                            <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
                         </button>
-                        <h2 className="text-lg font-bold mb-4 text-center">Resumen de Ventas por Sorteo</h2>
-                        {Object.keys(resumenSorteos).length === 0 ? (
-                            <div className="text-center text-gray-500">No hay sorteos con monto asignado.</div>
+                        <h2 className="text-lg font-bold mb-4 text-center" style={{ color: 'var(--foreground)' }}>Resumen de Ventas por Sorteo</h2>                        {Object.keys(resumenSorteos).length === 0 ? (
+                            <div className="text-center" style={{ color: 'var(--foreground)' }}>No hay sorteos con monto asignado.</div>
                         ) : (
                             <div className="space-y-2 mb-4">
                                 {Object.entries(resumenSorteos).map(([sorteo, total]) => (
-                                    <div key={sorteo} className="flex justify-between border-b pb-1">
-                                        <span className="font-medium">{sorteo}</span>
-                                        <span className="font-mono">₡ {total.toLocaleString('es-CR')}</span>
+                                    <div key={sorteo} className="flex justify-between pb-1" style={{ borderBottom: '1px solid var(--input-border)' }}>
+                                        <span className="font-medium" style={{ color: 'var(--foreground)' }}>{sorteo}</span>
+                                        <span className="font-mono" style={{ color: 'var(--foreground)' }}>₡ {total.toLocaleString('es-CR')}</span>
                                     </div>
                                 ))}
                             </div>
                         )}
-                        <div className="mt-4 text-right font-bold text-lg">
+                        <div className="mt-4 text-right font-bold text-lg" style={{ color: 'var(--foreground)' }}>
                             Total: <span className="font-mono text-green-700">₡ {totalGeneral.toLocaleString('es-CR')}</span>
                         </div>
                     </div>
                 </div>
-            )}
-            <div className="mb-4 flex flex-col sm:flex-row gap-2 items-center justify-between">
+            )}            <div className="mb-4 flex flex-col sm:flex-row gap-2 items-center justify-between">
                 <div className="flex items-center gap-2">
-                    <label className="font-semibold mr-2">Ubicación:</label>
+                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--foreground)' }}>Ubicación:</label>
                     <select
-                        className="border rounded px-2 py-1 bg-[var(--input-bg)] text-[var(--foreground)]"
+                        className="px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        style={{
+                            background: 'var(--input-bg)',
+                            border: '1px solid var(--input-border)',
+                            color: 'var(--foreground)',
+                        }}
                         value={location}
                         onChange={e => setLocation(e.target.value)}
                     >
@@ -147,37 +162,46 @@ export default function TimingControl() {
                     </select>
                 </div>
                 <div className="flex items-center gap-2 ml-auto">
-                    <span className="font-semibold text-gray-700 dark:text-gray-200">Total:</span>
+                    <span className="font-semibold" style={{ color: 'var(--foreground)' }}>Total:</span>
                     <span className="font-mono text-green-700 text-lg">₡ {totalGeneral.toLocaleString('es-CR')}</span>
                     <button
-                        className="ml-2 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded font-semibold text-sm"
+                        className="ml-2 px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        style={{
+                            background: 'var(--button-bg)',
+                            color: 'var(--button-text)',
+                        }}
                         onClick={() => setShowSummary(true)}
                     >
                         Ver resumen
                     </button>
                     <button
-                        className="ml-2 px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded font-semibold text-sm"
+                        className="ml-2 px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 bg-red-500 hover:bg-red-600 text-white"
                         onClick={() => {
                             if (window.confirm('¿Seguro que deseas limpiar todas las filas?')) {
-                                setRows(Array.from({ length: INITIAL_ROWS }, () => ({ name: '', sorteo: '', amount: '', time: '' })))
+                                setRows(Array.from({ length: INITIAL_ROWS }, () => ({ name: '', sorteo: '', amount: '', time: '', cliente: '' })))
                             }
                         }}
                     >
                         Limpiar todo
                     </button>
                 </div>
-            </div>
-            <div className="overflow-x-auto">
-                <div className="grid grid-cols-4 gap-2 font-semibold mb-2">
+            </div>            <div className="overflow-x-auto">
+                <div className="grid grid-cols-5 gap-2 font-semibold mb-2" style={{ color: 'var(--foreground)' }}>
                     <div>Nombre</div>
                     <div>Sorteo</div>
                     <div>Monto (₡)</div>
                     <div>Hora</div>
+                    <div>Cliente (opcional)</div>
                 </div>
                 {rows.map((row, idx) => (
-                    <div className="grid grid-cols-4 gap-2 mb-2" key={idx}>
+                    <div className="grid grid-cols-5 gap-2 mb-2" key={idx}>
                         <select
-                            className="border rounded px-2 py-1 bg-[var(--input-bg)] text-[var(--foreground)]"
+                            className="px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            style={{
+                                background: 'var(--input-bg)',
+                                border: '1px solid var(--input-border)',
+                                color: 'var(--foreground)',
+                            }}
                             value={row.name}
                             onChange={e => handleRowChange(idx, 'name', e.target.value)}
                         >
@@ -187,7 +211,12 @@ export default function TimingControl() {
                             ))}
                         </select>
                         <select
-                            className="border rounded px-2 py-1 bg-[var(--input-bg)] text-[var(--foreground)]"
+                            className="px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            style={{
+                                background: 'var(--input-bg)',
+                                border: '1px solid var(--input-border)',
+                                color: 'var(--foreground)',
+                            }}
                             value={row.sorteo}
                             onChange={e => handleRowChange(idx, 'sorteo', e.target.value)}
                         >
@@ -199,22 +228,52 @@ export default function TimingControl() {
                         <input
                             type="number"
                             min="0"
-                            className="border rounded px-2 py-1 bg-[var(--input-bg)] text-[var(--foreground)]"
+                            className="px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            style={{
+                                background: 'var(--input-bg)',
+                                border: '1px solid var(--input-border)',
+                                color: 'var(--foreground)',
+                            }}
                             value={row.amount}
                             onChange={e => handleRowChange(idx, 'amount', e.target.value)}
                             placeholder="₡"
                         />
                         <input
                             type="text"
-                            className="border rounded px-2 py-1 bg-[var(--input-bg)] text-[var(--foreground)]"
+                            className="px-3 py-2 rounded-md"
+                            style={{
+                                background: 'var(--input-bg)',
+                                border: '1px solid var(--input-border)',
+                                color: 'var(--foreground)',
+                            }}
                             value={row.time}
                             readOnly
                             placeholder="--:--:--"
                         />
+                        {row.cliente ? (
+                            <span className="text-blue-700 font-semibold truncate px-2 flex items-center min-h-[40px]">{row.cliente}</span>
+                        ) : (
+                            <button
+                                className="flex items-center justify-center w-full h-full rounded min-h-[40px] transition-colors"
+                                style={{
+                                    background: 'var(--input-bg)',
+                                    border: '1px solid var(--input-border)',
+                                }}
+                                title="Agregar cliente"
+                                onClick={() => {
+                                    const cliente = prompt('Nombre del cliente (opcional):', row.cliente || '');
+                                    handleRowChange(idx, 'cliente', cliente || '');
+                                }}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 text-blue-600">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.25v-1.5A2.25 2.25 0 016.75 16.5h10.5a2.25 2.25 0 012.25 2.25v1.5" />
+                                </svg>
+                            </button>
+                        )}
                     </div>
                 ))}
                 <button
-                    className="mt-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded font-semibold"
+                    className="mt-2 px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-green-600 hover:bg-green-700 text-white font-semibold"
                     onClick={addRow}
                 >
                     + Agregar fila
