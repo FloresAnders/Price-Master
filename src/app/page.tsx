@@ -7,6 +7,7 @@ import PriceCalculator from '@/components/PriceCalculator'
 import TextConversion from '@/components/TextConversion'
 import ScanHistory from '@/components/ScanHistory'
 import CashCounterTabs from '@/components/CashCounterTabs'
+import ControlHorario from '@/components/ControlHorario'
 import {
   Calculator,
   Smartphone,
@@ -14,12 +15,13 @@ import {
   ClipboardList,
   Banknote,
   Scan,
+  Clock,
 } from 'lucide-react'
 import type { ScanHistoryEntry } from '@/types/barcode'
 import TimingControl from '@/components/TimingControl'
 
-// 1) Ampliamos ActiveTab para incluir "cashcounter"
-type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'history' | 'timingcontrol'
+// 1) Ampliamos ActiveTab para incluir "cashcounter" y "controlhorario"
+type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'history' | 'timingcontrol' | 'controlhorario'
 
 export default function HomePage() {
   // 2) Estado para la pestaña activa
@@ -85,7 +87,6 @@ export default function HomePage() {
     ));
     showNotification('Nombre actualizado', 'indigo');
   }
-
   // 3) Lista de pestañas
   const tabs = [
     { id: 'scanner' as ActiveTab, name: 'Escáner', icon: Scan, description: 'Escanear códigos de barras' },
@@ -105,15 +106,15 @@ export default function HomePage() {
       badge: scanHistory.length > 0 ? scanHistory.length : undefined 
     },
     { id: 'timingcontrol' as ActiveTab, name: 'Control Tiempos', icon: Smartphone, description: 'Registro de venta de tiempos' },
+    { id: 'controlhorario' as ActiveTab, name: 'Control Horario', icon: Clock, description: 'Registro de horarios de trabajo' },
   ]
 
   // 4) Al montar, leemos el hash de la URL y marcamos la pestaña correspondiente
   useEffect(() => {
     // Solo en cliente (window existe)
     if (typeof window !== 'undefined') {
-      const hash = window.location.hash.replace('#', '') as ActiveTab
-      // Si coincide con alguna pestaña válida, la activamos
-      if (['scanner','calculator','converter','cashcounter','history','timingcontrol'].includes(hash)) {
+      const hash = window.location.hash.replace('#', '') as ActiveTab      // Si coincide con alguna pestaña válida, la activamos
+      if (['scanner','calculator','converter','cashcounter','history','timingcontrol','controlhorario'].includes(hash)) {
         setActiveTab(hash)
       }
     }
@@ -279,13 +280,14 @@ export default function HomePage() {
                 </div>
               )}
             </div>
-          )}
-
-          {/* CONTROL TIEMPOS */}
+          )}          {/* CONTROL TIEMPOS */}
           {activeTab === 'timingcontrol' && (
             <div className="max-w-4xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4 min-h-[300px] flex flex-col items-center justify-center">
               <TimingControl />
             </div>
+          )}          {/* CONTROL HORARIO */}
+          {activeTab === 'controlhorario' && (
+            <ControlHorario />
           )}
         </div>
       </main>
