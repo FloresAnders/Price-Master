@@ -14,7 +14,7 @@ function getNowTime() {
 }
 
 export default function TimingControl() {
-    const [location, setLocation] = useState(LOCATIONS[0].value);
+    const [location, setLocation] = useState('');
     const [rows, setRows] = useState(() =>
         Array.from({ length: INITIAL_ROWS }, () => ({
             name: '',
@@ -48,9 +48,12 @@ export default function TimingControl() {
 
     const addRow = () => {
         setRows(prev => ([...prev, { name: '', sorteo: '', amount: '', time: '', cliente: '' }]));
-    };
+    }; React.useEffect(() => {
+        if (!location) {
+            setRows(Array.from({ length: INITIAL_ROWS }, () => ({ name: '', sorteo: '', amount: '', time: '', cliente: '' })));
+            return;
+        }
 
-    React.useEffect(() => {
         const saved = localStorage.getItem('timingControlRows_' + location);
         if (saved) {
             try {
@@ -68,13 +71,32 @@ export default function TimingControl() {
         } else {
             setRows(Array.from({ length: INITIAL_ROWS }, () => ({ name: '', sorteo: '', amount: '', time: '', cliente: '' })));
         }
-    }, [location]);
+    }, [location]);    React.useEffect(() => {
+        if (location) {
+            localStorage.setItem('timingControlRows_' + location, JSON.stringify(rows));
+        }
+    }, [rows, location]);
 
+    // Handle ESC key to close summary modal
     React.useEffect(() => {
-        localStorage.setItem('timingControlRows_' + location, JSON.stringify(rows));
-    }, [rows, location]); return (
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape' && showSummary) {
+                setShowSummary(false);
+            }
+        };
+
+        if (showSummary) {
+            document.addEventListener('keydown', handleKeyDown);
+        }
+
+        return () => {
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [showSummary]);
+
+    return (
         <div className="rounded-lg shadow-md p-6" style={{ background: 'var(--card-bg)', color: 'var(--foreground)' }}>
-            {showSummary && (
+            {showSummary && location && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
                     <div className="rounded-2xl shadow-xl p-6 min-w-[320px] max-w-[90vw] relative" style={{ background: 'var(--card-bg)', color: 'var(--foreground)' }}>
                         <button
@@ -113,133 +135,140 @@ export default function TimingControl() {
                             background: 'var(--input-bg)',
                             border: '1px solid var(--input-border)',
                             color: 'var(--foreground)',
-                        }}
-                        value={location}
+                        }} value={location}
                         onChange={e => setLocation(e.target.value)}
                     >
+                        <option value="">Seleccionar ubicación</option>
                         {LOCATIONS.map(loc => (
                             <option key={loc.value} value={loc.value}>{loc.label}</option>
                         ))}
                     </select>
                 </div>
-                <div className="flex items-center gap-2 ml-auto">
-                    <span className="font-semibold" style={{ color: 'var(--foreground)' }}>Total:</span>
-                    <span className="font-mono text-green-700 text-lg">₡ {totalGeneral.toLocaleString('es-CR')}</span>
-                    <button
-                        className="ml-2 px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        style={{
-                            background: 'var(--button-bg)',
-                            color: 'var(--button-text)',
-                        }}
-                        onClick={() => setShowSummary(true)}
-                    >
-                        Ver resumen
-                    </button>
-                    <button
-                        className="ml-2 px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 bg-red-500 hover:bg-red-600 text-white"
-                        onClick={() => {
-                            if (window.confirm('¿Seguro que deseas limpiar todas las filas?')) {
-                                setRows(Array.from({ length: INITIAL_ROWS }, () => ({ name: '', sorteo: '', amount: '', time: '', cliente: '' })))
-                            }
-                        }}
-                    >
-                        Limpiar todo
-                    </button>
-                </div>
-            </div>            <div className="overflow-x-auto">
-                <div className="grid grid-cols-5 gap-2 font-semibold mb-2" style={{ color: 'var(--foreground)' }}>
-                    <div>Nombre</div>
-                    <div>Sorteo</div>
-                    <div>Monto (₡)</div>
-                    <div>Hora</div>
-                    <div>Cliente (opcional)</div>
-                </div>
-                {rows.map((row, idx) => (
-                    <div className="grid grid-cols-5 gap-2 mb-2" key={idx}>
-                        <select
-                            className="px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                {location && (
+                    <div className="flex items-center gap-2 ml-auto">
+                        <span className="font-semibold" style={{ color: 'var(--foreground)' }}>Total:</span>
+                        <span className="font-mono text-green-700 text-lg">₡ {totalGeneral.toLocaleString('es-CR')}</span>
+                        <button
+                            className="ml-2 px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             style={{
-                                background: 'var(--input-bg)',
-                                border: '1px solid var(--input-border)',
-                                color: 'var(--foreground)',
+                                background: 'var(--button-bg)',
+                                color: 'var(--button-text)',
                             }}
-                            value={row.name}
-                            onChange={e => handleRowChange(idx, 'name', e.target.value)}
+                            onClick={() => setShowSummary(true)}
                         >
-                            <option value="">Seleccionar</option>
-                            {names.map(n => (
-                                <option key={n} value={n}>{n}</option>
-                            ))}
-                        </select>
-                        <select
-                            className="px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            style={{
-                                background: 'var(--input-bg)',
-                                border: '1px solid var(--input-border)',
-                                color: 'var(--foreground)',
+                            Ver resumen
+                        </button>
+                        <button
+                            className="ml-2 px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 bg-red-500 hover:bg-red-600 text-white"
+                            onClick={() => {
+                                if (window.confirm('¿Seguro que deseas limpiar todas las filas?')) {
+                                    setRows(Array.from({ length: INITIAL_ROWS }, () => ({ name: '', sorteo: '', amount: '', time: '', cliente: '' })))
+                                }
                             }}
-                            value={row.sorteo}
-                            onChange={e => handleRowChange(idx, 'sorteo', e.target.value)}
                         >
-                            <option value="">Seleccionar</option>
-                            {SORTEOS.map(s => (
-                                <option key={s} value={s}>{s}</option>
-                            ))}
-                        </select>
-                        <input
-                            type="number"
-                            min="0"
-                            className="px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            style={{
-                                background: 'var(--input-bg)',
-                                border: '1px solid var(--input-border)',
-                                color: 'var(--foreground)',
-                            }}
-                            value={row.amount}
-                            onChange={e => handleRowChange(idx, 'amount', e.target.value)}
-                            placeholder="₡"
-                        />
-                        <input
-                            type="text"
-                            className="px-3 py-2 rounded-md"
-                            style={{
-                                background: 'var(--input-bg)',
-                                border: '1px solid var(--input-border)',
-                                color: 'var(--foreground)',
-                            }}
-                            value={row.time}
-                            readOnly
-                            placeholder="--:--:--"
-                        />
-                        {row.cliente ? (
-                            <span className="text-blue-700 font-semibold truncate px-2 flex items-center min-h-[40px]">{row.cliente}</span>
-                        ) : (
-                            <button
-                                className="flex items-center justify-center w-full h-full rounded min-h-[40px] transition-colors"
+                            Limpiar todo                    </button>
+                    </div>
+                )}
+            </div>
+            {location ? (
+                <div className="overflow-x-auto">
+                    <div className="grid grid-cols-5 gap-2 font-semibold mb-2" style={{ color: 'var(--foreground)' }}>
+                        <div>Nombre</div>
+                        <div>Sorteo</div>
+                        <div>Monto (₡)</div>
+                        <div>Hora</div>
+                        <div>Cliente (opcional)</div>
+                    </div>
+                    {rows.map((row, idx) => (
+                        <div className="grid grid-cols-5 gap-2 mb-2" key={idx}>
+                            <select
+                                className="px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                 style={{
                                     background: 'var(--input-bg)',
                                     border: '1px solid var(--input-border)',
+                                    color: 'var(--foreground)',
                                 }}
-                                title="Agregar cliente"
-                                onClick={() => {
-                                    const cliente = prompt('Nombre del cliente (opcional):', row.cliente || '');
-                                    handleRowChange(idx, 'cliente', cliente || '');
-                                }}
+                                value={row.name}
+                                onChange={e => handleRowChange(idx, 'name', e.target.value)}
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 text-blue-600">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.25v-1.5A2.25 2.25 0 016.75 16.5h10.5a2.25 2.25 0 012.25 2.25v1.5" />
-                                </svg>
-                            </button>
-                        )}
-                    </div>
-                ))}
-                <button
-                    className="mt-2 px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-green-600 hover:bg-green-700 text-white font-semibold"
-                    onClick={addRow}
-                >
-                    + Agregar fila
-                </button>
-            </div>
+                                <option value="">Seleccionar</option>
+                                {names.map(n => (
+                                    <option key={n} value={n}>{n}</option>
+                                ))}
+                            </select>
+                            <select
+                                className="px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                style={{
+                                    background: 'var(--input-bg)',
+                                    border: '1px solid var(--input-border)',
+                                    color: 'var(--foreground)',
+                                }}
+                                value={row.sorteo}
+                                onChange={e => handleRowChange(idx, 'sorteo', e.target.value)}
+                            >
+                                <option value="">Seleccionar</option>
+                                {SORTEOS.map(s => (
+                                    <option key={s} value={s}>{s}</option>
+                                ))}
+                            </select>
+                            <input
+                                type="number"
+                                min="0"
+                                className="px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                style={{
+                                    background: 'var(--input-bg)',
+                                    border: '1px solid var(--input-border)',
+                                    color: 'var(--foreground)',
+                                }}
+                                value={row.amount}
+                                onChange={e => handleRowChange(idx, 'amount', e.target.value)}
+                                placeholder="₡"
+                            />
+                            <input
+                                type="text"
+                                className="px-3 py-2 rounded-md"
+                                style={{
+                                    background: 'var(--input-bg)',
+                                    border: '1px solid var(--input-border)',
+                                    color: 'var(--foreground)',
+                                }}
+                                value={row.time}
+                                readOnly
+                                placeholder="--:--:--"
+                            />
+                            {row.cliente ? (
+                                <span className="text-blue-700 font-semibold truncate px-2 flex items-center min-h-[40px]">{row.cliente}</span>
+                            ) : (
+                                <button
+                                    className="flex items-center justify-center w-full h-full rounded min-h-[40px] transition-colors"
+                                    style={{
+                                        background: 'var(--input-bg)',
+                                        border: '1px solid var(--input-border)',
+                                    }}
+                                    title="Agregar cliente"
+                                    onClick={() => {
+                                        const cliente = prompt('Nombre del cliente (opcional):', row.cliente || '');
+                                        handleRowChange(idx, 'cliente', cliente || '');
+                                    }}
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 text-blue-600">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.25v-1.5A2.25 2.25 0 016.75 16.5h10.5a2.25 2.25 0 012.25 2.25v1.5" />
+                                    </svg>
+                                </button>
+                            )}
+                        </div>
+                    ))}                <button
+                        className="mt-2 px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-green-600 hover:bg-green-700 text-white font-semibold"
+                        onClick={addRow}
+                    >
+                        + Agregar fila
+                    </button>
+                </div>
+            ) : (
+                <div className="text-center py-8" style={{ color: 'var(--foreground)' }}>
+                    <p className="text-lg">Selecciona una ubicación para comenzar</p>
+                </div>
+            )}
         </div>
     );
 }
