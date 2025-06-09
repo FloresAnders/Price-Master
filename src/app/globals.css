@@ -20,11 +20,17 @@
     --tab-text-active: #4338ca;       /* indigo-600 */
     --tab-border: transparent;
     --tab-border-active: #4338ca;     /* indigo-600 */
-    --tab-hover-text: #4b5563;        /* gray-700 */
-
-    /* Badge */
+    --tab-hover-text: #4b5563;        /* gray-700 */    /* Badge */
     --badge-bg: #e0e7ff;              /* indigo-100 */
     --badge-text: #4338ca;            /* indigo-600 */
+
+    /* Shift colors - Light theme */
+    --shift-nocturno-bg: #bfdbfe;      /* blue-200 */
+    --shift-nocturno-text: #1e40af;    /* blue-800 */
+    --shift-diurno-bg: #fef3c7;        /* yellow-100 */
+    --shift-diurno-text: #92400e;      /* yellow-800 */
+    --shift-libre-bg: #fce7f3;         /* pink-100 */
+    --shift-libre-text: #be185d;       /* pink-700 */
   }
 
   /* Variables modo oscuro */
@@ -48,11 +54,17 @@
     --tab-text-active: #a5b4fc;       /* indigo-300 */
     --tab-border: transparent;
     --tab-border-active: #a5b4fc;     /* indigo-300 */
-    --tab-hover-text: #d1d5db;        /* gray-300 */
-
-    /* Badge */
+    --tab-hover-text: #d1d5db;        /* gray-300 */    /* Badge */
     --badge-bg: #4338ca;              /* indigo-700 */
     --badge-text: #000000;            /* indigo-100 */
+
+    /* Shift colors - Dark theme */
+    --shift-nocturno-bg: #1e3a8a;      /* blue-800 */
+    --shift-nocturno-text: #bfdbfe;    /* blue-200 */
+    --shift-diurno-bg: #92400e;        /* yellow-800 */
+    --shift-diurno-text: #fef3c7;      /* yellow-100 */
+    --shift-libre-bg: #be185d;         /* pink-700 */
+    --shift-libre-text: #fce7f3;       /* pink-100 */
   }
 
   /* Estilos globales */
