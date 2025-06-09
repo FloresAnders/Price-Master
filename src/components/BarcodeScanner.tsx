@@ -1,5 +1,5 @@
 'use client';
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Camera as CameraIcon,
@@ -36,6 +36,15 @@ export default function BarcodeScanner({ onDetect, children }: BarcodeScannerPro
     processImage,
   } = useBarcodeScanner(onDetect);
 
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Focus automático al montar para que onPaste funcione siempre
+  useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.focus();
+    }
+  }, []);
+
   // Handler para pegar imagen desde portapapeles
   const handlePaste = useCallback((event: React.ClipboardEvent<HTMLDivElement>) => {
     if (event.clipboardData && event.clipboardData.items) {
@@ -62,7 +71,12 @@ export default function BarcodeScanner({ onDetect, children }: BarcodeScannerPro
   const slideUp = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 } };
 
   return (
-    <div className="w-full max-w-3xl mx-auto flex flex-col gap-8 p-8 rounded-2xl shadow-2xl transition-colors duration-500 bg-[var(--card-bg)] text-[var(--foreground)] border border-[var(--input-border)] barcode-mobile">
+    <div
+      ref={containerRef}
+      className="w-full max-w-3xl mx-auto flex flex-col gap-8 p-8 rounded-2xl shadow-2xl transition-colors duration-500 bg-[var(--card-bg)] text-[var(--foreground)] border border-[var(--input-border)] barcode-mobile"
+      onPaste={handlePaste}
+      tabIndex={0} // Para que el div pueda recibir el foco y eventos de teclado
+    >
       {/* Encabezado y botón toggle Cámara */}
       <motion.div {...slideUp} transition={{ duration: 0.5 }} className="text-center flex flex-col items-center gap-3">
         <div className="p-4 rounded-full bg-gradient-to-tr from-indigo-500 to-blue-400 text-white shadow-xl">
