@@ -1,7 +1,7 @@
 // src/edit/DataEditor.tsx
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Save, Download, Upload, AlertCircle, Check, FileText, MapPin } from 'lucide-react';
 
 type DataFile = 'locations' | 'sorteos';
@@ -25,26 +25,18 @@ type RawSorteosData = string[];
 export default function DataEditor() {
     const [activeFile, setActiveFile] = useState<DataFile>('locations');
     const [locationsData, setLocationsData] = useState<Location[]>([]);
-    const [sorteosData, setSorteosData] = useState<Sorteo[]>([]);
-    const [originalLocationsData, setOriginalLocationsData] = useState<Location[]>([]);
+    const [sorteosData, setSorteosData] = useState<Sorteo[]>([]);    const [originalLocationsData, setOriginalLocationsData] = useState<Location[]>([]);
     const [originalSorteosData, setOriginalSorteosData] = useState<Sorteo[]>([]);
-    const [hasChanges, setHasChanges] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
-    const [isSaving, setIsSaving] = useState(false);
+    const [hasChanges, setHasChanges] = useState(false);    const [isSaving, setIsSaving] = useState(false);
     const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
-
-    // Cargar datos iniciales
-    useEffect(() => {
-        loadData();
-    }, []);
 
     // Detectar cambios
     useEffect(() => {
         const locationsChanged = JSON.stringify(locationsData) !== JSON.stringify(originalLocationsData);
         const sorteosChanged = JSON.stringify(sorteosData) !== JSON.stringify(originalSorteosData);
-        setHasChanges(locationsChanged || sorteosChanged);
-    }, [locationsData, sorteosData, originalLocationsData, originalSorteosData]);    const loadData = async () => {
-        setIsLoading(true);
+        setHasChanges(locationsChanged || sorteosChanged);    }, [locationsData, sorteosData, originalLocationsData, originalSorteosData]);
+
+    const loadData = useCallback(async () => {
         try {
             // Cargar locations
             const locationsResponse = await fetch('/api/data/locations');
@@ -84,14 +76,15 @@ export default function DataEditor() {
                 }));
                 setSorteosData(formattedSorteos);
                 setOriginalSorteosData(JSON.parse(JSON.stringify(formattedSorteos)));
-            }
-        } catch (error) {
+            }        } catch (error) {
             showNotification('Error al cargar los datos', 'error');
             console.error('Error loading data:', error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
+        }    }, []);
+
+    // Cargar datos iniciales
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
 
     const showNotification = (message: string, type: 'success' | 'error' | 'info') => {
         setNotification({ message, type });

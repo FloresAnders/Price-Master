@@ -12,12 +12,10 @@ import DataEditor from '@/edit/DataEditor'
 import {
   Calculator,
   Smartphone,
-  Type,
-  ClipboardList,
+  Type,  ClipboardList,
   Banknote,
   Scan,
   Clock,
-  Settings,
 } from 'lucide-react'
 import type { ScanHistoryEntry } from '@/types/barcode'
 import TimingControl from '@/components/TimingControl'

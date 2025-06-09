@@ -26,10 +26,9 @@ export async function POST(request: NextRequest) {
     if (Array.isArray(data) && data.length > 0) {
       if (typeof data[0] === 'string') {
         // Ya es un array de strings
-        processedData = data;
-      } else if (data[0].name !== undefined) {
+        processedData = data;      } else if (data[0].name !== undefined) {
         // Es un array de objetos Sorteo, extraer los nombres
-        processedData = data.map((sorteo: any) => sorteo.name).filter((name: string) => name.trim() !== '');
+        processedData = data.map((sorteo: { name: string }) => sorteo.name).filter((name: string) => name.trim() !== '');
       } else {
         return NextResponse.json({ error: 'Invalid data format' }, { status: 400 });
       }

@@ -11,7 +11,6 @@ function getNowTime() {
 export default function TimingControl() {
     const [locations, setLocations] = useState<Location[]>([]);
     const [sorteos, setSorteos] = useState<Sorteo[]>([]);
-    const [loading, setLoading] = useState(true);
     const [location, setLocation] = useState('');
     const [rows, setRows] = useState(() =>
         Array.from({ length: INITIAL_ROWS }, () => ({
@@ -35,13 +34,10 @@ export default function TimingControl() {
                 
                 const locationsData = await locationsRes.json();
                 const sorteosData = await sorteosRes.json();
-                
-                setLocations(locationsData);
+                  setLocations(locationsData);
                 setSorteos(sorteosData);
             } catch (error) {
                 console.error('Error loading data:', error);
-            } finally {
-                setLoading(false);
             }
         };
         
@@ -80,8 +76,7 @@ export default function TimingControl() {
         if (saved) {
             try {
                 const parsed = JSON.parse(saved);
-                if (Array.isArray(parsed)) {
-                    setRows(parsed.map((row: any) => ({
+                if (Array.isArray(parsed)) {                    setRows(parsed.map((row: { name?: string; sorteo?: string; amount?: string; time?: string; cliente?: string }) => ({
                         name: row.name || '',
                         sorteo: row.sorteo || '',
                         amount: row.amount || '',
