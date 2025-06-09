@@ -16,9 +16,10 @@ import {
   Scan,
 } from 'lucide-react'
 import type { ScanHistoryEntry } from '@/types/barcode'
+import TimingControl from '@/components/TimingControl'
 
 // 1) Ampliamos ActiveTab para incluir "cashcounter"
-type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'history'
+type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'history' | 'timingcontrol'
 
 export default function HomePage() {
   // 2) Estado para la pestaña activa
@@ -102,7 +103,8 @@ export default function HomePage() {
       icon: ClipboardList, 
       description: 'Ver códigos escaneados', 
       badge: scanHistory.length > 0 ? scanHistory.length : undefined 
-    }
+    },
+    { id: 'timingcontrol' as ActiveTab, name: 'Control Tiempos', icon: Smartphone, description: 'Registro de venta de tiempos' },
   ]
 
   // 4) Al montar, leemos el hash de la URL y marcamos la pestaña correspondiente
@@ -111,7 +113,7 @@ export default function HomePage() {
     if (typeof window !== 'undefined') {
       const hash = window.location.hash.replace('#', '') as ActiveTab
       // Si coincide con alguna pestaña válida, la activamos
-      if (['scanner','calculator','converter','cashcounter','history'].includes(hash)) {
+      if (['scanner','calculator','converter','cashcounter','history','timingcontrol'].includes(hash)) {
         setActiveTab(hash)
       }
     }
@@ -232,27 +234,6 @@ export default function HomePage() {
           {activeTab === 'converter' && (
             <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4">
               <TextConversion />
-              <div className="mt-6 bg-purple-50 rounded-lg p-4">
-                <h3 className="font-medium text-purple-800 mb-2">🔧 Casos de uso comunes:</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-purple-700">
-                  <div>
-                    <p><strong>Para programadores:</strong></p>
-                    <ul className="ml-4 space-y-1">
-                      <li>• camelCase para variables</li>
-                      <li>• snake_case para Python</li>
-                      <li>• kebab-case para CSS</li>
-                    </ul>
-                  </div>
-                  <div>
-                    <p><strong>Para documentos:</strong></p>
-                    <ul className="ml-4 space-y-1">
-                      <li>• Títulos profesionales</li>
-                      <li>• Conversión de mayúsculas/minúsculas</li>
-                      <li>• Análisis de texto con estadísticas</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
             </div>
           )}
 
@@ -297,6 +278,13 @@ export default function HomePage() {
                   </button>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* CONTROL TIEMPOS */}
+          {activeTab === 'timingcontrol' && (
+            <div className="max-w-4xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4 min-h-[300px] flex flex-col items-center justify-center">
+              <TimingControl />
             </div>
           )}
         </div>

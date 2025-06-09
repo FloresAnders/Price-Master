@@ -1,0 +1,225 @@
+import React, { useState } from 'react';
+
+const LOCATIONS = [
+    { label: 'PALMARES', value: 'PALMARES', names: ['VIVIANA', 'ANGEL', 'ALVARO', 'GABRIEL', 'ANDERS'] },
+    { label: 'SINAI', value: 'SINAI', names: ['ARIANNA', 'FABIAN', 'ANDERS', 'ALVARO', 'GABRIEL'] },
+    { label: 'SAN VITO', value: 'SAN VITO', names: ['VANESSA', 'KEVIN'] },
+    { label: 'COOPABUENA', value: 'COOPABUENA', names: ['NIDSY', 'YESI', 'NAZARETH'] },
+];
+
+const SORTEOS = [
+    'TICA TARDE REV',
+    'REVENTADO TARDE (R)',
+    'TICA TARDE',
+    'LA ANGUILA TARDE',
+    'LA SUERTE TARDE',
+    'NICA DE LA TARDE',
+    'NICA ESPECIAL TARDE',
+    'HONDURAS 3PM',
+    'TICA DÍA REV',
+    'REVENTADO DÍA (R)',
+    'TICA DÍA',
+    'DOMINICANA DÍA',
+    'NEW YORK DÍA',
+    'NICA DE LAS ONCE',
+    'NICA ESPECIAL ONCE',
+    'SALVADOREÑA MAÑANA',
+    'HONDURAS 11AM',
+    'LA SUERTE MAÑANA',
+    'LA PRIMERA DÍA',
+    'LA ANGUILA MAÑANA',
+    'NICA NOCHE',
+    'NICA ESPECIAL NOCHE',
+    'SALVADOREÑA NOCHE',
+    'HONDURAS 9PM',
+    'NY NOCHE',
+    'TICA NOCHE REV',
+    'REVENTADO NOCHE (R)',
+    'TICA NOCHE/Loteria/Chances',
+    'DOMINICANA NOCHE',
+    'LA ANGUILA NOCHE',
+    'NICA 6 PM SÁBADO',
+    'NICA ESPECIAL 6PM SAB',
+    'LA PRIMERA NOCHE',
+    'LOTEKA',
+];
+
+const INITIAL_ROWS = 4;
+
+function getNowTime() {
+    const now = new Date();
+    return now.toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+export default function TimingControl() {
+    const [location, setLocation] = useState(LOCATIONS[0].value);
+    const [rows, setRows] = useState(() =>
+        Array.from({ length: INITIAL_ROWS }, () => ({
+            name: '',
+            sorteo: '',
+            amount: '',
+            time: '',
+        }))
+    );
+    const [showSummary, setShowSummary] = useState(false);
+
+    const names = LOCATIONS.find(l => l.value === location)?.names || [];
+
+    const sorteosConMonto = rows.filter(r => r.sorteo && r.amount && !isNaN(Number(r.amount)) && Number(r.amount) > 0);
+    const resumenSorteos = sorteosConMonto.reduce((acc, row) => {
+        if (!acc[row.sorteo]) acc[row.sorteo] = 0;
+        acc[row.sorteo] += Number(row.amount);
+        return acc;
+    }, {} as Record<string, number>);
+    const totalGeneral = Object.values(resumenSorteos).reduce((a, b) => a + b, 0);
+
+    const handleRowChange = (idx: number, field: string, value: string) => {
+        setRows(prev => prev.map((row, i) => {
+            if (i !== idx) return row;
+            if (field === 'amount') {
+                return { ...row, amount: value, time: value ? getNowTime() : '' };
+            }
+            return { ...row, [field]: value };
+        }));
+    };
+
+    const addRow = () => {
+        setRows(prev => ([...prev, { name: '', sorteo: '', amount: '', time: '' }]));
+    };
+
+    React.useEffect(() => {
+        const saved = localStorage.getItem('timingControlRows_' + location);
+        if (saved) {
+            try {
+                setRows(JSON.parse(saved));
+            } catch { }
+        } else {
+            setRows(Array.from({ length: INITIAL_ROWS }, () => ({ name: '', sorteo: '', amount: '', time: '' })));
+        }
+    }, [location]);
+
+    React.useEffect(() => {
+        localStorage.setItem('timingControlRows_' + location, JSON.stringify(rows));
+    }, [rows, location]);
+
+    return (
+        <div className="w-full relative">
+            {showSummary && (
+                <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center">
+                    <div className="bg-white dark:bg-[var(--card-bg)] rounded-2xl shadow-2xl p-6 min-w-[320px] max-w-[90vw] relative">
+                        <button
+                            className="absolute top-2 right-2 text-gray-500 hover:text-red-600 text-xl font-bold"
+                            onClick={() => setShowSummary(false)}
+                            aria-label="Cerrar resumen"
+                        >
+                            ×
+                        </button>
+                        <h2 className="text-lg font-bold mb-4 text-center">Resumen de Ventas por Sorteo</h2>
+                        {Object.keys(resumenSorteos).length === 0 ? (
+                            <div className="text-center text-gray-500">No hay sorteos con monto asignado.</div>
+                        ) : (
+                            <div className="space-y-2 mb-4">
+                                {Object.entries(resumenSorteos).map(([sorteo, total]) => (
+                                    <div key={sorteo} className="flex justify-between border-b pb-1">
+                                        <span className="font-medium">{sorteo}</span>
+                                        <span className="font-mono">₡ {total.toLocaleString('es-CR')}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        <div className="mt-4 text-right font-bold text-lg">
+                            Total: <span className="font-mono text-green-700">₡ {totalGeneral.toLocaleString('es-CR')}</span>
+                        </div>
+                    </div>
+                </div>
+            )}
+            <div className="mb-4 flex flex-col sm:flex-row gap-2 items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <label className="font-semibold mr-2">Ubicación:</label>
+                    <select
+                        className="border rounded px-2 py-1 bg-[var(--input-bg)] text-[var(--foreground)]"
+                        value={location}
+                        onChange={e => setLocation(e.target.value)}
+                    >
+                        {LOCATIONS.map(loc => (
+                            <option key={loc.value} value={loc.value}>{loc.label}</option>
+                        ))}
+                    </select>
+                </div>
+                <div className="flex items-center gap-2 ml-auto">
+                    <span className="font-semibold text-gray-700 dark:text-gray-200">Total:</span>
+                    <span className="font-mono text-green-700 text-lg">₡ {totalGeneral.toLocaleString('es-CR')}</span>
+                    <button
+                        className="ml-2 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded font-semibold text-sm"
+                        onClick={() => setShowSummary(true)}
+                    >
+                        Ver resumen
+                    </button>
+                    <button
+                        className="ml-2 px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded font-semibold text-sm"
+                        onClick={() => {
+                            if (window.confirm('¿Seguro que deseas limpiar todas las filas?')) {
+                                setRows(Array.from({ length: INITIAL_ROWS }, () => ({ name: '', sorteo: '', amount: '', time: '' })))
+                            }
+                        }}
+                    >
+                        Limpiar todo
+                    </button>
+                </div>
+            </div>
+            <div className="overflow-x-auto">
+                <div className="grid grid-cols-4 gap-2 font-semibold mb-2">
+                    <div>Nombre</div>
+                    <div>Sorteo</div>
+                    <div>Monto (₡)</div>
+                    <div>Hora</div>
+                </div>
+                {rows.map((row, idx) => (
+                    <div className="grid grid-cols-4 gap-2 mb-2" key={idx}>
+                        <select
+                            className="border rounded px-2 py-1 bg-[var(--input-bg)] text-[var(--foreground)]"
+                            value={row.name}
+                            onChange={e => handleRowChange(idx, 'name', e.target.value)}
+                        >
+                            <option value="">Seleccionar</option>
+                            {names.map(n => (
+                                <option key={n} value={n}>{n}</option>
+                            ))}
+                        </select>
+                        <select
+                            className="border rounded px-2 py-1 bg-[var(--input-bg)] text-[var(--foreground)]"
+                            value={row.sorteo}
+                            onChange={e => handleRowChange(idx, 'sorteo', e.target.value)}
+                        >
+                            <option value="">Seleccionar</option>
+                            {SORTEOS.map(s => (
+                                <option key={s} value={s}>{s}</option>
+                            ))}
+                        </select>
+                        <input
+                            type="number"
+                            min="0"
+                            className="border rounded px-2 py-1 bg-[var(--input-bg)] text-[var(--foreground)]"
+                            value={row.amount}
+                            onChange={e => handleRowChange(idx, 'amount', e.target.value)}
+                            placeholder="₡"
+                        />
+                        <input
+                            type="text"
+                            className="border rounded px-2 py-1 bg-[var(--input-bg)] text-[var(--foreground)]"
+                            value={row.time}
+                            readOnly
+                            placeholder="--:--:--"
+                        />
+                    </div>
+                ))}
+                <button
+                    className="mt-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded font-semibold"
+                    onClick={addRow}
+                >
+                    + Agregar fila
+                </button>
+            </div>
+        </div>
+    );
+}
