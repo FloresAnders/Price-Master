@@ -190,17 +190,16 @@ export default function HomePage() {
             <div className="max-w-4xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4">
               <div className="flex flex-col lg:flex-row gap-6">
                 <div className="flex-1">
-                  <BarcodeScanner onDetect={handleCodeDetected} />
-                </div>
-                <div className="w-full lg:w-80">
-                  <ScanHistory
-                    history={scanHistory}
-                    onCopy={handleCopy}
-                    onDelete={handleDelete}
-                    onRemoveLeadingZero={handleRemoveLeadingZero}
-                    onRename={handleRename}
-                    notify={showNotification}
-                  />
+                  <BarcodeScanner onDetect={handleCodeDetected}>
+                    <ScanHistory
+                      history={scanHistory}
+                      onCopy={handleCopy}
+                      onDelete={handleDelete}
+                      onRemoveLeadingZero={handleRemoveLeadingZero}
+                      onRename={handleRename}
+                      notify={showNotification}
+                    />
+                  </BarcodeScanner>
                 </div>
               </div>
               <div className="mt-6 bg-blue-50 rounded-lg p-4">

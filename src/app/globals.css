@@ -81,6 +81,8 @@
     .barcode-mobile {
       padding: 1rem !important;
       gap: 1.25rem !important;
+      position: relative;
+      overflow: visible;
     }
     /* Botones y entradas ocupan todo el ancho, pero solo los que no están en un row de historial */
     .barcode-mobile > .flex,
@@ -98,22 +100,41 @@
     }
     /* Historial: los rows de historial mantienen horizontalidad y centran iconos */
     .barcode-mobile .scan-history-row {
-      flex-direction: row !important;
-      align-items: center !important;
-      justify-content: center !important;
+      flex-direction: column !important;
+      align-items: stretch !important;
       gap: 0.5rem !important;
+      padding: 0.75rem 0.5rem !important;
+    }
+    .barcode-mobile .scan-history-row .actions {
+      display: flex !important;
+      flex-direction: row !important;
+      justify-content: center !important;
+      gap: 1rem !important;
+      margin-top: 0.5rem !important;
     }
     .barcode-mobile .scan-history-row button {
-      width: auto !important;
-      min-width: 0 !important;
+      width: 2.5rem !important;
+      min-width: 2.5rem !important;
+      height: 2.5rem !important;
+      font-size: 1.2rem !important;
+      padding: 0.5rem !important;
       display: flex !important;
       align-items: center !important;
       justify-content: center !important;
-      padding: 0.5rem !important;
-      font-size: 1.1rem !important;
+      flex-shrink: 0 !important;
+      flex-grow: 0 !important;
+      border-radius: 0.75rem !important;
     }
-    .barcode-mobile .scan-history-row .w-5,
-    .barcode-mobile .scan-history-row .h-5 {
+    .barcode-mobile .scan-history-row .font-mono {
+      font-size: 1.1rem !important;
+      word-break: break-all !important;
+      text-align: center !important;
+      margin-bottom: 0 !important;
+      width: 100% !important;
+      display: block !important;
+    }
+    .barcode-mobile .w-5,
+    .barcode-mobile .h-5 {
       width: 1.5rem !important;
       height: 1.5rem !important;
     }
@@ -149,6 +170,31 @@
       width: auto !important;
       max-width: calc(100vw - 2rem) !important;
       justify-content: center !important;
+    }
+    /* Ajustes específicos para cuando la cámara está activa */
+    .barcode-mobile [ref="liveStreamRef"] {
+      max-height: 50vh !important;
+      width: 100% !important;
+      overflow: hidden !important;
+    }
+    .barcode-mobile [ref="liveStreamRef"] video {
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: cover !important;
+    }
+    /* Ajustes para el contenedor del historial */
+    .barcode-mobile .w-full {
+      width: 100% !important;
+      max-width: 100% !important;
+      margin-top: 1rem !important;
+    }
+    .barcode-mobile .scan-history-container {
+      position: static !important;
+      box-shadow: none !important;
+      background: transparent !important;
+      border-radius: 0 !important;
+      margin: 0 !important;
+      padding: 0 !important;
     }
   }
 }

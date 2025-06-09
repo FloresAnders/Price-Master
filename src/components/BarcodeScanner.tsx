@@ -1,5 +1,5 @@
 'use client';
-import React from 'react';
+import React, { useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Camera as CameraIcon,
@@ -15,7 +15,7 @@ import {
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
 import type { BarcodeScannerProps } from '../types/barcode';
 
-export default function BarcodeScanner({ onDetect }: BarcodeScannerProps) {
+export default function BarcodeScanner({ onDetect, children }: BarcodeScannerProps & { children?: React.ReactNode }) {
   const {
     code,
     isLoading,
@@ -33,13 +33,50 @@ export default function BarcodeScanner({ onDetect }: BarcodeScannerProps) {
     handleClear,
     handleCopyCode,
     toggleCamera,
+    processImage,
   } = useBarcodeScanner(onDetect);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Focus automático al montar para que onPaste funcione siempre
+  useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.focus();
+    }
+  }, []);
+
+  // Handler para pegar imagen desde portapapeles
+  const handlePaste = useCallback((event: React.ClipboardEvent<HTMLDivElement>) => {
+    if (event.clipboardData && event.clipboardData.items) {
+      for (let i = 0; i < event.clipboardData.items.length; i++) {
+        const item = event.clipboardData.items[i];
+        if (item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              const imageSrc = e.target?.result as string;
+              processImage(imageSrc);
+            };
+            reader.readAsDataURL(file);
+            event.preventDefault();
+            break;
+          }
+        }
+      }
+    }
+  }, [processImage]);
 
   const fadeIn = { initial: { opacity: 0 }, animate: { opacity: 1 } };
   const slideUp = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 } };
 
   return (
-    <div className="w-full max-w-3xl mx-auto flex flex-col gap-8 p-8 rounded-2xl shadow-2xl transition-colors duration-500 bg-[var(--card-bg)] text-[var(--foreground)] border border-[var(--input-border)] barcode-mobile">
+    <div
+      ref={containerRef}
+      className="w-full max-w-3xl mx-auto flex flex-col gap-8 p-8 rounded-2xl shadow-2xl transition-colors duration-500 bg-[var(--card-bg)] text-[var(--foreground)] border border-[var(--input-border)] barcode-mobile"
+      onPaste={handlePaste}
+      tabIndex={0} // Para que el div pueda recibir el foco y eventos de teclado
+    >
       {/* Encabezado y botón toggle Cámara */}
       <motion.div {...slideUp} transition={{ duration: 0.5 }} className="text-center flex flex-col items-center gap-3">
         <div className="p-4 rounded-full bg-gradient-to-tr from-indigo-500 to-blue-400 text-white shadow-xl">
@@ -66,11 +103,11 @@ export default function BarcodeScanner({ onDetect }: BarcodeScannerProps) {
           )}
         </button>
         <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">
-          Métodos de detección: <span className="font-semibold">ZBar‑WASM → Quagga 2 → Básica</span>
+          Métodos de detección: <span className="font-semibold">ZBar‑WASM → Quagga 2 → Básica</span>
         </p>
       </motion.div>
 
-      {/* Mensaje de “Código copiado” */}
+      {/* Mensaje de "Código copiado" */}
       <AnimatePresence>
         {copySuccess && (
           <motion.div
@@ -155,6 +192,8 @@ export default function BarcodeScanner({ onDetect }: BarcodeScannerProps) {
             onDragLeave={(e) => { e.currentTarget.classList.remove('bg-indigo-50', 'dark:bg-indigo-900'); }}
             onDrop={handleDrop}
             onClick={handleDropAreaClick}
+            onPaste={handlePaste}
+            tabIndex={0} // Para que el div pueda recibir el foco y eventos de teclado
           >
             <div className="flex flex-col items-center gap-4 text-zinc-400 dark:text-zinc-500 pointer-events-none">
               <ImagePlusIcon className="w-14 h-14" />
@@ -172,7 +211,7 @@ export default function BarcodeScanner({ onDetect }: BarcodeScannerProps) {
         </motion.div>
       )}
 
-      {/* Botón “Limpiar Todo” */}
+      {/* Botón "Limpiar Todo" */}
       <AnimatePresence>
         {(code || error || imagePreview || cameraActive) && (
           <motion.div
@@ -272,6 +311,7 @@ export default function BarcodeScanner({ onDetect }: BarcodeScannerProps) {
           </motion.div>
         )}
       </AnimatePresence>
+      {children}
     </div>
   );
 }
