@@ -1,10 +1,5 @@
-import React, { useState } from 'react';
-import locationsData from '../data/locations.json';
-import sorteosData from '../data/sorteos.json';
+import React, { useState, useEffect } from 'react';
 import type { Location, Sorteo } from '../types/timing';
-
-const LOCATIONS: Location[] = locationsData as Location[];
-const SORTEOS: Sorteo[] = sorteosData as Sorteo[];
 
 const INITIAL_ROWS = 4;
 
@@ -14,6 +9,9 @@ function getNowTime() {
 }
 
 export default function TimingControl() {
+    const [locations, setLocations] = useState<Location[]>([]);
+    const [sorteos, setSorteos] = useState<Sorteo[]>([]);
+    const [loading, setLoading] = useState(true);
     const [location, setLocation] = useState('');
     const [rows, setRows] = useState(() =>
         Array.from({ length: INITIAL_ROWS }, () => ({
@@ -26,7 +24,31 @@ export default function TimingControl() {
     );
     const [showSummary, setShowSummary] = useState(false);
 
-    const names = LOCATIONS.find(l => l.value === location)?.names || [];
+    // Cargar datos desde las APIs
+    useEffect(() => {
+        const loadData = async () => {
+            try {
+                const [locationsRes, sorteosRes] = await Promise.all([
+                    fetch('/api/data/locations'),
+                    fetch('/api/data/sorteos')
+                ]);
+                
+                const locationsData = await locationsRes.json();
+                const sorteosData = await sorteosRes.json();
+                
+                setLocations(locationsData);
+                setSorteos(sorteosData);
+            } catch (error) {
+                console.error('Error loading data:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        
+        loadData();
+    }, []);
+
+    const names = locations.find(l => l.value === location)?.names || [];
 
     const sorteosConMonto = rows.filter(r => r.sorteo && r.amount && !isNaN(Number(r.amount)) && Number(r.amount) > 0);
     const resumenSorteos = sorteosConMonto.reduce((acc, row) => {
@@ -138,8 +160,7 @@ export default function TimingControl() {
                         }} value={location}
                         onChange={e => setLocation(e.target.value)}
                     >
-                        <option value="">Seleccionar ubicación</option>
-                        {LOCATIONS.map(loc => (
+                        <option value="">Seleccionar ubicación</option>                            {locations.map((loc: Location) => (
                             <option key={loc.value} value={loc.value}>{loc.label}</option>
                         ))}
                     </select>
@@ -207,7 +228,7 @@ export default function TimingControl() {
                                 onChange={e => handleRowChange(idx, 'sorteo', e.target.value)}
                             >
                                 <option value="">Seleccionar</option>
-                                {SORTEOS.map(s => (
+                                {sorteos.map((s: string) => (
                                     <option key={s} value={s}>{s}</option>
                                 ))}
                             </select>

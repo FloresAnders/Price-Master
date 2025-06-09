@@ -3,10 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Clock, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
-import locationsData from '../data/locations.json';
 import type { Location } from '../types/timing';
-
-const LOCATIONS: Location[] = locationsData as Location[];
 
 interface ScheduleData {
   [employeeName: string]: {
@@ -15,12 +12,31 @@ interface ScheduleData {
 }
 
 export default function ControlHorario() {
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [loading, setLoading] = useState(true);
   const [location, setLocation] = useState('');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [scheduleData, setScheduleData] = useState<ScheduleData>({});
   const [viewMode, setViewMode] = useState<'first' | 'second'>('first'); // primera o segunda quincena
 
-  const names = LOCATIONS.find(l => l.value === location)?.names || [];
+  // Cargar datos desde la API
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const response = await fetch('/api/data/locations');
+        const locationsData = await response.json();
+        setLocations(locationsData);
+      } catch (error) {
+        console.error('Error loading locations:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadData();
+  }, []);
+
+  const names = locations.find(l => l.value === location)?.names || [];
 
   // Obtener información del mes actual
   const year = currentDate.getFullYear();
@@ -101,8 +117,18 @@ export default function ControlHorario() {
         newDate.setMonth(newDate.getMonth() + 1);
       }
       return newDate;
-    });
-  };
+    });  };
+
+  // Si está cargando, mostrar loading
+  if (loading) {
+    return (
+      <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-6">
+        <div className="text-center py-8">
+          <div className="text-lg">Cargando datos...</div>
+        </div>
+      </div>
+    );
+  }
 
   // Si no hay ubicación seleccionada, mostrar selector
   if (!location) {
@@ -132,7 +158,7 @@ export default function ControlHorario() {
               onChange={e => setLocation(e.target.value)}
             >
               <option value="">Seleccionar ubicación</option>
-              {LOCATIONS.map(loc => (
+              {locations.map((loc: Location) => (
                 <option key={loc.value} value={loc.value}>{loc.label}</option>
               ))}
             </select>
@@ -167,7 +193,7 @@ export default function ControlHorario() {
             onChange={e => setLocation(e.target.value)}
           >
             <option value="">Seleccionar ubicación</option>
-            {LOCATIONS.map(loc => (
+            {locations.map((loc: Location) => (
               <option key={loc.value} value={loc.value}>{loc.label}</option>
             ))}
           </select>
