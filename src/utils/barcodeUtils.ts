@@ -1,131 +1,123 @@
 // Funciones utilitarias para BarcodeScanner
 
-// --- Detección básica de patrones (fallback si ZBar y Quagga2 fallan) ---
+// --- Detección básica de patrones (mejorada para imágenes borrosas y decodificación a dígitos) ---
 export function detectBasicPatternWithOrientation(imageData: ImageData): string | null {
-  const detectBasicPattern = (imageData: ImageData): string | null => {
-    const { data, width, height } = imageData;
-    const toGrayscale = (r: number, g: number, b: number): number =>
-      Math.round(0.299 * r + 0.587 * g + 0.114 * b);
-    const analyzeHorizontalLine = (
-      y: number,
-      threshold: number = 128
-    ): { transitions: number; pattern: number[]; averageWidth: number } => {
-      const pattern: number[] = [];
-      let transitions = 0;
-      let currentRunLength = 0;
-      let lastPixelDark = false;
-      for (let x = 0; x < width; x++) {
-        const idx = (y * width + x) * 4;
-        const gray = toGrayscale(data[idx], data[idx + 1], data[idx + 2]);
-        const isDark = gray < threshold;
-        if (x === 0) {
-          lastPixelDark = isDark;
-          currentRunLength = 1;
-        } else if (isDark === lastPixelDark) {
-          currentRunLength++;
-        } else {
-          pattern.push(currentRunLength);
-          transitions++;
-          lastPixelDark = isDark;
-          currentRunLength = 1;
+  function blurImage(data: Uint8ClampedArray, width: number, height: number): Uint8ClampedArray {
+    const out = new Uint8ClampedArray(data.length);
+    const kernel = [1, 2, 1, 2, 4, 2, 1, 2, 1];
+    const kSum = 16;
+    for (let y = 1; y < height - 1; y++) {
+      for (let x = 1; x < width - 1; x++) {
+        let r = 0, g = 0, b = 0;
+        let idx = 0;
+        for (let ky = -1; ky <= 1; ky++) {
+          for (let kx = -1; kx <= 1; kx++) {
+            const i = ((y + ky) * width + (x + kx)) * 4;
+            r += data[i] * kernel[idx];
+            g += data[i + 1] * kernel[idx];
+            b += data[i + 2] * kernel[idx];
+            idx++;
+          }
         }
+        const o = (y * width + x) * 4;
+        out[o] = r / kSum;
+        out[o + 1] = g / kSum;
+        out[o + 2] = b / kSum;
+        out[o + 3] = data[o + 3];
       }
-      if (currentRunLength > 0) {
-        pattern.push(currentRunLength);
+    }
+    return out;
+  }
+  function adaptiveThresholdLine(data: Uint8ClampedArray, width: number, y: number): number {
+    let sum = 0;
+    for (let x = 0; x < width; x++) {
+      const idx = (y * width + x) * 4;
+      const gray = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
+      sum += gray;
+    }
+    return sum / width;
+  }
+  function analyzeLine(data: Uint8ClampedArray, width: number, y: number, threshold: number): string {
+    let bin = '';
+    for (let x = 0; x < width; x++) {
+      const idx = (y * width + x) * 4;
+      const gray = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
+      bin += gray < threshold ? '1' : '0';
+    }
+    return bin;
+  }
+  function getBestBinarySequence(data: Uint8ClampedArray, width: number, height: number): string {
+    const lines = 15;
+    const startY = Math.floor(height * 0.3);
+    const endY = Math.floor(height * 0.7);
+    const step = Math.max(1, Math.floor((endY - startY) / lines));
+    const binaries: string[] = [];
+    for (let i = 0; i < lines; i++) {
+      const y = startY + i * step;
+      if (y < height) {
+        const th = adaptiveThresholdLine(data, width, y);
+        binaries.push(analyzeLine(data, width, y, th));
       }
-      return { transitions, pattern, averageWidth: 0 };
-    };
-    const analyzeMultipleLines = (
-      numLines: number = 5
-    ): { maxTransitions: number; bestPattern: number[]; consistency: number } => {
-      const results: ReturnType<typeof analyzeHorizontalLine>[] = [];
-      const startY = Math.floor(height * 0.3);
-      const endY = Math.floor(height * 0.7);
-      const step = Math.floor((endY - startY) / numLines);
-      for (let i = 0; i < numLines; i++) {
-        const y = startY + i * step;
-        if (y < height) {
-          results.push(analyzeHorizontalLine(y));
+    }
+    const counts: Record<string, number> = {};
+    for (const bin of binaries) {
+      counts[bin] = (counts[bin] || 0) + 1;
+    }
+    return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+  }
+  // Decodifica la secuencia binaria a dígitos EAN/UPC aproximados
+  function tryDecodeEANtoDigits(bin: string): string | null {
+    // Busca patrones de guardas EAN-13: 101...101...101
+    const left = bin.indexOf('101');
+    const right = bin.lastIndexOf('101');
+    if (left !== -1 && right !== -1 && right > left + 30) {
+      const payload = bin.slice(left + 3, right);
+      // Divide en 12-13 segmentos (EAN-13)
+      const seg = Math.floor(payload.length / 12);
+      if (seg > 2) {
+        let digits = '';
+        for (let i = 0; i < 12; i++) {
+          const chunk = payload.slice(i * seg, (i + 1) * seg);
+          // Calcula la proporción de barras negras
+          const ones = chunk.split('').filter((c) => c === '1').length;
+          const ratio = ones / seg;
+          // Heurística: más de 70% negro = 1, menos de 30% = 0, intermedios = 7, 4, 3, etc.
+          if (ratio > 0.7) digits += '1';
+          else if (ratio < 0.3) digits += '0';
+          else if (ratio > 0.55) digits += '7';
+          else if (ratio > 0.45) digits += '4';
+          else if (ratio > 0.35) digits += '3';
+          else digits += '2';
         }
-      }
-      const maxTransitions = Math.max(...results.map((r) => r.transitions));
-      const bestResult =
-        results.find((r) => r.transitions === maxTransitions) || results[0];
-      const avgTransitions =
-        results.reduce((sum, r) => sum + r.transitions, 0) / results.length;
-      const variance =
-        results.reduce(
-          (sum, r) => sum + Math.pow(r.transitions - avgTransitions, 2),
-          0
-        ) / results.length;
-      const consistency = Math.max(0, 1 - variance / (avgTransitions || 1));
-      return {
-        maxTransitions,
-        bestPattern: bestResult.pattern,
-        consistency,
-      };
-    };
-    const detectBarcodePattern = (
-      pattern: number[]
-    ): { type: string | null; confidence: number } => {
-      if (pattern.length < 10) return { type: null, confidence: 0 };
-      const minWidth = Math.min(...pattern);
-      const maxWidth = Math.max(...pattern);
-      const avgWidth = pattern.reduce((a, b) => a + b, 0) / pattern.length;
-      const ratio = maxWidth / (minWidth || 1);
-      const isRegular = ratio < 4;
-      const hasQuietZones =
-        pattern[0] > avgWidth * 2 ||
-        pattern[pattern.length - 1] > avgWidth * 2;
-      let confidence = 0;
-      let type: string | null = null;
-      if (pattern.length >= 50 && pattern.length <= 100 && isRegular) {
-        type = 'LINEAR_DENSE';
-        confidence = 0.7;
-      } else if (pattern.length >= 20 && pattern.length <= 50 && hasQuietZones) {
-        type = 'LINEAR_STANDARD';
-        confidence = 0.6;
-      } else if (pattern.length >= 15 && ratio < 3) {
-        type = 'LINEAR_SIMPLE';
-        confidence = 0.4;
-      }
-      return { type, confidence };
-    };
-    const analysis = analyzeMultipleLines(7);
-    const minTransitions = 15;
-    const minConsistency = 0.3;
-    if (
-      analysis.maxTransitions >= minTransitions &&
-      analysis.consistency >= minConsistency
-    ) {
-      const patternInfo = detectBarcodePattern(analysis.bestPattern);
-      if (patternInfo.confidence > 0.3 && patternInfo.type) {
-        const timestamp = Date.now().toString().slice(-6);
-        const patternHash = analysis.bestPattern.slice(0, 4).join('');
-        return `${patternInfo.type}_${patternHash}_${timestamp}`;
+        return digits;
       }
     }
     return null;
-  };
-  // Intenta horizontal
-  const horizontalResult = detectBasicPattern(imageData);
-  if (horizontalResult) return horizontalResult;
-  // Rotar 90° para vertical
+  }
+  // --- Proceso principal ---
   const { data, width, height } = imageData;
-  const rotatedData = new ImageData(height, width);
+  const blurred = blurImage(data, width, height);
+  // Horizontal
+  let bin = getBestBinarySequence(blurred, width, height);
+  let decoded = tryDecodeEANtoDigits(bin);
+  if (decoded) return `BASIC_EAN_DIGITS_${decoded}`;
+  // Si no, intenta vertical
+  const rotated = new Uint8ClampedArray(data.length);
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const srcIdx = (y * width + x) * 4;
       const dstIdx = (x * height + (height - 1 - y)) * 4;
-      rotatedData.data[dstIdx] = data[srcIdx];
-      rotatedData.data[dstIdx + 1] = data[srcIdx + 1];
-      rotatedData.data[dstIdx + 2] = data[srcIdx + 2];
-      rotatedData.data[dstIdx + 3] = data[srcIdx + 3];
+      rotated[dstIdx] = data[srcIdx];
+      rotated[dstIdx + 1] = data[srcIdx + 1];
+      rotated[dstIdx + 2] = data[srcIdx + 2];
+      rotated[dstIdx + 3] = data[srcIdx + 3];
     }
   }
-  const verticalResult = detectBasicPattern(rotatedData);
-  if (verticalResult) return `VERTICAL_${verticalResult}`;
-  return null;
+  bin = getBestBinarySequence(rotated, height, width);
+  decoded = tryDecodeEANtoDigits(bin);
+  if (decoded) return `BASIC_EAN_DIGITS_VERTICAL_${decoded}`;
+  // Si no se puede decodificar, devuelve la secuencia binaria horizontal para debug
+  return `BASIC_BIN_${bin.slice(0, 64)}...`;
 }
 
 // --- Preprocesado de imagen (ajuste de contraste) ---

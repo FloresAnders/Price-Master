@@ -1,5 +1,5 @@
 'use client';
-import React, { useCallback, useRef, useEffect } from 'react';
+import React, { useCallback, useRef, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Camera as CameraIcon,
@@ -15,7 +15,8 @@ import {
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
 import type { BarcodeScannerProps } from '../types/barcode';
 
-export default function BarcodeScanner({ onDetect, children }: BarcodeScannerProps & { children?: React.ReactNode }) {
+export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children }: BarcodeScannerProps & { onRemoveLeadingZero?: (code: string) => void; children?: React.ReactNode }) {
+  const [activeTab, setActiveTab] = useState<'image' | 'camera'>('image');
   const {
     code,
     isLoading,
@@ -34,9 +35,25 @@ export default function BarcodeScanner({ onDetect, children }: BarcodeScannerPro
     handleCopyCode,
     toggleCamera,
     processImage,
+    setCode,
   } = useBarcodeScanner(onDetect);
-
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Estado para saber si el contenedor de cámara está montado
+  const [cameraContainerReady, setCameraContainerReady] = useState(false);
+
+  // Efecto para marcar cuando el contenedor de cámara está listo
+  useEffect(() => {
+    if (activeTab === 'camera') {
+      // Espera al siguiente tick para asegurar que el ref esté asignado
+      const id = setTimeout(() => {
+        setCameraContainerReady(!!liveStreamRef.current);
+      }, 0);
+      return () => clearTimeout(id);
+    } else {
+      setCameraContainerReady(false);
+    }
+  }, [activeTab, liveStreamRef]);
 
   // Focus automático al montar para que onPaste funcione siempre
   useEffect(() => {
@@ -45,27 +62,39 @@ export default function BarcodeScanner({ onDetect, children }: BarcodeScannerPro
     }
   }, []);
 
-  // Handler para pegar imagen desde portapapeles
-  const handlePaste = useCallback((event: React.ClipboardEvent<HTMLDivElement>) => {
-    if (event.clipboardData && event.clipboardData.items) {
-      for (let i = 0; i < event.clipboardData.items.length; i++) {
-        const item = event.clipboardData.items[i];
-        if (item.type.startsWith('image/')) {
-          const file = item.getAsFile();
-          if (file) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-              const imageSrc = e.target?.result as string;
-              processImage(imageSrc);
-            };
-            reader.readAsDataURL(file);
-            event.preventDefault();
-            break;
+  // Handler global para pegar imagen desde portapapeles
+  useEffect(() => {
+    const handleGlobalPaste = (event: ClipboardEvent) => {
+      if (event.clipboardData && event.clipboardData.items) {
+        for (let i = 0; i < event.clipboardData.items.length; i++) {
+          const item = event.clipboardData.items[i];
+          if (item.type.startsWith('image/')) {
+            const file = item.getAsFile();
+            if (file) {
+              const reader = new FileReader();
+              reader.onload = (e) => {
+                const imageSrc = (e.target as FileReader)?.result as string;
+                processImage(imageSrc);
+              };
+              reader.readAsDataURL(file);
+              event.preventDefault();
+              break;
+            }
           }
         }
       }
-    }
+    };
+    window.addEventListener('paste', handleGlobalPaste);
+    return () => window.removeEventListener('paste', handleGlobalPaste);
   }, [processImage]);
+
+  // Handler para eliminar primer dígito del código escaneado principal
+  const handleRemoveLeadingZeroMain = useCallback(() => {
+    if (code && code.length > 1 && code[0] === '0') {
+      setCode(code.slice(1)); // update overlay code immediately
+      onRemoveLeadingZero?.(code);
+    }
+  }, [code, setCode, onRemoveLeadingZero]);
 
   const fadeIn = { initial: { opacity: 0 }, animate: { opacity: 1 } };
   const slideUp = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 } };
@@ -73,244 +102,326 @@ export default function BarcodeScanner({ onDetect, children }: BarcodeScannerPro
   return (
     <div
       ref={containerRef}
-      className="w-full max-w-3xl mx-auto flex flex-col gap-8 p-8 rounded-2xl shadow-2xl transition-colors duration-500 bg-[var(--card-bg)] text-[var(--foreground)] border border-[var(--input-border)] barcode-mobile"
-      onPaste={handlePaste}
-      tabIndex={0} // Para que el div pueda recibir el foco y eventos de teclado
+      className="w-full max-w-2xl mx-auto flex flex-col gap-10 p-8 md:p-12 rounded-3xl shadow-2xl transition-colors duration-500 bg-gradient-to-br from-indigo-50/80 via-white/80 to-blue-100/80 dark:from-zinc-900/80 dark:via-zinc-800/80 dark:to-indigo-950/80 border border-indigo-200 dark:border-indigo-900 barcode-mobile backdrop-blur-xl"
+      tabIndex={0}
     >
-      {/* Encabezado y botón toggle Cámara */}
-      <motion.div {...slideUp} transition={{ duration: 0.5 }} className="text-center flex flex-col items-center gap-3">
-        <div className="p-4 rounded-full bg-gradient-to-tr from-indigo-500 to-blue-400 text-white shadow-xl">
-          <ScanBarcode className="w-10 h-10 animate-pulse" />
-        </div>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          Pega una imagen (Ctrl+V), sube un archivo o usa la cámara
-        </p>
+      {/* Tabs */}
+      <div className="flex justify-center mb-6">
         <button
-          onClick={toggleCamera}
-          className={`px-5 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-colors duration-300 flex items-center gap-2 font-semibold shadow-md
-            ${cameraActive ? 'bg-gradient-to-r from-pink-500 to-indigo-500 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-100 hover:bg-indigo-100 dark:hover:bg-indigo-900'}`}
+          className={`px-6 py-2 rounded-l-xl font-bold text-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-900 ${activeTab === 'image' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white/80 dark:bg-zinc-900/80 text-indigo-700 dark:text-indigo-200 border border-indigo-200 dark:border-indigo-800'}`}
+          onClick={() => setActiveTab('image')}
         >
-          {cameraActive ? (
-            <>
-              <RefreshIcon className="w-5 h-5 animate-spin" />
-              Detener Cámara
-            </>
-          ) : (
-            <>
-              <CameraIcon className="w-5 h-5" />
-              Iniciar Cámara
-            </>
-          )}
+          Imagen / Pegar
         </button>
-        <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">
-          Métodos de detección: <span className="font-semibold">ZBar‑WASM → Quagga 2 → Básica</span>
-        </p>
-      </motion.div>
-
-      {/* Mensaje de "Código copiado" */}
-      <AnimatePresence>
-        {copySuccess && (
-          <motion.div
-            {...fadeIn}
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.3 }}
-            className="fixed top-6 right-6 z-50 px-6 py-3 rounded-xl shadow-2xl flex items-center gap-2 bg-green-500 text-white font-semibold animate-bounce"
-          >
-            <CheckIcon className="w-5 h-5" />
-            <span>¡Código copiado automáticamente!</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Mostrar código detectado */}
-      <motion.div {...slideUp} transition={{ duration: 0.5 }} className="mb-4 text-center">
-        <label className="block text-sm font-medium mx-auto text-center w-fit mb-2 text-[var(--foreground)]">
-          Código detectado:
-        </label>
-        <div className="flex gap-2 justify-center flex-col sm:flex-row items-center w-full">
-          <input
-            type="text"
-            value={code}
-            readOnly
-            placeholder="Aquí aparecerá el código escaneado"
-            className="flex-1 max-w-md px-3 py-2 text-center rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-colors duration-300 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-100 font-mono text-lg shadow-sm w-full"
-          />
-          {code && (
-            <div className="w-full sm:w-auto mt-2 sm:mt-0 flex justify-center">
-              <button
-                onClick={handleCopyCode}
-                className="px-3 py-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-colors duration-300 flex items-center gap-1 bg-indigo-500 hover:bg-indigo-600 text-white font-semibold shadow w-full sm:w-auto"
-              >
-                <CopyIcon className="w-4 h-4" />
-                Copiar
-              </button>
+        <button
+          className={`px-6 py-2 rounded-r-xl font-bold text-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-900 ${activeTab === 'camera' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white/80 dark:bg-zinc-900/80 text-indigo-700 dark:text-indigo-200 border border-indigo-200 dark:border-indigo-800'}`}
+          onClick={() => setActiveTab('camera')}
+        >
+          Cámara
+        </button>
+      </div>
+      {/* Contenido de cada tab */}
+      {activeTab === 'image' && (
+        <div>
+          {/* Icono ScanBarcode destacado */}
+          <div className="flex flex-col items-center gap-4 mb-2">
+            <div className="p-6 rounded-full bg-gradient-to-tr from-indigo-500 via-blue-400 to-cyan-400 dark:from-indigo-700 dark:via-indigo-900 dark:to-blue-900 text-white shadow-2xl border-4 border-white/40 dark:border-indigo-900 animate-pulse-slow">
+              <ScanBarcode className="w-16 h-16 drop-shadow-lg" />
             </div>
-          )}
-        </div>
-        {detectionMethod && (
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2">
-            Detectado usando: <span className="font-semibold">{detectionMethod}</span>
-          </p>
-        )}
-      </motion.div>
+            <h2 className="text-2xl font-extrabold text-indigo-700 dark:text-indigo-300 tracking-tight mb-1">Escáner de Códigos de Barras</h2>
+          </div>
 
-      {/* Contenedor de cámara (solo si cameraActive===true) */}
-      <AnimatePresence>
-        {cameraActive && (
-          <motion.div
-            key="camera"
-            {...slideUp}
-            transition={{ duration: 0.5 }}
-            ref={liveStreamRef}
-            className="w-full h-72 bg-black rounded-xl overflow-hidden mb-4 relative border-4 border-indigo-500 shadow-lg"
-          >
-            <div className="absolute inset-0 pointer-events-none">
+          {/* Mensaje de "Código copiado" */}
+          <AnimatePresence>
+            {copySuccess && (
               <motion.div
-                className="absolute inset-0 bg-black bg-opacity-30"
-                animate={{ opacity: [0.3, 0.6, 0.3] }}
-                transition={{ duration: 2, repeat: Infinity }}
-              />
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className="w-4/5 h-16 border-2 border-dashed border-indigo-300 rounded-lg" />
+                {...fadeIn}
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.3 }}
+                className="fixed top-8 right-8 z-50 px-8 py-4 rounded-2xl shadow-2xl flex items-center gap-3 bg-gradient-to-r from-green-400 to-green-600 text-white font-bold text-lg animate-bounce backdrop-blur-xl border-2 border-green-200 dark:border-green-800"
+              >
+                <CheckIcon className="w-6 h-6" />
+                ¡Código copiado!
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Card de código detectado con preview de imagen de fondo mejorada y mensaje de éxito unificado */}
+          {imagePreview && (
+            <motion.div {...slideUp} transition={{ duration: 0.5 }} className="mb-2 flex justify-center w-full items-center">
+              <div className="w-full max-w-md relative rounded-2xl shadow-xl overflow-hidden border-2 border-indigo-400 dark:border-indigo-700 bg-transparent min-h-[220px] flex items-center justify-center">
+                {/* Imagen de fondo SIEMPRE visible si hay imagePreview */}
+                <img
+                  src={imagePreview}
+                  alt="Preview"
+                  className="absolute inset-0 w-full h-full object-contain z-0"
+                  style={{ filter: 'brightness(0.65)' }}
+                />
+                {/* Overlay sutil para contraste */}
+                <div className="absolute inset-0 bg-black/50 z-10" />
+                {/* Código de barras y acciones, overlay centrado */}
+                {code && (
+                  <div className="absolute inset-0 z-20 flex flex-col items-center justify-center">
+                    {/* Mensaje de éxito y código detectado juntos */}
+                    <div className="flex flex-col items-center w-full gap-2">
+                      <div className="flex items-center justify-center gap-3 mb-2">
+                        <CheckIcon className="w-7 h-7 text-green-300 drop-shadow" />
+                        <span className="text-lg font-bold text-white drop-shadow">¡Código detectado y copiado!</span>
+                      </div>
+                      <div
+                        className="w-full text-center font-mono text-3xl md:text-4xl tracking-widest text-white select-all px-2 bg-transparent whitespace-nowrap overflow-x-auto"
+                        style={{ letterSpacing: '0.12em', maxWidth: '100%', userSelect: 'all', WebkitUserSelect: 'all', overflowY: 'hidden', textShadow: '0 2px 8px rgba(0,0,0,0.7)' }}
+                        tabIndex={0}
+                        title={code}
+                      >
+                        {code}
+                      </div>
+                      <div className="flex gap-6 mt-2 justify-center">
+                        <button
+                          onClick={handleRemoveLeadingZeroMain}
+                          className="group p-3 rounded-full bg-white/20 hover:bg-white/30 text-white shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-700"
+                          title="Eliminar primer dígito"
+                          aria-label="Eliminar primer dígito"
+                        >
+                          <svg className="w-7 h-7 group-hover:scale-110 transition-transform duration-200" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                        </button>
+                        <button
+                          onClick={handleCopyCode}
+                          className="group p-3 rounded-full bg-white/20 hover:bg-white/30 text-white shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:focus:ring-indigo-700"
+                          title="Copiar código"
+                          aria-label="Copiar código"
+                        >
+                          <CopyIcon className="w-7 h-7 group-hover:scale-110 transition-transform duration-200" color="white" />
+                        </button>
+                      </div>
+                      {detectionMethod && (
+                        <span className="mt-2 inline-block text-xs font-semibold text-indigo-200 bg-indigo-900/60 px-3 py-1 rounded-full shadow">
+                          Método: {detectionMethod}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+          {/* Botón "Limpiar Todo" debajo del preview */}
+          <AnimatePresence>
+            {(code || error || imagePreview) && (
+              <motion.div key="clear" {...slideUp} transition={{ duration: 0.5 }} className="flex justify-center mb-6">
+                <button
+                  onClick={handleClear}
+                  className="px-7 py-3 text-base rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400 transition-colors duration-300 bg-gradient-to-r from-zinc-200 to-red-200 dark:from-zinc-800 dark:to-red-900 text-zinc-800 dark:text-zinc-100 hover:bg-red-500 hover:text-white font-bold shadow-lg"
+                >
+                  <TrashIcon className="w-5 h-5 inline-block mr-2" />
+                  Limpiar Todo
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          {/* Área de carga de imagen */}
+          <motion.div {...slideUp} transition={{ duration: 0.5 }}>
+            <label className="block text-base font-semibold mx-auto text-center w-fit mb-2 text-indigo-700 dark:text-indigo-200 tracking-wide">
+              Seleccionar imagen
+            </label>
+            <div
+              className="relative border-4 border-dashed rounded-3xl p-10 transition-colors duration-300 cursor-pointer hover:border-indigo-500 bg-white/70 dark:bg-zinc-900/70 border-indigo-200 dark:border-indigo-800 shadow-xl group"
+              onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('bg-indigo-50', 'dark:bg-indigo-900'); }}
+              onDragLeave={(e) => { e.currentTarget.classList.remove('bg-indigo-50', 'dark:bg-indigo-900'); }}
+              onDrop={handleDrop}
+              onClick={handleDropAreaClick}
+              tabIndex={0}
+            >
+              <div className="flex flex-col items-center gap-5 text-indigo-400 dark:text-indigo-300 pointer-events-none">
+                <ImagePlusIcon className="w-20 h-20 group-hover:scale-110 transition-transform duration-300" />
+                <p className="text-xl font-bold">Arrastra una imagen aquí</p>
+                <p className="text-base">o haz clic para seleccionar archivo</p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                />
               </div>
             </div>
           </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Área de carga de imagen (solo si cameraActive===false) */}
-      {!cameraActive && (
-        <motion.div {...slideUp} transition={{ duration: 0.5 }}>
-          <label className="block text-sm font-medium mx-auto text-center w-fit mb-2 text-[var(--foreground)]">
-            Seleccionar imagen:
-          </label>
-          <div
-            className="relative border-2 border-dashed rounded-xl p-8 transition-colors duration-300 cursor-pointer hover:border-indigo-500 bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700"
-            onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('bg-indigo-50', 'dark:bg-indigo-900'); }}
-            onDragLeave={(e) => { e.currentTarget.classList.remove('bg-indigo-50', 'dark:bg-indigo-900'); }}
-            onDrop={handleDrop}
-            onClick={handleDropAreaClick}
-            onPaste={handlePaste}
-            tabIndex={0} // Para que el div pueda recibir el foco y eventos de teclado
-          >
-            <div className="flex flex-col items-center gap-4 text-zinc-400 dark:text-zinc-500 pointer-events-none">
-              <ImagePlusIcon className="w-14 h-14" />
-              <p className="text-lg font-semibold">Arrastra una imagen aquí</p>
-              <p className="text-sm">o haz clic para seleccionar archivo</p>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleFileUpload}
-              />
-            </div>
-          </div>
-        </motion.div>
+          {/* Spinner mientras procesa imagen */}
+          <AnimatePresence>
+            {isLoading && (
+              <motion.div
+                key="spinner"
+                {...fadeIn}
+                transition={{ duration: 0.3 }}
+                className="text-center p-6 rounded-2xl flex items-center justify-center gap-4 bg-gradient-to-r from-indigo-100 to-blue-100 dark:from-indigo-900 dark:to-blue-950 text-indigo-700 dark:text-indigo-200 shadow-xl border-2 border-indigo-200 dark:border-indigo-800"
+              >
+                <LoaderIcon className="w-10 h-10 animate-spin" />
+                <p className="font-bold text-lg">Procesando imagen...</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          {/* Mensaje de error */}
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                key="error"
+                {...fadeIn}
+                transition={{ duration: 0.3 }}
+                className="text-center text-red-700 dark:text-red-300 bg-gradient-to-r from-red-100 to-red-200 dark:from-red-900 dark:to-red-950 p-6 rounded-2xl flex flex-col items-center gap-3 border-2 border-red-200 dark:border-red-800 shadow-xl"
+              >
+                <AlertIcon className="w-7 h-7" />
+                <p className="text-base font-bold">{error}</p>
+                <button
+                  onClick={handleClear}
+                  className="mt-2 text-sm bg-red-200 dark:bg-red-800 hover:bg-red-300 dark:hover:bg-red-700 px-4 py-2 rounded-xl transition-colors duration-300 font-bold shadow"
+                >
+                  Intentar de nuevo
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       )}
-
-      {/* Botón "Limpiar Todo" */}
-      <AnimatePresence>
-        {(code || error || imagePreview || cameraActive) && (
-          <motion.div
-            key="clear"
-            {...slideUp}
-            transition={{ duration: 0.5 }}
-            className="flex justify-center"
-          >
+      {activeTab === 'camera' && (
+        <div>
+          {/* Botón para iniciar/detener cámara */}
+          <div className="flex flex-col items-center gap-4 mb-6">
             <button
-              onClick={handleClear}
-              className="px-6 py-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-colors duration-300 bg-zinc-200 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-100 hover:bg-red-500 hover:text-white font-semibold shadow"
+              onClick={toggleCamera}
+              disabled={!cameraContainerReady && !cameraActive}
+              className={`px-6 py-3 rounded-xl focus:outline-none focus:ring-4 focus:ring-indigo-300 dark:focus:ring-indigo-900 transition-all duration-300 flex items-center gap-3 font-bold shadow-lg text-lg
+                ${cameraActive ? 'bg-gradient-to-r from-pink-500 to-indigo-500 text-white scale-105 ring-2 ring-pink-300 dark:ring-pink-800' : 'bg-white/80 dark:bg-zinc-900/80 text-indigo-700 dark:text-indigo-200 hover:bg-indigo-100 dark:hover:bg-indigo-800/80 border border-indigo-200 dark:border-indigo-800'}
+                ${!cameraContainerReady && !cameraActive ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
-              <TrashIcon className="w-5 h-5 inline-block mr-1" />
-              Limpiar Todo
+              {cameraActive ? (
+                <>
+                  <RefreshIcon className="w-6 h-6 animate-spin" />
+                  Detener Cámara
+                </>
+              ) : (
+                <>
+                  <CameraIcon className="w-6 h-6" />
+                  Iniciar Cámara
+                </>
+              )}
             </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Spinner mientras procesa imagen (solo en modo imagen) */}
-      <AnimatePresence>
-        {!cameraActive && isLoading && (
-          <motion.div
-            key="spinner"
-            {...fadeIn}
-            transition={{ duration: 0.3 }}
-            className="text-center p-4 rounded-xl flex items-center justify-center gap-3 bg-zinc-100 dark:bg-zinc-800 text-indigo-600 dark:text-indigo-300 shadow"
-          >
-            <LoaderIcon className="w-7 h-7 animate-spin" />
-            <p className="font-semibold">Procesando imagen...</p>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Mensaje de error (imagen o cámara) */}
-      <AnimatePresence>
-        {error && (
-          <motion.div
-            key="error"
-            {...fadeIn}
-            transition={{ duration: 0.3 }}
-            className="text-center text-red-600 bg-red-100 dark:bg-red-900 p-4 rounded-xl flex flex-col items-center gap-2 border border-red-200 dark:border-red-800 shadow"
-          >
-            <AlertIcon className="w-6 h-6" />
-            <p className="text-sm font-semibold">{error}</p>
-            <button
-              onClick={handleClear}
-              className="mt-2 text-xs bg-red-200 dark:bg-red-800 hover:bg-red-300 dark:hover:bg-red-700 px-3 py-1 rounded transition-colors duration-300 font-semibold"
-            >
-              Intentar de nuevo
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Vista previa de la imagen estática cargada o snapshot de cámara */}
-      <AnimatePresence>
-        {!cameraActive && imagePreview && (
-          <motion.div
-            key="preview"
-            {...slideUp}
-            transition={{ duration: 0.5 }}
-            className="border rounded-xl overflow-hidden bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 shadow"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              ref={imgRef}
-              src={imagePreview}
-              alt="Preview"
-              className="w-full max-h-60 object-contain transition-opacity duration-500"
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Mensaje de éxito de detección (solo modo imagen) */}
-      <AnimatePresence>
-        {!cameraActive && code && !isLoading && (
-          <motion.div
-            key="success"
-            {...slideUp}
-            transition={{ duration: 0.5 }}
-            className="text-center p-4 rounded-xl flex flex-col items-center gap-2 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 shadow"
-          >
-            <div className="flex items-center justify-center gap-2">
-              <CheckIcon className="w-5 h-5" />
-              <p className="text-sm font-semibold">
-                ¡Código detectado y copiado!
-              </p>
-            </div>
-            <p className="text-xs">
-              Código: <span className="font-mono bg-white dark:bg-zinc-800 px-2 rounded-lg shadow text-zinc-800 dark:text-zinc-100">{code}</span>
+            {!cameraContainerReady && !cameraActive && (
+              <span className="text-xs text-red-500 dark:text-red-400 font-semibold">Preparando cámara...</span>
+            )}
+            <p className="text-xs text-indigo-500 dark:text-indigo-300 font-semibold tracking-wide">
+              Escaneo en vivo usando la cámara
             </p>
-            <p className="text-xs">
-              Método: <span className="font-semibold">{detectionMethod}</span>
-            </p>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </div>
+          {/* Contenedor de cámara */}
+          <AnimatePresence>
+            {cameraActive && (
+              <motion.div
+                key="camera"
+                {...slideUp}
+                transition={{ duration: 0.5 }}
+                ref={liveStreamRef}
+                className="w-full h-80 bg-black/80 rounded-3xl overflow-hidden mb-6 relative border-4 border-indigo-500 shadow-2xl flex items-center justify-center"
+              >
+                <div className="absolute inset-0 pointer-events-none">
+                  <motion.div
+                    className="absolute inset-0 bg-black bg-opacity-40"
+                    animate={{ opacity: [0.4, 0.7, 0.4] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="w-4/5 h-20 border-4 border-dashed border-indigo-300 rounded-2xl shadow-xl animate-pulse-slow" />
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          {/* Código detectado por cámara */}
+          <AnimatePresence>
+            {code && cameraActive && (
+              <motion.div {...slideUp} transition={{ duration: 0.5 }} className="mb-2 flex justify-center w-full items-center">
+                <div className="w-full max-w-md relative rounded-2xl shadow-xl overflow-hidden border-2 border-indigo-400 dark:border-indigo-700 bg-transparent min-h-[120px] flex items-center justify-center">
+                  <div className="absolute inset-0 bg-black/60 z-10" />
+                  <div className="absolute inset-0 z-20 flex flex-col items-center justify-center">
+                    <div className="flex flex-col items-center w-full gap-2">
+                      <div className="flex items-center justify-center gap-3 mb-2">
+                        <CheckIcon className="w-7 h-7 text-green-300 drop-shadow" />
+                        <span className="text-lg font-bold text-white drop-shadow">¡Código detectado y copiado!</span>
+                      </div>
+                      <div
+                        className="w-full text-center font-mono text-3xl md:text-4xl tracking-widest text-white select-all px-2 bg-transparent whitespace-nowrap overflow-x-auto"
+                        style={{ letterSpacing: '0.12em', maxWidth: '100%', userSelect: 'all', WebkitUserSelect: 'all', overflowY: 'hidden', textShadow: '0 2px 8px rgba(0,0,0,0.7)' }}
+                        tabIndex={0}
+                        title={code}
+                      >
+                        {code}
+                      </div>
+                      <div className="flex gap-6 mt-2 justify-center">
+                        <button
+                          onClick={handleRemoveLeadingZeroMain}
+                          className="group p-3 rounded-full bg-white/20 hover:bg-white/30 text-white shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-700"
+                          title="Eliminar primer dígito"
+                          aria-label="Eliminar primer dígito"
+                        >
+                          <svg className="w-7 h-7 group-hover:scale-110 transition-transform duration-200" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                        </button>
+                        <button
+                          onClick={handleCopyCode}
+                          className="group p-3 rounded-full bg-white/20 hover:bg-white/30 text-white shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:focus:ring-indigo-700"
+                          title="Copiar código"
+                          aria-label="Copiar código"
+                        >
+                          <CopyIcon className="w-7 h-7 group-hover:scale-110 transition-transform duration-200" color="white" />
+                        </button>
+                      </div>
+                      {detectionMethod && (
+                        <span className="mt-2 inline-block text-xs font-semibold text-indigo-200 bg-indigo-900/60 px-3 py-1 rounded-full shadow">
+                          Método: {detectionMethod}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          {/* Botón limpiar solo para cámara */}
+          <AnimatePresence>
+            {(code || error) && cameraActive && (
+              <motion.div key="clear-cam" {...slideUp} transition={{ duration: 0.5 }} className="flex justify-center mb-6">
+                <button
+                  onClick={handleClear}
+                  className="px-7 py-3 text-base rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400 transition-colors duration-300 bg-gradient-to-r from-zinc-200 to-red-200 dark:from-zinc-800 dark:to-red-900 text-zinc-800 dark:text-zinc-100 hover:bg-red-500 hover:text-white font-bold shadow-lg"
+                >
+                  <TrashIcon className="w-5 h-5 inline-block mr-2" />
+                  Limpiar Todo
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          {/* Mensaje de error para cámara */}
+          <AnimatePresence>
+            {error && cameraActive && (
+              <motion.div
+                key="error-cam"
+                {...fadeIn}
+                transition={{ duration: 0.3 }}
+                className="text-center text-red-700 dark:text-red-300 bg-gradient-to-r from-red-100 to-red-200 dark:from-red-900 dark:to-red-950 p-6 rounded-2xl flex flex-col items-center gap-3 border-2 border-red-200 dark:border-red-800 shadow-xl"
+              >
+                <AlertIcon className="w-7 h-7" />
+                <p className="text-base font-bold">{error}</p>
+                <button
+                  onClick={handleClear}
+                  className="mt-2 text-sm bg-red-200 dark:bg-red-800 hover:bg-red-300 dark:hover:bg-red-700 px-4 py-2 rounded-xl transition-colors duration-300 font-bold shadow"
+                >
+                  Intentar de nuevo
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
       {children}
     </div>
   );
