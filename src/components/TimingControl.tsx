@@ -122,18 +122,49 @@ export default function TimingControl() {
     const totalGeneral = Object.values(resumenSorteos).reduce((a, b) => a + b, 0);    const handleRowChange = (idx: number, field: string, value: string) => {
         setRows(prev => prev.map((row, i) => {
             if (i !== idx) return row;
+            
+            let updatedRow;
             if (field === 'amount') {
-                return { ...row, amount: value, time: value ? getNowTime() : '' };
+                updatedRow = { ...row, amount: value, time: value ? getNowTime() : '' };
             } else if (field === 'ticketNumber') {
                 // Solo permitir números y máximo 4 dígitos
                 const numericValue = value.replace(/\D/g, '').slice(0, 4);
-                return { ...row, ticketNumber: numericValue };
+                updatedRow = { ...row, ticketNumber: numericValue };
+            } else {
+                updatedRow = { ...row, [field]: value };
             }
-            return { ...row, [field]: value };
+            
+            // Verificar si la fila está completa después de esta actualización y establecer hora automáticamente
+            if (updatedRow.ticketNumber.trim() !== '' && 
+                updatedRow.sorteo.trim() !== '' && 
+                updatedRow.amount.trim() !== '' && 
+                updatedRow.time.trim() === '') {
+                updatedRow.time = getNowTime();
+            }
+            
+            return updatedRow;
         }));
-    };    const addRow = () => {
+    };const addRow = () => {
         setRows(prev => ([...prev, { ticketNumber: '', sorteo: '', amount: '', time: '' }]));
-    };    const exportToJPG = async () => {
+    };
+
+    // Función para verificar si una fila está completa
+    const isRowComplete = (row: typeof rows[0]) => {
+        return row.ticketNumber.trim() !== '' && 
+               row.sorteo.trim() !== '' && 
+               row.amount.trim() !== '' && 
+               row.time.trim() !== '';
+    };
+
+    // Función para verificar si una fila debe estar habilitada
+    const isRowEnabled = (currentIndex: number) => {
+        // La primera fila siempre está habilitada
+        if (currentIndex === 0) return true;
+        
+        // Para las demás filas, verificar que la anterior esté completa
+        const previousRow = rows[currentIndex - 1];
+        return isRowComplete(previousRow);
+    };const exportToJPG = async () => {
         if (!personName.trim()) {
             alert('Por favor ingresa el nombre de la persona antes de exportar');
             return;
@@ -289,11 +320,22 @@ export default function TimingControl() {
                      color: 'var(--foreground)',
                      minHeight: '400px',
                      border: '1px solid var(--input-border)'
-                 }}>
-                {/* Header simplificado */}
-                <div className="mb-6 flex items-center gap-4">
-                    <Timer className="w-6 h-6 text-blue-600" />
-                    <h3 className="text-lg font-semibold" style={{ color: 'var(--foreground)' }}>Control de tiempos</h3>
+                 }}>                {/* Header con título y nota informativa */}
+                <div className="mb-6">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <Timer className="w-6 h-6 text-blue-600" />
+                            <h3 className="text-lg font-semibold" style={{ color: 'var(--foreground)' }}>Control de tiempos</h3>
+                        </div>
+                        {/* Nota para pantallas medianas y grandes */}
+                        <div className="hidden md:block p-2 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-xs max-w-xs">
+                            <p><strong>Nota:</strong> Complete todos los campos de la fila anterior para habilitar la siguiente.</p>
+                        </div>
+                    </div>
+                    {/* Nota para pantallas pequeñas */}
+                    <div className="md:hidden mt-3 p-2 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-xs">
+                        <p><strong>Nota:</strong> Complete todos los campos de la fila anterior para habilitar la siguiente.</p>
+                    </div>
                 </div>
 
                 {/* Campo para nombre de persona */}
@@ -350,39 +392,38 @@ export default function TimingControl() {
                             Limpiar todo
                         </button>
                     </div>
-                </div>
-
-                <div className="overflow-x-auto">
-                    <div className="grid grid-cols-4 gap-2 font-semibold mb-2" style={{ color: 'var(--foreground)' }}>
+                </div>                <div className="overflow-x-auto">                    <div className="grid grid-cols-4 gap-2 font-semibold mb-2" style={{ color: 'var(--foreground)' }}>
                         <div>Número de Tiquete</div>
                         <div>Sorteo</div>
                         <div>Monto (₡)</div>
                         <div>Hora</div>
-                    </div>
-                    {rows.map((row, idx) => (
+                    </div>{rows.map((row, idx) => {
+                        const rowEnabled = isRowEnabled(idx);
+                        const rowStyle = {
+                            background: rowEnabled ? 'var(--input-bg)' : '#f5f5f5',
+                            border: '1px solid var(--input-border)',
+                            color: rowEnabled ? 'var(--foreground)' : '#999',
+                            opacity: rowEnabled ? 1 : 0.6,
+                        };
+                        
+                        return (
                         <div className="grid grid-cols-4 gap-2 mb-2" key={idx}>
                             <input
                                 type="text"
                                 className="px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                style={{
-                                    background: 'var(--input-bg)',
-                                    border: '1px solid var(--input-border)',
-                                    color: 'var(--foreground)',
-                                }}
+                                style={rowStyle}
                                 value={row.ticketNumber}
                                 onChange={e => handleRowChange(idx, 'ticketNumber', e.target.value)}
                                 placeholder="0000"
                                 maxLength={4}
+                                disabled={!rowEnabled}
                             />
                             <select
                                 className="px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                style={{
-                                    background: 'var(--input-bg)',
-                                    border: '1px solid var(--input-border)',
-                                    color: 'var(--foreground)',
-                                }}
+                                style={rowStyle}
                                 value={row.sorteo}
                                 onChange={e => handleRowChange(idx, 'sorteo', e.target.value)}
+                                disabled={!rowEnabled}
                             >
                                 <option value="">Seleccionar</option>
                                 {sorteos.map((sorteo) => (
@@ -393,32 +434,27 @@ export default function TimingControl() {
                                 type="number"
                                 min="0"
                                 className="px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                style={{
-                                    background: 'var(--input-bg)',
-                                    border: '1px solid var(--input-border)',
-                                    color: 'var(--foreground)',
-                                }}
+                                style={rowStyle}
                                 value={row.amount}
                                 onChange={e => handleRowChange(idx, 'amount', e.target.value)}
                                 placeholder="₡"
+                                disabled={!rowEnabled}
                             />
                             <input
                                 type="text"
                                 className="px-3 py-2 rounded-md"
-                                style={{
-                                    background: 'var(--input-bg)',
-                                    border: '1px solid var(--input-border)',
-                                    color: 'var(--foreground)',
-                                }}
+                                style={rowStyle}
                                 value={row.time}
                                 readOnly
                                 placeholder="--:--:--"
                             />
                         </div>
-                    ))}
-                    <button
-                        className="mt-2 px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-green-600 hover:bg-green-700 text-white font-semibold"
+                        );
+                    })}                    <button
+                        className="mt-2 px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-green-600 hover:bg-green-700 text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                         onClick={addRow}
+                        disabled={rows.length > 0 && !isRowComplete(rows[rows.length - 1])}
+                        title={rows.length > 0 && !isRowComplete(rows[rows.length - 1]) ? "Complete la fila anterior antes de agregar una nueva" : "Agregar nueva fila"}
                     >
                         + Agregar fila
                     </button>
