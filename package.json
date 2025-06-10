@@ -1,18 +1,22 @@
 {
   "name": "price-master",
   "version": "0.1.0",
-  "private": true,
-  "scripts": {
+  "private": true,  "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "migrate": "node scripts/migrate.js",
+    "firebase:migrate": "curl -X POST http://localhost:3000/api/firebase-test",
+    "firebase:test": "curl http://localhost:3000/api/firebase-test",
+    "firebase:clear": "curl -X DELETE http://localhost:3000/api/firebase-test"
   },
   "dependencies": {
     "@ericblade/quagga2": "^1.8.4",
     "@heroicons/react": "^2.2.0",
     "@undecaf/zbar-wasm": "^0.11.0",
     "@zxing/library": "^0.21.3",
+    "firebase": "^11.9.0",
     "framer-motion": "^12.16.0",
     "lucide-react": "^0.511.0",
     "next": "15.3.2",
