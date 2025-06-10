@@ -48,10 +48,8 @@
         </div>
         <div class="field">
             <label>Rol:</label>
-            <select id="userRole">
-                <option value="user">Usuario</option>
+            <select id="userRole">                <option value="user">Usuario</option>
                 <option value="admin">Administrador</option>
-                <option value="manager">Gerente</option>
             </select>
         </div>
         <div class="field">
@@ -96,7 +94,7 @@
             name: "string (requerido)",
             location: "string (seleccionable de ubicaciones existentes)",
             password: "string (contraseña en texto plano)",
-            role: "admin | user | manager (por defecto: user)",
+            role: "admin | user (por defecto: user)",
             isActive: "boolean (por defecto: true)",
             createdAt: "Date (generado automáticamente)",
             updatedAt: "Date (actualizado automáticamente)"

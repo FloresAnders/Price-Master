@@ -19,10 +19,6 @@
 - Acceso a todas las funcionalidades pero con ubicación restringida
 - Credenciales de prueba: `usuario1` / `user123`
 
-#### 🟡 **Manager**
-- Ubicación fija 
-- Credenciales de prueba: `manager1` / `manager123`
-
 ### 🏢 Gestión de Ubicaciones
 - Los usuarios se autentican automáticamente con su ubicación asignada
 - Solo los **administradores** pueden cambiar de ubicación en Control de Horario
@@ -42,11 +38,10 @@
 4. Usa las credenciales de prueba:
    - **Admin**: `admin` / `admin123`
    - **Usuario**: `usuario1` / `user123`
-   - **Manager**: `manager1` / `manager123`
 
 ### 3. Verificar Permisos
 - **Como admin**: Podrás cambiar la ubicación en Control de Horario
-- **Como user/manager**: La ubicación estará fija en Control de Horario
+- **Como user**: La ubicación estará fija en Control de Horario
 - **Todos los roles**: Pueden cambiar ubicación en Timing Control
 
 ## 🔧 Archivos Modificados
@@ -68,7 +63,7 @@ La sesión se guarda en `localStorage` con la siguiente estructura:
   "id": "user_id",
   "name": "username", 
   "location": "user_location",
-  "role": "admin|user|manager",
+  "role": "admin|user",
   "loginTime": "2024-01-01T12:00:00.000Z"
 }
 ```
@@ -97,7 +92,7 @@ La sesión expira automáticamente después de 24 horas.
 
 ### Problemas de permisos
 - Verifica el rol del usuario en Firestore
-- El campo `role` debe ser exactamente: `'admin'`, `'user'`, o `'manager'`
+- El campo `role` debe ser exactamente: `'admin'` o `'user'`
 
 ## 📋 Usuarios de Prueba Predefinidos
 
@@ -106,4 +101,3 @@ La sesión expira automáticamente después de 24 horas.
 | admin | admin123 | admin | puntarenas | ✅ Puede cambiar ubicación |
 | usuario1 | user123 | user | puntarenas | ❌ Ubicación fija |
 | usuario2 | user456 | user | cartago | ❌ Ubicación fija |
-| manager1 | manager123 | manager | san-jose | ❌ Ubicación fija |

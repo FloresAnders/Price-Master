@@ -39,7 +39,7 @@ interface User {
   name: string;                    // Required
   location?: string;               // NEW: Selectable from locations
   password?: string;               // NEW: Plain text password
-  role?: 'admin' | 'user' | 'manager';
+  role?: 'admin' | 'user';
   isActive?: boolean;
   createdAt?: Date;
   updatedAt?: Date;

@@ -563,14 +563,12 @@ export default function DataEditor() {
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Rol:</label>
                                     <select
-                                        value={user.role || 'user'}
-                                        onChange={(e) => updateUser(index, 'role', e.target.value as 'admin' | 'user' | 'manager')}
+                                        value={user.role || 'user'}                                        onChange={(e) => updateUser(index, 'role', e.target.value as 'admin' | 'user')}
                                         className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
                                         style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
                                     >
                                         <option value="user">Usuario</option>
-                                        <option value="admin">Administrador</option>
-                                        <option value="manager">Gerente</option>                                    </select>
+                                        <option value="admin">Administrador</option></select>
                                 </div>
                             </div>
 

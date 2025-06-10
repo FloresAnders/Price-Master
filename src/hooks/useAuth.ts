@@ -5,9 +5,18 @@ interface SessionData {
   id?: string;
   name: string;
   location?: string;
-  role?: 'admin' | 'user' | 'manager';
+  role?: 'admin' | 'user';
   loginTime: string;
 }
+
+// Duración de la sesión en horas
+// Opciones disponibles:
+// - 24 horas = 24
+// - 7 días = 168
+// - 30 días = 720
+// - 90 días = 2160
+// - 1 año = 8760
+const SESSION_DURATION_HOURS = 720; // 30 días
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
@@ -22,14 +31,12 @@ export function useAuth() {
     try {
       const sessionData = localStorage.getItem('pricemaster_session');
       if (sessionData) {
-        const session: SessionData = JSON.parse(sessionData);
-        
-        // Verificar si la sesión no ha expirado (opcional: 24 horas)
+        const session: SessionData = JSON.parse(sessionData);        // Verificar si la sesión no ha expirado (30 días)
         const loginTime = new Date(session.loginTime);
         const now = new Date();
         const hoursElapsed = (now.getTime() - loginTime.getTime()) / (1000 * 60 * 60);
         
-        if (hoursElapsed < 24) { // Sesión válida por 24 horas
+        if (hoursElapsed < SESSION_DURATION_HOURS) { // Sesión válida por 30 días
           setUser({
             id: session.id,
             name: session.name,

@@ -17,20 +17,12 @@ const testUsers = [
     password: 'user123',
     role: 'user', 
     location: 'puntarenas', // Ubicación fija para usuarios normales
-    isActive: true
-  },
+    isActive: true  },
   {
     name: 'usuario2',
     password: 'user456',
     role: 'user',
     location: 'cartago', // Otra ubicación fija
-    isActive: true
-  },
-  {
-    name: 'manager1',
-    password: 'manager123',
-    role: 'manager',
-    location: 'san-jose',
     isActive: true
   }
 ];

@@ -13,7 +13,7 @@ User editing functionality has been successfully added to the Price-Master appli
     name: string;
     location?: string;
     password?: string;
-    role?: 'admin' | 'user' | 'manager';
+    role?: 'admin' | 'user';
     isActive?: boolean;
     createdAt?: Date;
     updatedAt?: Date;
@@ -39,7 +39,7 @@ Enhanced with Users tab including:
   - Name (required text input)
   - Location (dropdown selector from existing locations)
   - Password (password input field)
-  - Role (dropdown: Admin, User, Manager)
+  - Role (dropdown: Admin, User)
   - Active Status (checkbox)
 - **CRUD Operations**:
   - Add new users
@@ -81,7 +81,7 @@ Added "Editor de Datos" tab to main navigation with Settings icon and proper des
    - Name (required)
    - Location (select from available locations)
    - Password (user password)
-   - Role (Admin/User/Manager)
+   - Role (Admin/User)
    - Active status (checkbox)
 3. Click "Guardar" to save to Firebase
 
