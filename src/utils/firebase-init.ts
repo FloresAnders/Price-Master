@@ -12,6 +12,7 @@ export async function initializeFirebase(): Promise<{
   stats?: {
     locations: number;
     sorteos: number;
+    users: number;
     totalNames: number;
   };
 }> {
@@ -20,8 +21,7 @@ export async function initializeFirebase(): Promise<{
     
     // Check if collections need initialization
     const stats = await FirebaseUtils.getCollectionStats();
-    
-    if (stats.locations === 0 || stats.sorteos === 0) {
+      if (stats.locations === 0 || stats.sorteos === 0) {
       console.log('Collections are empty, running migration...');
       await MigrationService.runAllMigrations();
       
@@ -30,13 +30,13 @@ export async function initializeFirebase(): Promise<{
       
       return {
         success: true,
-        message: `Firebase initialized successfully. Migrated ${updatedStats.locations} locations and ${updatedStats.sorteos} sorteos.`,
+        message: `Firebase initialized successfully. Migrated ${updatedStats.locations} locations, ${updatedStats.sorteos} sorteos, and ${updatedStats.users} users.`,
         stats: updatedStats
       };
     } else {
       return {
         success: true,
-        message: `Firebase already initialized. Found ${stats.locations} locations and ${stats.sorteos} sorteos.`,
+        message: `Firebase already initialized. Found ${stats.locations} locations, ${stats.sorteos} sorteos, and ${stats.users} users.`,
         stats
       };
     }

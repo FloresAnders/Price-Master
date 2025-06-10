@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crear Usuarios de Prueba - Price Master</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .button {
+            background: #4CAF50;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        .button:hover {
+            background: #45a049;
+        }
+        .button.danger {
+            background: #f44336;
+        }
+        .button.danger:hover {
+            background: #da190b;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 20px 0;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .user-list {
+            background: #e8f4f8;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .user-item {
+            background: white;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 3px;
+            border-left: 4px solid #2196F3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Gestión de Usuarios de Prueba - Price Master</h1>
+        
+        <div class="user-list">
+            <h3>👥 Usuarios que se crearán:</h3>
+            <div class="user-item">
+                <strong>admin</strong> / admin123 - <em>Administrador</em>
+                <br><small>Puede cambiar ubicación en Control de Horario</small>
+            </div>
+            <div class="user-item">
+                <strong>usuario1</strong> / user123 - <em>Usuario (Puntarenas)</em>
+                <br><small>Ubicación fija</small>
+            </div>
+            <div class="user-item">
+                <strong>usuario2</strong> / user456 - <em>Usuario (Cartago)</em>
+                <br><small>Ubicación fija</small>
+            </div>
+            <div class="user-item">
+                <strong>manager1</strong> / manager123 - <em>Manager (San José)</em>
+                <br><small>Ubicación fija</small>
+            </div>
+        </div>
+
+        <div>
+            <button class="button" onclick="createUsers()">✅ Crear Usuarios de Prueba</button>
+            <button class="button" onclick="listUsers()">📋 Listar Usuarios Existentes</button>
+            <button class="button danger" onclick="clearLog()">🗑️ Limpiar Log</button>
+        </div>
+
+        <div id="log" class="log">
+            <div>📝 Log de actividades...</div>
+            <div>🚀 Listo para crear usuarios de prueba.</div>
+        </div>
+    </div>
+
+    <!-- Firebase Configuration -->
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore, collection, addDoc, getDocs, query, where } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        // Tu configuración de Firebase (reemplaza con tus credenciales)
+        const firebaseConfig = {
+            apiKey: "AIzaSyBvBpEohzVRJ_4RzmVxUVaUcKxzcfAm9bE",
+            authDomain: "price-master-cc9cd.firebaseapp.com",
+            projectId: "price-master-cc9cd",
+            storageBucket: "price-master-cc9cd.firebasestorage.app",
+            messagingSenderId: "659232998454",
+            appId: "1:659232998454:web:fab12edc19c0b95080b8e9"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Usuarios de prueba
+        const testUsers = [
+            {
+                name: 'admin',
+                password: 'admin123',
+                role: 'admin',
+                location: 'puntarenas',
+                isActive: true
+            },
+            {
+                name: 'usuario1',
+                password: 'user123',
+                role: 'user', 
+                location: 'puntarenas',
+                isActive: true
+            },
+            {
+                name: 'usuario2',
+                password: 'user456',
+                role: 'user',
+                location: 'cartago',
+                isActive: true
+            },
+            {
+                name: 'manager1',
+                password: 'manager123',
+                role: 'manager',
+                location: 'san-jose',
+                isActive: true
+            }
+        ];
+
+        // Función para agregar log
+        function addLog(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const icon = type === 'error' ? '❌' : type === 'success' ? '✅' : '📝';
+            const color = type === 'error' ? 'color: red;' : type === 'success' ? 'color: green;' : '';
+            
+            logDiv.innerHTML += `<div style="${color}">${icon} [${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        // Función para crear usuarios
+        window.createUsers = async function() {
+            addLog('🚀 Iniciando creación de usuarios...');
+            
+            try {
+                for (const user of testUsers) {
+                    try {
+                        // Verificar si el usuario ya existe
+                        const q = query(collection(db, 'users'), where('name', '==', user.name));
+                        const querySnapshot = await getDocs(q);
+                        
+                        if (!querySnapshot.empty) {
+                            addLog(`⚠️ Usuario '${user.name}' ya existe, saltando...`, 'info');
+                            continue;
+                        }
+
+                        // Crear usuario con timestamps
+                        const userWithTimestamps = {
+                            ...user,
+                            createdAt: new Date(),
+                            updatedAt: new Date()
+                        };
+
+                        const docRef = await addDoc(collection(db, 'users'), userWithTimestamps);
+                        addLog(`✅ Usuario '${user.name}' creado con ID: ${docRef.id}`, 'success');
+                        
+                    } catch (error) {
+                        addLog(`❌ Error creando usuario '${user.name}': ${error.message}`, 'error');
+                    }
+                }
+                
+                addLog('🎉 Proceso de creación completado!', 'success');
+                addLog('📋 Credenciales disponibles:', 'info');
+                testUsers.forEach(user => {
+                    addLog(`   • ${user.name} / ${user.password} (${user.role})`, 'info');
+                });
+                
+            } catch (error) {
+                addLog(`❌ Error general: ${error.message}`, 'error');
+            }
+        };
+
+        // Función para listar usuarios existentes
+        window.listUsers = async function() {
+            addLog('🔍 Consultando usuarios existentes...');
+            
+            try {
+                const querySnapshot = await getDocs(collection(db, 'users'));
+                
+                if (querySnapshot.empty) {
+                    addLog('📝 No hay usuarios en la base de datos', 'info');
+                    return;
+                }
+
+                addLog(`📋 Encontrados ${querySnapshot.size} usuarios:`, 'success');
+                querySnapshot.forEach((doc) => {
+                    const user = doc.data();
+                    const status = user.isActive ? '🟢' : '🔴';
+                    addLog(`   ${status} ${user.name} (${user.role}) - ${user.location || 'Sin ubicación'}`, 'info');
+                });
+                
+            } catch (error) {
+                addLog(`❌ Error listando usuarios: ${error.message}`, 'error');
+            }
+        };
+
+        // Función para limpiar log
+        window.clearLog = function() {
+            document.getElementById('log').innerHTML = '<div>📝 Log limpiado...</div>';
+        };
+
+        addLog('🔥 Firebase inicializado correctamente');
+    </script>
+</body>
+</html>

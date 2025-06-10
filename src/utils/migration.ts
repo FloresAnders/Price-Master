@@ -1,6 +1,7 @@
 import { LocationsService } from '../services/locations';
 import { SorteosService } from '../services/sorteos';
-import { Location, Sorteo } from '../types/firestore';
+import { UsersService } from '../services/users';
+import { Location, Sorteo, User } from '../types/firestore';
 import locationsData from '../data/locations.json';
 import sorteosData from '../data/sorteos.json';
 
@@ -81,7 +82,6 @@ export class MigrationService {
       throw error;
     }
   }
-
   /**
    * Clear all Firestore data (use with caution!)
    */
@@ -106,6 +106,15 @@ export class MigrationService {
         }
       }
       console.log(`Deleted ${sorteos.length} sorteos.`);
+
+      // Clear users
+      const users = await UsersService.getAllUsers();
+      for (const user of users) {
+        if (user.id) {
+          await UsersService.deleteUser(user.id);
+        }
+      }
+      console.log(`Deleted ${users.length} users.`);
 
       console.log('All Firestore data cleared successfully!');
     } catch (error) {

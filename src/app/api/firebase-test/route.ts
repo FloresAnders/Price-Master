@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { MigrationService } from '../../../utils/migration';
 import { LocationsService } from '../../../services/locations';
 import { SorteosService } from '../../../services/sorteos';
+import { UsersService } from '../../../services/users';
 
 export async function GET() {
   try {
     // Test Firebase connection by getting current data
-    const [locations, sorteos] = await Promise.all([
+    const [locations, sorteos, users] = await Promise.all([
       LocationsService.getAllLocations(),
-      SorteosService.getAllSorteos()
+      SorteosService.getAllSorteos(),
+      UsersService.getAllUsers()
     ]);
 
     return NextResponse.json({
@@ -16,8 +18,10 @@ export async function GET() {
       data: {
         locations: locations.length,
         sorteos: sorteos.length,
+        users: users.length,
         locationsData: locations.slice(0, 3), // Show first 3 for testing
-        sorteosData: sorteos.slice(0, 3) // Show first 3 for testing
+        sorteosData: sorteos.slice(0, 3), // Show first 3 for testing
+        usersData: users.slice(0, 3) // Show first 3 for testing
       }
     });
   } catch (error) {
@@ -35,9 +39,10 @@ export async function POST() {
     await MigrationService.runAllMigrations();
     
     // Get updated data
-    const [locations, sorteos] = await Promise.all([
+    const [locations, sorteos, users] = await Promise.all([
       LocationsService.getAllLocations(),
-      SorteosService.getAllSorteos()
+      SorteosService.getAllSorteos(),
+      UsersService.getAllUsers()
     ]);
 
     return NextResponse.json({
@@ -45,7 +50,8 @@ export async function POST() {
       message: 'Migration completed successfully',
       data: {
         locations: locations.length,
-        sorteos: sorteos.length
+        sorteos: sorteos.length,
+        users: users.length
       }
     });
   } catch (error) {

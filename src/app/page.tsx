@@ -16,6 +16,7 @@ import {
   Banknote,
   Scan,
   Clock,
+  Settings,
 } from 'lucide-react'
 import type { ScanHistoryEntry } from '@/types/barcode'
 import TimingControl from '@/components/TimingControl'
@@ -103,9 +104,9 @@ export default function HomePage() {
       icon: ClipboardList, 
       description: 'Ver códigos escaneados', 
       badge: scanHistory.length > 0 ? scanHistory.length : undefined 
-    },
-    { id: 'timingcontrol' as ActiveTab, name: 'Control Tiempos', icon: Smartphone, description: 'Registro de venta de tiempos' },
+    },    { id: 'timingcontrol' as ActiveTab, name: 'Control Tiempos', icon: Smartphone, description: 'Registro de venta de tiempos' },
     { id: 'controlhorario' as ActiveTab, name: 'Control Horario', icon: Clock, description: 'Registro de horarios de trabajo' },
+    
   ]
 
   // 4) Al montar, leemos el hash de la URL y marcamos la pestaña correspondiente

@@ -10,6 +10,17 @@ export interface Sorteo {
   name: string;
 }
 
+export interface User {
+  id?: string;
+  name: string;
+  location?: string;
+  password?: string;
+  role?: 'admin' | 'user' | 'manager';
+  isActive?: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
 export interface ScheduleEntry {
   id?: string;
   locationValue: string;

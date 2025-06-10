@@ -1,20 +1,21 @@
 import { LocationsService } from '../services/locations';
 import { SorteosService } from '../services/sorteos';
-import { Location, Sorteo } from '../types/firestore';
+import { UsersService } from '../services/users';
+import { Location, Sorteo, User } from '../types/firestore';
 
 /**
  * Firebase helper utilities
  */
 export class FirebaseUtils {
-  
-  /**
+    /**
    * Initialize collections with default data if they're empty
    */
   static async initializeCollections(): Promise<void> {
     try {
-      const [locations, sorteos] = await Promise.all([
+      const [locations, sorteos, users] = await Promise.all([
         LocationsService.getAllLocations(),
-        SorteosService.getAllSorteos()
+        SorteosService.getAllSorteos(),
+        UsersService.getAllUsers()
       ]);
 
       if (locations.length === 0 || sorteos.length === 0) {
@@ -26,19 +27,20 @@ export class FirebaseUtils {
       console.error('Error initializing collections:', error);
     }
   }
-
   /**
    * Get statistics about the collections
    */
   static async getCollectionStats(): Promise<{
     locations: number;
     sorteos: number;
+    users: number;
     totalNames: number;
   }> {
     try {
-      const [locations, sorteos] = await Promise.all([
+      const [locations, sorteos, users] = await Promise.all([
         LocationsService.getAllLocations(),
-        SorteosService.getAllSorteos()
+        SorteosService.getAllSorteos(),
+        UsersService.getAllUsers()
       ]);
 
       const totalNames = locations.reduce((acc, location) => 
@@ -48,25 +50,27 @@ export class FirebaseUtils {
       return {
         locations: locations.length,
         sorteos: sorteos.length,
+        users: users.length,
         totalNames
       };
     } catch (error) {
       console.error('Error getting collection stats:', error);
-      return { locations: 0, sorteos: 0, totalNames: 0 };
+      return { locations: 0, sorteos: 0, users: 0, totalNames: 0 };
     }
   }
-
   /**
    * Search across all collections
    */
   static async globalSearch(term: string): Promise<{
     locations: Location[];
     sorteos: Sorteo[];
+    users: User[];
   }> {
     try {
-      const [locations, sorteos] = await Promise.all([
+      const [locations, sorteos, users] = await Promise.all([
         LocationsService.getAllLocations(),
-        SorteosService.getAllSorteos()
+        SorteosService.getAllSorteos(),
+        UsersService.getAllUsers()
       ]);
 
       const searchTerm = term.toLowerCase();
@@ -79,35 +83,42 @@ export class FirebaseUtils {
 
       const matchingSorteos = sorteos.filter(sorteo =>
         sorteo.name.toLowerCase().includes(searchTerm)
+      );      const matchingUsers = users.filter(user =>
+        user.name.toLowerCase().includes(searchTerm) ||
+        (user.location && user.location.toLowerCase().includes(searchTerm)) ||
+        (user.role && user.role.toLowerCase().includes(searchTerm))
       );
 
       return {
         locations: matchingLocations,
-        sorteos: matchingSorteos
+        sorteos: matchingSorteos,
+        users: matchingUsers
       };
     } catch (error) {
       console.error('Error in global search:', error);
-      return { locations: [], sorteos: [] };
+      return { locations: [], sorteos: [], users: [] };
     }
   }
-
   /**
    * Backup all data to JSON format
    */
   static async backupToJSON(): Promise<{
     locations: Location[];
     sorteos: Sorteo[];
+    users: User[];
     timestamp: string;
   }> {
     try {
-      const [locations, sorteos] = await Promise.all([
+      const [locations, sorteos, users] = await Promise.all([
         LocationsService.getAllLocations(),
-        SorteosService.getAllSorteos()
+        SorteosService.getAllSorteos(),
+        UsersService.getAllUsers()
       ]);
 
       return {
         locations,
         sorteos,
+        users,
         timestamp: new Date().toISOString()
       };
     } catch (error) {

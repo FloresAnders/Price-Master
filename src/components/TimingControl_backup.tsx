@@ -3,7 +3,7 @@ import { LocationsService } from '../services/locations';
 import { SorteosService } from '../services/sorteos';
 import { useAuth } from '../hooks/useAuth';
 import LoginModal from './LoginModal';
-import { Timer } from 'lucide-react';
+import { LogOut, Timer } from 'lucide-react';
 import type { Location, Sorteo, User } from '../types/firestore';
 
 const INITIAL_ROWS = 4;
@@ -28,9 +28,7 @@ export default function TimingControl() {
             cliente: '',
         }))
     );
-    const [showSummary, setShowSummary] = useState(false);
-
-    // Cargar datos desde Firebase
+    const [showSummary, setShowSummary] = useState(false);    // Cargar datos desde Firebase
     useEffect(() => {
         const loadData = async () => {
             try {
@@ -56,56 +54,6 @@ export default function TimingControl() {
         }
     }, [isAuthenticated, user, location]);
 
-    // Efecto para cargar/guardar filas desde/hacia localStorage
-    useEffect(() => {
-        if (!location) {
-            setRows(Array.from({ length: INITIAL_ROWS }, () => ({ name: '', sorteo: '', amount: '', time: '', cliente: '' })));
-            return;
-        }
-
-        const saved = localStorage.getItem('timingControlRows_' + location);
-        if (saved) {
-            try {
-                const parsed = JSON.parse(saved);
-                if (Array.isArray(parsed)) {
-                    setRows(parsed.map((row: { name?: string; sorteo?: string; amount?: string; time?: string; cliente?: string }) => ({
-                        name: row.name || '',
-                        sorteo: row.sorteo || '',
-                        amount: row.amount || '',
-                        time: row.time || '',
-                        cliente: row.cliente || '',
-                    })));
-                }
-            } catch { }
-        } else {
-            setRows(Array.from({ length: INITIAL_ROWS }, () => ({ name: '', sorteo: '', amount: '', time: '', cliente: '' })));
-        }
-    }, [location]);
-
-    // Efecto para guardar filas en localStorage
-    useEffect(() => {
-        if (location) {
-            localStorage.setItem('timingControlRows_' + location, JSON.stringify(rows));
-        }
-    }, [rows, location]);
-
-    // Handle ESC key to close summary modal
-    useEffect(() => {
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape' && showSummary) {
-                setShowSummary(false);
-            }
-        };
-
-        if (showSummary) {
-            document.addEventListener('keydown', handleKeyDown);
-        }
-
-        return () => {
-            document.removeEventListener('keydown', handleKeyDown);
-        };
-    }, [showSummary]);
-
     // Manejar login exitoso
     const handleLoginSuccess = (userData: User) => {
         login(userData);
@@ -118,9 +66,10 @@ export default function TimingControl() {
     // Verificar si necesita autenticación
     if (!isAuthenticated) {
         return (
-            <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-6">                <div className="text-center py-8">
+            <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-6">
+                <div className="text-center py-8">
                     <Timer className="w-16 h-16 mx-auto mb-4 text-blue-600" />
-                    <h3 className="text-2xl font-semibold mb-4">Control de tiempos</h3>
+                    <h3 className="text-2xl font-semibold mb-4">Timing Control</h3>
                     <p className="text-[var(--tab-text)] mb-6">
                         Necesitas iniciar sesión para acceder a esta funcionalidad
                     </p>
@@ -136,7 +85,7 @@ export default function TimingControl() {
                     isOpen={showLoginModal}
                     onLoginSuccess={handleLoginSuccess}
                     onClose={() => setShowLoginModal(false)}
-                    title="Control de tiempos"
+                    title="Timing Control"
                 />
             </div>
         );
@@ -160,9 +109,54 @@ export default function TimingControl() {
             }
             return { ...row, [field]: value };
         }));
-    };    const addRow = () => {
-        setRows(prev => ([...prev, { name: '', sorteo: '', amount: '', time: '', cliente: '' }]));
     };
+
+    const addRow = () => {
+        setRows(prev => ([...prev, { name: '', sorteo: '', amount: '', time: '', cliente: '' }]));
+    }; React.useEffect(() => {
+        if (!location) {
+            setRows(Array.from({ length: INITIAL_ROWS }, () => ({ name: '', sorteo: '', amount: '', time: '', cliente: '' })));
+            return;
+        }
+
+        const saved = localStorage.getItem('timingControlRows_' + location);
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed)) {                    setRows(parsed.map((row: { name?: string; sorteo?: string; amount?: string; time?: string; cliente?: string }) => ({
+                        name: row.name || '',
+                        sorteo: row.sorteo || '',
+                        amount: row.amount || '',
+                        time: row.time || '',
+                        cliente: row.cliente || '',
+                    })));
+                }
+            } catch { }
+        } else {
+            setRows(Array.from({ length: INITIAL_ROWS }, () => ({ name: '', sorteo: '', amount: '', time: '', cliente: '' })));
+        }
+    }, [location]);    React.useEffect(() => {
+        if (location) {
+            localStorage.setItem('timingControlRows_' + location, JSON.stringify(rows));
+        }
+    }, [rows, location]);
+
+    // Handle ESC key to close summary modal
+    React.useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape' && showSummary) {
+                setShowSummary(false);
+            }
+        };
+
+        if (showSummary) {
+            document.addEventListener('keydown', handleKeyDown);
+        }
+
+        return () => {
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [showSummary]);
 
     return (
         <div className="rounded-lg shadow-md p-6" style={{ background: 'var(--card-bg)', color: 'var(--foreground)' }}>
@@ -179,8 +173,7 @@ export default function TimingControl() {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                             </svg>
                         </button>
-                        <h2 className="text-lg font-bold mb-4 text-center" style={{ color: 'var(--foreground)' }}>Resumen de Ventas por Sorteo</h2>
-                        {Object.keys(resumenSorteos).length === 0 ? (
+                        <h2 className="text-lg font-bold mb-4 text-center" style={{ color: 'var(--foreground)' }}>Resumen de Ventas por Sorteo</h2>                        {Object.keys(resumenSorteos).length === 0 ? (
                             <div className="text-center" style={{ color: 'var(--foreground)' }}>No hay sorteos con monto asignado.</div>
                         ) : (
                             <div className="space-y-2 mb-4">
@@ -196,14 +189,48 @@ export default function TimingControl() {
                             Total: <span className="font-mono text-green-700">₡ {totalGeneral.toLocaleString('es-CR')}</span>
                         </div>
                     </div>
+                </div>            )}            <div className="mb-6 flex flex-col sm:flex-row gap-4 items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <Timer className="w-6 h-6 text-blue-600" />
+                    <div>
+                        <h3 className="text-lg font-semibold">Timing Control</h3>
+                        <p className="text-sm text-[var(--tab-text)]">
+                            Usuario: {user?.name} - Ubicación: {location || 'No seleccionada'}
+                        </p>
+                    </div>
                 </div>
-            )}            {/* Header simplificado */}
-            <div className="mb-6 flex items-center gap-4">
-                <Timer className="w-6 h-6 text-blue-600" />
-                <h3 className="text-lg font-semibold">Control de tiempos</h3>
+                
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                        <label className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>Ubicación:</label>                        <select
+                            className="px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            style={{
+                                background: 'var(--input-bg)',
+                                border: '1px solid var(--input-border)',
+                                color: 'var(--foreground)',
+                            }}
+                            value={location}
+                            onChange={e => setLocation(e.target.value)}
+                        >
+                            <option value="">Seleccionar ubicación</option>                            
+                            {locations.map((loc: Location) => (
+                                <option key={loc.value} value={loc.value}>{loc.label}</option>
+                            ))}
+                        </select>
+                    </div>
+                    
+                    {/* Botón de logout */}
+                    <button
+                        onClick={logout}
+                        className="flex items-center gap-2 px-3 py-2 text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                        title="Cerrar sesión"
+                    >
+                        <LogOut className="w-4 h-4" />
+                        <span className="hidden sm:inline">Salir</span>
+                    </button>
+                </div>
             </div>
             
-            {/* Controles de total y resumen - solo cuando hay ubicación */}
             {location && (
                 <div className="mb-4 flex flex-col sm:flex-row gap-2 items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -234,7 +261,7 @@ export default function TimingControl() {
                     </div>
                 </div>
             )}
-
+            </div>
             {location ? (
                 <div className="overflow-x-auto">
                     <div className="grid grid-cols-5 gap-2 font-semibold mb-2" style={{ color: 'var(--foreground)' }}>
@@ -270,8 +297,7 @@ export default function TimingControl() {
                                 }}
                                 value={row.sorteo}
                                 onChange={e => handleRowChange(idx, 'sorteo', e.target.value)}
-                            >
-                                <option value="">Seleccionar</option>
+                            >                                <option value="">Seleccionar</option>
                                 {sorteos.map((sorteo) => (
                                     <option key={sorteo.id || sorteo.name} value={sorteo.name}>{sorteo.name}</option>
                                 ))}
@@ -322,8 +348,7 @@ export default function TimingControl() {
                                 </button>
                             )}
                         </div>
-                    ))}
-                    <button
+                    ))}                <button
                         className="mt-2 px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-green-600 hover:bg-green-700 text-white font-semibold"
                         onClick={addRow}
                     >

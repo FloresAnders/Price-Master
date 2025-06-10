@@ -3,7 +3,7 @@ import { LocationsService } from '../services/locations';
 import { SorteosService } from '../services/sorteos';
 import { useAuth } from '../hooks/useAuth';
 import LoginModal from './LoginModal';
-import { Timer } from 'lucide-react';
+import { LogOut, Timer } from 'lucide-react';
 import type { Location, Sorteo, User } from '../types/firestore';
 
 const INITIAL_ROWS = 4;
@@ -56,8 +56,68 @@ export default function TimingControl() {
         }
     }, [isAuthenticated, user, location]);
 
-    // Efecto para cargar/guardar filas desde/hacia localStorage
-    useEffect(() => {
+    // Manejar login exitoso
+    const handleLoginSuccess = (userData: User) => {
+        login(userData);
+        setShowLoginModal(false);
+        if (userData.location) {
+            setLocation(userData.location);
+        }
+    };
+
+    // Verificar si necesita autenticación
+    if (!isAuthenticated) {
+        return (
+            <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-6">
+                <div className="text-center py-8">
+                    <Timer className="w-16 h-16 mx-auto mb-4 text-blue-600" />
+                    <h3 className="text-2xl font-semibold mb-4">Timing Control</h3>
+                    <p className="text-[var(--tab-text)] mb-6">
+                        Necesitas iniciar sesión para acceder a esta funcionalidad
+                    </p>
+                    <button
+                        onClick={() => setShowLoginModal(true)}
+                        className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                        Iniciar Sesión
+                    </button>
+                </div>
+                
+                <LoginModal
+                    isOpen={showLoginModal}
+                    onLoginSuccess={handleLoginSuccess}
+                    onClose={() => setShowLoginModal(false)}
+                    title="Timing Control"
+                />
+            </div>
+        );
+    }
+
+    const names = locations.find(l => l.value === location)?.names || [];
+
+    const sorteosConMonto = rows.filter(r => r.sorteo && r.amount && !isNaN(Number(r.amount)) && Number(r.amount) > 0);
+    const resumenSorteos = sorteosConMonto.reduce((acc, row) => {
+        if (!acc[row.sorteo]) acc[row.sorteo] = 0;
+        acc[row.sorteo] += Number(row.amount);
+        return acc;
+    }, {} as Record<string, number>);
+    const totalGeneral = Object.values(resumenSorteos).reduce((a, b) => a + b, 0);
+
+    const handleRowChange = (idx: number, field: string, value: string) => {
+        setRows(prev => prev.map((row, i) => {
+            if (i !== idx) return row;
+            if (field === 'amount') {
+                return { ...row, amount: value, time: value ? getNowTime() : '' };
+            }
+            return { ...row, [field]: value };
+        }));
+    };
+
+    const addRow = () => {
+        setRows(prev => ([...prev, { name: '', sorteo: '', amount: '', time: '', cliente: '' }]));
+    };
+
+    React.useEffect(() => {
         if (!location) {
             setRows(Array.from({ length: INITIAL_ROWS }, () => ({ name: '', sorteo: '', amount: '', time: '', cliente: '' })));
             return;
@@ -82,15 +142,14 @@ export default function TimingControl() {
         }
     }, [location]);
 
-    // Efecto para guardar filas en localStorage
-    useEffect(() => {
+    React.useEffect(() => {
         if (location) {
             localStorage.setItem('timingControlRows_' + location, JSON.stringify(rows));
         }
     }, [rows, location]);
 
     // Handle ESC key to close summary modal
-    useEffect(() => {
+    React.useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
             if (event.key === 'Escape' && showSummary) {
                 setShowSummary(false);
@@ -105,64 +164,6 @@ export default function TimingControl() {
             document.removeEventListener('keydown', handleKeyDown);
         };
     }, [showSummary]);
-
-    // Manejar login exitoso
-    const handleLoginSuccess = (userData: User) => {
-        login(userData);
-        setShowLoginModal(false);
-        if (userData.location) {
-            setLocation(userData.location);
-        }
-    };
-
-    // Verificar si necesita autenticación
-    if (!isAuthenticated) {
-        return (
-            <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-6">                <div className="text-center py-8">
-                    <Timer className="w-16 h-16 mx-auto mb-4 text-blue-600" />
-                    <h3 className="text-2xl font-semibold mb-4">Control de tiempos</h3>
-                    <p className="text-[var(--tab-text)] mb-6">
-                        Necesitas iniciar sesión para acceder a esta funcionalidad
-                    </p>
-                    <button
-                        onClick={() => setShowLoginModal(true)}
-                        className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                        Iniciar Sesión
-                    </button>
-                </div>
-                
-                <LoginModal
-                    isOpen={showLoginModal}
-                    onLoginSuccess={handleLoginSuccess}
-                    onClose={() => setShowLoginModal(false)}
-                    title="Control de tiempos"
-                />
-            </div>
-        );
-    }
-
-    const names = locations.find(l => l.value === location)?.names || [];
-
-    const sorteosConMonto = rows.filter(r => r.sorteo && r.amount && !isNaN(Number(r.amount)) && Number(r.amount) > 0);
-    const resumenSorteos = sorteosConMonto.reduce((acc, row) => {
-        if (!acc[row.sorteo]) acc[row.sorteo] = 0;
-        acc[row.sorteo] += Number(row.amount);
-        return acc;
-    }, {} as Record<string, number>);
-    const totalGeneral = Object.values(resumenSorteos).reduce((a, b) => a + b, 0);
-
-    const handleRowChange = (idx: number, field: string, value: string) => {
-        setRows(prev => prev.map((row, i) => {
-            if (i !== idx) return row;
-            if (field === 'amount') {
-                return { ...row, amount: value, time: value ? getNowTime() : '' };
-            }
-            return { ...row, [field]: value };
-        }));
-    };    const addRow = () => {
-        setRows(prev => ([...prev, { name: '', sorteo: '', amount: '', time: '', cliente: '' }]));
-    };
 
     return (
         <div className="rounded-lg shadow-md p-6" style={{ background: 'var(--card-bg)', color: 'var(--foreground)' }}>
@@ -197,10 +198,50 @@ export default function TimingControl() {
                         </div>
                     </div>
                 </div>
-            )}            {/* Header simplificado */}
-            <div className="mb-6 flex items-center gap-4">
-                <Timer className="w-6 h-6 text-blue-600" />
-                <h3 className="text-lg font-semibold">Control de tiempos</h3>
+            )}
+
+            {/* Header con información del usuario y controles */}
+            <div className="mb-6 flex flex-col sm:flex-row gap-4 items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <Timer className="w-6 h-6 text-blue-600" />
+                    <div>
+                        <h3 className="text-lg font-semibold">Timing Control</h3>
+                        <p className="text-sm text-[var(--tab-text)]">
+                            Usuario: {user?.name} - Ubicación: {location || 'No seleccionada'}
+                        </p>
+                    </div>
+                </div>
+                
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                        <label className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>Ubicación:</label>
+                        <select
+                            className="px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            style={{
+                                background: 'var(--input-bg)',
+                                border: '1px solid var(--input-border)',
+                                color: 'var(--foreground)',
+                            }}
+                            value={location}
+                            onChange={e => setLocation(e.target.value)}
+                        >
+                            <option value="">Seleccionar ubicación</option>
+                            {locations.map((loc: Location) => (
+                                <option key={loc.value} value={loc.value}>{loc.label}</option>
+                            ))}
+                        </select>
+                    </div>
+                    
+                    {/* Botón de logout */}
+                    <button
+                        onClick={logout}
+                        className="flex items-center gap-2 px-3 py-2 text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                        title="Cerrar sesión"
+                    >
+                        <LogOut className="w-4 h-4" />
+                        <span className="hidden sm:inline">Salir</span>
+                    </button>
+                </div>
             </div>
             
             {/* Controles de total y resumen - solo cuando hay ubicación */}
