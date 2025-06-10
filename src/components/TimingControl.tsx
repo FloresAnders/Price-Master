@@ -14,18 +14,16 @@ function getNowTime() {
 }
 
 export default function TimingControl() {
-    const { user, isAuthenticated, login, logout } = useAuth();
+    const { user, isAuthenticated, login } = useAuth();
     const [showLoginModal, setShowLoginModal] = useState(false);
     const [locations, setLocations] = useState<Location[]>([]);
     const [sorteos, setSorteos] = useState<Sorteo[]>([]);
-    const [location, setLocation] = useState('');
-    const [rows, setRows] = useState(() =>
+    const [location, setLocation] = useState('');    const [rows, setRows] = useState(() =>
         Array.from({ length: INITIAL_ROWS }, () => ({
-            name: '',
+            ticketNumber: '',
             sorteo: '',
             amount: '',
             time: '',
-            cliente: '',
         }))
     );
     const [showSummary, setShowSummary] = useState(false);
@@ -54,12 +52,10 @@ export default function TimingControl() {
         if (isAuthenticated && user?.location && !location) {
             setLocation(user.location);
         }
-    }, [isAuthenticated, user, location]);
-
-    // Efecto para cargar/guardar filas desde/hacia localStorage
+    }, [isAuthenticated, user, location]);    // Efecto para cargar/guardar filas desde/hacia localStorage
     useEffect(() => {
         if (!location) {
-            setRows(Array.from({ length: INITIAL_ROWS }, () => ({ name: '', sorteo: '', amount: '', time: '', cliente: '' })));
+            setRows(Array.from({ length: INITIAL_ROWS }, () => ({ ticketNumber: '', sorteo: '', amount: '', time: '' })));
             return;
         }
 
@@ -68,17 +64,16 @@ export default function TimingControl() {
             try {
                 const parsed = JSON.parse(saved);
                 if (Array.isArray(parsed)) {
-                    setRows(parsed.map((row: { name?: string; sorteo?: string; amount?: string; time?: string; cliente?: string }) => ({
-                        name: row.name || '',
+                    setRows(parsed.map((row: { ticketNumber?: string; sorteo?: string; amount?: string; time?: string }) => ({
+                        ticketNumber: row.ticketNumber || '',
                         sorteo: row.sorteo || '',
                         amount: row.amount || '',
                         time: row.time || '',
-                        cliente: row.cliente || '',
                     })));
                 }
             } catch { }
         } else {
-            setRows(Array.from({ length: INITIAL_ROWS }, () => ({ name: '', sorteo: '', amount: '', time: '', cliente: '' })));
+            setRows(Array.from({ length: INITIAL_ROWS }, () => ({ ticketNumber: '', sorteo: '', amount: '', time: '' })));
         }
     }, [location]);
 
@@ -142,26 +137,27 @@ export default function TimingControl() {
         );
     }
 
-    const names = locations.find(l => l.value === location)?.names || [];
-
-    const sorteosConMonto = rows.filter(r => r.sorteo && r.amount && !isNaN(Number(r.amount)) && Number(r.amount) > 0);
+    const sorteosConMonto = rows.filter(r => r.amount && !isNaN(Number(r.amount)) && Number(r.amount) > 0);
     const resumenSorteos = sorteosConMonto.reduce((acc, row) => {
-        if (!acc[row.sorteo]) acc[row.sorteo] = 0;
-        acc[row.sorteo] += Number(row.amount);
+        const sorteoName = row.sorteo || 'Sin sorteo';
+        if (!acc[sorteoName]) acc[sorteoName] = 0;
+        acc[sorteoName] += Number(row.amount);
         return acc;
     }, {} as Record<string, number>);
-    const totalGeneral = Object.values(resumenSorteos).reduce((a, b) => a + b, 0);
-
-    const handleRowChange = (idx: number, field: string, value: string) => {
+    const totalGeneral = Object.values(resumenSorteos).reduce((a, b) => a + b, 0);    const handleRowChange = (idx: number, field: string, value: string) => {
         setRows(prev => prev.map((row, i) => {
             if (i !== idx) return row;
             if (field === 'amount') {
                 return { ...row, amount: value, time: value ? getNowTime() : '' };
+            } else if (field === 'ticketNumber') {
+                // Solo permitir números y máximo 4 dígitos
+                const numericValue = value.replace(/\D/g, '').slice(0, 4);
+                return { ...row, ticketNumber: numericValue };
             }
             return { ...row, [field]: value };
         }));
     };    const addRow = () => {
-        setRows(prev => ([...prev, { name: '', sorteo: '', amount: '', time: '', cliente: '' }]));
+        setRows(prev => ([...prev, { ticketNumber: '', sorteo: '', amount: '', time: '' }]));
     };
 
     return (
@@ -222,10 +218,9 @@ export default function TimingControl() {
                             Ver resumen
                         </button>
                         <button
-                            className="px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 bg-red-500 hover:bg-red-600 text-white"
-                            onClick={() => {
+                            className="px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 bg-red-500 hover:bg-red-600 text-white"                            onClick={() => {
                                 if (window.confirm('¿Seguro que deseas limpiar todas las filas?')) {
-                                    setRows(Array.from({ length: INITIAL_ROWS }, () => ({ name: '', sorteo: '', amount: '', time: '', cliente: '' })))
+                                    setRows(Array.from({ length: INITIAL_ROWS }, () => ({ ticketNumber: '', sorteo: '', amount: '', time: '' })))
                                 }
                             }}
                         >
@@ -236,31 +231,26 @@ export default function TimingControl() {
             )}
 
             {location ? (
-                <div className="overflow-x-auto">
-                    <div className="grid grid-cols-5 gap-2 font-semibold mb-2" style={{ color: 'var(--foreground)' }}>
-                        <div>Nombre</div>
+                <div className="overflow-x-auto">                    <div className="grid grid-cols-4 gap-2 font-semibold mb-2" style={{ color: 'var(--foreground)' }}>
+                        <div>Número de Tiquete</div>
                         <div>Sorteo</div>
                         <div>Monto (₡)</div>
                         <div>Hora</div>
-                        <div>Cliente (opcional)</div>
-                    </div>
-                    {rows.map((row, idx) => (
-                        <div className="grid grid-cols-5 gap-2 mb-2" key={idx}>
-                            <select
+                    </div>                    {rows.map((row, idx) => (
+                        <div className="grid grid-cols-4 gap-2 mb-2" key={idx}>
+                            <input
+                                type="text"
                                 className="px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                 style={{
                                     background: 'var(--input-bg)',
                                     border: '1px solid var(--input-border)',
                                     color: 'var(--foreground)',
                                 }}
-                                value={row.name}
-                                onChange={e => handleRowChange(idx, 'name', e.target.value)}
-                            >
-                                <option value="">Seleccionar</option>
-                                {names.map(n => (
-                                    <option key={n} value={n}>{n}</option>
-                                ))}
-                            </select>
+                                value={row.ticketNumber}
+                                onChange={e => handleRowChange(idx, 'ticketNumber', e.target.value)}
+                                placeholder="0000"
+                                maxLength={4}
+                            />
                             <select
                                 className="px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                 style={{
@@ -301,26 +291,6 @@ export default function TimingControl() {
                                 readOnly
                                 placeholder="--:--:--"
                             />
-                            {row.cliente ? (
-                                <span className="text-blue-700 font-semibold truncate px-2 flex items-center min-h-[40px]">{row.cliente}</span>
-                            ) : (
-                                <button
-                                    className="flex items-center justify-center w-full h-full rounded min-h-[40px] transition-colors"
-                                    style={{
-                                        background: 'var(--input-bg)',
-                                        border: '1px solid var(--input-border)',
-                                    }}
-                                    title="Agregar cliente"
-                                    onClick={() => {
-                                        const cliente = prompt('Nombre del cliente (opcional):', row.cliente || '');
-                                        handleRowChange(idx, 'cliente', cliente || '');
-                                    }}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 text-blue-600">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.25v-1.5A2.25 2.25 0 016.75 16.5h10.5a2.25 2.25 0 012.25 2.25v1.5" />
-                                    </svg>
-                                </button>
-                            )}
                         </div>
                     ))}
                     <button
