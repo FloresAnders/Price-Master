@@ -81,7 +81,7 @@ export function detectBasicPatternWithOrientation(imageData: ImageData): string 
           // Calcula la proporción de barras negras
           const ones = chunk.split('').filter((c) => c === '1').length;
           const ratio = ones / seg;
-          // Heurística: más de 70% negro = 1, menos de 30% = 0, intermedios = 7, 4, 3, etc.
+          //más de 70% negro = 1, menos de 30% = 0, intermedios = 7, 4, 3, etc.
           if (ratio > 0.7) digits += '1';
           else if (ratio < 0.3) digits += '0';
           else if (ratio > 0.55) digits += '7';
