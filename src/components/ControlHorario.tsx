@@ -92,23 +92,27 @@ export default function ControlHorario() {
 
     loadScheduleData();
   }, [location, names, year, month]);
-
   // Función para actualizar un horario específico
   const updateScheduleCell = async (employeeName: string, day: string, newValue: string) => {
     const currentValue = scheduleData[employeeName]?.[day] || '';
     
     // Si la celda ya tiene un valor específico (N, D, L), solicitar confirmación
     if (currentValue && ['N', 'D', 'L'].includes(currentValue) && currentValue !== newValue) {
-      const confirmed = window.confirm(
-        `¿Está seguro de cambiar el turno de ${employeeName} del día ${day} de "${currentValue}" a "${newValue}"?`
-      );
+      let confirmMessage = '';
+      if (newValue === '' || newValue.trim() === '') {
+        confirmMessage = `¿Está seguro de eliminar el turno "${currentValue}" de ${employeeName} del día ${day}? Esto eliminará el registro de la base de datos.`;
+      } else {
+        confirmMessage = `¿Está seguro de cambiar el turno de ${employeeName} del día ${day} de "${currentValue}" a "${newValue}"?`;
+      }
+      
+      const confirmed = window.confirm(confirmMessage);
       if (!confirmed) return;
     }
 
     try {
       setSaving(true);
       
-      // Actualizar en Firebase
+      // Actualizar en Firebase (eliminará el documento si newValue está vacío)
       await SchedulesService.updateScheduleShift(
         location,
         employeeName,
@@ -127,7 +131,12 @@ export default function ControlHorario() {
         }
       }));
 
-      showNotification('Horario actualizado correctamente', 'success');
+      // Mostrar mensaje específico según la acción
+      if (newValue === '' || newValue.trim() === '') {
+        showNotification('Turno eliminado correctamente (documento borrado)', 'success');
+      } else {
+        showNotification('Horario actualizado correctamente', 'success');
+      }
     } catch (error) {
       console.error('Error updating schedule:', error);
       showNotification('Error al actualizar el horario', 'error');

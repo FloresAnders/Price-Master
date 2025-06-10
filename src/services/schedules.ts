@@ -112,9 +112,30 @@ export class SchedulesService {
     const id = await this.addSchedule(newEntry);
     return { ...newEntry, id };
   }
+  /**
+   * Find existing schedule entry for a specific day
+   */
+  static async findScheduleEntry(
+    locationValue: string,
+    employeeName: string,
+    year: number,
+    month: number,
+    day: number
+  ): Promise<ScheduleEntry | null> {
+    const existing = await FirestoreService.query(this.COLLECTION_NAME, [
+      { field: 'locationValue', operator: '==', value: locationValue },
+      { field: 'employeeName', operator: '==', value: employeeName },
+      { field: 'year', operator: '==', value: year },
+      { field: 'month', operator: '==', value: month },
+      { field: 'day', operator: '==', value: day }
+    ]);
+
+    return existing.length > 0 ? existing[0] : null;
+  }
 
   /**
    * Update or create schedule entry shift
+   * If shift is empty, delete the document instead of updating it
    */
   static async updateScheduleShift(
     locationValue: string,
@@ -124,10 +145,37 @@ export class SchedulesService {
     day: number,
     shift: string
   ): Promise<void> {
-    const entry = await this.getOrCreateScheduleEntry(locationValue, employeeName, year, month, day);
-    
-    if (entry.id) {
-      await this.updateSchedule(entry.id, { shift });
+    try {
+      // Find existing entry first
+      const existingEntry = await this.findScheduleEntry(locationValue, employeeName, year, month, day);
+
+      if (shift === '' || shift.trim() === '') {
+        // If setting to empty and document exists, DELETE it
+        if (existingEntry && existingEntry.id) {
+          await this.deleteSchedule(existingEntry.id);
+          console.log(`Documento eliminado exitosamente: ${existingEntry.id}`);
+        }
+        // If no existing document, do nothing (already "empty")
+      } else {
+        // If setting a value
+        if (existingEntry && existingEntry.id) {
+          // Update existing document
+          await this.updateSchedule(existingEntry.id, { shift });
+        } else {
+          // Create new document
+          await this.addSchedule({
+            locationValue,
+            employeeName,
+            year,
+            month,
+            day,
+            shift
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error al actualizar/eliminar documento:', error);
+      throw error;
     }
   }
 }
