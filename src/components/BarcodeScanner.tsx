@@ -332,7 +332,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                 )}
 
                 {/* Guide rectangle always visible */}
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
                   <div className="w-4/5 h-20 border-4 border-dashed border-indigo-200 dark:border-indigo-300 rounded-2xl shadow-xl animate-pulse-slow" />
                 </div>
 
@@ -347,7 +347,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
           </AnimatePresence>
           {/* Código detectado por cámara */}
           <AnimatePresence>
-            {code && cameraActive && (
+            {code && (
               <motion.div {...slideUp} transition={{ duration: 0.5 }} className="mb-2 flex justify-center w-full items-center">
                 <div className="w-full max-w-md relative rounded-2xl shadow-xl overflow-hidden border-2 border-indigo-400 dark:border-indigo-700 bg-white/80 dark:bg-transparent min-h-[120px] flex items-center justify-center">
                   <div className="absolute inset-0 bg-black/40 dark:bg-black/60 z-10" />
