@@ -36,7 +36,7 @@ const ScanHistoryRow = memo(function ScanHistoryRow({
   notify,
 }: ScanHistoryRowProps) {
   return (
-    <div className="scan-history-row flex flex-col bg-white/90 dark:bg-zinc-900/90 rounded-2xl px-4 py-3 shadow-lg justify-between transition-all duration-300 w-full">
+    <div className="scan-history-row flex flex-col bg-[var(--card-bg)] dark:bg-[var(--card-bg)] rounded-2xl px-4 py-3 shadow-lg justify-between transition-all duration-300 w-full">
       <div className="flex flex-col items-start flex-1 min-w-0 w-full">
         {editingIdx === idx ? (
           <form
@@ -141,7 +141,7 @@ export default function ScanHistory({ history, onCopy, onDelete, onRemoveLeading
   }
 
   return (
-    <div className="space-y-6 p-4 md:p-6 rounded-3xl shadow-2xl bg-gradient-to-br from-indigo-50/80 via-white/80 to-blue-100/80 dark:from-zinc-900/80 dark:via-zinc-800/80 dark:to-indigo-950/80 border border-indigo-200 dark:border-indigo-900 scan-history-container backdrop-blur-xl max-w-2xl w-full mx-auto overflow-x-auto">
+    <div className="space-y-6 p-4 md:p-6 rounded-3xl shadow-2xl bg-[var(--card-bg)] dark:bg-[var(--card-bg)] border border-[var(--input-border)] scan-history-container backdrop-blur-xl max-w-2xl w-full mx-auto overflow-x-auto">
       <div className="flex items-center justify-between mb-6 md:mb-8">
         <h3 className="text-lg font-bold text-center flex-1 text-indigo-700 dark:text-indigo-200">Historial de Escaneos</h3>
         <button

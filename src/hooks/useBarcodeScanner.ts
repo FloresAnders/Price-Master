@@ -195,8 +195,9 @@ export function useBarcodeScanner(onDetect?: (code: string) => void) {
     }
   };
 
-  // Toggle cámara (solo stub, lógica de cámara debe migrarse si se usa)
+  // Toggle cámara: siempre alternar cameraActive para iniciar lógica en useEffect
   const toggleCamera = useCallback(() => {
+    setError('');
     setCameraActive((prev) => !prev);
   }, []);
 
@@ -255,6 +256,12 @@ export function useBarcodeScanner(onDetect?: (code: string) => void) {
               return;
             }
             Quagga.start();
+            // Apply CSS classes to the video element so it fully fills the container
+            const videoElem = liveStreamRef.current?.querySelector('video');
+            if (videoElem) {
+              videoElem.classList.add('absolute','inset-0','w-full','h-full','object-cover');
+              videoElem.setAttribute('playsinline', 'true');
+            }
           }
         );
         // --- ZBar-WASM cada 500ms: PRIORIDAD ---
