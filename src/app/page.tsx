@@ -11,8 +11,7 @@ import ControlHorario from '@/components/ControlHorario'
 import DataEditor from '@/edit/DataEditor'
 import {
   Calculator,
-  Smartphone,
-  Type,  ClipboardList,
+  Type,
   Banknote,
   Scan,
   Clock,
@@ -20,8 +19,8 @@ import {
 import type { ScanHistoryEntry } from '@/types/barcode'
 import TimingControl from '@/components/TimingControl'
 
-// 1) Ampliamos ActiveTab para incluir "cashcounter", "controlhorario" y "edit"
-type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'history' | 'timingcontrol' | 'controlhorario' | 'edit'
+// 1) Ampliamos ActiveTab para incluir "cashcounter"
+type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter'
 
 export default function HomePage() {
   // 2) Estado para la pestaña activa
@@ -96,24 +95,16 @@ export default function HomePage() {
       name: 'Contador Efectivo', 
       icon: Banknote, 
       description: 'Contar billetes y monedas (CRC/USD)' 
-    },
-    { 
-      id: 'history' as ActiveTab, 
-      name: 'Historial', 
-      icon: ClipboardList, 
-      description: 'Ver códigos escaneados', 
-      badge: scanHistory.length > 0 ? scanHistory.length : undefined 
-    },
-    { id: 'timingcontrol' as ActiveTab, name: 'Control Tiempos', icon: Smartphone, description: 'Registro de venta de tiempos' },
-    { id: 'controlhorario' as ActiveTab, name: 'Control Horario', icon: Clock, description: 'Registro de horarios de trabajo' },
+    }
   ]
 
   // 4) Al montar, leemos el hash de la URL y marcamos la pestaña correspondiente
   useEffect(() => {
     // Solo en cliente (window existe)
     if (typeof window !== 'undefined') {
-      const hash = window.location.hash.replace('#', '') as ActiveTab      // Si coincide con alguna pestaña válida, la activamos
-      if (['scanner','calculator','converter','cashcounter','history','timingcontrol','controlhorario','edit'].includes(hash)) {
+      const hash = window.location.hash.replace('#', '') as ActiveTab
+      // Si coincide con alguna pestaña válida, la activamos
+      if (['scanner','calculator','converter','cashcounter'].includes(hash)) {
         setActiveTab(hash)
       }
     }
@@ -156,14 +147,6 @@ export default function HomePage() {
                   <div className="flex items-center justify-center space-x-2">
                     <tab.icon className="w-5 h-5" />
                     <span className="hidden sm:inline">{tab.name}</span>
-                    {tab.badge && (
-                      <span
-                        className="ml-1 py-0.5 px-2 rounded-full text-xs"
-                        style={{ backgroundColor: 'var(--badge-bg)', color: 'var(--badge-text)' }}
-                      >
-                        {tab.badge}
-                      </span>
-                    )}
                   </div>
                 </button>
               ))}
@@ -185,24 +168,29 @@ export default function HomePage() {
         <div className="space-y-8">
           {/* SCANNER */}
           {activeTab === 'scanner' && (
-            <div className="max-w-4xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4">
+            <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4">
               <div className="flex flex-col lg:flex-row gap-6">
-                <div className="flex-1">
-                  <BarcodeScanner onDetect={handleCodeDetected}>
-                    <ScanHistory
-                      history={scanHistory}
-                      onCopy={handleCopy}
-                      onDelete={handleDelete}
-                      onRemoveLeadingZero={handleRemoveLeadingZero}
-                      onRename={handleRename}
-                      notify={showNotification}
-                    />
+                {/* Scanner (left/top) */}
+                <div className="flex-1 min-w-0">
+                  <BarcodeScanner onDetect={handleCodeDetected} onRemoveLeadingZero={handleRemoveLeadingZero}>
+                    {/* No children here, ScanHistory is now separate */}
                   </BarcodeScanner>
                 </div>
+                {/* ScanHistory (right/bottom) */}
+                <div className="w-full lg:w-[350px] xl:w-[400px] flex-shrink-0">
+                  <ScanHistory
+                    history={scanHistory}
+                    onCopy={handleCopy}
+                    onDelete={handleDelete}
+                    onRemoveLeadingZero={handleRemoveLeadingZero}
+                    onRename={handleRename}
+                    notify={showNotification}
+                  />
+                </div>
               </div>
-              <div className="mt-6 bg-blue-50 rounded-lg p-4">
-                <h3 className="font-medium text-blue-800 mb-2">💡 Consejos para mejores resultados:</h3>
-                <ul className="text-sm text-blue-700 space-y-1">
+              <div className="mt-6 bg-blue-50 dark:bg-blue-950 rounded-lg p-4">
+                <h3 className="font-medium text-blue-800 dark:text-blue-200 mb-2">💡 Consejos para mejores resultados:</h3>
+                <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
                   <li>• Asegúrate de que el código de barras esté bien iluminado</li>
                   <li>• La imagen debe estar enfocada y sin borrosidad</li>
                   <li>• Puedes pegar imágenes directamente con Ctrl+V</li>
@@ -241,56 +229,6 @@ export default function HomePage() {
             <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4">
               <CashCounterTabs />
             </div>
-          )}
-
-          {/* HISTORY */}
-          {activeTab === 'history' && (
-            <div className="max-w-4xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4">
-              <ScanHistory
-                history={scanHistory}
-                onCopy={handleCopy}
-                onDelete={handleDelete}
-                onRemoveLeadingZero={handleRemoveLeadingZero}
-                onRename={handleRename}
-                notify={showNotification}
-              />
-              {scanHistory.length > 0 ? (
-                <div className="mt-6 flex justify-center">
-                  <button
-                    onClick={() => setScanHistory([])}
-                    className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:ring-2 focus:ring-red-500 transition-colors"
-                  >
-                    Limpiar Historial
-                  </button>
-                </div>
-              ) : (
-                <div className="mt-6 text-center">
-                  <div className="mb-4 flex justify-center">
-                    <Smartphone className="w-16 h-16 text-gray-500 dark:text-gray-300" />
-                  </div>
-                  <p className="text-gray-500 mb-4">Aún no has escaneado ningún código de barras</p>
-                  <button
-                    onClick={() => setActiveTab('scanner')}
-                    className="px-6 py-3 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 transition-colors"
-                  >
-                    Ir al Escáner
-                  </button>
-                </div>
-              )}
-            </div>
-          )}          {/* CONTROL TIEMPOS */}
-          {activeTab === 'timingcontrol' && (
-            <div className="max-w-4xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4 min-h-[300px] flex flex-col items-center justify-center">
-              <TimingControl />
-            </div>
-          )}          {/* CONTROL HORARIO */}
-          {activeTab === 'controlhorario' && (
-            <ControlHorario />
-          )}
-
-          {/* EDITOR DE DATOS */}
-          {activeTab === 'edit' && (
-            <DataEditor />
           )}
         </div>
       </main>
