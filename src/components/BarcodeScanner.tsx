@@ -25,7 +25,6 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
     copySuccess,
     detectionMethod,
     cameraActive,
-    imgRef,
     fileInputRef,
     liveStreamRef,
     handleFileUpload,
@@ -153,6 +152,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
             <motion.div {...slideUp} transition={{ duration: 0.5 }} className="mb-2 flex justify-center w-full items-center">
               <div className="w-full max-w-md relative rounded-2xl shadow-xl overflow-hidden border-2 border-indigo-400 dark:border-indigo-700 bg-transparent min-h-[220px] flex items-center justify-center">
                 {/* Imagen de fondo SIEMPRE visible si hay imagePreview */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={imagePreview}
                   alt="Preview"
