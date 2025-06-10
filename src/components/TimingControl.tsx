@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import type { Location, Sorteo } from '../types/timing';
+import { LocationsService } from '../services/locations';
+import { SorteosService } from '../services/sorteos';
+import type { Location, Sorteo } from '../types/firestore';
 
 const INITIAL_ROWS = 4;
 
@@ -21,23 +23,19 @@ export default function TimingControl() {
             cliente: '',
         }))
     );
-    const [showSummary, setShowSummary] = useState(false);
-
-    // Cargar datos desde las APIs
+    const [showSummary, setShowSummary] = useState(false);    // Cargar datos desde Firebase
     useEffect(() => {
         const loadData = async () => {
             try {
-                const [locationsRes, sorteosRes] = await Promise.all([
-                    fetch('/api/data/locations'),
-                    fetch('/api/data/sorteos')
+                const [locationsData, sorteosData] = await Promise.all([
+                    LocationsService.getAllLocations(),
+                    SorteosService.getAllSorteos()
                 ]);
                 
-                const locationsData = await locationsRes.json();
-                const sorteosData = await sorteosRes.json();
-                  setLocations(locationsData);
+                setLocations(locationsData);
                 setSorteos(sorteosData);
             } catch (error) {
-                console.error('Error loading data:', error);
+                console.error('Error loading data from Firebase:', error);
             }
         };
         
@@ -221,10 +219,9 @@ export default function TimingControl() {
                                 }}
                                 value={row.sorteo}
                                 onChange={e => handleRowChange(idx, 'sorteo', e.target.value)}
-                            >
-                                <option value="">Seleccionar</option>
-                                {sorteos.map((s: string) => (
-                                    <option key={s} value={s}>{s}</option>
+                            >                                <option value="">Seleccionar</option>
+                                {sorteos.map((sorteo) => (
+                                    <option key={sorteo.id || sorteo.name} value={sorteo.name}>{sorteo.name}</option>
                                 ))}
                             </select>
                             <input

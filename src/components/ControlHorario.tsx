@@ -3,7 +3,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { Clock, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
-import type { Location } from '../types/timing';
+import { LocationsService } from '../services/locations';
+import type { Location } from '../types/firestore';
 
 interface ScheduleData {
   [employeeName: string]: {
@@ -18,16 +19,14 @@ export default function ControlHorario() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [scheduleData, setScheduleData] = useState<ScheduleData>({});
   const [viewMode, setViewMode] = useState<'first' | 'second'>('first'); // primera o segunda quincena
-
-  // Cargar datos desde la API
+  // Cargar datos desde Firebase
   useEffect(() => {
     const loadData = async () => {
       try {
-        const response = await fetch('/api/data/locations');
-        const locationsData = await response.json();
+        const locationsData = await LocationsService.getAllLocations();
         setLocations(locationsData);
       } catch (error) {
-        console.error('Error loading locations:', error);
+        console.error('Error loading locations from Firebase:', error);
       } finally {
         setLoading(false);
       }
