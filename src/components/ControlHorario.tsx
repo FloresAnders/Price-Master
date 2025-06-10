@@ -2,9 +2,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Clock, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Clock, Calendar, ChevronLeft, ChevronRight, Save } from 'lucide-react';
 import { LocationsService } from '../services/locations';
-import type { Location } from '../types/firestore';
+import { SchedulesService } from '../services/schedules';
+import type { Location, ScheduleEntry } from '../types/firestore';
 
 interface ScheduleData {
   [employeeName: string]: {
@@ -18,7 +19,9 @@ export default function ControlHorario() {
   const [location, setLocation] = useState('');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [scheduleData, setScheduleData] = useState<ScheduleData>({});
-  const [viewMode, setViewMode] = useState<'first' | 'second'>('first'); // primera o segunda quincena
+  const [viewMode, setViewMode] = useState<'first' | 'second'>('first');
+  const [saving, setSaving] = useState(false);
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   // Cargar datos desde Firebase
   useEffect(() => {
     const loadData = async () => {
@@ -34,7 +37,6 @@ export default function ControlHorario() {
     
     loadData();
   }, []);
-
   const names = locations.find(l => l.value === location)?.names || [];
 
   // Obtener información del mes actual
@@ -54,28 +56,85 @@ export default function ControlHorario() {
 
   const daysToShow = getDaysToShow();
 
-  // Cargar datos del localStorage cuando cambie la ubicación
-  useEffect(() => {
-    if (location) {
-      const saved = localStorage.getItem(`scheduleData_${location}_${year}_${month}`);
-      if (saved) {
-        try {
-          setScheduleData(JSON.parse(saved));
-        } catch {
-          setScheduleData({});
-        }
-      } else {
-        setScheduleData({});
-      }
-    }
-  }, [location, year, month]);
+  // Función para mostrar notificaciones
+  const showNotification = (message: string, type: 'success' | 'error') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 3000);
+  };
 
-  // Guardar datos en localStorage cuando cambien
+  // Cargar horarios de Firebase cuando cambie la ubicación
   useEffect(() => {
-    if (location && Object.keys(scheduleData).length > 0) {
-      localStorage.setItem(`scheduleData_${location}_${year}_${month}`, JSON.stringify(scheduleData));
+    const loadScheduleData = async () => {
+      if (!location || names.length === 0) return;
+
+      try {
+        const scheduleEntries = await Promise.all(
+          names.map(employeeName =>
+            SchedulesService.getSchedulesByLocationEmployeeMonth(location, employeeName, year, month)
+          )
+        );
+
+        const newScheduleData: ScheduleData = {};
+        
+        names.forEach((employeeName, index) => {
+          newScheduleData[employeeName] = {};
+          scheduleEntries[index].forEach(entry => {
+            newScheduleData[employeeName][entry.day.toString()] = entry.shift;
+          });
+        });
+
+        setScheduleData(newScheduleData);
+      } catch (error) {
+        console.error('Error loading schedule data:', error);
+        showNotification('Error al cargar los horarios', 'error');
+      }
+    };
+
+    loadScheduleData();
+  }, [location, names, year, month]);
+
+  // Función para actualizar un horario específico
+  const updateScheduleCell = async (employeeName: string, day: string, newValue: string) => {
+    const currentValue = scheduleData[employeeName]?.[day] || '';
+    
+    // Si la celda ya tiene un valor específico (N, D, L), solicitar confirmación
+    if (currentValue && ['N', 'D', 'L'].includes(currentValue) && currentValue !== newValue) {
+      const confirmed = window.confirm(
+        `¿Está seguro de cambiar el turno de ${employeeName} del día ${day} de "${currentValue}" a "${newValue}"?`
+      );
+      if (!confirmed) return;
     }
-  }, [scheduleData, location, year, month]);  // Opciones de turnos disponibles
+
+    try {
+      setSaving(true);
+      
+      // Actualizar en Firebase
+      await SchedulesService.updateScheduleShift(
+        location,
+        employeeName,
+        year,
+        month,
+        parseInt(day),
+        newValue
+      );
+
+      // Actualizar estado local
+      setScheduleData(prev => ({
+        ...prev,
+        [employeeName]: {
+          ...prev[employeeName],
+          [day]: newValue
+        }
+      }));
+
+      showNotification('Horario actualizado correctamente', 'success');
+    } catch (error) {
+      console.error('Error updating schedule:', error);
+      showNotification('Error al actualizar el horario', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };// Opciones de turnos disponibles
   const shiftOptions = [
     { value: '', label: '', color: 'var(--input-bg)', textColor: 'var(--foreground)' },
     { value: 'N', label: 'N', color: '#87CEEB', textColor: '#000' },
@@ -94,16 +153,9 @@ export default function ControlHorario() {
       color: 'var(--foreground)' 
     };
   };
-
   // Función para manejar cambios en las celdas
   const handleCellChange = (employeeName: string, day: number, value: string) => {
-    setScheduleData(prev => ({
-      ...prev,
-      [employeeName]: {
-        ...prev[employeeName],
-        [day.toString()]: value
-      }
-    }));
+    updateScheduleCell(employeeName, day.toString(), value);
   };
 
   // Función para cambiar mes
@@ -166,9 +218,30 @@ export default function ControlHorario() {
       </div>
     );
   }
-
   return (
     <div className="max-w-full mx-auto bg-[var(--card-bg)] rounded-lg shadow p-6">
+      {/* Notification */}
+      {notification && (
+        <div className={`fixed top-6 right-6 z-50 px-6 py-3 rounded-xl shadow-2xl flex items-center gap-2 font-semibold animate-fade-in-down ${
+          notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'
+        } text-white`}>
+          {notification.type === 'success' ? (
+            <Save className="w-5 h-5" />
+          ) : (
+            <Clock className="w-5 h-5" />
+          )}
+          {notification.message}
+        </div>
+      )}
+
+      {/* Loading indicator */}
+      {saving && (
+        <div className="fixed top-20 right-6 z-40 px-4 py-2 rounded-lg bg-blue-500 text-white flex items-center gap-2">
+          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+          Guardando...
+        </div>
+      )}
+
       {/* Header con controles */}
       <div className="mb-6 flex flex-col lg:flex-row gap-4 items-center justify-between">
         <div className="flex items-center gap-4">

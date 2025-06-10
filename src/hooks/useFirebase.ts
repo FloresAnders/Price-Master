@@ -3,6 +3,9 @@ import { LocationsService } from '../services/locations';
 import { SorteosService } from '../services/sorteos';
 import { Location, Sorteo } from '../types/firestore';
 
+// Export the schedules hook
+export { useSchedules } from './useSchedules';
+
 export function useLocations() {
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
