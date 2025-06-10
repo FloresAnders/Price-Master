@@ -3,24 +3,11 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Save, Download, Upload, AlertCircle, Check, FileText, MapPin } from 'lucide-react';
+import { LocationsService } from '../services/locations';
+import { SorteosService } from '../services/sorteos';
+import { Location, Sorteo } from '../types/firestore';
 
 type DataFile = 'locations' | 'sorteos';
-
-interface Location {
-    value: string;
-    label: string;
-    names: string[];
-}
-
-interface Sorteo {
-    id: number;
-    name: string;
-    time: string;
-    active: boolean;
-}
-
-// Type for the raw sorteos JSON data (array of strings)
-type RawSorteosData = string[];
 
 export default function DataEditor() {
     const [activeFile, setActiveFile] = useState<DataFile>('locations');
@@ -34,52 +21,23 @@ export default function DataEditor() {
     useEffect(() => {
         const locationsChanged = JSON.stringify(locationsData) !== JSON.stringify(originalLocationsData);
         const sorteosChanged = JSON.stringify(sorteosData) !== JSON.stringify(originalSorteosData);
-        setHasChanges(locationsChanged || sorteosChanged);    }, [locationsData, sorteosData, originalLocationsData, originalSorteosData]);
-
-    const loadData = useCallback(async () => {
+        setHasChanges(locationsChanged || sorteosChanged);    }, [locationsData, sorteosData, originalLocationsData, originalSorteosData]);    const loadData = useCallback(async () => {
         try {
-            // Cargar locations
-            const locationsResponse = await fetch('/api/data/locations');
-            if (locationsResponse.ok) {
-                const locations = await locationsResponse.json();
-                setLocationsData(locations);
-                setOriginalLocationsData(JSON.parse(JSON.stringify(locations)));
-            } else {
-                // Fallback: usar import dinámico
-                const { default: locations } = await import('../data/locations.json');
-                setLocationsData(locations);
-                setOriginalLocationsData(JSON.parse(JSON.stringify(locations)));
-            }      // Cargar sorteos
-            const sorteosResponse = await fetch('/api/data/sorteos');
-            if (sorteosResponse.ok) {
-                const sorteos = await sorteosResponse.json();
-                // Si es un array de strings, convertir a formato Sorteo
-                const formattedSorteos = Array.isArray(sorteos) && sorteos.length > 0 && typeof sorteos[0] === 'string'
-                    ? sorteos.map((name: string, index: number) => ({
-                        id: index + 1,
-                        name,
-                        time: '',
-                        active: true
-                    }))
-                    : sorteos;
-                setSorteosData(formattedSorteos);
-                setOriginalSorteosData(JSON.parse(JSON.stringify(formattedSorteos)));
-            } else {
-                // Fallback: usar import dinámico
-                const { default: sorteos }: { default: RawSorteosData } = await import('../data/sorteos.json');
-                // Convertir array de strings a formato Sorteo
-                const formattedSorteos = sorteos.map((name: string, index: number) => ({
-                    id: index + 1,
-                    name,
-                    time: '',
-                    active: true
-                }));
-                setSorteosData(formattedSorteos);
-                setOriginalSorteosData(JSON.parse(JSON.stringify(formattedSorteos)));
-            }        } catch (error) {
-            showNotification('Error al cargar los datos', 'error');
-            console.error('Error loading data:', error);
-        }    }, []);
+            // Cargar locations desde Firebase
+            const locations = await LocationsService.getAllLocations();
+            setLocationsData(locations);
+            setOriginalLocationsData(JSON.parse(JSON.stringify(locations)));
+
+            // Cargar sorteos desde Firebase
+            const sorteos = await SorteosService.getAllSorteos();
+            setSorteosData(sorteos);
+            setOriginalSorteosData(JSON.parse(JSON.stringify(sorteos)));
+
+        } catch (error) {
+            showNotification('Error al cargar los datos de Firebase', 'error');
+            console.error('Error loading data from Firebase:', error);
+        }
+    }, []);
 
     // Cargar datos iniciales
     useEffect(() => {
@@ -92,30 +50,37 @@ export default function DataEditor() {
     };    const saveData = async () => {
         setIsSaving(true);
         try {
-            // Guardar locations
-            const locationsResponse = await fetch('/api/data/locations', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(locationsData),
-            });
-
-            if (!locationsResponse.ok) {
-                throw new Error('Failed to save locations');
+            // Guardar locations en Firebase
+            // Primero, eliminar los datos existentes y luego agregar los nuevos
+            const existingLocations = await LocationsService.getAllLocations();
+            for (const location of existingLocations) {
+                if (location.id) {
+                    await LocationsService.deleteLocation(location.id);
+                }
+            }
+            
+            // Agregar las nuevas locations
+            for (const location of locationsData) {
+                await LocationsService.addLocation({
+                    label: location.label,
+                    value: location.value,
+                    names: location.names
+                });
             }
 
-            // Guardar sorteos
-            const sorteosResponse = await fetch('/api/data/sorteos', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(sorteosData),
-            });
-
-            if (!sorteosResponse.ok) {
-                throw new Error('Failed to save sorteos');
+            // Guardar sorteos en Firebase
+            const existingSorteos = await SorteosService.getAllSorteos();
+            for (const sorteo of existingSorteos) {
+                if (sorteo.id) {
+                    await SorteosService.deleteSorteo(sorteo.id);
+                }
+            }
+            
+            // Agregar los nuevos sorteos
+            for (const sorteo of sorteosData) {
+                await SorteosService.addSorteo({
+                    name: sorteo.name
+                });
             }
 
             // Guardar también en localStorage como respaldo
@@ -125,10 +90,10 @@ export default function DataEditor() {
             setOriginalLocationsData(JSON.parse(JSON.stringify(locationsData)));
             setOriginalSorteosData(JSON.parse(JSON.stringify(sorteosData)));
 
-            showNotification('¡Archivos JSON actualizados exitosamente!', 'success');
+            showNotification('¡Datos actualizados exitosamente en Firebase!', 'success');
         } catch (error) {
-            showNotification('Error al guardar los datos en los archivos', 'error');
-            console.error('Error saving data:', error);
+            showNotification('Error al guardar los datos en Firebase', 'error');
+            console.error('Error saving data to Firebase:', error);
         } finally {
             setIsSaving(false);
         }
@@ -166,20 +131,20 @@ export default function DataEditor() {
                 }
 
                 if (importedData.sorteos && Array.isArray(importedData.sorteos)) {
-                    // Manejar tanto formato de strings como de objetos
+                    // Manejar formato simplificado de sorteos
                     if (importedData.sorteos.length > 0) {
                         if (typeof importedData.sorteos[0] === 'string') {
                             // Convertir array de strings a formato Sorteo
-                            const formattedSorteos = importedData.sorteos.map((name: string, index: number) => ({
-                                id: index + 1,
-                                name,
-                                time: '',
-                                active: true
+                            const formattedSorteos = importedData.sorteos.map((name: string) => ({
+                                name
                             }));
                             setSorteosData(formattedSorteos);
                         } else {
-                            // Ya está en formato de objetos
-                            setSorteosData(importedData.sorteos);
+                            // Ya está en formato de objetos - mantener solo name
+                            const formattedSorteos = importedData.sorteos.map((sorteo: any) => ({
+                                name: sorteo.name || ''
+                            }));
+                            setSorteosData(formattedSorteos);
                         }
                     }
                 }
@@ -232,20 +197,15 @@ export default function DataEditor() {
         const updated = [...locationsData];
         updated[locationIndex].names = updated[locationIndex].names.filter((_, i) => i !== nameIndex);
         setLocationsData(updated);
-    };
-
-    // Funciones para manejar sorteos
+    };    // Funciones para manejar sorteos
     const addSorteo = () => {
         const newSorteo: Sorteo = {
-            id: Math.max(...sorteosData.map(s => s.id), 0) + 1,
-            name: '',
-            time: '',
-            active: true
+            name: ''
         };
         setSorteosData([...sorteosData, newSorteo]);
     };
 
-    const updateSorteo = (index: number, field: keyof Sorteo, value: string | number | boolean) => {
+    const updateSorteo = (index: number, field: keyof Sorteo, value: string) => {
         const updated = [...sorteosData];
         updated[index] = { ...updated[index], [field]: value };
         setSorteosData(updated);
@@ -428,9 +388,7 @@ export default function DataEditor() {
                         </div>
                     ))}
                 </div>
-            )}
-
-            {activeFile === 'sorteos' && (
+            )}            {activeFile === 'sorteos' && (
                 <div className="space-y-4">
                     <div className="flex justify-between items-center">
                         <h4 className="text-lg font-semibold">Configuración de Sorteos</h4>
@@ -442,46 +400,26 @@ export default function DataEditor() {
                         </button>
                     </div>
 
-                    {sorteosData.map((sorteo, index) => (                        <div key={sorteo.id} className="border border-[var(--input-border)] rounded-lg p-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">ID:</label>
-                                    <input
-                                        type="number"
-                                        value={sorteo.id}
-                                        onChange={(e) => updateSorteo(index, 'id', parseInt(e.target.value) || 0)}
-                                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
-                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Nombre:</label>
+                    {sorteosData.map((sorteo, index) => (
+                        <div key={sorteo.id || index} className="border border-[var(--input-border)] rounded-lg p-4">
+                            <div className="flex gap-4 items-center">
+                                <div className="flex-1">
+                                    <label className="block text-sm font-medium mb-1">Nombre del Sorteo:</label>
                                     <input
                                         type="text"
                                         value={sorteo.name}
                                         onChange={(e) => updateSorteo(index, 'name', e.target.value)}
                                         className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
                                         style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                        placeholder="Ingrese el nombre del sorteo"
                                     />
                                 </div>
-                            </div>
-
-                            <div className="flex justify-between items-center">
-                                <label className="flex items-center gap-2">
-                                    <input
-                                        type="checkbox"
-                                        checked={sorteo.active}
-                                        onChange={(e) => updateSorteo(index, 'active', e.target.checked)}
-                                        className="rounded"
-                                    />
-                                    <span className="text-sm font-medium">Activo</span>
-                                </label>
 
                                 <button
                                     onClick={() => removeSorteo(index)}
                                     className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
                                 >
-                                    Eliminar Sorteo
+                                    Eliminar
                                 </button>
                             </div>
                         </div>
