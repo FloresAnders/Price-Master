@@ -37,22 +37,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
     setCode,
   } = useBarcodeScanner(onDetect);
   const containerRef = useRef<HTMLDivElement>(null);
-
-  // Estado para saber si el contenedor de cámara está montado
-  const [cameraContainerReady, setCameraContainerReady] = useState(false);
-
-  // Efecto para marcar cuando el contenedor de cámara está listo
-  useEffect(() => {
-    if (activeTab === 'camera') {
-      // Espera al siguiente tick para asegurar que el ref esté asignado
-      const id = setTimeout(() => {
-        setCameraContainerReady(!!liveStreamRef.current);
-      }, 0);
-      return () => clearTimeout(id);
-    } else {
-      setCameraContainerReady(false);
-    }
-  }, [activeTab, liveStreamRef]);
+  const [cameraVideoReady, setCameraVideoReady] = useState(false);
 
   // Focus automático al montar para que onPaste funcione siempre
   useEffect(() => {
@@ -95,13 +80,31 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
     }
   }, [code, setCode, onRemoveLeadingZero]);
 
+  // Effect to detect when video stream is ready
+  useEffect(() => {
+    let interval: number;
+    if (cameraActive) {
+      setCameraVideoReady(false);
+      interval = window.setInterval(() => {
+        const video = liveStreamRef.current?.querySelector('video');
+        if (video && video.readyState >= 3) {
+          setCameraVideoReady(true);
+          clearInterval(interval);
+        }
+      }, 200);
+    } else {
+      setCameraVideoReady(false);
+    }
+    return () => clearInterval(interval);
+  }, [cameraActive, liveStreamRef]);
+
   const fadeIn = { initial: { opacity: 0 }, animate: { opacity: 1 } };
   const slideUp = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 } };
 
   return (
     <div
       ref={containerRef}
-      className="w-full max-w-2xl mx-auto flex flex-col gap-10 p-8 md:p-12 rounded-3xl shadow-2xl transition-colors duration-500 bg-gradient-to-br from-indigo-50/80 via-white/80 to-blue-100/80 dark:from-zinc-900/80 dark:via-zinc-800/80 dark:to-indigo-950/80 border border-indigo-200 dark:border-indigo-900 barcode-mobile backdrop-blur-xl"
+      className="w-full max-w-2xl mx-auto flex flex-col gap-10 p-8 md:p-12 rounded-3xl shadow-2xl transition-colors duration-500 bg-[var(--card-bg)] dark:bg-[var(--card-bg)] border border-[var(--input-border)] barcode-mobile backdrop-blur-xl"
       tabIndex={0}
     >
       {/* Tabs */}
@@ -124,10 +127,10 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
         <div>
           {/* Icono ScanBarcode destacado */}
           <div className="flex flex-col items-center gap-4 mb-2">
-            <div className="p-6 rounded-full bg-gradient-to-tr from-indigo-500 via-blue-400 to-cyan-400 dark:from-indigo-700 dark:via-indigo-900 dark:to-blue-900 text-white shadow-2xl border-4 border-white/40 dark:border-indigo-900 animate-pulse-slow">
+            <div className="p-6 rounded-full bg-gradient-to-tr from-indigo-500 via-blue-400 to-cyan-300 dark:from-indigo-700 dark:via-indigo-900 dark:to-blue-900 text-white shadow-2xl border-4 border-white/80 dark:border-indigo-900 animate-pulse-slow">
               <ScanBarcode className="w-16 h-16 drop-shadow-lg" />
             </div>
-            <h2 className="text-2xl font-extrabold text-indigo-700 dark:text-indigo-300 tracking-tight mb-1">Escáner de Códigos de Barras</h2>
+            <h2 className="text-2xl font-extrabold text-zinc-800 dark:text-indigo-300 tracking-tight mb-1">Escáner de Códigos de Barras</h2>
           </div>
 
           {/* Mensaje de "Código copiado" */}
@@ -150,17 +153,17 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
           {/* Card de código detectado con preview de imagen de fondo mejorada y mensaje de éxito unificado */}
           {imagePreview && (
             <motion.div {...slideUp} transition={{ duration: 0.5 }} className="mb-2 flex justify-center w-full items-center">
-              <div className="w-full max-w-md relative rounded-2xl shadow-xl overflow-hidden border-2 border-indigo-400 dark:border-indigo-700 bg-transparent min-h-[220px] flex items-center justify-center">
+              <div className="w-full max-w-md relative rounded-2xl shadow-xl overflow-hidden border-2 border-indigo-200 dark:border-indigo-700 bg-white dark:bg-transparent min-h-[220px] flex items-center justify-center">
                 {/* Imagen de fondo SIEMPRE visible si hay imagePreview */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={imagePreview}
                   alt="Preview"
                   className="absolute inset-0 w-full h-full object-contain z-0"
-                  style={{ filter: 'brightness(0.65)' }}
+                  style={{ filter: 'brightness(0.92)' }}
                 />
                 {/* Overlay sutil para contraste */}
-                <div className="absolute inset-0 bg-black/50 z-10" />
+                <div className="absolute inset-0 bg-white/60 dark:bg-black/50 z-10" />
                 {/* Código de barras y acciones, overlay centrado */}
                 {code && (
                   <div className="absolute inset-0 z-20 flex flex-col items-center justify-center">
@@ -197,7 +200,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                         </button>
                       </div>
                       {detectionMethod && (
-                        <span className="mt-2 inline-block text-xs font-semibold text-indigo-200 bg-indigo-900/60 px-3 py-1 rounded-full shadow">
+                        <span className="mt-2 inline-block text-xs font-semibold text-indigo-700 dark:text-indigo-200 bg-indigo-100/80 dark:bg-indigo-900/60 px-3 py-1 rounded-full shadow">
                           Método: {detectionMethod}
                         </span>
                       )}
@@ -227,7 +230,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
               Seleccionar imagen
             </label>
             <div
-              className="relative border-4 border-dashed rounded-3xl p-10 transition-colors duration-300 cursor-pointer hover:border-indigo-500 bg-white/70 dark:bg-zinc-900/70 border-indigo-200 dark:border-indigo-800 shadow-xl group"
+              className="relative border-4 border-dashed rounded-3xl p-10 transition-colors duration-300 cursor-pointer hover:border-indigo-500 bg-white dark:bg-zinc-900/70 border-indigo-200 dark:border-indigo-800 shadow-xl group"
               onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('bg-indigo-50', 'dark:bg-indigo-900'); }}
               onDragLeave={(e) => { e.currentTarget.classList.remove('bg-indigo-50', 'dark:bg-indigo-900'); }}
               onDrop={handleDrop}
@@ -290,10 +293,8 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
           <div className="flex flex-col items-center gap-4 mb-6">
             <button
               onClick={toggleCamera}
-              disabled={!cameraContainerReady && !cameraActive}
               className={`px-6 py-3 rounded-xl focus:outline-none focus:ring-4 focus:ring-indigo-300 dark:focus:ring-indigo-900 transition-all duration-300 flex items-center gap-3 font-bold shadow-lg text-lg
-                ${cameraActive ? 'bg-gradient-to-r from-pink-500 to-indigo-500 text-white scale-105 ring-2 ring-pink-300 dark:ring-pink-800' : 'bg-white/80 dark:bg-zinc-900/80 text-indigo-700 dark:text-indigo-200 hover:bg-indigo-100 dark:hover:bg-indigo-800/80 border border-indigo-200 dark:border-indigo-800'}
-                ${!cameraContainerReady && !cameraActive ? 'opacity-50 cursor-not-allowed' : ''}`}
+                ${cameraActive ? 'bg-gradient-to-r from-pink-500 to-indigo-500 text-white scale-105 ring-2 ring-pink-300 dark:ring-pink-800' : 'bg-white dark:bg-[var(--card-bg)] text-indigo-700 dark:text-indigo-200 hover:bg-indigo-100 dark:hover:bg-zinc-700 border border-[var(--input-border)]'}`}
             >
               {cameraActive ? (
                 <>
@@ -307,9 +308,6 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                 </>
               )}
             </button>
-            {!cameraContainerReady && !cameraActive && (
-              <span className="text-xs text-red-500 dark:text-red-400 font-semibold">Preparando cámara...</span>
-            )}
             <p className="text-xs text-indigo-500 dark:text-indigo-300 font-semibold tracking-wide">
               Escaneo en vivo usando la cámara
             </p>
@@ -322,18 +320,28 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                 {...slideUp}
                 transition={{ duration: 0.5 }}
                 ref={liveStreamRef}
-                className="w-full h-80 bg-black/80 rounded-3xl overflow-hidden mb-6 relative border-4 border-indigo-500 shadow-2xl flex items-center justify-center"
+                className="w-full h-80 bg-[var(--card-bg)] dark:bg-[var(--card-bg)] rounded-3xl overflow-hidden mb-6 relative border-4 border-[var(--input-border)] shadow-2xl flex items-center justify-center"
               >
-                <div className="absolute inset-0 pointer-events-none">
+                {/* Pulsing overlay until video is ready */}
+                {!cameraVideoReady && (
                   <motion.div
-                    className="absolute inset-0 bg-black bg-opacity-40"
-                    animate={{ opacity: [0.4, 0.7, 0.4] }}
+                    className="absolute inset-0 bg-transparent dark:bg-black/40"
+                    animate={{ opacity: [0.4, 0.6, 0.4] }}
                     transition={{ duration: 2, repeat: Infinity }}
                   />
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="w-4/5 h-20 border-4 border-dashed border-indigo-300 rounded-2xl shadow-xl animate-pulse-slow" />
-                  </div>
+                )}
+
+                {/* Guide rectangle always visible */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="w-4/5 h-20 border-4 border-dashed border-indigo-200 dark:border-indigo-300 rounded-2xl shadow-xl animate-pulse-slow" />
                 </div>
+
+                {/* Error message overlay if any */}
+                {error && (
+                  <div className="absolute inset-0 flex items-center justify-center z-30">
+                    <span className="text-red-600 bg-white/90 px-4 py-2 rounded-xl shadow font-bold">{error}</span>
+                  </div>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
@@ -341,8 +349,8 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
           <AnimatePresence>
             {code && cameraActive && (
               <motion.div {...slideUp} transition={{ duration: 0.5 }} className="mb-2 flex justify-center w-full items-center">
-                <div className="w-full max-w-md relative rounded-2xl shadow-xl overflow-hidden border-2 border-indigo-400 dark:border-indigo-700 bg-transparent min-h-[120px] flex items-center justify-center">
-                  <div className="absolute inset-0 bg-black/60 z-10" />
+                <div className="w-full max-w-md relative rounded-2xl shadow-xl overflow-hidden border-2 border-indigo-400 dark:border-indigo-700 bg-white/80 dark:bg-transparent min-h-[120px] flex items-center justify-center">
+                  <div className="absolute inset-0 bg-black/40 dark:bg-black/60 z-10" />
                   <div className="absolute inset-0 z-20 flex flex-col items-center justify-center">
                     <div className="flex flex-col items-center w-full gap-2">
                       <div className="flex items-center justify-center gap-3 mb-2">
@@ -376,7 +384,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                         </button>
                       </div>
                       {detectionMethod && (
-                        <span className="mt-2 inline-block text-xs font-semibold text-indigo-200 bg-indigo-900/60 px-3 py-1 rounded-full shadow">
+                        <span className="mt-2 inline-block text-xs font-semibold text-indigo-700 dark:text-indigo-200 bg-indigo-100/80 dark:bg-indigo-900/60 px-3 py-1 rounded-full shadow">
                           Método: {detectionMethod}
                         </span>
                       )}
