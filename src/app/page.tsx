@@ -12,7 +12,7 @@ import DataEditor from '@/edit/DataEditor'
 import {
   Calculator,
   Smartphone,
-  Type, ClipboardList, Banknote,
+  Type, Banknote,
   Scan,
   Clock,
 } from 'lucide-react'
