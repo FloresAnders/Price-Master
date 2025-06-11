@@ -113,8 +113,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
         return prev - 1;
       });
     }, 1000);
-  }, []);
-  // Función para verificar manualmente nuevos escaneos desde Firebase
+  }, []);  // Función para verificar manualmente nuevos escaneos desde Firebase
   const checkForNewScans = useCallback(async (sessionId: string) => {
     if (typeof window === 'undefined') return;
 
@@ -122,12 +121,11 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
       console.log('🔄 Verificando nuevos escaneos...');
       const { ScanningService } = await import('../services/scanning-optimized');
       
-      // Obtener escaneos recientes para esta sesión
-      const recentScans = await ScanningService.getRecentScans(sessionId, 5);
+      // Usar método simple sin índices complejos
+      const sessionScans = await ScanningService.getScansBySession(sessionId);
       
       // Buscar nuevos códigos no procesados para esta sesión
-      const newScan = recentScans.find(scan => 
-        scan.sessionId === sessionId && 
+      const newScan = sessionScans.find(scan => 
         !scan.processed &&
         scan.source === 'mobile' &&
         scan.timestamp > lastScanCheck
@@ -195,44 +193,55 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
     if (typeof window !== 'undefined') {
       // Importar dinámicamente el servicio de Firebase para evitar errores de SSR
       const { ScanningService } = await import('../services/scanning-optimized');
-      
-      // 1. Configurar listener en tiempo real (método principal)
-      const unsubscribe = ScanningService.subscribeToScans(
-        (scans) => {
-          // Buscar nuevos códigos no procesados para esta sesión
-          const newScan = scans.find(scan => 
-            scan.sessionId === sessionId && 
-            !scan.processed &&
-            scan.source === 'mobile'
-          );
-          
-          if (newScan && newScan.id) {
-            console.log('🔥 Nuevo escaneo detectado via Firebase listener:', newScan.code);
-            setCode(newScan.code);
-            onDetect?.(newScan.code);
+        // 1. Configurar listener en tiempo real (método principal)
+      try {
+        const unsubscribe = ScanningService.subscribeToScans(
+          (scans) => {
+            // Buscar nuevos códigos no procesados para esta sesión
+            const newScan = scans.find(scan => 
+              scan.sessionId === sessionId && 
+              !scan.processed &&
+              scan.source === 'mobile'
+            );
             
-            // Marcar como procesado en Firebase
-            ScanningService.markAsProcessed(newScan.id).catch(console.error);
-            
-            // Cerrar QR modal
-            setShowMobileQR(false);
-            
-            // Limpiar el polling ya que el listener funcionó
-            if (pollIntervalRef.current) {
-              clearInterval(pollIntervalRef.current);
-              pollIntervalRef.current = null;
+            if (newScan && newScan.id) {
+              console.log('🔥 Nuevo escaneo detectado via Firebase listener:', newScan.code);
+              setCode(newScan.code);
+              onDetect?.(newScan.code);
+              
+              // Marcar como procesado en Firebase
+              ScanningService.markAsProcessed(newScan.id).catch(console.error);
+              
+              // Cerrar QR modal
+              setShowMobileQR(false);
+              
+              // Limpiar el polling ya que el listener funcionó
+              if (pollIntervalRef.current) {
+                clearInterval(pollIntervalRef.current);
+                pollIntervalRef.current = null;
+              }
+              if (countdownRef.current) {
+                clearInterval(countdownRef.current);
+                countdownRef.current = null;
+              }
+            }
+          },
+          sessionId, // Filtrar por sessionId
+          (error) => {
+            console.error('Error in Firebase scan subscription:', error);
+            // Si es un error de índice, depender solo del polling
+            if (error.message?.includes('index') || error.message?.includes('Index')) {
+              console.log('🔥➡️🔄 Firebase listener falló por índice, usando solo polling...');
             }
           }
-        },
-        sessionId, // Filtrar por sessionId
-        (error) => {
-          console.error('Error in Firebase scan subscription:', error);
-        }
-      );
-      
-      // Guardar el unsubscribe para poder limpiarlo después
-      unsubscribeRef.current = unsubscribe;
-        // 2. Configurar polling cada 10 segundos como fallback
+        );
+        
+        // Guardar el unsubscribe para poder limpiarlo después
+        unsubscribeRef.current = unsubscribe;
+      } catch (error) {
+        console.error('Error setting up Firebase listener:', error);
+        console.log('🔥➡️🔄 Firebase listener no disponible, usando solo polling...');
+      }      // 2. Configurar polling cada 10 segundos como fallback
       console.log('🔄 Iniciando polling cada 10 segundos como fallback...');
       pollIntervalRef.current = setInterval(() => {
         checkForNewScans(sessionId);
@@ -241,9 +250,20 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
       // Iniciar contador regresivo
       startCountdown();
       
-      return unsubscribe;
+      // Retornar función de cleanup que incluye tanto listener como polling
+      return () => {
+        if (unsubscribeRef.current) {
+          unsubscribeRef.current();
+        }
+        if (pollIntervalRef.current) {
+          clearInterval(pollIntervalRef.current);
+        }
+        if (countdownRef.current) {
+          clearInterval(countdownRef.current);
+        }
+      };
     }
-  }, [onDetect, setCode, checkForNewScans, startCountdown]);  const closeMobileSession = useCallback(() => {
+  }, [onDetect, setCode, checkForNewScans, startCountdown]);const closeMobileSession = useCallback(() => {
     setShowMobileQR(false);
     setMobileSessionId(null);
     setQrCodeUrl('');
@@ -560,7 +580,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
               </div>              <div className="mt-6 text-center">
                 <div className="flex items-center justify-center gap-2 text-green-600 dark:text-green-400">
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                  <span className="text-sm font-medium">Esperando escaneo desde móvil...</span>
+                  <span className="text-sm font-medium">ESPERANDO escaneo desde móvil...</span>
                 </div>
                 <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                   🔥 Escucha en tiempo real activa

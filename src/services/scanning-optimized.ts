@@ -38,6 +38,33 @@ export class ScanningService {
   }
 
   /**
+   * Simple method to get scans by sessionId without complex indexes
+   */
+  static async getScansBySession(sessionId: string): Promise<ScanResult[]> {
+    try {
+      // Use simple where query without orderBy to avoid index requirements
+      const q = query(
+        collection(db, this.COLLECTION_NAME),
+        where('sessionId', '==', sessionId)
+      );
+      
+      const querySnapshot = await getDocs(q);
+      
+      const scans = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        timestamp: doc.data().timestamp?.toDate() || new Date()
+      } as ScanResult));
+      
+      // Client-side sorting by timestamp (newest first)
+      return scans.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+    } catch (error) {
+      console.error('Error getting scans by session:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get all scan results (simplified query - no index needed)
    */
   static async getAllScans(): Promise<ScanResult[]> {
@@ -169,9 +196,8 @@ export class ScanningService {
       throw error;
     }
   }
-
   /**
-   * Subscribe to real-time scan updates (optimized for minimal index requirements)
+   * Subscribe to real-time scan updates (optimized to avoid complex indexes)
    */
   static subscribeToScans(
     callback: (scans: ScanResult[]) => void,
@@ -182,11 +208,10 @@ export class ScanningService {
       let q;
       
       if (sessionId) {
-        // Session-specific subscription - primary filter on sessionId
+        // Session-specific subscription - AVOID orderBy to prevent index requirement
         q = query(
           collection(db, this.COLLECTION_NAME),
           where('sessionId', '==', sessionId),
-          orderBy('timestamp', 'desc'),
           limit(50)
         );
       } else {
@@ -207,9 +232,11 @@ export class ScanningService {
             timestamp: doc.data().timestamp?.toDate() || new Date()
           } as ScanResult));
           
-          // Client-side filtering for unprocessed scans when needed
+          // Client-side filtering and sorting when sessionId is provided
           if (sessionId) {
-            scans = scans.filter(scan => !scan.processed);
+            scans = scans
+              .filter(scan => !scan.processed) // Filter unprocessed
+              .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()); // Sort by timestamp desc
           }
           
           callback(scans);
@@ -228,18 +255,28 @@ export class ScanningService {
       throw error;
     }
   }
-
   /**
-   * Get recent scans for a session (fallback method with minimal indexing)
+   * Get recent scans for a session (optimized to avoid complex indexes)
    */
   static async getRecentScans(sessionId?: string, limit_count: number = 20): Promise<ScanResult[]> {
     try {
-      // Simple query with minimal index requirements
-      const q = query(
-        collection(db, this.COLLECTION_NAME),
-        orderBy('timestamp', 'desc'),
-        limit(limit_count * 2) // Get more than needed for client-side filtering
-      );
+      let q;
+      
+      if (sessionId) {
+        // Session-specific query - AVOID orderBy to prevent index requirement
+        q = query(
+          collection(db, this.COLLECTION_NAME),
+          where('sessionId', '==', sessionId),
+          limit(limit_count * 3) // Get more for client-side filtering
+        );
+      } else {
+        // Simple query with minimal index requirements
+        q = query(
+          collection(db, this.COLLECTION_NAME),
+          orderBy('timestamp', 'desc'),
+          limit(limit_count * 2)
+        );
+      }
       
       const querySnapshot = await getDocs(q);
       
@@ -249,12 +286,16 @@ export class ScanningService {
         timestamp: doc.data().timestamp?.toDate() || new Date()
       } as ScanResult));
 
-      // Client-side filtering
+      // Client-side filtering and sorting
       if (sessionId) {
-        scans = scans.filter(scan => scan.sessionId === sessionId);
+        scans = scans
+          .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()) // Sort by timestamp desc
+          .slice(0, limit_count); // Take only what we need
+      } else {
+        scans = scans.slice(0, limit_count);
       }
       
-      return scans.slice(0, limit_count);
+      return scans;
     } catch (error) {
       console.error('Error getting recent scans:', error);
       throw error;
