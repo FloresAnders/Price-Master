@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
-import { Camera, QrCode, Smartphone, Check, AlertCircle, Wifi, WifiOff } from 'lucide-react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
+import { QrCode, Smartphone, Check, AlertCircle, Wifi, WifiOff } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { ScanningService } from '../../services/scanning';
 import { useBarcodeScanner } from '../../hooks/useBarcodeScanner';
@@ -9,14 +9,6 @@ import CameraScanner from '../../components/CameraScanner';
 
 // Force dynamic rendering for this page
 export const dynamic = 'force-dynamic';
-
-interface QuaggaInstance {
-  stop: () => void;
-  start: () => void;
-  init: (config: unknown, callback: (err?: Error) => void) => void;
-  onDetected: (callback: (data: { codeResult?: { code: string | null } }) => void) => void;
-  offDetected: () => void;
-}
 
 function MobileScanContent() {
   const searchParams = useSearchParams();
@@ -28,11 +20,9 @@ function MobileScanContent() {
   const [success, setSuccess] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(true);
   const [isClient, setIsClient] = useState(false);
-
   // Usar el hook de barcode scanner
   const {
     code: detectedCode,
-    isLoading,
     error: scannerError,
     cameraActive,
     liveStreamRef,
@@ -43,9 +33,7 @@ function MobileScanContent() {
   } = useBarcodeScanner((detectedCode) => {
     console.log('Código detectado:', detectedCode);
     submitCode(detectedCode);
-  });
-
-  const containerRef = useRef<HTMLDivElement>(null);// Check if we're on the client side
+  });// Check if we're on the client side
   useEffect(() => {
     setIsClient(true);
   }, []);

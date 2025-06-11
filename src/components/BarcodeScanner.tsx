@@ -1,5 +1,6 @@
 'use client';
 import React, { useCallback, useRef, useEffect, useState } from 'react';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Check as CheckIcon,
@@ -102,14 +103,13 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
     } catch (err) {
       console.error('Error generating QR code:', err);
     }
-    
-    // Escuchar códigos de la sesión móvil
+      // Escuchar códigos de la sesión móvil
     if (typeof window !== 'undefined') {
       // En un entorno real, aquí escucharías Firebase/WebSocket
       // Por ahora, simulamos con localStorage polling
       const checkMobileScan = () => {
         const mobileScans = JSON.parse(localStorage.getItem('mobile-scans') || '[]');
-        const newScan = mobileScans.find((scan: any) => 
+        const newScan = mobileScans.find((scan: { sessionId: string; processed: boolean; code: string }) => 
           scan.sessionId === sessionId && !scan.processed
         );
         
@@ -118,7 +118,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
           onDetect?.(newScan.code);
           
           // Marcar como procesado
-          const updatedScans = mobileScans.map((scan: any) => 
+          const updatedScans = mobileScans.map((scan: { sessionId: string; processed: boolean; code: string }) => 
             scan.sessionId === sessionId ? { ...scan, processed: true } : scan
           );
           localStorage.setItem('mobile-scans', JSON.stringify(updatedScans));
@@ -376,13 +376,14 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
               <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-xl border-2 border-green-200 dark:border-green-800 max-w-sm mx-auto">
                 <h3 className="text-xl font-bold text-gray-800 dark:text-green-300 mb-4">Escanea este QR con tu móvil</h3>
                 
-                {/* QR Code - ahora real */}
-                <div className="bg-gray-100 dark:bg-gray-700 rounded-xl p-4 mb-4 flex items-center justify-center">
+                {/* QR Code - ahora real */}                <div className="bg-gray-100 dark:bg-gray-700 rounded-xl p-4 mb-4 flex items-center justify-center">
                   {qrCodeUrl ? (
-                    <img 
+                    <Image
                       src={qrCodeUrl} 
                       alt="QR Code para acceder al escáner móvil"
-                      className="w-48 h-48 rounded-lg"
+                      width={192}
+                      height={192}
+                      className="rounded-lg"
                     />
                   ) : (
                     <div className="w-48 h-48 bg-white dark:bg-gray-900 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-600">
