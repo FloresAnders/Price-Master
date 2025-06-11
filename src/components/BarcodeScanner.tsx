@@ -22,7 +22,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
   const [mobileSessionId, setMobileSessionId] = useState<string | null>(null);
   const [showMobileQR, setShowMobileQR] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
-  const {
+  const unsubscribeRef = useRef<(() => void) | null>(null);  const {
     code,
     isLoading,
     error,
@@ -73,8 +73,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
     };
     window.addEventListener('paste', handleGlobalPaste);
     return () => window.removeEventListener('paste', handleGlobalPaste);
-  }, [processImage]);
-  // Handler para eliminar primer dígito del código escaneado principal
+  }, [processImage]);  // Handler para eliminar primer dígito del código escaneado principal
   const handleRemoveLeadingZeroMain = useCallback(() => {
     if (code && code.length > 1 && code[0] === '0') {
       setCode(code.slice(1)); // update overlay code immediately
@@ -82,6 +81,14 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
     }
   }, [code, setCode, onRemoveLeadingZero]);
 
+  // Limpiar listener de Firebase al desmontar el componente
+  useEffect(() => {
+    return () => {
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+      }
+    };
+  }, []);
   // Generar sesión para escáner móvil
   const generateMobileSession = useCallback(async () => {
     const sessionId = `scan-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -103,40 +110,53 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
     } catch (err) {
       console.error('Error generating QR code:', err);
     }
-      // Escuchar códigos de la sesión móvil
+      // Escuchar códigos de la sesión móvil usando Firebase
     if (typeof window !== 'undefined') {
-      // En un entorno real, aquí escucharías Firebase/WebSocket
-      // Por ahora, simulamos con localStorage polling
-      const checkMobileScan = () => {
-        const mobileScans = JSON.parse(localStorage.getItem('mobile-scans') || '[]');
-        const newScan = mobileScans.find((scan: { sessionId: string; processed: boolean; code: string }) => 
-          scan.sessionId === sessionId && !scan.processed
-        );
-        
-        if (newScan) {
-          setCode(newScan.code);
-          onDetect?.(newScan.code);
-          
-          // Marcar como procesado
-          const updatedScans = mobileScans.map((scan: { sessionId: string; processed: boolean; code: string }) => 
-            scan.sessionId === sessionId ? { ...scan, processed: true } : scan
-          );
-          localStorage.setItem('mobile-scans', JSON.stringify(updatedScans));
-          
-          // Cerrar QR modal
-          setShowMobileQR(false);
-        }
-      };
+      // Importar dinámicamente el servicio de Firebase para evitar errores de SSR
+      const { ScanningService } = await import('../services/scanning-optimized');
       
-      const interval = setInterval(checkMobileScan, 1000);
-      return () => clearInterval(interval);
+      const unsubscribe = ScanningService.subscribeToScans(
+        (scans) => {
+          // Buscar nuevos códigos no procesados para esta sesión
+          const newScan = scans.find(scan => 
+            scan.sessionId === sessionId && 
+            !scan.processed &&
+            scan.source === 'mobile'
+          );
+          
+          if (newScan && newScan.id) {
+            setCode(newScan.code);
+            onDetect?.(newScan.code);
+            
+            // Marcar como procesado en Firebase
+            ScanningService.markAsProcessed(newScan.id).catch(console.error);
+            
+            // Cerrar QR modal
+            setShowMobileQR(false);
+          }
+        },
+        sessionId, // Filtrar por sessionId
+        (error) => {
+          console.error('Error in Firebase scan subscription:', error);
+        }
+      );
+      
+      // Guardar el unsubscribe para poder limpiarlo después
+      unsubscribeRef.current = unsubscribe;
+      
+      return unsubscribe;
     }
   }, [onDetect, setCode]);
-
   const closeMobileSession = useCallback(() => {
     setShowMobileQR(false);
     setMobileSessionId(null);
     setQrCodeUrl('');
+    
+    // Limpiar el listener de Firebase si existe
+    if (unsubscribeRef.current) {
+      unsubscribeRef.current();
+      unsubscribeRef.current = null;
+    }
   }, []);
 
   const fadeIn = { initial: { opacity: 0 }, animate: { opacity: 1 } };
