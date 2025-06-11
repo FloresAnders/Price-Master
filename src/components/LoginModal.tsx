@@ -27,10 +27,10 @@ export default function LoginModal({ isOpen, onLoginSuccess, onClose, title }: L
     try {
       // Obtener todos los usuarios activos
       const users = await UsersService.getActiveUsers();
-      
+
       // Buscar usuario por nombre y contraseña
-      const user = users.find(u => 
-        u.name.toLowerCase() === username.toLowerCase() && 
+      const user = users.find(u =>
+        u.name.toLowerCase() === username.toLowerCase() &&
         u.password === password
       );
 
@@ -44,9 +44,9 @@ export default function LoginModal({ isOpen, onLoginSuccess, onClose, title }: L
           loginTime: new Date().toISOString()
         };
         localStorage.setItem('pricemaster_session', JSON.stringify(sessionData));
-        
+
         onLoginSuccess(user);
-        
+
         // Limpiar formulario
         setUsername('');
         setPassword('');

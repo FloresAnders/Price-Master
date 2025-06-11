@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useLocations, useSorteos } from '../hooks/useFirebase';
+import type { Location, Sorteo } from '../types/firestore';
 
 interface FirebaseDataSelectorProps {
-  onLocationSelect?: (location: any) => void;
-  onSorteoSelect?: (sorteo: any) => void;
+  onLocationSelect?: (location: Location) => void;
+  onSorteoSelect?: (sorteo: Sorteo) => void;
 }
 
 export default function FirebaseDataSelector({ 

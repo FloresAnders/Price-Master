@@ -7,20 +7,16 @@ import {
   updateDoc, 
   deleteDoc, 
   query, 
-  where, 
-  orderBy, 
-  limit,
-  DocumentData,
-  QuerySnapshot,
-  DocumentSnapshot
+  where,   orderBy, 
+  limit
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
 export class FirestoreService {
-  
-  /**
+    /**
    * Get all documents from a collection
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static async getAll(collectionName: string): Promise<any[]> {
     try {
       const querySnapshot = await getDocs(collection(db, collectionName));
@@ -33,10 +29,10 @@ export class FirestoreService {
       throw error;
     }
   }
-
   /**
    * Get a single document by ID
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static async getById(collectionName: string, id: string): Promise<any | null> {
     try {
       const docRef = doc(db, collectionName, id);
@@ -59,6 +55,7 @@ export class FirestoreService {
   /**
    * Add a new document to a collection
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static async add(collectionName: string, data: any): Promise<string> {
     try {
       const docRef = await addDoc(collection(db, collectionName), data);
@@ -71,7 +68,7 @@ export class FirestoreService {
 
   /**
    * Update a document by ID
-   */
+   */  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static async update(collectionName: string, id: string, data: any): Promise<void> {
     try {
       const docRef = doc(db, collectionName, id);
@@ -93,19 +90,20 @@ export class FirestoreService {
       console.error(`Error deleting document ${id} from ${collectionName}:`, error);
       throw error;
     }
-  }
-
-  /**
+  }  /**
    * Query documents with conditions
    */
   static async query(
     collectionName: string, 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     conditions: Array<{ field: string; operator: any; value: any }> = [],
     orderByField?: string,
     orderDirection: 'asc' | 'desc' = 'asc',
     limitCount?: number
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ): Promise<any[]> {
     try {
+      // eslint-disable-next-line prefer-const
       let q = collection(db, collectionName);
       
       // Apply where conditions

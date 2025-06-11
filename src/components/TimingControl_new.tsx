@@ -47,14 +47,64 @@ export default function TimingControl() {
         };
         
         loadData();
-    }, []);
-
-    // Efecto para manejar la ubicación del usuario autenticado
+    }, []);    // Efecto para manejar la ubicación del usuario autenticado
     useEffect(() => {
         if (isAuthenticated && user?.location && !location) {
             setLocation(user.location);
         }
     }, [isAuthenticated, user, location]);
+
+    // Load data from localStorage when location changes
+    React.useEffect(() => {
+        if (!location) {
+            setRows(Array.from({ length: INITIAL_ROWS }, () => ({ name: '', sorteo: '', amount: '', time: '', cliente: '' })));
+        } else {
+            const saved = localStorage.getItem('timingControlRows_' + location);
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    if (Array.isArray(parsed)) {
+                        setRows(parsed.map((row: { name?: string; sorteo?: string; amount?: string; time?: string; cliente?: string }) => ({
+                            name: row.name || '',
+                            sorteo: row.sorteo || '',
+                            amount: row.amount || '',
+                            time: row.time || '',
+                            cliente: row.cliente || '',
+                        })));
+                    } else {
+                        setRows(Array.from({ length: INITIAL_ROWS }, () => ({ name: '', sorteo: '', amount: '', time: '', cliente: '' })));
+                    }
+                } catch {
+                    setRows(Array.from({ length: INITIAL_ROWS }, () => ({ name: '', sorteo: '', amount: '', time: '', cliente: '' })));
+                }
+            } else {
+                setRows(Array.from({ length: INITIAL_ROWS }, () => ({ name: '', sorteo: '', amount: '', time: '', cliente: '' })));
+            }
+        }
+    }, [location]);
+
+    React.useEffect(() => {
+        if (location) {
+            localStorage.setItem('timingControlRows_' + location, JSON.stringify(rows));
+        }
+    }, [rows, location]);
+
+    // Handle ESC key to close summary modal
+    React.useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape' && showSummary) {
+                setShowSummary(false);
+            }
+        };
+
+        if (showSummary) {
+            document.addEventListener('keydown', handleKeyDown);
+        }
+
+        return () => {
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [showSummary]);
 
     // Manejar login exitoso
     const handleLoginSuccess = (userData: User) => {
@@ -109,61 +159,11 @@ export default function TimingControl() {
             if (field === 'amount') {
                 return { ...row, amount: value, time: value ? getNowTime() : '' };
             }
-            return { ...row, [field]: value };
-        }));
+            return { ...row, [field]: value };        }));
     };
 
     const addRow = () => {
-        setRows(prev => ([...prev, { name: '', sorteo: '', amount: '', time: '', cliente: '' }]));
-    };
-
-    React.useEffect(() => {
-        if (!location) {
-            setRows(Array.from({ length: INITIAL_ROWS }, () => ({ name: '', sorteo: '', amount: '', time: '', cliente: '' })));
-            return;
-        }
-
-        const saved = localStorage.getItem('timingControlRows_' + location);
-        if (saved) {
-            try {
-                const parsed = JSON.parse(saved);
-                if (Array.isArray(parsed)) {
-                    setRows(parsed.map((row: { name?: string; sorteo?: string; amount?: string; time?: string; cliente?: string }) => ({
-                        name: row.name || '',
-                        sorteo: row.sorteo || '',
-                        amount: row.amount || '',
-                        time: row.time || '',
-                        cliente: row.cliente || '',
-                    })));
-                }
-            } catch { }
-        } else {
-            setRows(Array.from({ length: INITIAL_ROWS }, () => ({ name: '', sorteo: '', amount: '', time: '', cliente: '' })));
-        }
-    }, [location]);
-
-    React.useEffect(() => {
-        if (location) {
-            localStorage.setItem('timingControlRows_' + location, JSON.stringify(rows));
-        }
-    }, [rows, location]);
-
-    // Handle ESC key to close summary modal
-    React.useEffect(() => {
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape' && showSummary) {
-                setShowSummary(false);
-            }
-        };
-
-        if (showSummary) {
-            document.addEventListener('keydown', handleKeyDown);
-        }
-
-        return () => {
-            document.removeEventListener('keydown', handleKeyDown);
-        };
-    }, [showSummary]);
+        setRows(prev => ([...prev, { name: '', sorteo: '', amount: '', time: '', cliente: '' }]));    };
 
     return (
         <div className="rounded-lg shadow-md p-6" style={{ background: 'var(--card-bg)', color: 'var(--foreground)' }}>

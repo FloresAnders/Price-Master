@@ -7,11 +7,8 @@ import {
     updateDoc,
     query,
     orderBy,
-    limit,
-    where,
-    onSnapshot,
-    Timestamp,
-    DocumentData
+    limit,    where,
+    onSnapshot
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import type { ScanResult } from '../types/firestore';

@@ -7,20 +7,15 @@ import {
   Check as CheckIcon,
   Copy as CopyIcon,
   Trash as TrashIcon,
-  AlertCircle as AlertIcon,
-  ScanBarcode,
+  AlertCircle as AlertIcon, ScanBarcode,
   Loader2 as LoaderIcon,
   ImagePlus as ImagePlusIcon,
   Smartphone,
-  Wifi,
-  QrCode,
-  Bell,
   BellRing,
 } from 'lucide-react';
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
 import { useScanning } from '../hooks/useScanning';
 import type { BarcodeScannerProps } from '../types/barcode';
-import type { ScanResult } from '../types/firestore';
 import MobileScanHelp from './MobileScanHelp';
 
 export default function BarcodeScanner({ onDetect, children }: BarcodeScannerProps & { children?: React.ReactNode }) {
@@ -169,7 +164,7 @@ export default function BarcodeScanner({ onDetect, children }: BarcodeScannerPro
                 </div>
               )}
             </div>
-            
+
             <button
               onClick={() => setShowMobileHelper(!showMobileHelper)}
               className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 text-sm font-medium"
@@ -207,7 +202,7 @@ export default function BarcodeScanner({ onDetect, children }: BarcodeScannerPro
                   Limpiar
                 </button>
               </div>
-              
+
               <div className="space-y-1 max-h-32 overflow-y-auto">
                 {scans.slice(0, 5).map((scan) => (
                   <div

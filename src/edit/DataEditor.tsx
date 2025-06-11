@@ -177,10 +177,9 @@ export default function DataEditor() {
                             const formattedSorteos = importedData.sorteos.map((name: string) => ({
                                 name
                             }));
-                            setSorteosData(formattedSorteos);
-                        } else {
+                            setSorteosData(formattedSorteos);                        } else {
                             // Ya está en formato de objetos - mantener solo name
-                            const formattedSorteos = importedData.sorteos.map((sorteo: any) => ({
+                            const formattedSorteos = importedData.sorteos.map((sorteo: { name?: string }) => ({
                                 name: sorteo.name || ''
                             }));
                             setSorteosData(formattedSorteos);

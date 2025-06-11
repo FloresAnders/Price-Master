@@ -9,13 +9,11 @@ import { Location, Sorteo, User } from '../types/firestore';
 export class FirebaseUtils {
     /**
    * Initialize collections with default data if they're empty
-   */
-  static async initializeCollections(): Promise<void> {
+   */  static async initializeCollections(): Promise<void> {
     try {
-      const [locations, sorteos, users] = await Promise.all([
+      const [locations, sorteos] = await Promise.all([
         LocationsService.getAllLocations(),
-        SorteosService.getAllSorteos(),
-        UsersService.getAllUsers()
+        SorteosService.getAllSorteos()
       ]);
 
       if (locations.length === 0 || sorteos.length === 0) {

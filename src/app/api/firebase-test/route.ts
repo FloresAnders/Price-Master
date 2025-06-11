@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { MigrationService } from '../../../utils/migration';
 import { LocationsService } from '../../../services/locations';
 import { SorteosService } from '../../../services/sorteos';

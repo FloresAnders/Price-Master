@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { User } from '../types/firestore';
 
 interface SessionData {
@@ -22,12 +22,7 @@ export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    checkExistingSession();
-  }, []);
-
-  const checkExistingSession = () => {
+  const checkExistingSession = useCallback(() => {
     try {
       const sessionData = localStorage.getItem('pricemaster_session');
       if (sessionData) {
@@ -35,7 +30,7 @@ export function useAuth() {
         const loginTime = new Date(session.loginTime);
         const now = new Date();
         const hoursElapsed = (now.getTime() - loginTime.getTime()) / (1000 * 60 * 60);
-        
+
         if (hoursElapsed < SESSION_DURATION_HOURS) { // Sesión válida por 30 días
           setUser({
             id: session.id,
@@ -55,7 +50,11 @@ export function useAuth() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    checkExistingSession();
+  }, [checkExistingSession]);
 
   const login = (userData: User) => {
     setUser(userData);

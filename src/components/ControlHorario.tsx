@@ -7,7 +7,7 @@ import { LocationsService } from '../services/locations';
 import { SchedulesService } from '../services/schedules';
 import { useAuth } from '../hooks/useAuth';
 import LoginModal from './LoginModal';
-import type { Location, ScheduleEntry, User } from '../types/firestore';
+import type { Location, User } from '../types/firestore';
 
 interface ScheduleData {
   [employeeName: string]: {
@@ -372,8 +372,8 @@ export default function ControlHorario() {
           <button
             onClick={() => setViewMode('first')}
             className={`px-4 py-2 rounded-md transition-colors ${viewMode === 'first'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
               }`}
           >
             1-15
@@ -381,8 +381,8 @@ export default function ControlHorario() {
           <button
             onClick={() => setViewMode('second')}
             className={`px-4 py-2 rounded-md transition-colors ${viewMode === 'second'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
               }`}
           >
             16-{daysInMonth}

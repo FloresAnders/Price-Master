@@ -1,7 +1,7 @@
 import { LocationsService } from '../services/locations';
 import { SorteosService } from '../services/sorteos';
 import { UsersService } from '../services/users';
-import { Location, Sorteo, User } from '../types/firestore';
+import { Location } from '../types/firestore';
 import locationsData from '../data/locations.json';
 import sorteosData from '../data/sorteos.json';
 

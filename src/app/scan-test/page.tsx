@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Smartphone, QrCode, Camera, Wifi, AlertCircle, CheckCircle } from 'lucide-react';
+import { Smartphone, QrCode, Camera, Wifi, CheckCircle } from 'lucide-react';
 import BarcodeScanner from '../../components/BarcodeScanner';
 
 export default function ScanTestPage() {
@@ -78,7 +78,7 @@ export default function ScanTestPage() {
               <div className="space-y-3 text-sm text-blue-800 dark:text-blue-200">
                 <div className="flex items-start gap-3">
                   <span className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">1</span>
-                  <p>Haz clic en <strong>"Ver QR"</strong> en el escáner principal</p>
+                  <p>Haz clic en <strong>&quot;Ver QR&quot;</strong> en el escáner principal</p>
                 </div>
                 
                 <div className="flex items-start gap-3">
@@ -183,7 +183,7 @@ export default function ScanTestPage() {
               <ul className="space-y-1 text-gray-600 dark:text-gray-400">
                 <li>• Firebase Firestore para almacenamiento</li>
                 <li>• Real-time listeners para sincronización</li>
-                <li>• Colección 'scans' para códigos</li>
+                <li>• Colección &apos;scans&apos; para códigos</li>
                 <li>• Manejo de sesiones por ID único</li>
               </ul>
             </div>

@@ -53,9 +53,9 @@ export default function Footer() {
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
             <div className="flex space-x-6">
               {[
-                { label: 'Twitter', svg: (<svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path d="M6.29..."/></svg>)},
-                { label: 'LinkedIn', svg: (<svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.338..." clipRule="evenodd"/></svg>)},
-                { label: 'GitHub', svg: (<svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 0..." clipRule="evenodd"/></svg>)},
+                { label: 'Twitter', svg: (<svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path d="M6.29..." /></svg>) },
+                { label: 'LinkedIn', svg: (<svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.338..." clipRule="evenodd" /></svg>) },
+                { label: 'GitHub', svg: (<svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 0..." clipRule="evenodd" /></svg>) },
               ].map(link => (
                 <a key={link.label} href="#" className="hover:text-[var(--tab-hover-text)] transition-colors text-[var(--tab-text)]" aria-label={link.label}>
                   {link.svg}

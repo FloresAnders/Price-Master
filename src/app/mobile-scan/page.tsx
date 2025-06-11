@@ -6,6 +6,14 @@ import { useSearchParams } from 'next/navigation';
 import { ScanningService } from '../../services/scanning';
 import { scanImageData } from '@undecaf/zbar-wasm';
 
+interface QuaggaInstance {
+  stop: () => void;
+  start: () => void;
+  init: (config: unknown, callback: (err?: Error) => void) => void;
+  onDetected: (callback: (data: { codeResult?: { code: string | null } }) => void) => void;
+  offDetected: () => void;
+}
+
 export default function MobileScanPage() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('session');
@@ -21,7 +29,7 @@ export default function MobileScanPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const zbarIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const quaggaRef = useRef<any>(null);// Check if we're on the client side and camera is supported
+  const quaggaRef = useRef<QuaggaInstance | null>(null);// Check if we're on the client side and camera is supported
   useEffect(() => {
     setIsClient(true);
     const addDebug = (msg: string) => {
@@ -94,14 +102,14 @@ export default function MobileScanPage() {
           // Immediately stop the test stream
           stream.getTracks().forEach(track => track.stop());
           addDebug('Camera access successful - setting supported to true');
-          setIsCameraSupported(true);
-        } catch (permissionError: any) {
-          addDebug(`Camera permission test failed: ${permissionError.name} - ${permissionError.message}`);
+          setIsCameraSupported(true);        } catch (permissionError: unknown) {
+          const error = permissionError as Error;
+          addDebug(`Camera permission test failed: ${error.name} - ${error.message}`);
           // Still set as supported - user might grant permission later
           setIsCameraSupported(true);
-        }
-      } catch (error: any) {
-        addDebug(`Camera support check failed: ${error.name} - ${error.message}`);
+        }      } catch (error: unknown) {
+        const err = error as Error;
+        addDebug(`Camera support check failed: ${err.name} - ${err.message}`);
         setIsCameraSupported(false);
       }
     };
@@ -184,8 +192,7 @@ export default function MobileScanPage() {
     if (zbarIntervalRef.current) {
       clearInterval(zbarIntervalRef.current);
       zbarIntervalRef.current = null;
-    }
-      // Stop Quagga2
+    }    // Stop Quagga2
     if (quaggaRef.current) {
       try {
         quaggaRef.current.stop();
@@ -292,7 +299,7 @@ export default function MobileScanPage() {
         }
       );
 
-      quaggaRef.current = Quagga;
+      quaggaRef.current = Quagga as QuaggaInstance;
 
       // ZBar-WASM detection with higher priority (EXACT same as BarcodeScanner.tsx)
       zbarInterval = window.setInterval(async () => {
@@ -331,7 +338,7 @@ export default function MobileScanPage() {
         }
       }, 500);
 
-      zbarIntervalRef.current = zbarInterval as any;
+      zbarIntervalRef.current = zbarInterval as unknown as NodeJS.Timeout;
 
       // Quagga2 detection as fallback (EXACT same as BarcodeScanner.tsx)
       Quagga.offDetected();
@@ -550,7 +557,7 @@ export default function MobileScanPage() {
                       </>
                     ) : (
                       <>
-                        Si la cámara está disponible, aparecerá el botón "Iniciar".<br />
+                        Si la cámara está disponible, aparecerá el botón &quot;Iniciar&quot;.<br />
                         También puedes usar la entrada manual abajo.
                       </>
                     )}
@@ -608,7 +615,7 @@ export default function MobileScanPage() {
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="text-center">
                     <QrCode className="w-16 h-16 text-gray-500 mx-auto mb-2" />
-                    <p className="text-gray-400">Presiona "Iniciar" para comenzar</p>
+                    <p className="text-gray-400">Presiona &quot;Iniciar&quot; para comenzar</p>
                   </div>
                 </div>
               )}

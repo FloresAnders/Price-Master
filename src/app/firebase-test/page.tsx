@@ -2,10 +2,31 @@
 
 import { useState } from 'react';
 
+interface Location {
+  id: string;
+  label: string;
+  value: string;
+  names?: string[];
+}
+
+interface Sorteo {
+  id: string;
+  name: string;
+}
+
+interface FirebaseData {
+  locations: number;
+  sorteos: number;
+  users: number;
+  locationsData?: Location[];
+  sorteosData?: Sorteo[];
+  usersData?: unknown[];
+}
+
 export default function FirebaseMigration() {
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<FirebaseData | null>(null);
 
   const handleMigration = async () => {
     setIsLoading(true);
@@ -120,9 +141,8 @@ export default function FirebaseMigration() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <h2 className="text-2xl font-semibold mb-4">Locations ({data.locations})</h2>
-            <div className="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
-              {data.locationsData && data.locationsData.length > 0 ? (
-                data.locationsData.map((location: any) => (
+            <div className="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">              {data.locationsData && data.locationsData.length > 0 ? (
+                data.locationsData.map((location: Location) => (
                   <div key={location.id} className="mb-3 p-3 bg-white rounded border">
                     <h3 className="font-semibold">{location.label}</h3>
                     <p className="text-sm text-gray-600">Value: {location.value}</p>
@@ -140,9 +160,8 @@ export default function FirebaseMigration() {
 
           <div>
             <h2 className="text-2xl font-semibold mb-4">Sorteos ({data.sorteos})</h2>
-            <div className="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
-              {data.sorteosData && data.sorteosData.length > 0 ? (
-                data.sorteosData.map((sorteo: any) => (
+            <div className="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">              {data.sorteosData && data.sorteosData.length > 0 ? (
+                data.sorteosData.map((sorteo: Sorteo) => (
                   <div key={sorteo.id} className="mb-2 p-2 bg-white rounded border">
                     <p className="font-medium">{sorteo.name}</p>
                     <p className="text-xs text-gray-400">ID: {sorteo.id}</p>
