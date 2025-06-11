@@ -7,6 +7,15 @@ import PriceCalculator from '@/components/PriceCalculator'
 import TextConversion from '@/components/TextConversion'
 import ScanHistory from '@/components/ScanHistory'
 import CashCounterTabs from '@/components/CashCounterTabs'
+import ControlHorario from '@/components/ControlHorario'
+import DataEditor from '@/edit/DataEditor'
+import {
+  Calculator,
+  Smartphone,
+  Type,  ClipboardList,  Banknote,
+  Scan,
+  Clock,
+} from 'lucide-react'
 import type { ScanHistoryEntry } from '@/types/barcode'
 import { Calculator, Type, Banknote, Scan } from 'lucide-react'
 

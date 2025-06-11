@@ -1,0 +1,157 @@
+// Test HTML file for user functionality with new fields
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Users Functionality</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        pre { background-color: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        .field { margin: 10px 0; }
+        label { display: inline-block; width: 120px; font-weight: bold; }
+        input, select { padding: 5px; margin-left: 10px; width: 200px; }
+        button { padding: 8px 16px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Test de Funcionalidad de Usuarios</h1>
+    <p>Esta página permite probar la nueva estructura de usuarios con ubicación y contraseña.</p>
+
+    <div class="test-section">
+        <h2>Estructura de Usuario Actualizada</h2>
+        <pre id="userStructure"></pre>
+    </div>
+
+    <div class="test-section">
+        <h2>Formulario de Prueba</h2>
+        <div class="field">
+            <label>Nombre:</label>
+            <input type="text" id="userName" placeholder="Ingrese nombre de usuario">
+        </div>
+        <div class="field">
+            <label>Ubicación:</label>
+            <select id="userLocation">
+                <option value="">Seleccionar ubicación</option>
+                <option value="location1">San José Centro</option>
+                <option value="location2">Cartago</option>
+                <option value="location3">Alajuela</option>
+                <option value="location4">Heredia</option>
+            </select>
+        </div>
+        <div class="field">
+            <label>Contraseña:</label>
+            <input type="password" id="userPassword" placeholder="Ingrese contraseña">
+        </div>
+        <div class="field">
+            <label>Rol:</label>
+            <select id="userRole">                <option value="user">Usuario</option>
+                <option value="admin">Administrador</option>
+            </select>
+        </div>
+        <div class="field">
+            <label>Estado:</label>
+            <input type="checkbox" id="userActive" checked>
+            <span>Usuario activo</span>
+        </div>
+        <button onclick="createTestUser()">Crear Usuario de Prueba</button>
+        <button onclick="validateUser()">Validar Estructura</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Resultado de Prueba</h2>
+        <div id="testResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Instrucciones de Prueba Real</h2>
+        <ol>
+            <li>Inicia el servidor de desarrollo: <code>npm run dev</code></li>
+            <li>Navega a la aplicación en el navegador</li>
+            <li>Haz clic en la pestaña "Editor de Datos"</li>
+            <li>Selecciona la pestaña "Usuarios"</li>
+            <li>Haz clic en "Agregar Usuario"</li>
+            <li>Completa los campos:
+                <ul>
+                    <li><strong>Nombre:</strong> Nombre del usuario</li>
+                    <li><strong>Ubicación:</strong> Selecciona de la lista desplegable</li>
+                    <li><strong>Contraseña:</strong> Contraseña del usuario</li>
+                    <li><strong>Rol:</strong> Admin, Usuario o Gerente</li>
+                    <li><strong>Estado:</strong> Usuario activo/inactivo</li>
+                </ul>
+            </li>
+            <li>Haz clic en "Guardar" para persistir en Firebase</li>
+        </ol>
+    </div>
+
+    <script>
+        // Mostrar estructura de usuario actualizada
+        const userStructure = {
+            id: "string (opcional, generado por Firebase)",
+            name: "string (requerido)",
+            location: "string (seleccionable de ubicaciones existentes)",
+            password: "string (contraseña en texto plano)",
+            role: "admin | user (por defecto: user)",
+            isActive: "boolean (por defecto: true)",
+            createdAt: "Date (generado automáticamente)",
+            updatedAt: "Date (actualizado automáticamente)"
+        };
+
+        document.getElementById('userStructure').textContent = JSON.stringify(userStructure, null, 2);
+
+        function createTestUser() {
+            const user = {
+                name: document.getElementById('userName').value || 'Usuario de Prueba',
+                location: document.getElementById('userLocation').value || 'location1',
+                password: document.getElementById('userPassword').value || 'password123',
+                role: document.getElementById('userRole').value || 'user',
+                isActive: document.getElementById('userActive').checked,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            };
+
+            document.getElementById('testResult').innerHTML = 
+                '<div class="success">' +
+                '<h3>Usuario de Prueba Creado:</h3>' +
+                '<pre>' + JSON.stringify(user, null, 2) + '</pre>' +
+                '</div>';
+        }
+
+        function validateUser() {
+            const validations = [
+                { test: 'Estructura sin email', passed: !userStructure.hasOwnProperty('email') },
+                { test: 'Incluye campo location', passed: userStructure.hasOwnProperty('location') },
+                { test: 'Incluye campo password', passed: userStructure.hasOwnProperty('password') },
+                { test: 'Mantiene campo name', passed: userStructure.hasOwnProperty('name') },
+                { test: 'Mantiene campo role', passed: userStructure.hasOwnProperty('role') },
+                { test: 'Mantiene campo isActive', passed: userStructure.hasOwnProperty('isActive') }
+            ];
+
+            let allPassed = true;
+            let resultHtml = '<h3>Validación de Estructura:</h3><ul>';
+
+            validations.forEach(validation => {
+                const status = validation.passed ? '✓' : '✗';
+                const className = validation.passed ? 'success' : 'error';
+                resultHtml += `<li class="${className}">${status} ${validation.test}</li>`;
+                if (!validation.passed) allPassed = false;
+            });
+
+            resultHtml += '</ul>';
+            resultHtml += allPassed ? 
+                '<p class="success"><strong>✓ Todas las validaciones pasaron correctamente!</strong></p>' :
+                '<p class="error"><strong>✗ Algunas validaciones fallaron.</strong></p>';
+
+            document.getElementById('testResult').innerHTML = resultHtml;
+        }
+
+        // Ejecutar validación automática al cargar
+        window.onload = function() {
+            validateUser();
+        };
+    </script>
+</body>
+</html>

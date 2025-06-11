@@ -3,17 +3,24 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "migrate": "node scripts/migrate.js",
+    "firebase:migrate": "curl -X POST http://localhost:3000/api/firebase-test",
+    "firebase:test": "curl http://localhost:3000/api/firebase-test",
+    "firebase:clear": "curl -X DELETE http://localhost:3000/api/firebase-test",
+    "test:users": "start test-users-functionality.html"
   },
   "dependencies": {
     "@ericblade/quagga2": "^1.8.4",
     "@heroicons/react": "^2.2.0",
     "@undecaf/zbar-wasm": "^0.11.0",
     "@zxing/library": "^0.21.3",
+    "firebase": "^11.9.0",
     "framer-motion": "^12.16.0",
+    "html2canvas": "^1.4.1",
     "lucide-react": "^0.511.0",
     "next": "15.3.2",
     "next-themes": "^0.4.6",
@@ -22,13 +29,14 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
-    "@tailwindcss/postcss": "^4",
+    "@types/html2canvas": "^0.5.35",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "autoprefixer": "^10.4.21",
     "eslint": "^9",
     "eslint-config-next": "15.3.2",
-    "tailwindcss": "^4",
+    "tailwindcss": "^3.4.0",
     "typescript": "^5"
   }
 }

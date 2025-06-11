@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tailwind CSS Test</title>
+    <style>
+        /* Test CSS to verify oklch issue is resolved */
+        .test-class {
+            background-color: oklch(0.7 0.15 200); /* This should cause error if oklch is still problematic */
+            color: rgb(255, 255, 255);
+            padding: 1rem;
+        }
+        
+        .working-class {
+            background-color: #3b82f6; /* Standard hex color */
+            color: white;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="working-class">
+        <h1>Tailwind CSS Test</h1>
+        <p>If you can see this styled properly, Tailwind v3.4.0 is working correctly.</p>
+    </div>
+    
+    <div class="test-class">
+        <p>This tests oklch color function. If you see an error in console about oklch, the issue persists.</p>
+    </div>
+    
+    <div class="bg-blue-500 text-white p-4 m-4 rounded">
+        <p>This uses Tailwind classes. Should work with v3.4.0.</p>
+    </div>
+</body>
+</html>

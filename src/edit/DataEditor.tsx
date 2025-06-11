@@ -2,84 +2,56 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Save, Download, Upload, AlertCircle, Check, FileText, MapPin } from 'lucide-react';
+import { Save, Download, Upload, AlertCircle, Check, FileText, MapPin, Users } from 'lucide-react';
+import { LocationsService } from '../services/locations';
+import { SorteosService } from '../services/sorteos';
+import { UsersService } from '../services/users';
+import { Location, Sorteo, User } from '../types/firestore';
 
-type DataFile = 'locations' | 'sorteos';
-
-interface Location {
-    value: string;
-    label: string;
-    names: string[];
-}
-
-interface Sorteo {
-    id: number;
-    name: string;
-    time: string;
-    active: boolean;
-}
-
-// Type for the raw sorteos JSON data (array of strings)
-type RawSorteosData = string[];
+type DataFile = 'locations' | 'sorteos' | 'users';
 
 export default function DataEditor() {
     const [activeFile, setActiveFile] = useState<DataFile>('locations');
     const [locationsData, setLocationsData] = useState<Location[]>([]);
-    const [sorteosData, setSorteosData] = useState<Sorteo[]>([]);    const [originalLocationsData, setOriginalLocationsData] = useState<Location[]>([]);
+    const [sorteosData, setSorteosData] = useState<Sorteo[]>([]);
+    const [usersData, setUsersData] = useState<User[]>([]);
+    const [originalLocationsData, setOriginalLocationsData] = useState<Location[]>([]);
     const [originalSorteosData, setOriginalSorteosData] = useState<Sorteo[]>([]);
-    const [hasChanges, setHasChanges] = useState(false);    const [isSaving, setIsSaving] = useState(false);
+    const [originalUsersData, setOriginalUsersData] = useState<User[]>([]);
+    const [hasChanges, setHasChanges] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
     const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
     // Detectar cambios
     useEffect(() => {
         const locationsChanged = JSON.stringify(locationsData) !== JSON.stringify(originalLocationsData);
         const sorteosChanged = JSON.stringify(sorteosData) !== JSON.stringify(originalSorteosData);
-        setHasChanges(locationsChanged || sorteosChanged);    }, [locationsData, sorteosData, originalLocationsData, originalSorteosData]);
+        const usersChanged = JSON.stringify(usersData) !== JSON.stringify(originalUsersData);
+        setHasChanges(locationsChanged || sorteosChanged || usersChanged);
+    }, [locationsData, sorteosData, usersData, originalLocationsData, originalSorteosData, originalUsersData]);
 
     const loadData = useCallback(async () => {
         try {
-            // Cargar locations
-            const locationsResponse = await fetch('/api/data/locations');
-            if (locationsResponse.ok) {
-                const locations = await locationsResponse.json();
-                setLocationsData(locations);
-                setOriginalLocationsData(JSON.parse(JSON.stringify(locations)));
-            } else {
-                // Fallback: usar import dinámico
-                const { default: locations } = await import('../data/locations.json');
-                setLocationsData(locations);
-                setOriginalLocationsData(JSON.parse(JSON.stringify(locations)));
-            }      // Cargar sorteos
-            const sorteosResponse = await fetch('/api/data/sorteos');
-            if (sorteosResponse.ok) {
-                const sorteos = await sorteosResponse.json();
-                // Si es un array de strings, convertir a formato Sorteo
-                const formattedSorteos = Array.isArray(sorteos) && sorteos.length > 0 && typeof sorteos[0] === 'string'
-                    ? sorteos.map((name: string, index: number) => ({
-                        id: index + 1,
-                        name,
-                        time: '',
-                        active: true
-                    }))
-                    : sorteos;
-                setSorteosData(formattedSorteos);
-                setOriginalSorteosData(JSON.parse(JSON.stringify(formattedSorteos)));
-            } else {
-                // Fallback: usar import dinámico
-                const { default: sorteos }: { default: RawSorteosData } = await import('../data/sorteos.json');
-                // Convertir array de strings a formato Sorteo
-                const formattedSorteos = sorteos.map((name: string, index: number) => ({
-                    id: index + 1,
-                    name,
-                    time: '',
-                    active: true
-                }));
-                setSorteosData(formattedSorteos);
-                setOriginalSorteosData(JSON.parse(JSON.stringify(formattedSorteos)));
-            }        } catch (error) {
-            showNotification('Error al cargar los datos', 'error');
-            console.error('Error loading data:', error);
-        }    }, []);
+            // Cargar locations desde Firebase
+            const locations = await LocationsService.getAllLocations();
+            setLocationsData(locations);
+            setOriginalLocationsData(JSON.parse(JSON.stringify(locations)));
+
+            // Cargar sorteos desde Firebase
+            const sorteos = await SorteosService.getAllSorteos();
+            setSorteosData(sorteos);
+            setOriginalSorteosData(JSON.parse(JSON.stringify(sorteos)));
+
+            // Cargar usuarios desde Firebase
+            const users = await UsersService.getAllUsers();
+            setUsersData(users);
+            setOriginalUsersData(JSON.parse(JSON.stringify(users)));
+
+        } catch (error) {
+            showNotification('Error al cargar los datos de Firebase', 'error');
+            console.error('Error loading data from Firebase:', error);
+        }
+    }, []);
 
     // Cargar datos iniciales
     useEffect(() => {
@@ -89,46 +61,75 @@ export default function DataEditor() {
     const showNotification = (message: string, type: 'success' | 'error' | 'info') => {
         setNotification({ message, type });
         setTimeout(() => setNotification(null), 3000);
-    };    const saveData = async () => {
+    };
+
+    const saveData = async () => {
         setIsSaving(true);
         try {
-            // Guardar locations
-            const locationsResponse = await fetch('/api/data/locations', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(locationsData),
-            });
-
-            if (!locationsResponse.ok) {
-                throw new Error('Failed to save locations');
+            // Guardar locations en Firebase
+            // Primero, eliminar los datos existentes y luego agregar los nuevos
+            const existingLocations = await LocationsService.getAllLocations();
+            for (const location of existingLocations) {
+                if (location.id) {
+                    await LocationsService.deleteLocation(location.id);
+                }
+            }
+            
+            // Agregar las nuevas locations
+            for (const location of locationsData) {
+                await LocationsService.addLocation({
+                    label: location.label,
+                    value: location.value,
+                    names: location.names
+                });
             }
 
-            // Guardar sorteos
-            const sorteosResponse = await fetch('/api/data/sorteos', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(sorteosData),
-            });
+            // Guardar sorteos en Firebase
+            const existingSorteos = await SorteosService.getAllSorteos();
+            for (const sorteo of existingSorteos) {
+                if (sorteo.id) {
+                    await SorteosService.deleteSorteo(sorteo.id);
+                }
+            }
+            
+            // Agregar los nuevos sorteos
+            for (const sorteo of sorteosData) {
+                await SorteosService.addSorteo({
+                    name: sorteo.name
+                });
+            }
 
-            if (!sorteosResponse.ok) {
-                throw new Error('Failed to save sorteos');
+            // Guardar usuarios en Firebase
+            const existingUsers = await UsersService.getAllUsers();
+            for (const user of existingUsers) {
+                if (user.id) {
+                    await UsersService.deleteUser(user.id);
+                }
+            }
+              // Agregar los nuevos usuarios
+            for (const user of usersData) {
+                await UsersService.addUser({
+                    name: user.name,
+                    location: user.location,
+                    password: user.password,
+                    role: user.role,
+                    isActive: user.isActive
+                });
             }
 
             // Guardar también en localStorage como respaldo
             localStorage.setItem('editedLocations', JSON.stringify(locationsData));
             localStorage.setItem('editedSorteos', JSON.stringify(sorteosData));
+            localStorage.setItem('editedUsers', JSON.stringify(usersData));
 
             setOriginalLocationsData(JSON.parse(JSON.stringify(locationsData)));
             setOriginalSorteosData(JSON.parse(JSON.stringify(sorteosData)));
+            setOriginalUsersData(JSON.parse(JSON.stringify(usersData)));
 
-            showNotification('¡Archivos JSON actualizados exitosamente!', 'success');
+            showNotification('¡Datos actualizados exitosamente en Firebase!', 'success');
         } catch (error) {
-            showNotification('Error al guardar los datos en los archivos', 'error');
-            console.error('Error saving data:', error);
+            showNotification('Error al guardar los datos en Firebase', 'error');
+            console.error('Error saving data to Firebase:', error);
         } finally {
             setIsSaving(false);
         }
@@ -138,6 +139,7 @@ export default function DataEditor() {
         const dataToExport = {
             locations: locationsData,
             sorteos: sorteosData,
+            users: usersData,
             exportDate: new Date().toISOString()
         };
 
@@ -152,7 +154,9 @@ export default function DataEditor() {
         URL.revokeObjectURL(url);
 
         showNotification('Datos exportados exitosamente', 'success');
-    };    const importData = (event: React.ChangeEvent<HTMLInputElement>) => {
+    };
+
+    const importData = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
 
@@ -166,22 +170,25 @@ export default function DataEditor() {
                 }
 
                 if (importedData.sorteos && Array.isArray(importedData.sorteos)) {
-                    // Manejar tanto formato de strings como de objetos
+                    // Manejar formato simplificado de sorteos
                     if (importedData.sorteos.length > 0) {
                         if (typeof importedData.sorteos[0] === 'string') {
                             // Convertir array de strings a formato Sorteo
-                            const formattedSorteos = importedData.sorteos.map((name: string, index: number) => ({
-                                id: index + 1,
-                                name,
-                                time: '',
-                                active: true
+                            const formattedSorteos = importedData.sorteos.map((name: string) => ({
+                                name
+                            }));
+                            setSorteosData(formattedSorteos);                        } else {
+                            // Ya está en formato de objetos - mantener solo name
+                            const formattedSorteos = importedData.sorteos.map((sorteo: { name?: string }) => ({
+                                name: sorteo.name || ''
                             }));
                             setSorteosData(formattedSorteos);
-                        } else {
-                            // Ya está en formato de objetos
-                            setSorteosData(importedData.sorteos);
                         }
                     }
+                }
+
+                if (importedData.users && Array.isArray(importedData.users)) {
+                    setUsersData(importedData.users);
                 }
 
                 showNotification('Datos importados exitosamente', 'success');
@@ -237,15 +244,12 @@ export default function DataEditor() {
     // Funciones para manejar sorteos
     const addSorteo = () => {
         const newSorteo: Sorteo = {
-            id: Math.max(...sorteosData.map(s => s.id), 0) + 1,
-            name: '',
-            time: '',
-            active: true
+            name: ''
         };
         setSorteosData([...sorteosData, newSorteo]);
     };
 
-    const updateSorteo = (index: number, field: keyof Sorteo, value: string | number | boolean) => {
+    const updateSorteo = (index: number, field: keyof Sorteo, value: string) => {
         const updated = [...sorteosData];
         updated[index] = { ...updated[index], [field]: value };
         setSorteosData(updated);
@@ -253,6 +257,26 @@ export default function DataEditor() {
 
     const removeSorteo = (index: number) => {
         setSorteosData(sorteosData.filter((_, i) => i !== index));
+    };    // Funciones para manejar usuarios
+    const addUser = () => {
+        const newUser: User = {
+            name: '',
+            location: '',
+            password: '',
+            role: 'user',
+            isActive: true
+        };
+        setUsersData([...usersData, newUser]);
+    };
+
+    const updateUser = (index: number, field: keyof User, value: string | boolean) => {
+        const updated = [...usersData];
+        updated[index] = { ...updated[index], [field]: value };
+        setUsersData(updated);
+    };
+
+    const removeUser = (index: number) => {
+        setUsersData(usersData.filter((_, i) => i !== index));
     };
 
     return (
@@ -286,7 +310,8 @@ export default function DataEditor() {
                             <AlertCircle className="w-4 h-4" />
                             Cambios sin guardar
                         </div>
-                    )}                    <button
+                    )}
+                    <button
                         onClick={saveData}
                         disabled={!hasChanges || isSaving}
                         className={`px-4 py-2 rounded-md flex items-center gap-2 transition-colors ${hasChanges && !isSaving
@@ -342,6 +367,16 @@ export default function DataEditor() {
                         >
                             <FileText className="w-4 h-4" />
                             Sorteos ({sorteosData.length})
+                        </button>
+                        <button
+                            onClick={() => setActiveFile('users')}
+                            className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeFile === 'users'
+                                    ? 'border-blue-500 text-blue-600'
+                                    : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-gray-300'
+                                }`}
+                        >
+                            <Users className="w-4 h-4" />
+                            Usuarios ({usersData.length})
                         </button>
                     </nav>
                 </div>
@@ -442,46 +477,121 @@ export default function DataEditor() {
                         </button>
                     </div>
 
-                    {sorteosData.map((sorteo, index) => (                        <div key={sorteo.id} className="border border-[var(--input-border)] rounded-lg p-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">ID:</label>
-                                    <input
-                                        type="number"
-                                        value={sorteo.id}
-                                        onChange={(e) => updateSorteo(index, 'id', parseInt(e.target.value) || 0)}
-                                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
-                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Nombre:</label>
+                    {sorteosData.map((sorteo, index) => (
+                        <div key={sorteo.id || index} className="border border-[var(--input-border)] rounded-lg p-4">
+                            <div className="flex gap-4 items-center">
+                                <div className="flex-1">
+                                    <label className="block text-sm font-medium mb-1">Nombre del Sorteo:</label>
                                     <input
                                         type="text"
                                         value={sorteo.name}
                                         onChange={(e) => updateSorteo(index, 'name', e.target.value)}
                                         className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
                                         style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                        placeholder="Ingrese el nombre del sorteo"
                                     />
                                 </div>
-                            </div>
-
-                            <div className="flex justify-between items-center">
-                                <label className="flex items-center gap-2">
-                                    <input
-                                        type="checkbox"
-                                        checked={sorteo.active}
-                                        onChange={(e) => updateSorteo(index, 'active', e.target.checked)}
-                                        className="rounded"
-                                    />
-                                    <span className="text-sm font-medium">Activo</span>
-                                </label>
 
                                 <button
                                     onClick={() => removeSorteo(index)}
                                     className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
                                 >
-                                    Eliminar Sorteo
+                                    Eliminar
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {activeFile === 'users' && (
+                <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                        <h4 className="text-lg font-semibold">Configuración de Usuarios</h4>
+                        <button
+                            onClick={addUser}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                        >
+                            Agregar Usuario
+                        </button>
+                    </div>
+
+                    {usersData.map((user, index) => (
+                        <div key={user.id || index} className="border border-[var(--input-border)] rounded-lg p-4">                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Nombre:</label>
+                                    <input
+                                        type="text"
+                                        value={user.name}
+                                        onChange={(e) => updateUser(index, 'name', e.target.value)}
+                                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
+                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                        placeholder="Nombre del usuario"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Ubicación:</label>
+                                    <select
+                                        value={user.location || ''}
+                                        onChange={(e) => updateUser(index, 'location', e.target.value)}
+                                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
+                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                    >
+                                        <option value="">Seleccionar ubicación</option>
+                                        {locationsData.map((location) => (
+                                            <option key={location.value} value={location.value}>
+                                                {location.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Contraseña:</label>
+                                    <input
+                                        type="password"
+                                        value={user.password || ''}
+                                        onChange={(e) => updateUser(index, 'password', e.target.value)}
+                                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
+                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                        placeholder="Contraseña del usuario"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Rol:</label>
+                                    <select
+                                        value={user.role || 'user'}                                        onChange={(e) => updateUser(index, 'role', e.target.value as 'admin' | 'user')}
+                                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
+                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                    >
+                                        <option value="user">Usuario</option>
+                                        <option value="admin">Administrador</option></select>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-4 mb-4">
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Estado:</label>
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            checked={user.isActive ?? true}
+                                            onChange={(e) => updateUser(index, 'isActive', e.target.checked)}
+                                            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                                        />
+                                        <span className="text-sm">Usuario activo</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex justify-end">
+                                <button
+                                    onClick={() => removeUser(index)}
+                                    className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                                >
+                                    Eliminar Usuario
                                 </button>
                             </div>
                         </div>

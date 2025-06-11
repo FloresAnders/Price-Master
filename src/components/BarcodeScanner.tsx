@@ -1,5 +1,6 @@
 'use client';
 import React, { useCallback, useRef, useEffect, useState } from 'react';
+import React, { useCallback, useRef, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Camera as CameraIcon,
@@ -7,13 +8,16 @@ import {
   Check as CheckIcon,
   Copy as CopyIcon,
   Trash as TrashIcon,
-  AlertCircle as AlertIcon,
-  ScanBarcode,
+  AlertCircle as AlertIcon, ScanBarcode,
   Loader2 as LoaderIcon,
   ImagePlus as ImagePlusIcon,
+  Smartphone,
+  BellRing,
 } from 'lucide-react';
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
+import { useScanning } from '../hooks/useScanning';
 import type { BarcodeScannerProps } from '../types/barcode';
+import MobileScanHelp from './MobileScanHelp';
 
 export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children }: BarcodeScannerProps & { onRemoveLeadingZero?: (code: string) => void; children?: React.ReactNode }) {
   const [activeTab, setActiveTab] = useState<'image' | 'camera'>('image');
