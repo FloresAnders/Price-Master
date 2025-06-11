@@ -96,13 +96,7 @@ export default function HomePage() {
       icon: Banknote,
       description: 'Contar billetes y monedas (CRC/USD)'
     },
-    {
-      id: 'history' as ActiveTab,
-      name: 'Historial',
-      icon: ClipboardList,
-      description: 'Ver códigos escaneados',
-      badge: scanHistory.length > 0 ? scanHistory.length : undefined
-    }, { id: 'timingcontrol' as ActiveTab, name: 'Control Tiempos', icon: Smartphone, description: 'Registro de venta de tiempos' },
+    { id: 'timingcontrol' as ActiveTab, name: 'Control Tiempos', icon: Smartphone, description: 'Registro de venta de tiempos' },
     { id: 'controlhorario' as ActiveTab, name: 'Control Horario', icon: Clock, description: 'Registro de horarios de trabajo' },
 
   ]
@@ -155,14 +149,7 @@ export default function HomePage() {
                   <div className="flex items-center justify-center space-x-2">
                     <tab.icon className="w-5 h-5" />
                     <span className="hidden sm:inline">{tab.name}</span>
-                    {tab.badge && (
-                      <span
-                        className="ml-1 py-0.5 px-2 rounded-full text-xs"
-                        style={{ backgroundColor: 'var(--badge-bg)', color: 'var(--badge-text)' }}
-                      >
-                        {tab.badge}
-                      </span>
-                    )}
+                    
                   </div>
                 </button>
               ))}

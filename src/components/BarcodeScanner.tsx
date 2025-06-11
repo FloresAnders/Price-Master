@@ -1,6 +1,5 @@
 'use client';
 import React, { useCallback, useRef, useEffect, useState } from 'react';
-import React, { useCallback, useRef, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Camera as CameraIcon,
