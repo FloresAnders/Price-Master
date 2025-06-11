@@ -1,10 +1,13 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { Camera, QrCode, Smartphone, Check, AlertCircle, Wifi, WifiOff } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { ScanningService } from '../../services/scanning';
 import { scanImageData } from '@undecaf/zbar-wasm';
+
+// Force dynamic rendering for this page
+export const dynamic = 'force-dynamic';
 
 interface QuaggaInstance {
   stop: () => void;
@@ -14,7 +17,7 @@ interface QuaggaInstance {
   offDetected: () => void;
 }
 
-export default function MobileScanPage() {
+function MobileScanContent() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('session');
   
@@ -685,13 +688,26 @@ export default function MobileScanPage() {
             ))}
           </div>
         </div>
-      )}
-
-      {/* Instructions */}
+      )}      {/* Instructions */}
       <div className="mt-6 text-center text-gray-400 text-sm">
         <p>Asegúrate de que tu PC esté conectado a la misma red</p>
         <p>Los códigos aparecerán automáticamente en tu computadora</p>
       </div>
     </div>
+  );
+}
+
+export default function MobileScanPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <p>Cargando escáner...</p>
+        </div>
+      </div>
+    }>
+      <MobileScanContent />
+    </Suspense>
   );
 }
