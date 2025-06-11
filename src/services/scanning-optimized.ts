@@ -1,0 +1,266 @@
+import { 
+  collection, 
+  doc, 
+  addDoc, 
+  getDocs, 
+  deleteDoc,
+  updateDoc,
+  query, 
+  orderBy, 
+  limit,
+  where,
+  onSnapshot,
+  Timestamp,
+  DocumentData
+} from 'firebase/firestore';
+import { db } from '../config/firebase';
+import type { ScanResult } from '../types/firestore';
+
+export type { ScanResult } from '../types/firestore';
+
+export class ScanningService {
+  private static readonly COLLECTION_NAME = 'scans';
+
+  /**
+   * Add a new scan result
+   */
+  static async addScan(scan: Omit<ScanResult, 'id' | 'timestamp'>): Promise<string> {
+    try {
+      const scanWithTimestamp = {
+        ...scan,
+        timestamp: new Date(),
+        processed: false
+      };
+      
+      const docRef = await addDoc(collection(db, this.COLLECTION_NAME), scanWithTimestamp);
+      return docRef.id;
+    } catch (error) {
+      console.error('Error adding scan:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all scan results (simplified query - no index needed)
+   */
+  static async getAllScans(): Promise<ScanResult[]> {
+    try {
+      const q = query(
+        collection(db, this.COLLECTION_NAME),
+        orderBy('timestamp', 'desc'),
+        limit(100)
+      );
+      const querySnapshot = await getDocs(q);
+      
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        timestamp: doc.data().timestamp?.toDate() || new Date()
+      } as ScanResult));
+    } catch (error) {
+      console.error('Error getting scans:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get unprocessed scans for a specific session (optimized for index requirements)
+   */
+  static async getUnprocessedScans(sessionId?: string): Promise<ScanResult[]> {
+    try {
+      // Simplified query to reduce index requirements
+      let q;
+      
+      if (sessionId) {
+        // For session-specific scans, use sessionId as primary filter
+        q = query(
+          collection(db, this.COLLECTION_NAME),
+          where('sessionId', '==', sessionId),
+          orderBy('timestamp', 'desc'),
+          limit(50)
+        );
+      } else {
+        // For general unprocessed scans, use processed field only
+        q = query(
+          collection(db, this.COLLECTION_NAME),
+          where('processed', '==', false),
+          orderBy('timestamp', 'desc'),
+          limit(50)
+        );
+      }
+
+      const querySnapshot = await getDocs(q);
+      
+      let scans = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        timestamp: doc.data().timestamp?.toDate() || new Date()
+      } as ScanResult));
+
+      // Client-side filtering for session-specific unprocessed scans
+      if (sessionId) {
+        scans = scans.filter(scan => !scan.processed);
+      }
+      
+      return scans;
+    } catch (error) {
+      console.error('Error getting unprocessed scans:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Mark a scan as processed
+   */
+  static async markAsProcessed(scanId: string): Promise<void> {
+    try {
+      const scanRef = doc(db, this.COLLECTION_NAME, scanId);
+      await updateDoc(scanRef, { 
+        processed: true,
+        processedAt: new Date()
+      });
+    } catch (error) {
+      console.error('Error marking scan as processed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a specific scan
+   */
+  static async deleteScan(scanId: string): Promise<void> {
+    try {
+      const scanRef = doc(db, this.COLLECTION_NAME, scanId);
+      await deleteDoc(scanRef);
+    } catch (error) {
+      console.error('Error deleting scan:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Clean up old processed scans (simplified query)
+   */
+  static async cleanupOldScans(daysOld: number = 7): Promise<number> {
+    try {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - daysOld);
+
+      // Simplified query - get processed scans first, then filter by date
+      const q = query(
+        collection(db, this.COLLECTION_NAME),
+        where('processed', '==', true),
+        limit(100) // Process in batches
+      );
+      
+      const querySnapshot = await getDocs(q);
+      
+      // Client-side filtering for date
+      const oldScans = querySnapshot.docs.filter(doc => {
+        const timestamp = doc.data().timestamp?.toDate() || new Date();
+        return timestamp < cutoffDate;
+      });
+      
+      const deletePromises = oldScans.map(doc => 
+        deleteDoc(doc.ref)
+      );
+      
+      await Promise.all(deletePromises);
+      return oldScans.length;
+    } catch (error) {
+      console.error('Error cleaning up old scans:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Subscribe to real-time scan updates (optimized for minimal index requirements)
+   */
+  static subscribeToScans(
+    callback: (scans: ScanResult[]) => void,
+    sessionId?: string,
+    onError?: (error: Error) => void
+  ): () => void {
+    try {
+      let q;
+      
+      if (sessionId) {
+        // Session-specific subscription - primary filter on sessionId
+        q = query(
+          collection(db, this.COLLECTION_NAME),
+          where('sessionId', '==', sessionId),
+          orderBy('timestamp', 'desc'),
+          limit(50)
+        );
+      } else {
+        // General subscription - only order by timestamp
+        q = query(
+          collection(db, this.COLLECTION_NAME),
+          orderBy('timestamp', 'desc'),
+          limit(50)
+        );
+      }
+
+      const unsubscribe = onSnapshot(
+        q,
+        (querySnapshot) => {
+          let scans: ScanResult[] = querySnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            timestamp: doc.data().timestamp?.toDate() || new Date()
+          } as ScanResult));
+          
+          // Client-side filtering for unprocessed scans when needed
+          if (sessionId) {
+            scans = scans.filter(scan => !scan.processed);
+          }
+          
+          callback(scans);
+        },
+        (error) => {
+          console.error('Error in scan subscription:', error);
+          if (onError) {
+            onError(error as Error);
+          }
+        }
+      );
+
+      return unsubscribe;
+    } catch (error) {
+      console.error('Error setting up scan subscription:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get recent scans for a session (fallback method with minimal indexing)
+   */
+  static async getRecentScans(sessionId?: string, limit_count: number = 20): Promise<ScanResult[]> {
+    try {
+      // Simple query with minimal index requirements
+      const q = query(
+        collection(db, this.COLLECTION_NAME),
+        orderBy('timestamp', 'desc'),
+        limit(limit_count * 2) // Get more than needed for client-side filtering
+      );
+      
+      const querySnapshot = await getDocs(q);
+      
+      let scans = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        timestamp: doc.data().timestamp?.toDate() || new Date()
+      } as ScanResult));
+
+      // Client-side filtering
+      if (sessionId) {
+        scans = scans.filter(scan => scan.sessionId === sessionId);
+      }
+      
+      return scans.slice(0, limit_count);
+    } catch (error) {
+      console.error('Error getting recent scans:', error);
+      throw error;
+    }
+  }
+}

@@ -1,5 +1,5 @@
 'use client';
-import React, { useCallback, useRef, useEffect } from 'react';
+import React, { useCallback, useRef, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Camera as CameraIcon,
@@ -11,9 +11,17 @@ import {
   ScanBarcode,
   Loader2 as LoaderIcon,
   ImagePlus as ImagePlusIcon,
+  Smartphone,
+  Wifi,
+  QrCode,
+  Bell,
+  BellRing,
 } from 'lucide-react';
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
+import { useScanning } from '../hooks/useScanning';
 import type { BarcodeScannerProps } from '../types/barcode';
+import type { ScanResult } from '../types/firestore';
+import MobileScanHelp from './MobileScanHelp';
 
 export default function BarcodeScanner({ onDetect, children }: BarcodeScannerProps & { children?: React.ReactNode }) {
   const {
@@ -36,14 +44,49 @@ export default function BarcodeScanner({ onDetect, children }: BarcodeScannerPro
     processImage,
   } = useBarcodeScanner(onDetect);
 
-  const containerRef = useRef<HTMLDivElement>(null);
+  // Real-time scanning integration
+  const {
+    scans,
+    newScanCount,
+    sessionId,
+    hasNewScans,
+    getMobileScanUrl,
+    processScan,
+    clearAllScans,
+    resetNewScanCount
+  } = useScanning({
+    enableRealTime: true,
+    autoMarkProcessed: false
+  });
 
+  const [showMobileHelper, setShowMobileHelper] = useState(false);
+  const [mobileUrl, setMobileUrl] = useState('');
+
+  const containerRef = useRef<HTMLDivElement>(null);
   // Focus automático al montar para que onPaste funcione siempre
   useEffect(() => {
     if (containerRef.current) {
       containerRef.current.focus();
     }
   }, []);
+  // Generate mobile URL on mount
+  useEffect(() => {
+    setMobileUrl(getMobileScanUrl());
+  }, [getMobileScanUrl]);
+  // Handle new scans from mobile
+  useEffect(() => {
+    if (scans.length > 0) {
+      const latestScan = scans[0];
+      if (latestScan && !latestScan.processed) {
+        // Process the scan and trigger the callback
+        processScan(latestScan, (scannedCode) => {
+          if (onDetect) {
+            onDetect(scannedCode);
+          }
+        });
+      }
+    }
+  }, [scans, processScan, onDetect]);
 
   // Handler para pegar imagen desde portapapeles
   const handlePaste = useCallback((event: React.ClipboardEvent<HTMLDivElement>) => {
@@ -101,10 +144,96 @@ export default function BarcodeScanner({ onDetect, children }: BarcodeScannerPro
               Iniciar Cámara
             </>
           )}
-        </button>
-        <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">
+        </button>        <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">
           Métodos de detección: <span className="font-semibold">ZBar‑WASM → Quagga 2 → Básica</span>
         </p>
+      </motion.div>
+
+      {/* Mobile Scanning Section */}
+      <motion.div
+        {...slideUp}
+        transition={{ duration: 0.6 }}
+        className="mb-4"
+      >
+        <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Smartphone className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              <h3 className="font-semibold text-blue-900 dark:text-blue-100">Escaneo Móvil</h3>
+              {hasNewScans && (
+                <div className="flex items-center gap-1">
+                  <BellRing className="w-4 h-4 text-orange-600 animate-pulse" />
+                  <span className="bg-orange-500 text-white text-xs px-2 py-1 rounded-full font-bold">
+                    {newScanCount}
+                  </span>
+                </div>
+              )}
+            </div>
+            
+            <button
+              onClick={() => setShowMobileHelper(!showMobileHelper)}
+              className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 text-sm font-medium"
+            >
+              {showMobileHelper ? 'Ocultar' : 'Ver QR'}
+            </button>
+          </div>
+
+          <div className="text-sm text-blue-800 dark:text-blue-200 mb-2">
+            Escanea códigos desde tu móvil y aparecerán aquí automáticamente
+          </div>          {showMobileHelper && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mt-3"
+            >
+              <MobileScanHelp mobileUrl={mobileUrl} sessionId={sessionId} />
+            </motion.div>
+          )}
+
+          {scans.length > 0 && (
+            <div className="mt-3 p-3 bg-white dark:bg-gray-800 rounded-lg border">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Códigos recibidos ({scans.length})
+                </span>
+                <button
+                  onClick={() => {
+                    clearAllScans();
+                    resetNewScanCount();
+                  }}
+                  className="text-xs text-red-600 hover:text-red-800 dark:text-red-400"
+                >
+                  Limpiar
+                </button>
+              </div>
+              
+              <div className="space-y-1 max-h-32 overflow-y-auto">
+                {scans.slice(0, 5).map((scan) => (
+                  <div
+                    key={scan.id}
+                    className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded text-xs"
+                  >
+                    <span className="font-mono text-gray-800 dark:text-gray-200">
+                      {scan.code}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-500 dark:text-gray-400">
+                        {scan.timestamp.toLocaleTimeString()}
+                      </span>
+                      <button
+                        onClick={() => processScan(scan, onDetect)}
+                        className="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded"
+                      >
+                        Usar
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </motion.div>
 
       {/* Mensaje de "Código copiado" */}

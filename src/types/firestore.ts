@@ -32,3 +32,15 @@ export interface ScheduleEntry {
   createdAt?: Date;
   updatedAt?: Date;
 }
+
+export interface ScanResult {
+  id?: string;
+  code: string;
+  timestamp: Date;
+  source: 'mobile' | 'web';
+  userId?: string;
+  userName?: string;
+  processed: boolean;
+  sessionId?: string;
+  processedAt?: Date;
+}

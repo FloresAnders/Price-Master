@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Demostración - Escaneo Móvil en Tiempo Real</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .animate-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: .5;
+            }
+        }
+        
+        .animate-bounce {
+            animation: bounce 1s infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 100% {
+                transform: translateY(-25%);
+                animation-timing-function: cubic-bezier(0.8,0,1,1);
+            }
+            50% {
+                transform: none;
+                animation-timing-function: cubic-bezier(0,0,0.2,1);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto p-6 max-w-4xl">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-800 mb-4">
+                📱 Sistema de Escaneo Móvil - Demostración
+            </h1>
+            <p class="text-gray-600 mb-4">
+                Prueba del escaneo de códigos de barras con sincronización en tiempo real
+            </p>
+            <div id="status" class="flex items-center justify-center gap-2">
+                <div class="w-3 h-3 bg-gray-400 rounded-full"></div>
+                <span class="text-sm">Conectando a Firebase...</span>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- PC Side - Scanner -->
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                    🖥️ PC - Receptor de Códigos
+                </h2>
+                
+                <!-- Mobile Scanning Section -->
+                <div class="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-4 border border-blue-200 mb-6">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center gap-2">
+                            <span class="text-2xl">📱</span>
+                            <h3 class="font-semibold text-blue-900">Escaneo Móvil</h3>
+                            <div id="newScansIndicator" class="hidden items-center gap-1">
+                                <span class="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></span>
+                                <span id="newScansCount" class="bg-orange-500 text-white text-xs px-2 py-1 rounded-full font-bold">0</span>
+                            </div>
+                        </div>
+                        
+                        <button id="toggleHelp" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                            Ver Instrucciones
+                        </button>
+                    </div>
+
+                    <div class="text-sm text-blue-800 mb-2">
+                        Escanea códigos desde tu móvil y aparecerán aquí automáticamente
+                    </div>
+
+                    <!-- Help Section -->
+                    <div id="helpSection" class="hidden mt-3 p-3 bg-white rounded-lg border">
+                        <div class="space-y-3">
+                            <div class="flex items-start gap-3">
+                                <span class="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">1</span>
+                                <div>
+                                    <strong>Abre esta URL en tu móvil:</strong>
+                                    <div class="mt-1 p-2 bg-gray-100 rounded border">
+                                        <code id="mobileUrl" class="text-xs break-all">Generando URL...</code>
+                                    </div>
+                                    <button id="copyUrl" class="mt-2 text-xs bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600">
+                                        Copiar URL
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-start gap-3">
+                                <span class="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">2</span>
+                                <p>Escanea códigos desde el móvil o introdúcelos manualmente</p>
+                            </div>
+                            
+                            <div class="flex items-start gap-3">
+                                <span class="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">3</span>
+                                <p>Los códigos aparecerán automáticamente en la lista de abajo</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Scanned Codes List -->
+                    <div id="scansContainer" class="hidden mt-3 p-3 bg-white rounded-lg border">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-medium text-gray-700">
+                                Códigos recibidos (<span id="scansCount">0</span>)
+                            </span>
+                            <button id="clearScans" class="text-xs text-red-600 hover:text-red-800">
+                                Limpiar
+                            </button>
+                        </div>
+                        
+                        <div id="scansList" class="space-y-1 max-h-32 overflow-y-auto">
+                            <!-- Scanned codes will appear here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Code Display -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">Último código detectado:</label>
+                    <input id="detectedCode" type="text" readonly 
+                           placeholder="Aquí aparecerá el código escaneado"
+                           class="w-full px-3 py-2 text-center rounded-lg border bg-gray-50 font-mono text-lg">
+                </div>
+
+                <!-- Status Messages -->
+                <div id="statusMessages" class="space-y-2">
+                    <!-- Success/error messages will appear here -->
+                </div>
+            </div>
+
+            <!-- Mobile Side - Instructions -->
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                    📱 Móvil - Instrucciones
+                </h2>
+                
+                <div class="space-y-4">
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <h3 class="font-semibold text-green-900 mb-2">✅ Para Probar:</h3>
+                        <ol class="text-sm text-green-800 space-y-2">
+                            <li>1. Haz clic en "Ver Instrucciones" arriba</li>
+                            <li>2. Copia la URL móvil</li>
+                            <li>3. Ábrela en tu teléfono</li>
+                            <li>4. Escanea o introduce códigos</li>
+                            <li>5. Observa cómo aparecen aquí automáticamente</li>
+                        </ol>
+                    </div>
+
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <h3 class="font-semibold text-blue-900 mb-2">🔧 Funcionalidades:</h3>
+                        <ul class="text-sm text-blue-800 space-y-1">
+                            <li>• Sincronización en tiempo real</li>
+                            <li>• Interfaz móvil optimizada</li>
+                            <li>• Escaneo por cámara y manual</li>
+                            <li>• Historial de códigos</li>
+                            <li>• Detección de conexión</li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                        <h3 class="font-semibold text-yellow-900 mb-2">⚠️ Nota:</h3>
+                        <p class="text-sm text-yellow-800">
+                            Esta es una demostración. En producción, asegúrate de configurar 
+                            correctamente Firebase y las reglas de seguridad.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Demo Actions -->
+                <div class="mt-6 space-y-2">
+                    <button id="simulateScan" class="w-full bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg">
+                        🎯 Simular Código Escaneado
+                    </button>
+                    <button id="simulateMultiple" class="w-full bg-purple-500 hover:bg-purple-600 text-white py-2 px-4 rounded-lg">
+                        📦 Simular Múltiples Códigos
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Technical Info -->
+        <div class="mt-8 bg-gray-50 rounded-lg p-6">
+            <h3 class="text-lg font-semibold mb-4">🔧 Información Técnica</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+                <div>
+                    <h4 class="font-semibold mb-2">Backend:</h4>
+                    <ul class="space-y-1 text-gray-600">
+                        <li>• Firebase Firestore</li>
+                        <li>• Real-time listeners</li>
+                        <li>• Colección 'scans'</li>
+                        <li>• Sesiones por ID único</li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-semibold mb-2">Frontend:</h4>
+                    <ul class="space-y-1 text-gray-600">
+                        <li>• React hooks</li>
+                        <li>• Responsive design</li>
+                        <li>• Notificaciones visuales</li>
+                        <li>• Manejo de estados offline</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        // Simulación de Firebase para la demostración
+        class MockFirebase {
+            constructor() {
+                this.scans = [];
+                this.listeners = [];
+                this.sessionId = this.generateSessionId();
+            }
+
+            generateSessionId() {
+                return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            }
+
+            addScan(scan) {
+                const newScan = {
+                    id: Date.now().toString(),
+                    ...scan,
+                    timestamp: new Date(),
+                    processed: false
+                };
+                this.scans.unshift(newScan);
+                this.notifyListeners();
+                return newScan.id;
+            }
+
+            subscribeToScans(callback) {
+                this.listeners.push(callback);
+                // Notify immediately with current data
+                callback(this.scans.filter(scan => !scan.processed));
+                
+                // Return unsubscribe function
+                return () => {
+                    const index = this.listeners.indexOf(callback);
+                    if (index > -1) {
+                        this.listeners.splice(index, 1);
+                    }
+                };
+            }
+
+            markAsProcessed(scanId) {
+                const scan = this.scans.find(s => s.id === scanId);
+                if (scan) {
+                    scan.processed = true;
+                    scan.processedAt = new Date();
+                    this.notifyListeners();
+                }
+            }
+
+            clearAllScans() {
+                this.scans = [];
+                this.notifyListeners();
+            }
+
+            notifyListeners() {
+                const unprocessedScans = this.scans.filter(scan => !scan.processed);
+                this.listeners.forEach(listener => listener(unprocessedScans));
+            }
+
+            getMobileUrl() {
+                const baseUrl = window.location.origin;
+                return `${baseUrl}/mobile-scan?session=${this.sessionId}`;
+            }
+        }
+
+        // Initialize mock Firebase
+        const firebase = new MockFirebase();
+        let newScanCount = 0;
+
+        // DOM elements
+        const statusElement = document.getElementById('status');
+        const toggleHelpButton = document.getElementById('toggleHelp');
+        const helpSection = document.getElementById('helpSection');
+        const mobileUrlElement = document.getElementById('mobileUrl');
+        const copyUrlButton = document.getElementById('copyUrl');
+        const scansContainer = document.getElementById('scansContainer');
+        const scansList = document.getElementById('scansList');
+        const scansCountElement = document.getElementById('scansCount');
+        const clearScansButton = document.getElementById('clearScans');
+        const detectedCodeInput = document.getElementById('detectedCode');
+        const statusMessages = document.getElementById('statusMessages');
+        const newScansIndicator = document.getElementById('newScansIndicator');
+        const newScansCountElement = document.getElementById('newScansCount');
+        const simulateScanButton = document.getElementById('simulateScan');
+        const simulateMultipleButton = document.getElementById('simulateMultiple');
+
+        // Update status
+        function updateStatus(message, type = 'info') {
+            const statusDot = statusElement.querySelector('div');
+            const statusText = statusElement.querySelector('span');
+            
+            statusDot.className = `w-3 h-3 rounded-full ${
+                type === 'success' ? 'bg-green-500 animate-pulse' :
+                type === 'error' ? 'bg-red-500' :
+                'bg-blue-500'
+            }`;
+            statusText.textContent = message;
+        }
+
+        // Show message
+        function showMessage(message, type = 'info') {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `p-3 rounded-lg border ${
+                type === 'success' ? 'bg-green-50 border-green-200 text-green-800' :
+                type === 'error' ? 'bg-red-50 border-red-200 text-red-800' :
+                'bg-blue-50 border-blue-200 text-blue-800'
+            }`;
+            messageDiv.textContent = message;
+            
+            statusMessages.appendChild(messageDiv);
+            
+            // Auto remove after 3 seconds
+            setTimeout(() => {
+                messageDiv.remove();
+            }, 3000);
+        }
+
+        // Update scans display
+        function updateScansDisplay(scans) {
+            scansCountElement.textContent = scans.length;
+            
+            if (scans.length > 0) {
+                scansContainer.classList.remove('hidden');
+                
+                // Clear and rebuild list
+                scansList.innerHTML = '';
+                scans.slice(0, 5).forEach(scan => {
+                    const scanDiv = document.createElement('div');
+                    scanDiv.className = 'flex items-center justify-between p-2 bg-gray-50 rounded text-xs';
+                    scanDiv.innerHTML = `
+                        <span class="font-mono text-gray-800">${scan.code}</span>
+                        <div class="flex items-center gap-2">
+                            <span class="text-gray-500">${scan.timestamp.toLocaleTimeString()}</span>
+                            <button onclick="processScan('${scan.id}', '${scan.code}')" 
+                                    class="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded">
+                                Usar
+                            </button>
+                        </div>
+                    `;
+                    scansList.appendChild(scanDiv);
+                });
+            } else {
+                scansContainer.classList.add('hidden');
+            }
+
+            // Update new scans indicator
+            if (newScanCount > 0) {
+                newScansIndicator.classList.remove('hidden');
+                newScansIndicator.classList.add('flex');
+                newScansCountElement.textContent = newScanCount;
+            } else {
+                newScansIndicator.classList.add('hidden');
+                newScansIndicator.classList.remove('flex');
+            }
+        }
+
+        // Process scan
+        window.processScan = function(scanId, code) {
+            firebase.markAsProcessed(scanId);
+            detectedCodeInput.value = code;
+            showMessage(`Código ${code} procesado correctamente`, 'success');
+            
+            // Reset new scan count
+            newScanCount = 0;
+            updateScansDisplay(firebase.scans.filter(scan => !scan.processed));
+        };
+
+        // Initialize
+        function initialize() {
+            updateStatus('Conectado a Firebase (simulado)', 'success');
+            
+            // Set mobile URL
+            const mobileUrl = firebase.getMobileUrl();
+            mobileUrlElement.textContent = mobileUrl;
+            
+            // Subscribe to scans
+            firebase.subscribeToScans((scans) => {
+                // Count new scans
+                const currentCount = firebase.scans.filter(scan => !scan.processed).length;
+                if (currentCount > newScanCount) {
+                    newScanCount = currentCount;
+                    
+                    // Auto-process latest scan
+                    if (scans.length > 0) {
+                        const latestScan = scans[0];
+                        setTimeout(() => {
+                            processScan(latestScan.id, latestScan.code);
+                        }, 500);
+                    }
+                }
+                
+                updateScansDisplay(scans);
+            });
+        }
+
+        // Event listeners
+        toggleHelpButton.addEventListener('click', () => {
+            helpSection.classList.toggle('hidden');
+            toggleHelpButton.textContent = helpSection.classList.contains('hidden') ? 'Ver Instrucciones' : 'Ocultar';
+        });
+
+        copyUrlButton.addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(mobileUrlElement.textContent);
+                copyUrlButton.textContent = '¡Copiado!';
+                copyUrlButton.className = 'mt-2 text-xs bg-green-500 text-white px-3 py-1 rounded';
+                setTimeout(() => {
+                    copyUrlButton.textContent = 'Copiar URL';
+                    copyUrlButton.className = 'mt-2 text-xs bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600';
+                }, 2000);
+            } catch (err) {
+                showMessage('Error al copiar URL', 'error');
+            }
+        });
+
+        clearScansButton.addEventListener('click', () => {
+            firebase.clearAllScans();
+            detectedCodeInput.value = '';
+            newScanCount = 0;
+            showMessage('Códigos limpiados', 'info');
+        });
+
+        simulateScanButton.addEventListener('click', () => {
+            const randomCode = Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
+            firebase.addScan({
+                code: randomCode,
+                source: 'mobile',
+                userName: 'Móvil Simulado',
+                sessionId: firebase.sessionId
+            });
+            showMessage(`Código ${randomCode} simulado desde móvil`, 'info');
+        });
+
+        simulateMultipleButton.addEventListener('click', () => {
+            const codes = ['123456', '789012', '345678', '901234'];
+            codes.forEach((code, index) => {
+                setTimeout(() => {
+                    firebase.addScan({
+                        code: code,
+                        source: 'mobile',
+                        userName: 'Móvil Simulado',
+                        sessionId: firebase.sessionId
+                    });
+                }, index * 1000);
+            });
+            showMessage('Simulando múltiples códigos...', 'info');
+        });
+
+        // Start the demo
+        initialize();
+    </script>
+</body>
+</html>
