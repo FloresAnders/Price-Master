@@ -13,13 +13,16 @@ export const dynamic = 'force-dynamic';
 function MobileScanContent() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('session');
-  
-  const [code, setCode] = useState('');
+    const [code, setCode] = useState('');
   const [lastScanned, setLastScanned] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(true);
   const [isClient, setIsClient] = useState(false);
+  const [requestProductName, setRequestProductName] = useState(false);
+  const [showNameModal, setShowNameModal] = useState(false);
+  const [pendingCode, setPendingCode] = useState<string>('');
+  const [productName, setProductName] = useState('');
   // Usar el hook de barcode scanner
   const {
     code: detectedCode,
@@ -52,9 +55,8 @@ function MobileScanContent() {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, []);
-  // Submit scanned code
-  const submitCode = useCallback(async (scannedCode: string) => {
+  }, []);  // Submit scanned code
+  const submitCode = useCallback(async (scannedCode: string, nameForProduct?: string) => {
     if (!scannedCode.trim()) {
       setError('Código vacío');
       return;
@@ -69,33 +71,40 @@ function MobileScanContent() {
     if (!isOnline) {
       setError('Sin conexión a internet. Inténtalo más tarde.');
       return;
-    }
-
-    try {
-      setError(null);
+    }    // If requestProductName is enabled and no name provided, show modal
+    if (requestProductName && !nameForProduct?.trim()) {
+      setPendingCode(scannedCode);
+      setShowNameModal(true);
+      return;
+    }try {
+      setError(null);      // Create scan object without undefined values
+      const scanData = {
+        code: scannedCode,
+        source: 'mobile' as const,
+        userName: 'Móvil',
+        processed: false,
+        ...(sessionId && { sessionId }),
+        ...(nameForProduct?.trim() && { productName: nameForProduct.trim() })
+      };
       
       // Enviar al servicio de scanning y también a localStorage para sincronización con PC
-      await ScanningService.addScan({
-        code: scannedCode,
-        source: 'mobile',
-        userName: 'Móvil',
-        sessionId: sessionId || undefined,
-        processed: false
-      });
+      await ScanningService.addScan(scanData);
 
       // También guardar en localStorage para comunicación con PC
       if (sessionId) {
-        const mobileScans = JSON.parse(localStorage.getItem('mobile-scans') || '[]');
-        mobileScans.push({
+        const mobileScans = JSON.parse(localStorage.getItem('mobile-scans') || '[]');        mobileScans.push({
           code: scannedCode,
           sessionId,
           timestamp: Date.now(),
-          processed: false
+          processed: false,
+          ...(nameForProduct?.trim() && { productName: nameForProduct.trim() })
         });
         localStorage.setItem('mobile-scans', JSON.stringify(mobileScans));
       }
-      
-      setSuccess(`Código ${scannedCode} enviado correctamente`);
+        const message = nameForProduct?.trim() 
+        ? `Código ${scannedCode} (${nameForProduct.trim()}) enviado correctamente`
+        : `Código ${scannedCode} enviado correctamente`;
+      setSuccess(message);
       setLastScanned(prev => [...prev.slice(-4), scannedCode]); // Keep last 5
       setCode('');
       
@@ -106,15 +115,30 @@ function MobileScanContent() {
       console.error('Error submitting code:', err);
       setError('Error al enviar el código. Inténtalo de nuevo.');
     }
-  }, [lastScanned, sessionId, isOnline]);
-
+  }, [lastScanned, sessionId, isOnline, requestProductName]);
   // Handler para eliminar primer dígito
   const handleRemoveLeadingZero = useCallback(() => {
     if (detectedCode && detectedCode.length > 1 && detectedCode[0] === '0') {
       const newCode = detectedCode.slice(1);
       submitCode(newCode);
     }
-  }, [detectedCode, submitCode]);
+  }, [detectedCode, submitCode]);  // Handle name modal submission
+  const handleNameSubmit = useCallback(() => {
+    if (pendingCode) {
+      const trimmedName = productName.trim();
+      submitCode(pendingCode, trimmedName || '');
+      setShowNameModal(false);
+      setPendingCode('');
+      setProductName('');
+    }
+  }, [pendingCode, productName, submitCode]);
+
+  // Handle name modal cancel
+  const handleNameCancel = useCallback(() => {
+    setShowNameModal(false);
+    setPendingCode('');
+    setProductName('');
+  }, []);
   // Handle manual code input
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -170,7 +194,24 @@ function MobileScanContent() {
           <Check className="w-5 h-5 text-green-400" />
           <span className="text-green-200">{success}</span>
         </div>
-      )}      {/* Camera Section */}
+      )}      
+      {/* Product Name Request Setting */}
+      <div className="bg-gray-800 rounded-lg p-4 mb-6">
+        <label className="flex items-center gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={requestProductName}
+            onChange={(e) => setRequestProductName(e.target.checked)}
+            className="w-5 h-5 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
+          />
+          <div>
+            <span className="text-white font-medium">Solicitar nombre del producto</span>
+            <p className="text-gray-400 text-sm">Cuando esté marcado, se solicitará un nombre opcional para cada código escaneado</p>
+          </div>
+        </label>
+      </div>
+
+      {/* Camera Section */}
       <div className="mb-6">
         <div className="bg-gray-800 rounded-lg p-4">
           <div className="flex items-center justify-between mb-4">
@@ -241,9 +282,55 @@ function MobileScanContent() {
                 <span className="font-mono">{scannedCode}</span>
               </div>
             ))}
+          </div>        </div>
+      )}      
+
+      {/* Product Name Modal */}
+      {showNameModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4 text-white">
+              Nombre del Producto (Opcional)
+            </h3>
+            <p className="text-gray-300 text-sm mb-4">
+              Código: <span className="font-mono bg-gray-700 px-2 py-1 rounded">{pendingCode}</span>
+            </p>
+            
+            <input
+              type="text"
+              value={productName}
+              onChange={(e) => setProductName(e.target.value)}
+              placeholder="Ingresa el nombre del producto (opcional)"
+              className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 mb-4"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleNameSubmit();
+                } else if (e.key === 'Escape') {
+                  handleNameCancel();
+                }
+              }}
+            />
+            
+            <div className="flex gap-3">
+              <button
+                onClick={handleNameCancel}
+                className="flex-1 bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded-lg text-white font-medium"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleNameSubmit}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-white font-medium"
+              >
+                Continuar
+              </button>
+            </div>
           </div>
         </div>
-      )}      {/* Instructions */}
+      )}
+
+      {/* Instructions */}
       <div className="mt-6 text-center text-gray-400 text-sm">
         <p>Asegúrate de que tu PC esté conectado a la misma red</p>
         <p>Los códigos aparecerán automáticamente en tu computadora</p>

@@ -17,14 +17,15 @@ import type { BarcodeScannerProps } from '../types/barcode';
 import CameraScanner from './CameraScanner';
 import QRCode from 'qrcode';
 
-export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children }: BarcodeScannerProps & { onRemoveLeadingZero?: (code: string) => void; children?: React.ReactNode }) {  const [activeTab, setActiveTab] = useState<'image' | 'camera' | 'mobile'>('image');
+export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children }: BarcodeScannerProps & { onRemoveLeadingZero?: (code: string) => void; children?: React.ReactNode }) {
+  const [activeTab, setActiveTab] = useState<'image' | 'camera' | 'mobile'>('image');
   const [mobileSessionId, setMobileSessionId] = useState<string | null>(null);
   const [showMobileQR, setShowMobileQR] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   const [lastScanCheck, setLastScanCheck] = useState<Date>(new Date());
-  const [nextPollIn, setNextPollIn] = useState<number>(10);  const unsubscribeRef = useRef<(() => void) | null>(null);
+  const [nextPollIn, setNextPollIn] = useState<number>(10); const unsubscribeRef = useRef<(() => void) | null>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const countdownRef = useRef<NodeJS.Timeout | null>(null);const {
+  const countdownRef = useRef<NodeJS.Timeout | null>(null); const {
     code,
     isLoading,
     error,
@@ -41,7 +42,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
     handleCopyCode,
     toggleCamera,
     processImage,
-    setCode,  } = useBarcodeScanner(onDetect);
+    setCode, } = useBarcodeScanner(onDetect);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Focus automático al montar para que onPaste funcione siempre
@@ -99,11 +100,11 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
   // Función para iniciar el contador regresivo
   const startCountdown = useCallback(() => {
     setNextPollIn(10);
-    
+
     if (countdownRef.current) {
       clearInterval(countdownRef.current);
     }
-    
+
     countdownRef.current = setInterval(() => {
       setNextPollIn((prev) => {
         if (prev <= 1) {
@@ -120,31 +121,29 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
     try {
       console.log('🔄 Verificando nuevos escaneos...');
       const { ScanningService } = await import('../services/scanning-optimized');
-      
+
       // Usar método simple sin índices complejos
       const sessionScans = await ScanningService.getScansBySession(sessionId);
-      
+
       // Buscar nuevos códigos no procesados para esta sesión
-      const newScan = sessionScans.find(scan => 
+      const newScan = sessionScans.find(scan =>
         !scan.processed &&
         scan.source === 'mobile' &&
         scan.timestamp > lastScanCheck
-      );
-      
-      if (newScan && newScan.id) {
+      );      if (newScan && newScan.id) {
         console.log('🔄 Nuevo escaneo detectado via polling:', newScan.code);
         setCode(newScan.code);
-        onDetect?.(newScan.code);
-        
+        onDetect?.(newScan.code, newScan.productName);
+
         // Marcar como procesado en Firebase
         await ScanningService.markAsProcessed(newScan.id);
-        
+
         // Actualizar timestamp del último chequeo
         setLastScanCheck(new Date());
-        
+
         // Cerrar QR modal
         setShowMobileQR(false);
-        
+
         // Limpiar el polling ya que encontramos un resultado
         if (pollIntervalRef.current) {
           clearInterval(pollIntervalRef.current);
@@ -159,7 +158,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
         // Reiniciar contador para el próximo chequeo
         startCountdown();
       }
-      
+
       // Actualizar timestamp del último chequeo
       setLastScanCheck(new Date());
     } catch (error) {
@@ -172,7 +171,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
     setMobileSessionId(sessionId);
     setShowMobileQR(true);
     setLastScanCheck(new Date()); // Reset del timestamp
-    
+
     // Generar QR code
     try {
       const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/mobile-scan?session=${sessionId}`;
@@ -188,33 +187,31 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
     } catch (err) {
       console.error('Error generating QR code:', err);
     }
-    
+
     // Escuchar códigos de la sesión móvil usando Firebase
     if (typeof window !== 'undefined') {
       // Importar dinámicamente el servicio de Firebase para evitar errores de SSR
       const { ScanningService } = await import('../services/scanning-optimized');
-        // 1. Configurar listener en tiempo real (método principal)
+      // 1. Configurar listener en tiempo real (método principal)
       try {
         const unsubscribe = ScanningService.subscribeToScans(
           (scans) => {
             // Buscar nuevos códigos no procesados para esta sesión
-            const newScan = scans.find(scan => 
-              scan.sessionId === sessionId && 
+            const newScan = scans.find(scan =>
+              scan.sessionId === sessionId &&
               !scan.processed &&
               scan.source === 'mobile'
-            );
-            
-            if (newScan && newScan.id) {
+            );            if (newScan && newScan.id) {
               console.log('🔥 Nuevo escaneo detectado via Firebase listener:', newScan.code);
               setCode(newScan.code);
-              onDetect?.(newScan.code);
-              
+              onDetect?.(newScan.code, newScan.productName);
+
               // Marcar como procesado en Firebase
               ScanningService.markAsProcessed(newScan.id).catch(console.error);
-              
+
               // Cerrar QR modal
               setShowMobileQR(false);
-              
+
               // Limpiar el polling ya que el listener funcionó
               if (pollIntervalRef.current) {
                 clearInterval(pollIntervalRef.current);
@@ -235,7 +232,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
             }
           }
         );
-        
+
         // Guardar el unsubscribe para poder limpiarlo después
         unsubscribeRef.current = unsubscribe;
       } catch (error) {
@@ -246,10 +243,10 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
       pollIntervalRef.current = setInterval(() => {
         checkForNewScans(sessionId);
       }, 10000); // 10 segundos
-      
+
       // Iniciar contador regresivo
       startCountdown();
-      
+
       // Retornar función de cleanup que incluye tanto listener como polling
       return () => {
         if (unsubscribeRef.current) {
@@ -263,30 +260,30 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
         }
       };
     }
-  }, [onDetect, setCode, checkForNewScans, startCountdown]);const closeMobileSession = useCallback(() => {
+  }, [onDetect, setCode, checkForNewScans, startCountdown]); const closeMobileSession = useCallback(() => {
     setShowMobileQR(false);
     setMobileSessionId(null);
     setQrCodeUrl('');
-    
+
     // Limpiar el listener de Firebase si existe
     if (unsubscribeRef.current) {
       unsubscribeRef.current();
       unsubscribeRef.current = null;
     }
-    
+
     // Limpiar el polling si existe
     if (pollIntervalRef.current) {
       clearInterval(pollIntervalRef.current);
       pollIntervalRef.current = null;
       console.log('🔄 Polling detenido');
     }
-    
+
     // Limpiar el contador regresivo si existe
     if (countdownRef.current) {
       clearInterval(countdownRef.current);
       countdownRef.current = null;
     }
-    
+
     // Reset del contador
     setNextPollIn(10);
   }, []);
@@ -499,7 +496,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
           onRemoveLeadingZero={handleRemoveLeadingZeroMain}
         />
       )}
-      
+
       {activeTab === 'mobile' && (
         <div>
           {/* Icono de móvil destacado */}
@@ -527,11 +524,11 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
             <div className="text-center">
               <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-xl border-2 border-green-200 dark:border-green-800 max-w-sm mx-auto">
                 <h3 className="text-xl font-bold text-gray-800 dark:text-green-300 mb-4">Escanea este QR con tu móvil</h3>
-                
+
                 {/* QR Code - ahora real */}                <div className="bg-gray-100 dark:bg-gray-700 rounded-xl p-4 mb-4 flex items-center justify-center">
                   {qrCodeUrl ? (
                     <Image
-                      src={qrCodeUrl} 
+                      src={qrCodeUrl}
                       alt="QR Code para acceder al escáner móvil"
                       width={192}
                       height={192}
@@ -543,7 +540,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                     </div>
                   )}
                 </div>
-                
+
                 <div className="space-y-3">
                   <p className="text-sm text-gray-600 dark:text-gray-400">
                     Sesión: <span className="font-mono text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">{mobileSessionId}</span>
@@ -557,19 +554,40 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                     </code>
                   </div>
                 </div>
-                
+
                 <div className="flex gap-3 mt-6">
                   <button
                     onClick={closeMobileSession}
                     className="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors font-medium"
                   >
                     Cancelar
-                  </button>
-                  <button
-                    onClick={() => {
+                  </button>                  <button
+                    onClick={async () => {
                       if (typeof window !== 'undefined' && mobileSessionId) {
                         const url = `${window.location.origin}/mobile-scan?session=${mobileSessionId}`;
-                        navigator.clipboard.writeText(url);
+                        try {
+                          // Try modern clipboard API first
+                          if (navigator.clipboard && navigator.clipboard.writeText) {
+                            await navigator.clipboard.writeText(url);
+                          } else {
+                            // Fallback for older browsers or insecure contexts
+                            const textArea = document.createElement('textarea');
+                            textArea.value = url;
+                            textArea.style.position = 'fixed';
+                            textArea.style.opacity = '0';
+                            textArea.style.left = '-999999px';
+                            textArea.style.top = '-999999px';
+                            document.body.appendChild(textArea);
+                            textArea.focus();
+                            textArea.select();
+                            document.execCommand('copy');
+                            document.body.removeChild(textArea);
+                          }
+                        } catch (error) {
+                          console.error('Error copying to clipboard:', error);
+                          // Show the URL to user if clipboard fails
+                          alert(`URL copiada manualmente: ${url}`);
+                        }
                       }
                     }}
                     className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-medium"
@@ -595,10 +613,10 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
           {/* Código detectado desde móvil */}
           <AnimatePresence>
             {code && activeTab === 'mobile' && (
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }} 
-                animate={{ opacity: 1, y: 0 }} 
-                transition={{ duration: 0.5 }} 
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
                 className="mt-6 flex justify-center w-full items-center"
               >
                 <div className="w-full max-w-md relative rounded-2xl shadow-xl overflow-hidden border-2 border-green-400 dark:border-green-700 bg-white/90 dark:bg-gray-800/90 min-h-[120px] flex items-center justify-center">
@@ -645,10 +663,10 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
           {/* Botón limpiar para móvil */}
           <AnimatePresence>
             {code && activeTab === 'mobile' && (
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }} 
-                animate={{ opacity: 1, y: 0 }} 
-                transition={{ duration: 0.5 }} 
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
                 className="flex justify-center mt-4"
               >
                 <button
@@ -663,7 +681,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
           </AnimatePresence>
         </div>
       )}
-      
+
       {children}
     </div>
   );

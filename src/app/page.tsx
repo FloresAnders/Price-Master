@@ -41,14 +41,15 @@ export default function HomePage() {
   useEffect(() => {
     localStorage.setItem('scanHistory', JSON.stringify(scanHistory))
   }, [scanHistory])
-
   // Función para manejar códigos detectados por el escáner
-  const handleCodeDetected = (code: string) => {
+  const handleCodeDetected = (code: string, productName?: string) => {
     setScanHistory(prev => {
       if (prev[0]?.code === code) return prev
-      // Si ya existe, lo sube al tope pero mantiene el nombre
+      // Si ya existe, lo sube al tope pero mantiene el nombre existente o usa el nuevo
       const existing = prev.find(e => e.code === code)
-      const newEntry: ScanHistoryEntry = existing ? { ...existing, code } : { code }
+      const newEntry: ScanHistoryEntry = existing 
+        ? { ...existing, code, name: productName || existing.name } 
+        : { code, name: productName }
       const filtered = prev.filter(e => e.code !== code)
       return [newEntry, ...filtered].slice(0, 20)
     })
@@ -59,11 +60,30 @@ export default function HomePage() {
     setNotification({ message, color });
     setTimeout(() => setNotification(null), 2000);
   }
-
   // Handler: copiar
-  const handleCopy = (code: string) => {
-    navigator.clipboard.writeText(code);
-    showNotification('¡Código copiado!', 'green');
+  const handleCopy = async (code: string) => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(code);
+      } else {
+        // Fallback for older browsers or insecure contexts
+        const textArea = document.createElement('textarea');
+        textArea.value = code;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      showNotification('¡Código copiado!', 'green');
+    } catch (error) {
+      console.error('Error copying to clipboard:', error);
+      showNotification('Error al copiar código', 'red');
+    }
   }
   // Handler: eliminar
   const handleDelete = (code: string) => {

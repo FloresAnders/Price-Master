@@ -7,7 +7,7 @@ export interface QuaggaResultObject {
 }
 
 export interface BarcodeScannerProps {
-  onDetect?: (code: string) => void;
+  onDetect?: (code: string, productName?: string) => void;
 }
 
 export interface ScanHistoryEntry {

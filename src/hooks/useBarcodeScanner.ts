@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { scanImageData } from '@undecaf/zbar-wasm';
 import { detectBasicPatternWithOrientation, preprocessImage, detectWithQuagga2 } from '../utils/barcodeUtils';
 
-export function useBarcodeScanner(onDetect?: (code: string) => void) {
+export function useBarcodeScanner(onDetect?: (code: string, productName?: string) => void) {
   const [code, setCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -16,22 +16,41 @@ export function useBarcodeScanner(onDetect?: (code: string) => void) {
   const liveStreamRef = useRef<HTMLDivElement>(null);
   const zbarIntervalRef = useRef<number | null>(null);
   const hiddenCanvasRef = useRef<HTMLCanvasElement | null>(null);
-
   // Copiar código al portapapeles
   const copyCodeToClipboard = async (codeText: string) => {
     try {
-      await navigator.clipboard.writeText(codeText);
+      // Check if modern clipboard API is available
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(codeText);
+      } else {
+        // Fallback for older browsers or insecure contexts
+        const textArea = document.createElement('textarea');
+        textArea.value = codeText;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
       setCopySuccess(true);
       setTimeout(() => setCopySuccess(false), 3000);
       return true;
-    } catch {
+    } catch (error) {
+      console.error('Error copying to clipboard:', error);
       // Fallback para navegadores antiguos
       try {
         const textArea = document.createElement('textarea');
         textArea.value = codeText;
         textArea.style.position = 'fixed';
         textArea.style.opacity = '0';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
         document.body.appendChild(textArea);
+        textArea.focus();
         textArea.select();
         document.execCommand('copy');
         document.body.removeChild(textArea);

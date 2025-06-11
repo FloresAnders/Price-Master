@@ -4,12 +4,28 @@ import React, { useState } from 'react';
 export default function TextConversion() {
   const [text, setText] = useState('');
   const [copySuccess, setCopySuccess] = useState(false);
-
-  const copyToClipboard = (value: string) => {
-    if (navigator && navigator.clipboard) {
-      navigator.clipboard.writeText(value);
+  const copyToClipboard = async (value: string) => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        // Fallback for older browsers or insecure contexts
+        const textArea = document.createElement('textarea');
+        textArea.value = value;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
       setCopySuccess(true);
       setTimeout(() => setCopySuccess(false), 2000);
+    } catch (error) {
+      console.error('Error copying to clipboard:', error);
     }
   };
 

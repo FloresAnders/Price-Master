@@ -43,4 +43,5 @@ export interface ScanResult {
   processed: boolean;
   sessionId?: string;
   processedAt?: Date;
+  productName?: string; // Optional product name for scanned codes
 }
