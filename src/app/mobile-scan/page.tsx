@@ -24,9 +24,7 @@ function MobileScanContent() {
   const [isClient, setIsClient] = useState(false);
   const [requestProductName, setRequestProductName] = useState(false);
   const [showNameModal, setShowNameModal] = useState(false);
-  const [pendingCode, setPendingCode] = useState<string>('');
-  const [productName, setProductName] = useState('');  // Estados para sincronización real
-  const [hasPCConnection, setHasPCConnection] = useState(false);
+  const [pendingCode, setPendingCode] = useState<string>('');  const [productName, setProductName] = useState('');  // Estados para sincronización real
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking');
   const [connectedDeviceType, setConnectedDeviceType] = useState<'pc' | 'laptop' | 'desktop' | null>(null);
   const sessionHeartbeatRef = useRef<{ start: () => Promise<void>; stop: () => void; sessionDocId: string | null } | null>(null);
@@ -36,14 +34,13 @@ function MobileScanContent() {
     error: scannerError,
     cameraActive,
     liveStreamRef,
-    toggleCamera,
-    handleClear: clearScanner,
+    toggleCamera,    handleClear: clearScanner,
     handleCopyCode,
     detectionMethod,
     fileInputRef,
     handleFileUpload,
     handleDrop,
-    handleDropAreaClick, processImage,
+    handleDropAreaClick,
   } = useBarcodeScanner((detectedCode) => {
     submitCode(detectedCode);
   });// Check if we're on the client side
@@ -110,12 +107,10 @@ function MobileScanContent() {
                 setConnectedDeviceType('pc');
               } else {
                 setConnectedDeviceType('pc'); // Fallback
-              }
-            } else {
+              }            } else {
               setConnectedDeviceType(null);
             }
             
-            setHasPCConnection(pcConnected);
             setConnectionStatus(pcConnected ? 'connected' : 'disconnected');
           },
           (error) => {
@@ -202,9 +197,8 @@ function MobileScanContent() {
       setLastScanned(prev => [...prev.slice(-4), scannedCode]); // Keep last 5
       setCode('');
       // Clear success message after 2 seconds
-      setTimeout(() => setSuccess(null), 2000);
-
-    } catch (err) {
+      setTimeout(() => setSuccess(null), 2000);    } catch (error) {
+      console.error('Error submitting code:', error);
       setError('Error al enviar el código. Inténtalo de nuevo.');
     }
   }, [lastScanned, sessionId, isOnline, requestProductName]);

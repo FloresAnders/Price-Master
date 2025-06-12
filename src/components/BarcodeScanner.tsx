@@ -27,9 +27,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   const [lastScanCheck, setLastScanCheck] = useState<Date>(new Date());
   const [nextPollIn, setNextPollIn] = useState<number>(10);  // Estados para sincronización real
-  const [hasMobileConnection, setHasMobileConnection] = useState(false);
-  const [connectedDeviceType, setConnectedDeviceType] = useState<'mobile' | 'tablet' | 'pc' | null>(null);
-  const [sessionSyncId, setSessionSyncId] = useState<string | null>(null);
+  const [hasMobileConnection, setHasMobileConnection] = useState(false);  const [connectedDeviceType, setConnectedDeviceType] = useState<'mobile' | 'tablet' | 'pc' | null>(null);
   const sessionHeartbeatRef = useRef<{ start: () => Promise<void>; stop: () => void; sessionDocId: string | null } | null>(null);
   const sessionSyncUnsubscribeRef = useRef<(() => void) | null>(null);
 
@@ -657,7 +655,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                 ) : (
                   <div className="flex items-center justify-center gap-2 text-orange-600 dark:text-orange-400">
                     <WifiOffIcon className="w-4 h-4" />
-                    <span className="text-sm font-medium">⏳ ESPERANDO CONEXIÓN "MÓVIL"</span>
+                    <span className="text-sm font-medium">⏳ ESPERANDO CONEXIÓN &ldquo;MÓVIL&rdquo;</span>
                   </div>
                 )}
                 <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">

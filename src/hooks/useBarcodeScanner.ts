@@ -116,8 +116,7 @@ export function useBarcodeScanner(onDetect?: (code: string, productName?: string
               usedMethod = 'ZBar‑WASM (PRIORIDAD MÁXIMA)';
               logZbarPriority('ZBAR_SUCCESS', 'ZBar-WASM detectó código', code);
             }
-          }
-        } catch (error) {
+          }        } catch {
           logZbarPriority('ZBAR_PROCESSING', 'ZBar-WASM procesando, continuando con fallback');
         }
         
@@ -131,8 +130,7 @@ export function useBarcodeScanner(onDetect?: (code: string, productName?: string
               detectedCode = quaggaResult;
               usedMethod = 'Quagga 2 (Fallback)';
               logZbarPriority('QUAGGA_SUCCESS', 'Quagga2 detectó código como fallback', quaggaResult);
-            }
-          } catch (error) {
+            }          } catch {
             logZbarPriority('ZBAR_PROCESSING', 'Error en Quagga2 fallback, continuando...');
           }
         } else {
@@ -339,11 +337,10 @@ export function useBarcodeScanner(onDetect?: (code: string, productName?: string
                     setCameraActive(false);
                     if (zbarInterval) window.clearInterval(zbarInterval);
                     return;
-                  }
-                }
+                  }                }
                 // SOLO SI ZBAR NO DETECTA, USAR QUAGGA
                 // (NO hacer nada aquí, Quagga.onDetected solo se ejecuta si ZBar no detecta nada)
-              } catch (error) {
+              } catch {
                 logZbarPriority('ZBAR_PROCESSING', 'ZBar-WASM procesando frame...');
               }
             }

@@ -7,7 +7,6 @@ import {
     updateDoc,
     query,
     orderBy,
-    limit,
     where,
     onSnapshot,
     serverTimestamp,
@@ -38,9 +37,8 @@ export class SessionSyncService {
         sessionId: string,
         source: 'pc' | 'mobile',
         userId?: string,
-        userName?: string    ): Promise<string> {
-        try {
-            const sessionData: any = {
+        userName?: string    ): Promise<string> {        try {
+            const sessionData: Record<string, unknown> = {
                 sessionId,
                 source,
                 status: 'active' as const,

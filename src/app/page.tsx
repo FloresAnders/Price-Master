@@ -8,7 +8,6 @@ import TextConversion from '@/components/TextConversion'
 import ScanHistory from '@/components/ScanHistory'
 import CashCounterTabs from '@/components/CashCounterTabs'
 import ControlHorario from '@/components/ControlHorario'
-import DataEditor from '@/edit/DataEditor'
 import {
   Calculator,
   Smartphone,
@@ -19,8 +18,8 @@ import {
 import type { ScanHistoryEntry } from '@/types/barcode'
 import TimingControl from '@/components/TimingControl'
 
-// 1) Ampliamos ActiveTab para incluir "cashcounter", "controlhorario" y "edit"
-type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'history' | 'timingcontrol' | 'controlhorario' | 'edit'
+// 1) Ampliamos ActiveTab para incluir "cashcounter", "controlhorario"
+type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'history' | 'timingcontrol' | 'controlhorario'
 
 export default function HomePage() {
   // 2) Estado para la pestaña activa
@@ -126,7 +125,7 @@ export default function HomePage() {
     // Solo en cliente (window existe)
     if (typeof window !== 'undefined') {
       const hash = window.location.hash.replace('#', '') as ActiveTab      // Si coincide con alguna pestaña válida, la activamos
-      if (['scanner', 'calculator', 'converter', 'cashcounter', 'history', 'timingcontrol', 'controlhorario', 'edit'].includes(hash)) {
+      if (['scanner', 'calculator', 'converter', 'cashcounter', 'history', 'timingcontrol', 'controlhorario'].includes(hash)) {
         setActiveTab(hash)
       }
     }
@@ -261,11 +260,6 @@ export default function HomePage() {
           )}          {/* CONTROL HORARIO */}
           {activeTab === 'controlhorario' && (
             <ControlHorario />
-          )}
-
-          {/* EDITOR DE DATOS */}
-          {activeTab === 'edit' && (
-            <DataEditor />
           )}
         </div>
       </main>
