@@ -10,12 +10,15 @@ import {
   Loader2 as LoaderIcon,
   Smartphone as SmartphoneIcon,
   QrCode as QrCodeIcon,
+  Wifi as WifiIcon,
+  WifiOff as WifiOffIcon,
 } from 'lucide-react';
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
 import type { BarcodeScannerProps } from '../types/barcode';
 import CameraScanner from './CameraScanner';
 import ImageDropArea from './ImageDropArea';
 import QRCode from 'qrcode';
+import { SessionSyncService, type SessionStatus } from '../services/session-sync';
 
 export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children }: BarcodeScannerProps & { onRemoveLeadingZero?: (code: string) => void; children?: React.ReactNode }) {
   const [activeTab, setActiveTab] = useState<'image' | 'camera' | 'mobile'>('image');
@@ -23,7 +26,14 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
   const [showMobileQR, setShowMobileQR] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   const [lastScanCheck, setLastScanCheck] = useState<Date>(new Date());
-  const [nextPollIn, setNextPollIn] = useState<number>(10); const unsubscribeRef = useRef<(() => void) | null>(null);
+  const [nextPollIn, setNextPollIn] = useState<number>(10);  // Estados para sincronización real
+  const [hasMobileConnection, setHasMobileConnection] = useState(false);
+  const [connectedDeviceType, setConnectedDeviceType] = useState<'mobile' | 'tablet' | 'pc' | null>(null);
+  const [sessionSyncId, setSessionSyncId] = useState<string | null>(null);
+  const sessionHeartbeatRef = useRef<{ start: () => Promise<void>; stop: () => void; sessionDocId: string | null } | null>(null);
+  const sessionSyncUnsubscribeRef = useRef<(() => void) | null>(null);
+
+  const unsubscribeRef = useRef<(() => void) | null>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const countdownRef = useRef<NodeJS.Timeout | null>(null); const {
     code,
@@ -165,15 +175,60 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
       console.error('Error checking for new scans:', error);
       startCountdown(); // Reiniciar contador incluso si hay error
     }
-  }, [onDetect, setCode, lastScanCheck, startCountdown]);// Generar sesión para escáner móvil
+  }, [onDetect, setCode, lastScanCheck, startCountdown]);// Generar sesión para escáner móvil con detección real de conexión
   const generateMobileSession = useCallback(async () => {
     const sessionId = `scan-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     setMobileSessionId(sessionId);
     setShowMobileQR(true);
     setLastScanCheck(new Date()); // Reset del timestamp
 
-    // Generar QR code
     try {
+      // Crear heartbeat manager para mantener sesión PC activa
+      const heartbeatManager = SessionSyncService.createHeartbeatManager(sessionId, 'pc');
+      sessionHeartbeatRef.current = heartbeatManager;
+      
+      // Iniciar sesión y heartbeat
+      await heartbeatManager.start();      // Escuchar cambios en tiempo real para detectar conexiones
+      const sessionUnsubscribe = SessionSyncService.subscribeToSessionStatus(
+        sessionId,
+        (sessions: SessionStatus[]) => {
+          const mobileConnected = sessions.some(session => 
+            session.source === 'mobile' && 
+            session.status === 'active'
+          );
+          
+          // Determinar qué tipo de dispositivo se conectó basándose en User Agent
+          if (mobileConnected) {
+            const connectedDevice = sessions.find(session => 
+              session.source === 'mobile' && 
+              session.status === 'active'
+            );
+            
+            // Detectar si es móvil o tablet basándose en el User Agent
+            const userAgent = connectedDevice?.userAgent || '';
+            const isMobile = /Mobile|Android|iPhone|iPad|iPod|BlackBerry|Windows Phone/i.test(userAgent);
+            const isTablet = /iPad|Tablet/i.test(userAgent);
+            
+            if (isTablet) {
+              setConnectedDeviceType('tablet' as 'mobile' | 'tablet' | 'pc');
+            } else if (isMobile) {
+              setConnectedDeviceType('mobile');
+            } else {
+              setConnectedDeviceType('mobile'); // Fallback para mobile
+            }
+          } else {
+            setConnectedDeviceType(null);
+          }
+          
+          setHasMobileConnection(mobileConnected);
+        },
+        (error) => {
+          console.error('Error in session status subscription:', error);
+        }
+      );
+      sessionSyncUnsubscribeRef.current = sessionUnsubscribe;
+
+      // Generar QR code
       const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/mobile-scan?session=${sessionId}`;
       const qrDataUrl = await QRCode.toDataURL(url, {
         width: 256,
@@ -185,7 +240,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
       });
       setQrCodeUrl(qrDataUrl);
     } catch (err) {
-      console.error('Error generating QR code:', err);
+      console.error('Error generating session with real connection detection:', err);
     }
 
     // Escuchar códigos de la sesión móvil usando Firebase
@@ -264,6 +319,20 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
     setShowMobileQR(false);
     setMobileSessionId(null);
     setQrCodeUrl('');
+    setHasMobileConnection(false);
+    setConnectedDeviceType(null);
+
+    // Limpiar la sincronización de sesión
+    if (sessionSyncUnsubscribeRef.current) {
+      sessionSyncUnsubscribeRef.current();
+      sessionSyncUnsubscribeRef.current = null;
+    }
+
+    // Detener heartbeat de la sesión
+    if (sessionHeartbeatRef.current) {
+      sessionHeartbeatRef.current.stop();
+      sessionHeartbeatRef.current = null;
+    }
 
     // Limpiar el listener de Firebase si existe
     if (unsubscribeRef.current) {
@@ -285,8 +354,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
     }
 
     // Reset del contador
-    setNextPollIn(10);
-  }, []);
+    setNextPollIn(10);  }, []);
 
   const fadeIn = { initial: { opacity: 0 }, animate: { opacity: 1 } };
   const slideUp = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 } };
@@ -576,13 +644,24 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                     Copiar URL
                   </button>
                 </div>
-              </div>              <div className="mt-6 text-center">
-                <div className="flex items-center justify-center gap-2 text-green-600 dark:text-green-400">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                  <span className="text-sm font-medium">ESPERANDO escaneo desde móvil...</span>
-                </div>
+              </div>              <div className="mt-6 text-center">                {/* Estado de conexión real */}
+                {hasMobileConnection ? (
+                  <div className="flex items-center justify-center gap-2 text-green-600 dark:text-green-400">
+                    <WifiIcon className="w-4 h-4" />
+                    <span className="text-sm font-medium">
+                      {connectedDeviceType === 'mobile' && '📱 MÓVIL'}
+                      {connectedDeviceType === 'tablet' && '📱 TABLET'}
+                      {!connectedDeviceType && '📱 DISPOSITIVO'} CONECTADO - Listo para escanear
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center gap-2 text-orange-600 dark:text-orange-400">
+                    <WifiOffIcon className="w-4 h-4" />
+                    <span className="text-sm font-medium">⏳ ESPERANDO CONEXIÓN "MÓVIL"</span>
+                  </div>
+                )}
                 <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                  🔥 Escucha en tiempo real activa
+                  🔥 Sincronización en tiempo real activa
                 </div>
                 <div className="mt-1 text-xs text-blue-500 dark:text-blue-400">
                   🔄 Próxima verificación en {nextPollIn}s

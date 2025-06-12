@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Session Sync</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: white;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 4px solid;
+        }
+        .status.connected { background: #2d5a27; border-color: #4ade80; }
+        .status.disconnected { background: #5a2d2d; border-color: #ef4444; }
+        .status.checking { background: #5a5a2d; border-color: #eab308; }
+        button {
+            background: #4ade80;
+            color: black;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover { background: #22c55e; }
+        #log {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔄 Test Session Sync - Detección Real de Conexiones</h1>
+    
+    <div class="status checking" id="status">
+        <strong>Estado:</strong> <span id="statusText">Verificando...</span>
+    </div>
+
+    <div>
+        <button onclick="startPCSession()">🖥️ Simular Sesión PC</button>
+        <button onclick="startMobileSession()">📱 Simular Sesión Mobile</button>
+        <button onclick="stopSessions()">🛑 Detener Sesiones</button>
+        <button onclick="clearLog()">🗑️ Limpiar Log</button>
+    </div>
+
+    <h3>📋 Log de Eventos:</h3>
+    <div id="log"></div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js';
+        import { 
+            getFirestore, 
+            collection, 
+            doc, 
+            addDoc, 
+            updateDoc, 
+            onSnapshot, 
+            serverTimestamp,
+            query,
+            where,
+            orderBy
+        } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js';
+
+        // Configuración Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyDGHVWI_YdAEfVnvjzqNqiNPwNgtRF6Kqo",
+            authDomain: "price-master-1ae44.firebaseapp.com",
+            projectId: "price-master-1ae44",
+            storageBucket: "price-master-1ae44.firebasestorage.app",
+            messagingSenderId: "288148168162",
+            appId: "1:288148168162:web:fe3ea3b1f69ba8adf21e7b"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Variables globales
+        let pcHeartbeat = null;
+        let mobileHeartbeat = null;
+        let pcSessionId = null;
+        let mobileSessionId = null;
+        let unsubscribe = null;
+
+        const testSessionId = `test-${Date.now()}`;
+
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+
+        function updateStatus(status, text) {
+            const statusDiv = document.getElementById('status');
+            const statusText = document.getElementById('statusText');
+            statusDiv.className = `status ${status}`;
+            statusText.textContent = text;
+        }        // Simular SessionSyncService
+        class TestSessionSyncService {
+            static async registerSession(sessionId, source) {
+                try {
+                    const sessionData = {
+                        sessionId,
+                        source,
+                        status: 'active',
+                        lastSeen: serverTimestamp(),
+                        userAgent: navigator.userAgent
+                    };
+
+                    // No incluir campos undefined
+                    const docRef = await addDoc(collection(db, 'session_status'), sessionData);
+                    log(`✅ Sesión ${source} registrada: ${docRef.id}`);
+                    return docRef.id;
+                } catch (error) {
+                    log(`❌ Error registrando sesión ${source}: ${error.message}`);
+                    throw error;
+                }
+            }
+
+            static async updateHeartbeat(sessionDocId) {
+                try {
+                    const docRef = doc(db, 'session_status', sessionDocId);
+                    await updateDoc(docRef, {
+                        lastSeen: serverTimestamp(),
+                        status: 'active'
+                    });
+                } catch (error) {
+                    log(`❌ Error actualizando heartbeat: ${error.message}`);
+                    throw error;
+                }
+            }
+
+            static subscribeToSessionStatus(sessionId, callback) {
+                try {
+                    const q = query(
+                        collection(db, 'session_status'),
+                        where('sessionId', '==', sessionId),
+                        orderBy('lastSeen', 'desc')
+                    );
+
+                    return onSnapshot(q, (querySnapshot) => {
+                        const sessions = [];
+                        const now = new Date();
+                        const fifteenSecondsAgo = new Date(now.getTime() - 15000);
+
+                        querySnapshot.docs.forEach(doc => {
+                            const data = doc.data();
+                            const lastSeen = data.lastSeen?.toDate() || new Date(0);
+                            
+                            if (lastSeen > fifteenSecondsAgo) {
+                                sessions.push({
+                                    id: doc.id,
+                                    ...data,
+                                    lastSeen
+                                });
+                            }
+                        });
+
+                        callback(sessions);
+                    });
+                } catch (error) {
+                    log(`❌ Error configurando listener: ${error.message}`);
+                    throw error;
+                }
+            }
+        }
+
+        // Funciones para simular sesiones
+        window.startPCSession = async function() {
+            try {
+                if (pcHeartbeat) {
+                    clearInterval(pcHeartbeat);
+                }
+
+                pcSessionId = await TestSessionSyncService.registerSession(testSessionId, 'pc');
+                log(`🖥️ Iniciando sesión PC con ID: ${pcSessionId}`);
+
+                pcHeartbeat = setInterval(async () => {
+                    try {
+                        await TestSessionSyncService.updateHeartbeat(pcSessionId);
+                        log(`💓 PC heartbeat enviado`);
+                    } catch (error) {
+                        log(`❌ Error en PC heartbeat: ${error.message}`);
+                    }
+                }, 5000);
+
+                setupListener();
+            } catch (error) {
+                log(`❌ Error iniciando sesión PC: ${error.message}`);
+            }
+        };
+
+        window.startMobileSession = async function() {
+            try {
+                if (mobileHeartbeat) {
+                    clearInterval(mobileHeartbeat);
+                }
+
+                mobileSessionId = await TestSessionSyncService.registerSession(testSessionId, 'mobile');
+                log(`📱 Iniciando sesión Mobile con ID: ${mobileSessionId}`);
+
+                mobileHeartbeat = setInterval(async () => {
+                    try {
+                        await TestSessionSyncService.updateHeartbeat(mobileSessionId);
+                        log(`💓 Mobile heartbeat enviado`);
+                    } catch (error) {
+                        log(`❌ Error en Mobile heartbeat: ${error.message}`);
+                    }
+                }, 5000);
+
+                setupListener();
+            } catch (error) {
+                log(`❌ Error iniciando sesión Mobile: ${error.message}`);
+            }
+        };        window.stopSessions = function() {
+            if (pcHeartbeat) {
+                clearInterval(pcHeartbeat);
+                pcHeartbeat = null;
+                log(`🛑 Sesión PC detenida - Documento será eliminado`);
+            }
+            if (mobileHeartbeat) {
+                clearInterval(mobileHeartbeat);
+                mobileHeartbeat = null;
+                log(`🛑 Sesión Mobile detenida - Documento será eliminado`);
+            }
+            if (unsubscribe) {
+                unsubscribe();
+                unsubscribe = null;
+                log(`🛑 Listener detenido`);
+            }
+            updateStatus('disconnected', 'Sesiones detenidas - Documentos eliminados');
+        };
+
+        window.clearLog = function() {
+            document.getElementById('log').innerHTML = '';
+        };
+
+        function setupListener() {
+            if (unsubscribe) return; // Ya existe
+
+            try {
+                unsubscribe = TestSessionSyncService.subscribeToSessionStatus(
+                    testSessionId,
+                    (sessions) => {
+                        log(`🔄 Sesiones activas detectadas: ${sessions.length}`);
+                        
+                        const pcActive = sessions.some(s => s.source === 'pc' && s.status === 'active');
+                        const mobileActive = sessions.some(s => s.source === 'mobile' && s.status === 'active');
+
+                        log(`🖥️ PC: ${pcActive ? 'CONECTADO' : 'desconectado'}`);
+                        log(`📱 Mobile: ${mobileActive ? 'CONECTADO' : 'desconectado'}`);
+
+                        if (pcActive && mobileActive) {
+                            updateStatus('connected', '🖥️📱 PC y Mobile conectados');
+                        } else if (pcActive) {
+                            updateStatus('checking', '🖥️ Solo PC conectado');
+                        } else if (mobileActive) {
+                            updateStatus('checking', '📱 Solo Mobile conectado');
+                        } else {
+                            updateStatus('disconnected', '❌ Ninguna sesión activa');
+                        }
+                    }
+                );
+                log(`👂 Listener configurado para sesión: ${testSessionId}`);
+            } catch (error) {
+                log(`❌ Error configurando listener: ${error.message}`);
+            }
+        }        // Inicializar
+        log(`🚀 Test iniciado para sesión: ${testSessionId}`);
+        log(`📋 Instrucciones:`);
+        log(`1. Haz clic en "Simular Sesión PC" para simular una computadora conectada`);
+        log(`2. Haz clic en "Simular Sesión Mobile" para simular un móvil conectado`);
+        log(`3. Observa cómo cambia el estado de conexión en tiempo real`);
+        log(`🗑️ NUEVO: Los documentos se eliminan automáticamente al desconectar`);
+        log(`✨ Esto mantiene Firebase limpio con solo sesiones activas`);
+    </script>
+</body>
+</html>

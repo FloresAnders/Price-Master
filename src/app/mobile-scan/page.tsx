@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, Suspense, useRef } from 'react';
 import { QrCode, Smartphone, Check, AlertCircle, Wifi, WifiOff } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { ScanningService } from '../../services/scanning';
 import { useBarcodeScanner } from '../../hooks/useBarcodeScanner';
 import CameraScanner from '../../components/CameraScanner';
 import ImageDropArea from '../../components/ImageDropArea';
+import { SessionSyncService, type SessionStatus } from '../../services/session-sync';
 
 // Force dynamic rendering for this page
 export const dynamic = 'force-dynamic';
@@ -23,7 +24,12 @@ function MobileScanContent() {
   const [requestProductName, setRequestProductName] = useState(false);
   const [showNameModal, setShowNameModal] = useState(false);
   const [pendingCode, setPendingCode] = useState<string>('');
-  const [productName, setProductName] = useState('');  // Usar el hook de barcode scanner
+  const [productName, setProductName] = useState('');  // Estados para sincronización real
+  const [hasPCConnection, setHasPCConnection] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking');
+  const [connectedDeviceType, setConnectedDeviceType] = useState<'pc' | 'laptop' | 'desktop' | null>(null);
+  const sessionHeartbeatRef = useRef<{ start: () => Promise<void>; stop: () => void; sessionDocId: string | null } | null>(null);
+  const sessionSyncUnsubscribeRef = useRef<(() => void) | null>(null);// Usar el hook de barcode scanner
   const {
     code: detectedCode,
     error: scannerError,
@@ -52,13 +58,97 @@ function MobileScanContent() {
 
     setIsOnline(navigator.onLine);
     window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
+    window.addEventListener('offline', handleOffline);    return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, []);  // Submit scanned code
+  }, []);
+
+  // Efecto para inicializar y mantener la sincronización de sesión
+  useEffect(() => {
+    if (!sessionId || !isClient) return;
+
+    let isMounted = true;
+    const initializeSession = async () => {
+      try {
+        setConnectionStatus('checking');
+
+        // Crear heartbeat manager para mantener sesión móvil activa
+        const heartbeatManager = SessionSyncService.createHeartbeatManager(sessionId, 'mobile');
+        sessionHeartbeatRef.current = heartbeatManager;
+        
+        // Iniciar sesión y heartbeat
+        await heartbeatManager.start();        // Escuchar cambios en tiempo real para detectar conexión PC
+        const unsubscribe = SessionSyncService.subscribeToSessionStatus(
+          sessionId,
+          (sessions: SessionStatus[]) => {
+            if (!isMounted) return;
+            
+            const pcConnected = sessions.some(session => 
+              session.source === 'pc' && 
+              session.status === 'active'
+            );
+              // Determinar qué tipo de dispositivo se conectó basándose en User Agent
+            if (pcConnected) {
+              const connectedDevice = sessions.find(session => 
+                session.source === 'pc' && 
+                session.status === 'active'
+              );
+              
+              // Detectar tipo de PC basándose en el User Agent
+              const userAgent = connectedDevice?.userAgent || '';
+              const isWindows = /Windows/i.test(userAgent);
+              const isMac = /Macintosh|Mac OS/i.test(userAgent);
+              const isLinux = /Linux/i.test(userAgent);
+              
+              if (isWindows) {
+                setConnectedDeviceType('desktop');
+              } else if (isMac) {
+                setConnectedDeviceType('laptop');
+              } else if (isLinux) {
+                setConnectedDeviceType('pc');
+              } else {
+                setConnectedDeviceType('pc'); // Fallback
+              }
+            } else {
+              setConnectedDeviceType(null);
+            }
+            
+            setHasPCConnection(pcConnected);
+            setConnectionStatus(pcConnected ? 'connected' : 'disconnected');
+          },
+          (error) => {
+            console.error('Error in session status subscription:', error);
+            if (isMounted) {
+              setConnectionStatus('disconnected');
+            }
+          }
+        );
+        sessionSyncUnsubscribeRef.current = unsubscribe;
+
+      } catch (error) {
+        console.error('Error initializing session sync:', error);
+        if (isMounted) {
+          setConnectionStatus('disconnected');
+        }
+      }
+    };
+
+    initializeSession();
+
+    return () => {
+      isMounted = false;
+      // Limpiar sesión
+      if (sessionSyncUnsubscribeRef.current) {
+        sessionSyncUnsubscribeRef.current();
+        sessionSyncUnsubscribeRef.current = null;
+      }
+      if (sessionHeartbeatRef.current) {
+        sessionHeartbeatRef.current.stop();
+        sessionHeartbeatRef.current = null;
+      }
+    };
+  }, [sessionId, isClient]);// Submit scanned code
   const submitCode = useCallback(async (scannedCode: string, nameForProduct?: string) => {
     if (!scannedCode.trim()) {
       setError('Código vacío');
@@ -152,25 +242,74 @@ function MobileScanContent() {
         <div className="flex items-center gap-2">
           <Smartphone className="w-6 h-6 text-blue-400" />
           <h1 className="text-xl font-bold">Escáner Móvil</h1>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {isOnline ? (
-            <Wifi className="w-5 h-5 text-green-400" />
-          ) : (
-            <WifiOff className="w-5 h-5 text-red-400" />
+        </div>        <div className="flex items-center gap-4">
+          {/* Estado de Internet */}
+          <div className="flex items-center gap-2">
+            {isOnline ? (
+              <Wifi className="w-5 h-5 text-green-400" />
+            ) : (
+              <WifiOff className="w-5 h-5 text-red-400" />
+            )}
+            <span className="text-sm">
+              {isOnline ? 'Online' : 'Sin conexión'}
+            </span>
+          </div>          {/* Estado de conexión PC */}
+          {sessionId && (
+            <div className="flex items-center gap-2">
+              {connectionStatus === 'connected' ? (
+                <>
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-sm text-green-400">
+                    {connectedDeviceType === 'desktop' && '🖥️ ESCRITORIO'}
+                    {connectedDeviceType === 'laptop' && '💻 LAPTOP'}
+                    {connectedDeviceType === 'pc' && '🖥️ PC'}
+                    {!connectedDeviceType && '🖥️ DISPOSITIVO'} Conectado
+                  </span>
+                </>
+              ) : connectionStatus === 'disconnected' ? (
+                <>
+                  <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                  <span className="text-sm text-red-400">
+                    {connectedDeviceType === 'desktop' && '🖥️ ESCRITORIO'}
+                    {connectedDeviceType === 'laptop' && '💻 LAPTOP'}
+                    {connectedDeviceType === 'pc' && '🖥️ PC'}
+                    {!connectedDeviceType && '🖥️ DISPOSITIVO'} Desconectado
+                  </span>
+                </>
+              ) : (
+                <>
+                  <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+                  <span className="text-sm text-yellow-400">Verificando...</span>
+                </>
+              )}
+            </div>
           )}
-          <span className="text-sm">
-            {isOnline ? 'Conectado' : 'Sin conexión'}
-          </span>
-        </div>      </div>
-
-      {/* Session Info */}
+        </div></div>      {/* Session Info */}
       {sessionId && (
         <div className="bg-blue-900/50 rounded-lg p-3 mb-4">
           <div className="text-sm text-blue-300">Sesión: {sessionId}</div>
         </div>
-      )}      {/* Status Messages */}
+      )}      {/* Alerta de conexión PC */}
+      {sessionId && connectionStatus === 'disconnected' && (
+        <div className="bg-orange-900/50 border border-orange-600 rounded-lg p-3 mb-4 flex items-center gap-2">
+          <AlertCircle className="w-5 h-5 text-orange-400" />
+          <div className="text-orange-200">
+            <div className="font-medium">
+              {connectedDeviceType === 'desktop' && '🖥️ Escritorio'}
+              {connectedDeviceType === 'laptop' && '💻 Laptop'}
+              {connectedDeviceType === 'pc' && '🖥️ PC'}
+              {!connectedDeviceType && '🖥️ Dispositivo'} no está conectado
+            </div>
+            <div className="text-sm text-orange-300">
+              Asegúrate de que la página del {
+                connectedDeviceType === 'desktop' ? 'escritorio' :
+                connectedDeviceType === 'laptop' ? 'laptop' :
+                connectedDeviceType === 'pc' ? 'PC' : 'dispositivo'
+              } esté abierta con esta sesión activa
+            </div>
+          </div>
+        </div>
+      )}{/* Status Messages */}
       {(error || scannerError) && (
         <div className="bg-red-900/50 border border-red-600 rounded-lg p-3 mb-4 flex items-center gap-2">
           <AlertCircle className="w-5 h-5 text-red-400" />
