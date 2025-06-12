@@ -589,49 +589,47 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                 </div>
               </div>
             </div>
-          )}
-
-          {/* Código detectado desde móvil */}
+          )}          {/* Código detectado desde móvil */}
           <AnimatePresence>
             {code && activeTab === 'mobile' && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
-                className="mt-6 flex justify-center w-full items-center"
+                className="mt-4 flex justify-center w-full"
               >
-                <div className="w-full max-w-md relative rounded-2xl shadow-xl overflow-hidden border-2 border-green-400 dark:border-green-700 bg-white/90 dark:bg-gray-800/90 min-h-[120px] flex items-center justify-center">
+                <div className="w-full max-w-sm relative rounded-xl shadow-lg overflow-hidden border border-green-400 dark:border-green-700 bg-white/95 dark:bg-gray-800/95 min-h-[80px] flex items-center justify-center">
                   <div className="absolute inset-0 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 z-10" />
-                  <div className="absolute inset-0 z-20 flex flex-col items-center justify-center p-4">
-                    <div className="flex flex-col items-center w-full gap-2">
-                      <div className="flex items-center justify-center gap-3 mb-2">
-                        <CheckIcon className="w-7 h-7 text-green-600 dark:text-green-400" />
-                        <span className="text-lg font-bold text-green-800 dark:text-green-200">¡Código recibido desde móvil!</span>
+                  <div className="absolute inset-0 z-20 flex flex-col items-center justify-center p-3">
+                    <div className="flex flex-col items-center w-full gap-1">
+                      <div className="flex items-center justify-center gap-2 mb-1">
+                        <CheckIcon className="w-5 h-5 text-green-600 dark:text-green-400" />
+                        <span className="text-sm font-semibold text-green-800 dark:text-green-200">¡Código recibido desde móvil!</span>
                       </div>
                       <div
-                        className="w-full text-center font-mono text-2xl md:text-3xl tracking-widest text-green-800 dark:text-green-200 select-all px-2 bg-transparent whitespace-nowrap overflow-x-auto"
-                        style={{ letterSpacing: '0.12em', maxWidth: '100%', userSelect: 'all', WebkitUserSelect: 'all', overflowY: 'hidden' }}
+                        className="w-full text-center font-mono text-lg sm:text-xl tracking-wider text-green-800 dark:text-green-200 select-all px-2 bg-transparent break-all"
+                        style={{ letterSpacing: '0.1em', userSelect: 'all', WebkitUserSelect: 'all' }}
                         tabIndex={0}
                         title={code}
                       >
                         {code}
                       </div>
-                      <div className="flex gap-6 mt-2 justify-center">
+                      <div className="flex gap-3 mt-1 justify-center">
                         <button
                           onClick={handleRemoveLeadingZeroMain}
-                          className="group p-3 rounded-full bg-green-100 hover:bg-green-200 dark:bg-green-800 dark:hover:bg-green-700 text-green-700 dark:text-green-200 shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-300 dark:focus:ring-green-700"
+                          className="group p-2 rounded-full bg-green-100 hover:bg-green-200 dark:bg-green-800 dark:hover:bg-green-700 text-green-700 dark:text-green-200 shadow transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-300 dark:focus:ring-green-700"
                           title="Eliminar primer dígito"
                           aria-label="Eliminar primer dígito"
                         >
-                          <svg className="w-6 h-6 group-hover:scale-110 transition-transform duration-200" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                          <svg className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
                         </button>
                         <button
                           onClick={handleCopyCode}
-                          className="group p-3 rounded-full bg-green-100 hover:bg-green-200 dark:bg-green-800 dark:hover:bg-green-700 text-green-700 dark:text-green-200 shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-300 dark:focus:ring-green-700"
+                          className="group p-2 rounded-full bg-green-100 hover:bg-green-200 dark:bg-green-800 dark:hover:bg-green-700 text-green-700 dark:text-green-200 shadow transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-300 dark:focus:ring-green-700"
                           title="Copiar código"
                           aria-label="Copiar código"
                         >
-                          <CopyIcon className="w-6 h-6 group-hover:scale-110 transition-transform duration-200" />
+                          <CopyIcon className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" />
                         </button>
                       </div>
                     </div>
@@ -639,23 +637,21 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                 </div>
               </motion.div>
             )}
-          </AnimatePresence>
-
-          {/* Botón limpiar para móvil */}
+          </AnimatePresence>          {/* Botón limpiar para móvil */}
           <AnimatePresence>
             {code && activeTab === 'mobile' && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
-                className="flex justify-center mt-4"
+                className="flex justify-center mt-3"
               >
                 <button
                   onClick={handleClear}
-                  className="px-7 py-3 text-base rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400 transition-colors duration-300 bg-gradient-to-r from-zinc-200 to-red-200 dark:from-zinc-800 dark:to-red-900 text-zinc-800 dark:text-zinc-100 hover:bg-red-500 hover:text-white font-bold shadow-lg"
+                  className="px-4 py-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-red-400 transition-colors duration-300 bg-gradient-to-r from-zinc-200 to-red-200 dark:from-zinc-800 dark:to-red-900 text-zinc-800 dark:text-zinc-100 hover:bg-red-500 hover:text-white font-semibold shadow"
                 >
-                  <TrashIcon className="w-5 h-5 inline-block mr-2" />
-                  Limpiar Todo
+                  <TrashIcon className="w-4 h-4 inline-block mr-1" />
+                  Limpiar
                 </button>
               </motion.div>
             )}
