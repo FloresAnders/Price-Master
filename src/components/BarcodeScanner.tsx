@@ -8,13 +8,13 @@ import {
   Trash as TrashIcon,
   AlertCircle as AlertIcon, ScanBarcode,
   Loader2 as LoaderIcon,
-  ImagePlus as ImagePlusIcon,
   Smartphone as SmartphoneIcon,
   QrCode as QrCodeIcon,
 } from 'lucide-react';
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
 import type { BarcodeScannerProps } from '../types/barcode';
 import CameraScanner from './CameraScanner';
+import ImageDropArea from './ImageDropArea';
 import QRCode from 'qrcode';
 
 export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children }: BarcodeScannerProps & { onRemoveLeadingZero?: (code: string) => void; children?: React.ReactNode }) {
@@ -130,7 +130,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
         !scan.processed &&
         scan.source === 'mobile' &&
         scan.timestamp > lastScanCheck
-      );      if (newScan && newScan.id) {
+      ); if (newScan && newScan.id) {
         console.log('🔄 Nuevo escaneo detectado via polling:', newScan.code);
         setCode(newScan.code);
         onDetect?.(newScan.code, newScan.productName);
@@ -201,7 +201,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
               scan.sessionId === sessionId &&
               !scan.processed &&
               scan.source === 'mobile'
-            );            if (newScan && newScan.id) {
+            ); if (newScan && newScan.id) {
               console.log('🔥 Nuevo escaneo detectado via Firebase listener:', newScan.code);
               setCode(newScan.code);
               onDetect?.(newScan.code, newScan.productName);
@@ -420,33 +420,14 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                 </button>
               </motion.div>
             )}
-          </AnimatePresence>
-          {/* Área de carga de imagen */}
+          </AnimatePresence>          {/* Área de carga de imagen */}
           <motion.div {...slideUp} transition={{ duration: 0.5 }}>
-            <label className="block text-base font-semibold mx-auto text-center w-fit mb-2 text-indigo-700 dark:text-indigo-200 tracking-wide">
-              Seleccionar imagen
-            </label>
-            <div
-              className="relative border-4 border-dashed rounded-3xl p-10 transition-colors duration-300 cursor-pointer hover:border-indigo-500 bg-white dark:bg-zinc-900/70 border-indigo-200 dark:border-indigo-800 shadow-xl group"
-              onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('bg-indigo-50', 'dark:bg-indigo-900'); }}
-              onDragLeave={(e) => { e.currentTarget.classList.remove('bg-indigo-50', 'dark:bg-indigo-900'); }}
+            <ImageDropArea
               onDrop={handleDrop}
-              onClick={handleDropAreaClick}
-              tabIndex={0}
-            >
-              <div className="flex flex-col items-center gap-5 text-indigo-400 dark:text-indigo-300 pointer-events-none">
-                <ImagePlusIcon className="w-20 h-20 group-hover:scale-110 transition-transform duration-300" />
-                <p className="text-xl font-bold">Arrastra una imagen aquí</p>
-                <p className="text-base">o haz clic para seleccionar archivo</p>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleFileUpload}
-                />
-              </div>
-            </div>
+              onFileSelect={handleDropAreaClick}
+              fileInputRef={fileInputRef}
+              onFileUpload={handleFileUpload}
+            />
           </motion.div>
           {/* Spinner mientras procesa imagen */}
           <AnimatePresence>

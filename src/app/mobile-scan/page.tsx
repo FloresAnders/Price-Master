@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { ScanningService } from '../../services/scanning';
 import { useBarcodeScanner } from '../../hooks/useBarcodeScanner';
 import CameraScanner from '../../components/CameraScanner';
+import ImageDropArea from '../../components/ImageDropArea';
 
 // Force dynamic rendering for this page
 export const dynamic = 'force-dynamic';
@@ -13,7 +14,7 @@ export const dynamic = 'force-dynamic';
 function MobileScanContent() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('session');
-    const [code, setCode] = useState('');
+  const [code, setCode] = useState('');
   const [lastScanned, setLastScanned] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -22,8 +23,7 @@ function MobileScanContent() {
   const [requestProductName, setRequestProductName] = useState(false);
   const [showNameModal, setShowNameModal] = useState(false);
   const [pendingCode, setPendingCode] = useState<string>('');
-  const [productName, setProductName] = useState('');
-  // Usar el hook de barcode scanner
+  const [productName, setProductName] = useState('');  // Usar el hook de barcode scanner
   const {
     code: detectedCode,
     error: scannerError,
@@ -33,8 +33,11 @@ function MobileScanContent() {
     handleClear: clearScanner,
     handleCopyCode,
     detectionMethod,
+    fileInputRef,
+    handleFileUpload,
+    handleDrop,
+    handleDropAreaClick, processImage,
   } = useBarcodeScanner((detectedCode) => {
-    console.log('Código detectado:', detectedCode);
     submitCode(detectedCode);
   });// Check if we're on the client side
   useEffect(() => {
@@ -43,14 +46,14 @@ function MobileScanContent() {
   // Check online status
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    
+
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
-    
+
     setIsOnline(navigator.onLine);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-    
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
@@ -76,7 +79,7 @@ function MobileScanContent() {
       setPendingCode(scannedCode);
       setShowNameModal(true);
       return;
-    }try {
+    } try {
       setError(null);      // Create scan object without undefined values
       const scanData = {
         code: scannedCode,
@@ -86,13 +89,13 @@ function MobileScanContent() {
         ...(sessionId && { sessionId }),
         ...(nameForProduct?.trim() && { productName: nameForProduct.trim() })
       };
-      
+
       // Enviar al servicio de scanning y también a localStorage para sincronización con PC
       await ScanningService.addScan(scanData);
 
       // También guardar en localStorage para comunicación con PC
       if (sessionId) {
-        const mobileScans = JSON.parse(localStorage.getItem('mobile-scans') || '[]');        mobileScans.push({
+        const mobileScans = JSON.parse(localStorage.getItem('mobile-scans') || '[]'); mobileScans.push({
           code: scannedCode,
           sessionId,
           timestamp: Date.now(),
@@ -101,18 +104,16 @@ function MobileScanContent() {
         });
         localStorage.setItem('mobile-scans', JSON.stringify(mobileScans));
       }
-        const message = nameForProduct?.trim() 
+      const message = nameForProduct?.trim()
         ? `Código ${scannedCode} (${nameForProduct.trim()}) enviado correctamente`
         : `Código ${scannedCode} enviado correctamente`;
       setSuccess(message);
       setLastScanned(prev => [...prev.slice(-4), scannedCode]); // Keep last 5
       setCode('');
-      
       // Clear success message after 2 seconds
       setTimeout(() => setSuccess(null), 2000);
-      
+
     } catch (err) {
-      console.error('Error submitting code:', err);
       setError('Error al enviar el código. Inténtalo de nuevo.');
     }
   }, [lastScanned, sessionId, isOnline, requestProductName]);
@@ -152,7 +153,7 @@ function MobileScanContent() {
           <Smartphone className="w-6 h-6 text-blue-400" />
           <h1 className="text-xl font-bold">Escáner Móvil</h1>
         </div>
-        
+
         <div className="flex items-center gap-2">
           {isOnline ? (
             <Wifi className="w-5 h-5 text-green-400" />
@@ -162,19 +163,7 @@ function MobileScanContent() {
           <span className="text-sm">
             {isOnline ? 'Conectado' : 'Sin conexión'}
           </span>
-        </div>
-      </div>
-
-      {/* Browser Compatibility Warning for Edge */}
-      {isClient && (navigator.userAgent.includes('Edge') || navigator.userAgent.includes('Edg/')) && (
-        <div className="bg-orange-900/50 border border-orange-600 rounded-lg p-3 mb-4 flex items-center gap-2">
-          <AlertCircle className="w-5 h-5 text-orange-400 flex-shrink-0" />
-          <div className="text-sm text-orange-200">
-            <strong>Navegador Edge detectado:</strong> Para mejor compatibilidad con el escáner de cámara, 
-            recomendamos usar <strong>Chrome</strong> o <strong>Firefox</strong> en tu dispositivo móvil.
-          </div>
-        </div>
-      )}
+        </div>      </div>
 
       {/* Session Info */}
       {sessionId && (
@@ -188,13 +177,13 @@ function MobileScanContent() {
           <span className="text-red-200">{error || scannerError}</span>
         </div>
       )}
-      
+
       {success && (
         <div className="bg-green-900/50 border border-green-600 rounded-lg p-3 mb-4 flex items-center gap-2">
           <Check className="w-5 h-5 text-green-400" />
           <span className="text-green-200">{success}</span>
         </div>
-      )}      
+      )}
       {/* Product Name Request Setting */}
       <div className="bg-gray-800 rounded-lg p-4 mb-6">
         <label className="flex items-center gap-3 cursor-pointer">
@@ -217,7 +206,7 @@ function MobileScanContent() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold">Escanear con Cámara</h2>
           </div>
-          
+
           {/* Usar CameraScanner component */}
           {isClient && (
             <CameraScanner
@@ -232,7 +221,7 @@ function MobileScanContent() {
               onRemoveLeadingZero={handleRemoveLeadingZero}
             />
           )}
-          
+
           {/* Show loading message on server-side */}
           {!isClient && (
             <div className="relative bg-black rounded-lg overflow-hidden" style={{ aspectRatio: '16/9' }}>
@@ -243,6 +232,36 @@ function MobileScanContent() {
                 </div>
               </div>
             </div>
+          )}        </div>
+      </div>
+
+      {/* Image Upload Section */}
+      <div className="mb-6">
+        <div className="bg-gray-800 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">Subir Imagen de Código</h2>
+          </div>
+
+          {/* Usar ImageDropArea component */}
+          {isClient && (
+            <ImageDropArea
+              onDrop={handleDrop}
+              onFileSelect={handleDropAreaClick}
+              fileInputRef={fileInputRef}
+              onFileUpload={handleFileUpload}
+            />
+          )}
+
+          {/* Show loading message on server-side */}
+          {!isClient && (
+            <div className="relative bg-gray-700 rounded-lg p-8">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-gray-600 rounded-lg mx-auto mb-2 flex items-center justify-center">
+                  <QrCode className="w-8 h-8 text-gray-400" />
+                </div>
+                <p className="text-gray-400">Cargando área de carga...</p>
+              </div>
+            </div>
           )}
         </div>
       </div>
@@ -250,7 +269,7 @@ function MobileScanContent() {
       {/* Manual Input Section */}
       <div className="bg-gray-800 rounded-lg p-4 mb-6">
         <h2 className="text-lg font-semibold mb-4">Introducir Código Manualmente</h2>
-        
+
         <form onSubmit={handleManualSubmit} className="space-y-4">
           <input
             type="text"
@@ -259,7 +278,7 @@ function MobileScanContent() {
             placeholder="Ingresa el código de barras"
             className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
           />
-          
+
           <button
             type="submit"
             disabled={!code.trim() || !isOnline}
@@ -283,7 +302,7 @@ function MobileScanContent() {
               </div>
             ))}
           </div>        </div>
-      )}      
+      )}
 
       {/* Product Name Modal */}
       {showNameModal && (
@@ -295,7 +314,7 @@ function MobileScanContent() {
             <p className="text-gray-300 text-sm mb-4">
               Código: <span className="font-mono bg-gray-700 px-2 py-1 rounded">{pendingCode}</span>
             </p>
-            
+
             <input
               type="text"
               value={productName}
@@ -311,7 +330,7 @@ function MobileScanContent() {
                 }
               }}
             />
-            
+
             <div className="flex gap-3">
               <button
                 onClick={handleNameCancel}
