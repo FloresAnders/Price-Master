@@ -145,10 +145,22 @@ export default function ControlHorario() {
     }
   };
   const daysToShow = getDaysToShow();
-
   // Función para actualizar un horario específico
   const updateScheduleCell = async (employeeName: string, day: string, newValue: string) => {
     const currentValue = scheduleData[employeeName]?.[day] || '';
+
+    // Validar que solo pueda haber una persona por día con el mismo turno (N, D, L)
+    if (newValue && ['N', 'D', 'L'].includes(newValue)) {
+      // Verificar si ya hay alguien más con este turno en este día
+      const existingEmployee = Object.keys(scheduleData).find(employee => 
+        employee !== employeeName && scheduleData[employee]?.[day] === newValue
+      );
+
+      if (existingEmployee) {
+        showNotification(`No se puede asignar el turno "${newValue}". ${existingEmployee} ya tiene este turno el día ${day}.`, 'error');
+        return;
+      }
+    }
 
     // Si la celda ya tiene un valor específico (N, D, L), solicitar confirmación
     if (currentValue && ['N', 'D', 'L'].includes(currentValue) && currentValue !== newValue) {
