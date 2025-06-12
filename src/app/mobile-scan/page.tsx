@@ -7,6 +7,7 @@ import { ScanningService } from '../../services/scanning';
 import { useBarcodeScanner } from '../../hooks/useBarcodeScanner';
 import CameraScanner from '../../components/CameraScanner';
 import ImageDropArea from '../../components/ImageDropArea';
+import ProductNameCheckbox from '../../components/ProductNameCheckbox';
 import { SessionSyncService, type SessionStatus } from '../../services/session-sync';
 
 // Force dynamic rendering for this page
@@ -322,21 +323,13 @@ function MobileScanContent() {
           <Check className="w-5 h-5 text-green-400" />
           <span className="text-green-200">{success}</span>
         </div>
-      )}
-      {/* Product Name Request Setting */}
+      )}      {/* Product Name Request Setting */}
       <div className="bg-gray-800 rounded-lg p-4 mb-6">
-        <label className="flex items-center gap-3 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={requestProductName}
-            onChange={(e) => setRequestProductName(e.target.checked)}
-            className="w-5 h-5 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
-          />
-          <div>
-            <span className="text-white font-medium">Solicitar nombre del producto</span>
-            <p className="text-gray-400 text-sm">Cuando esté marcado, se solicitará un nombre opcional para cada código escaneado</p>
-          </div>
-        </label>
+        <ProductNameCheckbox
+          checked={requestProductName}
+          onChange={setRequestProductName}
+          disabled={false}
+        />
       </div>
 
       {/* Camera Section */}

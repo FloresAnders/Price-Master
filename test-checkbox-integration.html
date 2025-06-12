@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Checkbox Integration - Price Master</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin: 0;
+            background: linear-gradient(45deg, #fbbf24, #f59e0b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .test-section {
+            background: rgba(31, 41, 55, 0.8);
+            padding: 25px;
+            border-radius: 15px;
+            margin: 20px 0;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 20px;
+            background: rgba(55, 65, 81, 0.5);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .checkbox-container:hover {
+            background: rgba(55, 65, 81, 0.8);
+            transform: translateY(-2px);
+        }
+        
+        .checkbox {
+            width: 24px;
+            height: 24px;
+            accent-color: #3b82f6;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        
+        .checkbox-label {
+            font-size: 1.1em;
+            font-weight: 500;
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .status-indicator {
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            border-left: 4px solid;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .status-active {
+            background: rgba(34, 197, 94, 0.2);
+            border-color: #22c55e;
+            color: #86efac;
+        }
+        
+        .status-inactive {
+            background: rgba(107, 114, 128, 0.2);
+            border-color: #6b7280;
+            color: #d1d5db;
+        }
+        
+        .log-area {
+            background: #111827;
+            border: 1px solid #374151;
+            border-radius: 8px;
+            padding: 15px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            color: #d1d5db;
+            margin-top: 15px;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: white;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(59, 130, 246, 0.3);
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+        }
+        
+        .btn-warning {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+        }
+        
+        .success-message {
+            color: #22c55e;
+            font-weight: bold;
+        }
+        
+        .error-message {
+            color: #ef4444;
+            font-weight: bold;
+        }
+        
+        .info-message {
+            color: #3b82f6;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔧 Test Checkbox Integration</h1>
+            <p>Prueba de funcionalidad del checkbox "Solicitar nombre del producto"</p>
+        </div>
+        
+        <div class="test-section">
+            <h2>📋 Checkbox Principal</h2>
+            <div class="checkbox-container" onclick="toggleCheckbox()">
+                <input 
+                    type="checkbox" 
+                    id="mainCheckbox" 
+                    class="checkbox"
+                    onchange="handleCheckboxChange(this)"
+                    onclick="handleCheckboxClick(event)"
+                >
+                <label for="mainCheckbox" class="checkbox-label">
+                    Solicitar nombre del producto
+                </label>
+            </div>
+            
+            <div id="statusIndicator" class="status-indicator status-inactive">
+                ⭕ No se solicitará nombre del producto
+            </div>
+            
+            <p style="color: #9ca3af; font-size: 0.9em; margin-top: 10px;">
+                Cuando esté marcado, se solicitará un nombre opcional para cada código escaneado.
+            </p>
+        </div>
+        
+        <div class="test-section">
+            <h2>🧪 Controles de Prueba</h2>
+            <div class="button-group">
+                <button class="btn" onclick="programmaticToggle()">
+                    🔄 Toggle Programático
+                </button>
+                <button class="btn btn-success" onclick="forceEnable()">
+                    ✅ Forzar Activar
+                </button>
+                <button class="btn btn-warning" onclick="forceDisable()">
+                    ❌ Forzar Desactivar
+                </button>
+                <button class="btn btn-danger" onclick="clearLogs()">
+                    🗑️ Limpiar Logs
+                </button>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>📊 Registro de Eventos</h2>
+            <div id="logArea" class="log-area">
+                <div class="info-message">🚀 Sistema de logs iniciado</div>
+                <div>Haz click en el checkbox para ver los eventos...</div>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>🔍 Información del Sistema</h2>
+            <div id="systemInfo">
+                <div><strong>User Agent:</strong> <span id="userAgent"></span></div>
+                <div><strong>Timestamp:</strong> <span id="timestamp"></span></div>
+                <div><strong>Estado Inicial:</strong> <span id="initialState">Desactivado</span></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let eventCounter = 0;
+        let checkboxState = false;
+        
+        // Inicializar información del sistema
+        document.getElementById('userAgent').textContent = navigator.userAgent;
+        document.getElementById('timestamp').textContent = new Date().toLocaleString();
+        
+        function log(message, type = 'info') {
+            eventCounter++;
+            const logArea = document.getElementById('logArea');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'success' ? 'success-message' : 
+                             type === 'error' ? 'error-message' : 'info-message';
+            
+            const logEntry = document.createElement('div');
+            logEntry.className = className;
+            logEntry.innerHTML = `[${timestamp}] #${eventCounter}: ${message}`;
+            
+            logArea.appendChild(logEntry);
+            logArea.scrollTop = logArea.scrollHeight;
+        }
+        
+        function updateStatusIndicator(checked) {
+            const indicator = document.getElementById('statusIndicator');
+            if (checked) {
+                indicator.className = 'status-indicator status-active';
+                indicator.innerHTML = '✅ Se solicitará nombre del producto al escanear';
+            } else {
+                indicator.className = 'status-indicator status-inactive';
+                indicator.innerHTML = '⭕ No se solicitará nombre del producto';
+            }
+        }
+        
+        function handleCheckboxChange(checkbox) {
+            checkboxState = checkbox.checked;
+            log(`onChange event - Nuevo estado: ${checkbox.checked}`, 'success');
+            updateStatusIndicator(checkbox.checked);
+        }
+        
+        function handleCheckboxClick(event) {
+            const checkbox = event.target;
+            log(`onClick event - Estado del checkbox: ${checkbox.checked}`, 'info');
+            // Prevenir que el div container también maneje el click
+            event.stopPropagation();
+        }
+        
+        function toggleCheckbox() {
+            const checkbox = document.getElementById('mainCheckbox');
+            // Solo toggle si el click no vino del checkbox mismo
+            if (event.target !== checkbox) {
+                checkbox.checked = !checkbox.checked;
+                handleCheckboxChange(checkbox);
+                log(`Container click - Toggle manual a: ${checkbox.checked}`, 'success');
+            }
+        }
+        
+        function programmaticToggle() {
+            const checkbox = document.getElementById('mainCheckbox');
+            checkbox.checked = !checkbox.checked;
+            handleCheckboxChange(checkbox);
+            log(`Toggle programático ejecutado - Nuevo estado: ${checkbox.checked}`, 'success');
+        }
+        
+        function forceEnable() {
+            const checkbox = document.getElementById('mainCheckbox');
+            checkbox.checked = true;
+            handleCheckboxChange(checkbox);
+            log('Checkbox forzado a ACTIVADO', 'success');
+        }
+        
+        function forceDisable() {
+            const checkbox = document.getElementById('mainCheckbox');
+            checkbox.checked = false;
+            handleCheckboxChange(checkbox);
+            log('Checkbox forzado a DESACTIVADO', 'success');
+        }
+        
+        function clearLogs() {
+            const logArea = document.getElementById('logArea');
+            logArea.innerHTML = '<div class="info-message">🗑️ Logs limpiados</div>';
+            eventCounter = 0;
+            log('Sistema de logs reiniciado', 'info');
+        }
+        
+        // Log inicial
+        log('🚀 Test de checkbox cargado exitosamente', 'success');
+        log('👆 Haz click en el checkbox para probar la funcionalidad', 'info');
+    </script>
+</body>
+</html>

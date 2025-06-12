@@ -158,7 +158,12 @@ export function preprocessImage(imageData: ImageData): ImageData {
 }
 
 // --- Decodificación con Quagga2 (imagen estática) ---
-export async function detectWithQuagga2(imageData: ImageData): Promise<string | null> {
+export async function detectWithQuagga2(imageData: ImageData, fallbackDelay: number = 0): Promise<string | null> {
+  // Implementar retraso configurado para dar prioridad a ZBar-WASM
+  if (fallbackDelay > 0) {
+    await new Promise(resolve => setTimeout(resolve, fallbackDelay));
+  }
+  
   // Import dinámico para evitar require y problemas SSR
   const Quagga = (await import('@ericblade/quagga2')).default;
   const canvas = document.createElement('canvas');

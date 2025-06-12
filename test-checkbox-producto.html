@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Checkbox - Solicitar Nombre del Producto</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1f2937;
+            color: white;
+        }
+        .container {
+            background: #374151;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        .checkbox-container {
+            background: #4b5563;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            cursor: pointer;
+        }
+        .checkbox {
+            width: 20px;
+            height: 20px;
+            accent-color: #3b82f6;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+        .enabled {
+            background: #065f46;
+            color: #10b981;
+        }
+        .disabled {
+            background: #7f1d1d;
+            color: #f87171;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #6b7280;
+            border-radius: 8px;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        .logs {
+            background: #000;
+            color: #0f0;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            max-height: 200px;
+            overflow-y: auto;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Test Checkbox - Solicitar Nombre del Producto</h1>
+        
+        <p>Esta página prueba la funcionalidad del checkbox que no está funcionando en la aplicación móvil.</p>
+
+        <!-- Reproducir el checkbox exacto de la aplicación -->
+        <div class="checkbox-container">
+            <label class="checkbox-label">
+                <input
+                    type="checkbox"
+                    id="requestProductName"
+                    class="checkbox"
+                />
+                <div>
+                    <span style="font-weight: bold;">Solicitar nombre del producto</span>
+                    <p style="margin: 5px 0 0 0; font-size: 14px; color: #9ca3af;">
+                        Cuando esté marcado, se solicitará un nombre opcional para cada código escaneado
+                    </p>
+                </div>
+            </label>
+        </div>
+
+        <!-- Estado actual -->
+        <div id="status" class="status disabled">
+            ❌ Estado: DESHABILITADO
+        </div>
+
+        <!-- Sección de pruebas -->
+        <div class="test-section">
+            <h3>🧪 Pruebas de Funcionalidad</h3>
+            <button onclick="testToggle()">🔄 Toggle Programático</button>
+            <button onclick="simulateClick()">👆 Simular Click</button>
+            <button onclick="checkState()">🔍 Verificar Estado</button>
+            <button onclick="clearLogs()">🗑️ Limpiar Logs</button>
+        </div>
+
+        <!-- Logs -->
+        <div class="logs" id="logs">
+            [Sistema iniciado] Checkbox test cargado...<br>
+        </div>
+
+        <!-- Instrucciones -->
+        <div class="test-section">
+            <h3>📋 Instrucciones de Prueba</h3>
+            <ol>
+                <li><strong>Click manual:</strong> Haz click directamente en el checkbox o texto</li>
+                <li><strong>Toggle programático:</strong> Usa el botón "Toggle Programático"</li>
+                <li><strong>Verificar estado:</strong> Observa el cambio de estado arriba</li>
+                <li><strong>Revisar logs:</strong> Mira los eventos registrados abajo</li>
+            </ol>
+            
+            <div style="margin-top: 15px; padding: 10px; background: #fbbf24; color: #92400e; border-radius: 5px;">
+                <strong>⚠️ Si el checkbox no responde aquí:</strong> El problema está en el CSS o JavaScript del navegador.
+                <br><strong>Si funciona aquí pero no en la app:</strong> El problema está en React o algún event handler.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const checkbox = document.getElementById('requestProductName');
+        const status = document.getElementById('status');
+        const logs = document.getElementById('logs');
+
+        let requestProductName = false;
+
+        function addLog(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            logs.innerHTML += `[${timestamp}] ${message}<br>`;
+            logs.scrollTop = logs.scrollHeight;
+        }
+
+        function updateStatus() {
+            if (requestProductName) {
+                status.className = 'status enabled';
+                status.textContent = '✅ Estado: HABILITADO - Se solicitará nombre del producto';
+            } else {
+                status.className = 'status disabled';
+                status.textContent = '❌ Estado: DESHABILITADO - No se solicitará nombre del producto';
+            }
+        }
+
+        // Event listener para el checkbox
+        checkbox.addEventListener('change', function(e) {
+            requestProductName = e.target.checked;
+            addLog(`📋 Checkbox cambiado: ${requestProductName ? 'MARCADO' : 'DESMARCADO'}`);
+            updateStatus();
+        });
+
+        // También escuchar clicks directos
+        checkbox.addEventListener('click', function(e) {
+            addLog(`👆 Click detectado en checkbox`);
+        });
+
+        // Funciones de prueba
+        function testToggle() {
+            requestProductName = !requestProductName;
+            checkbox.checked = requestProductName;
+            addLog(`🔄 Toggle programático: ${requestProductName ? 'ACTIVADO' : 'DESACTIVADO'}`);
+            updateStatus();
+        }
+
+        function simulateClick() {
+            addLog(`🎭 Simulando click...`);
+            checkbox.click();
+        }
+
+        function checkState() {
+            addLog(`🔍 Estado actual del checkbox: checked=${checkbox.checked}, variable=${requestProductName}`);
+            addLog(`🔍 Checkbox está ${checkbox.disabled ? 'DESHABILITADO' : 'HABILITADO'} para interacción`);
+        }
+
+        function clearLogs() {
+            logs.innerHTML = '[Sistema reiniciado] Logs limpiados...<br>';
+        }
+
+        // Estado inicial
+        updateStatus();
+        addLog('✅ Sistema de test iniciado correctamente');
+        addLog('📝 Haz click en el checkbox para probarlo');
+    </script>
+</body>
+</html>
