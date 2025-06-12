@@ -8,6 +8,7 @@ import { useBarcodeScanner } from '../../hooks/useBarcodeScanner';
 import CameraScanner from '../../components/CameraScanner';
 import ImageDropArea from '../../components/ImageDropArea';
 import ProductNameCheckbox from '../../components/ProductNameCheckbox';
+import { ThemeToggle } from '../../components/ThemeToggle';
 import { SessionSyncService, type SessionStatus } from '../../services/session-sync';
 
 // Force dynamic rendering for this page
@@ -230,14 +231,18 @@ function MobileScanContent() {
     e.preventDefault();
     submitCode(code);
   };
-
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-4">      {/* Header */}
+    <div className="min-h-screen bg-background text-foreground p-4">      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
           <Smartphone className="w-6 h-6 text-blue-400" />
           <h1 className="text-xl font-bold">Escáner Móvil</h1>
-        </div>        <div className="flex items-center gap-4">
+        </div>        
+        
+        <div className="flex items-center gap-4">
+          {/* Theme Toggle */}
+          <ThemeToggle />
+          
           {/* Estado de Internet */}
           <div className="flex items-center gap-2">
             {isOnline ? (
@@ -281,21 +286,21 @@ function MobileScanContent() {
           )}
         </div></div>      {/* Session Info */}
       {sessionId && (
-        <div className="bg-blue-900/50 rounded-lg p-3 mb-4">
-          <div className="text-sm text-blue-300">Sesión: {sessionId}</div>
+        <div className="bg-blue-100 dark:bg-blue-900/50 rounded-lg p-3 mb-4">
+          <div className="text-sm text-blue-800 dark:text-blue-300">Sesión: {sessionId}</div>
         </div>
       )}      {/* Alerta de conexión PC */}
       {sessionId && connectionStatus === 'disconnected' && (
-        <div className="bg-orange-900/50 border border-orange-600 rounded-lg p-3 mb-4 flex items-center gap-2">
-          <AlertCircle className="w-5 h-5 text-orange-400" />
-          <div className="text-orange-200">
+        <div className="bg-orange-100 dark:bg-orange-900/50 border border-orange-300 dark:border-orange-600 rounded-lg p-3 mb-4 flex items-center gap-2">
+          <AlertCircle className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+          <div className="text-orange-800 dark:text-orange-200">
             <div className="font-medium">
               {connectedDeviceType === 'desktop' && '🖥️ Escritorio'}
               {connectedDeviceType === 'laptop' && '💻 Laptop'}
               {connectedDeviceType === 'pc' && '🖥️ PC'}
               {!connectedDeviceType && '🖥️ Dispositivo'} no está conectado
             </div>
-            <div className="text-sm text-orange-300">
+            <div className="text-sm text-orange-700 dark:text-orange-300">
               Asegúrate de que la página del {
                 connectedDeviceType === 'desktop' ? 'escritorio' :
                 connectedDeviceType === 'laptop' ? 'laptop' :
@@ -306,19 +311,19 @@ function MobileScanContent() {
         </div>
       )}{/* Status Messages */}
       {(error || scannerError) && (
-        <div className="bg-red-900/50 border border-red-600 rounded-lg p-3 mb-4 flex items-center gap-2">
-          <AlertCircle className="w-5 h-5 text-red-400" />
-          <span className="text-red-200">{error || scannerError}</span>
+        <div className="bg-red-100 dark:bg-red-900/50 border border-red-300 dark:border-red-600 rounded-lg p-3 mb-4 flex items-center gap-2">
+          <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
+          <span className="text-red-800 dark:text-red-200">{error || scannerError}</span>
         </div>
       )}
 
       {success && (
-        <div className="bg-green-900/50 border border-green-600 rounded-lg p-3 mb-4 flex items-center gap-2">
-          <Check className="w-5 h-5 text-green-400" />
-          <span className="text-green-200">{success}</span>
+        <div className="bg-green-100 dark:bg-green-900/50 border border-green-300 dark:border-green-600 rounded-lg p-3 mb-4 flex items-center gap-2">
+          <Check className="w-5 h-5 text-green-600 dark:text-green-400" />
+          <span className="text-green-800 dark:text-green-200">{success}</span>
         </div>
       )}      {/* Product Name Request Setting */}
-      <div className="bg-gray-800 rounded-lg p-4 mb-6">
+      <div className="bg-card-bg rounded-lg p-4 mb-6">
         <ProductNameCheckbox
           checked={requestProductName}
           onChange={setRequestProductName}
@@ -328,7 +333,7 @@ function MobileScanContent() {
 
       {/* Camera Section */}
       <div className="mb-6">
-        <div className="bg-gray-800 rounded-lg p-4">
+        <div className="bg-card-bg rounded-lg p-4">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold">Escanear con Cámara</h2>
           </div>
@@ -350,11 +355,11 @@ function MobileScanContent() {
 
           {/* Show loading message on server-side */}
           {!isClient && (
-            <div className="relative bg-black rounded-lg overflow-hidden" style={{ aspectRatio: '16/9' }}>
+            <div className="relative bg-gray-900 dark:bg-black rounded-lg overflow-hidden" style={{ aspectRatio: '16/9' }}>
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-center">
-                  <QrCode className="w-16 h-16 text-gray-500 mx-auto mb-2" />
-                  <p className="text-gray-400">Cargando...</p>
+                  <QrCode className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-2" />
+                  <p className="text-gray-500 dark:text-gray-400">Cargando...</p>
                 </div>
               </div>
             </div>
@@ -363,7 +368,7 @@ function MobileScanContent() {
 
       {/* Image Upload Section */}
       <div className="mb-6">
-        <div className="bg-gray-800 rounded-lg p-4">
+        <div className="bg-card-bg rounded-lg p-4">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold">Subir Imagen de Código</h2>
           </div>
@@ -380,12 +385,12 @@ function MobileScanContent() {
 
           {/* Show loading message on server-side */}
           {!isClient && (
-            <div className="relative bg-gray-700 rounded-lg p-8">
+            <div className="relative bg-input-bg rounded-lg p-8">
               <div className="text-center">
-                <div className="w-16 h-16 bg-gray-600 rounded-lg mx-auto mb-2 flex items-center justify-center">
-                  <QrCode className="w-8 h-8 text-gray-400" />
+                <div className="w-16 h-16 bg-input-bg rounded-lg mx-auto mb-2 flex items-center justify-center">
+                  <QrCode className="w-8 h-8 text-gray-500 dark:text-gray-400" />
                 </div>
-                <p className="text-gray-400">Cargando área de carga...</p>
+                <p className="text-gray-600 dark:text-gray-400">Cargando área de carga...</p>
               </div>
             </div>
           )}
@@ -393,7 +398,7 @@ function MobileScanContent() {
       </div>
 
       {/* Manual Input Section */}
-      <div className="bg-gray-800 rounded-lg p-4 mb-6">
+      <div className="bg-card-bg rounded-lg p-4 mb-6">
         <h2 className="text-lg font-semibold mb-4">Introducir Código Manualmente</h2>
 
         <form onSubmit={handleManualSubmit} className="space-y-4">
@@ -402,28 +407,26 @@ function MobileScanContent() {
             value={code}
             onChange={(e) => setCode(e.target.value)}
             placeholder="Ingresa el código de barras"
-            className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
+            className="w-full bg-input-bg border border-input-border rounded-lg px-4 py-3 text-foreground placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500"
           />
 
           <button
             type="submit"
             disabled={!code.trim() || !isOnline}
-            className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed px-4 py-3 rounded-lg text-white font-semibold flex items-center justify-center gap-2"
+            className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed px-4 py-3 rounded-lg text-white font-semibold flex items-center justify-center gap-2"
           >
             <Check className="w-4 h-4" />
             Enviar Código
           </button>
         </form>
-      </div>
-
-      {/* Recently Scanned */}
+      </div>      {/* Recently Scanned */}
       {lastScanned.length > 0 && (
-        <div className="bg-gray-800 rounded-lg p-4">
+        <div className="bg-card-bg rounded-lg p-4">
           <h2 className="text-lg font-semibold mb-3">Códigos Enviados Recientemente</h2>
           <div className="space-y-2">
             {lastScanned.slice().reverse().map((scannedCode, index) => (
-              <div key={index} className="bg-gray-700 rounded px-3 py-2 flex items-center gap-2">
-                <Check className="w-4 h-4 text-green-400" />
+              <div key={index} className="bg-input-bg rounded px-3 py-2 flex items-center gap-2">
+                <Check className="w-4 h-4 text-green-500 dark:text-green-400" />
                 <span className="font-mono">{scannedCode}</span>
               </div>
             ))}
@@ -433,12 +436,12 @@ function MobileScanContent() {
       {/* Product Name Modal */}
       {showNameModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4 text-white">
+          <div className="bg-card-bg rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4 text-foreground">
               Nombre del Producto (Opcional)
             </h3>
-            <p className="text-gray-300 text-sm mb-4">
-              Código: <span className="font-mono bg-gray-700 px-2 py-1 rounded">{pendingCode}</span>
+            <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">
+              Código: <span className="font-mono bg-input-bg px-2 py-1 rounded">{pendingCode}</span>
             </p>
 
             <input
@@ -446,7 +449,7 @@ function MobileScanContent() {
               value={productName}
               onChange={(e) => setProductName(e.target.value)}
               placeholder="Ingresa el nombre del producto (opcional)"
-              className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 mb-4"
+              className="w-full bg-input-bg border border-input-border rounded-lg px-4 py-3 text-foreground placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500 mb-4"
               autoFocus
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
@@ -460,7 +463,7 @@ function MobileScanContent() {
             <div className="flex gap-3">
               <button
                 onClick={handleNameCancel}
-                className="flex-1 bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded-lg text-white font-medium"
+                className="flex-1 bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 px-4 py-2 rounded-lg text-white font-medium"
               >
                 Cancelar
               </button>
@@ -476,7 +479,7 @@ function MobileScanContent() {
       )}
 
       {/* Instructions */}
-      <div className="mt-6 text-center text-gray-400 text-sm">
+      <div className="mt-6 text-center text-gray-500 dark:text-gray-400 text-sm">
         <p>Asegúrate de que tu PC esté conectado a la misma red</p>
         <p>Los códigos aparecerán automáticamente en tu computadora</p>
       </div>
@@ -487,9 +490,9 @@ function MobileScanContent() {
 export default function MobileScanPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-foreground mx-auto mb-4"></div>
           <p>Cargando escáner...</p>
         </div>
       </div>

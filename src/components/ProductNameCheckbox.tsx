@@ -51,13 +51,11 @@ export default function ProductNameCheckbox({ checked, onChange, disabled = fals
             </p>
           </div>
         </div>
-      </div>
-
-      {/* Indicador visual del estado */}
+      </div>      {/* Indicador visual del estado */}
       <div className={`p-3 rounded-md border-l-4 ${
         checked 
-          ? 'bg-green-900/30 border-green-500 text-green-200' 
-          : 'bg-gray-700/50 border-gray-500 text-gray-300'
+          ? 'bg-green-100 dark:bg-green-900/30 border-green-500 text-green-800 dark:text-green-200' 
+          : 'bg-gray-100 dark:bg-gray-700/50 border-gray-400 dark:border-gray-500 text-gray-700 dark:text-gray-300'
       }`}>
         <div className="flex items-center gap-2">
           <span className="text-lg">
