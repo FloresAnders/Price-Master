@@ -118,15 +118,44 @@ export default function HomePage() {
     { id: 'timingcontrol' as ActiveTab, name: 'Control Tiempos', icon: Smartphone, description: 'Registro de venta de tiempos' },
     { id: 'controlhorario' as ActiveTab, name: 'Control Horario', icon: Clock, description: 'Registro de horarios de trabajo' },
 
-  ]
-
-  // 4) Al montar, leemos el hash de la URL y marcamos la pestaña correspondiente
+  ]  // 4) Al montar, leemos el hash de la URL y marcamos la pestaña correspondiente
   useEffect(() => {
-    // Solo en cliente (window existe)
+    const checkAndSetTab = () => {
+      if (typeof window !== 'undefined') {
+        const hash = window.location.hash.replace('#', '') as ActiveTab
+        // Si coincide con alguna pestaña válida, la activamos
+        if (['scanner', 'calculator', 'converter', 'cashcounter', 'history', 'timingcontrol', 'controlhorario'].includes(hash)) {
+          setActiveTab(hash)
+        }
+      }
+    }
+    
+    // Ejecutar inmediatamente
+    checkAndSetTab()
+    
+    // También ejecutar después de un pequeño delay para asegurar que se cargue
+    const timeout = setTimeout(checkAndSetTab, 100)
+    
+    return () => clearTimeout(timeout)
+  }, [])
+
+  // 6) Escuchar cambios en el hash para actualizar la pestaña activa
+  useEffect(() => {
     if (typeof window !== 'undefined') {
-      const hash = window.location.hash.replace('#', '') as ActiveTab      // Si coincide con alguna pestaña válida, la activamos
-      if (['scanner', 'calculator', 'converter', 'cashcounter', 'history', 'timingcontrol', 'controlhorario'].includes(hash)) {
-        setActiveTab(hash)
+      const handleHashChange = () => {
+        const hash = window.location.hash.replace('#', '') as ActiveTab
+        console.log('Hash changed to:', hash) // Debug
+        if (['scanner', 'calculator', 'converter', 'cashcounter', 'history', 'timingcontrol', 'controlhorario'].includes(hash)) {
+          setActiveTab(hash)
+        }
+      }
+
+      // Agregar el listener
+      window.addEventListener('hashchange', handleHashChange)
+      
+      // Limpiar el listener al desmontar
+      return () => {
+        window.removeEventListener('hashchange', handleHashChange)
       }
     }
   }, [])
