@@ -139,9 +139,8 @@ export default function ScanHistory({ history, onCopy, onDelete, onRemoveLeading
       </div>
     );
   }
-
   return (
-    <div className="space-y-6 p-4 md:p-6 rounded-3xl shadow-2xl bg-[var(--card-bg)] dark:bg-[var(--card-bg)] border border-[var(--input-border)] scan-history-container backdrop-blur-xl max-w-2xl w-full mx-auto overflow-x-auto">
+    <div className="space-y-6 p-4 md:p-6 rounded-3xl shadow-2xl bg-[var(--card-bg)] dark:bg-[var(--card-bg)] border border-[var(--input-border)] scan-history-container backdrop-blur-xl w-full overflow-x-auto">
       <div className="flex items-center justify-between mb-6 md:mb-8">
         <h3 className="text-lg font-bold text-center flex-1 text-indigo-700 dark:text-indigo-200">Historial de Escaneos</h3>
         <button
