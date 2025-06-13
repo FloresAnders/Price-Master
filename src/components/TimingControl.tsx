@@ -146,9 +146,7 @@ export default function TimingControl() {
         }));
     };const addRow = () => {
         setRows(prev => ([...prev, { ticketNumber: '', sorteo: '', amount: '', time: '' }]));
-    };
-
-    // Función para verificar si una fila está completa
+    };    // Función para verificar si una fila está completa (todos los campos llenos)
     const isRowComplete = (row: typeof rows[0]) => {
         return row.ticketNumber.trim() !== '' && 
                row.sorteo.trim() !== '' && 
@@ -156,14 +154,20 @@ export default function TimingControl() {
                row.time.trim() !== '';
     };
 
+    // Función para verificar si una fila tiene los campos mínimos para avanzar
+    const hasMinimumFields = (row: typeof rows[0]) => {
+        return row.ticketNumber.trim() !== '' && 
+               row.amount.trim() !== '';
+    };
+
     // Función para verificar si una fila debe estar habilitada
     const isRowEnabled = (currentIndex: number) => {
         // La primera fila siempre está habilitada
         if (currentIndex === 0) return true;
         
-        // Para las demás filas, verificar que la anterior esté completa
+        // Para las demás filas, verificar que la anterior tenga los campos mínimos
         const previousRow = rows[currentIndex - 1];
-        return isRowComplete(previousRow);
+        return hasMinimumFields(previousRow);
     };const exportToJPG = async () => {
         if (!personName.trim()) {
             alert('Por favor ingresa el nombre de la persona antes de exportar');
@@ -326,15 +330,14 @@ export default function TimingControl() {
                         <div className="flex items-center gap-4">
                             <Timer className="w-6 h-6 text-blue-600" />
                             <h3 className="text-lg font-semibold" style={{ color: 'var(--foreground)' }}>Control de tiempos</h3>
-                        </div>
-                        {/* Nota para pantallas medianas y grandes */}
+                        </div>                        {/* Nota para pantallas medianas y grandes */}
                         <div className="hidden md:block p-2 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-xs max-w-xs">
-                            <p><strong>Nota:</strong> Complete todos los campos de la fila anterior para habilitar la siguiente.</p>
+                            <p><strong>Nota:</strong> Complete el número de tiquete y monto de la fila anterior para habilitar la siguiente.</p>
                         </div>
                     </div>
                     {/* Nota para pantallas pequeñas */}
                     <div className="md:hidden mt-3 p-2 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-xs">
-                        <p><strong>Nota:</strong> Complete todos los campos de la fila anterior para habilitar la siguiente.</p>
+                        <p><strong>Nota:</strong> Complete el número de tiquete y monto de la fila anterior para habilitar la siguiente.</p>
                     </div>
                 </div>
 
@@ -453,8 +456,8 @@ export default function TimingControl() {
                     })}                    <button
                         className="mt-2 px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-green-600 hover:bg-green-700 text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                         onClick={addRow}
-                        disabled={rows.length > 0 && !isRowComplete(rows[rows.length - 1])}
-                        title={rows.length > 0 && !isRowComplete(rows[rows.length - 1]) ? "Complete la fila anterior antes de agregar una nueva" : "Agregar nueva fila"}
+                        disabled={rows.length > 0 && !hasMinimumFields(rows[rows.length - 1])}
+                        title={rows.length > 0 && !hasMinimumFields(rows[rows.length - 1]) ? "Complete el número de tiquete y monto de la fila anterior antes de agregar una nueva" : "Agregar nueva fila"}
                     >
                         + Agregar fila
                     </button>
