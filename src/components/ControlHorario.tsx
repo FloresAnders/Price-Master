@@ -259,11 +259,9 @@ export default function ControlHorario() {
       const ctx = canvas.getContext('2d');
       if (!ctx) {
         throw new Error('No se pudo crear el contexto del canvas');
-      }
-
-      // Configurar el canvas
-      canvas.width = 1400;
-      canvas.height = 1000;
+      }      // Configurar el canvas - más grande
+      canvas.width = 1200;
+      canvas.height = 900;
       
       // Fondo blanco
       ctx.fillStyle = '#ffffff';
@@ -271,63 +269,69 @@ export default function ControlHorario() {
 
       // Configurar estilos de texto
       ctx.fillStyle = '#000000';
-      ctx.font = 'bold 24px Arial';
+      ctx.font = 'bold 32px Arial';
 
-      let yPosition = 40;
-      const lineHeight = 25;
-      const cellWidth = 40;
-      const cellHeight = 30;
-
-      // Título principal
-      ctx.font = 'bold 28px Arial';
+      // Usar todo el ancho disponible
+      const marginX = 50;
+      const availableWidth = canvas.width - (marginX * 2);
+      const employeeNameWidth = 250;
+      const totalDaysWidth = availableWidth - employeeNameWidth;
+      const cellWidth = totalDaysWidth / daysToShow.length;
+      
+      let yPosition = 60;
+      const lineHeight = 40;
+      const cellHeight = 45;// Título principal - centrado y más grande
+      ctx.font = 'bold 40px Arial';
       ctx.fillStyle = '#1f2937';
-      ctx.fillText('📅 Control de Horarios - Price Master', 50, yPosition);
-      yPosition += 40;
+      ctx.textAlign = 'center';
+      ctx.fillText('📅 Control de Horarios - Price Master', canvas.width / 2, yPosition);
+      ctx.textAlign = 'left';
+      yPosition += 60;
 
-      // Información del reporte
-      ctx.font = '16px Arial';
+      // Información del reporte - centrada y más grande
+      ctx.font = '22px Arial';
       ctx.fillStyle = '#4b5563';
-      ctx.fillText(`📍 Ubicación: ${locations.find(l => l.value === location)?.label || location}`, 50, yPosition);
+      ctx.textAlign = 'center';
+      ctx.fillText(`📍 Ubicación: ${locations.find(l => l.value === location)?.label || location}`, canvas.width / 2, yPosition);
       yPosition += lineHeight;
-      ctx.fillText(`📅 Mes: ${monthName}`, 50, yPosition);
+      ctx.fillText(`📅 Mes: ${monthName}`, canvas.width / 2, yPosition);
       yPosition += lineHeight;
-      ctx.fillText(`👤 Exportado por: ${user?.name} (SuperAdmin)`, 50, yPosition);
+      ctx.fillText(`👤 Exportado por: ${user?.name} (SuperAdmin)`, canvas.width / 2, yPosition);
       yPosition += lineHeight;
-      ctx.fillText(`🕒 Fecha de exportación: ${new Date().toLocaleDateString('es-ES')}`, 50, yPosition);
-      yPosition += 40;
-
-      // Encabezados de días
-      ctx.font = 'bold 14px Arial';
+      ctx.fillText(`🕒 Fecha de exportación: ${new Date().toLocaleDateString('es-ES')}`, canvas.width / 2, yPosition);
+      ctx.textAlign = 'left';
+      yPosition += 60;      // Encabezados de días - más grandes y usando todo el ancho
+      ctx.font = 'bold 18px Arial';
       ctx.fillStyle = '#1f2937';
       
       // Título "Empleado"
-      ctx.fillText('Empleado', 50, yPosition);
+      ctx.fillText('Empleado', marginX, yPosition);
       
-      // Días del mes
-      const startX = 200;
+      // Días del mes - distribuidos en todo el ancho
+      const startX = marginX + employeeNameWidth;
       daysToShow.forEach((day, index) => {
         const x = startX + (index * cellWidth);
-        ctx.fillText(day.toString(), x + 10, yPosition);
+        ctx.textAlign = 'center';
+        ctx.fillText(day.toString(), x + cellWidth / 2, yPosition);
       });
-      yPosition += 30;
+      ctx.textAlign = 'left';
+      yPosition += 40;
 
-      // Línea divisoria
+      // Línea divisoria - usando todo el ancho
       ctx.strokeStyle = '#e5e7eb';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.moveTo(50, yPosition);
-      ctx.lineTo(startX + (daysToShow.length * cellWidth), yPosition);
+      ctx.moveTo(marginX, yPosition);
+      ctx.lineTo(canvas.width - marginX, yPosition);
       ctx.stroke();
-      yPosition += 10;
-
-      // Datos de horarios
-      ctx.font = '12px Arial';
+      yPosition += 10;      // Datos de horarios - más grandes y usando todo el ancho
+      ctx.font = '16px Arial';
       names.forEach((employeeName) => {
         // Nombre del empleado
         ctx.fillStyle = '#374151';
-        ctx.fillText(employeeName, 50, yPosition + 20);
+        ctx.fillText(employeeName, marginX, yPosition + 30);
 
-        // Horarios por día
+        // Horarios por día - distribuidos en todo el ancho
         daysToShow.forEach((day, dayIndex) => {
           const shift = scheduleData[employeeName]?.[day.toString()] || '';
           const x = startX + (dayIndex * cellWidth);
@@ -349,28 +353,28 @@ export default function ControlHorario() {
 
           // Borde de la celda
           ctx.strokeStyle = '#d1d5db';
-          ctx.lineWidth = 1;
+          ctx.lineWidth = 2;
           ctx.strokeRect(x, y, cellWidth, cellHeight);
 
-          // Texto del turno
+          // Texto del turno - más grande
           if (shift) {
             ctx.fillStyle = shift === 'L' ? '#ffffff' : '#000000';
-            ctx.font = 'bold 14px Arial';
+            ctx.font = 'bold 20px Arial';
             ctx.textAlign = 'center';
-            ctx.fillText(shift, x + cellWidth / 2, y + cellHeight / 2 + 5);
+            ctx.fillText(shift, x + cellWidth / 2, y + cellHeight / 2 + 7);
             ctx.textAlign = 'left';
           }
         });
 
-        yPosition += cellHeight + 5;
-      });
-
-      // Leyenda
-      yPosition += 30;
-      ctx.font = 'bold 16px Arial';
+        yPosition += cellHeight + 10;
+      });// Leyenda - centrada y más grande
+      yPosition += 50;
+      ctx.font = 'bold 22px Arial';
       ctx.fillStyle = '#1f2937';
-      ctx.fillText('📋 Leyenda de Turnos:', 50, yPosition);
-      yPosition += 25;
+      ctx.textAlign = 'center';
+      ctx.fillText('📋 Leyenda de Turnos:', canvas.width / 2, yPosition);
+      ctx.textAlign = 'left';
+      yPosition += 40;
 
       const legendItems = [
         { label: 'N = Nocturno', color: '#87CEEB', textColor: '#000' },
@@ -379,28 +383,35 @@ export default function ControlHorario() {
         { label: 'Vacío = Sin asignar', color: '#f9fafb', textColor: '#000' }
       ];
 
-      legendItems.forEach((item, index) => {
-        const x = 50 + (index * 150);
-        
-        // Cuadro de color
-        ctx.fillStyle = item.color;
-        ctx.fillRect(x, yPosition - 15, 20, 20);
-        ctx.strokeStyle = '#d1d5db';
-        ctx.strokeRect(x, yPosition - 15, 20, 20);
+      // Calcular posición centrada para la leyenda - más espaciada
+      const legendWidth = legendItems.length * 200;
+      const legendStartX = (canvas.width - legendWidth) / 2;
 
-        // Texto
+      legendItems.forEach((item, index) => {
+        const x = legendStartX + (index * 200);
+        
+        // Cuadro de color - más grande
+        ctx.fillStyle = item.color;
+        ctx.fillRect(x, yPosition - 20, 30, 30);
+        ctx.strokeStyle = '#d1d5db';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, yPosition - 20, 30, 30);
+
+        // Texto - más grande
         ctx.fillStyle = '#374151';
-        ctx.font = '12px Arial';
-        ctx.fillText(item.label, x + 25, yPosition);
+        ctx.font = '16px Arial';
+        ctx.fillText(item.label, x + 40, yPosition);
       });
 
-      // Información de pie
-      yPosition = canvas.height - 60;
-      ctx.font = '10px Arial';
+      // Información de pie - centrada y más grande
+      yPosition = canvas.height - 80;
+      ctx.font = '14px Arial';
       ctx.fillStyle = '#9ca3af';
-      ctx.fillText('Generated by Price Master - Control de Horarios', 50, yPosition);
-      ctx.fillText(`Total de empleados: ${names.length}`, 50, yPosition + 15);
-      ctx.fillText('⚠️ Documento confidencial - Solo para uso autorizado', 50, yPosition + 30);
+      ctx.textAlign = 'center';
+      ctx.fillText('Generated by Price Master - Control de Horarios', canvas.width / 2, yPosition);
+      ctx.fillText(`Total de empleados: ${names.length}`, canvas.width / 2, yPosition + 20);
+      ctx.fillText('⚠️ Documento confidencial - Solo para uso autorizado', canvas.width / 2, yPosition + 40);
+      ctx.textAlign = 'left';
 
       // Convertir canvas a imagen y descargar
       canvas.toBlob((blob) => {
