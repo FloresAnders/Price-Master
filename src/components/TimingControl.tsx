@@ -144,14 +144,8 @@ export default function TimingControl() {
             
             return updatedRow;
         }));
-    };const addRow = () => {
+    };    const addRow = () => {
         setRows(prev => ([...prev, { ticketNumber: '', sorteo: '', amount: '', time: '' }]));
-    };    // Función para verificar si una fila está completa (todos los campos llenos)
-    const isRowComplete = (row: typeof rows[0]) => {
-        return row.ticketNumber.trim() !== '' && 
-               row.sorteo.trim() !== '' && 
-               row.amount.trim() !== '' && 
-               row.time.trim() !== '';
     };
 
     // Función para verificar si una fila tiene los campos mínimos para avanzar

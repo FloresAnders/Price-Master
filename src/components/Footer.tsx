@@ -41,9 +41,8 @@ export default function Footer() {
               { title: 'Soporte', items: ['Centro de Ayuda', 'Documentación API', 'Términos de Uso', 'Privacidad'] },
             ].map(section => (
               <div key={section.title}>
-                <h3 className="text-sm font-semibold text-[var(--foreground)] mb-3">{section.title}</h3>
-                <ul className="space-y-2 text-sm">
-                  {section.items.map((item, itemIdx) => (
+                <h3 className="text-sm font-semibold text-[var(--foreground)] mb-3">{section.title}</h3>                <ul className="space-y-2 text-sm">
+                  {section.items.map((item) => (
                     <li key={typeof item === 'string' ? item : item.name}>
                       {typeof item === 'string' ? (
                         <a href="#" className="hover:text-[var(--tab-hover-text)] transition-colors text-[var(--tab-text)]">
