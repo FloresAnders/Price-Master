@@ -558,16 +558,18 @@ export default function DataEditor() {
                                         style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
                                         placeholder="Contraseña del usuario"
                                     />
-                                </div>
-                                <div>
+                                </div>                                <div>
                                     <label className="block text-sm font-medium mb-1">Rol:</label>
                                     <select
-                                        value={user.role || 'user'}                                        onChange={(e) => updateUser(index, 'role', e.target.value as 'admin' | 'user')}
+                                        value={user.role || 'user'}
+                                        onChange={(e) => updateUser(index, 'role', e.target.value as 'admin' | 'user' | 'superadmin')}
                                         className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
                                         style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
                                     >
                                         <option value="user">Usuario</option>
-                                        <option value="admin">Administrador</option></select>
+                                        <option value="admin">Administrador</option>
+                                        <option value="superadmin">SuperAdmin</option>
+                                    </select>
                                 </div>
                             </div>
 

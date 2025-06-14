@@ -66,9 +66,12 @@
 <body>
     <div class="container">
         <h1>🔐 Gestión de Usuarios de Prueba - Price Master</h1>
-        
-        <div class="user-list">
+          <div class="user-list">
             <h3>👥 Usuarios que se crearán:</h3>
+            <div class="user-item">
+                <strong>superadmin</strong> / super123 - <em>SuperAdministrador</em>
+                <br><small>🔥 Acceso completo al Editor de Datos (/edit)</small>
+            </div>
             <div class="user-item">
                 <strong>admin</strong> / admin123 - <em>Administrador</em>
                 <br><small>Puede cambiar ubicación en Control de Horario</small>
@@ -76,7 +79,8 @@
             <div class="user-item">
                 <strong>usuario1</strong> / user123 - <em>Usuario (Puntarenas)</em>
                 <br><small>Ubicación fija</small>
-            </div>            <div class="user-item">
+            </div>
+            <div class="user-item">
                 <strong>usuario2</strong> / user456 - <em>Usuario (Cartago)</em>
                 <br><small>Ubicación fija</small>
             </div>
@@ -112,10 +116,15 @@
 
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-
-        // Usuarios de prueba
+        const db = getFirestore(app);        // Usuarios de prueba
         const testUsers = [
+            {
+                name: 'superadmin',
+                password: 'super123',
+                role: 'superadmin',
+                location: 'san-jose',
+                isActive: true
+            },
             {
                 name: 'admin',
                 password: 'admin123',
@@ -129,7 +138,8 @@
                 role: 'user', 
                 location: 'puntarenas',
                 isActive: true
-            },            {
+            },
+            {
                 name: 'usuario2',
                 password: 'user456',
                 role: 'user',
