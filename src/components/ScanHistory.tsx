@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useCallback, memo } from 'react';
-import { Copy, Trash2, Edit3, ArrowLeftCircle } from 'lucide-react';
+import { Copy, Trash2, Edit3, ArrowLeftCircle, Download } from 'lucide-react';
 import type { ScanHistoryProps as BaseScanHistoryProps, ScanHistoryEntry } from '../types/barcode';
 
 interface ScanHistoryProps extends BaseScanHistoryProps {
@@ -114,6 +114,46 @@ export default function ScanHistory({ history, onCopy, onDelete, onRemoveLeading
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [editValue, setEditValue] = useState('');
 
+  // Función para exportar códigos
+  const handleExport = useCallback(() => {
+    const validCodes = history
+      .filter(entry => {
+        // Solo incluir códigos que inicien con número
+        return /^\d/.test(entry.code);
+      })
+      .map(entry => {
+        let code = entry.code;
+        // Si inicia con dos ceros, eliminar el primero
+        if (code.startsWith('00')) {
+          code = code.substring(1);
+        }
+        return code;
+      });
+
+    if (validCodes.length === 0) {
+      notify?.('No hay códigos válidos para exportar', 'orange');
+      return;
+    }
+
+    const exportData = {
+      codigos: validCodes,
+      fecha_exportacion: new Date().toISOString(),
+      total_codigos: validCodes.length
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'CODIGOS.json';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    notify?.(`${validCodes.length} códigos exportados`, 'green');
+  }, [history, notify]);
+
   // Memoized handlers for row actions
   const handleRename = useCallback((code: string, name: string) => {
     onRename?.(code, name);
@@ -139,24 +179,32 @@ export default function ScanHistory({ history, onCopy, onDelete, onRemoveLeading
       </div>
     );
   }
-  return (
-    <div className="space-y-6 p-4 md:p-6 rounded-3xl shadow-2xl bg-[var(--card-bg)] dark:bg-[var(--card-bg)] border border-[var(--input-border)] scan-history-container backdrop-blur-xl w-full overflow-x-auto">
+  return (    <div className="space-y-6 p-4 md:p-6 rounded-3xl shadow-2xl bg-[var(--card-bg)] dark:bg-[var(--card-bg)] border border-[var(--input-border)] scan-history-container backdrop-blur-xl w-full overflow-x-auto">
       <div className="flex items-center justify-between mb-6 md:mb-8">
         <h3 className="text-lg font-bold text-center flex-1 text-indigo-700 dark:text-indigo-200">Historial de Escaneos</h3>
-        <button
-          className="ml-2 p-1 rounded-full bg-red-100 hover:bg-red-200 text-red-600 transition-colors w-8 h-8 flex items-center justify-center border border-red-200 dark:border-red-700"
-          title="Limpiar historial"
-          onClick={() => {
-            if (window.confirm('¿Seguro que deseas borrar todo el historial de escaneos?')) {
-              if (typeof onDelete === 'function') {
-                history.forEach(entry => onDelete(entry.code));
+        <div className="flex gap-2 ml-2">
+          <button
+            className="p-1 rounded-full bg-green-100 hover:bg-green-200 text-green-600 transition-colors w-8 h-8 flex items-center justify-center border border-green-200 dark:border-green-700"
+            title="Exportar códigos"
+            onClick={handleExport}
+          >
+            <Download className="w-4 h-4" />
+          </button>
+          <button
+            className="p-1 rounded-full bg-red-100 hover:bg-red-200 text-red-600 transition-colors w-8 h-8 flex items-center justify-center border border-red-200 dark:border-red-700"
+            title="Limpiar historial"
+            onClick={() => {
+              if (window.confirm('¿Seguro que deseas borrar todo el historial de escaneos?')) {
+                if (typeof onDelete === 'function') {
+                  history.forEach(entry => onDelete(entry.code));
+                }
+                notify?.('Historial borrado', 'red');
               }
-              notify?.('Historial borrado', 'red');
-            }
-          }}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-        </button>
+            }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
       </div>
       <div className="flex flex-col gap-4">
         {history.map((entry, idx) => (
