@@ -73,16 +73,19 @@ export function useBarcodeScanner(onDetect?: (code: string, productName?: string
     setCopySuccess(false);
     setDetectionMethod('');
   };
-
-  // Procesar imagen (pipeline: ZBar → Quagga2 → Básica)
+  // Procesar imagen (pipeline: ZBar → Quagga2 → Básica) - OPTIMIZADO PARA VELOCIDAD
   const processImage = useCallback(
     async (imageSrc: string) => {
       clearState();
       setIsLoading(true);
       setImagePreview(imageSrc);
       setError('');
+      
+      // Usar requestAnimationFrame para procesamiento inmediato sin bloquear UI
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      
       try {
-        // 1) Extraer ImageData de la imagen cargada
+        // 1) Extraer ImageData de la imagen cargada - OPTIMIZADO
         const img = new window.Image();
         img.crossOrigin = 'anonymous';
         const imageLoaded = new Promise<HTMLImageElement>((resolve, reject) => {
@@ -174,14 +177,14 @@ export function useBarcodeScanner(onDetect?: (code: string, productName?: string
     },
     [onDetect]
   );
-
-  // Handlers para input file, drop, click área
+  // Handlers para input file, drop, click área - OPTIMIZADO PARA ANÁLISIS INMEDIATO
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file && file.type.startsWith('image/')) {
       const reader = new FileReader();
       reader.onload = (e) => {
         const imageSrc = e.target?.result as string;
+        // Procesamiento inmediato sin setTimeout
         processImage(imageSrc);
       };
       reader.onerror = () => {
@@ -201,6 +204,7 @@ export function useBarcodeScanner(onDetect?: (code: string, productName?: string
       const reader = new FileReader();
       reader.onload = (e) => {
         const imageSrc = e.target?.result as string;
+        // Procesamiento inmediato sin setTimeout
         processImage(imageSrc);
       };
       reader.onerror = () => {
