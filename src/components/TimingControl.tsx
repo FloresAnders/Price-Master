@@ -3,7 +3,7 @@ import { SorteosService } from '../services/sorteos';
 import { Timer, Download } from 'lucide-react';
 import type { Sorteo } from '../types/firestore';
 
-const INITIAL_ROWS = 4;
+const INITIAL_ROWS = 1;
 
 function getNowTime() {
     const now = new Date();
