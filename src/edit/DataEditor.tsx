@@ -335,8 +335,7 @@ export default function DataEditor() {
                             accept=".json"
                             onChange={importData}
                             className="hidden"
-                        />
-                    </label>
+                        />                    </label>
                 </div>
             </div>
 

@@ -314,7 +314,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
         }
       };
     }
-  }, [onDetect, setCode, checkForNewScans, startCountdown]); const closeMobileSession = useCallback(() => {
+  }, [onDetect, setCode, checkForNewScans, startCountdown, requestProductName]); const closeMobileSession = useCallback(() => {
     setShowMobileQR(false);
     setMobileSessionId(null);
     setQrCodeUrl('');

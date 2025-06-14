@@ -322,7 +322,7 @@ export default function ControlHorario() {
 
       // Datos de horarios
       ctx.font = '12px Arial';
-      names.forEach((employeeName, empIndex) => {
+      names.forEach((employeeName) => {
         // Nombre del empleado
         ctx.fillStyle = '#374151';
         ctx.fillText(employeeName, 50, yPosition + 20);
