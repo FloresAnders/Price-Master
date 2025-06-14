@@ -17,16 +17,19 @@ import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
 import type { BarcodeScannerProps } from '../types/barcode';
 import CameraScanner from './CameraScanner';
 import ImageDropArea from './ImageDropArea';
+import ProductNameCheckbox from './ProductNameCheckbox';
 import QRCode from 'qrcode';
 import { SessionSyncService, type SessionStatus } from '../services/session-sync';
 
-export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children }: BarcodeScannerProps & { onRemoveLeadingZero?: (code: string) => void; children?: React.ReactNode }) {
-  const [activeTab, setActiveTab] = useState<'image' | 'camera' | 'mobile'>('image');
+export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children }: BarcodeScannerProps & { onRemoveLeadingZero?: (code: string) => void; children?: React.ReactNode }) {  const [activeTab, setActiveTab] = useState<'image' | 'camera' | 'mobile'>('image');
   const [mobileSessionId, setMobileSessionId] = useState<string | null>(null);
   const [showMobileQR, setShowMobileQR] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   const [lastScanCheck, setLastScanCheck] = useState<Date>(new Date());
-  const [nextPollIn, setNextPollIn] = useState<number>(10);  // Estados para sincronización real
+  const [nextPollIn, setNextPollIn] = useState<number>(10);
+  
+  // Estado para configuración de productos desde PC
+  const [requestProductName, setRequestProductName] = useState(false);// Estados para sincronización real
   const [hasMobileConnection, setHasMobileConnection] = useState(false);  const [connectedDeviceType, setConnectedDeviceType] = useState<'mobile' | 'tablet' | 'pc' | null>(null);
   const sessionHeartbeatRef = useRef<{ start: () => Promise<void>; stop: () => void; sessionDocId: string | null } | null>(null);
   const sessionSyncUnsubscribeRef = useRef<(() => void) | null>(null);
@@ -224,10 +227,8 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
           console.error('Error in session status subscription:', error);
         }
       );
-      sessionSyncUnsubscribeRef.current = sessionUnsubscribe;
-
-      // Generar QR code
-      const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/mobile-scan?session=${sessionId}`;
+      sessionSyncUnsubscribeRef.current = sessionUnsubscribe;      // Generar QR code con configuración de productos
+      const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/mobile-scan?session=${sessionId}&requestProductName=${requestProductName}`;
       const qrDataUrl = await QRCode.toDataURL(url, {
         width: 256,
         margin: 2,
@@ -546,8 +547,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
 
       {activeTab === 'mobile' && (
         <div>
-          {/* Icono de móvil destacado */}
-          <div className="flex flex-col items-center gap-4 mb-6">
+          {/* Icono de móvil destacado */}          <div className="flex flex-col items-center gap-4 mb-6">
             <div className="p-6 rounded-full bg-gradient-to-tr from-green-500 via-emerald-400 to-teal-300 dark:from-green-700 dark:via-green-900 dark:to-emerald-900 text-white shadow-2xl border-4 border-white/80 dark:border-green-900 animate-pulse-slow">
               <SmartphoneIcon className="w-16 h-16 drop-shadow-lg" />
             </div>
@@ -555,6 +555,15 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
             <p className="text-center text-gray-600 dark:text-gray-400 max-w-md">
               Escanea códigos de barras usando tu teléfono móvil. Los códigos aparecerán automáticamente aquí.
             </p>
+          </div>
+
+          {/* Configuración de Productos */}
+          <div className="mb-6">
+            <ProductNameCheckbox
+              checked={requestProductName}
+              onChange={setRequestProductName}
+              disabled={showMobileQR}
+            />
           </div>
 
           {!showMobileQR ? (
@@ -597,7 +606,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                   </p>
                   <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-2">
                     <code className="text-xs text-gray-700 dark:text-gray-300 break-all">
-                      {typeof window !== 'undefined' && `${window.location.origin}/mobile-scan?session=${mobileSessionId}`}
+                      {typeof window !== 'undefined' && `${window.location.origin}/mobile-scan?session=${mobileSessionId}&requestProductName=${requestProductName}`}
                     </code>
                   </div>
                 </div>
@@ -611,7 +620,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                   </button>                  <button
                     onClick={async () => {
                       if (typeof window !== 'undefined' && mobileSessionId) {
-                        const url = `${window.location.origin}/mobile-scan?session=${mobileSessionId}`;
+                        const url = `${window.location.origin}/mobile-scan?session=${mobileSessionId}&requestProductName=${requestProductName}`;
                         try {
                           // Try modern clipboard API first
                           if (navigator.clipboard && navigator.clipboard.writeText) {
