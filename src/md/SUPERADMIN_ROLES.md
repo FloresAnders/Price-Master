@@ -8,11 +8,13 @@ Se ha implementado un nuevo rol de usuario **SuperAdmin** con permisos exclusivo
 
 ### 🔴 **SuperAdmin**
 - **Acceso Exclusivo**: Editor de Datos (`/edit`)
-- **Permisos**: 
+- **Permisos Especiales**: 
   - ✅ Editar ubicaciones
   - ✅ Editar sorteos
   - ✅ Gestionar usuarios
-  - ✅ Importar/Exportar datos
+  - ✅ Importar/Exportar datos en JSON
+  - ✅ **NUEVO**: Exportar horarios como imagen (PNG) desde Control de Horario
+  - ✅ **NUEVO**: Cambiar ubicación en Control de Horario
   - ✅ Todas las funcionalidades del sistema
 - **Credenciales de prueba**: `superadmin` / `super123`
 
@@ -22,6 +24,7 @@ Se ha implementado un nuevo rol de usuario **SuperAdmin** con permisos exclusivo
   - ✅ Puede cambiar ubicación en Control de Horario
   - ✅ Acceso a todas las funcionalidades excepto Editor de Datos
   - ❌ NO puede acceder al Editor de Datos
+  - ❌ NO puede exportar horarios como imagen
 - **Credenciales de prueba**: `admin` / `admin123`
 
 ### 🔵 **User**
@@ -105,6 +108,46 @@ npm run superadmin:list
 - **Admin/User**: Debe ver mensaje de "Acceso Denegado"
 - **No autenticado**: Debe ver modal de login
 
+## 🎨 Nuevas Funcionalidades Exclusivas del SuperAdmin
+
+### 📸 **Exportación como Imagen**
+- **Funcionalidad**: Exportar horarios del Control de Horario como imagen PNG
+- **Acceso**: Solo disponible para usuarios SuperAdmin
+- **Ubicación**: Botón "📷 Exportar" en Control de Horario (junto a botones 1-15/16-X)
+- **Contenido de la imagen**:
+  - � Horarios completos del mes actual
+  - 📍 Información de ubicación y fecha
+  - 👥 Lista de empleados con turnos asignados
+  - 🎨 Leyenda de colores (N=Nocturno, D=Diurno, L=Libre)
+  - 📅 Metadatos de exportación (fecha, usuario)
+  - � Información estadística (total empleados)
+
+### 🏢 **Control de Ubicación Ampliado**
+- **Funcionalidad**: SuperAdmin puede cambiar ubicación en Control de Horario
+- **Comportamiento**: Mismo que Admin, sin restricciones de ubicación
+- **Beneficio**: Flexibilidad total para supervisión multi-ubicación
+
+### 🔐 **Verificación de Permisos**
+```javascript
+// El sistema verifica automáticamente:
+if (isSuperAdmin()) {
+  // Mostrar botón de exportar imagen
+  // Permitir cambio de ubicación
+  // Acceso completo al editor
+}
+```
+
+## 📋 Tabla de Permisos Actualizada
+
+| Función | SuperAdmin | Admin | User |
+|---------|------------|-------|------|
+| **Editor de Datos** | ✅ Completo | ❌ | ❌ |
+| **Exportar JSON** | ✅ | ❌ | ❌ |
+| **Exportar Horarios como Imagen** | ✅ | ❌ | ❌ |
+| **Cambiar Ubicación** | ✅ | ✅ | ❌ |
+| **Control de Horario** | ✅ | ✅ | ✅ |
+| **Timing Control** | ✅ | ✅ | ✅ |
+
 ## 🔧 Archivos Modificados
 
 ### Tipos y Interfaces
@@ -113,7 +156,8 @@ npm run superadmin:list
 
 ### Componentes
 - `src/app/edit/page.tsx` - Protección completa de la ruta
-- `src/edit/DataEditor.tsx` - Dropdown con nuevo rol
+- `src/edit/DataEditor.tsx` - Dropdown con nuevo rol (sin exportación imagen)
+- `src/components/ControlHorario.tsx` - **NUEVO**: Exportación de horarios como imagen
 - `src/components/LoginModal.tsx` - Compatible con nuevos roles
 
 ### Servicios

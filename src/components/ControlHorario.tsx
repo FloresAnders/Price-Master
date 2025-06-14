@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Clock, Calendar, ChevronLeft, ChevronRight, Save, LogOut } from 'lucide-react';
+import { Clock, Calendar, ChevronLeft, ChevronRight, Save, LogOut, Camera } from 'lucide-react';
 import { LocationsService } from '../services/locations';
 import { SchedulesService } from '../services/schedules';
 import { useAuth } from '../hooks/useAuth';
@@ -16,7 +16,7 @@ interface ScheduleData {
 }
 
 export default function ControlHorario() {
-  const { user, isAuthenticated, login, logout, canChangeLocation } = useAuth();
+  const { user, isAuthenticated, login, logout, canChangeLocation, isSuperAdmin } = useAuth();
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
@@ -246,6 +246,186 @@ export default function ControlHorario() {
     });
   };
 
+  // Función para exportar horarios como imagen (Solo SuperAdmin)
+  const exportScheduleAsImage = async () => {
+    if (!isSuperAdmin()) {
+      showNotification('Solo SuperAdmin puede exportar como imagen', 'error');
+      return;
+    }
+
+    try {
+      // Crear un canvas temporal para generar la imagen
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        throw new Error('No se pudo crear el contexto del canvas');
+      }
+
+      // Configurar el canvas
+      canvas.width = 1400;
+      canvas.height = 1000;
+      
+      // Fondo blanco
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Configurar estilos de texto
+      ctx.fillStyle = '#000000';
+      ctx.font = 'bold 24px Arial';
+
+      let yPosition = 40;
+      const lineHeight = 25;
+      const cellWidth = 40;
+      const cellHeight = 30;
+
+      // Título principal
+      ctx.font = 'bold 28px Arial';
+      ctx.fillStyle = '#1f2937';
+      ctx.fillText('📅 Control de Horarios - Price Master', 50, yPosition);
+      yPosition += 40;
+
+      // Información del reporte
+      ctx.font = '16px Arial';
+      ctx.fillStyle = '#4b5563';
+      ctx.fillText(`📍 Ubicación: ${locations.find(l => l.value === location)?.label || location}`, 50, yPosition);
+      yPosition += lineHeight;
+      ctx.fillText(`📅 Mes: ${monthName}`, 50, yPosition);
+      yPosition += lineHeight;
+      ctx.fillText(`👤 Exportado por: ${user?.name} (SuperAdmin)`, 50, yPosition);
+      yPosition += lineHeight;
+      ctx.fillText(`🕒 Fecha de exportación: ${new Date().toLocaleDateString('es-ES')}`, 50, yPosition);
+      yPosition += 40;
+
+      // Encabezados de días
+      ctx.font = 'bold 14px Arial';
+      ctx.fillStyle = '#1f2937';
+      
+      // Título "Empleado"
+      ctx.fillText('Empleado', 50, yPosition);
+      
+      // Días del mes
+      const startX = 200;
+      daysToShow.forEach((day, index) => {
+        const x = startX + (index * cellWidth);
+        ctx.fillText(day.toString(), x + 10, yPosition);
+      });
+      yPosition += 30;
+
+      // Línea divisoria
+      ctx.strokeStyle = '#e5e7eb';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(50, yPosition);
+      ctx.lineTo(startX + (daysToShow.length * cellWidth), yPosition);
+      ctx.stroke();
+      yPosition += 10;
+
+      // Datos de horarios
+      ctx.font = '12px Arial';
+      names.forEach((employeeName, empIndex) => {
+        // Nombre del empleado
+        ctx.fillStyle = '#374151';
+        ctx.fillText(employeeName, 50, yPosition + 20);
+
+        // Horarios por día
+        daysToShow.forEach((day, dayIndex) => {
+          const shift = scheduleData[employeeName]?.[day.toString()] || '';
+          const x = startX + (dayIndex * cellWidth);
+          const y = yPosition;
+
+          // Fondo de la celda según el turno
+          if (shift === 'N') {
+            ctx.fillStyle = '#87CEEB'; // Azul claro
+          } else if (shift === 'D') {
+            ctx.fillStyle = '#FFFF00'; // Amarillo
+          } else if (shift === 'L') {
+            ctx.fillStyle = '#FF00FF'; // Magenta
+          } else {
+            ctx.fillStyle = '#f9fafb'; // Gris claro
+          }
+
+          // Dibujar celda
+          ctx.fillRect(x, y, cellWidth, cellHeight);
+
+          // Borde de la celda
+          ctx.strokeStyle = '#d1d5db';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(x, y, cellWidth, cellHeight);
+
+          // Texto del turno
+          if (shift) {
+            ctx.fillStyle = shift === 'L' ? '#ffffff' : '#000000';
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(shift, x + cellWidth / 2, y + cellHeight / 2 + 5);
+            ctx.textAlign = 'left';
+          }
+        });
+
+        yPosition += cellHeight + 5;
+      });
+
+      // Leyenda
+      yPosition += 30;
+      ctx.font = 'bold 16px Arial';
+      ctx.fillStyle = '#1f2937';
+      ctx.fillText('📋 Leyenda de Turnos:', 50, yPosition);
+      yPosition += 25;
+
+      const legendItems = [
+        { label: 'N = Nocturno', color: '#87CEEB', textColor: '#000' },
+        { label: 'D = Diurno', color: '#FFFF00', textColor: '#000' },
+        { label: 'L = Libre', color: '#FF00FF', textColor: '#fff' },
+        { label: 'Vacío = Sin asignar', color: '#f9fafb', textColor: '#000' }
+      ];
+
+      legendItems.forEach((item, index) => {
+        const x = 50 + (index * 150);
+        
+        // Cuadro de color
+        ctx.fillStyle = item.color;
+        ctx.fillRect(x, yPosition - 15, 20, 20);
+        ctx.strokeStyle = '#d1d5db';
+        ctx.strokeRect(x, yPosition - 15, 20, 20);
+
+        // Texto
+        ctx.fillStyle = '#374151';
+        ctx.font = '12px Arial';
+        ctx.fillText(item.label, x + 25, yPosition);
+      });
+
+      // Información de pie
+      yPosition = canvas.height - 60;
+      ctx.font = '10px Arial';
+      ctx.fillStyle = '#9ca3af';
+      ctx.fillText('Generated by Price Master - Control de Horarios', 50, yPosition);
+      ctx.fillText(`Total de empleados: ${names.length}`, 50, yPosition + 15);
+      ctx.fillText('⚠️ Documento confidencial - Solo para uso autorizado', 50, yPosition + 30);
+
+      // Convertir canvas a imagen y descargar
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `horarios-${location}-${year}-${month + 1}-${new Date().toISOString().split('T')[0]}.png`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+
+          showNotification('📸 Horarios exportados como imagen exitosamente', 'success');
+        } else {
+          throw new Error('Error al generar la imagen');
+        }
+      }, 'image/png');
+
+    } catch (error) {
+      showNotification('Error al exportar horarios como imagen', 'error');
+      console.error('Export schedule as image error:', error);
+    }
+  };
+
   // Si está cargando, mostrar loading
   if (loading) {
     return (
@@ -378,9 +558,7 @@ export default function ControlHorario() {
           >
             <ChevronRight className="w-5 h-5" />
           </button>
-        </div>
-
-        <div className="flex gap-2">
+        </div>        <div className="flex gap-2">
           <button
             onClick={() => setViewMode('first')}
             className={`px-4 py-2 rounded-md transition-colors ${viewMode === 'first'
@@ -399,6 +577,18 @@ export default function ControlHorario() {
           >
             16-{daysInMonth}
           </button>
+          
+          {/* Botón de exportar como imagen - Solo para SuperAdmin */}
+          {isSuperAdmin() && (
+            <button
+              onClick={exportScheduleAsImage}
+              className="px-4 py-2 rounded-md bg-orange-600 hover:bg-orange-700 text-white flex items-center gap-2 transition-colors"
+              title="Exportar horarios como imagen (Solo SuperAdmin)"
+            >
+              <Camera className="w-4 h-4" />
+              <span className="hidden sm:inline">Exportar</span>
+            </button>
+          )}
         </div>
       </div>
 

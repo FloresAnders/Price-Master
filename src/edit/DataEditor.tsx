@@ -273,9 +273,7 @@ export default function DataEditor() {
         const updated = [...usersData];
         updated[index] = { ...updated[index], [field]: value };
         setUsersData(updated);
-    };
-
-    const removeUser = (index: number) => {
+    };    const removeUser = (index: number) => {
         setUsersData(usersData.filter((_, i) => i !== index));
     };
 
@@ -329,9 +327,7 @@ export default function DataEditor() {
                     >
                         <Download className="w-4 h-4" />
                         Exportar
-                    </button>
-
-                    <label className="px-4 py-2 rounded-md bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-2 transition-colors cursor-pointer">
+                    </button>                    <label className="px-4 py-2 rounded-md bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-2 transition-colors cursor-pointer">
                         <Upload className="w-4 h-4" />
                         Importar
                         <input

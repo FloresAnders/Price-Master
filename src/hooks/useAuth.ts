@@ -73,9 +73,8 @@ export function useAuth() {
   const isSuperAdmin = () => {
     return user?.role === 'superadmin';
   };
-
   const canChangeLocation = () => {
-    return user?.role === 'admin';
+    return user?.role === 'admin' || user?.role === 'superadmin';
   };
 
   return {
