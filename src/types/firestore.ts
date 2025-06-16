@@ -3,6 +3,12 @@ export interface Location {
   label: string;
   value: string;
   names: string[];
+  employees?: Employee[]; // Nueva estructura para empleados con tipo CCSS
+}
+
+export interface Employee {
+  name: string;
+  ccssType: 'TC' | 'MT'; // TC = Tiempo Completo, MT = Medio Tiempo
 }
 
 export interface Sorteo {
