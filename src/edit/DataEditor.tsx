@@ -1,14 +1,15 @@
-// src/edit/DataEditor.tsx
+    // src/edit/DataEditor.tsx
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Save, Download, Upload, AlertCircle, Check, FileText, MapPin, Users } from 'lucide-react';
+import { Save, Download, Upload, AlertCircle, Check, FileText, MapPin, Users, Clock } from 'lucide-react';
 import { LocationsService } from '../services/locations';
 import { SorteosService } from '../services/sorteos';
 import { UsersService } from '../services/users';
 import { Location, Sorteo, User } from '../types/firestore';
+import ScheduleReportTab from '../components/ScheduleReportTab';
 
-type DataFile = 'locations' | 'sorteos' | 'users';
+type DataFile = 'locations' | 'sorteos' | 'users' | 'schedules';
 
 export default function DataEditor() {
     const [activeFile, setActiveFile] = useState<DataFile>('locations');
@@ -362,8 +363,7 @@ export default function DataEditor() {
                         >
                             <FileText className="w-4 h-4" />
                             Sorteos ({sorteosData.length})
-                        </button>
-                        <button
+                        </button>                        <button
                             onClick={() => setActiveFile('users')}
                             className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeFile === 'users'
                                     ? 'border-blue-500 text-blue-600'
@@ -372,6 +372,16 @@ export default function DataEditor() {
                         >
                             <Users className="w-4 h-4" />
                             Usuarios ({usersData.length})
+                        </button>
+                        <button
+                            onClick={() => setActiveFile('schedules')}
+                            className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeFile === 'schedules'
+                                    ? 'border-blue-500 text-blue-600'
+                                    : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-gray-300'
+                                }`}
+                        >
+                            <Clock className="w-4 h-4" />
+                            Planilla
                         </button>
                     </nav>
                 </div>
@@ -592,8 +602,12 @@ export default function DataEditor() {
                                 </button>
                             </div>
                         </div>
-                    ))}
-                </div>
+                    ))}                </div>
+            )}
+
+            {/* Schedule Report Content */}
+            {activeFile === 'schedules' && (
+                <ScheduleReportTab />
             )}
         </div>
     );
