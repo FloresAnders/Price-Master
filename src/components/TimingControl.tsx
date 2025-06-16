@@ -375,7 +375,7 @@ export default function TimingControl() {
                         <div className="mt-4 text-right font-bold text-lg" style={{ color: 'var(--foreground)' }}>
                             Total: <span className="font-mono text-green-700">₡ {totalGeneral.toLocaleString('es-CR')}</span>
                         </div>
-                    </div>
+                    </div> 
                 </div>            )}            <div ref={exportRef} 
                  className="p-6 rounded-lg" 
                  style={{ 
