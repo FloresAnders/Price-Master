@@ -39,10 +39,6 @@ export default function ScheduleReportTab() {
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [activeTab, setActiveTab] = useState<'schedule' | 'payroll'>('schedule');
 
-  // Estado para manejar horarios editables
-  const [editableSchedules, setEditableSchedules] = useState<{ [key: string]: string }>({});
-  const [isEditing, setIsEditing] = useState(false);
-
   // Función para mostrar notificación
   const showNotification = (message: string, type: 'success' | 'error') => {
     setNotification({ message, type });
@@ -60,21 +56,23 @@ export default function ScheduleReportTab() {
     const start = new Date(year, month, period === 'first' ? 1 : 16);
     const end = period === 'first' ? 
       new Date(year, month, 15) : 
-      new Date(year, month + 1, 0);
+      new Date(year, month + 1, 0); // último día del mes
 
     const monthNames = [
       'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
       'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
     ];
 
-    return {
+    const result = {
       start,
       end,
       label: `${monthNames[month]} ${year} (${period === 'first' ? '1-15' : `16-${end.getDate()}`})`,
       year,
-      month: month,
+      month: month, // Usar el mes con base 0 como JavaScript/ControlHorario
       period
     };
+    
+    return result;
   };
 
   // Función para obtener períodos anteriores con días laborados
@@ -96,7 +94,7 @@ export default function ScheduleReportTab() {
       periods.forEach(key => {
         const [year, month, period] = key.split('-');
         const yearNum = parseInt(year);
-        const monthNum = parseInt(month);
+        const monthNum = parseInt(month); // El mes viene en base 0 desde Firebase
         const isFirst = period === 'first';
         
         const start = new Date(yearNum, monthNum, isFirst ? 1 : 16);
@@ -114,11 +112,12 @@ export default function ScheduleReportTab() {
           end,
           label: `${monthNames[monthNum]} ${yearNum} (${isFirst ? '1-15' : `16-${end.getDate()}`})`,
           year: yearNum,
-          month: monthNum,
+          month: monthNum, // Mantener base 0
           period: isFirst ? 'first' : 'second'
         });
       });
 
+      // Ordenar por fecha descendente (más reciente primero)
       return periodsArray.sort((a, b) => b.start.getTime() - a.start.getTime());
     } catch (error) {
       console.error('Error getting available periods:', error);
@@ -148,6 +147,7 @@ export default function ScheduleReportTab() {
       
       const available = await getAvailablePeriods();
       
+      // Agregar período actual al inicio si no está en la lista
       const currentExists = available.some(p => 
         p.year === current.year && 
         p.month === current.month && 
@@ -162,94 +162,101 @@ export default function ScheduleReportTab() {
       
       setLoading(false);
     };
-    initializePeriods();  }, []);
+    initializePeriods();
+  }, []);
 
-  // Función para cargar datos de horarios
-  const loadScheduleData = async () => {
-    if (!currentPeriod) return;
-    
-    setLoading(true);
-    try {
-      const allSchedules = await SchedulesService.getAllSchedules();
+  // Cargar datos de horarios cuando cambie el período, la ubicación o las ubicaciones
+  useEffect(() => {
+    const loadScheduleData = async () => {
+      if (!currentPeriod) return;
       
-      const periodSchedules = allSchedules.filter(schedule => {
-        const matchesPeriod = schedule.year === currentPeriod.year && 
-                            schedule.month === currentPeriod.month;
+      setLoading(true);
+      try {
+        const allSchedules = await SchedulesService.getAllSchedules();
         
-        if (!matchesPeriod) return false;
-        
-        if (currentPeriod.period === 'first') {
-          return schedule.day >= 1 && schedule.day <= 15;
-        } else {
-          return schedule.day >= 16;
-        }
-      });
-
-      const locationGroups = new Map<string, ScheduleEntry[]>();
-      
-      periodSchedules.forEach(schedule => {
-        if (!locationGroups.has(schedule.locationValue)) {
-          locationGroups.set(schedule.locationValue, []);
-        }
-        locationGroups.get(schedule.locationValue)!.push(schedule);
-      });
-
-      const scheduleDataArray: LocationSchedule[] = [];
-
-      const locationsToProcess = selectedLocation === 'all' ? 
-        locations : 
-        locations.filter(loc => loc.value === selectedLocation);
-
-      locationsToProcess.forEach(location => {
-        const locationSchedules = locationGroups.get(location.value) || [];
-        const employeeGroups = new Map<string, ScheduleEntry[]>();
-        
-        locationSchedules.forEach(schedule => {
-          if (!employeeGroups.has(schedule.employeeName)) {
-            employeeGroups.set(schedule.employeeName, []);
+        // Filtrar por período actual
+        const periodSchedules = allSchedules.filter(schedule => {
+          const matchesPeriod = schedule.year === currentPeriod.year && 
+                              schedule.month === currentPeriod.month;
+          
+          if (!matchesPeriod) return false;
+          
+          if (currentPeriod.period === 'first') {
+            return schedule.day >= 1 && schedule.day <= 15;
+          } else {
+            return schedule.day >= 16;
           }
-          employeeGroups.get(schedule.employeeName)!.push(schedule);
         });
 
-        const employees: EmployeeSchedule[] = [];
-        let totalWorkDays = 0;
+        // Agrupar por ubicación
+        const locationGroups = new Map<string, ScheduleEntry[]>();
+        
+        periodSchedules.forEach(schedule => {
+          if (!locationGroups.has(schedule.locationValue)) {
+            locationGroups.set(schedule.locationValue, []);
+          }
+          locationGroups.get(schedule.locationValue)!.push(schedule);
+        });
 
-        employeeGroups.forEach((schedules, employeeName) => {
-          const days: { [day: number]: string } = {};
-          let employeeWorkDays = 0;
+        const scheduleDataArray: LocationSchedule[] = [];
+
+        // Siempre procesar todas las ubicaciones al iniciar
+        const locationsToProcess = selectedLocation === 'all' ? 
+          locations : 
+          locations.filter(loc => loc.value === selectedLocation);
+
+        locationsToProcess.forEach(location => {
+          const locationSchedules = locationGroups.get(location.value) || [];
           
-          schedules.forEach(schedule => {
-            if (schedule.shift && schedule.shift.trim() !== '') {
-              days[schedule.day] = schedule.shift;
-              if (schedule.shift === 'D' || schedule.shift === 'N') {
-                employeeWorkDays++;
+          // Agrupar por empleado
+          const employeeGroups = new Map<string, ScheduleEntry[]>();
+          locationSchedules.forEach(schedule => {
+            if (!employeeGroups.has(schedule.employeeName)) {
+              employeeGroups.set(schedule.employeeName, []);
+            }
+            employeeGroups.get(schedule.employeeName)!.push(schedule);
+          });
+
+          const employees: EmployeeSchedule[] = [];
+          let totalWorkDays = 0;
+
+          employeeGroups.forEach((schedules, employeeName) => {
+            const days: { [day: number]: string } = {};
+            let employeeWorkDays = 0;
+            
+            schedules.forEach(schedule => {
+              if (schedule.shift && schedule.shift.trim() !== '') {
+                days[schedule.day] = schedule.shift;
+                // Solo contar D y N como días laborados, no L
+                if (schedule.shift === 'D' || schedule.shift === 'N') {
+                  employeeWorkDays++;
+                }
               }
+            });
+
+            if (Object.keys(days).length > 0) {
+              employees.push({ employeeName, days });
+              totalWorkDays += employeeWorkDays;
             }
           });
 
-          if (Object.keys(days).length > 0) {
-            employees.push({ employeeName, days });
-            totalWorkDays += employeeWorkDays;
-          }
+          // Agregar ubicación incluso si no tiene empleados (para mostrar todas las ubicaciones)
+          scheduleDataArray.push({
+            location,
+            employees,
+            totalWorkDays
+          });
         });
 
-        scheduleDataArray.push({
-          location,
-          employees,
-          totalWorkDays
-        });
-      });
+        setScheduleData(scheduleDataArray);
+      } catch (error) {
+        console.error('Error loading schedule data:', error);
+        showNotification('Error al cargar los datos de planilla', 'error');
+      } finally {
+        setLoading(false);
+      }
+    };
 
-      setScheduleData(scheduleDataArray);
-    } catch (error) {
-      console.error('Error loading schedule data:', error);
-      showNotification('Error al cargar los datos de planilla', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-  // Cargar datos de horarios cuando cambie el período o ubicación
-  useEffect(() => {
     if (currentPeriod && locations.length > 0) {
       loadScheduleData();
     }
@@ -312,69 +319,299 @@ export default function ScheduleReportTab() {
     showNotification('📄 Planilla exportada exitosamente', 'success');
   };
 
+  // Función para exportar todas las imágenes
+  const exportAllImages = async () => {
+    if (!currentPeriod || scheduleData.length === 0) return;
+
+    try {
+      for (const locationData of scheduleData) {
+        if (locationData.employees.length === 0) {
+          // Si no hay empleados, exportar solo la ubicación
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          if (!ctx) continue;
+
+          // Configurar tamaño del canvas
+          canvas.width = 800;
+          canvas.height = 600;
+
+          // Fondo blanco
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+          // Configurar texto
+          ctx.fillStyle = '#333333';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+
+          // Título principal
+          ctx.font = 'bold 48px Arial';
+          ctx.fillText('Sin horarios', canvas.width / 2, canvas.height / 2 - 50);
+
+          // Información adicional
+          ctx.font = '24px Arial';
+          ctx.fillStyle = '#666666';
+          ctx.fillText(`Ubicación: ${locationData.location.label}`, canvas.width / 2, canvas.height / 2 + 20);
+          ctx.fillText(`Período: ${currentPeriod.label}`, canvas.width / 2, canvas.height / 2 + 60);
+
+          // Convertir canvas a blob y descargar
+          await new Promise<void>((resolve) => {
+            canvas.toBlob((blob) => {
+              if (!blob) {
+                resolve();
+                return;
+              }
+
+              // Crear nombre del archivo
+              const cleanLocationName = locationData.location.label.replace(/[^a-zA-Z0-9]/g, '');
+              const cleanPeriodLabel = currentPeriod.label.replace(/[^a-zA-Z0-9]/g, '');
+              
+              const fileName = `${cleanLocationName}-SinEmpleados-${cleanPeriodLabel}.jpg`;
+
+              // Crear URL y descargar
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = fileName;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+
+              resolve();
+            }, 'image/jpeg', 0.9);
+          });
+        } else {
+          // Exportar imagen para cada empleado
+          for (const employee of locationData.employees) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            if (!ctx) continue;
+
+            // Configurar tamaño del canvas
+            canvas.width = 800;
+            canvas.height = 600;
+
+            // Fondo blanco
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Configurar texto
+            ctx.fillStyle = '#333333';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            // Título principal
+            ctx.font = 'bold 48px Arial';
+            ctx.fillText('Horario de Trabajo', canvas.width / 2, canvas.height / 2 - 50);
+
+            // Información adicional
+            ctx.font = '24px Arial';
+            ctx.fillStyle = '#666666';
+            ctx.fillText(`Ubicación: ${locationData.location.label}`, canvas.width / 2, canvas.height / 2 + 20);
+            ctx.fillText(`Empleado: ${employee.employeeName}`, canvas.width / 2, canvas.height / 2 + 60);
+            ctx.fillText(`Período: ${currentPeriod.label}`, canvas.width / 2, canvas.height / 2 + 100);
+
+            // Convertir canvas a blob y descargar
+            await new Promise<void>((resolve) => {
+              canvas.toBlob((blob) => {
+                if (!blob) {
+                  resolve();
+                  return;
+                }
+
+                // Crear nombre del archivo
+                const cleanLocationName = locationData.location.label.replace(/[^a-zA-Z0-9]/g, '');
+                const cleanEmployeeName = employee.employeeName.replace(/[^a-zA-Z0-9]/g, '');
+                const cleanPeriodLabel = currentPeriod.label.replace(/[^a-zA-Z0-9]/g, '');
+                
+                const fileName = `${cleanLocationName}-${cleanEmployeeName}-${cleanPeriodLabel}.jpg`;
+
+                // Crear URL y descargar
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                resolve();
+              }, 'image/jpeg', 0.9);
+            });
+
+            // Pequeña pausa entre descargas para no saturar el navegador
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+        }
+      }
+
+      const totalImages = scheduleData.reduce((total, location) => {
+        return total + (location.employees.length || 1);
+      }, 0);
+
+      showNotification(`📸 ${totalImages} imágenes exportadas exitosamente`, 'success');
+
+    } catch (error) {
+      console.error('Error exporting images:', error);
+      showNotification('❌ Error al exportar imágenes', 'error');
+    }
+  };
+
+  // Función para exportar imágenes de una ubicación específica
+  const exportLocationImages = async (locationData: LocationSchedule) => {
+    if (!currentPeriod) return;
+
+    try {
+      if (locationData.employees.length === 0) {
+        // Si no hay empleados, exportar solo la ubicación
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        if (!ctx) return;
+
+        // Configurar tamaño del canvas
+        canvas.width = 800;
+        canvas.height = 600;
+
+        // Fondo blanco
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Configurar texto
+        ctx.fillStyle = '#333333';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        // Título principal
+        ctx.font = 'bold 48px Arial';
+        ctx.fillText('Sin horarios', canvas.width / 2, canvas.height / 2 - 50);
+
+        // Información adicional
+        ctx.font = '24px Arial';
+        ctx.fillStyle = '#666666';
+        ctx.fillText(`Ubicación: ${locationData.location.label}`, canvas.width / 2, canvas.height / 2 + 20);
+        ctx.fillText(`Período: ${currentPeriod.label}`, canvas.width / 2, canvas.height / 2 + 60);
+
+        // Convertir canvas a blob y descargar
+        await new Promise<void>((resolve) => {
+          canvas.toBlob((blob) => {
+            if (!blob) {
+              resolve();
+              return;
+            }
+
+            // Crear nombre del archivo
+            const cleanLocationName = locationData.location.label.replace(/[^a-zA-Z0-9]/g, '');
+            const cleanPeriodLabel = currentPeriod.label.replace(/[^a-zA-Z0-9]/g, '');
+            
+            const fileName = `${cleanLocationName}-SinEmpleados-${cleanPeriodLabel}.jpg`;
+
+            // Crear URL y descargar
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            resolve();
+          }, 'image/jpeg', 0.9);
+        });
+
+        showNotification(`📸 Imagen exportada para ${locationData.location.label}`, 'success');
+      } else {
+        // Exportar imagen para cada empleado
+        for (const employee of locationData.employees) {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          if (!ctx) continue;
+
+          // Configurar tamaño del canvas
+          canvas.width = 800;
+          canvas.height = 600;
+
+          // Fondo blanco
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+          // Configurar texto
+          ctx.fillStyle = '#333333';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+
+          // Título principal
+          ctx.font = 'bold 48px Arial';
+          ctx.fillText('Horario de Trabajo', canvas.width / 2, canvas.height / 2 - 50);
+
+          // Información adicional
+          ctx.font = '24px Arial';
+          ctx.fillStyle = '#666666';
+          ctx.fillText(`Ubicación: ${locationData.location.label}`, canvas.width / 2, canvas.height / 2 + 20);
+          ctx.fillText(`Empleado: ${employee.employeeName}`, canvas.width / 2, canvas.height / 2 + 60);
+          ctx.fillText(`Período: ${currentPeriod.label}`, canvas.width / 2, canvas.height / 2 + 100);
+
+          // Convertir canvas a blob y descargar
+          await new Promise<void>((resolve) => {
+            canvas.toBlob((blob) => {
+              if (!blob) {
+                resolve();
+                return;
+              }
+
+              // Crear nombre del archivo
+              const cleanLocationName = locationData.location.label.replace(/[^a-zA-Z0-9]/g, '');
+              const cleanEmployeeName = employee.employeeName.replace(/[^a-zA-Z0-9]/g, '');
+              const cleanPeriodLabel = currentPeriod.label.replace(/[^a-zA-Z0-9]/g, '');
+              
+              const fileName = `${cleanLocationName}-${cleanEmployeeName}-${cleanPeriodLabel}.jpg`;
+
+              // Crear URL y descargar
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = fileName;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+
+              resolve();
+            }, 'image/jpeg', 0.9);
+          });
+
+          // Pequeña pausa entre descargas para no saturar el navegador
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+
+        showNotification(`📸 ${locationData.employees.length} imágenes exportadas para ${locationData.location.label}`, 'success');
+      }
+    } catch (error) {
+      console.error('Error exporting location images:', error);
+      showNotification('❌ Error al exportar imágenes', 'error');
+    }
+  };
+
+  // Función para obtener el estilo de celda basado en el turno
   const getCellStyle = (value: string) => {
     switch (value) {
       case 'D':
-        return { backgroundColor: '#FFFF00', color: '#000000' };
+        return { backgroundColor: '#FFFF00', color: '#000000' }; // Amarillo
       case 'N':
-        return { backgroundColor: '#87CEEB', color: '#000000' };
+        return { backgroundColor: '#87CEEB', color: '#000000' }; // Azul claro
       case 'L':
-        return { backgroundColor: '#FF00FF', color: '#FFFFFF' };
+        return { backgroundColor: '#FF00FF', color: '#FFFFFF' }; // Magenta
       default:
         return { 
           backgroundColor: 'var(--input-bg)', 
           color: 'var(--foreground)' 
         };
-    }
-  };
-
-  // Función para generar clave única para cada celda editable
-  const getCellKey = (locationValue: string, employeeName: string, day: number): string => {
-    return `${locationValue}-${employeeName}-${day}`;
-  };
-  // Función para actualizar horario
-  const updateSchedule = async (locationValue: string, employeeName: string, day: number, shift: string) => {
-    try {
-      await SchedulesService.updateScheduleShift(
-        locationValue, 
-        employeeName, 
-        currentPeriod!.year, 
-        currentPeriod!.month, 
-        day, 
-        shift
-      );
-      
-      // Recargar datos
-      await loadScheduleData();
-      showNotification('Horario actualizado exitosamente', 'success');
-    } catch (error) {
-      console.error('Error updating schedule:', error);
-      showNotification('Error al actualizar el horario', 'error');
-    }
-  };
-
-  // Función para manejar cambio en celda
-  const handleCellChange = (locationValue: string, employeeName: string, day: number, value: string) => {
-    const cellKey = getCellKey(locationValue, employeeName, day);
-    setEditableSchedules(prev => ({
-      ...prev,
-      [cellKey]: value
-    }));
-  };
-
-  // Función para confirmar cambio y guardar en base de datos
-  const handleCellBlur = (locationValue: string, employeeName: string, day: number) => {
-    const cellKey = getCellKey(locationValue, employeeName, day);
-    const newValue = editableSchedules[cellKey];
-    
-    if (newValue !== undefined) {
-      updateSchedule(locationValue, employeeName, day, newValue);
-      // Limpiar el estado temporal
-      setEditableSchedules(prev => {
-        const newState = { ...prev };
-        delete newState[cellKey];
-        return newState;
-      });
     }
   };
 
@@ -466,22 +703,10 @@ export default function ScheduleReportTab() {
                     </option>
                   ))}
                 </select>
-              </div>              {/* Botones de exportación y modo edición */}
+              </div>
+
+              {/* Botones de exportación */}
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setIsEditing(!isEditing)}
-                  className={`px-4 py-2 rounded-md flex items-center gap-2 transition-colors ${
-                    isEditing 
-                      ? 'bg-red-600 hover:bg-red-700 text-white' 
-                      : 'bg-blue-600 hover:bg-blue-700 text-white'
-                  }`}
-                  title={isEditing ? "Salir del modo edición" : "Activar modo edición"}
-                >
-                  <Clock className="w-4 h-4" />
-                  <span className="hidden sm:inline">
-                    {isEditing ? 'Salir Edición' : 'Editar Horarios'}
-                  </span>
-                </button>
                 <button
                   onClick={exportData}
                   disabled={scheduleData.length === 0}
@@ -490,6 +715,17 @@ export default function ScheduleReportTab() {
                 >
                   <Download className="w-4 h-4" />
                   <span className="hidden sm:inline">JSON</span>
+                </button>
+                
+                {/* Botón de exportar imagen global */}
+                <button
+                  onClick={exportAllImages}
+                  disabled={scheduleData.length === 0}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white rounded-md flex items-center gap-2 transition-colors"
+                  title="Exportar todas las imágenes"
+                >
+                  <ImageIcon className="w-4 h-4" />
+                  <span className="hidden sm:inline">Imágenes</span>
                 </button>
               </div>
             </div>
@@ -527,7 +763,8 @@ export default function ScheduleReportTab() {
                     border: '1px solid var(--input-border)',
                     color: 'var(--foreground)',
                   }}
-                >                  {availablePeriods.length === 0 ? (
+                >
+                  {availablePeriods.length === 0 ? (
                     <option value="">Cargando quincenas...</option>
                   ) : (
                     availablePeriods.map((period) => (
@@ -606,6 +843,14 @@ export default function ScheduleReportTab() {
                         {locationData.employees.length} empleado{locationData.employees.length !== 1 ? 's' : ''}
                       </span>
                     )}
+                    <button
+                      onClick={() => exportLocationImages(locationData)}
+                      className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md flex items-center gap-2 transition-colors"
+                      title={`Exportar imágenes de ${locationData.location.label}`}
+                    >
+                      <ImageIcon className="w-4 h-4" />
+                      <span className="hidden sm:inline">Imagen</span>
+                    </button>
                   </div>
                 </div>
 
@@ -640,49 +885,27 @@ export default function ScheduleReportTab() {
                           >
                             Total
                           </th>
-                        </tr>                      </thead>
-                      <tbody>{locationData.employees.map((employee, empIndex) => (
-                          <tr key={empIndex}><td
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {locationData.employees.map((employee, empIndex) => (
+                          <tr key={empIndex}>
+                            <td
                               className="border border-[var(--input-border)] p-2 font-medium"
                               style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
                             >
                               {employee.employeeName}
                             </td>
-                            {getDaysInPeriod().map(day => {
-                              const cellKey = getCellKey(locationData.location.value, employee.employeeName, day);
-                              const currentValue = editableSchedules[cellKey] !== undefined 
-                                ? editableSchedules[cellKey] 
-                                : employee.days[day] || '';
-
-                              return (
-                                <td key={day} className="border border-[var(--input-border)] p-0">
-                                  {isEditing ? (
-                                    <select
-                                      value={currentValue}
-                                      onChange={(e) => handleCellChange(locationData.location.value, employee.employeeName, day, e.target.value)}
-                                      onBlur={() => handleCellBlur(locationData.location.value, employee.employeeName, day)}
-                                      className="w-full h-full p-1 text-center font-semibold text-sm border-none focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                      style={{
-                                        ...getCellStyle(currentValue),
-                                        minHeight: '28px'
-                                      }}
-                                    >
-                                      <option value="">-</option>
-                                      <option value="D">D</option>
-                                      <option value="N">N</option>
-                                      <option value="L">L</option>
-                                    </select>
-                                  ) : (
-                                    <div 
-                                      className="w-full h-full p-1 text-center font-semibold text-sm"
-                                      style={getCellStyle(currentValue)}
-                                    >
-                                      {currentValue || ''}
-                                    </div>
-                                  )}
-                                </td>
-                              );
-                            })}
+                            {getDaysInPeriod().map(day => (
+                              <td key={day} className="border border-[var(--input-border)] p-0">
+                                <div 
+                                  className="w-full h-full p-1 text-center font-semibold text-sm"
+                                  style={getCellStyle(employee.days[day] || '')}
+                                >
+                                  {employee.days[day] || ''}
+                                </div>
+                              </td>
+                            ))}
                             <td 
                               className="border border-[var(--input-border)] p-2 text-center font-medium"
                               style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
