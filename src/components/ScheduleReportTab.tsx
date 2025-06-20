@@ -615,10 +615,8 @@ export default function ScheduleReportTab() {
                     <p>No hay horarios registrados para este período</p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full border-collapse border border-[var(--input-border)]">
-                      <thead>
-                        <tr>
+                  <div className="overflow-x-auto">                    <table className="w-full border-collapse border border-[var(--input-border)]">
+                      <thead><tr>
                           <th
                             className="border border-[var(--input-border)] p-2 font-semibold text-center"
                             style={{ background: 'var(--input-bg)', color: 'var(--foreground)', minWidth: '100px' }}
@@ -638,9 +636,8 @@ export default function ScheduleReportTab() {
                             className="border border-[var(--input-border)] p-2 font-semibold text-center"
                             style={{ background: 'var(--input-bg)', color: 'var(--foreground)', minWidth: '50px' }}
                           >
-                            Total
-                          </th>
-                        </tr>                      </thead>
+                            Total                          </th>
+                        </tr></thead>
                       <tbody>{locationData.employees.map((employee, empIndex) => (
                           <tr key={empIndex}><td
                               className="border border-[var(--input-border)] p-2 font-medium"

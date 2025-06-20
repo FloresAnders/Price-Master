@@ -56,11 +56,7 @@ export default function PayrollExporter() {
   const [currentPeriod, setCurrentPeriod] = useState<BiweeklyPeriod | null>(null);
   const [availablePeriods, setAvailablePeriods] = useState<BiweeklyPeriod[]>([]);  const [payrollData, setPayrollData] = useState<LocationPayrollData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const [editableDeductions, setEditableDeductions] = useState<EditableDeductions>({});
-
-  // Estado para gestionar horarios editables
-  const [editableShifts, setEditableShifts] = useState<{ [employeeKey: string]: { [day: number]: string } }>({});
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);  const [editableDeductions, setEditableDeductions] = useState<EditableDeductions>({});
 
   // Constantes de salario
   const REGULAR_HOURLY_RATE = 1529.62;
@@ -340,28 +336,11 @@ export default function PayrollExporter() {
             const days: { [day: number]: string } = {};
             
             schedules.forEach(schedule => {
-              if (schedule.shift && schedule.shift.trim() !== '') {
-                days[schedule.day] = schedule.shift;
+              if (schedule.shift && schedule.shift.trim() !== '') {                days[schedule.day] = schedule.shift;
               }
             });
 
-            // Aplicar los horarios editables si existen
-            const employeeKey = getEmployeeKey(location.value, employeeName);
-            const editedShifts = editableShifts[employeeKey];
-            if (editedShifts) {
-              Object.keys(editedShifts).forEach(dayStr => {
-                const day = parseInt(dayStr);
-                const shift = editedShifts[day];
-                if (shift && shift.trim() !== '') {
-                  days[day] = shift;
-                } else {
-                  // Si el shift editado está vacío, remover el día
-                  delete days[day];
-                }
-              });
-            }
-
-            if (Object.keys(days).length > 0) {              // Buscar el tipo de CCSS del empleado
+            if (Object.keys(days).length > 0) {// Buscar el tipo de CCSS del empleado
               const employee = location.employees?.find(emp => emp.name === employeeName);
               const ccssType = employee?.ccssType || 'TC'; // Por defecto TC
               
@@ -392,7 +371,7 @@ export default function PayrollExporter() {
     if (currentPeriod && locations.length > 0) {
       loadPayrollData();
     }
-  }, [currentPeriod, selectedLocation, locations, editableShifts]);  // Función para exportar planilla a Excel/CSV
+  }, [currentPeriod, selectedLocation, locations]);
   const exportPayroll = () => {
     if (!currentPeriod || payrollData.length === 0) return;
 
@@ -451,43 +430,7 @@ export default function PayrollExporter() {
     link.setAttribute("download", `planilla-${currentPeriod.year}-${currentPeriod.month}-${currentPeriod.period}.csv`);
     document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
-
-    showNotification('📊 Planilla de pago exportada exitosamente', 'success');
-  };
-
-  const getDaysInPeriod = (): number[] => {
-    if (!currentPeriod) return [];
-    
-    const days: number[] = [];
-    const start = currentPeriod.period === 'first' ? 1 : 16;
-    const end = currentPeriod.period === 'first' ? 15 : currentPeriod.end.getDate();
-    
-    for (let i = start; i <= end; i++) {
-      days.push(i);
-    }
-    
-    return days;
-  };
-  // Función para actualizar horarios de trabajo
-  const updateEmployeeShift = (locationValue: string, employeeName: string, day: number, shift: string) => {
-    const employeeKey = getEmployeeKey(locationValue, employeeName);
-    
-    setEditableShifts(prev => ({
-      ...prev,
-      [employeeKey]: {
-        ...prev[employeeKey],
-        [day]: shift
-      }
-    }));
-
-    // La planilla se recalculará automáticamente debido al useEffect que depende de editableShifts
-  };
-
-  // Función para obtener horarios editables de un empleado
-  const getEmployeeShifts = (locationValue: string, employeeName: string): { [day: number]: string } => {
-    const employeeKey = getEmployeeKey(locationValue, employeeName);
-    return editableShifts[employeeKey] || {};
+    document.body.removeChild(link);    showNotification('📊 Planilla de pago exportada exitosamente', 'success');
   };
 
   if (loading) {
@@ -871,55 +814,8 @@ export default function PayrollExporter() {
                             <td className="border border-[var(--input-border)] p-2 text-center font-bold text-lg">
                               ₡{finalNetSalary.toLocaleString('es-CR', {minimumFractionDigits: 2})}
                             </td>
-                          </tr>
-                        </tbody>
+                          </tr>                        </tbody>
                       </table>
-
-                      {/* Tabla de horarios por día */}
-                      <div className="mt-4">
-                        <h5 className="text-sm font-semibold mb-2 text-[var(--foreground)]">
-                          Horarios por día - {employee.employeeName}
-                        </h5>
-                        <div className="overflow-x-auto">
-                          <table className="w-full border-collapse border border-[var(--input-border)] text-xs">
-                            <thead>
-                              <tr>
-                                {getDaysInPeriod().map(day => (
-                                  <th key={day} className="border border-[var(--input-border)] p-1 text-center bg-[var(--input-bg)] min-w-12">
-                                    {day}
-                                  </th>                                ))}
-                              </tr></thead>
-                            <tbody><tr>
-                                {getDaysInPeriod().map(day => {
-                                  // Obtener el shift actual (editado o desde base de datos)
-                                  const employeeKey = getEmployeeKey(locationData.location.value, employee.employeeName);
-                                  const editedShifts = editableShifts[employeeKey];
-                                  const currentShift = editedShifts?.[day] !== undefined 
-                                    ? editedShifts[day] 
-                                    : employee.days[day] || '';
-
-                                  return (
-                                    <td key={day} className="border border-[var(--input-border)] p-1 text-center">
-                                      <select                                        value={currentShift}
-                                        onChange={(e) => updateEmployeeShift(locationData.location.value, employee.employeeName, day, e.target.value)}
-                                        className="w-full text-center border-none bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-1 py-0.5 text-xs"
-                                        style={{
-                                          background: 'var(--input-bg)',
-                                          color: 'var(--foreground)',
-                                        }}
-                                      >
-                                        <option value="">-</option>
-                                        <option value="D">D</option>
-                                        <option value="N">N</option>
-                                      </select>
-                                    </td>
-                                  );
-                                })}
-                              </tr>
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
                     </div>
                   );
                 })}
