@@ -1,7 +1,6 @@
 // app/layout.tsx
 import './globals.css';
 import { ThemeProvider } from '../components/ThemeProvider';
-import Header from '../components/Header';
 import Footer from '../components/Footer';
 
 export const metadata = {
@@ -18,12 +17,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning className="min-h-full bg-white dark:bg-zinc-900">
       <body className="bg-background text-foreground transition-colors duration-500 min-h-screen flex flex-col">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <Header />
-          <main className="flex-1 flex flex-col w-full justify-center items-center">
-            <div className="w-full max-w-6xl px-4">
-              {children}
-            </div>
-          </main>
+          {/* Header ahora recibe los tabs y control desde el contexto de la página */}
+          {children}
           <Footer />
         </ThemeProvider>
       </body>

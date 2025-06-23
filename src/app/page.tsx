@@ -185,6 +185,7 @@ export default function HomePage() {
 
   return (
     <>
+      {/* El header principal debe estar fuera del main y ser el único header visible */}
       <Header
         tabs={activeTab !== null ? tabs : undefined}
         activeTab={activeTab !== null ? activeTab : undefined}
