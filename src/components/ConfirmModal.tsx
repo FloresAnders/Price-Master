@@ -40,15 +40,15 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-black/70">
-      <div className="bg-[var(--card-bg)] text-[var(--foreground)] rounded-lg shadow-lg p-6 w-full max-w-sm border border-[var(--input-border)] flex flex-col items-center">
-        <div className="flex items-center gap-2 mb-2 justify-center w-full">
-          {icon}
+      <div className="bg-[var(--card-bg)] text-[var(--foreground)] rounded-lg shadow-lg p-4 sm:p-6 w-full max-w-xs sm:max-w-sm border border-[var(--input-border)] flex flex-col items-center mx-2">
+        <div className="flex flex-col sm:flex-row items-center gap-2 mb-2 justify-center w-full">
+          <span className="flex-shrink-0 flex items-center justify-center mb-1 sm:mb-0">{icon}</span>
           <h2 className="text-lg font-bold text-center w-full">{title}</h2>
         </div>
-        <div className="mb-4 text-base text-center w-full">{message}</div>
-        <div className="flex justify-center gap-2 mt-4 w-full">
+        <div className="mb-4 text-base text-center w-full break-words">{message}</div>
+        <div className="flex flex-col sm:flex-row justify-center gap-2 mt-4 w-full">
           <button
-            className="px-4 py-2 rounded bg-[var(--button-bg)] text-[var(--button-text)] hover:bg-[var(--button-hover)] disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+            className="px-4 py-2 rounded bg-[var(--button-bg)] text-[var(--button-text)] hover:bg-[var(--button-hover)] disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 justify-center w-full sm:w-auto"
             onClick={onCancel}
             disabled={loading}
             type="button"
@@ -57,7 +57,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
             {cancelText}
           </button>
           <button
-            className={`px-4 py-2 rounded text-white flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed ${actionType === 'delete' ? 'bg-red-600 hover:bg-red-700' : actionType === 'change' ? 'bg-yellow-500 hover:bg-yellow-600 text-black' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+            className={`px-4 py-2 rounded text-white flex items-center gap-2 justify-center w-full sm:w-auto disabled:opacity-60 disabled:cursor-not-allowed ${actionType === 'delete' ? 'bg-red-600 hover:bg-red-700' : actionType === 'change' ? 'bg-yellow-500 hover:bg-yellow-600 text-black' : 'bg-indigo-600 hover:bg-indigo-700'}`}
             onClick={onConfirm}
             disabled={loading}
             type="button"
