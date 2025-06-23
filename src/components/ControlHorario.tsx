@@ -187,6 +187,12 @@ export default function ControlHorario() {
       }
     }
 
+    // Si se asigna un turno N, D o L y antes no había nada, pedir confirmación
+    if (!currentValue && ['N', 'D', 'L'].includes(newValue)) {
+      const confirmed = window.confirm(`¿Está seguro de asignar el turno "${newValue}" a ${employeeName} el día ${day}?`);
+      if (!confirmed) return;
+    }
+
     // Si la celda ya tiene un valor específico (N, D, L), solicitar confirmación
     if (currentValue && ['N', 'D', 'L'].includes(currentValue) && currentValue !== newValue) {
       let confirmMessage = '';
