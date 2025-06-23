@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Clock, Calendar, ChevronLeft, ChevronRight, Save, LogOut, Trash2 } from 'lucide-react';
+import { Clock, Calendar, ChevronLeft, ChevronRight, Save, LogOut } from 'lucide-react';
 import { LocationsService } from '../services/locations';
 import { SchedulesService } from '../services/schedules';
 import { useAuth } from '../hooks/useAuth';
@@ -23,11 +23,9 @@ export default function ControlHorario() {
   const [location, setLocation] = useState('');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [scheduleData, setScheduleData] = useState<ScheduleData>({});
+  const [viewMode, setViewMode] = useState<'first' | 'second'>('first');
   const [saving, setSaving] = useState(false);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
-  // Estado para alternar entre vista mensual completa y vista tradicional (quincenas)
-  const [fullMonthView, setFullMonthView] = useState(false);
 
   // Cargar datos desde Firebase
   useEffect(() => {
@@ -102,6 +100,25 @@ export default function ControlHorario() {
     }
   };
 
+  // --- AUTO-QUINCENA: Detectar y mostrar la quincena actual SOLO al cargar el mes actual por PRIMERA VEZ en la sesión ---
+  const autoQuincenaRef = React.useRef<boolean>(false);
+  useEffect(() => {
+    const today = new Date();
+    const isCurrentMonth = today.getFullYear() === currentDate.getFullYear() && today.getMonth() === currentDate.getMonth();
+    if (isAuthenticated && !loading && isCurrentMonth && !autoQuincenaRef.current) {
+      if (today.getDate() > 15) {
+        setViewMode('second');
+      } else {
+        setViewMode('first');
+      }
+      autoQuincenaRef.current = true;
+    }
+    // Si cambias de mes, permite volver a auto-quincena si regresas al mes actual
+    if (!isCurrentMonth) {
+      autoQuincenaRef.current = false;
+    }
+  }, [isAuthenticated, loading, currentDate, viewMode]);
+
   // Verificar si necesita autenticación
   if (!isAuthenticated) {
     return (
@@ -138,12 +155,15 @@ export default function ControlHorario() {
   const monthName = currentDate.toLocaleDateString('es-CR', { month: 'long', year: 'numeric' });
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-  // 5. Vista mensual completa: mostrar todos los días del mes en una sola tabla
-  // Reemplazar getDaysToShow y daysToShow por todos los días del mes
-  const daysToShow = fullMonthView
-    ? Array.from({ length: daysInMonth }, (_, i) => i + 1)
-    : Array.from({ length: 15 }, (_, i) => i + 1);
-
+  // Determinar qué días mostrar según el modo de vista
+  const getDaysToShow = () => {
+    if (viewMode === 'first') {
+      return Array.from({ length: 15 }, (_, i) => i + 1);
+    } else {
+      return Array.from({ length: daysInMonth - 15 }, (_, i) => i + 16);
+    }
+  };
+  const daysToShow = getDaysToShow();
   // Función para actualizar un horario específico
   const updateScheduleCell = async (employeeName: string, day: string, newValue: string) => {
     const currentValue = scheduleData[employeeName]?.[day] || '';
@@ -208,9 +228,9 @@ export default function ControlHorario() {
     } finally {
       setSaving(false);
     }
-  };// Opciones de turnos disponibles (ahora con icono de basurero)
+  };// Opciones de turnos disponibles
   const shiftOptions = [
-    { value: '', label: <Trash2 className="w-4 h-4 text-red-500 mx-auto" />, color: 'var(--input-bg)', textColor: 'var(--foreground)' },
+    { value: '', label: '', color: 'var(--input-bg)', textColor: 'var(--foreground)' },
     { value: 'N', label: 'N', color: '#87CEEB', textColor: '#000' },
     { value: 'D', label: 'D', color: '#FFFF00', textColor: '#000' },
     { value: 'L', label: 'L', color: '#FF00FF', textColor: '#FFF' },
@@ -293,8 +313,6 @@ export default function ControlHorario() {
       </div>
     );
   }
-  // 2. Vista por empleado: agregar selector de empleado
-
   return (
     <div className="max-w-full mx-auto bg-[var(--card-bg)] rounded-lg shadow p-6">
       {/* Notification */}
@@ -380,6 +398,27 @@ export default function ControlHorario() {
             <ChevronRight className="w-5 h-5" />
           </button>
         </div>
+
+        <div className="flex gap-2">
+          <button
+            onClick={() => setViewMode('first')}
+            className={`px-4 py-2 rounded-md transition-colors ${viewMode === 'first'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+              }`}
+          >
+            1-15
+          </button>
+          <button
+            onClick={() => setViewMode('second')}
+            className={`px-4 py-2 rounded-md transition-colors ${viewMode === 'second'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+              }`}
+          >
+            16-{daysInMonth}
+          </button>
+        </div>
       </div>
 
       {/* Leyenda de colores */}
@@ -396,37 +435,6 @@ export default function ControlHorario() {
           <div className="w-4 h-4 rounded" style={{ backgroundColor: '#FF00FF' }}></div>
           <span className="text-sm">L - Libre</span>
         </div>
-      </div>
-
-      {/* Selector de empleado */}
-      <div className="mb-4 flex flex-wrap gap-2 items-center">
-        <span className="font-semibold">Ver solo:</span>
-        <button
-          className={`px-3 py-1 rounded ${selectedEmployee === null ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}
-          onClick={() => setSelectedEmployee(null)}
-        >
-          Todos
-        </button>
-        {names.map(name => (
-          <button
-            key={name}
-            className={`px-3 py-1 rounded ${selectedEmployee === name ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}
-            onClick={() => setSelectedEmployee(name)}
-          >
-            {name}
-          </button>
-        ))}
-      </div>
-
-      {/* Botón para alternar la vista, arriba de la tabla */}
-      <div className="mb-4 flex flex-wrap gap-2 items-center">
-        <button
-          className={`px-3 py-1 rounded font-semibold border ${fullMonthView ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-400 dark:border-gray-600'}`}
-          onClick={() => setFullMonthView(v => !v)}
-        >
-          {fullMonthView ? 'Vista por quincena' : 'Vista mensual completa'}
-        </button>
-        {/* ...selector de empleado aquí... */}
       </div>
 
       {/* Grid de horarios */}
@@ -460,7 +468,7 @@ export default function ControlHorario() {
             </tr>
           </thead>
           <tbody>
-            {(selectedEmployee ? [selectedEmployee] : names).map(name => (
+            {names.map(name => (
               <tr key={name}>
                 <td
                   className="border border-[var(--input-border)] p-2 font-medium bg-[var(--input-bg)] text-[var(--foreground)] min-w-[120px] sticky left-0 z-10"
@@ -479,7 +487,7 @@ export default function ControlHorario() {
                     >
                       {shiftOptions.map(option => (
                         <option key={option.value} value={option.value}>
-                          {typeof option.label === 'string' ? option.label : ''}
+                          {option.label}
                         </option>
                       ))}
                     </select>
