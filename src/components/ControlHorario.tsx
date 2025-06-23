@@ -319,6 +319,25 @@ export default function ControlHorario() {
       </div>
     );
   }
+
+  // Utilidad para calcular resumen de turnos
+  function getEmployeeSummary(name: string) {
+    const days = daysToShow;
+    const shifts = days.map((day: number) => scheduleData[name]?.[day.toString()] || '');
+    const workedDays = shifts.filter((s: string) => s === 'N' || s === 'D').length;
+    const hours = workedDays * 8;
+    const colones = hours * 11528;
+    const ccss = 3672.42;
+    const neto = colones - ccss;
+    return {
+      workedDays,
+      hours,
+      colones,
+      ccss,
+      neto
+    };
+  }
+
   return (
     <div className="max-w-full mx-auto bg-[var(--card-bg)] rounded-lg shadow p-6">
       {/* Notification */}
@@ -505,10 +524,25 @@ export default function ControlHorario() {
             {(selectedEmployee === 'Todos' ? names : [selectedEmployee]).map(name => (
               <tr key={name}>
                 <td
-                  className="border border-[var(--input-border)] p-2 font-medium bg-[var(--input-bg)] text-[var,--foreground)] min-w-[120px] sticky left-0 z-10"
-                  style={{ background: 'var(--input-bg)', color: 'var,--foreground)', minWidth: '120px', left: 0 }}
+                  className="border border-[var(--input-border)] p-2 font-medium bg-[var(--input-bg)] text-[var(--foreground)] min-w-[120px] sticky left-0 z-10 group cursor-pointer"
+                  style={{ background: 'var(--input-bg)', color: 'var(--foreground)', minWidth: '120px', left: 0 }}
                 >
                   {name}
+                  {/* Tooltip al pasar el mouse */}
+                  <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 bg-gray-900 text-white text-xs rounded shadow-lg px-4 py-2 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 min-w-[180px] text-left whitespace-pre-line">
+                    {(() => {
+                      const summary = getEmployeeSummary(name);
+                      return (
+                        <>
+                          <div><b>Días trabajados:</b> {summary.workedDays}</div>
+                          <div><b>Horas trabajadas:</b> {summary.hours}</div>
+                          <div><b>Total bruto:</b> ₡{summary.colones.toLocaleString('es-CR')}</div>
+                          <div><b>CCSS:</b> -₡{summary.ccss.toLocaleString('es-CR', {minimumFractionDigits:2})}</div>
+                          <div><b>Salario neto:</b> ₡{summary.neto.toLocaleString('es-CR', {minimumFractionDigits:2})}</div>
+                        </>
+                      );
+                    })()}
+                  </div>
                 </td>
                 {daysToShow.map(day => {
                   const value = scheduleData[name]?.[day.toString()] || '';
