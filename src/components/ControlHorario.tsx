@@ -434,6 +434,7 @@ export default function ControlHorario() {
             className={`flex items-center gap-2 px-4 py-2 rounded-md border transition-colors ${fullMonthView ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-400 dark:border-gray-600'}`}
             title={fullMonthView ? 'Vista quincenal' : 'Vista mensual'}
           >
+            <Calendar className="w-5 h-5" />
             {fullMonthView ? 'Quincenal' : 'Mensual'}
           </button>
           {/* Dropdown de empleados con icono de persona y select nativo estilizado */}
