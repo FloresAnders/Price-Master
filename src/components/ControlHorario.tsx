@@ -307,8 +307,22 @@ export default function ControlHorario() {
   if (loading) {
     return (
       <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-6">
-        <div className="text-center py-8">
-          <div className="text-lg">Cargando datos...</div>
+        <div className="flex flex-col items-center justify-center py-12">
+          <div className="relative flex items-center justify-center mb-4">
+            <svg className="animate-spin-slow w-12 h-12 text-[var(--foreground)]" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="24" cy="24" r="22" stroke="currentColor" strokeWidth="4" opacity="0.2" />
+              <line x1="24" y1="24" x2="24" y2="10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+              <line x1="24" y1="24" x2="36" y2="24" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+            </svg>
+          </div>
+          <div className="text-lg flex items-center">
+            Cargando
+            <span className="inline-block w-6 text-left">
+              <span className="loading-dot">.</span>
+              <span className="loading-dot">.</span>
+              <span className="loading-dot">.</span>
+            </span>
+          </div>
         </div>
       </div>
     );
