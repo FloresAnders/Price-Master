@@ -26,6 +26,8 @@ export default function ControlHorario() {
   const [viewMode, setViewMode] = useState<'first' | 'second'>('first');
   const [saving, setSaving] = useState(false);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [selectedEmployee, setSelectedEmployee] = useState<string>('Todos');
+  const [fullMonthView, setFullMonthView] = useState(false); // Vista mensual completa opcional
 
   // Cargar datos desde Firebase
   useEffect(() => {
@@ -155,8 +157,11 @@ export default function ControlHorario() {
   const monthName = currentDate.toLocaleDateString('es-CR', { month: 'long', year: 'numeric' });
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-  // Determinar qué días mostrar según el modo de vista
+  // Determinar qué días mostrar según el modo de vista o vista mensual completa
   const getDaysToShow = () => {
+    if (fullMonthView) {
+      return Array.from({ length: daysInMonth }, (_, i) => i + 1);
+    }
     if (viewMode === 'first') {
       return Array.from({ length: 15 }, (_, i) => i + 1);
     } else {
@@ -398,8 +403,7 @@ export default function ControlHorario() {
             <ChevronRight className="w-5 h-5" />
           </button>
         </div>
-
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
           <button
             onClick={() => setViewMode('first')}
             className={`px-4 py-2 rounded-md transition-colors ${viewMode === 'first'
@@ -418,6 +422,33 @@ export default function ControlHorario() {
           >
             16-{daysInMonth}
           </button>
+          {/* Botón de vista mensual completa (opcional, no afecta lógica) */}
+          <button
+            onClick={() => setFullMonthView(v => !v)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-md border transition-colors ${fullMonthView ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-400 dark:border-gray-600'}`}
+            title="Vista mensual completa"
+          >
+            <Calendar className="w-5 h-5" />
+            {fullMonthView ? 'Vista por quincena' : 'Vista mensual completa'}
+          </button>
+          {/* Dropdown de empleados */}
+          <div className="relative ml-2">
+            <button className="flex items-center gap-2 px-3 py-2 rounded-md bg-gray-800 text-white focus:outline-none">
+              <Calendar className="w-5 h-5" />
+              <span>{selectedEmployee === 'Todos' ? 'Todos' : selectedEmployee}</span>
+              <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+            </button>
+            <select
+              className="absolute left-0 top-0 w-full h-full opacity-0 cursor-pointer"
+              value={selectedEmployee}
+              onChange={e => setSelectedEmployee(e.target.value)}
+            >
+              <option value="Todos">Todos</option>
+              {names.map(name => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -468,7 +499,7 @@ export default function ControlHorario() {
             </tr>
           </thead>
           <tbody>
-            {names.map(name => (
+            {(selectedEmployee === 'Todos' ? names : [selectedEmployee]).map(name => (
               <tr key={name}>
                 <td
                   className="border border-[var(--input-border)] p-2 font-medium bg-[var(--input-bg)] text-[var(--foreground)] min-w-[120px] sticky left-0 z-10"
