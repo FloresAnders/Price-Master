@@ -100,16 +100,21 @@ export default function ControlHorario() {
     }
   };
 
-  // --- AUTO-QUINCENA: Detectar y mostrar la quincena actual según el día visible ---
+  // --- AUTO-QUINCENA: Detectar y mostrar la quincena actual SOLO al cambiar de mes/año ---
+  const prevDateRef = React.useRef<string>("");
   useEffect(() => {
     const today = new Date();
     const isCurrentMonth = today.getFullYear() === currentDate.getFullYear() && today.getMonth() === currentDate.getMonth();
-    if (isAuthenticated && !loading && isCurrentMonth) {
-      if (today.getDate() > 15 && viewMode !== 'second') {
+    const dateKey = `${currentDate.getFullYear()}-${currentDate.getMonth()}`;
+    if (isAuthenticated && !loading && isCurrentMonth && prevDateRef.current !== dateKey) {
+      if (today.getDate() > 15) {
         setViewMode('second');
-      } else if (today.getDate() <= 15 && viewMode !== 'first') {
+      } else {
         setViewMode('first');
       }
+      prevDateRef.current = dateKey;
+    } else if (prevDateRef.current !== dateKey) {
+      prevDateRef.current = dateKey;
     }
   }, [isAuthenticated, loading, currentDate, viewMode]);
 
