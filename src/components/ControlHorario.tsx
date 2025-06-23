@@ -100,6 +100,19 @@ export default function ControlHorario() {
     }
   };
 
+  // --- AUTO-QUINCENA: Detectar y mostrar la quincena actual según el día visible ---
+  useEffect(() => {
+    const today = new Date();
+    const isCurrentMonth = today.getFullYear() === currentDate.getFullYear() && today.getMonth() === currentDate.getMonth();
+    if (isAuthenticated && !loading && isCurrentMonth) {
+      if (today.getDate() > 15 && viewMode !== 'second') {
+        setViewMode('second');
+      } else if (today.getDate() <= 15 && viewMode !== 'first') {
+        setViewMode('first');
+      }
+    }
+  }, [isAuthenticated, loading, currentDate, viewMode]);
+
   // Verificar si necesita autenticación
   if (!isAuthenticated) {
     return (
