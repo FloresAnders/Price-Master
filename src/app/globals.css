@@ -5,68 +5,68 @@
 @layer base {
   /* Variables modo claro */
   :root {
-    --background: #18130a;
-    --foreground: #f7e9c2;
+    --background: #ffffff;
+    --foreground: #171717;
     --font-base: Arial, Helvetica, sans-serif;
 
     /* Componentes generales */
-    --card-bg: #23201a;
-    --input-bg: #2d2617;
-    --input-border: #bfa76a;
-    --button-bg: #bfa76a;
-    --button-text: #18130a;
-    --button-hover: #e6c97a;
+    --card-bg: #f9f9f9;
+    --input-bg: #f3f4f6;
+    --input-border: #d1d5db;
+    --button-bg: #f3f4f6;
+    --button-text: #1f2937;
+    --button-hover: #e5e7eb;
 
     /* Navegación de pestañas */
-    --tab-text: #bfa76a;
-    --tab-text-active: #ffd700;
+    --tab-text: #6b7280;              /* gray-500 */
+    --tab-text-active: #4338ca;       /* indigo-600 */
     --tab-border: transparent;
-    --tab-border-active: #ffd700;
-    --tab-hover-text: #e6c97a;
-    --badge-bg: #fff8e1;
-    --badge-text: #bfa76a;
+    --tab-border-active: #4338ca;     /* indigo-600 */
+    --tab-hover-text: #4b5563;        /* gray-700 */    /* Badge */
+    --badge-bg: #e0e7ff;              /* indigo-100 */
+    --badge-text: #4338ca;            /* indigo-600 */
 
     /* Shift colors - Light theme */
-    --shift-nocturno-bg: #3a2e13;
-    --shift-nocturno-text: #ffd700;
-    --shift-diurno-bg: #fff8e1;
-    --shift-diurno-text: #bfa76a;
-    --shift-libre-bg: #bfa76a;
-    --shift-libre-text: #18130a;
+    --shift-nocturno-bg: #bfdbfe;      /* blue-200 */
+    --shift-nocturno-text: #1e40af;    /* blue-800 */
+    --shift-diurno-bg: #fef3c7;        /* yellow-100 */
+    --shift-diurno-text: #92400e;      /* yellow-800 */
+    --shift-libre-bg: #fce7f3;         /* pink-100 */
+    --shift-libre-text: #be185d;       /* pink-700 */
   }
 
   /* Variables modo oscuro */
   .dark :root,
   :root.dark {
-    --background: #18130a;
-    --foreground: #f7e9c2;
+    --background: #171717;
+    --foreground: #ffffff;
     --font-base: Arial, Helvetica, sans-serif;
 
     /* Componentes generales */
-    --card-bg-900: #18130a;
-    --card-bg: #23201a;
-    --input-bg: #2d2617;
-    --input-border: #bfa76a;
-    --button-bg: #bfa76a;
-    --button-text: #18130a;
-    --button-hover: #e6c97a;
+    --card-bg-900: #121820;               /* gray-900 */
+    --card-bg: #1f2937;               /* gray-800 */
+    --input-bg: #374151;              /* gray-700 */
+    --input-border: #4b5563;          /* gray-600 */
+    --button-bg: #374151;             /* gray-700 */
+    --button-text: #e5e7eb;           /* gray-200 */
+    --button-hover: #4b5563;          /* gray-600 */
 
     /* Navegación de pestañas */
-    --tab-text: #bfa76a;
-    --tab-text-active: #ffd700;
+    --tab-text: #9ca3af;              /* gray-400 */
+    --tab-text-active: #a5b4fc;       /* indigo-300 */
     --tab-border: transparent;
-    --tab-border-active: #ffd700;
-    --tab-hover-text: #e6c97a;
-    --badge-bg: #23201a;
-    --badge-text: #ffd700;
+    --tab-border-active: #a5b4fc;     /* indigo-300 */
+    --tab-hover-text: #d1d5db;        /* gray-300 */    /* Badge */
+    --badge-bg: #4338ca;              /* indigo-700 */
+    --badge-text: #000000;            /* indigo-100 */
 
     /* Shift colors - Dark theme */
-    --shift-nocturno-bg: #3a2e13;
-    --shift-nocturno-text: #ffd700;
-    --shift-diurno-bg: #bfa76a;
-    --shift-diurno-text: #fff8e1;
-    --shift-libre-bg: #ffd700;
-    --shift-libre-text: #18130a;
+    --shift-nocturno-bg: #1e3a8a;      /* blue-800 */
+    --shift-nocturno-text: #bfdbfe;    /* blue-200 */
+    --shift-diurno-bg: #92400e;        /* yellow-800 */
+    --shift-diurno-text: #fef3c7;      /* yellow-100 */
+    --shift-libre-bg: #be185d;         /* pink-700 */
+    --shift-libre-text: #fce7f3;       /* pink-100 */
   }
 
   /* Estilos globales */
