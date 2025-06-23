@@ -429,15 +429,23 @@ export default function ControlHorario() {
               >
                 Nombre
               </th>
-              {daysToShow.map(day => (
-                <th
-                  key={day}
-                  className="border border-[var(--input-border)] p-2 font-semibold text-center"
-                  style={{ background: 'var(--input-bg)', color: 'var(--foreground)', minWidth: '50px' }}
-                >
-                  {day}
-                </th>
-              ))}
+              {daysToShow.map(day => {
+                // Detectar si es hoy
+                const today = new Date();
+                const isToday =
+                  today.getFullYear() === currentDate.getFullYear() &&
+                  today.getMonth() === currentDate.getMonth() &&
+                  today.getDate() === day;
+                return (
+                  <th
+                    key={day}
+                    className={`border border-[var(--input-border)] p-2 font-semibold text-center transition-colors ${isToday ? 'ring-2 ring-green-400 ring-offset-2 ring-offset-[var(--card-bg)]' : ''}`}
+                    style={{ background: 'var(--input-bg)', color: 'var(--foreground)', minWidth: '50px', borderColor: isToday ? '#4ade80' : undefined }}
+                  >
+                    {day}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
