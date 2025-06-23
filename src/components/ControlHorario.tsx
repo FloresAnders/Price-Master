@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Clock, Calendar, ChevronLeft, ChevronRight, Save, LogOut, User as UserIcon } from 'lucide-react';
+import { Clock, Calendar, ChevronLeft, ChevronRight, Save, LogOut, User as UserIcon, Lock, Unlock } from 'lucide-react';
 import { LocationsService } from '../services/locations';
 import { SchedulesService } from '../services/schedules';
 import { useAuth } from '../hooks/useAuth';
@@ -37,6 +37,10 @@ export default function ControlHorario() {
     actionType?: 'assign' | 'delete' | 'change';
   }>({ open: false, message: '', onConfirm: null, actionType: 'assign' });
   const [modalLoading, setModalLoading] = useState(false);
+  // Estado para habilitar edición de días pasados
+  const [editPastDaysEnabled, setEditPastDaysEnabled] = useState(false);
+  // Modal de confirmación para desbloquear días pasados
+  const [unlockPastDaysModal, setUnlockPastDaysModal] = useState(false);
 
   // Cargar datos desde Firebase
   useEffect(() => {
@@ -165,6 +169,7 @@ export default function ControlHorario() {
   const month = currentDate.getMonth();
   const monthName = currentDate.toLocaleDateString('es-CR', { month: 'long', year: 'numeric' });
   const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const today = new Date();
 
   // Determinar qué días mostrar según el modo de vista o vista mensual completa
   const getDaysToShow = () => {
@@ -462,7 +467,20 @@ export default function ControlHorario() {
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
-            <h4 className="text-lg font-semibold capitalize">{monthName}</h4>
+            <h4 className="text-lg font-semibold capitalize flex items-center gap-2">
+              {monthName}
+              {/* Candado para días pasados solo en el mes actual */}
+              {today.getFullYear() === year && today.getMonth() === month && (
+                <button
+                  onClick={() => setUnlockPastDaysModal(true)}
+                  className="ml-2 p-1 rounded-full border border-gray-400 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                  title={editPastDaysEnabled ? 'Bloquear edición de días pasados' : 'Desbloquear días pasados'}
+                  type="button"
+                >
+                  {editPastDaysEnabled ? <Unlock className="w-5 h-5 text-green-600" /> : <Lock className="w-5 h-5 text-gray-500" />}
+                </button>
+              )}
+            </h4>
             <button
               onClick={() => changeMonth('next')}
               className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
@@ -593,20 +611,32 @@ export default function ControlHorario() {
                   </td>
                   {daysToShow.map(day => {
                     const value = scheduleData[name]?.[day.toString()] || '';
-                    return (<td key={day} className="border border-[var(--input-border)] p-0">
-                      <select
-                        value={value}
-                        onChange={(e) => handleCellChange(name, day, e.target.value)}
-                        className="w-full h-full p-2 border-none outline-none text-center font-semibold cursor-pointer"
-                        style={getCellStyle(value)}
-                      >
-                        {shiftOptions.map(option => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
+                    // Deshabilitar si el día ya pasó y no está habilitado el modo edición
+                    let disabled = false;
+                    if (
+                      today.getFullYear() === year &&
+                      today.getMonth() === month &&
+                      day < today.getDate() &&
+                      !editPastDaysEnabled
+                    ) {
+                      disabled = true;
+                    }
+                    return (
+                      <td key={day} className="border border-[var(--input-border)] p-0">
+                        <select
+                          value={value}
+                          onChange={(e) => handleCellChange(name, day, e.target.value)}
+                          className={`w-full h-full p-2 border-none outline-none text-center font-semibold cursor-pointer ${disabled ? 'bg-gray-200 text-gray-400 dark:bg-gray-800 dark:text-gray-500' : ''}`}
+                          style={getCellStyle(value)}
+                          disabled={disabled}
+                        >
+                          {shiftOptions.map(option => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
                     );
                   })}
                 </tr>
@@ -631,6 +661,19 @@ export default function ControlHorario() {
           if (confirmModal.onConfirm) await confirmModal.onConfirm();
         }}
         onCancel={() => setConfirmModal({ open: false, message: '', onConfirm: null, actionType: 'assign' })}
+      />
+      {/* Modal para desbloquear días pasados */}
+      <ConfirmModal
+        open={unlockPastDaysModal}
+        message={editPastDaysEnabled ? '¿Quieres volver a bloquear la edición de días pasados?' : '¿Quieres desbloquear la edición de días pasados?'
+        }
+        loading={false}
+        actionType={editPastDaysEnabled ? 'delete' : 'assign'}
+        onConfirm={() => {
+          setEditPastDaysEnabled(e => !e);
+          setUnlockPastDaysModal(false);
+        }}
+        onCancel={() => setUnlockPastDaysModal(false)}
       />
     </>
   );
