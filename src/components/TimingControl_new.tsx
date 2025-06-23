@@ -38,14 +38,14 @@ export default function TimingControl() {
                     LocationsService.getAllLocations(),
                     SorteosService.getAllSorteos()
                 ]);
-                
+
                 setLocations(locationsData);
                 setSorteos(sorteosData);
             } catch (error) {
                 console.error('Error loading data from Firebase:', error);
             }
         };
-        
+
         loadData();
     }, []);    // Efecto para manejar la ubicación del usuario autenticado
     useEffect(() => {
@@ -132,7 +132,7 @@ export default function TimingControl() {
                         Iniciar Sesión
                     </button>
                 </div>
-                
+
                 <LoginModal
                     isOpen={showLoginModal}
                     onLoginSuccess={handleLoginSuccess}
@@ -159,11 +159,13 @@ export default function TimingControl() {
             if (field === 'amount') {
                 return { ...row, amount: value, time: value ? getNowTime() : '' };
             }
-            return { ...row, [field]: value };        }));
+            return { ...row, [field]: value };
+        }));
     };
 
     const addRow = () => {
-        setRows(prev => ([...prev, { name: '', sorteo: '', amount: '', time: '', cliente: '' }]));    };
+        setRows(prev => ([...prev, { name: '', sorteo: '', amount: '', time: '', cliente: '' }]));
+    };
 
     return (
         <div className="rounded-lg shadow-md p-6" style={{ background: 'var(--card-bg)', color: 'var(--foreground)' }}>
@@ -211,7 +213,7 @@ export default function TimingControl() {
                         </p>
                     </div>
                 </div>
-                
+
                 <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2">
                         <label className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>Ubicación:</label>
@@ -231,7 +233,7 @@ export default function TimingControl() {
                             ))}
                         </select>
                     </div>
-                    
+
                     {/* Botón de logout */}
                     <button
                         onClick={logout}
@@ -243,7 +245,7 @@ export default function TimingControl() {
                     </button>
                 </div>
             </div>
-            
+
             {/* Controles de total y resumen - solo cuando hay ubicación */}
             {location && (
                 <div className="mb-4 flex flex-col sm:flex-row gap-2 items-center justify-between">

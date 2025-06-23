@@ -41,11 +41,11 @@ export default function ScheduleReportTab() {
     const year = now.getFullYear();
     const month = now.getMonth();
     const day = now.getDate();
-    
+
     const period: 'first' | 'second' = day <= 15 ? 'first' : 'second';
     const start = new Date(year, month, period === 'first' ? 1 : 16);
-    const end = period === 'first' ? 
-      new Date(year, month, 15) : 
+    const end = period === 'first' ?
+      new Date(year, month, 15) :
       new Date(year, month + 1, 0); // último día del mes
 
     const monthNames = [
@@ -68,7 +68,7 @@ export default function ScheduleReportTab() {
     try {
       const allSchedules = await SchedulesService.getAllSchedules();
       const periods = new Set<string>();
-      
+
       allSchedules.forEach(schedule => {
         if (schedule.shift && schedule.shift.trim() !== '') {
           const period = schedule.day <= 15 ? 'first' : 'second';
@@ -78,16 +78,16 @@ export default function ScheduleReportTab() {
       });
 
       const periodsArray: BiweeklyPeriod[] = [];
-      
+
       periods.forEach(key => {
         const [year, month, period] = key.split('-');
         const yearNum = parseInt(year);
         const monthNum = parseInt(month);
         const isFirst = period === 'first';
-        
+
         const start = new Date(yearNum, monthNum - 1, isFirst ? 1 : 16);
-        const end = isFirst ? 
-          new Date(yearNum, monthNum - 1, 15) : 
+        const end = isFirst ?
+          new Date(yearNum, monthNum - 1, 15) :
           new Date(yearNum, monthNum, 0);
 
         const monthNames = [
@@ -132,22 +132,22 @@ export default function ScheduleReportTab() {
       setLoading(true);
       const current = getCurrentBiweeklyPeriod();
       setCurrentPeriod(current);
-      
+
       const available = await getAvailablePeriods();
-      
+
       // Agregar período actual al inicio si no está en la lista
-      const currentExists = available.some(p => 
-        p.year === current.year && 
-        p.month === current.month && 
+      const currentExists = available.some(p =>
+        p.year === current.year &&
+        p.month === current.month &&
         p.period === current.period
       );
-      
+
       if (!currentExists) {
         setAvailablePeriods([current, ...available]);
       } else {
         setAvailablePeriods(available);
       }
-      
+
       setLoading(false);
     };
     initializePeriods();
@@ -162,18 +162,18 @@ export default function ScheduleReportTab() {
 
   const loadScheduleData = async () => {
     if (!currentPeriod) return;
-    
+
     setLoading(true);
     try {
       const allSchedules = await SchedulesService.getAllSchedules();
-      
+
       // Filtrar por período actual
       const periodSchedules = allSchedules.filter(schedule => {
-        const matchesPeriod = schedule.year === currentPeriod.year && 
-                            schedule.month === currentPeriod.month;
-        
+        const matchesPeriod = schedule.year === currentPeriod.year &&
+          schedule.month === currentPeriod.month;
+
         if (!matchesPeriod) return false;
-        
+
         if (currentPeriod.period === 'first') {
           return schedule.day >= 1 && schedule.day <= 15;
         } else {
@@ -183,7 +183,7 @@ export default function ScheduleReportTab() {
 
       // Agrupar por ubicación
       const locationGroups = new Map<string, ScheduleEntry[]>();
-      
+
       periodSchedules.forEach(schedule => {
         if (!locationGroups.has(schedule.locationValue)) {
           locationGroups.set(schedule.locationValue, []);
@@ -194,13 +194,13 @@ export default function ScheduleReportTab() {
       const scheduleDataArray: LocationSchedule[] = [];
 
       // Filtrar ubicaciones según selección
-      const locationsToProcess = selectedLocation === 'all' ? 
-        locations : 
+      const locationsToProcess = selectedLocation === 'all' ?
+        locations :
         locations.filter(loc => loc.value === selectedLocation);
 
       locationsToProcess.forEach(location => {
         const locationSchedules = locationGroups.get(location.value) || [];
-        
+
         // Agrupar por empleado
         const employeeGroups = new Map<string, ScheduleEntry[]>();
         locationSchedules.forEach(schedule => {
@@ -216,7 +216,7 @@ export default function ScheduleReportTab() {
         employeeGroups.forEach((schedules, employeeName) => {
           const days: { [day: number]: string } = {};
           let employeeWorkDays = 0;
-          
+
           schedules.forEach(schedule => {
             if (schedule.shift && schedule.shift.trim() !== '') {
               days[schedule.day] = schedule.shift;
@@ -248,9 +248,9 @@ export default function ScheduleReportTab() {
   };
 
   const navigatePeriod = (direction: 'prev' | 'next') => {
-    const currentIndex = availablePeriods.findIndex(p => 
-      p.year === currentPeriod?.year && 
-      p.month === currentPeriod?.month && 
+    const currentIndex = availablePeriods.findIndex(p =>
+      p.year === currentPeriod?.year &&
+      p.month === currentPeriod?.month &&
       p.period === currentPeriod?.period
     );
 
@@ -263,15 +263,15 @@ export default function ScheduleReportTab() {
 
   const getDaysInPeriod = (): number[] => {
     if (!currentPeriod) return [];
-    
+
     const days: number[] = [];
     const start = currentPeriod.period === 'first' ? 1 : 16;
     const end = currentPeriod.period === 'first' ? 15 : currentPeriod.end.getDate();
-    
+
     for (let i = start; i <= end; i++) {
       days.push(i);
     }
-    
+
     return days;
   };
 
@@ -323,7 +323,7 @@ export default function ScheduleReportTab() {
             Control de horarios por ubicación y quincena
           </p>
         </div>
-        
+
         <div className="flex gap-2">
           <button
             onClick={exportData}
@@ -348,9 +348,9 @@ export default function ScheduleReportTab() {
           className="px-3 py-2 border border-[var(--input-border)] rounded-md bg-[var(--input-bg)] text-[var(--text-color)]"
         >
           <option value="all">Todas las ubicaciones</option>
-          {locations.map(location => (            <option key={location.value} value={location.value}>
-              {location.label}
-            </option>
+          {locations.map(location => (<option key={location.value} value={location.value}>
+            {location.label}
+          </option>
           ))}
         </select>
       </div>
@@ -361,29 +361,29 @@ export default function ScheduleReportTab() {
           <Calendar className="w-5 h-5 text-[var(--tab-text)]" />
           <span className="text-sm text-[var(--tab-text)]">Período:</span>
         </div>
-        
+
         <div className="flex items-center gap-2">
           <button
             onClick={() => navigatePeriod('prev')}
-            disabled={!currentPeriod || availablePeriods.findIndex(p => 
-              p.year === currentPeriod.year && 
-              p.month === currentPeriod.month && 
+            disabled={!currentPeriod || availablePeriods.findIndex(p =>
+              p.year === currentPeriod.year &&
+              p.month === currentPeriod.month &&
               p.period === currentPeriod.period
             ) >= availablePeriods.length - 1}
             className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
-          
+
           <span className="text-lg font-medium min-w-[200px] text-center">
             {currentPeriod?.label || 'Cargando...'}
           </span>
-          
+
           <button
             onClick={() => navigatePeriod('next')}
-            disabled={!currentPeriod || availablePeriods.findIndex(p => 
-              p.year === currentPeriod.year && 
-              p.month === currentPeriod.month && 
+            disabled={!currentPeriod || availablePeriods.findIndex(p =>
+              p.year === currentPeriod.year &&
+              p.month === currentPeriod.month &&
               p.period === currentPeriod.period
             ) <= 0}
             className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
@@ -437,12 +437,11 @@ export default function ScheduleReportTab() {
                         <td className="p-2 font-medium">{employee.employeeName}</td>
                         {getDaysInPeriod().map(day => (
                           <td key={day} className="text-center p-2">
-                            <span className={`w-6 h-6 rounded text-xs font-medium flex items-center justify-center ${
-                              employee.days[day] === 'D' ? 'bg-yellow-200 text-yellow-800' :
-                              employee.days[day] === 'N' ? 'bg-blue-200 text-blue-800' :
-                              employee.days[day] === 'L' ? 'bg-gray-200 text-gray-800' :
-                              'bg-transparent'
-                            }`}>
+                            <span className={`w-6 h-6 rounded text-xs font-medium flex items-center justify-center ${employee.days[day] === 'D' ? 'bg-yellow-200 text-yellow-800' :
+                                employee.days[day] === 'N' ? 'bg-blue-200 text-blue-800' :
+                                  employee.days[day] === 'L' ? 'bg-gray-200 text-gray-800' :
+                                    'bg-transparent'
+                              }`}>
                               {employee.days[day] || ''}
                             </span>
                           </td>

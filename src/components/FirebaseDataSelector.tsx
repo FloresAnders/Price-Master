@@ -7,9 +7,9 @@ interface FirebaseDataSelectorProps {
   onSorteoSelect?: (sorteo: Sorteo) => void;
 }
 
-export default function FirebaseDataSelector({ 
-  onLocationSelect, 
-  onSorteoSelect 
+export default function FirebaseDataSelector({
+  onLocationSelect,
+  onSorteoSelect
 }: FirebaseDataSelectorProps) {
   const { locations, loading: locationsLoading, error: locationsError } = useLocations();
   const { sorteos, loading: sorteosLoading, error: sorteosError } = useSorteos();

@@ -86,7 +86,7 @@ export class UsersService {
   static async searchUsers(searchTerm: string): Promise<User[]> {
     const users = await this.getAllUsers();
     const searchTermLower = searchTerm.toLowerCase();
-    
+
     return users.filter(user =>
       user.name.toLowerCase().includes(searchTermLower) ||
       (user.location && user.location.toLowerCase().includes(searchTermLower))

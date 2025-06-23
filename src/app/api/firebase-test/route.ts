@@ -37,7 +37,7 @@ export async function POST() {
   try {
     // Run migration
     await MigrationService.runAllMigrations();
-    
+
     // Get updated data
     const [locations, sorteos, users] = await Promise.all([
       LocationsService.getAllLocations(),
@@ -67,7 +67,7 @@ export async function DELETE() {
   try {
     // Clear all data
     await MigrationService.clearAllData();
-    
+
     return NextResponse.json({
       success: true,
       message: 'All data cleared successfully'

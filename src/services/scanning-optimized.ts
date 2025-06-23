@@ -1,13 +1,13 @@
-import { 
-  collection, 
-  doc, 
-  addDoc, 
-  getDocs, 
+import {
+  collection,
+  doc,
+  addDoc,
+  getDocs,
   deleteDoc,
   updateDoc,
-  query, 
-  orderBy, 
-  limit,  where,
+  query,
+  orderBy,
+  limit, where,
   onSnapshot
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
@@ -28,7 +28,7 @@ export class ScanningService {
         timestamp: new Date(),
         processed: false
       };
-      
+
       const docRef = await addDoc(collection(db, this.COLLECTION_NAME), scanWithTimestamp);
       return docRef.id;
     } catch (error) {
@@ -47,15 +47,15 @@ export class ScanningService {
         collection(db, this.COLLECTION_NAME),
         where('sessionId', '==', sessionId)
       );
-      
+
       const querySnapshot = await getDocs(q);
-      
+
       const scans = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
         timestamp: doc.data().timestamp?.toDate() || new Date()
       } as ScanResult));
-      
+
       // Client-side sorting by timestamp (newest first)
       return scans.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
     } catch (error) {
@@ -75,7 +75,7 @@ export class ScanningService {
         limit(100)
       );
       const querySnapshot = await getDocs(q);
-      
+
       return querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
@@ -94,7 +94,7 @@ export class ScanningService {
     try {
       // Simplified query to reduce index requirements
       let q;
-      
+
       if (sessionId) {
         // For session-specific scans, use sessionId as primary filter
         q = query(
@@ -114,7 +114,7 @@ export class ScanningService {
       }
 
       const querySnapshot = await getDocs(q);
-      
+
       let scans = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
@@ -125,7 +125,7 @@ export class ScanningService {
       if (sessionId) {
         scans = scans.filter(scan => !scan.processed);
       }
-      
+
       return scans;
     } catch (error) {
       console.error('Error getting unprocessed scans:', error);
@@ -139,7 +139,7 @@ export class ScanningService {
   static async markAsProcessed(scanId: string): Promise<void> {
     try {
       const scanRef = doc(db, this.COLLECTION_NAME, scanId);
-      await updateDoc(scanRef, { 
+      await updateDoc(scanRef, {
         processed: true,
         processedAt: new Date()
       });
@@ -176,19 +176,19 @@ export class ScanningService {
         where('processed', '==', true),
         limit(100) // Process in batches
       );
-      
+
       const querySnapshot = await getDocs(q);
-      
+
       // Client-side filtering for date
       const oldScans = querySnapshot.docs.filter(doc => {
         const timestamp = doc.data().timestamp?.toDate() || new Date();
         return timestamp < cutoffDate;
       });
-      
-      const deletePromises = oldScans.map(doc => 
+
+      const deletePromises = oldScans.map(doc =>
         deleteDoc(doc.ref)
       );
-      
+
       await Promise.all(deletePromises);
       return oldScans.length;
     } catch (error) {
@@ -206,7 +206,7 @@ export class ScanningService {
   ): () => void {
     try {
       let q;
-      
+
       if (sessionId) {
         // Session-specific subscription - AVOID orderBy to prevent index requirement
         q = query(
@@ -231,14 +231,14 @@ export class ScanningService {
             ...doc.data(),
             timestamp: doc.data().timestamp?.toDate() || new Date()
           } as ScanResult));
-          
+
           // Client-side filtering and sorting when sessionId is provided
           if (sessionId) {
             scans = scans
               .filter(scan => !scan.processed) // Filter unprocessed
               .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()); // Sort by timestamp desc
           }
-          
+
           callback(scans);
         },
         (error) => {
@@ -261,7 +261,7 @@ export class ScanningService {
   static async getRecentScans(sessionId?: string, limit_count: number = 20): Promise<ScanResult[]> {
     try {
       let q;
-      
+
       if (sessionId) {
         // Session-specific query - AVOID orderBy to prevent index requirement
         q = query(
@@ -277,9 +277,9 @@ export class ScanningService {
           limit(limit_count * 2)
         );
       }
-      
+
       const querySnapshot = await getDocs(q);
-      
+
       let scans = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
@@ -294,7 +294,7 @@ export class ScanningService {
       } else {
         scans = scans.slice(0, limit_count);
       }
-      
+
       return scans;
     } catch (error) {
       console.error('Error getting recent scans:', error);

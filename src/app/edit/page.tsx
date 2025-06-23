@@ -1,5 +1,5 @@
 // app/edit/page.tsx
-'use client'
+'use client';
 
 import React from 'react'
 import DataEditor from '@/edit/DataEditor'

@@ -14,7 +14,6 @@ export interface ScheduleEntry {
 
 export class SchedulesService {
   private static readonly COLLECTION_NAME = 'schedules';
-
   /**
    * Get all schedule entries
    */

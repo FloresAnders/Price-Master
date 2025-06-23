@@ -1,4 +1,4 @@
-// app/layout.tsx
+// app/layout.tsx 
 import './globals.css';
 import { ThemeProvider } from '../components/ThemeProvider';
 import Header from '../components/Header';

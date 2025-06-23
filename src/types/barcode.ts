@@ -14,7 +14,6 @@ export interface ScanHistoryEntry {
   code: string;
   name?: string;
 }
-
 export interface ScanHistoryProps {
   history: ScanHistoryEntry[];
   onCopy?: (code: string) => void;

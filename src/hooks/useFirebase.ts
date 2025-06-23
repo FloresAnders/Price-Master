@@ -226,8 +226,7 @@ export function useUsers() {
       setError(err instanceof Error ? err.message : 'Error searching users');
       throw err;
     }
-  }, []);
-  const getUsersByRole = useCallback(async (role: 'admin' | 'user') => {
+  }, []); const getUsersByRole = useCallback(async (role: 'admin' | 'user' | 'superadmin') => {
     try {
       setError(null);
       return await UsersService.findUsersByRole(role);

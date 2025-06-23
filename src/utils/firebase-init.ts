@@ -18,16 +18,16 @@ export async function initializeFirebase(): Promise<{
 }> {
   try {
     console.log('Initializing Firebase collections...');
-    
+
     // Check if collections need initialization
     const stats = await FirebaseUtils.getCollectionStats();
-      if (stats.locations === 0 || stats.sorteos === 0) {
+    if (stats.locations === 0 || stats.sorteos === 0) {
       console.log('Collections are empty, running migration...');
       await MigrationService.runAllMigrations();
-      
+
       // Get updated stats
       const updatedStats = await FirebaseUtils.getCollectionStats();
-      
+
       return {
         success: true,
         message: `Firebase initialized successfully. Migrated ${updatedStats.locations} locations, ${updatedStats.sorteos} sorteos, and ${updatedStats.users} users.`,
@@ -60,7 +60,7 @@ export async function firebaseHealthCheck(): Promise<{
 }> {
   try {
     const stats = await FirebaseUtils.getCollectionStats();
-    
+
     return {
       status: 'healthy',
       message: 'Firebase connection is healthy',
@@ -114,7 +114,7 @@ export function validateFirebaseConfig(): {
   ];
 
   const missing = requiredVars.filter(varName => !process.env[varName]);
-  
+
   return {
     valid: missing.length === 0,
     missing

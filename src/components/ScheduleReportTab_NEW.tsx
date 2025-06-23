@@ -51,11 +51,11 @@ export default function ScheduleReportTab() {
     const year = now.getFullYear();
     const month = now.getMonth();
     const day = now.getDate();
-    
+
     const period: 'first' | 'second' = day <= 15 ? 'first' : 'second';
     const start = new Date(year, month, period === 'first' ? 1 : 16);
-    const end = period === 'first' ? 
-      new Date(year, month, 15) : 
+    const end = period === 'first' ?
+      new Date(year, month, 15) :
       new Date(year, month + 1, 0); // último día del mes
 
     const monthNames = [
@@ -71,7 +71,7 @@ export default function ScheduleReportTab() {
       month: month, // Usar el mes con base 0 como JavaScript/ControlHorario
       period
     };
-    
+
     return result;
   };
 
@@ -80,7 +80,7 @@ export default function ScheduleReportTab() {
     try {
       const allSchedules = await SchedulesService.getAllSchedules();
       const periods = new Set<string>();
-      
+
       allSchedules.forEach(schedule => {
         if (schedule.shift && schedule.shift.trim() !== '') {
           const period = schedule.day <= 15 ? 'first' : 'second';
@@ -90,16 +90,16 @@ export default function ScheduleReportTab() {
       });
 
       const periodsArray: BiweeklyPeriod[] = [];
-      
+
       periods.forEach(key => {
         const [year, month, period] = key.split('-');
         const yearNum = parseInt(year);
         const monthNum = parseInt(month); // El mes viene en base 0 desde Firebase
         const isFirst = period === 'first';
-        
+
         const start = new Date(yearNum, monthNum, isFirst ? 1 : 16);
-        const end = isFirst ? 
-          new Date(yearNum, monthNum, 15) : 
+        const end = isFirst ?
+          new Date(yearNum, monthNum, 15) :
           new Date(yearNum, monthNum + 1, 0);
 
         const monthNames = [
@@ -144,22 +144,22 @@ export default function ScheduleReportTab() {
       setLoading(true);
       const current = getCurrentBiweeklyPeriod();
       setCurrentPeriod(current);
-      
+
       const available = await getAvailablePeriods();
-      
+
       // Agregar período actual al inicio si no está en la lista
-      const currentExists = available.some(p => 
-        p.year === current.year && 
-        p.month === current.month && 
+      const currentExists = available.some(p =>
+        p.year === current.year &&
+        p.month === current.month &&
         p.period === current.period
       );
-      
+
       if (!currentExists) {
         setAvailablePeriods([current, ...available]);
       } else {
         setAvailablePeriods(available);
       }
-      
+
       setLoading(false);
     };
     initializePeriods();
@@ -169,18 +169,18 @@ export default function ScheduleReportTab() {
   useEffect(() => {
     const loadScheduleData = async () => {
       if (!currentPeriod) return;
-      
+
       setLoading(true);
       try {
         const allSchedules = await SchedulesService.getAllSchedules();
-        
+
         // Filtrar por período actual
         const periodSchedules = allSchedules.filter(schedule => {
-          const matchesPeriod = schedule.year === currentPeriod.year && 
-                              schedule.month === currentPeriod.month;
-          
+          const matchesPeriod = schedule.year === currentPeriod.year &&
+            schedule.month === currentPeriod.month;
+
           if (!matchesPeriod) return false;
-          
+
           if (currentPeriod.period === 'first') {
             return schedule.day >= 1 && schedule.day <= 15;
           } else {
@@ -190,7 +190,7 @@ export default function ScheduleReportTab() {
 
         // Agrupar por ubicación
         const locationGroups = new Map<string, ScheduleEntry[]>();
-        
+
         periodSchedules.forEach(schedule => {
           if (!locationGroups.has(schedule.locationValue)) {
             locationGroups.set(schedule.locationValue, []);
@@ -201,13 +201,13 @@ export default function ScheduleReportTab() {
         const scheduleDataArray: LocationSchedule[] = [];
 
         // Siempre procesar todas las ubicaciones al iniciar
-        const locationsToProcess = selectedLocation === 'all' ? 
-          locations : 
+        const locationsToProcess = selectedLocation === 'all' ?
+          locations :
           locations.filter(loc => loc.value === selectedLocation);
 
         locationsToProcess.forEach(location => {
           const locationSchedules = locationGroups.get(location.value) || [];
-          
+
           // Agrupar por empleado
           const employeeGroups = new Map<string, ScheduleEntry[]>();
           locationSchedules.forEach(schedule => {
@@ -223,7 +223,7 @@ export default function ScheduleReportTab() {
           employeeGroups.forEach((schedules, employeeName) => {
             const days: { [day: number]: string } = {};
             let employeeWorkDays = 0;
-            
+
             schedules.forEach(schedule => {
               if (schedule.shift && schedule.shift.trim() !== '') {
                 days[schedule.day] = schedule.shift;
@@ -263,9 +263,9 @@ export default function ScheduleReportTab() {
   }, [currentPeriod, selectedLocation, locations]);
 
   const navigatePeriod = (direction: 'prev' | 'next') => {
-    const currentIndex = availablePeriods.findIndex(p => 
-      p.year === currentPeriod?.year && 
-      p.month === currentPeriod?.month && 
+    const currentIndex = availablePeriods.findIndex(p =>
+      p.year === currentPeriod?.year &&
+      p.month === currentPeriod?.month &&
       p.period === currentPeriod?.period
     );
 
@@ -278,15 +278,15 @@ export default function ScheduleReportTab() {
 
   const getDaysInPeriod = (): number[] => {
     if (!currentPeriod) return [];
-    
+
     const days: number[] = [];
     const start = currentPeriod.period === 'first' ? 1 : 16;
     const end = currentPeriod.period === 'first' ? 15 : currentPeriod.end.getDate();
-    
+
     for (let i = start; i <= end; i++) {
       days.push(i);
     }
-    
+
     return days;
   };
 
@@ -329,7 +329,7 @@ export default function ScheduleReportTab() {
           // Si no hay empleados, exportar solo la ubicación
           const canvas = document.createElement('canvas');
           const ctx = canvas.getContext('2d');
-          
+
           if (!ctx) continue;
 
           // Configurar tamaño del canvas
@@ -366,7 +366,7 @@ export default function ScheduleReportTab() {
               // Crear nombre del archivo
               const cleanLocationName = locationData.location.label.replace(/[^a-zA-Z0-9]/g, '');
               const cleanPeriodLabel = currentPeriod.label.replace(/[^a-zA-Z0-9]/g, '');
-              
+
               const fileName = `${cleanLocationName}-SinEmpleados-${cleanPeriodLabel}.jpg`;
 
               // Crear URL y descargar
@@ -387,7 +387,7 @@ export default function ScheduleReportTab() {
           for (const employee of locationData.employees) {
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
-            
+
             if (!ctx) continue;
 
             // Configurar tamaño del canvas
@@ -426,7 +426,7 @@ export default function ScheduleReportTab() {
                 const cleanLocationName = locationData.location.label.replace(/[^a-zA-Z0-9]/g, '');
                 const cleanEmployeeName = employee.employeeName.replace(/[^a-zA-Z0-9]/g, '');
                 const cleanPeriodLabel = currentPeriod.label.replace(/[^a-zA-Z0-9]/g, '');
-                
+
                 const fileName = `${cleanLocationName}-${cleanEmployeeName}-${cleanPeriodLabel}.jpg`;
 
                 // Crear URL y descargar
@@ -470,7 +470,7 @@ export default function ScheduleReportTab() {
         // Si no hay empleados, exportar solo la ubicación
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        
+
         if (!ctx) return;
 
         // Configurar tamaño del canvas
@@ -507,7 +507,7 @@ export default function ScheduleReportTab() {
             // Crear nombre del archivo
             const cleanLocationName = locationData.location.label.replace(/[^a-zA-Z0-9]/g, '');
             const cleanPeriodLabel = currentPeriod.label.replace(/[^a-zA-Z0-9]/g, '');
-            
+
             const fileName = `${cleanLocationName}-SinEmpleados-${cleanPeriodLabel}.jpg`;
 
             // Crear URL y descargar
@@ -530,7 +530,7 @@ export default function ScheduleReportTab() {
         for (const employee of locationData.employees) {
           const canvas = document.createElement('canvas');
           const ctx = canvas.getContext('2d');
-          
+
           if (!ctx) continue;
 
           // Configurar tamaño del canvas
@@ -569,7 +569,7 @@ export default function ScheduleReportTab() {
               const cleanLocationName = locationData.location.label.replace(/[^a-zA-Z0-9]/g, '');
               const cleanEmployeeName = employee.employeeName.replace(/[^a-zA-Z0-9]/g, '');
               const cleanPeriodLabel = currentPeriod.label.replace(/[^a-zA-Z0-9]/g, '');
-              
+
               const fileName = `${cleanLocationName}-${cleanEmployeeName}-${cleanPeriodLabel}.jpg`;
 
               // Crear URL y descargar
@@ -608,9 +608,9 @@ export default function ScheduleReportTab() {
       case 'L':
         return { backgroundColor: '#FF00FF', color: '#FFFFFF' }; // Magenta
       default:
-        return { 
-          backgroundColor: 'var(--input-bg)', 
-          color: 'var(--foreground)' 
+        return {
+          backgroundColor: 'var(--input-bg)',
+          color: 'var(--foreground)'
         };
     }
   };
@@ -630,9 +630,8 @@ export default function ScheduleReportTab() {
     <div className="max-w-full mx-auto bg-[var(--card-bg)] rounded-lg shadow p-6">
       {/* Notification */}
       {notification && (
-        <div className={`fixed top-6 right-6 z-50 px-6 py-3 rounded-xl shadow-2xl flex items-center gap-2 font-semibold animate-fade-in-down ${
-          notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'
-        } text-white`}>
+        <div className={`fixed top-6 right-6 z-50 px-6 py-3 rounded-xl shadow-2xl flex items-center gap-2 font-semibold animate-fade-in-down ${notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'
+          } text-white`}>
           <Clock className="w-5 h-5" />
           {notification.message}
         </div>
@@ -654,22 +653,20 @@ export default function ScheduleReportTab() {
         <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
           <button
             onClick={() => setActiveTab('schedule')}
-            className={`px-4 py-2 rounded-md flex items-center gap-2 transition-colors ${
-              activeTab === 'schedule'
+            className={`px-4 py-2 rounded-md flex items-center gap-2 transition-colors ${activeTab === 'schedule'
                 ? 'bg-blue-600 text-white'
                 : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-            }`}
+              }`}
           >
             <FileText className="w-4 h-4" />
             Horarios
           </button>
           <button
             onClick={() => setActiveTab('payroll')}
-            className={`px-4 py-2 rounded-md flex items-center gap-2 transition-colors ${
-              activeTab === 'payroll'
+            className={`px-4 py-2 rounded-md flex items-center gap-2 transition-colors ${activeTab === 'payroll'
                 ? 'bg-green-600 text-white'
                 : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-            }`}
+              }`}
           >
             <Calculator className="w-4 h-4" />
             Planilla de Pago
@@ -716,7 +713,7 @@ export default function ScheduleReportTab() {
                   <Download className="w-4 h-4" />
                   <span className="hidden sm:inline">JSON</span>
                 </button>
-                
+
                 {/* Botón de exportar imagen global */}
                 <button
                   onClick={exportAllImages}
@@ -747,9 +744,9 @@ export default function ScheduleReportTab() {
                   onChange={(e) => {
                     if (e.target.value) {
                       const [year, month, period] = e.target.value.split('-');
-                      const selectedPeriod = availablePeriods.find(p => 
-                        p.year === parseInt(year) && 
-                        p.month === parseInt(month) && 
+                      const selectedPeriod = availablePeriods.find(p =>
+                        p.year === parseInt(year) &&
+                        p.month === parseInt(month) &&
                         p.period === period
                       );
                       if (selectedPeriod) {
@@ -768,7 +765,7 @@ export default function ScheduleReportTab() {
                     <option value="">Cargando quincenas...</option>
                   ) : (
                     availablePeriods.map((period) => (
-                      <option 
+                      <option
                         key={`${period.year}-${period.month}-${period.period}`}
                         value={`${period.year}-${period.month}-${period.period}`}
                       >
@@ -784,9 +781,9 @@ export default function ScheduleReportTab() {
             <div className="flex items-center justify-center gap-2">
               <button
                 onClick={() => navigatePeriod('prev')}
-                disabled={!currentPeriod || availablePeriods.findIndex(p => 
-                  p.year === currentPeriod.year && 
-                  p.month === currentPeriod.month && 
+                disabled={!currentPeriod || availablePeriods.findIndex(p =>
+                  p.year === currentPeriod.year &&
+                  p.month === currentPeriod.month &&
                   p.period === currentPeriod.period
                 ) >= availablePeriods.length - 1}
                 className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
@@ -799,9 +796,9 @@ export default function ScheduleReportTab() {
               </h4>
               <button
                 onClick={() => navigatePeriod('next')}
-                disabled={!currentPeriod || availablePeriods.findIndex(p => 
-                  p.year === currentPeriod.year && 
-                  p.month === currentPeriod.month && 
+                disabled={!currentPeriod || availablePeriods.findIndex(p =>
+                  p.year === currentPeriod.year &&
+                  p.month === currentPeriod.month &&
                   p.period === currentPeriod.period
                 ) <= 0}
                 className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
@@ -898,7 +895,7 @@ export default function ScheduleReportTab() {
                             </td>
                             {getDaysInPeriod().map(day => (
                               <td key={day} className="border border-[var(--input-border)] p-0">
-                                <div 
+                                <div
                                   className="w-full h-full p-1 text-center font-semibold text-sm"
                                   style={getCellStyle(employee.days[day] || '')}
                                 >
@@ -906,7 +903,7 @@ export default function ScheduleReportTab() {
                                 </div>
                               </td>
                             ))}
-                            <td 
+                            <td
                               className="border border-[var(--input-border)] p-2 text-center font-medium"
                               style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
                             >

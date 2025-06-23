@@ -26,8 +26,11 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
   const [showMobileQR, setShowMobileQR] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   const [lastScanCheck, setLastScanCheck] = useState<Date>(new Date());
-  const [nextPollIn, setNextPollIn] = useState<number>(10);  // Estados para sincronización real
-  const [hasMobileConnection, setHasMobileConnection] = useState(false);  const [connectedDeviceType, setConnectedDeviceType] = useState<'mobile' | 'tablet' | 'pc' | null>(null);
+  const [nextPollIn, setNextPollIn] = useState<number>(10);
+
+  // Estado para configuración de productos desde PC
+  const [requestProductName, setRequestProductName] = useState(false);// Estados para sincronización real
+  const [hasMobileConnection, setHasMobileConnection] = useState(false); const [connectedDeviceType, setConnectedDeviceType] = useState<'mobile' | 'tablet' | 'pc' | null>(null);
   const sessionHeartbeatRef = useRef<{ start: () => Promise<void>; stop: () => void; sessionDocId: string | null } | null>(null);
   const sessionSyncUnsubscribeRef = useRef<(() => void) | null>(null);
 
@@ -184,29 +187,29 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
       // Crear heartbeat manager para mantener sesión PC activa
       const heartbeatManager = SessionSyncService.createHeartbeatManager(sessionId, 'pc');
       sessionHeartbeatRef.current = heartbeatManager;
-      
+
       // Iniciar sesión y heartbeat
       await heartbeatManager.start();      // Escuchar cambios en tiempo real para detectar conexiones
       const sessionUnsubscribe = SessionSyncService.subscribeToSessionStatus(
         sessionId,
         (sessions: SessionStatus[]) => {
-          const mobileConnected = sessions.some(session => 
-            session.source === 'mobile' && 
+          const mobileConnected = sessions.some(session =>
+            session.source === 'mobile' &&
             session.status === 'active'
           );
-          
+
           // Determinar qué tipo de dispositivo se conectó basándose en User Agent
           if (mobileConnected) {
-            const connectedDevice = sessions.find(session => 
-              session.source === 'mobile' && 
+            const connectedDevice = sessions.find(session =>
+              session.source === 'mobile' &&
               session.status === 'active'
             );
-            
+
             // Detectar si es móvil o tablet basándose en el User Agent
             const userAgent = connectedDevice?.userAgent || '';
             const isMobile = /Mobile|Android|iPhone|iPad|iPod|BlackBerry|Windows Phone/i.test(userAgent);
             const isTablet = /iPad|Tablet/i.test(userAgent);
-            
+
             if (isTablet) {
               setConnectedDeviceType('tablet' as 'mobile' | 'tablet' | 'pc');
             } else if (isMobile) {
@@ -217,7 +220,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
           } else {
             setConnectedDeviceType(null);
           }
-          
+
           setHasMobileConnection(mobileConnected);
         },
         (error) => {
@@ -352,7 +355,8 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
     }
 
     // Reset del contador
-    setNextPollIn(10);  }, []);
+    setNextPollIn(10);
+  }, []);
 
   const fadeIn = { initial: { opacity: 0 }, animate: { opacity: 1 } };
   const slideUp = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 } };

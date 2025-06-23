@@ -3,5 +3,4 @@ export interface Location {
   value: string;
   names: string[];
 }
-
 export type Sorteo = string;
