@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Clock, Calendar, ChevronLeft, ChevronRight, Save, LogOut, Trash2 } from 'lucide-react';
+import { Clock, Calendar, ChevronLeft, ChevronRight, Save, LogOut, Trash2, CalendarDays, ChevronDown } from 'lucide-react';
 import { LocationsService } from '../services/locations';
 import { SchedulesService } from '../services/schedules';
 import { useAuth } from '../hooks/useAuth';
@@ -28,6 +28,9 @@ export default function ControlHorario() {
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
   // Estado para alternar entre vista mensual completa y vista tradicional (quincenas)
   const [fullMonthView, setFullMonthView] = useState(false);
+  const [viewMode, setViewMode] = useState<'first' | 'second'>('first');
+  const [showEmployeeDropdown, setShowEmployeeDropdown] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
 
   // Cargar datos desde Firebase
   useEffect(() => {
@@ -208,9 +211,11 @@ export default function ControlHorario() {
     } finally {
       setSaving(false);
     }
-  };// Opciones de turnos disponibles (ahora con icono de basurero)
+  };
+
+  // shiftOptions con icono de basurero y letra E
   const shiftOptions = [
-    { value: '', label: <Trash2 className="w-4 h-4 text-red-500 mx-auto" />, color: 'var(--input-bg)', textColor: 'var(--foreground)' },
+    { value: '', label: <span className="flex items-center"><Trash2 className="w-4 h-4 text-red-500 mr-1" />E</span>, color: 'var(--input-bg)', textColor: 'var(--foreground)' },
     { value: 'N', label: 'N', color: '#87CEEB', textColor: '#000' },
     { value: 'D', label: 'D', color: '#FFFF00', textColor: '#000' },
     { value: 'L', label: 'L', color: '#FF00FF', textColor: '#FFF' },
@@ -418,16 +423,67 @@ export default function ControlHorario() {
         ))}
       </div>
 
-      {/* Botón para alternar la vista, arriba de la tabla */}
-      <div className="mb-4 flex flex-wrap gap-2 items-center">
+      {/* Botón de vista mensual como icono y filtro de empleado como dropdown */}
+      <div className="mb-4 flex flex-wrap gap-2 items-center relative">
         <button
-          className={`px-3 py-1 rounded font-semibold border ${fullMonthView ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-400 dark:border-gray-600'}`}
+          className={`p-2 rounded-full border ${fullMonthView ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-400 dark:border-gray-600'}`}
           onClick={() => setFullMonthView(v => !v)}
+          title={fullMonthView ? 'Vista por quincena' : 'Vista mensual completa'}
         >
-          {fullMonthView ? 'Vista por quincena' : 'Vista mensual completa'}
+          <CalendarDays className="w-5 h-5" />
         </button>
-        {/* ...selector de empleado aquí... */}
+        <div className="relative">
+          <button
+            className="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 flex items-center gap-1"
+            onClick={() => setShowEmployeeDropdown(v => !v)}
+          >
+            {selectedEmployee || 'Todos'} <ChevronDown className="w-4 h-4" />
+          </button>
+          {showEmployeeDropdown && (
+            <div className="absolute z-30 mt-1 left-0 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded shadow-lg min-w-[120px]">
+              <div
+                className={`px-3 py-2 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900 ${selectedEmployee === null ? 'font-bold' : ''}`}
+                onClick={() => { setSelectedEmployee(null); setShowEmployeeDropdown(false); }}
+              >
+                Todos
+              </div>
+              {names.map(name => (
+                <div
+                  key={name}
+                  className={`px-3 py-2 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900 ${selectedEmployee === name ? 'font-bold' : ''}`}
+                  onClick={() => { setSelectedEmployee(name); setShowEmployeeDropdown(false); }}
+                >
+                  {name}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Botones de quincena solo si !fullMonthView */}
+      {!fullMonthView && (
+        <div className="flex gap-2 mb-4">
+          <button
+            onClick={() => setViewMode('first')}
+            className={`px-4 py-2 rounded-md transition-colors ${viewMode === 'first'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+              }`}
+          >
+            1-15
+          </button>
+          <button
+            onClick={() => setViewMode('second')}
+            className={`px-4 py-2 rounded-md transition-colors ${viewMode === 'second'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+              }`}
+          >
+            16-{daysInMonth}
+          </button>
+        </div>
+      )}
 
       {/* Grid de horarios */}
       <div className="overflow-x-auto">
@@ -471,18 +527,31 @@ export default function ControlHorario() {
                 {daysToShow.map(day => {
                   const value = scheduleData[name]?.[day.toString()] || '';
                   return (<td key={day} className="border border-[var(--input-border)] p-0">
-                    <select
-                      value={value}
-                      onChange={(e) => handleCellChange(name, day, e.target.value)}
-                      className="w-full h-full p-2 border-none outline-none text-center font-semibold cursor-pointer"
-                      style={getCellStyle(value)}
-                    >
-                      {shiftOptions.map(option => (
-                        <option key={option.value} value={option.value}>
-                          {typeof option.label === 'string' ? option.label : ''}
-                        </option>
-                      ))}
-                    </select>
+                    {/* Render de cada celda (custom dropdown con colores) */}
+                    <div className="relative">
+                      <button
+                        className="w-full h-full p-2 border-none outline-none text-center font-semibold cursor-pointer flex items-center justify-center"
+                        style={getCellStyle(value)}
+                        onClick={() => setDropdownOpen(`${name}-${day}`)}
+                        type="button"
+                      >
+                        {shiftOptions.find(opt => opt.value === value)?.label || ''}
+                      </button>
+                      {dropdownOpen === `${name}-${day}` && (
+                        <div className="absolute z-40 left-0 top-full min-w-[60px] rounded shadow-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900">
+                          {shiftOptions.map(option => (
+                            <div
+                              key={option.value}
+                              className="px-2 py-1 cursor-pointer flex items-center gap-1 font-semibold"
+                              style={{ background: option.color, color: option.textColor }}
+                              onClick={() => { handleCellChange(name, day, option.value); setDropdownOpen(null); }}
+                            >
+                              {option.label}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </td>
                   );
                 })}
