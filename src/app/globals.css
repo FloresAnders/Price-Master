@@ -72,7 +72,7 @@
   /* Estilos globales */
   html,
   body {
-    background: #101010 url('/backgroundWhite.jpg') no-repeat center center fixed;
+    background: #101010 url('/backgroundWhite.png') no-repeat center center fixed;
     background-size: cover;
     color: var(--foreground);
     font-family: var(--font-base);
