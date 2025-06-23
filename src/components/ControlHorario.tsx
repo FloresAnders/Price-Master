@@ -445,7 +445,7 @@ export default function ControlHorario() {
               value={selectedEmployee}
               onChange={e => setSelectedEmployee(e.target.value)}
             >
-              <option value="Todos">Todos</option>
+              <option value="Todos">👤 Todos</option>
               {names.map(name => (
                 <option key={name} value={name}>{name}</option>
               ))}
@@ -492,7 +492,7 @@ export default function ControlHorario() {
                   <th
                     key={day}
                     className={`border border-[var(--input-border)] p-2 font-semibold text-center transition-colors ${isToday ? 'ring-2 ring-green-400 ring-offset-2 ring-offset-[var(--card-bg)]' : ''}`}
-                    style={{ background: 'var(--input-bg)', color: 'var(--foreground)', minWidth: '50px', borderColor: isToday ? '#4ade80' : undefined }}
+                    style={{ background: 'var(--input-bg)', color: 'var,--foreground)', minWidth: '50px', borderColor: isToday ? '#4ade80' : undefined }}
                   >
                     {day}
                   </th>
