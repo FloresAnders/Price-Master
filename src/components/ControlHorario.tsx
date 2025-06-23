@@ -169,7 +169,6 @@ export default function ControlHorario() {
   const month = currentDate.getMonth();
   const monthName = currentDate.toLocaleDateString('es-CR', { month: 'long', year: 'numeric' });
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const today = new Date();
 
   // Determinar qué días mostrar según el modo de vista o vista mensual completa
   const getDaysToShow = () => {
@@ -469,8 +468,13 @@ export default function ControlHorario() {
             </button>
             <h4 className="text-lg font-semibold capitalize flex items-center gap-2">
               {monthName}
-              {/* Candado para días pasados solo en el mes actual */}
-              {today.getFullYear() === year && today.getMonth() === month && (
+              {/* Mostrar candado si hay al menos un día bloqueado en la vista */}
+              {daysToShow.some(day => {
+                const cellDate = new Date(year, month, day);
+                const now = new Date();
+                now.setHours(0,0,0,0);
+                return cellDate < now && !editPastDaysEnabled;
+              }) && (
                 <button
                   onClick={() => setUnlockPastDaysModal(true)}
                   className="ml-2 p-1 rounded-full border border-gray-400 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
