@@ -611,12 +611,13 @@ export default function ControlHorario() {
                   </td>
                   {daysToShow.map(day => {
                     const value = scheduleData[name]?.[day.toString()] || '';
-                    // Deshabilitar si el día ya pasó y no está habilitado el modo edición
+                    // Deshabilitar si el día ya pasó en cualquier mes y año, y no está habilitado el modo edición
                     let disabled = false;
+                    const cellDate = new Date(year, month, day);
+                    const now = new Date();
+                    now.setHours(0,0,0,0); // ignorar hora
                     if (
-                      today.getFullYear() === year &&
-                      today.getMonth() === month &&
-                      day < today.getDate() &&
+                      cellDate < now &&
                       !editPastDaysEnabled
                     ) {
                       disabled = true;
