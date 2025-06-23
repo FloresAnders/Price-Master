@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Scan, Calculator, Type, Banknote, Smartphone, Clock } from 'lucide-react';
 
 const menuItems = [
@@ -11,12 +11,22 @@ const menuItems = [
 ];
 
 export default function HomeMenu() {
+  const [hovered, setHovered] = useState(false);
   const handleNavigate = (id: string) => {
     window.location.hash = `#${id}`;
   };
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] py-8">
+      <div className="mb-2 flex items-center justify-center">
+        <Calculator
+          className={`w-14 h-14 mr-2 transition-transform duration-300 ${hovered ? 'scale-110 rotate-12 text-[var(--foreground)]' : 'scale-100 text-[var(--tab-text-active)]'}`}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+          onClick={() => setHovered(h => !h)}
+          style={{ cursor: 'pointer', filter: hovered ? 'drop-shadow(0 0 8px var(--foreground))' : 'none' }}
+        />
+      </div>
       <h1 className="text-3xl font-bold mb-8 text-center">Bienvenido a Price Master</h1>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 w-full max-w-4xl">
         {menuItems.map(item => (
@@ -26,7 +36,7 @@ export default function HomeMenu() {
             className="bg-[var(--card-bg)] dark:bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl shadow-md p-6 flex flex-col items-center transition hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 group"
             style={{ minHeight: 160 }}
           >
-            <item.icon className="w-10 h-10 mb-3 text-indigo-600 dark:text-indigo-300 group-hover:scale-110 transition-transform" />
+            <item.icon className="w-10 h-10 mb-3 text-[var(--foreground)] group-hover:scale-110 transition-transform" />
             <span className="text-lg font-semibold mb-1 text-[var(--foreground)] dark:text-[var(--foreground)]">{item.name}</span>
             <span className="text-sm text-[var(--tab-text)] text-center">{item.description}</span>
           </button>
