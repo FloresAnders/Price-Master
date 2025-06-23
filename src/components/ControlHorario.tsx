@@ -34,7 +34,8 @@ export default function ControlHorario() {
     open: boolean;
     message: string;
     onConfirm: (() => Promise<void>) | null;
-  }>({ open: false, message: '', onConfirm: null });
+    actionType?: 'assign' | 'delete' | 'change';
+  }>({ open: false, message: '', onConfirm: null, actionType: 'assign' });
   const [modalLoading, setModalLoading] = useState(false);
 
   // Cargar datos desde Firebase
@@ -201,8 +202,9 @@ export default function ControlHorario() {
           setModalLoading(true);
           await doUpdate();
           setModalLoading(false);
-          setConfirmModal({ open: false, message: '', onConfirm: null });
-        }
+          setConfirmModal({ open: false, message: '', onConfirm: null, actionType: 'assign' });
+        },
+        actionType: 'assign',
       });
       return;
     }
@@ -210,10 +212,13 @@ export default function ControlHorario() {
     // Confirmar cambio o eliminación de turno
     if (currentValue && ['N', 'D', 'L'].includes(currentValue) && currentValue !== newValue) {
       let confirmMessage = '';
+      let actionType: 'delete' | 'change' = 'change';
       if (newValue === '' || newValue.trim() === '') {
         confirmMessage = `¿Está seguro de eliminar el turno "${currentValue}" de ${employeeName} del día ${day}? Esto eliminará el registro de la base de datos.`;
+        actionType = 'delete';
       } else {
         confirmMessage = `¿Está seguro de cambiar el turno de ${employeeName} del día ${day} de "${currentValue}" a "${newValue}"?`;
+        actionType = 'change';
       }
       setConfirmModal({
         open: true,
@@ -222,8 +227,9 @@ export default function ControlHorario() {
           setModalLoading(true);
           await doUpdate();
           setModalLoading(false);
-          setConfirmModal({ open: false, message: '', onConfirm: null });
-        }
+          setConfirmModal({ open: false, message: '', onConfirm: null, actionType });
+        },
+        actionType,
       });
       return;
     }
@@ -606,10 +612,11 @@ export default function ControlHorario() {
         open={confirmModal.open}
         message={confirmModal.message}
         loading={modalLoading}
+        actionType={confirmModal.actionType}
         onConfirm={async () => {
           if (confirmModal.onConfirm) await confirmModal.onConfirm();
         }}
-        onCancel={() => setConfirmModal({ open: false, message: '', onConfirm: null })}
+        onCancel={() => setConfirmModal({ open: false, message: '', onConfirm: null, actionType: 'assign' })}
       />
     </>
   );
