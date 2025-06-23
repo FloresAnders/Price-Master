@@ -3,7 +3,7 @@ import { SorteosService } from '../services/sorteos';
 import { Timer, Download } from 'lucide-react';
 import type { Sorteo } from '../types/firestore';
 
-const INITIAL_ROWS = 4;
+const INITIAL_ROWS = 1;
 
 function getNowTime() {
     const now = new Date();
@@ -172,11 +172,20 @@ export default function TimingControl() {
         
         try {
             // Dynamically import html2canvas
-            const html2canvas = (await import('html2canvas')).default;
-
-            if (exportRef.current) {
+            const html2canvas = (await import('html2canvas')).default;            if (exportRef.current) {
                 // Obtener colores del tema actual
                 const themeColors = getCurrentThemeColors();
+                
+                // Primero, obtener todos los valores de los selects del elemento original
+                const originalSelects = exportRef.current.querySelectorAll('select');
+                const selectValues: { value: string; text: string }[] = [];
+                  originalSelects.forEach((select) => {
+                    const htmlSelect = select as HTMLSelectElement;
+                    const selectedOption = htmlSelect.options[htmlSelect.selectedIndex];                    const valueData = {
+                        value: htmlSelect.value,
+                        text: selectedOption && htmlSelect.value ? selectedOption.text : ''
+                    };                    selectValues.push(valueData);
+                });
                 
                 // Crear un clon profundo del elemento
                 const clonedElement = exportRef.current.cloneNode(true) as HTMLElement;
@@ -187,12 +196,68 @@ export default function TimingControl() {
                 clonedElement.style.top = '0';
                 clonedElement.style.zIndex = '-1000';
                 clonedElement.style.pointerEvents = 'none';
-                
-                // Agregar el clon al DOM temporalmente
+                  // Agregar el clon al DOM temporalmente
                 document.body.appendChild(clonedElement);
-                
-                // Esperar un momento para que el DOM se actualice
-                await new Promise(resolve => setTimeout(resolve, 100));
+                  // Esperar un momento para que el DOM se actualice
+                await new Promise(resolve => setTimeout(resolve, 100));                // Ocultar elementos que no deben aparecer en la exportación
+                const elementsToHide = clonedElement.querySelectorAll('.export-hide');
+                elementsToHide.forEach((element) => {
+                    (element as HTMLElement).style.setProperty('display', 'none', 'important');
+                });
+
+                // Mostrar y configurar el timestamp de exportación
+                const timestampElement = clonedElement.querySelector('.export-timestamp');
+                if (timestampElement) {
+                    (timestampElement as HTMLElement).style.setProperty('display', 'block', 'important');
+                    const dateTimeElement = timestampElement.querySelector('#export-date-time');
+                    if (dateTimeElement) {
+                        const now = new Date();
+                        const dateStr = now.toLocaleDateString('es-CR', { 
+                            year: 'numeric', 
+                            month: '2-digit', 
+                            day: '2-digit' 
+                        });
+                        const timeStr = now.toLocaleTimeString('es-CR', { 
+                            hour: '2-digit', 
+                            minute: '2-digit', 
+                            second: '2-digit' 
+                        });
+                        dateTimeElement.textContent = `${dateStr} ${timeStr}`;
+                    }
+                }
+
+                  // Reemplazar todos los selects con divs que muestren el texto seleccionado
+                const selects = clonedElement.querySelectorAll('select');                selects.forEach((select, index) => {                    // Usar los valores que obtuvimos del elemento original
+                    const selectedText = selectValues[index] ? selectValues[index].text : '';
+                    
+                    // Crear un div que reemplace el select
+                    const div = document.createElement('div');
+                    div.className = select.className;
+                    
+                    // Copiar todos los estilos del select original
+                    const computedStyle = window.getComputedStyle(select);
+                    div.style.cssText = select.style.cssText;
+                    
+                    // Aplicar estilos específicos para que se vea como el select original
+                    div.style.setProperty('display', 'flex', 'important');
+                    div.style.setProperty('align-items', 'center', 'important');
+                    div.style.setProperty('justify-content', 'flex-start', 'important');
+                    div.style.setProperty('padding', computedStyle.padding || '8px 12px', 'important');
+                    div.style.setProperty('border', computedStyle.border, 'important');
+                    div.style.setProperty('border-radius', computedStyle.borderRadius, 'important');
+                    div.style.setProperty('background-color', computedStyle.backgroundColor, 'important');
+                    div.style.setProperty('color', computedStyle.color, 'important');
+                    div.style.setProperty('font-family', computedStyle.fontFamily, 'important');
+                    div.style.setProperty('font-size', computedStyle.fontSize, 'important');
+                    div.style.setProperty('width', computedStyle.width, 'important');
+                    div.style.setProperty('height', computedStyle.height, 'important');
+                    div.style.setProperty('box-sizing', 'border-box', 'important');
+                    
+                    div.textContent = selectedText;
+                    
+                    // Reemplazar el select con el div
+                    select.parentNode?.replaceChild(div, select);
+                });
                 
                 // Aplicar estilos explícitos solo al clon
                 const elementsToStyle = clonedElement.querySelectorAll('*');
@@ -310,7 +375,7 @@ export default function TimingControl() {
                         <div className="mt-4 text-right font-bold text-lg" style={{ color: 'var(--foreground)' }}>
                             Total: <span className="font-mono text-green-700">₡ {totalGeneral.toLocaleString('es-CR')}</span>
                         </div>
-                    </div>
+                    </div> 
                 </div>            )}            <div ref={exportRef} 
                  className="p-6 rounded-lg" 
                  style={{ 
@@ -323,14 +388,22 @@ export default function TimingControl() {
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
                             <Timer className="w-6 h-6 text-blue-600" />
-                            <h3 className="text-lg font-semibold" style={{ color: 'var(--foreground)' }}>Control de tiempos</h3>
-                        </div>                        {/* Nota para pantallas medianas y grandes */}
-                        <div className="hidden md:block p-2 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-xs max-w-xs">
+                            <h3 className="text-lg font-semibold" style={{ color: 'var(--foreground)' }}>Control de tiempos</h3>                        </div>                        {/* Fecha y hora de exportación - solo visible en imagen exportada */}
+                        <div className="export-timestamp hidden text-sm border border-gray-300 rounded-lg p-2 bg-gray-50" 
+                             style={{ color: 'var(--foreground)', backgroundColor: 'rgba(249, 250, 251, 0.9)' }}>
+                            <div className="text-right">
+                                <div className="font-semibold text-gray-600">Exportado:</div>
+                                <div id="export-date-time" className="font-mono text-xs text-gray-700"></div>
+                            </div>
+                        </div>
+
+                        {/* Nota para pantallas medianas y grandes */}
+                        <div className="hidden md:block p-2 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-xs max-w-xs export-hide">
                             <p><strong>Nota:</strong> Complete el número de tiquete y monto de la fila anterior para habilitar la siguiente.</p>
                         </div>
                     </div>
                     {/* Nota para pantallas pequeñas */}
-                    <div className="md:hidden mt-3 p-2 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-xs">
+                    <div className="md:hidden mt-3 p-2 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-xs export-hide">
                         <p><strong>Nota:</strong> Complete el número de tiquete y monto de la fila anterior para habilitar la siguiente.</p>
                     </div>
                 </div>
@@ -352,15 +425,13 @@ export default function TimingControl() {
                         onChange={(e) => setPersonName(e.target.value)}
                         placeholder="Ingresa tu nombre"
                     />
-                </div>
-            
-                {/* Controles de total y resumen */}
+                </div>                {/* Controles de total y resumen */}
                 <div className="mb-4 flex flex-col sm:flex-row gap-2 items-center justify-between">
                     <div className="flex items-center gap-2">
                         <span className="font-semibold" style={{ color: 'var(--foreground)' }}>Total:</span>
                         <span className="font-mono text-green-700 text-lg">₡ {totalGeneral.toLocaleString('es-CR')}</span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 export-hide">
                         <button
                             className="px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             style={{
@@ -370,7 +441,9 @@ export default function TimingControl() {
                             onClick={() => setShowSummary(true)}
                         >
                             Ver resumen
-                        </button>                        <button
+                        </button>
+
+                        <button
                             className="px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 disabled:opacity-50"
                             onClick={exportToJPG}
                             disabled={!personName.trim() || isExporting}
@@ -389,7 +462,7 @@ export default function TimingControl() {
                             Limpiar todo
                         </button>
                     </div>
-                </div>                <div className="overflow-x-auto">                    <div className="grid grid-cols-4 gap-2 font-semibold mb-2" style={{ color: 'var(--foreground)' }}>
+                </div><div className="overflow-x-auto">                    <div className="grid grid-cols-4 gap-2 font-semibold mb-2" style={{ color: 'var(--foreground)' }}>
                         <div>Número de Tiquete</div>
                         <div>Sorteo</div>
                         <div>Monto (₡)</div>
@@ -448,14 +521,36 @@ export default function TimingControl() {
                         </div>
                         );
                     })}                    <button
-                        className="mt-2 px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-green-600 hover:bg-green-700 text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="mt-2 px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-green-600 hover:bg-green-700 text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed export-hide"
                         onClick={addRow}
                         disabled={rows.length > 0 && !hasMinimumFields(rows[rows.length - 1])}
                         title={rows.length > 0 && !hasMinimumFields(rows[rows.length - 1]) ? "Complete el número de tiquete y monto de la fila anterior antes de agregar una nueva" : "Agregar nueva fila"}
                     >
                         + Agregar fila
-                    </button>
-                </div>
+                    </button></div>
+
+                {/* Resumen de sorteos para exportación */}
+                {Object.keys(resumenSorteos).length > 0 && (
+                    <div className="mt-6 pt-4" style={{ borderTop: '2px solid var(--input-border)' }}>
+                        <h4 className="text-lg font-semibold mb-4" style={{ color: 'var(--foreground)' }}>
+                            Resumen de Ventas por Sorteo
+                        </h4>
+                        <div className="space-y-2 mb-4">
+                            {Object.entries(resumenSorteos).map(([sorteo, total]) => (
+                                <div key={sorteo} className="flex justify-between pb-2" style={{ borderBottom: '1px solid var(--input-border)' }}>
+                                    <span className="font-medium" style={{ color: 'var(--foreground)' }}>{sorteo}</span>
+                                    <span className="font-mono font-semibold" style={{ color: 'var(--foreground)' }}>₡ {total.toLocaleString('es-CR')}</span>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="text-right font-bold text-xl pt-2" style={{ 
+                            color: 'var(--foreground)', 
+                            borderTop: '2px solid var(--input-border)' 
+                        }}>
+                            Total General: <span className="font-mono text-green-700">₡ {totalGeneral.toLocaleString('es-CR')}</span>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

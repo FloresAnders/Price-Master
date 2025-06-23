@@ -157,9 +157,12 @@ export function preprocessImage(imageData: ImageData): ImageData {
   return processedData;
 }
 
-// --- Decodificación con Quagga2 (imagen estática) ---
+// --- Decodificación con Quagga2 (imagen estática) - OPTIMIZADO PARA VELOCIDAD ---
 export async function detectWithQuagga2(imageData: ImageData, fallbackDelay: number = 0): Promise<string | null> {
-  // Implementar retraso configurado para dar prioridad a ZBar-WASM
+  // Usar requestAnimationFrame para procesamiento inmediato sin bloquear UI
+  await new Promise(resolve => requestAnimationFrame(resolve));
+  
+  // El fallbackDelay ahora es 0 para análisis inmediato
   if (fallbackDelay > 0) {
     await new Promise(resolve => setTimeout(resolve, fallbackDelay));
   }

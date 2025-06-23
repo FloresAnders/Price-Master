@@ -11,7 +11,10 @@
     "firebase:migrate": "curl -X POST http://localhost:3000/api/firebase-test",
     "firebase:test": "curl http://localhost:3000/api/firebase-test",
     "firebase:clear": "curl -X DELETE http://localhost:3000/api/firebase-test",
-    "test:users": "start test-users-functionality.html"
+    "test:users": "start test-users-functionality.html",
+    "superadmin:create": "node scripts/create-superadmin-db.js create",
+    "superadmin:list": "node scripts/create-superadmin-db.js list",
+    "superadmin:deactivate": "node scripts/create-superadmin-db.js deactivate"
   },
   "dependencies": {
     "@ericblade/quagga2": "^1.8.4",

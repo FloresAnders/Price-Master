@@ -15,7 +15,7 @@ export interface User {
   name: string;
   location?: string;
   password?: string;
-  role?: 'admin' | 'user';
+  role?: 'admin' | 'user' | 'superadmin';
   isActive?: boolean;
   createdAt?: Date;
   updatedAt?: Date;

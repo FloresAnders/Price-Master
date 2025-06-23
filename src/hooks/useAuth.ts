@@ -5,7 +5,7 @@ interface SessionData {
   id?: string;
   name: string;
   location?: string;
-  role?: 'admin' | 'user';
+  role?: 'admin' | 'user' | 'superadmin';
   loginTime: string;
 }
 
@@ -66,13 +66,15 @@ export function useAuth() {
     setUser(null);
     setIsAuthenticated(false);
   };
-
   const isAdmin = () => {
     return user?.role === 'admin';
   };
 
+  const isSuperAdmin = () => {
+    return user?.role === 'superadmin';
+  };
   const canChangeLocation = () => {
-    return user?.role === 'admin';
+    return user?.role === 'admin' || user?.role === 'superadmin';
   };
 
   return {
@@ -82,6 +84,7 @@ export function useAuth() {
     login,
     logout,
     isAdmin,
+    isSuperAdmin,
     canChangeLocation
   };
 }
