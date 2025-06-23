@@ -13,12 +13,11 @@ import {
   Smartphone,
   Type, Banknote,
   Scan,
-  Clock
+  Clock,
 } from 'lucide-react'
 import type { ScanHistoryEntry } from '@/types/barcode'
 import TimingControl from '@/components/TimingControl'
 import HomeMenu from '@/components/HomeMenu'
-import Header from '../components/Header'
 
 // 1) Ampliamos ActiveTab para incluir "cashcounter", "controlhorario"
 type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'history' | 'timingcontrol' | 'controlhorario'
@@ -28,7 +27,6 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState<ActiveTab | null>(null); // null por defecto
   const [scanHistory, setScanHistory] = useState<ScanHistoryEntry[]>([])
   const [notification, setNotification] = useState<{ message: string; color: string } | null>(null);
-  const [mobileTabsOpen, setMobileTabsOpen] = useState(false);
 
   // LocalStorage: load on mount
   useEffect(() => {
@@ -56,16 +54,6 @@ export default function HomePage() {
       return [newEntry, ...filtered].slice(0, 20)
     })
   }
-
-  // Wrapper para setActiveTab que solo acepta strings válidos
-  const handleSetActiveTab = (tab: string) => {
-    const validTabs = [
-      'scanner', 'calculator', 'converter', 'cashcounter', 'history', 'timingcontrol', 'controlhorario'
-    ];
-    if (validTabs.includes(tab)) {
-      setActiveTab(tab as ActiveTab);
-    }
-  };
 
   // Helper to show notification
   const showNotification = (message: string, color: string = 'green') => {
@@ -185,13 +173,6 @@ export default function HomePage() {
 
   return (
     <>
-      <Header
-        tabs={activeTab !== null ? tabs : undefined}
-        activeTab={activeTab !== null ? activeTab : undefined}
-        setActiveTab={activeTab !== null ? handleSetActiveTab : undefined}
-        mobileTabsOpen={mobileTabsOpen}
-        setMobileTabsOpen={setMobileTabsOpen}
-      />
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {notification && (
           <div
@@ -205,6 +186,31 @@ export default function HomePage() {
           <HomeMenu />
         ) : (
           <>
+            {/* Navegación por pestañas */}
+            <div className="mb-8">
+              <nav className="border-b border-[var(--input-border)]">
+                <div className="-mb-px flex space-x-8">
+                  {tabs.map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`group relative flex-1 py-4 px-1 text-center text-sm font-medium transition-colors
+                        ${activeTab === tab.id
+                          ? 'text-[var(--tab-text-active)] border-b-2 border-[var(--tab-border-active)]'
+                          : 'text-[var(--tab-text)] border-b-2 border-[var(--tab-border)] hover:text-[var(--tab-hover-text)]'
+                        }`}
+                    >
+                      <div className="flex items-center justify-center space-x-2">
+                        <tab.icon className="w-5 h-5" />
+                        <span className="hidden sm:inline">{tab.name}</span>
+                        
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </nav>
+            </div>
+
             {/* Descripción de la pestaña activa */}
             <div className="mb-6 text-center">
               <h2 className="text-2xl font-bold mb-2">

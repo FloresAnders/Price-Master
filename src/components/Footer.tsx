@@ -1,13 +1,12 @@
 // src/components/Footer.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 
 export default function Footer() {
-  const [isGitHubModalOpen, setIsGitHubModalOpen] = useState(false);
   const sections = [
     { title: 'Productos', items: ['Escáner de Códigos', 'Cámara en Vivo', 'Detección Multi-formato', 'Análisis ZBar-WASM'] },
-    { title: 'Empresa', items: ['Acerca de', { name: 'Equipo', action: () => setIsGitHubModalOpen(true) }, 'Carreras', 'Contacto'] },
+    { title: 'Empresa', items: ['Acerca de', 'Equipo', 'Carreras', 'Contacto'] },
     { title: 'Tecnologías', items: ['Next.js 15', 'React 19', 'TypeScript', 'Firebase'] },
     { title: 'Soporte', items: ['Documentación', 'Preguntas Frecuentes', 'Contacto', 'Términos'] },
   ];
@@ -37,33 +36,13 @@ export default function Footer() {
                 <div className="font-semibold mb-1 sm:mb-2 text-[var(--tab-text)]">{section.title}</div>
                 <ul className="space-y-1">
                   {section.items.map((item, idx) => (
-                    typeof item === 'string' ? (
-                      <li key={idx} className="text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] cursor-pointer transition-colors text-xs sm:text-sm">{item}</li>
-                    ) : (
-                      <li key={idx} className="text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] cursor-pointer transition-colors text-xs sm:text-sm underline" onClick={item.action}>{item.name}</li>
-                    )
+                    <li key={idx} className="text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] cursor-pointer transition-colors text-xs sm:text-sm">{item}</li>
                   ))}
                 </ul>
               </div>
             ))}
           </div>
         </div>
-        {/* Modal GitHub */}
-        {isGitHubModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-            <div className="bg-[var(--card-bg)] text-[var(--foreground)] rounded-lg shadow-lg p-6 w-full max-w-xs border border-[var(--input-border)] flex flex-col items-center">
-              <h2 className="text-lg font-bold mb-2">Equipo / GitHub</h2>
-              <div className="mb-4 text-center">
-                <span className="block font-semibold">Usuario GitHub:</span>
-                <a href="https://github.com/andersfcb" target="_blank" rel="noopener noreferrer" className="text-blue-400 underline">@andersfcb</a>
-              </div>
-              <button
-                className="mt-2 px-4 py-2 rounded bg-[var(--button-bg)] text-[var(--button-text)] hover:bg-[var(--button-hover)]"
-                onClick={() => setIsGitHubModalOpen(false)}
-              >Cerrar</button>
-            </div>
-          </div>
-        )}
       </div>
     </footer>
   );
