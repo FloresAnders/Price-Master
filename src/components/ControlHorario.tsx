@@ -468,12 +468,12 @@ export default function ControlHorario() {
             </button>
             <h4 className="text-lg font-semibold capitalize flex items-center gap-2">
               {monthName}
-              {/* Mostrar candado si hay al menos un día bloqueado en la vista */}
+              {/* Mostrar candado si hay al menos un día pasado en la vista, sin importar el estado */}
               {daysToShow.some(day => {
                 const cellDate = new Date(year, month, day);
                 const now = new Date();
                 now.setHours(0,0,0,0);
-                return cellDate < now && !editPastDaysEnabled;
+                return cellDate < now;
               }) && (
                 <button
                   onClick={() => setUnlockPastDaysModal(true)}
