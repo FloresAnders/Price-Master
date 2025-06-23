@@ -343,10 +343,10 @@ export default function ControlHorario() {
       )}      {/* Header con controles */}
       <div className="mb-6 flex flex-col lg:flex-row gap-4 items-center justify-between">
         <div className="flex items-center gap-4">
-          <Calendar className="w-8 h-8 text-blue-600" />
+          <Clock className="w-16 h-16 mx-auto mb-4 text-blue-600" />
           <div>
-            <h3 className="text-xl font-semibold">Control de Horarios</h3>
-            <p className="text-sm text-[var(--tab-text)]">
+            <h3 className="text-2xl font-semibold mb-4">Control de Horarios</h3>
+            <p className="text-[var(--tab-text)] mb-6">
               Usuario: {user?.name} - Ubicación: {location}
             </p>
           </div>
@@ -389,7 +389,7 @@ export default function ControlHorario() {
 
       {/* Controles de navegación de mes y quincena */}
       <div className="mb-6 flex flex-col sm:flex-row gap-4 items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-center">
           <button
             onClick={() => changeMonth('prev')}
             className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
@@ -404,7 +404,8 @@ export default function ControlHorario() {
             <ChevronRight className="w-5 h-5" />
           </button>
         </div>
-        <div className="flex gap-2 items-center">
+        {/* Controles de quincena, vista y filtro empleados en fila o columna según pantalla */}
+        <div className="flex flex-wrap sm:flex-nowrap gap-2 w-full sm:w-auto justify-center">
           {/* Botones de quincena solo si no está la vista mensual completa */}
           {!fullMonthView && (
             <>
@@ -438,7 +439,7 @@ export default function ControlHorario() {
             {fullMonthView ? 'Quincenal' : 'Mensual'}
           </button>
           {/* Dropdown de empleados con icono de persona y select nativo estilizado */}
-          <div className="flex items-center gap-2 ml-2">
+          <div className="flex items-center gap-2">
             <UserIcon className="w-5 h-5 text-[var(--foreground)]" />
             <select
               className="px-3 py-2 rounded-md bg-[var(--input-bg)] text-[var(--foreground)] border border-[var(--input-border)] focus:outline-none focus:ring-2 focus:ring-blue-500"
