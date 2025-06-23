@@ -5,16 +5,20 @@ import React, { useState, useEffect } from 'react';
 import { Clock, Calendar, ChevronLeft, ChevronRight, Save, LogOut, User as UserIcon } from 'lucide-react';
 import { LocationsService } from '../services/locations';
 import { SchedulesService } from '../services/schedules';
-import { useAuth } from '../hooks/useAuth';
-import LoginModal from './LoginModal';
 import type { Location } from '../types/firestore';
 import type { User as FirestoreUser } from '../types/firestore';
+import { UsersService } from '../services/users';
+import { useAuth } from '../hooks/useAuth';
+import LoginModal from './LoginModal';
 
 interface ScheduleData {
   [employeeName: string]: {
     [day: string]: string;
   };
 }
+
+// Tipar correctamente la lista de usuarios para incluir ccssType y ccss. Usar el valor de ccss si existe, si no, mostrar 'CCSS No Disponible'. No usar valores quemados.
+type UserWithCCSSType = FirestoreUser & { ccssType?: 'TC' | 'MT', ccss?: number };
 
 export default function ControlHorario() {
   const { user, isAuthenticated, login, logout, canChangeLocation } = useAuth();
@@ -29,6 +33,7 @@ export default function ControlHorario() {
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [selectedEmployee, setSelectedEmployee] = useState<string>('Todos');
   const [fullMonthView, setFullMonthView] = useState(false); // Vista mensual completa opcional
+  const [userList, setUserList] = useState<UserWithCCSSType[]>([]);
 
   // Cargar datos desde Firebase
   useEffect(() => {
@@ -44,6 +49,11 @@ export default function ControlHorario() {
     };
 
     loadData();
+  }, []);
+
+  // Cargar lista de usuarios para obtener CCSS personalizado
+  useEffect(() => {
+    UsersService.getAllUsers().then(setUserList).catch(() => setUserList([]));
   }, []);
 
   // Efecto para manejar la ubicación del usuario autenticado
@@ -320,15 +330,18 @@ export default function ControlHorario() {
     );
   }
 
-  // Utilidad para calcular resumen de turnos
+  // Obtener usuario actual de la lista de usuarios por nombre
   function getEmployeeSummary(name: string) {
     const days = daysToShow;
     const shifts = days.map((day: number) => scheduleData[name]?.[day.toString()] || '');
     const workedDays = shifts.filter((s: string) => s === 'N' || s === 'D').length;
     const hours = workedDays * 8;
-    const colones = hours * 1529.62;
-    const ccss = 3672.42;
-    const neto = colones - ccss;
+    const colones = hours * 11528;
+    // Buscar usuario por nombre
+    const usuario = (userList || []).find((u) => u.name === name);
+    // Usar ccss de la base de datos si existe
+    const ccss = usuario && typeof usuario.ccss === 'number' ? usuario.ccss : null;
+    const neto = ccss !== null ? colones - ccss : null;
     return {
       workedDays,
       hours,
@@ -537,8 +550,8 @@ export default function ControlHorario() {
                           <div><b>Días trabajados:</b> {summary.workedDays}</div>
                           <div><b>Horas trabajadas:</b> {summary.hours}</div>
                           <div><b>Total bruto:</b> ₡{summary.colones.toLocaleString('es-CR')}</div>
-                          <div><b>CCSS:</b> -₡{summary.ccss.toLocaleString('es-CR', {minimumFractionDigits:2})}</div>
-                          <div><b>Salario neto:</b> ₡{summary.neto.toLocaleString('es-CR', {minimumFractionDigits:2})}</div>
+                          <div><b>CCSS:</b> {summary.ccss !== null ? `-₡${summary.ccss.toLocaleString('es-CR', {minimumFractionDigits:2})}` : 'CCSS No Disponible'}</div>
+                          <div><b>Salario neto:</b> {summary.neto !== null ? `₡${summary.neto.toLocaleString('es-CR', {minimumFractionDigits:2})}` : 'No disponible'}</div>
                         </>
                       );
                     })()}
