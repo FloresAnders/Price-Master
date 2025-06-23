@@ -40,13 +40,13 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-black/70">
-      <div className="bg-[var(--card-bg)] text-[var(--foreground)] rounded-lg shadow-lg p-6 w-full max-w-sm border border-[var(--input-border)]">
-        <div className="flex items-center gap-2 mb-2">
+      <div className="bg-[var(--card-bg)] text-[var(--foreground)] rounded-lg shadow-lg p-6 w-full max-w-sm border border-[var(--input-border)] flex flex-col items-center">
+        <div className="flex items-center gap-2 mb-2 justify-center w-full">
           {icon}
-          <h2 className="text-lg font-bold">{title}</h2>
+          <h2 className="text-lg font-bold text-center w-full">{title}</h2>
         </div>
-        <div className="mb-4 text-base">{message}</div>
-        <div className="flex justify-end gap-2 mt-4">
+        <div className="mb-4 text-base text-center w-full">{message}</div>
+        <div className="flex justify-center gap-2 mt-4 w-full">
           <button
             className="px-4 py-2 rounded bg-[var(--button-bg)] text-[var(--button-text)] hover:bg-[var(--button-hover)] disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
             onClick={onCancel}
