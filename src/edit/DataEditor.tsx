@@ -273,7 +273,9 @@ export default function DataEditor() {
         const updated = [...usersData];
         updated[index] = { ...updated[index], [field]: value };
         setUsersData(updated);
-    };    const removeUser = (index: number) => {
+    };
+
+    const removeUser = (index: number) => {
         setUsersData(usersData.filter((_, i) => i !== index));
     };
 
@@ -327,7 +329,9 @@ export default function DataEditor() {
                     >
                         <Download className="w-4 h-4" />
                         Exportar
-                    </button>                    <label className="px-4 py-2 rounded-md bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-2 transition-colors cursor-pointer">
+                    </button>
+
+                    <label className="px-4 py-2 rounded-md bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-2 transition-colors cursor-pointer">
                         <Upload className="w-4 h-4" />
                         Importar
                         <input
@@ -335,7 +339,8 @@ export default function DataEditor() {
                             accept=".json"
                             onChange={importData}
                             className="hidden"
-                        />                    </label>
+                        />
+                    </label>
                 </div>
             </div>
 
@@ -553,18 +558,16 @@ export default function DataEditor() {
                                         style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
                                         placeholder="Contraseña del usuario"
                                     />
-                                </div>                                <div>
+                                </div>
+                                <div>
                                     <label className="block text-sm font-medium mb-1">Rol:</label>
                                     <select
-                                        value={user.role || 'user'}
-                                        onChange={(e) => updateUser(index, 'role', e.target.value as 'admin' | 'user' | 'superadmin')}
+                                        value={user.role || 'user'}                                        onChange={(e) => updateUser(index, 'role', e.target.value as 'admin' | 'user')}
                                         className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
                                         style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
                                     >
                                         <option value="user">Usuario</option>
-                                        <option value="admin">Administrador</option>
-                                        <option value="superadmin">SuperAdmin</option>
-                                    </select>
+                                        <option value="admin">Administrador</option></select>
                                 </div>
                             </div>
 

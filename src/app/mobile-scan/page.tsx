@@ -17,18 +17,15 @@ export const dynamic = 'force-dynamic';
 function MobileScanContent() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('session');
-  const requestProductNameParam = searchParams.get('requestProductName');
-  
   const [code, setCode] = useState('');
   const [lastScanned, setLastScanned] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(true);
   const [isClient, setIsClient] = useState(false);
-  // Configurar requestProductName basándose en el parámetro de la URL desde PC
-  const [requestProductName, setRequestProductName] = useState(requestProductNameParam === 'true');
+  const [requestProductName, setRequestProductName] = useState(false);
   const [showNameModal, setShowNameModal] = useState(false);
-  const [pendingCode, setPendingCode] = useState<string>('');const [productName, setProductName] = useState('');  // Estados para sincronización real
+  const [pendingCode, setPendingCode] = useState<string>('');  const [productName, setProductName] = useState('');  // Estados para sincronización real
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking');
   const [connectedDeviceType, setConnectedDeviceType] = useState<'pc' | 'laptop' | 'desktop' | null>(null);
   const sessionHeartbeatRef = useRef<{ start: () => Promise<void>; stop: () => void; sessionDocId: string | null } | null>(null);
@@ -325,34 +322,20 @@ function MobileScanContent() {
           <Check className="w-5 h-5 text-green-600 dark:text-green-400" />
           <span className="text-green-800 dark:text-green-200">{success}</span>
         </div>
-      )}      {/* Product Name Request Setting - Configurado desde PC */}
+      )}      {/* Product Name Request Setting */}
       <div className="bg-card-bg rounded-lg p-4 mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold">Configuración desde PC</h3>
-          <div className="text-xs text-blue-600 dark:text-blue-400 font-medium">
-            📱 → 💻 Sincronizado
-          </div>
-        </div>
         <ProductNameCheckbox
           checked={requestProductName}
           onChange={setRequestProductName}
-          disabled={true}
+          disabled={false}
         />
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-          Esta configuración fue establecida desde la PC donde se generó el QR. 
-          {requestProductName 
-            ? " Se solicitará nombre para cada código escaneado." 
-            : " No se solicitará nombre del producto."
-          }
-        </p>
-      </div>{/* Camera Section */}
+      </div>
+
+      {/* Camera Section */}
       <div className="mb-6">
         <div className="bg-card-bg rounded-lg p-4">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold">Escanear con Cámara</h2>
-            <div className="text-xs text-green-600 dark:text-green-400 font-medium">
-              ⚡ Detección instantánea
-            </div>
           </div>
 
           {/* Usar CameraScanner component */}
@@ -381,14 +364,13 @@ function MobileScanContent() {
               </div>
             </div>
           )}        </div>
-      </div>      {/* Image Upload Section */}
+      </div>
+
+      {/* Image Upload Section */}
       <div className="mb-6">
         <div className="bg-card-bg rounded-lg p-4">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold">Subir Imagen de Código</h2>
-            <div className="text-xs text-green-600 dark:text-green-400 font-medium">
-              ⚡ Análisis inmediato
-            </div>
           </div>
 
           {/* Usar ImageDropArea component */}
