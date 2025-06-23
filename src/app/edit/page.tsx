@@ -1,5 +1,5 @@
 // app/edit/page.tsx
-'use client'
+'use client';
 
 import React, { useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'

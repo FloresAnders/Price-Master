@@ -15,7 +15,7 @@ export function generateQRCodeUrl(text: string, size: number = 200): string {
     qzone: '2',
     margin: '10'
   });
-  
+
   return `${baseUrl}?${params.toString()}`;
 }
 
@@ -33,7 +33,7 @@ export function generateQRCodeSVG(text: string, size: number = 200): string {
       <rect x="10" y="70" width="20" height="20" fill="black"/>
       <rect x="40" y="70" width="20" height="20" fill="black"/>
       <rect x="70" y="70" width="20" height="20" fill="black"/>
-      <text x="${size/2}" y="${size - 20}" text-anchor="middle" font-family="monospace" font-size="8" fill="black">
+      <text x="${size / 2}" y="${size - 20}" text-anchor="middle" font-family="monospace" font-size="8" fill="black">
         QR: ${text.slice(-15)}...
       </text>
     </svg>
@@ -50,11 +50,11 @@ export function copyToClipboard(text: string): Promise<void> {
       textArea.value = text;
       textArea.style.position = 'absolute';
       textArea.style.left = '-999999px';
-      
+
       document.body.appendChild(textArea);
       textArea.focus();
       textArea.select();
-      
+
       try {
         document.execCommand('copy');
         textArea.remove();

@@ -1,5 +1,5 @@
 // src/components/ThemeToggle.tsx
-'use client'
+'use client';
 
 import { useState, useEffect } from 'react'
 import { useTheme } from 'next-themes'

@@ -17,7 +17,6 @@ export class LocationsService {
   static async getLocationById(id: string): Promise<Location | null> {
     return await FirestoreService.getById(this.COLLECTION_NAME, id);
   }
-
   /**
    * Add a new location
    */

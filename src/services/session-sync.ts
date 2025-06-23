@@ -37,29 +37,30 @@ export class SessionSyncService {
         sessionId: string,
         source: 'pc' | 'mobile',
         userId?: string,
-        userName?: string    ): Promise<string> {        try {
-            const sessionData: Record<string, unknown> = {
-                sessionId,
-                source,
-                status: 'active' as const,
-                lastSeen: serverTimestamp(),
-                userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined
-            };
+        userName?: string): Promise<string> {
+            try {
+                const sessionData: Record<string, unknown> = {
+                    sessionId,
+                    source,
+                    status: 'active' as const,
+                    lastSeen: serverTimestamp(),
+                    userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined
+                };
 
-            // Solo incluir userId y userName si no son undefined
-            if (userId !== undefined) {
-                sessionData.userId = userId;
-            }
-            if (userName !== undefined) {
-                sessionData.userName = userName;
-            }
+                // Solo incluir userId y userName si no son undefined
+                if (userId !== undefined) {
+                    sessionData.userId = userId;
+                }
+                if (userName !== undefined) {
+                    sessionData.userName = userName;
+                }
 
-            const docRef = await addDoc(collection(db, this.COLLECTION_NAME), sessionData);
-            return docRef.id;
-        } catch (error) {
-            console.error('Error registering session:', error);
-            throw error;
-        }
+                const docRef = await addDoc(collection(db, this.COLLECTION_NAME), sessionData);
+                return docRef.id;
+            } catch (error) {
+                console.error('Error registering session:', error);
+                throw error;
+            }
     }
 
     /**
@@ -96,7 +97,7 @@ export class SessionSyncService {
     static async getActiveSessions(sessionId: string): Promise<SessionStatus[]> {
         try {
             const fifteenSecondsAgo = new Date(Date.now() - this.TIMEOUT_THRESHOLD);
-            
+
             const q = query(
                 collection(db, this.COLLECTION_NAME),
                 where('sessionId', '==', sessionId),
@@ -123,8 +124,8 @@ export class SessionSyncService {
     static async hasMobileConnection(sessionId: string): Promise<boolean> {
         try {
             const activeSessions = await this.getActiveSessions(sessionId);
-            return activeSessions.some(session => 
-                session.source === 'mobile' && 
+            return activeSessions.some(session =>
+                session.source === 'mobile' &&
                 session.status === 'active'
             );
         } catch (error) {
@@ -139,8 +140,8 @@ export class SessionSyncService {
     static async hasPCConnection(sessionId: string): Promise<boolean> {
         try {
             const activeSessions = await this.getActiveSessions(sessionId);
-            return activeSessions.some(session => 
-                session.source === 'pc' && 
+            return activeSessions.some(session =>
+                session.source === 'pc' &&
                 session.status === 'active'
             );
         } catch (error) {
@@ -159,7 +160,7 @@ export class SessionSyncService {
     ): () => void {
         try {
             const fifteenSecondsAgo = new Date(Date.now() - this.TIMEOUT_THRESHOLD);
-            
+
             const q = query(
                 collection(db, this.COLLECTION_NAME),
                 where('sessionId', '==', sessionId),
@@ -199,7 +200,7 @@ export class SessionSyncService {
     static async cleanupInactiveSessions(hoursOld: number = 24): Promise<number> {
         try {
             const cutoffDate = new Date(Date.now() - (hoursOld * 60 * 60 * 1000));
-            
+
             const q = query(
                 collection(db, this.COLLECTION_NAME),
                 where('lastSeen', '<', Timestamp.fromDate(cutoffDate))
@@ -239,7 +240,7 @@ export class SessionSyncService {
             try {
                 // Registrar sesión
                 sessionDocId = await this.registerSession(sessionId, source, userId, userName);
-                
+
                 // Iniciar heartbeat
                 heartbeatInterval = setInterval(async () => {
                     if (sessionDocId) {
@@ -266,7 +267,7 @@ export class SessionSyncService {
             if (heartbeatInterval) {
                 clearInterval(heartbeatInterval);
                 heartbeatInterval = null;
-            }            if (sessionDocId) {
+            } if (sessionDocId) {
                 // Eliminar documento de la sesión de manera asíncrona
                 this.markSessionInactive(sessionDocId).catch(console.error);
                 sessionDocId = null;

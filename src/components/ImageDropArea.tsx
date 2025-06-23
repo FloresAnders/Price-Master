@@ -35,7 +35,7 @@ export default function ImageDropArea({ onDrop, onFileSelect, fileInputRef, onFi
                 }
             }
         };
-        
+
         window.addEventListener('paste', handlePasteIndicator);
         return () => window.removeEventListener('paste', handlePasteIndicator);
     }, []);
@@ -46,11 +46,10 @@ export default function ImageDropArea({ onDrop, onFileSelect, fileInputRef, onFi
                 Seleccionar imagen
             </label>
             <div
-                className={`relative border-4 border-dashed rounded-3xl p-10 transition-all duration-300 cursor-pointer hover:border-indigo-500 bg-white dark:bg-zinc-900/70 shadow-xl group ${
-                    recentPaste 
-                        ? 'border-green-400 bg-green-50 dark:bg-green-900/20 ring-2 ring-green-400/50' 
+                className={`relative border-4 border-dashed rounded-3xl p-10 transition-all duration-300 cursor-pointer hover:border-indigo-500 bg-white dark:bg-zinc-900/70 shadow-xl group ${recentPaste
+                        ? 'border-green-400 bg-green-50 dark:bg-green-900/20 ring-2 ring-green-400/50'
                         : 'border-indigo-200 dark:border-indigo-800'
-                }`}
+                    }`}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={onDrop}
@@ -63,7 +62,7 @@ export default function ImageDropArea({ onDrop, onFileSelect, fileInputRef, onFi
                         <span>¡Pegado!</span>
                     </div>
                 )}
-                
+
                 <div className="flex flex-col items-center gap-5 text-indigo-400 dark:text-indigo-300 pointer-events-none">
                     <ImagePlusIcon className="w-20 h-20 group-hover:scale-110 transition-transform duration-300" />
                     <p className="text-xl font-bold">Arrastra una imagen aquí</p>

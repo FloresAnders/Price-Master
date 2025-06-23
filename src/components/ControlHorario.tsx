@@ -152,7 +152,7 @@ export default function ControlHorario() {
     // Validar que solo pueda haber una persona por día con el mismo turno (N, D, L)
     if (newValue && ['N', 'D', 'L'].includes(newValue)) {
       // Verificar si ya hay alguien más con este turno en este día
-      const existingEmployee = Object.keys(scheduleData).find(employee => 
+      const existingEmployee = Object.keys(scheduleData).find(employee =>
         employee !== employeeName && scheduleData[employee]?.[day] === newValue
       );
 
@@ -262,7 +262,7 @@ export default function ControlHorario() {
       }      // Configurar el canvas - más grande
       canvas.width = 1200;
       canvas.height = 900;
-      
+
       // Fondo blanco
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -277,7 +277,7 @@ export default function ControlHorario() {
       const employeeNameWidth = 250;
       const totalDaysWidth = availableWidth - employeeNameWidth;
       const cellWidth = totalDaysWidth / daysToShow.length;
-      
+
       let yPosition = 60;
       const lineHeight = 40;
       const cellHeight = 45;// Título principal - centrado y más grande
@@ -303,10 +303,10 @@ export default function ControlHorario() {
       yPosition += 60;      // Encabezados de días - más grandes y usando todo el ancho
       ctx.font = 'bold 18px Arial';
       ctx.fillStyle = '#1f2937';
-      
+
       // Título "Empleado"
       ctx.fillText('Empleado', marginX, yPosition);
-      
+
       // Días del mes - distribuidos en todo el ancho
       const startX = marginX + employeeNameWidth;
       daysToShow.forEach((day, index) => {
@@ -389,7 +389,7 @@ export default function ControlHorario() {
 
       legendItems.forEach((item, index) => {
         const x = legendStartX + (index * 200);
-        
+
         // Cuadro de color - más grande
         ctx.fillStyle = item.color;
         ctx.fillRect(x, yPosition - 20, 30, 30);
@@ -588,7 +588,7 @@ export default function ControlHorario() {
           >
             16-{daysInMonth}
           </button>
-          
+
           {/* Botón de exportar como imagen - Solo para SuperAdmin */}
           {isSuperAdmin() && (
             <button

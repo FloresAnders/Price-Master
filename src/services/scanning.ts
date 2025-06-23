@@ -7,7 +7,7 @@ import {
     updateDoc,
     query,
     orderBy,
-    limit,    where,
+    limit, where,
     onSnapshot
 } from 'firebase/firestore';
 import { db } from '../config/firebase';

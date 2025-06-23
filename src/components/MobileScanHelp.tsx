@@ -46,8 +46,8 @@ export default function MobileScanHelp({ mobileUrl, sessionId }: MobileScanHelpP
                 <button
                   onClick={() => handleCopyToClipboard(mobileUrl)}
                   className={`text-xs px-3 py-1 rounded flex items-center gap-1 transition-colors ${copySuccess
-                      ? 'bg-green-500 text-white'
-                      : 'bg-blue-500 hover:bg-blue-600 text-white'
+                    ? 'bg-green-500 text-white'
+                    : 'bg-blue-500 hover:bg-blue-600 text-white'
                     }`}
                 >
                   <Copy className="w-3 h-3" />

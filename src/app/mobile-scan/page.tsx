@@ -18,7 +18,7 @@ function MobileScanContent() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('session');
   const requestProductNameParam = searchParams.get('requestProductName');
-  
+
   const [code, setCode] = useState('');
   const [lastScanned, setLastScanned] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +28,7 @@ function MobileScanContent() {
   // Configurar requestProductName basándose en el parámetro de la URL desde PC
   const [requestProductName, setRequestProductName] = useState(requestProductNameParam === 'true');
   const [showNameModal, setShowNameModal] = useState(false);
-  const [pendingCode, setPendingCode] = useState<string>('');const [productName, setProductName] = useState('');  // Estados para sincronización real
+  const [pendingCode, setPendingCode] = useState<string>(''); const [productName, setProductName] = useState('');  // Estados para sincronización real
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking');
   const [connectedDeviceType, setConnectedDeviceType] = useState<'pc' | 'laptop' | 'desktop' | null>(null);
   const sessionHeartbeatRef = useRef<{ start: () => Promise<void>; stop: () => void; sessionDocId: string | null } | null>(null);
@@ -38,7 +38,7 @@ function MobileScanContent() {
     error: scannerError,
     cameraActive,
     liveStreamRef,
-    toggleCamera,    handleClear: clearScanner,
+    toggleCamera, handleClear: clearScanner,
     handleCopyCode,
     detectionMethod,
     fileInputRef,
@@ -60,7 +60,7 @@ function MobileScanContent() {
 
     setIsOnline(navigator.onLine);
     window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);    return () => {
+    window.addEventListener('offline', handleOffline); return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
@@ -78,31 +78,31 @@ function MobileScanContent() {
         // Crear heartbeat manager para mantener sesión móvil activa
         const heartbeatManager = SessionSyncService.createHeartbeatManager(sessionId, 'mobile');
         sessionHeartbeatRef.current = heartbeatManager;
-        
+
         // Iniciar sesión y heartbeat
         await heartbeatManager.start();        // Escuchar cambios en tiempo real para detectar conexión PC
         const unsubscribe = SessionSyncService.subscribeToSessionStatus(
           sessionId,
           (sessions: SessionStatus[]) => {
             if (!isMounted) return;
-            
-            const pcConnected = sessions.some(session => 
-              session.source === 'pc' && 
+
+            const pcConnected = sessions.some(session =>
+              session.source === 'pc' &&
               session.status === 'active'
             );
-              // Determinar qué tipo de dispositivo se conectó basándose en User Agent
+            // Determinar qué tipo de dispositivo se conectó basándose en User Agent
             if (pcConnected) {
-              const connectedDevice = sessions.find(session => 
-                session.source === 'pc' && 
+              const connectedDevice = sessions.find(session =>
+                session.source === 'pc' &&
                 session.status === 'active'
               );
-              
+
               // Detectar tipo de PC basándose en el User Agent
               const userAgent = connectedDevice?.userAgent || '';
               const isWindows = /Windows/i.test(userAgent);
               const isMac = /Macintosh|Mac OS/i.test(userAgent);
               const isLinux = /Linux/i.test(userAgent);
-              
+
               if (isWindows) {
                 setConnectedDeviceType('desktop');
               } else if (isMac) {
@@ -111,10 +111,11 @@ function MobileScanContent() {
                 setConnectedDeviceType('pc');
               } else {
                 setConnectedDeviceType('pc'); // Fallback
-              }            } else {
+              }
+            } else {
               setConnectedDeviceType(null);
             }
-            
+
             setConnectionStatus(pcConnected ? 'connected' : 'disconnected');
           },
           (error) => {
@@ -201,7 +202,8 @@ function MobileScanContent() {
       setLastScanned(prev => [...prev.slice(-4), scannedCode]); // Keep last 5
       setCode('');
       // Clear success message after 2 seconds
-      setTimeout(() => setSuccess(null), 2000);    } catch (error) {
+      setTimeout(() => setSuccess(null), 2000);
+    } catch (error) {
       console.error('Error submitting code:', error);
       setError('Error al enviar el código. Inténtalo de nuevo.');
     }
@@ -240,12 +242,12 @@ function MobileScanContent() {
         <div className="flex items-center gap-2">
           <Smartphone className="w-6 h-6 text-blue-400" />
           <h1 className="text-xl font-bold">Escáner Móvil</h1>
-        </div>        
-        
+        </div>
+
         <div className="flex items-center gap-4">
           {/* Theme Toggle */}
           <ThemeToggle />
-          
+
           {/* Estado de Internet */}
           <div className="flex items-center gap-2">
             {isOnline ? (
@@ -306,8 +308,8 @@ function MobileScanContent() {
             <div className="text-sm text-orange-700 dark:text-orange-300">
               Asegúrate de que la página del {
                 connectedDeviceType === 'desktop' ? 'escritorio' :
-                connectedDeviceType === 'laptop' ? 'laptop' :
-                connectedDeviceType === 'pc' ? 'PC' : 'dispositivo'
+                  connectedDeviceType === 'laptop' ? 'laptop' :
+                    connectedDeviceType === 'pc' ? 'PC' : 'dispositivo'
               } esté abierta con esta sesión activa
             </div>
           </div>
@@ -339,9 +341,9 @@ function MobileScanContent() {
           disabled={true}
         />
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-          Esta configuración fue establecida desde la PC donde se generó el QR. 
-          {requestProductName 
-            ? " Se solicitará nombre para cada código escaneado." 
+          Esta configuración fue establecida desde la PC donde se generó el QR.
+          {requestProductName
+            ? " Se solicitará nombre para cada código escaneado."
             : " No se solicitará nombre del producto."
           }
         </p>

@@ -10,19 +10,19 @@ interface ImageExportProps {
   onExportComplete?: (message: string) => void;
 }
 
-export default function ImageExporter({ 
-  locationName, 
-  employeeName, 
-  periodLabel, 
-  onExportComplete 
+export default function ImageExporter({
+  locationName,
+  employeeName,
+  periodLabel,
+  onExportComplete
 }: ImageExportProps) {
-  
+
   const generateImage = async () => {
     try {
       // Crear un canvas para generar la imagen
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
-      
+
       if (!ctx) {
         throw new Error('No se pudo crear el contexto del canvas');
       }
@@ -48,7 +48,7 @@ export default function ImageExporter({
       ctx.font = '24px Arial';
       ctx.fillStyle = '#666666';
       ctx.fillText(`Ubicación: ${locationName}`, canvas.width / 2, canvas.height / 2 + 20);
-      
+
       if (employeeName) {
         ctx.fillText(`Empleado: ${employeeName}`, canvas.width / 2, canvas.height / 2 + 60);
         ctx.fillText(`Período: ${periodLabel}`, canvas.width / 2, canvas.height / 2 + 100);
@@ -66,7 +66,7 @@ export default function ImageExporter({
         const cleanLocationName = locationName.replace(/[^a-zA-Z0-9]/g, '');
         const cleanEmployeeName = employeeName ? employeeName.replace(/[^a-zA-Z0-9]/g, '') : 'TodosLosEmpleados';
         const cleanPeriodLabel = periodLabel.replace(/[^a-zA-Z0-9]/g, '');
-        
+
         const fileName = `${cleanLocationName}-${cleanEmployeeName}-${cleanPeriodLabel}.jpg`;
 
         // Crear URL y descargar
@@ -129,7 +129,7 @@ export const useLocationImageExport = (
       for (const employee of employees) {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        
+
         if (!ctx) continue;
 
         // Configurar tamaño del canvas
@@ -168,7 +168,7 @@ export const useLocationImageExport = (
             const cleanLocationName = locationName.replace(/[^a-zA-Z0-9]/g, '');
             const cleanEmployeeName = employee.employeeName.replace(/[^a-zA-Z0-9]/g, '');
             const cleanPeriodLabel = periodLabel.replace(/[^a-zA-Z0-9]/g, '');
-            
+
             const fileName = `${cleanLocationName}-${cleanEmployeeName}-${cleanPeriodLabel}.jpg`;
 
             // Crear URL y descargar

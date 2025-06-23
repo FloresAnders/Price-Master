@@ -6,13 +6,13 @@ import locationsData from '../data/locations.json';
 import sorteosData from '../data/sorteos.json';
 
 export class MigrationService {
-  
+
   /**
    * Migrate locations from JSON to Firestore
    */
   static async migrateLocations(): Promise<void> {
     console.log('Starting locations migration...');
-    
+
     try {
       // Check if locations already exist
       const existingLocations = await LocationsService.getAllLocations();
@@ -43,7 +43,7 @@ export class MigrationService {
    */
   static async migrateSorteos(): Promise<void> {
     console.log('Starting sorteos migration...');
-    
+
     try {
       // Check if sorteos already exist
       const existingSorteos = await SorteosService.getAllSorteos();
@@ -72,7 +72,7 @@ export class MigrationService {
    */
   static async runAllMigrations(): Promise<void> {
     console.log('Starting data migration from JSON to Firestore...');
-    
+
     try {
       await this.migrateLocations();
       await this.migrateSorteos();
@@ -87,7 +87,7 @@ export class MigrationService {
    */
   static async clearAllData(): Promise<void> {
     console.log('WARNING: Clearing all Firestore data...');
-    
+
     try {
       // Clear locations
       const locations = await LocationsService.getAllLocations();

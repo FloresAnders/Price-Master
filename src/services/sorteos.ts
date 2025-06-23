@@ -44,7 +44,7 @@ export class SorteosService {
    */
   static async findSorteosByName(name: string): Promise<Sorteo[]> {
     const allSorteos = await this.getAllSorteos();
-    return allSorteos.filter(sorteo => 
+    return allSorteos.filter(sorteo =>
       sorteo.name.toLowerCase().includes(name.toLowerCase())
     );
   }
@@ -61,7 +61,7 @@ export class SorteosService {
    */
   static async searchSorteos(searchTerm: string): Promise<Sorteo[]> {
     const allSorteos = await this.getAllSorteos();
-    return allSorteos.filter(sorteo => 
+    return allSorteos.filter(sorteo =>
       sorteo.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }

@@ -1,6 +1,5 @@
 // Firebase configuration
 export { db } from '../config/firebase';
-
 // Services
 export { FirestoreService } from '../services/firestore';
 export { LocationsService } from '../services/locations';

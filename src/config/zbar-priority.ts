@@ -5,15 +5,15 @@ export const ZBAR_PRIORITY_CONFIG = {
   // Configuración principal - ZBar-WASM SIEMPRE primero (INMEDIATO)
   ZBAR_SCAN_INTERVAL: 0,       // ms - inmediato para máxima velocidad
   QUAGGA_FALLBACK_DELAY: 0,    // ms - sin retraso para análisis inmediato
-  
+
   // Configuración de validación
   MIN_CODE_LENGTH: 8,
   MAX_CODE_LENGTH: 20,
   VALID_CODE_PATTERN: /^[0-9A-Za-z\-\+\.\$\/\%]+$/,
-  
+
   // Configuración de logs para confirmación visual
   ENABLE_PRIORITY_LOGS: true,
-  
+
   // Mensajes de log
   LOGS: {
     ZBAR_START: '🔍 [PRIORIDAD MÁXIMA] ZBar-WASM iniciando...',

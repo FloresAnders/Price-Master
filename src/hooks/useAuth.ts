@@ -8,7 +8,6 @@ interface SessionData {
   role?: 'admin' | 'user' | 'superadmin';
   loginTime: string;
 }
-
 // Duración de la sesión en horas
 // Opciones disponibles:
 // - 24 horas = 24

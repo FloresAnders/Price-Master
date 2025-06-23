@@ -46,8 +46,8 @@ export default function HomePage() {
       if (prev[0]?.code === code) return prev
       // Si ya existe, lo sube al tope pero mantiene el nombre existente o usa el nuevo
       const existing = prev.find(e => e.code === code)
-      const newEntry: ScanHistoryEntry = existing 
-        ? { ...existing, code, name: productName || existing.name } 
+      const newEntry: ScanHistoryEntry = existing
+        ? { ...existing, code, name: productName || existing.name }
         : { code, name: productName }
       const filtered = prev.filter(e => e.code !== code)
       return [newEntry, ...filtered].slice(0, 20)
@@ -129,13 +129,13 @@ export default function HomePage() {
         }
       }
     }
-    
+
     // Ejecutar inmediatamente
     checkAndSetTab()
-    
+
     // También ejecutar después de un pequeño delay para asegurar que se cargue
     const timeout = setTimeout(checkAndSetTab, 100)
-    
+
     return () => clearTimeout(timeout)
   }, [])
 
@@ -152,7 +152,7 @@ export default function HomePage() {
 
       // Agregar el listener
       window.addEventListener('hashchange', handleHashChange)
-      
+
       // Limpiar el listener al desmontar
       return () => {
         window.removeEventListener('hashchange', handleHashChange)
@@ -197,7 +197,7 @@ export default function HomePage() {
                   <div className="flex items-center justify-center space-x-2">
                     <tab.icon className="w-5 h-5" />
                     <span className="hidden sm:inline">{tab.name}</span>
-                    
+
                   </div>
                 </button>
               ))}
@@ -224,7 +224,7 @@ export default function HomePage() {
                 <div className="flex-1 xl:max-w-3xl">
                   <BarcodeScanner onDetect={handleCodeDetected} />
                 </div>
-                
+
                 {/* Historial - lado derecho */}
                 <div className="xl:w-96 xl:flex-shrink-0">
                   <div className="sticky top-6">

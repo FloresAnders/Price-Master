@@ -1,4 +1,4 @@
-    // src/edit/DataEditor.tsx
+// src/edit/DataEditor.tsx
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -29,11 +29,11 @@ export default function DataEditor() {
         const sorteosChanged = JSON.stringify(sorteosData) !== JSON.stringify(originalSorteosData);
         const usersChanged = JSON.stringify(usersData) !== JSON.stringify(originalUsersData);
         setHasChanges(locationsChanged || sorteosChanged || usersChanged);
-    }, [locationsData, sorteosData, usersData, originalLocationsData, originalSorteosData, originalUsersData]);    const loadData = useCallback(async () => {
+    }, [locationsData, sorteosData, usersData, originalLocationsData, originalSorteosData, originalUsersData]); const loadData = useCallback(async () => {
         try {
             // Cargar locations desde Firebase
             const locations = await LocationsService.getAllLocations();
-            
+
             // Migrar datos del array names al array employees si es necesario
             const migratedLocations = locations.map(location => {
                 // Si no tiene employees pero sí tiene names, migrar
@@ -55,7 +55,7 @@ export default function DataEditor() {
                 }
                 return location;
             });
-            
+
             setLocationsData(migratedLocations);
             setOriginalLocationsData(JSON.parse(JSON.stringify(migratedLocations)));
 
@@ -96,13 +96,13 @@ export default function DataEditor() {
                     await LocationsService.deleteLocation(location.id);
                 }
             }
-              // Agregar las nuevas locations
+            // Agregar las nuevas locations
             for (const location of locationsData) {
                 // Asegurar compatibilidad hacia atrás manteniendo names
-                const namesToSave = location.employees 
+                const namesToSave = location.employees
                     ? location.employees.map(emp => emp.name)
                     : location.names || [];
-                
+
                 await LocationsService.addLocation({
                     label: location.label,
                     value: location.value,
@@ -118,7 +118,7 @@ export default function DataEditor() {
                     await SorteosService.deleteSorteo(sorteo.id);
                 }
             }
-            
+
             // Agregar los nuevos sorteos
             for (const sorteo of sorteosData) {
                 await SorteosService.addSorteo({
@@ -133,7 +133,7 @@ export default function DataEditor() {
                     await UsersService.deleteUser(user.id);
                 }
             }
-              // Agregar los nuevos usuarios
+            // Agregar los nuevos usuarios
             for (const user of usersData) {
                 await UsersService.addUser({
                     name: user.name,
@@ -204,7 +204,8 @@ export default function DataEditor() {
                             const formattedSorteos = importedData.sorteos.map((name: string) => ({
                                 name
                             }));
-                            setSorteosData(formattedSorteos);                        } else {
+                            setSorteosData(formattedSorteos);
+                        } else {
                             // Ya está en formato de objetos - mantener solo name
                             const formattedSorteos = importedData.sorteos.map((sorteo: { name?: string }) => ({
                                 name: sorteo.name || ''
@@ -247,7 +248,7 @@ export default function DataEditor() {
 
     const removeLocation = (index: number) => {
         setLocationsData(locationsData.filter((_, i) => i !== index));
-    };    const addEmployeeName = (locationIndex: number) => {
+    }; const addEmployeeName = (locationIndex: number) => {
         const updated = [...locationsData];
         // Asegurar que existe el array de employees
         if (!updated[locationIndex].employees) {
@@ -317,7 +318,7 @@ export default function DataEditor() {
         const updated = [...usersData];
         updated[index] = { ...updated[index], [field]: value };
         setUsersData(updated);
-    };    const removeUser = (index: number) => {
+    }; const removeUser = (index: number) => {
         setUsersData(usersData.filter((_, i) => i !== index));
     };
 
@@ -326,7 +327,7 @@ export default function DataEditor() {
             {/* Notification */}
             {notification && (
                 <div className={`fixed top-6 right-6 z-50 px-6 py-3 rounded-xl shadow-2xl flex items-center gap-2 font-semibold animate-fade-in-down ${notification.type === 'success' ? 'bg-green-500' :
-                        notification.type === 'error' ? 'bg-red-500' : 'bg-blue-500'
+                    notification.type === 'error' ? 'bg-red-500' : 'bg-blue-500'
                     } text-white`}>
                     {notification.type === 'success' && <Check className="w-5 h-5" />}
                     {notification.type === 'error' && <AlertCircle className="w-5 h-5" />}
@@ -357,8 +358,8 @@ export default function DataEditor() {
                         onClick={saveData}
                         disabled={!hasChanges || isSaving}
                         className={`px-4 py-2 rounded-md flex items-center gap-2 transition-colors ${hasChanges && !isSaving
-                                ? 'bg-green-600 hover:bg-green-700 text-white'
-                                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                            ? 'bg-green-600 hover:bg-green-700 text-white'
+                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                             }`}
                     >
                         <Save className="w-4 h-4" />
@@ -390,8 +391,8 @@ export default function DataEditor() {
                         <button
                             onClick={() => setActiveFile('locations')}
                             className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeFile === 'locations'
-                                    ? 'border-blue-500 text-blue-600'
-                                    : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-gray-300'
+                                ? 'border-blue-500 text-blue-600'
+                                : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-gray-300'
                                 }`}
                         >
                             <MapPin className="w-4 h-4" />
@@ -400,8 +401,8 @@ export default function DataEditor() {
                         <button
                             onClick={() => setActiveFile('sorteos')}
                             className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeFile === 'sorteos'
-                                    ? 'border-blue-500 text-blue-600'
-                                    : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-gray-300'
+                                ? 'border-blue-500 text-blue-600'
+                                : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-gray-300'
                                 }`}
                         >
                             <FileText className="w-4 h-4" />
@@ -409,8 +410,8 @@ export default function DataEditor() {
                         </button>                        <button
                             onClick={() => setActiveFile('users')}
                             className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeFile === 'users'
-                                    ? 'border-blue-500 text-blue-600'
-                                    : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-gray-300'
+                                ? 'border-blue-500 text-blue-600'
+                                : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-gray-300'
                                 }`}
                         >
                             <Users className="w-4 h-4" />
@@ -419,8 +420,8 @@ export default function DataEditor() {
                         <button
                             onClick={() => setActiveFile('schedules')}
                             className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeFile === 'schedules'
-                                    ? 'border-blue-500 text-blue-600'
-                                    : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-gray-300'
+                                ? 'border-blue-500 text-blue-600'
+                                : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-gray-300'
                                 }`}
                         >
                             <Clock className="w-4 h-4" />
@@ -483,7 +484,7 @@ export default function DataEditor() {
                                             ⚠️ Empleados en formato anterior detectados. Se migrarán automáticamente al guardar.
                                         </div>
                                     )}
-                                    
+
                                     {/* Mostrar empleados con nueva estructura */}
                                     {location.employees?.map((employee, employeeIndex) => (
                                         <div key={employeeIndex} className="flex gap-2 items-center p-3 border border-[var(--input-border)] rounded-md">
@@ -517,7 +518,7 @@ export default function DataEditor() {
                                             </button>
                                         </div>
                                     ))}
-                                    
+
                                     {/* Si no hay empleados en la nueva estructura, mostrar mensaje */}
                                     {(!location.employees || location.employees.length === 0) && (!location.names || location.names.length === 0) && (
                                         <div className="text-center py-4 text-gray-500 border-2 border-dashed border-gray-300 rounded-md">
@@ -593,34 +594,34 @@ export default function DataEditor() {
 
                     {usersData.map((user, index) => (
                         <div key={user.id || index} className="border border-[var(--input-border)] rounded-lg p-4">                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Nombre:</label>
-                                    <input
-                                        type="text"
-                                        value={user.name}
-                                        onChange={(e) => updateUser(index, 'name', e.target.value)}
-                                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
-                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                        placeholder="Nombre del usuario"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Ubicación:</label>
-                                    <select
-                                        value={user.location || ''}
-                                        onChange={(e) => updateUser(index, 'location', e.target.value)}
-                                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
-                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                    >
-                                        <option value="">Seleccionar ubicación</option>
-                                        {locationsData.map((location) => (
-                                            <option key={location.value} value={location.value}>
-                                                {location.label}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Nombre:</label>
+                                <input
+                                    type="text"
+                                    value={user.name}
+                                    onChange={(e) => updateUser(index, 'name', e.target.value)}
+                                    className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
+                                    style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                    placeholder="Nombre del usuario"
+                                />
                             </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Ubicación:</label>
+                                <select
+                                    value={user.location || ''}
+                                    onChange={(e) => updateUser(index, 'location', e.target.value)}
+                                    className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
+                                    style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                >
+                                    <option value="">Seleccionar ubicación</option>
+                                    {locationsData.map((location) => (
+                                        <option key={location.value} value={location.value}>
+                                            {location.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                 <div>

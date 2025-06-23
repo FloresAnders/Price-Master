@@ -41,7 +41,7 @@ export class FirebaseUtils {
         UsersService.getAllUsers()
       ]);
 
-      const totalNames = locations.reduce((acc, location) => 
+      const totalNames = locations.reduce((acc, location) =>
         acc + (location.names?.length || 0), 0
       );
 
@@ -81,7 +81,7 @@ export class FirebaseUtils {
 
       const matchingSorteos = sorteos.filter(sorteo =>
         sorteo.name.toLowerCase().includes(searchTerm)
-      );      const matchingUsers = users.filter(user =>
+      ); const matchingUsers = users.filter(user =>
         user.name.toLowerCase().includes(searchTerm) ||
         (user.location && user.location.toLowerCase().includes(searchTerm)) ||
         (user.role && user.role.toLowerCase().includes(searchTerm))

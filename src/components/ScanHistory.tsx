@@ -179,51 +179,51 @@ export default function ScanHistory({ history, onCopy, onDelete, onRemoveLeading
       </div>
     );
   }
-  return (    <div className="space-y-6 p-4 md:p-6 rounded-3xl shadow-2xl bg-[var(--card-bg)] dark:bg-[var(--card-bg)] border border-[var(--input-border)] scan-history-container backdrop-blur-xl w-full overflow-x-auto">
-      <div className="flex items-center justify-between mb-6 md:mb-8">
-        <h3 className="text-lg font-bold text-center flex-1 text-indigo-700 dark:text-indigo-200">Historial de Escaneos</h3>
-        <div className="flex gap-2 ml-2">
-          <button
-            className="p-1 rounded-full bg-green-100 hover:bg-green-200 text-green-600 transition-colors w-8 h-8 flex items-center justify-center border border-green-200 dark:border-green-700"
-            title="Exportar códigos"
-            onClick={handleExport}
-          >
-            <Download className="w-4 h-4" />
-          </button>
-          <button
-            className="p-1 rounded-full bg-red-100 hover:bg-red-200 text-red-600 transition-colors w-8 h-8 flex items-center justify-center border border-red-200 dark:border-red-700"
-            title="Limpiar historial"
-            onClick={() => {
-              if (window.confirm('¿Seguro que deseas borrar todo el historial de escaneos?')) {
-                if (typeof onDelete === 'function') {
-                  history.forEach(entry => onDelete(entry.code));
-                }
-                notify?.('Historial borrado', 'red');
+  return (<div className="space-y-6 p-4 md:p-6 rounded-3xl shadow-2xl bg-[var(--card-bg)] dark:bg-[var(--card-bg)] border border-[var(--input-border)] scan-history-container backdrop-blur-xl w-full overflow-x-auto">
+    <div className="flex items-center justify-between mb-6 md:mb-8">
+      <h3 className="text-lg font-bold text-center flex-1 text-indigo-700 dark:text-indigo-200">Historial de Escaneos</h3>
+      <div className="flex gap-2 ml-2">
+        <button
+          className="p-1 rounded-full bg-green-100 hover:bg-green-200 text-green-600 transition-colors w-8 h-8 flex items-center justify-center border border-green-200 dark:border-green-700"
+          title="Exportar códigos"
+          onClick={handleExport}
+        >
+          <Download className="w-4 h-4" />
+        </button>
+        <button
+          className="p-1 rounded-full bg-red-100 hover:bg-red-200 text-red-600 transition-colors w-8 h-8 flex items-center justify-center border border-red-200 dark:border-red-700"
+          title="Limpiar historial"
+          onClick={() => {
+            if (window.confirm('¿Seguro que deseas borrar todo el historial de escaneos?')) {
+              if (typeof onDelete === 'function') {
+                history.forEach(entry => onDelete(entry.code));
               }
-            }}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-          </button>
-        </div>
-      </div>
-      <div className="flex flex-col gap-4">
-        {history.map((entry, idx) => (
-          <ScanHistoryRow
-            key={`${entry.code}-${idx}`}
-            entry={entry}
-            idx={idx}
-            editingIdx={editingIdx}
-            editValue={editValue}
-            setEditingIdx={setEditingIdx}
-            setEditValue={setEditValue}
-            onRename={handleRename}
-            onRemoveLeadingZero={handleRemoveLeadingZero}
-            onCopy={handleCopy}
-            onDelete={handleDelete}
-            notify={notify}
-          />
-        ))}
+              notify?.('Historial borrado', 'red');
+            }
+          }}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
       </div>
     </div>
+    <div className="flex flex-col gap-4">
+      {history.map((entry, idx) => (
+        <ScanHistoryRow
+          key={`${entry.code}-${idx}`}
+          entry={entry}
+          idx={idx}
+          editingIdx={editingIdx}
+          editValue={editValue}
+          setEditingIdx={setEditingIdx}
+          setEditValue={setEditValue}
+          onRename={handleRename}
+          onRemoveLeadingZero={handleRemoveLeadingZero}
+          onCopy={handleCopy}
+          onDelete={handleDelete}
+          notify={notify}
+        />
+      ))}
+    </div>
+  </div>
   );
 }
