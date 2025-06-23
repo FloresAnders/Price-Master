@@ -7,6 +7,7 @@ import { LocationsService } from '../services/locations';
 import { SchedulesService } from '../services/schedules';
 import { useAuth } from '../hooks/useAuth';
 import LoginModal from './LoginModal';
+import ConfirmModal from './ConfirmModal';
 import type { Location } from '../types/firestore';
 import type { User as FirestoreUser } from '../types/firestore';
 
@@ -29,6 +30,12 @@ export default function ControlHorario() {
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [selectedEmployee, setSelectedEmployee] = useState<string>('Todos');
   const [fullMonthView, setFullMonthView] = useState(false); // Vista mensual completa opcional
+  const [confirmModal, setConfirmModal] = useState<{
+    open: boolean;
+    message: string;
+    onConfirm: (() => Promise<void>) | null;
+  }>({ open: false, message: '', onConfirm: null });
+  const [modalLoading, setModalLoading] = useState(false);
 
   // Cargar datos desde Firebase
   useEffect(() => {
@@ -176,24 +183,31 @@ export default function ControlHorario() {
 
     // Validar que solo pueda haber una persona por día con el mismo turno (N, D, L)
     if (newValue && ['N', 'D', 'L'].includes(newValue)) {
-      // Verificar si ya hay alguien más con este turno en este día
       const existingEmployee = Object.keys(scheduleData).find(employee => 
         employee !== employeeName && scheduleData[employee]?.[day] === newValue
       );
-
       if (existingEmployee) {
         showNotification(`No se puede asignar el turno "${newValue}". ${existingEmployee} ya tiene este turno el día ${day}.`, 'error');
         return;
       }
     }
 
-    // Si se asigna un turno N, D o L y antes no había nada, pedir confirmación
+    // Confirmar asignación de turno nuevo
     if (!currentValue && ['N', 'D', 'L'].includes(newValue)) {
-      const confirmed = window.confirm(`¿Está seguro de asignar el turno "${newValue}" a ${employeeName} el día ${day}?`);
-      if (!confirmed) return;
+      setConfirmModal({
+        open: true,
+        message: `¿Está seguro de asignar el turno "${newValue}" a ${employeeName} el día ${day}?`,
+        onConfirm: async () => {
+          setModalLoading(true);
+          await doUpdate();
+          setModalLoading(false);
+          setConfirmModal({ open: false, message: '', onConfirm: null });
+        }
+      });
+      return;
     }
 
-    // Si la celda ya tiene un valor específico (N, D, L), solicitar confirmación
+    // Confirmar cambio o eliminación de turno
     if (currentValue && ['N', 'D', 'L'].includes(currentValue) && currentValue !== newValue) {
       let confirmMessage = '';
       if (newValue === '' || newValue.trim() === '') {
@@ -201,44 +215,50 @@ export default function ControlHorario() {
       } else {
         confirmMessage = `¿Está seguro de cambiar el turno de ${employeeName} del día ${day} de "${currentValue}" a "${newValue}"?`;
       }
-
-      const confirmed = window.confirm(confirmMessage);
-      if (!confirmed) return;
+      setConfirmModal({
+        open: true,
+        message: confirmMessage,
+        onConfirm: async () => {
+          setModalLoading(true);
+          await doUpdate();
+          setModalLoading(false);
+          setConfirmModal({ open: false, message: '', onConfirm: null });
+        }
+      });
+      return;
     }
 
-    try {
-      setSaving(true);
+    await doUpdate();
 
-      // Actualizar en Firebase (eliminará el documento si newValue está vacío)
-      await SchedulesService.updateScheduleShift(
-        location,
-        employeeName,
-        year,
-        month,
-        parseInt(day),
-        newValue
-      );
-
-      // Actualizar estado local
-      setScheduleData(prev => ({
-        ...prev,
-        [employeeName]: {
-          ...prev[employeeName],
-          [day]: newValue
+    async function doUpdate() {
+      try {
+        setSaving(true);
+        await SchedulesService.updateScheduleShift(
+          location,
+          employeeName,
+          year,
+          month,
+          parseInt(day),
+          newValue
+        );
+        setScheduleData(prev => ({
+          ...prev,
+          [employeeName]: {
+            ...prev[employeeName],
+            [day]: newValue
+          }
+        }));
+        if (newValue === '' || newValue.trim() === '') {
+          showNotification('Turno eliminado correctamente (documento borrado)', 'success');
+        } else {
+          showNotification('Horario actualizado correctamente', 'success');
         }
-      }));
-
-      // Mostrar mensaje específico según la acción
-      if (newValue === '' || newValue.trim() === '') {
-        showNotification('Turno eliminado correctamente (documento borrado)', 'success');
-      } else {
-        showNotification('Horario actualizado correctamente', 'success');
+      } catch (error) {
+        console.error('Error updating schedule:', error);
+        showNotification('Error al actualizar el horario', 'error');
+      } finally {
+        setSaving(false);
       }
-    } catch (error) {
-      console.error('Error updating schedule:', error);
-      showNotification('Error al actualizar el horario', 'error');
-    } finally {
-      setSaving(false);
     }
   };// Opciones de turnos disponibles
   const shiftOptions = [
@@ -345,240 +365,252 @@ export default function ControlHorario() {
   }
 
   return (
-    <div className="max-w-full mx-auto bg-[var(--card-bg)] rounded-lg shadow p-6">
-      {/* Notification */}
-      {notification && (
-        <div className={`fixed top-6 right-6 z-50 px-6 py-3 rounded-xl shadow-2xl flex items-center gap-2 font-semibold animate-fade-in-down ${notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'
-          } text-white`}>
-          {notification.type === 'success' ? (
-            <Save className="w-5 h-5" />
-          ) : (
-            <Clock className="w-5 h-5" />
-          )}
-          {notification.message}
-        </div>
-      )}
-
-      {/* Loading indicator */}
-      {saving && (
-        <div className="fixed top-20 right-6 z-40 px-4 py-2 rounded-lg bg-blue-500 text-white flex items-center gap-2">
-          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-          Guardando...
-        </div>
-      )}      {/* Header con controles */}
-      <div className="mb-6 flex flex-col lg:flex-row gap-4 items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Clock className="w-16 h-16 mx-auto mb-4 text-blue-600" />
-          <div>
-            <h3 className="text-2xl font-semibold mb-4">Control de Horarios</h3>
-            <p className="text-[var(--tab-text)] mb-6">
-              Usuario: {user?.name} - Ubicación: {location}
-            </p>
+    <>
+      <div className="max-w-full mx-auto bg-[var(--card-bg)] rounded-lg shadow p-6">
+        {/* Notification */}
+        {notification && (
+          <div className={`fixed top-6 right-6 z-50 px-6 py-3 rounded-xl shadow-2xl flex items-center gap-2 font-semibold animate-fade-in-down ${notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'
+            } text-white`}>
+            {notification.type === 'success' ? (
+              <Save className="w-5 h-5" />
+            ) : (
+              <Clock className="w-5 h-5" />
+            )}
+            {notification.message}
           </div>
-        </div>
+        )}
 
-        <div className="flex items-center gap-4">
-          {/* Selector de ubicación - solo para administradores */}
-          {canChangeLocation() ? (
-            <select
-              className="px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              style={{
-                background: 'var(--input-bg)',
-                border: '1px solid var(--input-border)',
-                color: 'var(--foreground)',
-              }}
-              value={location}
-              onChange={e => setLocation(e.target.value)}
-            >
-              <option value="">Seleccionar ubicación</option>
-              {locations.map((loc: Location) => (
-                <option key={loc.value} value={loc.value}>{loc.label}</option>
-              ))}
-            </select>
-          ) : (
-            <div className="px-3 py-2 text-sm text-[var(--tab-text)]">
+        {/* Loading indicator */}
+        {saving && (
+          <div className="fixed top-20 right-6 z-40 px-4 py-2 rounded-lg bg-blue-500 text-white flex items-center gap-2">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+            Guardando...
+          </div>
+        )}      {/* Header con controles */}
+        <div className="mb-6 flex flex-col lg:flex-row gap-4 items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Clock className="w-16 h-16 mx-auto mb-4 text-blue-600" />
+            <div>
+              <h3 className="text-2xl font-semibold mb-4">Control de Horarios</h3>
+              <p className="text-[var(--tab-text)] mb-6">
+                Usuario: {user?.name} - Ubicación: {location}
+              </p>
             </div>
-          )}
+          </div>
 
-          {/* Botón de logout */}
-          <button
-            onClick={logout}
-            className="flex items-center gap-2 px-3 py-2 text-red-600 hover:bg-red-50 rounded-md transition-colors"
-            title="Cerrar sesión"
-          >
-            <LogOut className="w-4 h-4" />
-            <span className="hidden sm:inline">Salir</span>
-          </button>
-        </div>
-      </div>
+          <div className="flex items-center gap-4">
+            {/* Selector de ubicación - solo para administradores */}
+            {canChangeLocation() ? (
+              <select
+                className="px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                style={{
+                  background: 'var(--input-bg)',
+                  border: '1px solid var(--input-border)',
+                  color: 'var(--foreground)',
+                }}
+                value={location}
+                onChange={e => setLocation(e.target.value)}
+              >
+                <option value="">Seleccionar ubicación</option>
+                {locations.map((loc: Location) => (
+                  <option key={loc.value} value={loc.value}>{loc.label}</option>
+                ))}
+              </select>
+            ) : (
+              <div className="px-3 py-2 text-sm text-[var(--tab-text)]">
+              </div>
+            )}
 
-      {/* Controles de navegación de mes y quincena */}
-      <div className="mb-6 flex flex-col sm:flex-row gap-4 items-center justify-between">
-        <div className="flex items-center gap-2 w-full sm:w-auto justify-center">
-          <button
-            onClick={() => changeMonth('prev')}
-            className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-          <h4 className="text-lg font-semibold capitalize">{monthName}</h4>
-          <button
-            onClick={() => changeMonth('next')}
-            className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-          >
-            <ChevronRight className="w-5 h-5" />
-          </button>
-        </div>
-        {/* Controles de quincena, vista y filtro empleados en fila o columna según pantalla */}
-        <div className="flex flex-wrap sm:flex-nowrap gap-2 w-full sm:w-auto justify-center">
-          {/* Botones de quincena solo si no está la vista mensual completa */}
-          {!fullMonthView && (
-            <>
-              <button
-                onClick={() => setViewMode('first')}
-                className={`px-4 py-2 rounded-md transition-colors ${viewMode === 'first'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-                  }`}
-              >
-                1-15
-              </button>
-              <button
-                onClick={() => setViewMode('second')}
-                className={`px-4 py-2 rounded-md transition-colors ${viewMode === 'second'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-                  }`}
-              >
-                16-{daysInMonth}
-              </button>
-            </>
-          )}
-          {/* Botón de vista quincenal/mensual con icono Calendar */}
-          <button
-            onClick={() => setFullMonthView(v => !v)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md border transition-colors ${fullMonthView ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-400 dark:border-gray-600'}`}
-            title={fullMonthView ? 'Vista quincenal' : 'Vista mensual'}
-          >
-            <Calendar className="w-5 h-5" />
-            {fullMonthView ? 'Quincenal' : 'Mensual'}
-          </button>
-          {/* Dropdown de empleados con icono de persona y select nativo estilizado */}
-          <div className="flex items-center gap-2">
-            <UserIcon className="w-5 h-5 text-[var(--foreground)]" />
-            <select
-              className="px-3 py-2 rounded-md bg-[var(--input-bg)] text-[var(--foreground)] border border-[var(--input-border)] focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={selectedEmployee}
-              onChange={e => setSelectedEmployee(e.target.value)}
+            {/* Botón de logout */}
+            <button
+              onClick={logout}
+              className="flex items-center gap-2 px-3 py-2 text-red-600 hover:bg-red-50 rounded-md transition-colors"
+              title="Cerrar sesión"
             >
-              <option value="Todos">Todos</option>
-              {names.map(name => (
-                <option key={name} value={name}>{name}</option>
-              ))}
-            </select>
+              <LogOut className="w-4 h-4" />
+              <span className="hidden sm:inline">Salir</span>
+            </button>
           </div>
         </div>
-      </div>
 
-      {/* Leyenda de colores */}
-      <div className="mb-6 flex flex-wrap gap-4 justify-center">
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded" style={{ backgroundColor: '#87CEEB' }}></div>
-          <span className="text-sm">N - Nocturno</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded" style={{ backgroundColor: '#FFFF00' }}></div>
-          <span className="text-sm">D - Diurno</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded" style={{ backgroundColor: '#FF00FF' }}></div>
-          <span className="text-sm">L - Libre</span>
-        </div>
-      </div>
-
-      {/* Grid de horarios */}
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse border border-[var(--input-border)]">
-          <thead>
-            <tr>
-              <th
-                className="border border-[var(--input-border)] p-2 font-semibold text-center bg-[var(--input-bg)] text-[var(--foreground)] min-w-[120px] sticky left-0 z-20"
-                style={{ background: 'var(--input-bg)', color: 'var(--foreground)', minWidth: '120px', left: 0 }}
+        {/* Controles de navegación de mes y quincena */}
+        <div className="mb-6 flex flex-col sm:flex-row gap-4 items-center justify-between">
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-center">
+            <button
+              onClick={() => changeMonth('prev')}
+              className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <h4 className="text-lg font-semibold capitalize">{monthName}</h4>
+            <button
+              onClick={() => changeMonth('next')}
+              className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+          {/* Controles de quincena, vista y filtro empleados en fila o columna según pantalla */}
+          <div className="flex flex-wrap sm:flex-nowrap gap-2 w-full sm:w-auto justify-center">
+            {/* Botones de quincena solo si no está la vista mensual completa */}
+            {!fullMonthView && (
+              <>
+                <button
+                  onClick={() => setViewMode('first')}
+                  className={`px-4 py-2 rounded-md transition-colors ${viewMode === 'first'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                    }`}
+                >
+                  1-15
+                </button>
+                <button
+                  onClick={() => setViewMode('second')}
+                  className={`px-4 py-2 rounded-md transition-colors ${viewMode === 'second'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                    }`}
+                >
+                  16-{daysInMonth}
+                </button>
+              </>
+            )}
+            {/* Botón de vista quincenal/mensual con icono Calendar */}
+            <button
+              onClick={() => setFullMonthView(v => !v)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-md border transition-colors ${fullMonthView ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-400 dark:border-gray-600'}`}
+              title={fullMonthView ? 'Vista quincenal' : 'Vista mensual'}
+            >
+              <Calendar className="w-5 h-5" />
+              {fullMonthView ? 'Quincenal' : 'Mensual'}
+            </button>
+            {/* Dropdown de empleados con icono de persona y select nativo estilizado */}
+            <div className="flex items-center gap-2">
+              <UserIcon className="w-5 h-5 text-[var(--foreground)]" />
+              <select
+                className="px-3 py-2 rounded-md bg-[var(--input-bg)] text-[var(--foreground)] border border-[var(--input-border)] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={selectedEmployee}
+                onChange={e => setSelectedEmployee(e.target.value)}
               >
-                Nombre
-              </th>
-              {daysToShow.map(day => {
-                // Detectar si es hoy
-                const today = new Date();
-                const isToday =
-                  today.getFullYear() === currentDate.getFullYear() &&
-                  today.getMonth() === currentDate.getMonth() &&
-                  today.getDate() === day;
-                return (
-                  <th
-                    key={day}
-                    className={`border border-[var(--input-border)] p-2 font-semibold text-center transition-colors ${isToday ? 'ring-2 ring-green-400 ring-offset-2 ring-offset-[var(--card-bg)]' : ''}`}
-                    style={{ background: 'var(--input-bg)', color: 'var,--foreground)', minWidth: '50px', borderColor: isToday ? '#4ade80' : undefined }}
-                  >
-                    {day}
-                  </th>
-                );
-              })}
-            </tr>
-          </thead>
-          <tbody>
-            {(selectedEmployee === 'Todos' ? names : [selectedEmployee]).map(name => (
-              <tr key={name}>
-                <td
-                  className="border border-[var(--input-border)] p-2 font-medium bg-[var(--input-bg)] text-[var(--foreground)] min-w-[120px] sticky left-0 z-10 group cursor-pointer"
+                <option value="Todos">Todos</option>
+                {names.map(name => (
+                  <option key={name} value={name}>{name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Leyenda de colores */}
+        <div className="mb-6 flex flex-wrap gap-4 justify-center">
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded" style={{ backgroundColor: '#87CEEB' }}></div>
+            <span className="text-sm">N - Nocturno</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded" style={{ backgroundColor: '#FFFF00' }}></div>
+            <span className="text-sm">D - Diurno</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded" style={{ backgroundColor: '#FF00FF' }}></div>
+            <span className="text-sm">L - Libre</span>
+          </div>
+        </div>
+
+        {/* Grid de horarios */}
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse border border-[var(--input-border)]">
+            <thead>
+              <tr>
+                <th
+                  className="border border-[var(--input-border)] p-2 font-semibold text-center bg-[var(--input-bg)] text-[var(--foreground)] min-w-[120px] sticky left-0 z-20"
                   style={{ background: 'var(--input-bg)', color: 'var(--foreground)', minWidth: '120px', left: 0 }}
                 >
-                  {name}
-                  {/* Tooltip al pasar el mouse */}
-                  <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 bg-gray-900 text-white text-xs rounded shadow-lg px-4 py-2 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 min-w-[180px] text-left whitespace-pre-line">
-                    {(() => {
-                      const summary = getEmployeeSummary(name);
-                      return (
-                        <>
-                          <div><b>Días trabajados:</b> {summary.workedDays}</div>
-                          <div><b>Horas trabajadas:</b> {summary.hours}</div>
-                          <div><b>Total bruto:</b> ₡{summary.colones.toLocaleString('es-CR')}</div>
-                          <div><b>CCSS:</b> -₡{summary.ccss.toLocaleString('es-CR', {minimumFractionDigits:2})}</div>
-                          <div><b>Salario neto:</b> ₡{summary.neto.toLocaleString('es-CR', {minimumFractionDigits:2})}</div>
-                        </>
-                      );
-                    })()}
-                  </div>
-                </td>
+                  Nombre
+                </th>
                 {daysToShow.map(day => {
-                  const value = scheduleData[name]?.[day.toString()] || '';
-                  return (<td key={day} className="border border-[var(--input-border)] p-0">
-                    <select
-                      value={value}
-                      onChange={(e) => handleCellChange(name, day, e.target.value)}
-                      className="w-full h-full p-2 border-none outline-none text-center font-semibold cursor-pointer"
-                      style={getCellStyle(value)}
+                  // Detectar si es hoy
+                  const today = new Date();
+                  const isToday =
+                    today.getFullYear() === currentDate.getFullYear() &&
+                    today.getMonth() === currentDate.getMonth() &&
+                    today.getDate() === day;
+                  return (
+                    <th
+                      key={day}
+                      className={`border border-[var(--input-border)] p-2 font-semibold text-center transition-colors ${isToday ? 'ring-2 ring-green-400 ring-offset-2 ring-offset-[var(--card-bg)]' : ''}`}
+                      style={{ background: 'var(--input-bg)', color: 'var,--foreground)', minWidth: '50px', borderColor: isToday ? '#4ade80' : undefined }}
                     >
-                      {shiftOptions.map(option => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
+                      {day}
+                    </th>
                   );
                 })}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {(selectedEmployee === 'Todos' ? names : [selectedEmployee]).map(name => (
+                <tr key={name}>
+                  <td
+                    className="border border-[var(--input-border)] p-2 font-medium bg-[var(--input-bg)] text-[var(--foreground)] min-w-[120px] sticky left-0 z-10 group cursor-pointer"
+                    style={{ background: 'var(--input-bg)', color: 'var(--foreground)', minWidth: '120px', left: 0 }}
+                  >
+                    {name}
+                    {/* Tooltip al pasar el mouse */}
+                    <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 bg-gray-900 text-white text-xs rounded shadow-lg px-4 py-2 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 min-w-[180px] text-left whitespace-pre-line">
+                      {(() => {
+                        const summary = getEmployeeSummary(name);
+                        return (
+                          <>
+                            <div><b>Días trabajados:</b> {summary.workedDays}</div>
+                            <div><b>Horas trabajadas:</b> {summary.hours}</div>
+                            <div><b>Total bruto:</b> ₡{summary.colones.toLocaleString('es-CR')}</div>
+                            <div><b>CCSS:</b> -₡{summary.ccss.toLocaleString('es-CR', {minimumFractionDigits:2})}</div>
+                            <div><b>Salario neto:</b> ₡{summary.neto.toLocaleString('es-CR', {minimumFractionDigits:2})}</div>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </td>
+                  {daysToShow.map(day => {
+                    const value = scheduleData[name]?.[day.toString()] || '';
+                    return (<td key={day} className="border border-[var(--input-border)] p-0">
+                      <select
+                        value={value}
+                        onChange={(e) => handleCellChange(name, day, e.target.value)}
+                        className="w-full h-full p-2 border-none outline-none text-center font-semibold cursor-pointer"
+                        style={getCellStyle(value)}
+                      >
+                        {shiftOptions.map(option => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {names.length === 0 && (
+          <div className="text-center py-8 text-[var(--tab-text)]">
+            No hay empleados registrados para esta ubicación.
+          </div>
+        )}
       </div>
 
-      {names.length === 0 && (
-        <div className="text-center py-8 text-[var(--tab-text)]">
-          No hay empleados registrados para esta ubicación.
-        </div>
-      )}
-    </div>
+      <ConfirmModal
+        open={confirmModal.open}
+        message={confirmModal.message}
+        loading={modalLoading}
+        onConfirm={async () => {
+          if (confirmModal.onConfirm) await confirmModal.onConfirm();
+        }}
+        onCancel={() => setConfirmModal({ open: false, message: '', onConfirm: null })}
+      />
+    </>
   );
 }
