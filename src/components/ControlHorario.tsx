@@ -326,7 +326,7 @@ export default function ControlHorario() {
     const shifts = days.map((day: number) => scheduleData[name]?.[day.toString()] || '');
     const workedDays = shifts.filter((s: string) => s === 'N' || s === 'D').length;
     const hours = workedDays * 8;
-    const colones = hours * 11528;
+    const colones = hours * 1441;
     const ccss = 3672.42;
     const neto = colones - ccss;
     return {
