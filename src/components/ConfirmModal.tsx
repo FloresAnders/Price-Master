@@ -26,16 +26,16 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
 }) => {
   if (!open) return null;
 
-  let icon = <CheckCircle2 className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />;
-  let confirmIcon = <CheckCircle2 className="h-4 w-4" />;
-  const cancelIcon = <XCircle className="h-4 w-4" />;
+  let icon = <CheckCircle2 className="h-5 w-5 text-[var(--foreground)]" />;
+  let confirmIcon = <CheckCircle2 className="h-4 w-4 text-[var(--foreground)]" />;
+  const cancelIcon = <XCircle className="h-4 w-4 text-[var(--foreground)]" />;
   if (actionType === 'delete') {
-    icon = <Trash2 className="h-5 w-5 text-red-600 dark:text-red-400" />;
-    confirmIcon = <Trash2 className="h-4 w-4" />;
+    icon = <Trash2 className="h-5 w-5 text-[var(--foreground)]" />;
+    confirmIcon = <Trash2 className="h-4 w-4 text-[var(--foreground)]" />;
   }
   if (actionType === 'change') {
-    icon = <AlertTriangle className="h-5 w-5 text-yellow-500 dark:text-yellow-300" />;
-    confirmIcon = <AlertTriangle className="h-4 w-4" />;
+    icon = <AlertTriangle className="h-5 w-5 text-[var(--foreground)]" />;
+    confirmIcon = <AlertTriangle className="h-4 w-4 text-[var(--foreground)]" />;
   }
 
   return (
