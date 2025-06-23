@@ -11,7 +11,7 @@ export default function Footer() {
     { title: 'Soporte', items: ['Documentación', 'Preguntas Frecuentes', 'Contacto', 'Términos'] },
   ];
   return (
-    <footer className="fixed bottom-0 left-0 w-full border-t border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] z-50">
+    <footer className="mt-auto border-t border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
         <div className="flex flex-col sm:flex-row justify-between items-center gap-3 text-sm">
           <div className="text-center sm:text-left">
