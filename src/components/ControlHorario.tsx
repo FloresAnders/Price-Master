@@ -100,21 +100,22 @@ export default function ControlHorario() {
     }
   };
 
-  // --- AUTO-QUINCENA: Detectar y mostrar la quincena actual SOLO al cambiar de mes/año ---
-  const prevDateRef = React.useRef<string>("");
+  // --- AUTO-QUINCENA: Detectar y mostrar la quincena actual SOLO al cargar el mes actual por PRIMERA VEZ en la sesión ---
+  const autoQuincenaRef = React.useRef<boolean>(false);
   useEffect(() => {
     const today = new Date();
     const isCurrentMonth = today.getFullYear() === currentDate.getFullYear() && today.getMonth() === currentDate.getMonth();
-    const dateKey = `${currentDate.getFullYear()}-${currentDate.getMonth()}`;
-    if (isAuthenticated && !loading && isCurrentMonth && prevDateRef.current !== dateKey) {
+    if (isAuthenticated && !loading && isCurrentMonth && !autoQuincenaRef.current) {
       if (today.getDate() > 15) {
         setViewMode('second');
       } else {
         setViewMode('first');
       }
-      prevDateRef.current = dateKey;
-    } else if (prevDateRef.current !== dateKey) {
-      prevDateRef.current = dateKey;
+      autoQuincenaRef.current = true;
+    }
+    // Si cambias de mes, permite volver a auto-quincena si regresas al mes actual
+    if (!isCurrentMonth) {
+      autoQuincenaRef.current = false;
     }
   }, [isAuthenticated, loading, currentDate, viewMode]);
 
