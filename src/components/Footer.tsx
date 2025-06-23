@@ -1,11 +1,9 @@
 // src/components/Footer.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 
 export default function Footer() {
-  const [isGitHubModalOpen, setIsGitHubModalOpen] = useState(false);
-
   return (
     <footer className="mt-auto border-t border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
