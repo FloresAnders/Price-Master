@@ -72,7 +72,8 @@
   /* Estilos globales */
   html,
   body {
-    background: var(--background);
+    background: var(--background) url('/background.png') no-repeat center center fixed;
+    background-size: cover;
     color: var(--foreground);
     font-family: var(--font-base);
     @apply antialiased;
