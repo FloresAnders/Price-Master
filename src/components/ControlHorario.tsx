@@ -2,12 +2,13 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Clock, Calendar, ChevronLeft, ChevronRight, Save, LogOut } from 'lucide-react';
+import { Clock, Calendar, ChevronLeft, ChevronRight, Save, LogOut, User as UserIcon } from 'lucide-react';
 import { LocationsService } from '../services/locations';
 import { SchedulesService } from '../services/schedules';
 import { useAuth } from '../hooks/useAuth';
 import LoginModal from './LoginModal';
-import type { Location, User } from '../types/firestore';
+import type { Location } from '../types/firestore';
+import type { User as FirestoreUser } from '../types/firestore';
 
 interface ScheduleData {
   [employeeName: string]: {
@@ -94,7 +95,7 @@ export default function ControlHorario() {
   }, [location, locations, currentDate]);
 
   // Manejar login exitoso
-  const handleLoginSuccess = (userData: User) => {
+  const handleLoginSuccess = (userData: FirestoreUser) => {
     login(userData);
     setShowLoginModal(false);
     if (userData.location) {
@@ -404,50 +405,35 @@ export default function ControlHorario() {
           </button>
         </div>
         <div className="flex gap-2 items-center">
-          <button
-            onClick={() => setViewMode('first')}
-            className={`px-4 py-2 rounded-md transition-colors ${viewMode === 'first'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-              }`}
-          >
-            1-15
-          </button>
-          <button
-            onClick={() => setViewMode('second')}
-            className={`px-4 py-2 rounded-md transition-colors ${viewMode === 'second'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-              }`}
-          >
-            16-{daysInMonth}
-          </button>
-          {/* Botón de vista mensual completa (opcional, no afecta lógica) */}
+          {/* Botón de vista quincenal/mensual */}
           <button
             onClick={() => setFullMonthView(v => !v)}
             className={`flex items-center gap-2 px-4 py-2 rounded-md border transition-colors ${fullMonthView ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-400 dark:border-gray-600'}`}
-            title="Vista mensual completa"
+            title={fullMonthView ? 'Vista quincenal' : 'Vista mensual'}
           >
-            <Calendar className="w-5 h-5" />
-            {fullMonthView ? 'Vista por quincena' : 'Vista mensual completa'}
+            {fullMonthView ? 'Quincenal' : 'Mensual'}
           </button>
-          {/* Dropdown de empleados */}
+          {/* Dropdown de empleados con icono de persona y estilos personalizados */}
           <div className="relative ml-2">
-            <button className="flex items-center gap-2 px-3 py-2 rounded-md bg-gray-800 text-white focus:outline-none">
-              <Calendar className="w-5 h-5" />
+            <button className="flex items-center gap-2 px-3 py-2 rounded-md bg-gray-800 dark:bg-gray-700 text-white dark:text-gray-100 focus:outline-none border border-gray-600 dark:border-gray-500">
+              <UserIcon className="w-5 h-5" />
               <span>{selectedEmployee === 'Todos' ? 'Todos' : selectedEmployee}</span>
               <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
             </button>
-            <select
-              className="absolute left-0 top-0 w-full h-full opacity-0 cursor-pointer"
-              value={selectedEmployee}
-              onChange={e => setSelectedEmployee(e.target.value)}
-            >
-              <option value="Todos">Todos</option>
-              {names.map(name => (
-                <option key={name} value={name}>{name}</option>
-              ))}
-            </select>
+            <div className="absolute left-0 mt-1 w-full rounded-md shadow-lg z-30 bg-[var(--input-bg)] border border-[var(--input-border)]">
+              <select
+                className="block w-full py-2 px-3 bg-transparent text-[var(--foreground)] dark:text-[var(--foreground)] focus:outline-none cursor-pointer"
+                value={selectedEmployee}
+                onChange={e => setSelectedEmployee(e.target.value)}
+                style={{ appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none', background: 'transparent' }}
+                size={names.length + 1}
+              >
+                <option value="Todos">Todos</option>
+                {names.map(name => (
+                  <option key={name} value={name}>{name}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
       </div>
@@ -502,8 +488,8 @@ export default function ControlHorario() {
             {(selectedEmployee === 'Todos' ? names : [selectedEmployee]).map(name => (
               <tr key={name}>
                 <td
-                  className="border border-[var(--input-border)] p-2 font-medium bg-[var(--input-bg)] text-[var(--foreground)] min-w-[120px] sticky left-0 z-10"
-                  style={{ background: 'var(--input-bg)', color: 'var(--foreground)', minWidth: '120px', left: 0 }}
+                  className="border border-[var(--input-border)] p-2 font-medium bg-[var(--input-bg)] text-[var,--foreground)] min-w-[120px] sticky left-0 z-10"
+                  style={{ background: 'var(--input-bg)', color: 'var,--foreground)', minWidth: '120px', left: 0 }}
                 >
                   {name}
                 </td>
