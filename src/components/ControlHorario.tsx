@@ -437,8 +437,8 @@ export default function ControlHorario() {
           <thead>
             <tr>
               <th
-                className="border border-[var(--input-border)] p-2 font-semibold text-center"
-                style={{ background: 'var(--input-bg)', color: 'var(--foreground)', minWidth: '120px' }}
+                className="border border-[var(--input-border)] p-2 font-semibold text-center bg-[var(--input-bg)] text-[var(--foreground)] min-w-[120px] sticky left-0 z-20"
+                style={{ background: 'var(--input-bg)', color: 'var(--foreground)', minWidth: '120px', left: 0 }}
               >
                 Nombre
               </th>
@@ -465,8 +465,8 @@ export default function ControlHorario() {
             {names.map(name => (
               <tr key={name}>
                 <td
-                  className="border border-[var(--input-border)] p-2 font-medium"
-                  style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                  className="border border-[var(--input-border)] p-2 font-medium bg-[var(--input-bg)] text-[var(--foreground)] min-w-[120px] sticky left-0 z-10"
+                  style={{ background: 'var(--input-bg)', color: 'var(--foreground)', minWidth: '120px', left: 0 }}
                 >
                   {name}
                 </td>
