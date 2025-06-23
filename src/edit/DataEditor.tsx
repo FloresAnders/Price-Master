@@ -1,14 +1,15 @@
-// src/edit/DataEditor.tsx
+    // src/edit/DataEditor.tsx
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Save, Download, Upload, AlertCircle, Check, FileText, MapPin, Users } from 'lucide-react';
+import { Save, Download, Upload, AlertCircle, Check, FileText, MapPin, Users, Clock } from 'lucide-react';
 import { LocationsService } from '../services/locations';
 import { SorteosService } from '../services/sorteos';
 import { UsersService } from '../services/users';
 import { Location, Sorteo, User } from '../types/firestore';
+import ScheduleReportTab from '../components/ScheduleReportTab';
 
-type DataFile = 'locations' | 'sorteos' | 'users';
+type DataFile = 'locations' | 'sorteos' | 'users' | 'schedules';
 
 export default function DataEditor() {
     const [activeFile, setActiveFile] = useState<DataFile>('locations');
@@ -28,14 +29,35 @@ export default function DataEditor() {
         const sorteosChanged = JSON.stringify(sorteosData) !== JSON.stringify(originalSorteosData);
         const usersChanged = JSON.stringify(usersData) !== JSON.stringify(originalUsersData);
         setHasChanges(locationsChanged || sorteosChanged || usersChanged);
-    }, [locationsData, sorteosData, usersData, originalLocationsData, originalSorteosData, originalUsersData]);
-
-    const loadData = useCallback(async () => {
+    }, [locationsData, sorteosData, usersData, originalLocationsData, originalSorteosData, originalUsersData]);    const loadData = useCallback(async () => {
         try {
             // Cargar locations desde Firebase
             const locations = await LocationsService.getAllLocations();
-            setLocationsData(locations);
-            setOriginalLocationsData(JSON.parse(JSON.stringify(locations)));
+            
+            // Migrar datos del array names al array employees si es necesario
+            const migratedLocations = locations.map(location => {
+                // Si no tiene employees pero sí tiene names, migrar
+                if ((!location.employees || location.employees.length === 0) && location.names && location.names.length > 0) {
+                    return {
+                        ...location,
+                        employees: location.names.map(name => ({
+                            name,
+                            ccssType: 'TC' as const // Tiempo Completo por defecto
+                        }))
+                    };
+                }
+                // Si no tiene employees, inicializar array vacío
+                if (!location.employees) {
+                    return {
+                        ...location,
+                        employees: []
+                    };
+                }
+                return location;
+            });
+            
+            setLocationsData(migratedLocations);
+            setOriginalLocationsData(JSON.parse(JSON.stringify(migratedLocations)));
 
             // Cargar sorteos desde Firebase
             const sorteos = await SorteosService.getAllSorteos();
@@ -74,13 +96,18 @@ export default function DataEditor() {
                     await LocationsService.deleteLocation(location.id);
                 }
             }
-            
-            // Agregar las nuevas locations
+              // Agregar las nuevas locations
             for (const location of locationsData) {
+                // Asegurar compatibilidad hacia atrás manteniendo names
+                const namesToSave = location.employees 
+                    ? location.employees.map(emp => emp.name)
+                    : location.names || [];
+                
                 await LocationsService.addLocation({
                     label: location.label,
                     value: location.value,
-                    names: location.names
+                    names: namesToSave, // Mantener compatibilidad hacia atrás
+                    employees: location.employees || [] // Nueva estructura con tipo CCSS
                 });
             }
 
@@ -201,14 +228,13 @@ export default function DataEditor() {
 
         // Reset input
         event.target.value = '';
-    };
-
-    // Funciones para manejar locations
+    };    // Funciones para manejar locations
     const addLocation = () => {
         const newLocation: Location = {
             value: '',
             label: '',
-            names: []
+            names: [], // Mantener compatibilidad hacia atrás
+            employees: [] // Nueva estructura para empleados con tipo CCSS
         };
         setLocationsData([...locationsData, newLocation]);
     };
@@ -221,23 +247,41 @@ export default function DataEditor() {
 
     const removeLocation = (index: number) => {
         setLocationsData(locationsData.filter((_, i) => i !== index));
-    };
-
-    const addEmployeeName = (locationIndex: number) => {
+    };    const addEmployeeName = (locationIndex: number) => {
         const updated = [...locationsData];
-        updated[locationIndex].names.push('');
+        // Asegurar que existe el array de employees
+        if (!updated[locationIndex].employees) {
+            updated[locationIndex].employees = [];
+        }
+        // Agregar nuevo empleado con tipo CCSS por defecto
+        updated[locationIndex].employees!.push({
+            name: '',
+            ccssType: 'TC' // Tiempo Completo por defecto
+        });
         setLocationsData(updated);
     };
 
-    const updateEmployeeName = (locationIndex: number, nameIndex: number, value: string) => {
+    const updateEmployeeName = (locationIndex: number, employeeIndex: number, value: string) => {
         const updated = [...locationsData];
-        updated[locationIndex].names[nameIndex] = value;
+        if (updated[locationIndex].employees) {
+            updated[locationIndex].employees[employeeIndex].name = value;
+        }
         setLocationsData(updated);
     };
 
-    const removeEmployeeName = (locationIndex: number, nameIndex: number) => {
+    const updateEmployeeCcssType = (locationIndex: number, employeeIndex: number, value: 'TC' | 'MT') => {
         const updated = [...locationsData];
-        updated[locationIndex].names = updated[locationIndex].names.filter((_, i) => i !== nameIndex);
+        if (updated[locationIndex].employees) {
+            updated[locationIndex].employees[employeeIndex].ccssType = value;
+        }
+        setLocationsData(updated);
+    };
+
+    const removeEmployeeName = (locationIndex: number, employeeIndex: number) => {
+        const updated = [...locationsData];
+        if (updated[locationIndex].employees) {
+            updated[locationIndex].employees = updated[locationIndex].employees.filter((_, i) => i !== employeeIndex);
+        }
         setLocationsData(updated);
     };
 
@@ -367,8 +411,7 @@ export default function DataEditor() {
                         >
                             <FileText className="w-4 h-4" />
                             Sorteos ({sorteosData.length})
-                        </button>
-                        <button
+                        </button>                        <button
                             onClick={() => setActiveFile('users')}
                             className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeFile === 'users'
                                     ? 'border-blue-500 text-blue-600'
@@ -377,6 +420,16 @@ export default function DataEditor() {
                         >
                             <Users className="w-4 h-4" />
                             Usuarios ({usersData.length})
+                        </button>
+                        <button
+                            onClick={() => setActiveFile('schedules')}
+                            className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeFile === 'schedules'
+                                    ? 'border-blue-500 text-blue-600'
+                                    : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-gray-300'
+                                }`}
+                        >
+                            <Clock className="w-4 h-4" />
+                            Planilla
                         </button>
                     </nav>
                 </div>
@@ -418,9 +471,7 @@ export default function DataEditor() {
                                         style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
                                     />
                                 </div>
-                            </div>
-
-                            <div className="mb-4">
+                            </div>                            <div className="mb-4">
                                 <div className="flex justify-between items-center mb-2">
                                     <label className="block text-sm font-medium">Empleados:</label>
                                     <button
@@ -430,25 +481,54 @@ export default function DataEditor() {
                                         Agregar Empleado
                                     </button>
                                 </div>
-                                <div className="space-y-2">
-                                    {location.names.map((name, nameIndex) => (
-                                        <div key={nameIndex} className="flex gap-2">
-                                            <input
-                                                type="text"
-                                                value={name}
-                                                onChange={(e) => updateEmployeeName(locationIndex, nameIndex, e.target.value)}
-                                                className="flex-1 px-3 py-2 border border-[var(--input-border)] rounded-md"
-                                                style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                                placeholder="Nombre del empleado"
-                                            />
+                                <div className="space-y-3">
+                                    {/* Migrar empleados del array names si existe */}
+                                    {location.names && location.names.length > 0 && !location.employees?.length && (
+                                        <div className="text-sm text-yellow-600 bg-yellow-50 p-2 rounded">
+                                            ⚠️ Empleados en formato anterior detectados. Se migrarán automáticamente al guardar.
+                                        </div>
+                                    )}
+                                    
+                                    {/* Mostrar empleados con nueva estructura */}
+                                    {location.employees?.map((employee, employeeIndex) => (
+                                        <div key={employeeIndex} className="flex gap-2 items-center p-3 border border-[var(--input-border)] rounded-md">
+                                            <div className="flex-1">
+                                                <input
+                                                    type="text"
+                                                    value={employee.name}
+                                                    onChange={(e) => updateEmployeeName(locationIndex, employeeIndex, e.target.value)}
+                                                    className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
+                                                    style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                                    placeholder="Nombre del empleado"
+                                                />
+                                            </div>
+                                            <div className="w-40">
+                                                <select
+                                                    value={employee.ccssType}
+                                                    onChange={(e) => updateEmployeeCcssType(locationIndex, employeeIndex, e.target.value as 'TC' | 'MT')}
+                                                    className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md text-sm"
+                                                    style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                                >
+                                                    <option value="TC">Tiempo Completo</option>
+                                                    <option value="MT">Medio Tiempo</option>
+                                                </select>
+                                            </div>
                                             <button
-                                                onClick={() => removeEmployeeName(locationIndex, nameIndex)}
+                                                onClick={() => removeEmployeeName(locationIndex, employeeIndex)}
                                                 className="px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                                                title="Eliminar empleado"
                                             >
                                                 ×
                                             </button>
                                         </div>
                                     ))}
+                                    
+                                    {/* Si no hay empleados en la nueva estructura, mostrar mensaje */}
+                                    {(!location.employees || location.employees.length === 0) && (!location.names || location.names.length === 0) && (
+                                        <div className="text-center py-4 text-gray-500 border-2 border-dashed border-gray-300 rounded-md">
+                                            No hay empleados agregados
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -595,8 +675,12 @@ export default function DataEditor() {
                                 </button>
                             </div>
                         </div>
-                    ))}
-                </div>
+                    ))}                </div>
+            )}
+
+            {/* Schedule Report Content */}
+            {activeFile === 'schedules' && (
+                <ScheduleReportTab />
             )}
         </div>
     );
