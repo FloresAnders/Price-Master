@@ -191,19 +191,29 @@ export default function ControlHorario() {
       return Array.from({ length: daysInMonth - 15 }, (_, i) => i + 16);
     }
   };
-  const daysToShow = getDaysToShow();
-  // Función para actualizar un horario específico
+  const daysToShow = getDaysToShow();  // Función para actualizar un horario específico
   const updateScheduleCell = async (employeeName: string, day: string, newValue: string) => {
     const currentValue = scheduleData[employeeName]?.[day] || '';
 
-    // Validar que solo pueda haber una persona por día con el mismo turno (N, D, L)
-    if (newValue && ['N', 'D', 'L'].includes(newValue)) {
-      // Verificar si ya hay alguien más con este turno en este día
+    // Validar que solo pueda haber una persona por día con el mismo turno (N, D) - permitir máximo 2 L
+    if (newValue && ['N', 'D'].includes(newValue)) {
+      // Verificar si ya hay alguien más con este turno en este día (solo para N y D)
       const existingEmployee = Object.keys(scheduleData).find(employee =>
         employee !== employeeName && scheduleData[employee]?.[day] === newValue
       );
       if (existingEmployee) {
         showNotification(`No se puede asignar el turno "${newValue}". ${existingEmployee} ya tiene este turno el día ${day}.`, 'error');
+        return;
+      }
+    }
+
+    // Validar que solo pueda haber máximo 2 personas con turno "L" por día
+    if (newValue === 'L') {
+      const employeesWithL = Object.keys(scheduleData).filter(employee =>
+        employee !== employeeName && scheduleData[employee]?.[day] === 'L'
+      );
+      if (employeesWithL.length >= 2) {
+        showNotification(`No se puede asignar más turnos "L".\n Ya hay 2 empleados libres el día ${day}: ${employeesWithL.join(', ')}.`, 'error');
         return;
       }
     }
