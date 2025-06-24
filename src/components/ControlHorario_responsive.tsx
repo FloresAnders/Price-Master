@@ -10,6 +10,7 @@ import LoginModal from './LoginModal';
 import ConfirmModal from './ConfirmModal';
 import type { Location } from '../types/firestore';
 import type { User as FirestoreUser } from '../types/firestore';
+import EmployeeSummaryCalculator, { useEmployeeSummaryCalculator } from './EmployeeSummaryCalculator';
 
 interface ScheduleData {
   [employeeName: string]: {
@@ -41,6 +42,9 @@ export default function ControlHorario() {
   const [modalLoading, setModalLoading] = useState(false);
   const [editPastDaysEnabled, setEditPastDaysEnabled] = useState(false);
   const [unlockPastDaysModal, setUnlockPastDaysModal] = useState(false);
+
+  // Hook para cálculos de resumen de empleados
+  const { calculateEmployeeSummary } = useEmployeeSummaryCalculator(scheduleData);
 
   // Cargar datos desde Firebase
   useEffect(() => {
@@ -557,26 +561,7 @@ export default function ControlHorario() {
             </select>
           </div>
         </div>
-      </div>
-    );
-  }
-
-  // Utilidad para calcular resumen de turnos
-  function getEmployeeSummary(name: string) {
-    const days = daysToShow;
-    const shifts = days.map((day: number) => scheduleData[name]?.[day.toString()] || '');
-    const workedDays = shifts.filter((s: string) => s === 'N' || s === 'D').length;
-    const hours = workedDays * 8;
-    const colones = hours * 1529.62;
-    const ccss = 3672.42;
-    const neto = colones - ccss;
-    return {
-      workedDays,
-      hours,
-      colones,
-      ccss,
-      neto
-    };
+      </div>    );
   }
 
   return (
@@ -823,10 +808,9 @@ export default function ControlHorario() {
                     style={{ background: 'var(--input-bg)', color: 'var(--foreground)', left: 0 }}
                   >
                     {name}
-                    {/* Tooltip responsive */}
-                    <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 bg-gray-900 text-white text-xs rounded shadow-lg px-2 sm:px-4 py-1 sm:py-2 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 min-w-[120px] sm:min-w-[180px] text-left whitespace-pre-line">
+                    {/* Tooltip responsive */}                    <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 bg-gray-900 text-white text-xs rounded shadow-lg px-2 sm:px-4 py-1 sm:py-2 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 min-w-[120px] sm:min-w-[180px] text-left whitespace-pre-line">
                       {(() => {
-                        const summary = getEmployeeSummary(name);
+                        const summary = calculateEmployeeSummary(name, daysToShow);
                         return (
                           <>
                             <div><b>Días:</b> {summary.workedDays}</div>

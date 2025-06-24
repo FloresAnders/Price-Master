@@ -10,6 +10,7 @@ import LoginModal from './LoginModal';
 import ConfirmModal from './ConfirmModal';
 import type { Location } from '../types/firestore';
 import type { User as FirestoreUser } from '../types/firestore';
+import EmployeeSummaryCalculator, { useEmployeeSummaryCalculator } from './EmployeeSummaryCalculator';
 
 interface ScheduleData {
   [employeeName: string]: {
@@ -41,6 +42,9 @@ export default function ControlHorario() {
   const [modalLoading, setModalLoading] = useState(false);
   const [editPastDaysEnabled, setEditPastDaysEnabled] = useState(false);
   const [unlockPastDaysModal, setUnlockPastDaysModal] = useState(false);
+
+  // Hook para cálculos de resumen de empleados
+  const { calculateEmployeeSummary } = useEmployeeSummaryCalculator(scheduleData);
 
   // Cargar datos desde Firebase
   useEffect(() => {
@@ -576,27 +580,9 @@ export default function ControlHorario() {
             </select>
           </div>
         </div>
-      </div>
-    );
+      </div>    );
   }
 
-  // Utilidad para calcular resumen de turnos
-  function getEmployeeSummary(name: string) {
-    const days = daysToShow;
-    const shifts = days.map((day: number) => scheduleData[name]?.[day.toString()] || '');
-    const workedDays = shifts.filter((s: string) => s === 'N' || s === 'D').length;
-    const hours = workedDays * 8;
-    const colones = hours * 1529.62;
-    const ccss = 3672.42;
-    const neto = colones - ccss;
-    return {
-      workedDays,
-      hours,
-      colones,
-      ccss,
-      neto
-    };
-  }
   return (
     <>
       <div className="max-w-full mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4 sm:p-6">        {/* Notification */}
@@ -847,10 +833,9 @@ export default function ControlHorario() {
                         ℹ️
                       </button>
                     </div>
-                    {/* Tooltip al pasar el mouse - solo en pantallas grandes */}
-                    <div className="hidden sm:block absolute left-full top-1/2 -translate-y-1/2 ml-2 bg-gray-900 text-white text-xs rounded shadow-lg px-4 py-2 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 min-w-[180px] text-left whitespace-pre-line">
+                    {/* Tooltip al pasar el mouse - solo en pantallas grandes */}                    <div className="hidden sm:block absolute left-full top-1/2 -translate-y-1/2 ml-2 bg-gray-900 text-white text-xs rounded shadow-lg px-4 py-2 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 min-w-[180px] text-left whitespace-pre-line">
                       {(() => {
-                        const summary = getEmployeeSummary(name);
+                        const summary = calculateEmployeeSummary(name, daysToShow);
                         return (
                           <>
                             <div><b>Días trabajados:</b> {summary.workedDays}</div>
@@ -901,14 +886,12 @@ export default function ControlHorario() {
           <div className="text-center py-8 text-[var(--tab-text)]">
             No hay empleados registrados para esta ubicación.
           </div>
-        )}
-
-        {/* Modal de resumen del empleado para móviles */}
+        )}        {/* Modal de resumen del empleado para móviles */}
         {showEmployeeSummary && (
           <div className="sm:hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
             <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-sm w-full">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold">Resumen - {showEmployeeSummary}</h3>
+                <h3 className="text-lg font-semibold">Resumen de Empleado</h3>
                 <button
                   onClick={() => setShowEmployeeSummary(null)}
                   className="text-gray-500 hover:text-gray-700"
@@ -916,18 +899,12 @@ export default function ControlHorario() {
                   ✕
                 </button>
               </div>
-              {(() => {
-                const summary = getEmployeeSummary(showEmployeeSummary);
-                return (
-                  <div className="space-y-2 text-sm">
-                    <div><b>Días trabajados:</b> {summary.workedDays}</div>
-                    <div><b>Horas trabajadas:</b> {summary.hours}</div>
-                    <div><b>Total bruto:</b> ₡{summary.colones.toLocaleString('es-CR')}</div>
-                    <div><b>CCSS:</b> -₡{summary.ccss.toLocaleString('es-CR', { minimumFractionDigits: 2 })}</div>
-                    <div><b>Salario neto:</b> ₡{summary.neto.toLocaleString('es-CR', { minimumFractionDigits: 2 })}</div>
-                  </div>
-                );
-              })()}
+              <EmployeeSummaryCalculator
+                employeeName={showEmployeeSummary}
+                scheduleData={scheduleData}
+                daysToShow={daysToShow}
+                showFullDetails={true}
+              />
             </div>
           </div>
         )}
