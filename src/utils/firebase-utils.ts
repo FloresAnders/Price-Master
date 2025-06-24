@@ -1,7 +1,8 @@
 import { LocationsService } from '../services/locations';
 import { SorteosService } from '../services/sorteos';
 import { UsersService } from '../services/users';
-import { Location, Sorteo, User } from '../types/firestore';
+import { CcssConfigService } from '../services/ccss-config';
+import { Location, Sorteo, User, CcssConfig } from '../types/firestore';
 
 /**
  * Firebase helper utilities
@@ -24,8 +25,7 @@ export class FirebaseUtils {
     } catch (error) {
       console.error('Error initializing collections:', error);
     }
-  }
-  /**
+  }  /**
    * Get statistics about the collections
    */
   static async getCollectionStats(): Promise<{
@@ -33,12 +33,14 @@ export class FirebaseUtils {
     sorteos: number;
     users: number;
     totalNames: number;
+    ccssConfigExists: boolean;
   }> {
     try {
-      const [locations, sorteos, users] = await Promise.all([
+      const [locations, sorteos, users, ccssConfig] = await Promise.all([
         LocationsService.getAllLocations(),
         SorteosService.getAllSorteos(),
-        UsersService.getAllUsers()
+        UsersService.getAllUsers(),
+        CcssConfigService.getCcssConfig()
       ]);
 
       const totalNames = locations.reduce((acc, location) =>
@@ -49,11 +51,11 @@ export class FirebaseUtils {
         locations: locations.length,
         sorteos: sorteos.length,
         users: users.length,
-        totalNames
-      };
-    } catch (error) {
+        totalNames,
+        ccssConfigExists: ccssConfig.tc !== undefined && ccssConfig.mt !== undefined
+      };    } catch (error) {
       console.error('Error getting collection stats:', error);
-      return { locations: 0, sorteos: 0, users: 0, totalNames: 0 };
+      return { locations: 0, sorteos: 0, users: 0, totalNames: 0, ccssConfigExists: false };
     }
   }
   /**
@@ -96,27 +98,29 @@ export class FirebaseUtils {
       console.error('Error in global search:', error);
       return { locations: [], sorteos: [], users: [] };
     }
-  }
-  /**
+  }  /**
    * Backup all data to JSON format
    */
   static async backupToJSON(): Promise<{
     locations: Location[];
     sorteos: Sorteo[];
     users: User[];
+    ccssConfig: CcssConfig;
     timestamp: string;
   }> {
     try {
-      const [locations, sorteos, users] = await Promise.all([
+      const [locations, sorteos, users, ccssConfig] = await Promise.all([
         LocationsService.getAllLocations(),
         SorteosService.getAllSorteos(),
-        UsersService.getAllUsers()
+        UsersService.getAllUsers(),
+        CcssConfigService.getCcssConfig()
       ]);
 
       return {
         locations,
         sorteos,
         users,
+        ccssConfig,
         timestamp: new Date().toISOString()
       };
     } catch (error) {

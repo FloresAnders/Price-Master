@@ -4,6 +4,7 @@ import {
   getDocs,
   getDoc,
   addDoc,
+  setDoc,
   updateDoc,
   deleteDoc,
   query,
@@ -62,6 +63,20 @@ export class FirestoreService {
       return docRef.id;
     } catch (error) {
       console.error(`Error adding document to ${collectionName}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Add a new document with a specific ID to a collection
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  static async addWithId(collectionName: string, id: string, data: any): Promise<void> {
+    try {
+      const docRef = doc(db, collectionName, id);
+      await setDoc(docRef, data);
+    } catch (error) {
+      console.error(`Error adding document ${id} to ${collectionName}:`, error);
       throw error;
     }
   }

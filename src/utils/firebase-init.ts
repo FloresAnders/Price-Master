@@ -6,14 +6,14 @@ import { MigrationService } from './migration';
  * This function should be called once when the app starts
  * It will automatically migrate data if collections are empty
  */
-export async function initializeFirebase(): Promise<{
-  success: boolean;
+export async function initializeFirebase(): Promise<{  success: boolean;
   message: string;
   stats?: {
     locations: number;
     sorteos: number;
     users: number;
     totalNames: number;
+    ccssConfigExists: boolean;
   };
 }> {
   try {
@@ -21,8 +21,8 @@ export async function initializeFirebase(): Promise<{
 
     // Check if collections need initialization
     const stats = await FirebaseUtils.getCollectionStats();
-    if (stats.locations === 0 || stats.sorteos === 0) {
-      console.log('Collections are empty, running migration...');
+    if (stats.locations === 0 || stats.sorteos === 0 || !stats.ccssConfigExists) {
+      console.log('Collections are empty or CCSS config missing, running migration...');
       await MigrationService.runAllMigrations();
 
       // Get updated stats
@@ -30,13 +30,13 @@ export async function initializeFirebase(): Promise<{
 
       return {
         success: true,
-        message: `Firebase initialized successfully. Migrated ${updatedStats.locations} locations, ${updatedStats.sorteos} sorteos, and ${updatedStats.users} users.`,
+        message: `Firebase initialized successfully. Migrated ${updatedStats.locations} locations, ${updatedStats.sorteos} sorteos, ${updatedStats.users} users, and initialized CCSS config.`,
         stats: updatedStats
       };
     } else {
       return {
         success: true,
-        message: `Firebase already initialized. Found ${stats.locations} locations, ${stats.sorteos} sorteos, and ${stats.users} users.`,
+        message: `Firebase already initialized. Found ${stats.locations} locations, ${stats.sorteos} sorteos, ${stats.users} users, and CCSS config exists.`,
         stats
       };
     }
@@ -63,15 +63,16 @@ export async function firebaseHealthCheck(): Promise<{
 
     return {
       status: 'healthy',
-      message: 'Firebase connection is healthy',
-      details: {
-        collections: {
-          locations: stats.locations,
-          sorteos: stats.sorteos,
-          totalNames: stats.totalNames
-        },
-        timestamp: new Date().toISOString()
-      }
+      message: 'Firebase connection is healthy',        details: {
+          collections: {
+            locations: stats.locations,
+            sorteos: stats.sorteos,
+            users: stats.users,
+            totalNames: stats.totalNames,
+            ccssConfigExists: stats.ccssConfigExists
+          },
+          timestamp: new Date().toISOString()
+        }
     };
   } catch (error) {
     return {

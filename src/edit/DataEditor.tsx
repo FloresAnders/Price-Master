@@ -2,34 +2,36 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Save, Download, Upload, AlertCircle, Check, FileText, MapPin, Users, Clock } from 'lucide-react';
+import { Save, Download, Upload, AlertCircle, Check, FileText, MapPin, Users, Clock, DollarSign } from 'lucide-react';
 import { LocationsService } from '../services/locations';
 import { SorteosService } from '../services/sorteos';
 import { UsersService } from '../services/users';
-import { Location, Sorteo, User } from '../types/firestore';
+import { CcssConfigService } from '../services/ccss-config';
+import { Location, Sorteo, User, CcssConfig } from '../types/firestore';
 import ScheduleReportTab from '../components/ScheduleReportTab';
 
-type DataFile = 'locations' | 'sorteos' | 'users' | 'schedules';
+type DataFile = 'locations' | 'sorteos' | 'users' | 'schedules' | 'ccss';
 
 export default function DataEditor() {
     const [activeFile, setActiveFile] = useState<DataFile>('locations');
     const [locationsData, setLocationsData] = useState<Location[]>([]);
     const [sorteosData, setSorteosData] = useState<Sorteo[]>([]);
     const [usersData, setUsersData] = useState<User[]>([]);
+    const [ccssData, setCcssData] = useState<CcssConfig>({ mt: 3672.46, tc: 11017.39 });
     const [originalLocationsData, setOriginalLocationsData] = useState<Location[]>([]);
     const [originalSorteosData, setOriginalSorteosData] = useState<Sorteo[]>([]);
     const [originalUsersData, setOriginalUsersData] = useState<User[]>([]);
+    const [originalCcssData, setOriginalCcssData] = useState<CcssConfig>({ mt: 3672.46, tc: 11017.39 });
     const [hasChanges, setHasChanges] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
-
-    // Detectar cambios
+    const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);    // Detectar cambios
     useEffect(() => {
         const locationsChanged = JSON.stringify(locationsData) !== JSON.stringify(originalLocationsData);
         const sorteosChanged = JSON.stringify(sorteosData) !== JSON.stringify(originalSorteosData);
         const usersChanged = JSON.stringify(usersData) !== JSON.stringify(originalUsersData);
-        setHasChanges(locationsChanged || sorteosChanged || usersChanged);
-    }, [locationsData, sorteosData, usersData, originalLocationsData, originalSorteosData, originalUsersData]); const loadData = useCallback(async () => {
+        const ccssChanged = JSON.stringify(ccssData) !== JSON.stringify(originalCcssData);
+        setHasChanges(locationsChanged || sorteosChanged || usersChanged || ccssChanged);
+    }, [locationsData, sorteosData, usersData, ccssData, originalLocationsData, originalSorteosData, originalUsersData, originalCcssData]);const loadData = useCallback(async () => {
         try {
             // Cargar locations desde Firebase
             const locations = await LocationsService.getAllLocations();            // Migrar datos del array names al array employees si es necesario
@@ -63,9 +65,7 @@ export default function DataEditor() {
             });
 
             setLocationsData(migratedLocations);
-            setOriginalLocationsData(JSON.parse(JSON.stringify(migratedLocations)));
-
-            // Cargar sorteos desde Firebase
+            setOriginalLocationsData(JSON.parse(JSON.stringify(migratedLocations)));            // Cargar sorteos desde Firebase
             const sorteos = await SorteosService.getAllSorteos();
             setSorteosData(sorteos);
             setOriginalSorteosData(JSON.parse(JSON.stringify(sorteos)));
@@ -74,6 +74,11 @@ export default function DataEditor() {
             const users = await UsersService.getAllUsers();
             setUsersData(users);
             setOriginalUsersData(JSON.parse(JSON.stringify(users)));
+
+            // Cargar configuración CCSS desde Firebase
+            const ccssConfig = await CcssConfigService.getCcssConfig();
+            setCcssData(ccssConfig);
+            setOriginalCcssData(JSON.parse(JSON.stringify(ccssConfig)));
 
         } catch (error) {
             showNotification('Error al cargar los datos de Firebase', 'error');
@@ -130,9 +135,7 @@ export default function DataEditor() {
                 await SorteosService.addSorteo({
                     name: sorteo.name
                 });
-            }
-
-            // Guardar usuarios en Firebase
+            }            // Guardar usuarios en Firebase
             const existingUsers = await UsersService.getAllUsers();
             for (const user of existingUsers) {
                 if (user.id) {
@@ -150,14 +153,20 @@ export default function DataEditor() {
                 });
             }
 
+            // Guardar configuración CCSS en Firebase
+            await CcssConfigService.updateCcssConfig({
+                mt: ccssData.mt,
+                tc: ccssData.tc
+            });
+
             // Guardar también en localStorage como respaldo
             localStorage.setItem('editedLocations', JSON.stringify(locationsData));
-            localStorage.setItem('editedSorteos', JSON.stringify(sorteosData));
-            localStorage.setItem('editedUsers', JSON.stringify(usersData));
+            localStorage.setItem('editedSorteos', JSON.stringify(sorteosData));            localStorage.setItem('editedUsers', JSON.stringify(usersData));
 
             setOriginalLocationsData(JSON.parse(JSON.stringify(locationsData)));
             setOriginalSorteosData(JSON.parse(JSON.stringify(sorteosData)));
             setOriginalUsersData(JSON.parse(JSON.stringify(usersData)));
+            setOriginalCcssData(JSON.parse(JSON.stringify(ccssData)));
 
             showNotification('¡Datos actualizados exitosamente en Firebase!', 'success');
         } catch (error) {
@@ -166,13 +175,12 @@ export default function DataEditor() {
         } finally {
             setIsSaving(false);
         }
-    };
-
-    const exportData = () => {
+    };    const exportData = () => {
         const dataToExport = {
             locations: locationsData,
             sorteos: sorteosData,
             users: usersData,
+            ccssConfig: ccssData,
             exportDate: new Date().toISOString()
         };
 
@@ -219,10 +227,18 @@ export default function DataEditor() {
                             setSorteosData(formattedSorteos);
                         }
                     }
+                }                if (importedData.users && Array.isArray(importedData.users)) {
+                    setUsersData(importedData.users);
                 }
 
-                if (importedData.users && Array.isArray(importedData.users)) {
-                    setUsersData(importedData.users);
+                if (importedData.ccssConfig && typeof importedData.ccssConfig === 'object') {
+                    const ccssConfig = importedData.ccssConfig;
+                    if (typeof ccssConfig.mt === 'number' && typeof ccssConfig.tc === 'number') {
+                        setCcssData({
+                            mt: ccssConfig.mt,
+                            tc: ccssConfig.tc
+                        });
+                    }
                 }
 
                 showNotification('Datos importados exitosamente', 'success');
@@ -343,7 +359,17 @@ export default function DataEditor() {
         setUsersData(updated);
     }; const removeUser = (index: number) => {
         setUsersData(usersData.filter((_, i) => i !== index));
-    };    return (
+    };
+
+    // Funciones para manejar configuración CCSS
+    const updateCcssConfig = (field: 'mt' | 'tc', value: number) => {
+        setCcssData(prev => ({
+            ...prev,
+            [field]: value
+        }));
+    };
+
+    return (
         <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-6">            {/* Loading Modal */}
             {isSaving && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-fade-in">
@@ -376,7 +402,7 @@ export default function DataEditor() {
             )}
             {/* Notification */}
             {notification && (
-                <div className={`fixed top-6 right-6 z-50 px-6 py-3 rounded-xl shadow-2xl flex items-center gap-2 font-semibold animate-fade-in-down ${notification.type === 'success' ? 'bg-green-500' :
+                <div className={`fixed top-6 right-6 z-50 px-6 py-3 rounded-xl shadow-2xl flex items-center gap-2 font-semibold animate-fade-in ${notification.type === 'success' ? 'bg-green-500' :
                     notification.type === 'error' ? 'bg-red-500' : 'bg-blue-500'
                     } text-white`}>
                     {notification.type === 'success' && <Check className="w-5 h-5" />}
@@ -478,6 +504,17 @@ export default function DataEditor() {
                             <Clock className="w-4 h-4" />
                             Planilla
                         </button>
+                        <button
+                            onClick={() => setActiveFile('ccss')}
+                            className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeFile === 'ccss'
+                                ? 'border-blue-500 text-blue-600'
+                                : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-[var(--border)]'
+                                }`}
+                        >
+                            <DollarSign className="w-4 h-4" />
+                            Pago CCSS
+                        </button>
+
                     </nav>
                 </div>
             </div>
@@ -764,6 +801,159 @@ export default function DataEditor() {
             {/* Schedule Report Content */}
             {activeFile === 'schedules' && (
                 <ScheduleReportTab />
+            )}            {/* CCSS Payment Configuration */}
+            {activeFile === 'ccss' && (
+                <div className="space-y-6">
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <h4 className="text-xl font-semibold flex items-center gap-2">
+                                <DollarSign className="w-6 h-6 text-green-600" />
+                                Configuración de Pago CCSS
+                            </h4>
+                            <p className="text-sm text-[var(--muted-foreground)] mt-1">
+                                Configurar los montos de pago a la Caja Costarricense de Seguro Social (CCSS)
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                        <div className="flex items-start gap-3">
+                            <div className="flex-shrink-0">
+                                <svg className="w-5 h-5 text-blue-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h5 className="font-medium text-blue-900 dark:text-blue-300">Información importante</h5>
+                                <p className="text-sm text-blue-700 dark:text-blue-400 mt-1">
+                                    Estos valores se utilizan para calcular los pagos de planilla según el tipo de empleado (Tiempo Completo o Medio Tiempo).
+                                    Los cambios se reflejarán automáticamente en los cálculos de nómina.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Tiempo Completo */}
+                        <div className="border border-[var(--input-border)] rounded-lg p-6">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+                                    <Clock className="w-6 h-6 text-green-600" />
+                                </div>
+                                <div>
+                                    <h5 className="font-semibold text-lg">Tiempo Completo (TC)</h5>
+                                    <p className="text-sm text-[var(--muted-foreground)]">Empleados de jornada completa</p>
+                                </div>
+                            </div>
+                            
+                            <div className="space-y-3">
+                                <label className="block text-sm font-medium">Monto CCSS:</label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--muted-foreground)]">₡</span>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        value={ccssData.tc}
+                                        onChange={(e) => updateCcssConfig('tc', parseFloat(e.target.value) || 0)}
+                                        className="w-full pl-8 pr-3 py-3 border border-[var(--input-border)] rounded-md text-lg font-semibold"
+                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                        placeholder="11017.39"
+                                    />
+                                </div>
+                                <p className="text-xs text-[var(--muted-foreground)]">
+                                    Valor por defecto: ₡11,017.39
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Medio Tiempo */}
+                        <div className="border border-[var(--input-border)] rounded-lg p-6">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center">
+                                    <Clock className="w-6 h-6 text-orange-600" />
+                                </div>
+                                <div>
+                                    <h5 className="font-semibold text-lg">Medio Tiempo (MT)</h5>
+                                    <p className="text-sm text-[var(--muted-foreground)]">Empleados de media jornada</p>
+                                </div>
+                            </div>
+                            
+                            <div className="space-y-3">
+                                <label className="block text-sm font-medium">Monto CCSS:</label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--muted-foreground)]">₡</span>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        value={ccssData.mt}
+                                        onChange={(e) => updateCcssConfig('mt', parseFloat(e.target.value) || 0)}
+                                        className="w-full pl-8 pr-3 py-3 border border-[var(--input-border)] rounded-md text-lg font-semibold"
+                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                        placeholder="3672.46"
+                                    />
+                                </div>
+                                <p className="text-xs text-[var(--muted-foreground)]">
+                                    Valor por defecto: ₡3,672.46
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Resumen de configuración */}
+                    <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-6">
+                        <h5 className="font-semibold mb-3 flex items-center gap-2">
+                            <FileText className="w-5 h-5" />
+                            Resumen de Configuración
+                        </h5>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            <div className="flex justify-between">
+                                <span className="text-[var(--muted-foreground)]">Tiempo Completo (TC):</span>
+                                <span className="font-medium">₡{ccssData.tc.toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-[var(--muted-foreground)]">Medio Tiempo (MT):</span>
+                                <span className="font-medium">₡{ccssData.mt.toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
+                            </div>
+                        </div>
+                        
+                        {ccssData.updatedAt && (
+                            <div className="mt-3 pt-3 border-t border-[var(--border)]">
+                                <p className="text-xs text-[var(--muted-foreground)]">
+                                    Última actualización: {new Date(ccssData.updatedAt).toLocaleString('es-CR')}
+                                </p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Botón para resetear valores por defecto */}
+                    <div className="flex justify-between items-center">
+                        <button
+                            onClick={() => {
+                                if (confirm('¿Estás seguro de que quieres restaurar los valores por defecto?')) {
+                                    updateCcssConfig('tc', 11017.39);
+                                    updateCcssConfig('mt', 3672.46);
+                                }
+                            }}
+                            className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors"
+                        >
+                            Restaurar Valores Por Defecto
+                        </button>
+                        
+                        <button
+                            onClick={saveData}
+                            disabled={!hasChanges || isSaving}
+                            className={`px-6 py-2 rounded-md flex items-center gap-2 transition-colors ${hasChanges && !isSaving
+                                ? 'bg-green-600 hover:bg-green-700 text-white'
+                                : 'bg-[var(--muted)] text-[var(--muted-foreground)] cursor-not-allowed'
+                                }`}
+                        >
+                            <Save className="w-4 h-4" />
+                            {isSaving ? 'Guardando...' : 'Guardar Configuración'}
+                        </button>
+                    </div>
+                </div>
             )}
         </div>
     );

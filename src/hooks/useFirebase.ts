@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { LocationsService } from '../services/locations';
 import { SorteosService } from '../services/sorteos';
 import { UsersService } from '../services/users';
-import { Location, Sorteo, User } from '../types/firestore';
+import { CcssConfigService } from '../services/ccss-config';
+import { Location, Sorteo, User, CcssConfig } from '../types/firestore';
 
 // Export the schedules hook
 export { useSchedules } from './useSchedules';
@@ -264,24 +265,70 @@ export function useUsers() {
   };
 }
 
+export function useCcssConfig() {
+  const [ccssConfig, setCcssConfig] = useState<CcssConfig>({ mt: 3672.46, tc: 11017.39 });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchCcssConfig = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await CcssConfigService.getCcssConfig();
+      setCcssConfig(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error loading CCSS config');
+      console.error('Error fetching CCSS config:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const updateCcssConfig = useCallback(async (config: Omit<CcssConfig, 'id' | 'updatedAt'>) => {
+    try {
+      setError(null);
+      await CcssConfigService.updateCcssConfig(config);
+      await fetchCcssConfig(); // Refresh config
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error updating CCSS config');
+      throw err;
+    }
+  }, [fetchCcssConfig]);
+
+  useEffect(() => {
+    fetchCcssConfig();
+  }, [fetchCcssConfig]);
+
+  return {
+    ccssConfig,
+    loading,
+    error,
+    updateCcssConfig,
+    refetch: fetchCcssConfig
+  };
+}
+
 export function useFirebaseData() {
   const locationsHook = useLocations();
   const sorteosHook = useSorteos();
   const usersHook = useUsers();
+  const ccssConfigHook = useCcssConfig();
 
-  const loading = locationsHook.loading || sorteosHook.loading || usersHook.loading;
-  const error = locationsHook.error || sorteosHook.error || usersHook.error;
+  const loading = locationsHook.loading || sorteosHook.loading || usersHook.loading || ccssConfigHook.loading;
+  const error = locationsHook.error || sorteosHook.error || usersHook.error || ccssConfigHook.error;
 
   return {
     locations: locationsHook,
     sorteos: sorteosHook,
     users: usersHook,
+    ccssConfig: ccssConfigHook,
     loading,
     error,
     refetchAll: () => {
       locationsHook.refetch();
       sorteosHook.refetch();
       usersHook.refetch();
+      ccssConfigHook.refetch();
     }
   };
 }

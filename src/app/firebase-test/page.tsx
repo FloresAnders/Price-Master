@@ -18,9 +18,19 @@ interface FirebaseData {
   locations: number;
   sorteos: number;
   users: number;
+  ccssConfig?: {
+    mt: number;
+    tc: number;
+    updatedAt?: Date;
+  };
   locationsData?: Location[];
   sorteosData?: Sorteo[];
   usersData?: unknown[];
+  ccssConfigData?: {
+    mt: number;
+    tc: number;
+    updatedAt?: Date;
+  };
 }
 
 export default function FirebaseMigration() {
@@ -160,8 +170,7 @@ export default function FirebaseMigration() {
 
           <div>
             <h2 className="text-2xl font-semibold mb-4">Sorteos ({data.sorteos})</h2>
-            <div className="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">              {data.sorteosData && data.sorteosData.length > 0 ? (
-              data.sorteosData.map((sorteo: Sorteo) => (
+            <div className="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">              {data.sorteosData && data.sorteosData.length > 0 ? (              data.sorteosData.map((sorteo: Sorteo) => (
                 <div key={sorteo.id} className="mb-2 p-2 bg-white rounded border">
                   <p className="font-medium">{sorteo.name}</p>
                   <p className="text-xs text-gray-400">ID: {sorteo.id}</p>
@@ -170,8 +179,7 @@ export default function FirebaseMigration() {
             ) : (
               <p className="text-gray-500">No hay sorteos cargados</p>
             )}
-            </div>
-          </div>
+            </div>          </div>
         </div>
       )}
     </div>

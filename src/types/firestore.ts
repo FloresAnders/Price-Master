@@ -52,3 +52,10 @@ export interface ScanResult {
   processedAt?: Date;
   productName?: string; // Optional product name for scanned codes
 }
+
+export interface CcssConfig {
+  id?: string;
+  mt: number; // Valor para Medio Tiempo
+  tc: number; // Valor para Tiempo Completo
+  updatedAt?: Date;
+}

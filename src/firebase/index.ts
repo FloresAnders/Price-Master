@@ -5,9 +5,10 @@ export { FirestoreService } from '../services/firestore';
 export { LocationsService } from '../services/locations';
 export { SorteosService } from '../services/sorteos';
 export { ScanningService } from '../services/scanning';
+export { CcssConfigService } from '../services/ccss-config';
 
 // Types
-export type { Location, Sorteo, ScanResult } from '../types/firestore';
+export type { Location, Sorteo, ScanResult, CcssConfig } from '../types/firestore';
 
 // Migration utilities
 export { MigrationService } from '../utils/migration';
