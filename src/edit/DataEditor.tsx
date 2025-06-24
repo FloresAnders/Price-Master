@@ -37,11 +37,11 @@ export default function DataEditor() {
                 // Si no tiene employees pero sí tiene names, migrar
                 if ((!location.employees || location.employees.length === 0) && location.names && location.names.length > 0) {
                     return {
-                        ...location,
-                        employees: location.names.map(name => ({
+                        ...location,                        employees: location.names.map(name => ({
                             name,
                             ccssType: 'TC' as const, // Tiempo Completo por defecto
-                            extraAmount: 0 // Monto extra inicial
+                            extraAmount: 0, // Monto extra inicial
+                            hoursPerShift: 8 // Horas por turno predeterminadas
                         }))
                     };
                 }
@@ -50,14 +50,14 @@ export default function DataEditor() {
                     return {
                         ...location,
                         employees: []
-                    };
-                }
-                // Asegurar que los empleados existentes tengan extraAmount
+                    };                }
+                // Asegurar que los empleados existentes tengan extraAmount y hoursPerShift
                 return {
                     ...location,
                     employees: location.employees.map(emp => ({
                         ...emp,
-                        extraAmount: emp.extraAmount !== undefined ? emp.extraAmount : 0
+                        extraAmount: emp.extraAmount !== undefined ? emp.extraAmount : 0,
+                        hoursPerShift: emp.hoursPerShift !== undefined ? emp.hoursPerShift : 8
                     }))
                 };
             });
@@ -263,7 +263,8 @@ export default function DataEditor() {
         updated[locationIndex].employees!.push({
             name: '',
             ccssType: 'TC', // Tiempo Completo por defecto
-            extraAmount: 0 // Monto extra inicial
+            extraAmount: 0, // Monto extra inicial
+            hoursPerShift: 8 // Horas por turno predeterminadas
         });
         setLocationsData(updated);
     };
@@ -288,6 +289,14 @@ export default function DataEditor() {
         const updated = [...locationsData];
         if (updated[locationIndex].employees) {
             updated[locationIndex].employees[employeeIndex].extraAmount = value;
+        }
+        setLocationsData(updated);
+    };
+
+    const updateEmployeeHoursPerShift = (locationIndex: number, employeeIndex: number, value: number) => {
+        const updated = [...locationsData];
+        if (updated[locationIndex].employees) {
+            updated[locationIndex].employees[employeeIndex].hoursPerShift = value;
         }
         setLocationsData(updated);
     };
@@ -334,10 +343,37 @@ export default function DataEditor() {
         setUsersData(updated);
     }; const removeUser = (index: number) => {
         setUsersData(usersData.filter((_, i) => i !== index));
-    };
-
-    return (
-        <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-6">
+    };    return (
+        <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-6">            {/* Loading Modal */}
+            {isSaving && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-fade-in">
+                    <div className="bg-[var(--card-bg)] rounded-xl p-8 flex flex-col items-center justify-center shadow-2xl border border-[var(--input-border)] max-w-sm mx-4 animate-scale-in">
+                        <div className="relative flex items-center justify-center mb-6">
+                            {/* Outer pulse ring */}
+                            <div className="absolute inset-0 rounded-full animate-ping bg-blue-400 opacity-20"></div>
+                            {/* Clock SVG */}
+                            <svg className="animate-spin w-16 h-16 text-blue-600 relative z-10" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="24" cy="24" r="22" stroke="currentColor" strokeWidth="4" opacity="0.2" />
+                                <line x1="24" y1="24" x2="24" y2="10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                                <line x1="24" y1="24" x2="36" y2="24" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                            </svg>
+                        </div>
+                        <div className="text-xl font-semibold text-[var(--foreground)] mb-3">
+                            Guardando cambios...
+                        </div>
+                        <div className="text-sm text-[var(--muted-foreground)] text-center leading-relaxed">
+                            Por favor espera mientras se actualizan<br />
+                            los datos en Firebase
+                        </div>
+                          {/* Progress bar animation */}
+                        <div className="w-full max-w-xs mt-4">
+                            <div className="h-1 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                <div className="h-full bg-gradient-to-r from-transparent via-blue-600 to-transparent rounded-full animate-shimmer bg-[length:200%_100%]"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
             {/* Notification */}
             {notification && (
                 <div className={`fixed top-6 right-6 z-50 px-6 py-3 rounded-xl shadow-2xl flex items-center gap-2 font-semibold animate-fade-in-down ${notification.type === 'success' ? 'bg-green-500' :
@@ -505,6 +541,7 @@ export default function DataEditor() {
                                             <div className="flex-1">Nombre del Empleado</div>
                                             <div className="w-40 text-center">Tipo CCSS</div>
                                             <div className="w-32 text-center">Monto Extra (₡)</div>
+                                            <div className="w-32 text-center">Horas por Turno</div>
                                             <div className="w-10"></div>
                                         </div>
                                     )}
@@ -532,7 +569,8 @@ export default function DataEditor() {
                                                     <option value="TC">Tiempo Completo</option>
                                                     <option value="MT">Medio Tiempo</option>
                                                 </select>
-                                            </div>                                            <div className="w-32">
+                                            </div>
+                                            <div className="w-32">
                                                 <input
                                                     type="number"
                                                     min=""
@@ -545,6 +583,17 @@ export default function DataEditor() {
                                                     title="Monto extra en colones"
                                                 />
                                             </div>
+                                            <div className="w-32">
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    value={employee.hoursPerShift}
+                                                    onChange={(e) => updateEmployeeHoursPerShift(locationIndex, employeeIndex, parseInt(e.target.value) || 0)}
+                                                    className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md text-sm"
+                                                    style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                                    placeholder="Horas por turno"
+                                                    title="Cantidad de horas por turno"
+                                                />                                            </div>
                                             <button
                                                 onClick={() => removeEmployeeName(locationIndex, employeeIndex)}
                                                 className="px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"

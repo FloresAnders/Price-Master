@@ -10,6 +10,7 @@ export interface Employee {
   name: string;
   ccssType: 'TC' | 'MT'; // TC = Tiempo Completo, MT = Medio Tiempo
   extraAmount?: number; // Monto extra, valor inicial 0
+  hoursPerShift?: number; // Horas por turno, valor predeterminado 8
 }
 
 export interface Sorteo {
