@@ -27,7 +27,7 @@ export default function HomeMenu() {
           style={{ cursor: 'pointer', filter: hovered ? 'drop-shadow(0 0 8px var(--foreground))' : 'none' }}
         />
       </div>
-      <h1 className="text-3xl font-bold mb-8 text-center">Bienvenido a Price Master</h1>
+      <h1 className="text-3xl font-bold mb-8 text-center">BienvenidO A PricE MasteR</h1>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 w-full max-w-4xl">
         {menuItems.map(item => (
           <button
