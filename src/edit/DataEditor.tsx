@@ -353,13 +353,12 @@ export default function DataEditor() {
                             <AlertCircle className="w-4 h-4" />
                             Cambios sin guardar
                         </div>
-                    )}
-                    <button
+                    )}                    <button
                         onClick={saveData}
                         disabled={!hasChanges || isSaving}
                         className={`px-4 py-2 rounded-md flex items-center gap-2 transition-colors ${hasChanges && !isSaving
                             ? 'bg-green-600 hover:bg-green-700 text-white'
-                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                            : 'bg-[var(--muted)] text-[var(--muted-foreground)] cursor-not-allowed'
                             }`}
                     >
                         <Save className="w-4 h-4" />
@@ -390,12 +389,11 @@ export default function DataEditor() {
             {/* File Tabs */}
             <div className="mb-6">
                 <div className="border-b border-[var(--input-border)]">
-                    <nav className="-mb-px flex space-x-8">
-                        <button
+                    <nav className="-mb-px flex space-x-8">                        <button
                             onClick={() => setActiveFile('locations')}
                             className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeFile === 'locations'
                                 ? 'border-blue-500 text-blue-600'
-                                : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-gray-300'
+                                : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-[var(--border)]'
                                 }`}
                         >
                             <MapPin className="w-4 h-4" />
@@ -405,7 +403,7 @@ export default function DataEditor() {
                             onClick={() => setActiveFile('sorteos')}
                             className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeFile === 'sorteos'
                                 ? 'border-blue-500 text-blue-600'
-                                : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-gray-300'
+                                : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-[var(--border)]'
                                 }`}
                         >
                             <FileText className="w-4 h-4" />
@@ -414,7 +412,7 @@ export default function DataEditor() {
                             onClick={() => setActiveFile('users')}
                             className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeFile === 'users'
                                 ? 'border-blue-500 text-blue-600'
-                                : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-gray-300'
+                                : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-[var(--border)]'
                                 }`}
                         >
                             <Users className="w-4 h-4" />
@@ -424,7 +422,7 @@ export default function DataEditor() {
                             onClick={() => setActiveFile('schedules')}
                             className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeFile === 'schedules'
                                 ? 'border-blue-500 text-blue-600'
-                                : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-gray-300'
+                                : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-[var(--border)]'
                                 }`}
                         >
                             <Clock className="w-4 h-4" />
@@ -524,7 +522,7 @@ export default function DataEditor() {
 
                                     {/* Si no hay empleados en la nueva estructura, mostrar mensaje */}
                                     {(!location.employees || location.employees.length === 0) && (!location.names || location.names.length === 0) && (
-                                        <div className="text-center py-4 text-gray-500 border-2 border-dashed border-gray-300 rounded-md">
+                                        <div className="text-center py-4 text-[var(--muted-foreground)] border-2 border-dashed border-[var(--border)] rounded-md">
                                             No hay empleados agregados
                                         </div>
                                     )}
@@ -534,8 +532,7 @@ export default function DataEditor() {
                             <div className="flex justify-end">
                                 <button
                                     onClick={() => removeLocation(locationIndex)}
-                                    className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-                                >
+                                    className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors">
                                     Eliminar Ubicación
                                 </button>
                             </div>
@@ -641,12 +638,14 @@ export default function DataEditor() {
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Rol:</label>
                                     <select
-                                        value={user.role || 'user'}                                        onChange={(e) => updateUser(index, 'role', e.target.value as 'admin' | 'user')}
+                                        value={user.role || 'user'} onChange={(e) => updateUser(index, 'role', e.target.value as 'admin' | 'user' | 'superadmin')}
                                         className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
                                         style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
                                     >
                                         <option value="user">Usuario</option>
-                                        <option value="admin">Administrador</option></select>
+                                        <option value="admin">Administrador</option>
+                                        <option value="superadmin">Super Administrador</option>
+                                    </select>
                                 </div>
                             </div>
 
@@ -658,7 +657,7 @@ export default function DataEditor() {
                                             type="checkbox"
                                             checked={user.isActive ?? true}
                                             onChange={(e) => updateUser(index, 'isActive', e.target.checked)}
-                                            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                                            className="w-4 h-4 text-blue-600 bg-[var(--background)] border-[var(--border)] rounded focus:ring-blue-500"
                                         />
                                         <span className="text-sm">Usuario activo</span>
                                     </div>
@@ -674,7 +673,8 @@ export default function DataEditor() {
                                 </button>
                             </div>
                         </div>
-                    ))}                </div>
+                    ))}
+                </div>
             )}
 
             {/* Schedule Report Content */}

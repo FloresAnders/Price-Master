@@ -1,6 +1,6 @@
 'use client';
-import React from 'react';
-import { ImagePlus as ImagePlusIcon } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { ImagePlus as ImagePlusIcon, Clipboard } from 'lucide-react';
 
 interface ImageDropAreaProps {
     onDrop: (e: React.DragEvent<HTMLDivElement>) => void;
@@ -10,6 +10,8 @@ interface ImageDropAreaProps {
 }
 
 export default function ImageDropArea({ onDrop, onFileSelect, fileInputRef, onFileUpload }: ImageDropAreaProps) {
+    const [recentPaste, setRecentPaste] = useState(false);
+
     const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
         e.preventDefault();
         e.currentTarget.classList.add('bg-indigo-50', 'dark:bg-indigo-900');

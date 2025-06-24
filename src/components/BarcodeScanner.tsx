@@ -227,10 +227,8 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
           console.error('Error in session status subscription:', error);
         }
       );
-      sessionSyncUnsubscribeRef.current = sessionUnsubscribe;
-
-      // Generar QR code
-      const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/mobile-scan?session=${sessionId}`;
+      sessionSyncUnsubscribeRef.current = sessionUnsubscribe;      // Generar QR code
+      const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/mobile-scan?session=${sessionId}${requestProductName ? '&requestProductName=true' : ''}`;
       const qrDataUrl = await QRCode.toDataURL(url, {
         width: 256,
         margin: 2,
@@ -316,7 +314,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
         }
       };
     }
-  }, [onDetect, setCode, checkForNewScans, startCountdown]); const closeMobileSession = useCallback(() => {
+  }, [onDetect, setCode, checkForNewScans, startCountdown, requestProductName]); const closeMobileSession = useCallback(() => {
     setShowMobileQR(false);
     setMobileSessionId(null);
     setQrCodeUrl('');
@@ -559,10 +557,35 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
             <p className="text-center text-gray-600 dark:text-gray-400 max-w-md">
               Escanea códigos de barras usando tu teléfono móvil. Los códigos aparecerán automáticamente aquí.
             </p>
-          </div>
+          </div>          {!showMobileQR ? (
+            <div className="text-center space-y-4">
+              {/* Configuración desde PC para móvil */}
+              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800 max-w-md mx-auto">
+                <h4 className="text-base font-semibold text-blue-800 dark:text-blue-200 mb-3">
+                  Configuración para Móvil
+                </h4>
+                
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={requestProductName}
+                    onChange={(e) => setRequestProductName(e.target.checked)}
+                    className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600 mt-0.5"
+                  />
+                  <div className="text-left">
+                    <div className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-1">
+                      Solicitar nombres de productos en móvil
+                    </div>
+                    <p className="text-xs text-blue-600 dark:text-blue-400 leading-relaxed">
+                      {requestProductName 
+                        ? "El móvil pedirá ingresar nombres opcionales para cada código escaneado"
+                        : "El móvil solo enviará códigos de barras sin solicitar nombres"
+                      }
+                    </p>
+                  </div>
+                </label>
+              </div>
 
-          {!showMobileQR ? (
-            <div className="text-center">
               <button
                 onClick={generateMobileSession}
                 className="px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold text-lg rounded-2xl shadow-lg transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-green-300 dark:focus:ring-green-900"
@@ -590,18 +613,32 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                       <LoaderIcon className="w-12 h-12 text-gray-400 animate-spin" />
                     </div>
                   )}
-                </div>
-
-                <div className="space-y-3">
+                </div>                <div className="space-y-3">
                   <p className="text-sm text-gray-600 dark:text-gray-400">
                     Sesión: <span className="font-mono text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">{mobileSessionId}</span>
                   </p>
+                  
+                  {/* Indicador de configuración de nombres de productos */}
+                  <div className={`text-xs px-3 py-2 rounded-lg ${requestProductName 
+                    ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-700' 
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                  }`}>
+                    {requestProductName ? (
+                      <span className="flex items-center gap-1">
+                        📝 <strong>Solicitar nombres:</strong> El móvil pedirá el nombre del producto
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1">
+                        📄 <strong>Solo códigos:</strong> El móvil enviará únicamente el código de barras
+                      </span>
+                    )}
+                  </div>
+
                   <p className="text-xs text-gray-500 dark:text-gray-500">
                     O ingresa manualmente esta URL en tu móvil:
                   </p>
-                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-2">
-                    <code className="text-xs text-gray-700 dark:text-gray-300 break-all">
-                      {typeof window !== 'undefined' && `${window.location.origin}/mobile-scan?session=${mobileSessionId}`}
+                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-2">                    <code className="text-xs text-gray-700 dark:text-gray-300 break-all">
+                      {typeof window !== 'undefined' && `${window.location.origin}/mobile-scan?session=${mobileSessionId}${requestProductName ? '&requestProductName=true' : ''}`}
                     </code>
                   </div>
                 </div>
@@ -612,10 +649,9 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                     className="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors font-medium"
                   >
                     Cancelar
-                  </button>                  <button
-                    onClick={async () => {
+                  </button>                  <button                    onClick={async () => {
                       if (typeof window !== 'undefined' && mobileSessionId) {
-                        const url = `${window.location.origin}/mobile-scan?session=${mobileSessionId}`;
+                        const url = `${window.location.origin}/mobile-scan?session=${mobileSessionId}${requestProductName ? '&requestProductName=true' : ''}`;
                         try {
                           // Try modern clipboard API first
                           if (navigator.clipboard && navigator.clipboard.writeText) {

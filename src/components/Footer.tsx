@@ -1,9 +1,11 @@
 // src/components/Footer.tsx
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 
 export default function Footer() {
+  const [isGitHubModalOpen, setIsGitHubModalOpen] = useState(false);
+  
   const sections = [
     { title: 'Productos', items: ['Escáner de Códigos', 'Cámara en Vivo', 'Detección Multi-formato', 'Análisis ZBar-WASM'] },
     { title: 'Empresa', items: ['Acerca de', 'Equipo', 'Carreras', 'Contacto'] },

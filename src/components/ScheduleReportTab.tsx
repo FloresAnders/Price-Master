@@ -1,7 +1,7 @@
 // src/components/ScheduleReportTab.tsx
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, Calendar, MapPin, FileText, Download, Clock, Image as ImageIcon, Calculator } from 'lucide-react';
 import { LocationsService } from '../services/locations';
 import { SchedulesService, ScheduleEntry } from '../services/schedules';
@@ -48,9 +48,8 @@ export default function ScheduleReportTab() {
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 3000);
   };
-
   // Función para obtener el período de quincena actual
-  const getCurrentBiweeklyPeriod = (): BiweeklyPeriod => {
+  const getCurrentBiweeklyPeriod = useCallback((): BiweeklyPeriod => {
     const now = new Date();
     const year = now.getFullYear();
     const month = now.getMonth();
@@ -75,10 +74,10 @@ export default function ScheduleReportTab() {
       month: month,
       period
     };
-  };
+  }, []);
 
   // Función para obtener períodos anteriores con días laborados
-  const getAvailablePeriods = async (): Promise<BiweeklyPeriod[]> => {
+  const getAvailablePeriods = useCallback(async (): Promise<BiweeklyPeriod[]> => {
     try {
       const allSchedules = await SchedulesService.getAllSchedules();
       const periods = new Set<string>();
@@ -124,7 +123,7 @@ export default function ScheduleReportTab() {
       console.error('Error getting available periods:', error);
       return [];
     }
-  };
+  }, []);
 
   // Cargar ubicaciones
   useEffect(() => {
@@ -138,7 +137,6 @@ export default function ScheduleReportTab() {
     };
     loadLocations();
   }, []);
-
   // Inicializar períodos disponibles
   useEffect(() => {
     const initializePeriods = async () => {
@@ -163,10 +161,9 @@ export default function ScheduleReportTab() {
       setLoading(false);
     };
     initializePeriods();
-  }, []);
-
+  }, [getCurrentBiweeklyPeriod, getAvailablePeriods]);
   // Función para cargar datos de horarios
-  const loadScheduleData = async () => {
+  const loadScheduleData = useCallback(async () => {
     if (!currentPeriod) return;
 
     setLoading(true);
@@ -247,14 +244,14 @@ export default function ScheduleReportTab() {
       showNotification('Error al cargar los datos de planilla', 'error');
     } finally {
       setLoading(false);
-    }
-  };
-  // Cargar datos de horarios cuando cambie el período o ubicación
+    }  }, [currentPeriod, selectedLocation, locations]);
+
+  // Cargar datos cuando el período y ubicaciones estén listos
   useEffect(() => {
     if (currentPeriod && locations.length > 0) {
       loadScheduleData();
     }
-  }, [currentPeriod, selectedLocation, locations]);
+  }, [currentPeriod, locations, selectedLocation, loadScheduleData]);
 
   const navigatePeriod = (direction: 'prev' | 'next') => {
     const currentIndex = availablePeriods.findIndex(p =>

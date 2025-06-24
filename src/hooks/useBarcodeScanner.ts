@@ -344,23 +344,16 @@ export function useBarcodeScanner(onDetect?: (code: string, productName?: string
                     if (zbarInterval) window.clearInterval(zbarInterval);
                     return;
                   }
-                }
-                // SOLO SI ZBAR NO DETECTA, USAR QUAGGA
+                }                // SOLO SI ZBAR NO DETECTA, USAR QUAGGA
                 // (NO hacer nada aquí, Quagga.onDetected solo se ejecuta si ZBar no detecta nada)
               } catch {
                 logZbarPriority('ZBAR_PROCESSING', 'ZBar-WASM procesando frame...');
               }
             }
           }
-
-          // Continuar escaneando con requestAnimationFrame para máximo rendimiento
-          if (cameraActive) {
-            requestAnimationFrame(scanFrame);
-          }
-        };
-
-        // Iniciar el escaneo continuo
-        requestAnimationFrame(scanFrame);// Quagga2 detection SOLO SI ZBar no detecta (con configuración mejorada)
+        }, ZBAR_PRIORITY_CONFIG.ZBAR_SCAN_INTERVAL); // Usar configuración de intervalo
+        
+        // Quagga2 detection SOLO SI ZBar no detecta (con configuración mejorada)
         Quagga.offDetected(); // Elimina cualquier listener anterior para evitar duplicados
         Quagga.onDetected((data: { codeResult?: { code: string | null } }) => {
           if (lastZbarCode) {

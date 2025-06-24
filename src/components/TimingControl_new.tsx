@@ -1,3 +1,4 @@
+//delete esto despues
 import React, { useState, useEffect } from 'react';
 import { LocationsService } from '../services/locations';
 import { SorteosService } from '../services/sorteos';
@@ -6,7 +7,7 @@ import LoginModal from './LoginModal';
 import { LogOut, Timer } from 'lucide-react';
 import type { Location, Sorteo, User } from '../types/firestore';
 
-const INITIAL_ROWS = 4;
+const INITIAL_ROWS = 3;
 
 function getNowTime() {
     const now = new Date();
@@ -318,8 +319,7 @@ export default function TimingControl() {
                                 {sorteos.map((sorteo) => (
                                     <option key={sorteo.id || sorteo.name} value={sorteo.name}>{sorteo.name}</option>
                                 ))}
-                            </select>
-                            <input
+                            </select>                            <input
                                 type="number"
                                 min="0"
                                 className="px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -330,6 +330,12 @@ export default function TimingControl() {
                                 }}
                                 value={row.amount}
                                 onChange={e => handleRowChange(idx, 'amount', e.target.value)}
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        addRow();
+                                    }
+                                }}
                                 placeholder="₡"
                             />
                             <input

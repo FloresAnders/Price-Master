@@ -814,7 +814,8 @@ export default function PayrollExporter() {
                           <td className="border border-[var(--input-border)] p-2 text-center font-bold text-lg">
                             ₡{finalNetSalary.toLocaleString('es-CR', { minimumFractionDigits: 2 })}
                           </td>
-                        </tr>                        </tbody>
+                        </tr>
+                      </tbody>
                     </table>
                   </div>
                 );

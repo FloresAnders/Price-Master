@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useCallback, memo } from 'react';
-import { Copy, Trash2, Edit3, ArrowLeftCircle } from 'lucide-react';
+import { Copy, Trash2, Edit3, ArrowLeftCircle, Download } from 'lucide-react';
 import type { ScanHistoryProps as BaseScanHistoryProps, ScanHistoryEntry } from '../types/barcode';
 
 interface ScanHistoryProps extends BaseScanHistoryProps {
@@ -126,11 +126,34 @@ export default function ScanHistory({ history, onCopy, onDelete, onRemoveLeading
   const handleCopy = useCallback((code: string) => {
     onCopy?.(code);
     notify?.('¡Código copiado!', 'green');
-  }, [onCopy, notify]);
-  const handleDelete = useCallback((code: string) => {
+  }, [onCopy, notify]);  const handleDelete = useCallback((code: string) => {
     onDelete?.(code);
     notify?.('Código eliminado', 'red');
   }, [onDelete, notify]);
+  const handleExport = useCallback(() => {
+    if (history.length === 0) {
+      notify?.('No hay códigos para exportar', 'orange');
+      return;
+    }
+
+    const csvContent = history.map(entry => {
+      const name = entry.name || 'Sin nombre';
+      const code = entry.code;
+      return `"${name}","${code}"`;
+    }).join('\n');
+
+    const csvData = 'Nombre,Código\n' + csvContent;
+    const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `historial-escaneos-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    notify?.('Historial exportado exitosamente', 'green');
+  }, [history, notify]);
 
   if (history.length === 0) {
     return (

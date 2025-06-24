@@ -170,7 +170,6 @@ export default function HomePage() {
       }
     }
   }, [activeTab])
-
   return (
     <>
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -203,32 +202,6 @@ export default function HomePage() {
                       <div className="flex items-center justify-center space-x-2">
                         <tab.icon className="w-5 h-5" />
                         <span className="hidden sm:inline">{tab.name}</span>
-
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </nav>
-            </div>
-
-            {/* Navegación por pestañas */}
-            <div className="mb-8">
-              <nav className="border-b border-[var(--input-border)]">
-                <div className="-mb-px flex space-x-8">
-                  {tabs.map(tab => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={`group relative flex-1 py-4 px-1 text-center text-sm font-medium transition-colors
-                    ${activeTab === tab.id
-                          ? 'text-[var(--tab-text-active)] border-b-2 border-[var(--tab-border-active)]'
-                          : 'text-[var(--tab-text)] border-b-2 border-[var(--tab-border)] hover:text-[var(--tab-hover-text)]'
-                        }`}
-                    >
-                      <div className="flex items-center justify-center space-x-2">
-                        <tab.icon className="w-5 h-5" />
-                        <span className="hidden sm:inline">{tab.name}</span>
-
                       </div>
                     </button>
                   ))}
@@ -247,7 +220,8 @@ export default function HomePage() {
             </div>
 
             {/* Contenido de las pestañas */}
-            <div className="space-y-8">          {/* SCANNER */}
+            <div className="space-y-8">
+              {/* SCANNER */}
               {activeTab === 'scanner' && (
                 <div className="max-w-7xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-6">
                   <div className="flex flex-col xl:flex-row gap-8">
@@ -269,51 +243,56 @@ export default function HomePage() {
                         />
                       </div>
                     </div>
-              )}
-
-                    {/* CALCULATOR */}
-                    {activeTab === 'calculator' && (
-                      <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4">
-                        <PriceCalculator />
-                        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="bg-green-50 rounded-lg p-4">
-                            <h3 className="font-medium text-green-800 mb-2">🇨🇷 Para Costa Rica:</h3>
-                            <p className="text-sm text-green-700">IVA configurado al 13% por defecto. Puedes cambiarlo según tus necesidades.</p>
-                          </div>
-                          <div className="bg-yellow-50 rounded-lg p-4">
-                            <h3 className="font-medium text-yellow-800 mb-2">💰 Cálculo inteligente:</h3>
-                            <p className="text-sm text-yellow-700">El descuento se aplica primero y luego se calcula el impuesto sobre el precio con descuento.</p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* CONVERTER */}
-                    {activeTab === 'converter' && (
-                      <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4">
-                        <TextConversion />
-                      </div>
-                    )}
-
-                    {/* CASHCOUNTER (Contador Efectivo) */}
-                    {activeTab === 'cashcounter' && (
-                      <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4">
-                        <CashCounterTabs />
-                      </div>
-                    )}
-                    {/* CONTROL TIEMPOS */}
-                    {activeTab === 'timingcontrol' && (
-                      <div className="max-w-4xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4 min-h-[300px] flex flex-col items-center justify-center">
-                        <TimingControl />
-                      </div>
-                    )}          {/* CONTROL HORARIO */}
-                    {activeTab === 'controlhorario' && (
-                      <ControlHorario />
-                    )}
                   </div>
-                </>
+                </div>
               )}
-            </main>
-          </>
-        )
 
+              {/* CALCULATOR */}
+              {activeTab === 'calculator' && (
+                <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4">
+                  <PriceCalculator />
+                  <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-green-50 rounded-lg p-4">
+                      <h3 className="font-medium text-green-800 mb-2">🇨🇷 Para Costa Rica:</h3>
+                      <p className="text-sm text-green-700">IVA configurado al 13% por defecto. Puedes cambiarlo según tus necesidades.</p>
+                    </div>
+                    <div className="bg-yellow-50 rounded-lg p-4">
+                      <h3 className="font-medium text-yellow-800 mb-2">💰 Cálculo inteligente:</h3>
+                      <p className="text-sm text-yellow-700">El descuento se aplica primero y luego se calcula el impuesto sobre el precio con descuento.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* CONVERTER */}
+              {activeTab === 'converter' && (
+                <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4">
+                  <TextConversion />
+                </div>
+              )}
+
+              {/* CASHCOUNTER (Contador Efectivo) */}
+              {activeTab === 'cashcounter' && (
+                <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4">
+                  <CashCounterTabs />
+                </div>
+              )}
+
+              {/* CONTROL TIEMPOS */}
+              {activeTab === 'timingcontrol' && (
+                <div className="max-w-4xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4 min-h-[300px] flex flex-col items-center justify-center">
+                  <TimingControl />
+                </div>
+              )}
+
+              {/* CONTROL HORARIO */}
+              {activeTab === 'controlhorario' && (
+                <ControlHorario />
+              )}
+            </div>
+          </>
+        )}
+      </main>
+    </>
+  )
+}

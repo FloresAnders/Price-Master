@@ -4,14 +4,17 @@
 
 @layer base {
 
-  /* Variables modo claro */
-  :root {
+  /* Variables modo claro */  :root {
     --background: #ffffff;
     --foreground: #171717;
     --font-base: Arial, Helvetica, sans-serif;
 
     /* Componentes generales */
+    --card: #f9f9f9;
     --card-bg: #f9f9f9;
+    --border: #d1d5db;
+    --muted: #f3f4f6;
+    --muted-foreground: #6b7280;
     --input-bg: #f3f4f6;
     --input-border: #d1d5db;
     --button-bg: #f3f4f6;
@@ -48,7 +51,6 @@
     --shift-libre-text: #be185d;
     /* pink-700 */
   }
-
   /* Variables modo oscuro */
   .dark :root,
   :root.dark {
@@ -57,10 +59,14 @@
     --font-base: Arial, Helvetica, sans-serif;
 
     /* Componentes generales */
+    --card: #1f2937;
     --card-bg-900: #121820;
     /* gray-900 */
     --card-bg: #1f2937;
     /* gray-800 */
+    --border: #4b5563;
+    --muted: #374151;
+    --muted-foreground: #9ca3af;
     --input-bg: #374151;
     /* gray-700 */
     --input-border: #4b5563;

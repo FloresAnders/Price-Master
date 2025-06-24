@@ -50,6 +50,14 @@ function MobileScanContent() {
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  // Set requestProductName from URL parameter
+  useEffect(() => {
+    if (requestProductNameParam === 'true') {
+      setRequestProductName(true);
+    }
+  }, [requestProductNameParam]);
+
   // Check online status
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -326,21 +334,23 @@ function MobileScanContent() {
           <Check className="w-5 h-5 text-green-600 dark:text-green-400" />
           <span className="text-green-800 dark:text-green-200">{success}</span>
         </div>
-      )}      {/* Product Name Request Setting */}
-      <div className="bg-card-bg rounded-lg p-4 mb-6">
-        <ProductNameCheckbox
-          checked={requestProductName}
-          onChange={setRequestProductName}
-          disabled={false}
-        />
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+      )}      {/* Product Name Configuration Status - Set by PC */}
+      <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 mb-6 border border-blue-200 dark:border-blue-800">
+        <div className="flex items-center gap-3 mb-2">
+          <div className={`w-4 h-4 rounded-full ${requestProductName ? 'bg-blue-500' : 'bg-gray-400'}`}></div>
+          <h4 className="font-medium text-blue-800 dark:text-blue-200">
+            {requestProductName ? '📝 Solicitar nombres de productos' : '📄 Solo códigos de barras'}
+          </h4>
+        </div>        <p className="text-sm text-blue-600 dark:text-blue-400 ml-7">
           Esta configuración fue establecida desde la PC donde se generó el QR.
           {requestProductName
-            ? " Se solicitará nombre para cada código escaneado."
-            : " No se solicitará nombre del producto."
+            ? " Se te pedirá ingresar un nombre opcional para cada código escaneado."
+            : " Solo se enviarán los códigos de barras sin solicitar nombres."
           }
         </p>
-      </div>{/* Camera Section */}
+      </div>
+
+      {/* Camera Section */}
       <div className="mb-6">
         <div className="bg-card-bg rounded-lg p-4">
           <div className="flex items-center justify-between mb-4">

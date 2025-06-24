@@ -58,8 +58,7 @@ export class UsersService {
   }
   /**
    * Find users by role
-   */
-  static async findUsersByRole(role: 'admin' | 'user'): Promise<User[]> {
+   */  static async findUsersByRole(role: 'admin' | 'user' | 'superadmin'): Promise<User[]> {
     return await FirestoreService.query(this.COLLECTION_NAME, [
       { field: 'role', operator: '==', value: role }
     ]);
