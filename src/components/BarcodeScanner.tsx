@@ -564,7 +564,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                 <h4 className="text-base font-semibold text-blue-800 dark:text-blue-200 mb-3">
                   Configuración para Móvil
                 </h4>
-                
+
                 <label className="flex items-start gap-3 cursor-pointer">
                   <input
                     type="checkbox"
@@ -577,7 +577,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                       Solicitar nombres de productos en móvil
                     </div>
                     <p className="text-xs text-blue-600 dark:text-blue-400 leading-relaxed">
-                      {requestProductName 
+                      {requestProductName
                         ? "El móvil pedirá ingresar nombres opcionales para cada código escaneado"
                         : "El móvil solo enviará códigos de barras sin solicitar nombres"
                       }
@@ -617,12 +617,12 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                   <p className="text-sm text-gray-600 dark:text-gray-400">
                     Sesión: <span className="font-mono text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">{mobileSessionId}</span>
                   </p>
-                  
+
                   {/* Indicador de configuración de nombres de productos */}
-                  <div className={`text-xs px-3 py-2 rounded-lg ${requestProductName 
-                    ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-700' 
+                  <div className={`text-xs px-3 py-2 rounded-lg ${requestProductName
+                    ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-700'
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-                  }`}>
+                    }`}>
                     {requestProductName ? (
                       <span className="flex items-center gap-1">
                         📝 <strong>Solicitar nombres:</strong> El móvil pedirá el nombre del producto
@@ -638,8 +638,8 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                     O ingresa manualmente esta URL en tu móvil:
                   </p>
                   <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-2">                    <code className="text-xs text-gray-700 dark:text-gray-300 break-all">
-                      {typeof window !== 'undefined' && `${window.location.origin}/mobile-scan?session=${mobileSessionId}${requestProductName ? '&requestProductName=true' : ''}`}
-                    </code>
+                    {typeof window !== 'undefined' && `${window.location.origin}/mobile-scan?session=${mobileSessionId}${requestProductName ? '&requestProductName=true' : ''}`}
+                  </code>
                   </div>
                 </div>
 
@@ -649,34 +649,34 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                     className="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors font-medium"
                   >
                     Cancelar
-                  </button>                  <button                    onClick={async () => {
-                      if (typeof window !== 'undefined' && mobileSessionId) {
-                        const url = `${window.location.origin}/mobile-scan?session=${mobileSessionId}${requestProductName ? '&requestProductName=true' : ''}`;
-                        try {
-                          // Try modern clipboard API first
-                          if (navigator.clipboard && navigator.clipboard.writeText) {
-                            await navigator.clipboard.writeText(url);
-                          } else {
-                            // Fallback for older browsers or insecure contexts
-                            const textArea = document.createElement('textarea');
-                            textArea.value = url;
-                            textArea.style.position = 'fixed';
-                            textArea.style.opacity = '0';
-                            textArea.style.left = '-999999px';
-                            textArea.style.top = '-999999px';
-                            document.body.appendChild(textArea);
-                            textArea.focus();
-                            textArea.select();
-                            document.execCommand('copy');
-                            document.body.removeChild(textArea);
-                          }
-                        } catch (error) {
-                          console.error('Error copying to clipboard:', error);
-                          // Show the URL to user if clipboard fails
-                          alert(`URL copiada manualmente: ${url}`);
+                  </button>                  <button onClick={async () => {
+                    if (typeof window !== 'undefined' && mobileSessionId) {
+                      const url = `${window.location.origin}/mobile-scan?session=${mobileSessionId}${requestProductName ? '&requestProductName=true' : ''}`;
+                      try {
+                        // Try modern clipboard API first
+                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                          await navigator.clipboard.writeText(url);
+                        } else {
+                          // Fallback for older browsers or insecure contexts
+                          const textArea = document.createElement('textarea');
+                          textArea.value = url;
+                          textArea.style.position = 'fixed';
+                          textArea.style.opacity = '0';
+                          textArea.style.left = '-999999px';
+                          textArea.style.top = '-999999px';
+                          document.body.appendChild(textArea);
+                          textArea.focus();
+                          textArea.select();
+                          document.execCommand('copy');
+                          document.body.removeChild(textArea);
                         }
+                      } catch (error) {
+                        console.error('Error copying to clipboard:', error);
+                        // Show the URL to user if clipboard fails
+                        alert(`URL copiada manualmente: ${url}`);
                       }
-                    }}
+                    }
+                  }}
                     className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-medium"
                   >
                     Copiar URL
