@@ -9,7 +9,7 @@ import { CcssConfigService } from '../services/ccss-config';
 import { useAuth } from '../hooks/useAuth';
 import LoginModal from './LoginModal';
 import ConfirmModal from './ConfirmModal';
-import type { Location } from '../types/firestore';
+import type { Location, Employee } from '../types/firestore';
 import type { User as FirestoreUser } from '../types/firestore';
 import EmployeeSummaryCalculator, { calculateEmployeeSummaryFromDB } from './EmployeeSummaryCalculator';
 
@@ -39,11 +39,14 @@ function EmployeeTooltipSummary({
     colones: number;
     ccss: number;
     neto: number;
-  } | null>(null);
-
-  React.useEffect(() => {
+  } | null>(null);  React.useEffect(() => {
     const fetchSummary = async () => {
       try {
+        // Obtener información de la ubicación que contiene los empleados
+        const locations = await LocationsService.findLocationsByValue(locationValue);
+        const currentLocation = locations[0]; // Tomar la primera coincidencia
+        const employee = currentLocation?.employees?.find(emp => emp.name === employeeName);
+        
         // Obtener horarios del empleado para este mes
         const schedules = await SchedulesService.getSchedulesByLocationEmployeeMonth(
           locationValue,
@@ -62,19 +65,23 @@ function EmployeeTooltipSummary({
         const workedDaysInPeriod = daysToShow.filter(day => {
           const shift = scheduleData[day.toString()] || '';
           return shift === 'N' || shift === 'D'; // Solo contar Nocturno y Diurno
-        }).length;
-
-        // Calcular horas (asumiendo 8 horas por día trabajado)
-        const hoursPerDay = 8;
+        }).length;        // Obtener horas por día desde la configuración del empleado en la BD
+        const hoursPerDay = employee?.hoursPerShift || 8; // Fallback a 8 si no está definido
         const totalHours = workedDaysInPeriod * hoursPerDay;
 
         // Calcular salario bruto con valor fijo
         const hourlyRate = 1529.62;
-        const grossSalary = totalHours * hourlyRate;
-
-        // Obtener configuración CCSS para el descuento
+        const grossSalary = totalHours * hourlyRate;        // Obtener configuración CCSS para el descuento según el tipo del empleado
         const ccssConfig = await CcssConfigService.getCcssConfig();
-        const ccssDeduction = ccssConfig.mt || 3672.46; // Usar MT por defecto
+        let ccssDeduction = 0;
+        
+        if (employee?.ccssType === 'TC') {
+          ccssDeduction = ccssConfig.tc || 11017.39; // Tiempo Completo
+        } else if (employee?.ccssType === 'MT') {
+          ccssDeduction = ccssConfig.mt || 3672.46; // Medio Tiempo
+        } else {
+          ccssDeduction = ccssConfig.mt || 3672.46; // Fallback a MT por defecto
+        }
 
         // Calcular neto
         const netSalary = grossSalary - ccssDeduction;
