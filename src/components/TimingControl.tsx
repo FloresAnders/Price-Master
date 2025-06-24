@@ -488,18 +488,44 @@ export default function TimingControl() {
                                 placeholder="0000"
                                 maxLength={4}
                                 disabled={!rowEnabled}
-                            />
-                            <select
+                            />                            <select
                                 className="px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                 style={rowStyle}
                                 value={row.sorteo}
                                 onChange={e => handleRowChange(idx, 'sorteo', e.target.value)}
                                 disabled={!rowEnabled}
                             >
-                                <option value="">Seleccionar</option>
-                                {sorteos.map((sorteo) => (
-                                    <option key={sorteo.id || sorteo.name} value={sorteo.name}>{sorteo.name}</option>
-                                ))}
+                                <option value="">Seleccionar</option>                                {sorteos
+                                    .sort((a, b) => {
+                                        const aName = a.name.toLowerCase();
+                                        const bName = b.name.toLowerCase();
+                                        
+                                        // Priorizar sorteos que contengan "nica" o "tica" (primeros)
+                                        const aIsPriority = aName.includes('nica') || aName.includes('tica');
+                                        const bIsPriority = bName.includes('nica') || bName.includes('tica');
+                                        
+                                        // Identificar dominicanas para ponerlas al final
+                                        const aIsDominicana = aName.includes('dominicana');
+                                        const bIsDominicana = bName.includes('dominicana');
+                                        
+                                        // Si uno es prioritario y el otro no, el prioritario va primero
+                                        if (aIsPriority && !bIsPriority) return -1;
+                                        if (!aIsPriority && bIsPriority) return 1;
+                                        
+                                        // Si ninguno es prioritario, verificar dominicanas
+                                        if (!aIsPriority && !bIsPriority) {
+                                            // Si uno es dominicana y el otro no, la dominicana va al final
+                                            if (aIsDominicana && !bIsDominicana) return 1;
+                                            if (!aIsDominicana && bIsDominicana) return -1;
+                                        }
+                                        
+                                        // Si ambos están en la misma categoría, ordenar alfabéticamente
+                                        return aName.localeCompare(bName);
+                                    })
+                                    .map((sorteo) => (
+                                        <option key={sorteo.id || sorteo.name} value={sorteo.name}>{sorteo.name}</option>
+                                    ))
+                                }
                             </select>
                             <input
                                 type="number"

@@ -27,6 +27,7 @@ interface EmployeePayrollData {
   totalHours: number;
   regularSalary: number;
   overtimeSalary: number;
+  extraAmount: number;
   totalIncome: number;
   ccssDeduction: number;
   comprasDeduction: number;
@@ -50,13 +51,21 @@ interface LocationPayrollData {
   employees: EmployeePayrollData[];
 }
 
-export default function PayrollExporter() {
+interface PayrollExporterProps {
+  currentPeriod: BiweeklyPeriod | null;
+  selectedLocation?: string;
+  onLocationChange?: (location: string) => void;
+}
+
+export default function PayrollExporter({ 
+  currentPeriod, 
+  selectedLocation = 'all', 
+  onLocationChange 
+}: PayrollExporterProps) {
   const [locations, setLocations] = useState<Location[]>([]);
-  const [selectedLocation, setSelectedLocation] = useState<string>('all');
-  const [currentPeriod, setCurrentPeriod] = useState<BiweeklyPeriod | null>(null);
-  const [availablePeriods, setAvailablePeriods] = useState<BiweeklyPeriod[]>([]); const [payrollData, setPayrollData] = useState<LocationPayrollData[]>([]);
+  const [payrollData, setPayrollData] = useState<LocationPayrollData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null); const [editableDeductions, setEditableDeductions] = useState<EditableDeductions>({});
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);const [editableDeductions, setEditableDeductions] = useState<EditableDeductions>({});
 
   // Constantes de salario
   const REGULAR_HOURLY_RATE = 1529.62;
@@ -101,91 +110,16 @@ export default function PayrollExporter() {
       compras: existing.compras ?? defaults.compras,
       adelanto: existing.adelanto ?? defaults.adelanto,
       otros: existing.otros ?? defaults.otros,
-      otrosIncome: existing.otrosIncome ?? defaults.otrosIncome
-    };
+      otrosIncome: existing.otrosIncome ?? defaults.otrosIncome    };
   };
 
-  // Función para obtener el período de quincena actual
-  const getCurrentBiweeklyPeriod = (): BiweeklyPeriod => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
-    const day = now.getDate();
-
-    const period: 'first' | 'second' = day <= 15 ? 'first' : 'second';
-    const start = new Date(year, month, period === 'first' ? 1 : 16);
-    const end = period === 'first' ?
-      new Date(year, month, 15) :
-      new Date(year, month + 1, 0);
-
-    const monthNames = [
-      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-    ];
-
-    return {
-      start,
-      end,
-      label: `${monthNames[month]} ${year} (${period === 'first' ? '1-15' : `16-${end.getDate()}`})`,
-      year,
-      month: month,
-      period
-    };
-  };
-
-  // Función para obtener períodos disponibles
-  const getAvailablePeriods = async (): Promise<BiweeklyPeriod[]> => {
-    try {
-      const allSchedules = await SchedulesService.getAllSchedules();
-      const periods = new Set<string>();
-
-      allSchedules.forEach(schedule => {
-        if (schedule.shift && schedule.shift.trim() !== '') {
-          const period = schedule.day <= 15 ? 'first' : 'second';
-          const key = `${schedule.year}-${schedule.month}-${period}`;
-          periods.add(key);
-        }
-      });
-
-      const periodsArray: BiweeklyPeriod[] = [];
-
-      periods.forEach(key => {
-        const [year, month, period] = key.split('-');
-        const yearNum = parseInt(year);
-        const monthNum = parseInt(month);
-        const isFirst = period === 'first';
-
-        const start = new Date(yearNum, monthNum, isFirst ? 1 : 16);
-        const end = isFirst ?
-          new Date(yearNum, monthNum, 15) :
-          new Date(yearNum, monthNum + 1, 0);
-
-        const monthNames = [
-          'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-          'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-        ];
-
-        periodsArray.push({
-          start,
-          end,
-          label: `${monthNames[monthNum]} ${yearNum} (${isFirst ? '1-15' : `16-${end.getDate()}`})`,
-          year: yearNum,
-          month: monthNum,
-          period: isFirst ? 'first' : 'second'
-        });
-      });
-
-      return periodsArray.sort((a, b) => b.start.getTime() - a.start.getTime());
-    } catch (error) {
-      console.error('Error getting available periods:', error);
-      return [];
-    }
-  };  // Calcular datos de planilla para un empleado
+  // Calcular datos de planilla para un empleado
   const calculatePayrollData = (
     employeeName: string,
     days: { [day: number]: string },
     ccssType: 'TC' | 'MT',
-    locationValue: string
+    locationValue: string,
+    extraAmount: number = 0
   ): EmployeePayrollData => {
     const workShifts = Object.values(days).filter(shift => shift === 'D' || shift === 'N');
     const totalWorkDays = workShifts.length;
@@ -203,14 +137,12 @@ export default function PayrollExporter() {
     const overtimeSalary = OVERTIME_HOURLY_RATE; // 2294.43
     // Calcular totales por tipo (T/S = S/H * T/H)
     const regularTotal = regularSalary * totalHours;
-    const overtimeTotal = overtimeSalary * overtimeHours;
-
-    // Obtener deducciones editables para usar el valor de "Otros" ingresos
+    const overtimeTotal = overtimeSalary * overtimeHours;    // Obtener deducciones editables para usar el valor de "Otros" ingresos
     const deductions = getEmployeeDeductions(locationValue, employeeName);
     const otrosTotal = deductions.otrosIncome; // Usar valor editable en lugar de fijo
 
-    // Total de ingresos: suma de todos los T/S de las tres filas anteriores
-    const totalIncome = regularTotal + overtimeTotal + otrosTotal;
+    // Total de ingresos: suma de todos los T/S de las tres filas anteriores + monto extra del empleado
+    const totalIncome = regularTotal + overtimeTotal + otrosTotal + extraAmount;
 
     // Deducciones
     const ccssDeduction = ccssType === 'TC' ? CCSS_TC : CCSS_MT;
@@ -219,9 +151,7 @@ export default function PayrollExporter() {
     const otrosDeduction = deductions.otros;
 
     const totalDeductions = ccssDeduction + comprasDeduction + adelantoDeduction + otrosDeduction;
-    const netSalary = totalIncome - totalDeductions;
-
-    return {
+    const netSalary = totalIncome - totalDeductions;    return {
       employeeName,
       ccssType,
       days,
@@ -232,6 +162,7 @@ export default function PayrollExporter() {
       totalHours,
       regularSalary,
       overtimeSalary,
+      extraAmount,
       totalIncome,
       ccssDeduction,
       comprasDeduction,
@@ -241,7 +172,6 @@ export default function PayrollExporter() {
       netSalary
     };
   };
-
   // Cargar ubicaciones
   useEffect(() => {
     const loadLocations = async () => {
@@ -255,36 +185,13 @@ export default function PayrollExporter() {
     loadLocations();
   }, []);
 
-  // Inicializar períodos disponibles
-  useEffect(() => {
-    const initializePeriods = async () => {
-      setLoading(true);
-      const current = getCurrentBiweeklyPeriod();
-      setCurrentPeriod(current);
-
-      const available = await getAvailablePeriods();
-
-      const currentExists = available.some(p =>
-        p.year === current.year &&
-        p.month === current.month &&
-        p.period === current.period
-      );
-
-      if (!currentExists) {
-        setAvailablePeriods([current, ...available]);
-      } else {
-        setAvailablePeriods(available);
-      }
-
-      setLoading(false);
-    };
-    initializePeriods();
-  }, []);
-
   // Cargar datos de planilla cuando cambie el período o ubicación
   useEffect(() => {
     const loadPayrollData = async () => {
-      if (!currentPeriod) return;
+      if (!currentPeriod) {
+        setLoading(false);
+        return;
+      }
 
       setLoading(true);
       try {
@@ -339,13 +246,13 @@ export default function PayrollExporter() {
               if (schedule.shift && schedule.shift.trim() !== '') {
                 days[schedule.day] = schedule.shift;
               }
-            });
-
-            if (Object.keys(days).length > 0) {// Buscar el tipo de CCSS del empleado
+            });            if (Object.keys(days).length > 0) {
+              // Buscar el empleado para obtener tipo de CCSS y monto extra
               const employee = location.employees?.find(emp => emp.name === employeeName);
               const ccssType = employee?.ccssType || 'TC'; // Por defecto TC
+              const extraAmount = employee?.extraAmount || 0; // Monto extra, por defecto 0
 
-              const payrollData = calculatePayrollData(employeeName, days, ccssType, location.value);
+              const payrollData = calculatePayrollData(employeeName, days, ccssType, location.value, extraAmount);
 
               // Solo agregar empleados que tienen días trabajados (totalWorkDays > 0)
               if (payrollData.totalWorkDays > 0) {
@@ -407,10 +314,11 @@ export default function PayrollExporter() {
         csvContent += `"HorasOrdinarias","${employee.totalWorkDays}","${employee.hoursPerDay}","${employee.totalHours}","${employee.regularSalary.toFixed(2)}","${regularTotal.toFixed(2)}"\n`;
 
         // Fila de HorasExtras
-        csvContent += `"HorasExtras","","","","${employee.overtimeSalary.toFixed(2)}",""\n`;
-
-        // Fila de Otros
+        csvContent += `"HorasExtras","","","","${employee.overtimeSalary.toFixed(2)}",""\n`;        // Fila de Otros
         csvContent += `"Otros","","","","","${otrosTotal.toFixed(2)}"\n`;
+
+        // Fila de Monto Extra
+        csvContent += `"Monto Extra","","","","","${employee.extraAmount.toFixed(2)}"\n`;
 
         // Separador y filas de totales
         csvContent += `"","","","","IngresosTotales","${totalIncome.toFixed(2)}"\n`;
@@ -466,13 +374,11 @@ export default function PayrollExporter() {
               Cálculo de salarios por quincena
             </p>
           </div>
-        </div>
-
-        <div className="flex items-center gap-4">
+        </div>        <div className="flex items-center gap-4">
           {/* Selector de ubicación */}
           <select
             value={selectedLocation}
-            onChange={(e) => setSelectedLocation(e.target.value)}
+            onChange={(e) => onLocationChange?.(e.target.value)}
             className="px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
             style={{
               background: 'var(--input-bg)',
@@ -488,42 +394,16 @@ export default function PayrollExporter() {
             ))}
           </select>
 
-          {/* Selector de período */}
-          <select
-            value={currentPeriod ? `${currentPeriod.year}-${currentPeriod.month}-${currentPeriod.period}` : ''}
-            onChange={(e) => {
-              if (e.target.value) {
-                const [year, month, period] = e.target.value.split('-');
-                const selectedPeriod = availablePeriods.find(p =>
-                  p.year === parseInt(year) &&
-                  p.month === parseInt(month) &&
-                  p.period === period
-                );
-                if (selectedPeriod) {
-                  setCurrentPeriod(selectedPeriod);
-                }
-              }
-            }}
-            className="px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 min-w-[250px]"
+          {/* Mostrar período actual - solo lectura */}
+          <div className="px-3 py-2 rounded-md border text-sm text-gray-600 dark:text-gray-400"
             style={{
               background: 'var(--input-bg)',
               border: '1px solid var(--input-border)',
               color: 'var(--foreground)',
             }}
           >
-            {availablePeriods.length === 0 ? (
-              <option value="">Cargando períodos...</option>
-            ) : (
-              availablePeriods.map((period) => (
-                <option
-                  key={`${period.year}-${period.month}-${period.period}`}
-                  value={`${period.year}-${period.month}-${period.period}`}
-                >
-                  {period.label}
-                </option>
-              ))
-            )}
-          </select>
+            {currentPeriod ? currentPeriod.label : 'Sin período seleccionado'}
+          </div>
 
           {/* Botón de exportar */}
           <button
@@ -657,8 +537,7 @@ export default function PayrollExporter() {
                           <td className="border border-[var(--input-border)] p-2 text-center font-semibold">
 
                           </td>
-                        </tr>
-                        {/* Fila de Otros */}
+                        </tr>                        {/* Fila de Otros */}
                         <tr className="bg-gray-50 dark:bg-gray-800">
                           <td className="border border-[var(--input-border)] p-2 font-medium">
                             Otros
@@ -680,6 +559,20 @@ export default function PayrollExporter() {
                             }}
                             placeholder="0"
                           />
+                          </td>
+                        </tr>
+
+                        {/* Fila de Monto Extra */}
+                        <tr className="bg-green-50 dark:bg-green-900/20">
+                          <td className="border border-[var(--input-border)] p-2 font-medium">
+                            Monto Extra
+                          </td>
+                          <td className="border border-[var(--input-border)] p-2 text-center"></td>
+                          <td className="border border-[var(--input-border)] p-2 text-center"></td>
+                          <td className="border border-[var(--input-border)] p-2 text-center"></td>
+                          <td className="border border-[var(--input-border)] p-2 text-center"></td>
+                          <td className="border border-[var(--input-border)] p-2 text-center font-semibold">
+                            ₡{employee.extraAmount.toLocaleString('es-CR', { minimumFractionDigits: 2 })}
                           </td>
                         </tr>
 

@@ -9,6 +9,7 @@ export interface Location {
 export interface Employee {
   name: string;
   ccssType: 'TC' | 'MT'; // TC = Tiempo Completo, MT = Medio Tiempo
+  extraAmount?: number; // Monto extra, valor inicial 0
 }
 
 export interface Sorteo {

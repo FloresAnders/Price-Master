@@ -11,17 +11,15 @@ export async function GET() {
       LocationsService.getAllLocations(),
       SorteosService.getAllSorteos(),
       UsersService.getAllUsers()
-    ]);
-
-    return NextResponse.json({
+    ]);    return NextResponse.json({
       success: true,
       data: {
         locations: locations.length,
         sorteos: sorteos.length,
         users: users.length,
-        locationsData: locations.slice(0, 3), // Show first 3 for testing
-        sorteosData: sorteos.slice(0, 3), // Show first 3 for testing
-        usersData: users.slice(0, 3) // Show first 3 for testing
+        locationsData: locations, // Show all locations
+        sorteosData: sorteos, // Show all sorteos
+        usersData: users // Show all users
       }
     });
   } catch (error) {
@@ -43,15 +41,16 @@ export async function POST() {
       LocationsService.getAllLocations(),
       SorteosService.getAllSorteos(),
       UsersService.getAllUsers()
-    ]);
-
-    return NextResponse.json({
+    ]);    return NextResponse.json({
       success: true,
       message: 'Migration completed successfully',
       data: {
         locations: locations.length,
         sorteos: sorteos.length,
-        users: users.length
+        users: users.length,
+        locationsData: locations, // Show all locations after migration
+        sorteosData: sorteos, // Show all sorteos after migration
+        usersData: users // Show all users after migration
       }
     });
   } catch (error) {

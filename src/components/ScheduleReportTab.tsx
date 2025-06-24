@@ -689,10 +689,13 @@ export default function ScheduleReportTab() {
               </div>
             ))}
           </div>
-        </>
-      ) : (
+        </>      ) : (
         /* Tab de Planilla de Pago */
-        <PayrollExporter />
+        <PayrollExporter 
+          currentPeriod={currentPeriod}
+          selectedLocation={selectedLocation}
+          onLocationChange={setSelectedLocation}
+        />
       )}
     </div>
   );

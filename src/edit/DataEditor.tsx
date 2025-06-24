@@ -32,9 +32,7 @@ export default function DataEditor() {
     }, [locationsData, sorteosData, usersData, originalLocationsData, originalSorteosData, originalUsersData]); const loadData = useCallback(async () => {
         try {
             // Cargar locations desde Firebase
-            const locations = await LocationsService.getAllLocations();
-
-            // Migrar datos del array names al array employees si es necesario
+            const locations = await LocationsService.getAllLocations();            // Migrar datos del array names al array employees si es necesario
             const migratedLocations = locations.map(location => {
                 // Si no tiene employees pero sí tiene names, migrar
                 if ((!location.employees || location.employees.length === 0) && location.names && location.names.length > 0) {
@@ -42,7 +40,8 @@ export default function DataEditor() {
                         ...location,
                         employees: location.names.map(name => ({
                             name,
-                            ccssType: 'TC' as const // Tiempo Completo por defecto
+                            ccssType: 'TC' as const, // Tiempo Completo por defecto
+                            extraAmount: 0 // Monto extra inicial
                         }))
                     };
                 }
@@ -53,7 +52,14 @@ export default function DataEditor() {
                         employees: []
                     };
                 }
-                return location;
+                // Asegurar que los empleados existentes tengan extraAmount
+                return {
+                    ...location,
+                    employees: location.employees.map(emp => ({
+                        ...emp,
+                        extraAmount: emp.extraAmount !== undefined ? emp.extraAmount : 0
+                    }))
+                };
             });
 
             setLocationsData(migratedLocations);
@@ -253,11 +259,11 @@ export default function DataEditor() {
         // Asegurar que existe el array de employees
         if (!updated[locationIndex].employees) {
             updated[locationIndex].employees = [];
-        }
-        // Agregar nuevo empleado con tipo CCSS por defecto
+        }        // Agregar nuevo empleado con tipo CCSS por defecto
         updated[locationIndex].employees!.push({
             name: '',
-            ccssType: 'TC' // Tiempo Completo por defecto
+            ccssType: 'TC', // Tiempo Completo por defecto
+            extraAmount: 0 // Monto extra inicial
         });
         setLocationsData(updated);
     };
@@ -274,6 +280,14 @@ export default function DataEditor() {
         const updated = [...locationsData];
         if (updated[locationIndex].employees) {
             updated[locationIndex].employees[employeeIndex].ccssType = value;
+        }
+        setLocationsData(updated);
+    };
+
+    const updateEmployeeExtraAmount = (locationIndex: number, employeeIndex: number, value: number) => {
+        const updated = [...locationsData];
+        if (updated[locationIndex].employees) {
+            updated[locationIndex].employees[employeeIndex].extraAmount = value;
         }
         setLocationsData(updated);
     };
@@ -390,15 +404,15 @@ export default function DataEditor() {
             <div className="mb-6">
                 <div className="border-b border-[var(--input-border)]">
                     <nav className="-mb-px flex space-x-8">                        <button
-                            onClick={() => setActiveFile('locations')}
-                            className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeFile === 'locations'
-                                ? 'border-blue-500 text-blue-600'
-                                : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-[var(--border)]'
-                                }`}
-                        >
-                            <MapPin className="w-4 h-4" />
-                            Ubicaciones ({locationsData.length})
-                        </button>
+                        onClick={() => setActiveFile('locations')}
+                        className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeFile === 'locations'
+                            ? 'border-blue-500 text-blue-600'
+                            : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-[var(--border)]'
+                            }`}
+                    >
+                        <MapPin className="w-4 h-4" />
+                        Ubicaciones ({locationsData.length})
+                    </button>
                         <button
                             onClick={() => setActiveFile('sorteos')}
                             className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeFile === 'sorteos'
@@ -477,12 +491,21 @@ export default function DataEditor() {
                                     >
                                         Agregar Empleado
                                     </button>
-                                </div>
-                                <div className="space-y-3">
+                                </div>                                <div className="space-y-3">
                                     {/* Migrar empleados del array names si existe */}
                                     {location.names && location.names.length > 0 && !location.employees?.length && (
                                         <div className="text-sm text-yellow-600 bg-yellow-50 p-2 rounded">
                                             ⚠️ Empleados en formato anterior detectados. Se migrarán automáticamente al guardar.
+                                        </div>
+                                    )}
+
+                                    {/* Header para claridad */}
+                                    {location.employees && location.employees.length > 0 && (
+                                        <div className="flex gap-2 items-center p-2 bg-gray-100 dark:bg-gray-700 rounded-md text-sm font-medium">
+                                            <div className="flex-1">Nombre del Empleado</div>
+                                            <div className="w-40 text-center">Tipo CCSS</div>
+                                            <div className="w-32 text-center">Monto Extra (₡)</div>
+                                            <div className="w-10"></div>
                                         </div>
                                     )}
 
@@ -509,13 +532,25 @@ export default function DataEditor() {
                                                     <option value="TC">Tiempo Completo</option>
                                                     <option value="MT">Medio Tiempo</option>
                                                 </select>
+                                            </div>                                            <div className="w-32">
+                                                <input
+                                                    type="number"
+                                                    min=""
+                                                    step="0.01"
+                                                    value={employee.extraAmount || 0}
+                                                    onChange={(e) => updateEmployeeExtraAmount(locationIndex, employeeIndex, parseFloat(e.target.value) || 0)}
+                                                    className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md text-sm"
+                                                    style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                                    placeholder="Monto extra"
+                                                    title="Monto extra en colones"
+                                                />
                                             </div>
                                             <button
                                                 onClick={() => removeEmployeeName(locationIndex, employeeIndex)}
                                                 className="px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
                                                 title="Eliminar empleado"
                                             >
-                                                ×
+                                                X
                                             </button>
                                         </div>
                                     ))}
