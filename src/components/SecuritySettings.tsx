@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Shield, Settings, Clock, Users, Key, Eye, EyeOff, Save, AlertTriangle } from 'lucide-react';
+import { Shield, Clock, Users, Key, Eye, EyeOff, Save, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
 interface SecurityConfig {
@@ -96,7 +96,7 @@ export default function SecuritySettings() {
     );
   }
 
-  const updateConfig = (section: keyof SecurityConfig, key: string, value: any) => {
+  const updateConfig = (section: keyof SecurityConfig, key: string, value: number | string | boolean) => {
     setConfig(prev => ({
       ...prev,
       [section]: {
@@ -124,10 +124,8 @@ export default function SecuritySettings() {
 
       const existingLogs = JSON.parse(localStorage.getItem('pricemaster_audit_logs') || '[]');
       existingLogs.push(auditLog);
-      localStorage.setItem('pricemaster_audit_logs', JSON.stringify(existingLogs));
-
-      setNotification({ message: 'Configuración de seguridad guardada exitosamente', type: 'success' });
-    } catch (error) {
+      localStorage.setItem('pricemaster_audit_logs', JSON.stringify(existingLogs));      setNotification({ message: 'Configuración de seguridad guardada exitosamente', type: 'success' });
+    } catch {
       setNotification({ message: 'Error al guardar la configuración', type: 'error' });
     } finally {
       setSaving(false);

@@ -1,7 +1,7 @@
 // src/edit/ScheduleReportTab.tsx
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, Calendar, MapPin, FileText, Download } from 'lucide-react';
 import { LocationsService } from '../services/locations';
 import { SchedulesService, ScheduleEntry } from '../services/schedules';
@@ -146,21 +146,12 @@ export default function ScheduleReportTab() {
         setAvailablePeriods([current, ...available]);
       } else {
         setAvailablePeriods(available);
-      }
-
-      setLoading(false);
+      }      setLoading(false);
     };
     initializePeriods();
   }, []);
 
-  // Cargar datos de horarios cuando cambie el período o la ubicación
-  useEffect(() => {
-    if (currentPeriod) {
-      loadScheduleData();
-    }
-  }, [currentPeriod, selectedLocation]);
-
-  const loadScheduleData = async () => {
+  const loadScheduleData = useCallback(async () => {
     if (!currentPeriod) return;
 
     setLoading(true);
@@ -245,7 +236,14 @@ export default function ScheduleReportTab() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPeriod, selectedLocation, locations]);
+  
+  // Cargar datos de horarios cuando cambie el período o la ubicación
+  useEffect(() => {
+    if (currentPeriod) {
+      loadScheduleData();
+    }
+  }, [currentPeriod, selectedLocation, loadScheduleData]);
 
   const navigatePeriod = (direction: 'prev' | 'next') => {
     const currentIndex = availablePeriods.findIndex(p =>

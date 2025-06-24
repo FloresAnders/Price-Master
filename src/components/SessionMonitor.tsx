@@ -5,6 +5,17 @@ import React, { useState, useEffect } from 'react';
 import { Shield, Clock, AlertTriangle, Eye, X } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
+interface AuditLog {
+  timestamp: string;
+  userId: string;
+  userName: string;
+  action: string;
+  details: string;
+  ipAddress?: string;
+  userAgent?: string;
+  sessionId: string;
+}
+
 interface SessionMonitorProps {
   showAuditLogs?: boolean;
 }
@@ -21,7 +32,7 @@ export default function SessionMonitor({ showAuditLogs = false }: SessionMonitor
   
   const [timeLeft, setTimeLeft] = useState(0);
   const [showLogs, setShowLogs] = useState(false);
-  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
 
   // Actualizar tiempo restante cada minuto
   useEffect(() => {

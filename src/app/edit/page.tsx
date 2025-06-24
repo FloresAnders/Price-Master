@@ -18,9 +18,9 @@ export default function EditPage() {
     sessionWarning,
     getSessionTimeLeft
   } = useAuth();
-
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [sessionTime, setSessionTime] = useState(0);
+  
   // Actualizar tiempo de sesión cada minuto
   useEffect(() => {
     if (isAuthenticated && isSuperAdmin()) {
@@ -29,7 +29,8 @@ export default function EditPage() {
       const interval = setInterval(updateTime, 60000);
       return () => clearInterval(interval);
     }
-  }, [isAuthenticated, getSessionTimeLeft]);
+  }, [isAuthenticated, getSessionTimeLeft, isSuperAdmin]);
+  
   // Log de acceso a la ruta protegida
   useEffect(() => {
     if (isAuthenticated && user) {
@@ -58,9 +59,8 @@ export default function EditPage() {
         console.log('🔐 SUPERADMIN EDITOR ACCESS:', auditLog);
       } else {
         console.warn('🚫 UNAUTHORIZED EDITOR ACCESS ATTEMPT:', auditLog);
-      }
-    }
-  }, [isAuthenticated, user?.id, user?.role]);
+      }    }
+  }, [isAuthenticated, user, isSuperAdmin]);
 
   // Función para manejar login exitoso
   const handleLoginSuccess = (userData: FirestoreUser) => {

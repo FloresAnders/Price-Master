@@ -1,11 +1,11 @@
 // src/components/PayrollExporter.tsx
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Download, Calculator, DollarSign } from 'lucide-react';
 import { LocationsService } from '../services/locations';
 import { SchedulesService, ScheduleEntry } from '../services/schedules';
-import { Location, Employee } from '../types/firestore';
+import { Location } from '../types/firestore';
 
 interface BiweeklyPeriod {
   start: Date;
@@ -94,9 +94,8 @@ export default function PayrollExporter({
         [type]: value // Override with new value
       }
     }));
-  };
-  // Función para obtener deducciones editables de un empleado
-  const getEmployeeDeductions = (locationValue: string, employeeName: string) => {
+  };  // Función para obtener deducciones editables de un empleado
+  const getEmployeeDeductions = useCallback((locationValue: string, employeeName: string) => {
     const employeeKey = getEmployeeKey(locationValue, employeeName);
     const defaults = { compras: 0, adelanto: 0, otros: 0, otrosIncome: 0 };
     const existing = editableDeductions[employeeKey];
@@ -111,10 +110,9 @@ export default function PayrollExporter({
       adelanto: existing.adelanto ?? defaults.adelanto,
       otros: existing.otros ?? defaults.otros,
       otrosIncome: existing.otrosIncome ?? defaults.otrosIncome    };
-  };
-
+  }, [editableDeductions]);
   // Calcular datos de planilla para un empleado
-  const calculatePayrollData = (
+  const calculatePayrollData = useCallback((
     employeeName: string,
     days: { [day: number]: string },
     ccssType: 'TC' | 'MT',
@@ -171,7 +169,7 @@ export default function PayrollExporter({
       totalDeductions,
       netSalary
     };
-  };
+  }, [getEmployeeDeductions]);
   // Cargar ubicaciones
   useEffect(() => {
     const loadLocations = async () => {
@@ -274,22 +272,13 @@ export default function PayrollExporter({
       } finally {
         setLoading(false);
       }
-    };
-
-    if (currentPeriod && locations.length > 0) {
+    };    if (currentPeriod && locations.length > 0) {
       loadPayrollData();
     }
-  }, [currentPeriod, selectedLocation, locations]);
-  const exportPayroll = () => {
+  }, [currentPeriod, selectedLocation, locations, calculatePayrollData]);const exportPayroll = () => {
     if (!currentPeriod || payrollData.length === 0) return;
 
     let csvContent = "data:text/csv;charset=utf-8,";
-    const monthNames = [
-      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-    ];
-
-    const currentMonth = monthNames[currentPeriod.month];
     const periodDates = `${currentPeriod.start.getDate()}-${currentPeriod.end.getDate()}`;
 
     payrollData.forEach(locationData => {

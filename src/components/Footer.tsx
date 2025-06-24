@@ -6,12 +6,6 @@ import React, { useState } from 'react';
 export default function Footer() {
   const [isGitHubModalOpen, setIsGitHubModalOpen] = useState(false);
   
-  const sections = [
-    { title: 'Productos', items: ['Escáner de Códigos', 'Cámara en Vivo', 'Detección Multi-formato', 'Análisis ZBar-WASM'] },
-    { title: 'Empresa', items: ['Acerca de', 'Equipo', 'Carreras', 'Contacto'] },
-    { title: 'Tecnologías', items: ['Next.js 15', 'React 19', 'TypeScript', 'Firebase'] },
-    { title: 'Soporte', items: ['Documentación', 'Preguntas Frecuentes', 'Contacto', 'Términos'] },
-  ];
   return (
     <footer className="mt-auto border-t border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)]">
       <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-2 sm:py-3 overflow-x-auto">

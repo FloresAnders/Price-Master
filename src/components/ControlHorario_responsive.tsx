@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Clock, Calendar, ChevronLeft, ChevronRight, Save, LogOut, User as UserIcon, Lock, Unlock } from 'lucide-react';
+import { Clock, ChevronLeft, ChevronRight, Save, LogOut, User as UserIcon, Lock, Unlock } from 'lucide-react';
 import { LocationsService } from '../services/locations';
 import { SchedulesService } from '../services/schedules';
 import { useAuth } from '../hooks/useAuth';
@@ -637,11 +637,9 @@ export default function ControlHorario() {
                     <option key={loc.value} value={loc.value}>{loc.label}</option>
                   ))}
                 </select>
-              )}
-
-              {/* Botón de logout */}
+              )}              {/* Botón de logout */}
               <button
-                onClick={logout}
+                onClick={() => logout()}
                 className="flex items-center gap-2 px-3 py-2 text-red-600 hover:bg-red-50 rounded-md transition-colors w-full sm:w-auto justify-center text-sm sm:text-base"
                 title="Cerrar sesión"
               >

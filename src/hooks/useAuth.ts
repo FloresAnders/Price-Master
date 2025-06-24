@@ -58,7 +58,7 @@ export function useAuth() {
       cookieEnabled: navigator.cookieEnabled
     };
   };  // Función para registrar logs de auditoría
-  const logAuditEvent = (action: string, details: string, userId?: string) => {
+  const logAuditEvent = useCallback((action: string, details: string, userId?: string) => {
     try {
       const currentUser = user;
       const auditLog: AuditLog = {
@@ -84,7 +84,7 @@ export function useAuth() {
     } catch (error) {
       console.error('Error logging audit event:', error);
     }
-  };
+  }, [user]);
 
   // Función para verificar tiempo de inactividad
   const checkInactivity = useCallback((session: SessionData) => {
@@ -110,8 +110,9 @@ export function useAuth() {
           console.error('Error updating activity:', error);
         }
       }
-    }
-  }, [isAuthenticated, user]);  const logout = useCallback((reason?: string) => {
+    }  }, [isAuthenticated, user]);
+
+  const logout = useCallback((reason?: string) => {
     const currentUser = user;
 
     // Log de auditoría antes del logout
@@ -126,7 +127,7 @@ export function useAuth() {
     setUser(null);
     setIsAuthenticated(false);
     setSessionWarning(false);
-  }, [user]);  const checkExistingSession = useCallback(() => {
+  }, [user, logAuditEvent]);const checkExistingSession = useCallback(() => {
     try {
       const sessionData = localStorage.getItem('pricemaster_session');
       if (sessionData) {        const session: SessionData = JSON.parse(sessionData);
@@ -186,7 +187,7 @@ export function useAuth() {
     } finally {
       setLoading(false);
     }
-  }, [checkInactivity, logout]);
+  }, [checkInactivity, logout, user, isAuthenticated, sessionWarning, logAuditEvent]);
   useEffect(() => {
     checkExistingSession();
 
@@ -273,9 +274,8 @@ export function useAuth() {
       const now = new Date();
       const hoursElapsed = (now.getTime() - loginTime.getTime()) / (1000 * 60 * 60);
       const maxHours = SESSION_DURATION_HOURS[session.role || 'user'] || SESSION_DURATION_HOURS.user;
-      
-      return Math.max(0, maxHours - hoursElapsed);
-    } catch (error) {
+        return Math.max(0, maxHours - hoursElapsed);
+    } catch {
       return 0;
     }
   }, [user, isAuthenticated]);

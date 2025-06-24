@@ -233,11 +233,9 @@ export default function TimingControl() {
                                 <option key={loc.value} value={loc.value}>{loc.label}</option>
                             ))}
                         </select>
-                    </div>
-
-                    {/* Botón de logout */}
+                    </div>                    {/* Botón de logout */}
                     <button
-                        onClick={logout}
+                        onClick={() => logout()}
                         className="flex items-center gap-2 px-3 py-2 text-red-600 hover:bg-red-50 rounded-md transition-colors"
                         title="Cerrar sesión"
                     >

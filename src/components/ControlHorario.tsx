@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Clock, Calendar, ChevronLeft, ChevronRight, Save, LogOut, User as UserIcon, Lock, Unlock } from 'lucide-react';
+import { Clock, ChevronLeft, ChevronRight, Save, LogOut, User as UserIcon, Lock, Unlock } from 'lucide-react';
 import { LocationsService } from '../services/locations';
 import { SchedulesService } from '../services/schedules';
 import { useAuth } from '../hooks/useAuth';

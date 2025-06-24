@@ -2,11 +2,10 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, Calendar, MapPin, FileText, Download, Clock, Image as ImageIcon, Calculator } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, MapPin, FileText, Download, Clock, Calculator } from 'lucide-react';
 import { LocationsService } from '../services/locations';
 import { SchedulesService, ScheduleEntry } from '../services/schedules';
 import { Location } from '../types/firestore';
-import ImageExporter, { useLocationImageExport } from './ImageExporter';
 import PayrollExporter from './PayrollExporter';
 
 interface BiweeklyPeriod {

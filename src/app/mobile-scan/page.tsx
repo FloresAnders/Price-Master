@@ -7,7 +7,6 @@ import { ScanningService } from '../../services/scanning';
 import { useBarcodeScanner } from '../../hooks/useBarcodeScanner';
 import CameraScanner from '../../components/CameraScanner';
 import ImageDropArea from '../../components/ImageDropArea';
-import ProductNameCheckbox from '../../components/ProductNameCheckbox';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { SessionSyncService, type SessionStatus } from '../../services/session-sync';
 

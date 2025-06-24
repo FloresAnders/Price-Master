@@ -6,7 +6,6 @@ import { ChevronLeft, ChevronRight, Calendar, MapPin, FileText, Download, Clock,
 import { LocationsService } from '../services/locations';
 import { SchedulesService, ScheduleEntry } from '../services/schedules';
 import { Location } from '../types/firestore';
-import ImageExporter, { useLocationImageExport } from './ImageExporter';
 import PayrollExporter from './PayrollExporter';
 
 interface BiweeklyPeriod {
