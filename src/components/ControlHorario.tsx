@@ -5,17 +5,116 @@ import React, { useState, useEffect } from 'react';
 import { Clock, ChevronLeft, ChevronRight, Save, LogOut, User as UserIcon, Lock, Unlock } from 'lucide-react';
 import { LocationsService } from '../services/locations';
 import { SchedulesService } from '../services/schedules';
+import { CcssConfigService } from '../services/ccss-config';
 import { useAuth } from '../hooks/useAuth';
 import LoginModal from './LoginModal';
 import ConfirmModal from './ConfirmModal';
 import type { Location } from '../types/firestore';
 import type { User as FirestoreUser } from '../types/firestore';
-import EmployeeSummaryCalculator, { useEmployeeSummaryCalculator } from './EmployeeSummaryCalculator';
+import EmployeeSummaryCalculator, { calculateEmployeeSummaryFromDB } from './EmployeeSummaryCalculator';
 
 interface ScheduleData {
   [employeeName: string]: {
     [day: string]: string;
   };
+}
+
+// Componente para el tooltip que muestra resumen con datos reales de la BD
+function EmployeeTooltipSummary({ 
+  employeeName, 
+  locationValue, 
+  year, 
+  month, 
+  daysToShow 
+}: {
+  employeeName: string;
+  locationValue: string;
+  year: number;
+  month: number;
+  daysToShow: number[];
+}) {
+  const [summary, setSummary] = React.useState<{
+    workedDays: number;
+    hours: number;
+    colones: number;
+    ccss: number;
+    neto: number;
+  } | null>(null);
+
+  React.useEffect(() => {
+    const fetchSummary = async () => {
+      try {
+        // Obtener horarios del empleado para este mes
+        const schedules = await SchedulesService.getSchedulesByLocationEmployeeMonth(
+          locationValue,
+          employeeName,
+          year,
+          month
+        );
+
+        // Convertir a formato de turnos
+        const scheduleData: { [day: string]: string } = {};
+        schedules.forEach((schedule) => {
+          scheduleData[schedule.day.toString()] = schedule.shift;
+        });
+
+        // Calcular días trabajados solo en el período mostrado (daysToShow)
+        const workedDaysInPeriod = daysToShow.filter(day => {
+          const shift = scheduleData[day.toString()] || '';
+          return shift === 'N' || shift === 'D'; // Solo contar Nocturno y Diurno
+        }).length;
+
+        // Calcular horas (asumiendo 8 horas por día trabajado)
+        const hoursPerDay = 8;
+        const totalHours = workedDaysInPeriod * hoursPerDay;
+
+        // Calcular salario bruto con valor fijo
+        const hourlyRate = 1529.62;
+        const grossSalary = totalHours * hourlyRate;
+
+        // Obtener configuración CCSS para el descuento
+        const ccssConfig = await CcssConfigService.getCcssConfig();
+        const ccssDeduction = ccssConfig.mt || 3672.46; // Usar MT por defecto
+
+        // Calcular neto
+        const netSalary = grossSalary - ccssDeduction;
+
+        setSummary({
+          workedDays: workedDaysInPeriod,
+          hours: totalHours,
+          colones: grossSalary,
+          ccss: ccssDeduction,
+          neto: netSalary
+        });
+      } catch (error) {
+        console.error('Error fetching employee summary:', error);
+        // Fallback a datos por defecto en caso de error
+        setSummary({
+          workedDays: 0,
+          hours: 0,
+          colones: 0,
+          ccss: 0,
+          neto: 0
+        });
+      }
+    };
+
+    fetchSummary();
+  }, [employeeName, locationValue, year, month, daysToShow]);
+
+  if (!summary) {
+    return <div>Cargando...</div>;
+  }
+
+  return (
+    <>
+      <div><b>Días trabajados:</b> {summary.workedDays}</div>
+      <div><b>Horas trabajadas:</b> {summary.hours}</div>
+      <div><b>Total bruto:</b> ₡{summary.colones.toLocaleString('es-CR')}</div>
+      <div><b>CCSS:</b> -₡{summary.ccss.toLocaleString('es-CR', { minimumFractionDigits: 2 })}</div>
+      <div><b>Salario neto:</b> ₡{summary.neto.toLocaleString('es-CR', { minimumFractionDigits: 2 })}</div>
+    </>
+  );
 }
 
 export default function ControlHorario() {
@@ -40,11 +139,7 @@ export default function ControlHorario() {
     actionType?: 'assign' | 'delete' | 'change';
   }>({ open: false, message: '', onConfirm: null, actionType: 'assign' });
   const [modalLoading, setModalLoading] = useState(false);
-  const [editPastDaysEnabled, setEditPastDaysEnabled] = useState(false);
-  const [unlockPastDaysModal, setUnlockPastDaysModal] = useState(false);
-
-  // Hook para cálculos de resumen de empleados
-  const { calculateEmployeeSummary } = useEmployeeSummaryCalculator(scheduleData);
+  const [editPastDaysEnabled, setEditPastDaysEnabled] = useState(false);  const [unlockPastDaysModal, setUnlockPastDaysModal] = useState(false);
 
   // Cargar datos desde Firebase
   useEffect(() => {
@@ -580,7 +675,7 @@ export default function ControlHorario() {
             </select>
           </div>
         </div>
-      </div>    );
+      </div>);
   }
 
   return (
@@ -786,14 +881,14 @@ export default function ControlHorario() {
         </div>        {/* Grid de horarios */}
         <div className="overflow-x-auto -mx-4 sm:mx-0">
           <div className="min-w-full inline-block">            <table className="w-full border-collapse border border-[var(--input-border)]">
-              <thead>
-                <tr>
-                  <th
-                    className="border border-[var(--input-border)] p-2 font-semibold text-center bg-[var(--input-bg)] text-[var(--foreground)] min-w-[80px] sm:min-w-[100px] sticky left-0 z-20 text-xs"
-                    style={{ background: 'var(--input-bg)', color: 'var(--foreground)', minWidth: '80px', left: 0, height: '40px' }}
-                  >
-                Nombre
-              </th>
+            <thead>
+              <tr>
+                <th
+                  className="border border-[var(--input-border)] p-2 font-semibold text-center bg-[var(--input-bg)] text-[var(--foreground)] min-w-[80px] sm:min-w-[100px] sticky left-0 z-20 text-xs"
+                  style={{ background: 'var(--input-bg)', color: 'var(--foreground)', minWidth: '80px', left: 0, height: '40px' }}
+                >
+                  Nombre
+                </th>
                 {daysToShow.map(day => {
                   // Detectar si es hoy
                   const today = new Date();
@@ -813,74 +908,70 @@ export default function ControlHorario() {
                     >
                       {day}
                     </th>
-                    );                })}
-                </tr>
-              </thead>
-              <tbody>{(selectedEmployee === 'Todos' ? names : [selectedEmployee]).map(name => (
-                  <tr key={name}>
-                    <td
-                      className="border border-[var(--input-border)] p-2 font-medium bg-[var(--input-bg)] text-[var(--foreground)] min-w-[80px] sm:min-w-[100px] sticky left-0 z-10 group cursor-pointer text-xs"
-                      style={{ background: 'var(--input-bg)', color: 'var(--foreground)', minWidth: '80px', left: 0, height: '40px' }}
+                    );
+                })}
+              </tr>
+            </thead>
+            <tbody>{(selectedEmployee === 'Todos' ? names : [selectedEmployee]).map(name => (
+              <tr key={name}>
+                <td
+                  className="border border-[var(--input-border)] p-2 font-medium bg-[var(--input-bg)] text-[var(--foreground)] min-w-[80px] sm:min-w-[100px] sticky left-0 z-10 group cursor-pointer text-xs"
+                  style={{ background: 'var(--input-bg)', color: 'var(--foreground)', minWidth: '80px', left: 0, height: '40px' }}
+                >
+                  <div className="flex items-center gap-1">
+                    <span className="block truncate flex-1">{name}</span>
+                    {/* Botón de información para móviles */}
+                    <button
+                      onClick={() => setShowEmployeeSummary(showEmployeeSummary === name ? null : name)}
+                      className="sm:hidden text-blue-500 hover:text-blue-700 p-1"
+                      title="Ver resumen"
                     >
-                    <div className="flex items-center gap-1">
-                      <span className="block truncate flex-1">{name}</span>
-                      {/* Botón de información para móviles */}
-                      <button
-                        onClick={() => setShowEmployeeSummary(showEmployeeSummary === name ? null : name)}
-                        className="sm:hidden text-blue-500 hover:text-blue-700 p-1"
-                        title="Ver resumen"
-                      >
-                        ℹ️
-                      </button>
-                    </div>
-                    {/* Tooltip al pasar el mouse - solo en pantallas grandes */}                    <div className="hidden sm:block absolute left-full top-1/2 -translate-y-1/2 ml-2 bg-gray-900 text-white text-xs rounded shadow-lg px-4 py-2 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 min-w-[180px] text-left whitespace-pre-line">
-                      {(() => {
-                        const summary = calculateEmployeeSummary(name, daysToShow);
-                        return (
-                          <>
-                            <div><b>Días trabajados:</b> {summary.workedDays}</div>
-                            <div><b>Horas trabajadas:</b> {summary.hours}</div>
-                            <div><b>Total bruto:</b> ₡{summary.colones.toLocaleString('es-CR')}</div>
-                            <div><b>CCSS:</b> -₡{summary.ccss.toLocaleString('es-CR', { minimumFractionDigits: 2 })}</div>
-                            <div><b>Salario neto:</b> ₡{summary.neto.toLocaleString('es-CR', { minimumFractionDigits: 2 })}</div>
-                          </>
-                        );
-                      })()}
-                    </div>
+                      ℹ️
+                    </button>
+                  </div>
+                  {/* Tooltip al pasar el mouse - solo en pantallas grandes */}                  <div className="hidden sm:block absolute left-full top-1/2 -translate-y-1/2 ml-2 bg-gray-900 text-white text-xs rounded shadow-lg px-4 py-2 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 min-w-[180px] text-left whitespace-pre-line">
+                    <EmployeeTooltipSummary 
+                      employeeName={name}
+                      locationValue={location}
+                      year={year}
+                      month={month}
+                      daysToShow={daysToShow}
+                    />
+                  </div>
+                </td>
+                {daysToShow.map(day => {
+                  const value = scheduleData[name]?.[day.toString()] || '';
+                  // Deshabilitar si el día ya pasó en cualquier mes y año, y no está habilitado el modo edición
+                  let disabled = false;
+                  const cellDate = new Date(year, month, day);
+                  const now = new Date();
+                  now.setHours(0, 0, 0, 0); // ignorar hora
+                  if (
+                    cellDate < now &&
+                    !editPastDaysEnabled
+                  ) {
+                    disabled = true;
+                  } return (<td key={day} className="border border-[var(--input-border)] p-0" style={{ minWidth: fullMonthView ? '32px' : '40px' }}>
+                    <select
+                      value={value}
+                      onChange={(e) => handleCellChange(name, day, e.target.value)}
+                      className={`w-full h-full p-1 border-none outline-none text-center font-semibold cursor-pointer text-xs ${disabled ? 'bg-gray-200 text-gray-400 dark:bg-gray-800 dark:text-gray-500' : ''}`}
+                      style={{ ...getCellStyle(value), minWidth: fullMonthView ? '32px' : '40px', height: '40px' }}
+                      disabled={disabled}
+                    >
+                      {shiftOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
                   </td>
-                    {daysToShow.map(day => {
-                      const value = scheduleData[name]?.[day.toString()] || '';
-                      // Deshabilitar si el día ya pasó en cualquier mes y año, y no está habilitado el modo edición
-                      let disabled = false;
-                      const cellDate = new Date(year, month, day);
-                      const now = new Date();
-                      now.setHours(0, 0, 0, 0); // ignorar hora
-                      if (
-                        cellDate < now &&
-                        !editPastDaysEnabled
-                      ) {
-                        disabled = true;
-                      } return (<td key={day} className="border border-[var(--input-border)] p-0" style={{ minWidth: fullMonthView ? '32px' : '40px' }}>
-                        <select
-                          value={value}
-                          onChange={(e) => handleCellChange(name, day, e.target.value)}
-                          className={`w-full h-full p-1 border-none outline-none text-center font-semibold cursor-pointer text-xs ${disabled ? 'bg-gray-200 text-gray-400 dark:bg-gray-800 dark:text-gray-500' : ''}`}
-                          style={{ ...getCellStyle(value), minWidth: fullMonthView ? '32px' : '40px', height: '40px' }}
-                          disabled={disabled}
-                        >
-                          {shiftOptions.map(option => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                  );
+                })}
+              </tr>
+            ))}
+            </tbody>
+          </table>
           </div>
         </div>        {names.length === 0 && (
           <div className="text-center py-8 text-[var(--tab-text)]">
@@ -898,10 +989,11 @@ export default function ControlHorario() {
                 >
                   ✕
                 </button>
-              </div>
-              <EmployeeSummaryCalculator
+              </div>              <EmployeeSummaryCalculator
                 employeeName={showEmployeeSummary}
-                scheduleData={scheduleData}
+                locationValue={location}
+                year={year}
+                month={month + 1} // month es 0-indexed, el componente espera 1-indexed
                 daysToShow={daysToShow}
                 showFullDetails={true}
               />

@@ -1,8 +1,12 @@
 // src/components/EmployeeSummaryCalculator.tsx
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Clock, DollarSign, CalendarDays, TrendingUp, Minus } from 'lucide-react';
+import { CcssConfigService } from '../services/ccss-config';
+import { SchedulesService, ScheduleEntry } from '../services/schedules';
+import { Employee } from '../types/firestore';
+import { LocationsService } from '../services/locations';
 
 export interface EmployeeSummary {
   workedDays: number;
@@ -14,10 +18,10 @@ export interface EmployeeSummary {
 
 interface EmployeeSummaryCalculatorProps {
   employeeName: string;
-  scheduleData: { [employeeName: string]: { [day: string]: string } };
+  locationValue: string;
+  year: number;
+  month: number;
   daysToShow: number[];
-  hourlyRate?: number; // Por defecto 1529.62
-  ccssAmount?: number; // Por defecto 3672.42
   className?: string;
   showFullDetails?: boolean;
 }
@@ -28,16 +32,74 @@ interface ScheduleData {
   };
 }
 
-// Hook personalizado para el cálculo
-export function useEmployeeSummaryCalculator(
-  scheduleData: ScheduleData,
-  hourlyRate: number = 1529.62,
-  ccssAmount: number = 3672.42
+// Hook para obtener datos desde la base de datos
+export function useEmployeeData(
+  employeeName: string,
+  locationValue: string,
+  year: number,
+  month: number,
+  daysToShow: number[],
+  employee?: Employee
 ) {
-  const calculateEmployeeSummary = (name: string, daysToShow: number[]): EmployeeSummary => {
-    const shifts = daysToShow.map((day: number) => scheduleData[name]?.[day.toString()] || '');
+  const [scheduleData, setScheduleData] = useState<ScheduleData>({});
+  const [ccssConfig, setCcssConfig] = useState({ mt: 3672.46, tc: 11017.39 });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Obtener configuración de CCSS
+        const config = await CcssConfigService.getCcssConfig();
+        setCcssConfig({ mt: config.mt, tc: config.tc });
+
+        // Obtener horarios del empleado para el mes específico
+        const schedules = await SchedulesService.getSchedulesByLocationEmployeeMonth(
+          locationValue,
+          employeeName,
+          year,
+          month
+        );
+
+        // Convertir a formato esperado por el componente
+        const formattedSchedules: ScheduleData = {};
+        formattedSchedules[employeeName] = {};
+
+        schedules.forEach((schedule: ScheduleEntry) => {
+          formattedSchedules[employeeName][schedule.day.toString()] = schedule.shift;
+        });
+
+        setScheduleData(formattedSchedules);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Error loading employee data');
+        console.error('Error fetching employee data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (employeeName && locationValue && year && month) {
+      fetchData();
+    }
+  }, [employeeName, locationValue, year, month]);
+
+  const calculateEmployeeSummary = (): EmployeeSummary => {
+    const hoursPerShift = employee?.hoursPerShift || 8;
+    const ccssType = employee?.ccssType || 'MT';
+    const extraAmount = employee?.extraAmount || 0;
+    
+    const shifts = daysToShow.map((day: number) => scheduleData[employeeName]?.[day.toString()] || '');
     const workedDays = shifts.filter((s: string) => s === 'N' || s === 'D').length;
-    const hours = workedDays * 8;
+    const hours = workedDays * hoursPerShift;
+    
+    // Calcular tarifa por hora basada en el tipo de CCSS
+    const ccssAmount = ccssType === 'TC' ? ccssConfig.tc : ccssConfig.mt;
+    const totalColones = ccssAmount + extraAmount;
+    const hourlyRate = totalColones / (22 * hoursPerShift); // Asumiendo 22 días laborales promedio
+    
     const colones = hours * hourlyRate;
     const ccss = ccssAmount;
     const neto = colones - ccss;
@@ -51,21 +113,80 @@ export function useEmployeeSummaryCalculator(
     };
   };
 
-  return { calculateEmployeeSummary };
+  return {
+    scheduleData,
+    ccssConfig,
+    loading,
+    error,
+    calculateEmployeeSummary,
+    hourlyRate: employee ? (employee.ccssType === 'TC' ? ccssConfig.tc : ccssConfig.mt) / (22 * (employee.hoursPerShift || 8)) : 1529.62
+  };
+}
+
+// Hook para obtener información del empleado desde la ubicación
+export function useEmployeeInfo(employeeName: string, locationValue: string) {
+  const [employee, setEmployee] = useState<Employee | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchEmployeeInfo = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const locations = await LocationsService.findLocationsByValue(locationValue);
+        
+        if (locations.length > 0) {
+          const location = locations[0];
+          const foundEmployee = location.employees?.find(emp => emp.name === employeeName);
+          setEmployee(foundEmployee || null);
+        } else {
+          setEmployee(null);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Error loading employee info');
+        console.error('Error fetching employee info:', err);
+        setEmployee(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (employeeName && locationValue) {
+      fetchEmployeeInfo();
+    }
+  }, [employeeName, locationValue]);
+
+  return { employee, loading, error };
 }
 
 // Componente para mostrar el resumen visual
 export default function EmployeeSummaryCalculator({
   employeeName,
-  scheduleData,
+  locationValue,
+  year,
+  month,
   daysToShow,
-  hourlyRate = 1529.62,
-  ccssAmount = 3672.42,
   className = '',
   showFullDetails = true
 }: EmployeeSummaryCalculatorProps) {
-  const { calculateEmployeeSummary } = useEmployeeSummaryCalculator(scheduleData, hourlyRate, ccssAmount);
-  const summary = calculateEmployeeSummary(employeeName, daysToShow);
+  // Obtener información del empleado desde la ubicación
+  const { employee, loading: employeeLoading, error: employeeError } = useEmployeeInfo(employeeName, locationValue);
+  
+  // Obtener datos de horarios y CCSS
+  const { 
+    scheduleData, 
+    ccssConfig, 
+    loading: dataLoading, 
+    error: dataError, 
+    calculateEmployeeSummary,
+    hourlyRate 
+  } = useEmployeeData(employeeName, locationValue, year, month, daysToShow, employee || undefined);
+
+  const loading = employeeLoading || dataLoading;
+  const error = employeeError || dataError;
+  const summary = calculateEmployeeSummary();
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-CR', {
@@ -75,6 +196,23 @@ export default function EmployeeSummaryCalculator({
       maximumFractionDigits: 0
     }).format(amount);
   };
+
+  if (loading) {
+    return (
+      <div className={`flex items-center justify-center p-4 ${className}`}>
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+        <span className="ml-2 text-sm text-[var(--muted-foreground)]">Cargando datos...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className={`p-3 bg-red-50 dark:bg-red-900/20 rounded border border-red-200 dark:border-red-700 ${className}`}>
+        <p className="text-sm text-red-600 dark:text-red-400">Error: {error}</p>
+      </div>
+    );
+  }
 
   if (!showFullDetails) {
     return (
@@ -155,43 +293,86 @@ export default function EmployeeSummaryCalculator({
             {formatCurrency(summary.neto)}
           </span>
         </div>
-      </div>
-
-      {/* Información adicional */}
+      </div>      {/* Información adicional */}
       <div className="text-xs text-[var(--muted-foreground)] space-y-1">
         <div className="flex justify-between">
           <span>Tarifa por hora:</span>
           <span>{formatCurrency(hourlyRate)}</span>
         </div>
         <div className="flex justify-between">
-          <span>Horas por día:</span>
-          <span>8 horas</span>
+          <span>Horas por turno:</span>
+          <span>{employee?.hoursPerShift || 8} horas</span>
         </div>
+        <div className="flex justify-between">
+          <span>Tipo CCSS:</span>
+          <span className={`font-medium ${employee?.ccssType === 'TC' ? 'text-blue-600' : 'text-green-600'}`}>
+            {employee?.ccssType === 'TC' ? 'Tiempo Completo' : 'Medio Tiempo'}
+          </span>
+        </div>
+        {employee?.extraAmount && employee.extraAmount > 0 && (
+          <div className="flex justify-between">
+            <span>Monto extra:</span>
+            <span className="text-green-600">{formatCurrency(employee.extraAmount)}</span>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-// Utilidad de cálculo simple para uso directo
-export function calculateEmployeeSummary(
+// Utilidad de cálculo simple para uso directo con datos de la base de datos
+export async function calculateEmployeeSummaryFromDB(
   employeeName: string,
-  scheduleData: ScheduleData,
+  locationValue: string,
+  year: number,
+  month: number,
   daysToShow: number[],
-  hourlyRate: number = 1529.62,
-  ccssAmount: number = 3672.42
-): EmployeeSummary {
-  const shifts = daysToShow.map((day: number) => scheduleData[employeeName]?.[day.toString()] || '');
-  const workedDays = shifts.filter((s: string) => s === 'N' || s === 'D').length;
-  const hours = workedDays * 8;
-  const colones = hours * hourlyRate;
-  const ccss = ccssAmount;
-  const neto = colones - ccss;
-  
-  return {
-    workedDays,
-    hours,
-    colones,
-    ccss,
-    neto
-  };
+  employee?: Employee
+): Promise<EmployeeSummary> {
+  try {
+    // Obtener configuración de CCSS
+    const ccssConfig = await CcssConfigService.getCcssConfig();
+    
+    // Obtener horarios del empleado
+    const schedules = await SchedulesService.getSchedulesByLocationEmployeeMonth(
+      locationValue,
+      employeeName,
+      year,
+      month
+    );
+
+    // Convertir a formato de turnos
+    const scheduleData: { [day: string]: string } = {};
+    schedules.forEach((schedule: ScheduleEntry) => {
+      scheduleData[schedule.day.toString()] = schedule.shift;
+    });
+
+    const hoursPerShift = employee?.hoursPerShift || 8;
+    const ccssType = employee?.ccssType || 'MT';
+    const extraAmount = employee?.extraAmount || 0;
+    
+    const shifts = daysToShow.map((day: number) => scheduleData[day.toString()] || '');
+    const workedDays = shifts.filter((s: string) => s === 'N' || s === 'D').length;
+    const hours = workedDays * hoursPerShift;
+    
+    // Calcular tarifa por hora basada en el tipo de CCSS
+    const ccssAmount = ccssType === 'TC' ? ccssConfig.tc : ccssConfig.mt;
+    const totalColones = ccssAmount + extraAmount;
+    const hourlyRate = totalColones / (22 * hoursPerShift); // Asumiendo 22 días laborales promedio
+    
+    const colones = hours * hourlyRate;
+    const ccss = ccssAmount;
+    const neto = colones - ccss;
+    
+    return {
+      workedDays,
+      hours,
+      colones,
+      ccss,
+      neto
+    };
+  } catch (error) {
+    console.error('Error calculating employee summary from DB:', error);
+    throw error;
+  }
 }
