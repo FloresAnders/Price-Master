@@ -1,9 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { SorteosService } from '../services/sorteos';
 import { Timer, Download } from 'lucide-react';
 import type { Sorteo } from '../types/firestore';
-
-const INITIAL_ROWS = 1;
 
 function getNowTime() {
     const now = new Date();
@@ -123,6 +121,19 @@ export default function TimingControl() {
         localStorage.setItem('timingControlKeyBuffer', keyBuffer);
     }, [keyBuffer]);
 
+    // Función para guardar estado completo en localStorage
+    const saveCompleteState = useCallback(() => {
+        setAutoSaving(true);
+        const state = {
+            tickets,
+            personName,
+            keyBuffer,
+            timestamp: Date.now()
+        };
+        localStorage.setItem('timingControlCompleteState', JSON.stringify(state));
+        setTimeout(() => setAutoSaving(false), 1000);
+    }, [tickets, personName, keyBuffer]);
+
     // Efecto para guardar estado completo periódicamente
     useEffect(() => {
         const interval = setInterval(() => {
@@ -130,7 +141,7 @@ export default function TimingControl() {
         }, 30000); // Guardar cada 30 segundos
 
         return () => clearInterval(interval);
-    }, [tickets, personName, keyBuffer]);
+    }, [saveCompleteState]);
 
     // Efecto para guardar estado antes de cerrar la página
     useEffect(() => {
@@ -140,7 +151,7 @@ export default function TimingControl() {
 
         window.addEventListener('beforeunload', handleBeforeUnload);
         return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-    }, [tickets, personName, keyBuffer]);    // Función para limpiar todo el localStorage del componente
+    }, [saveCompleteState]);// Función para limpiar todo el localStorage del componente
     const clearAllLocalStorage = () => {
         localStorage.removeItem('timingControlTickets');
         localStorage.removeItem('timingControlPersonName');
@@ -155,23 +166,11 @@ export default function TimingControl() {
     // Función para resetear estados de modales y formularios
     const resetModalStates = () => {
         setShowSummary(false);
-        setShowCodeModal(false);
-        setShowDeleteModal(false);
+        setShowCodeModal(false);        setShowDeleteModal(false);
         setCurrentCode('');
         setSelectedSorteo('');
         setModalAmount('');
         setTicketToDelete(null);
-    };    // Función para guardar estado completo en localStorage
-    const saveCompleteState = () => {
-        setAutoSaving(true);
-        const state = {
-            tickets,
-            personName,
-            keyBuffer,
-            timestamp: Date.now()
-        };
-        localStorage.setItem('timingControlCompleteState', JSON.stringify(state));
-        setTimeout(() => setAutoSaving(false), 1000);
     };
 
     // Función para cargar estado completo desde localStorage
@@ -337,14 +336,10 @@ export default function TimingControl() {
         // Reset modal
         setShowCodeModal(false);
         setCurrentCode('');
-        setSelectedSorteo('');
-        setModalAmount('');
-    };    // Handle Enter key in modal
-    const handleModalKeyDown = (event: KeyboardEvent) => {
-        if (event.key === 'Enter') {
-            handleAddTicket();
-        }
-    };    // Handle ticket deletion
+        setSelectedSorteo('');        setModalAmount('');
+    };
+
+    // Handle ticket deletion
     const handleDeleteTicket = (ticket: TicketEntry) => {
         setTicketToDelete(ticket);
         setShowDeleteModal(true);
