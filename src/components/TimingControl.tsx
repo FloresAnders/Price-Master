@@ -1048,23 +1048,108 @@ export default function TimingControl() {
                                     <TicketCarousel tickets={ticketsForCarousel} onDelete={ticket => handleDeleteTicket({ ...ticket, code: '' })} onEdit={edited => handleEditTicket({ ...edited, code: tickets.find(t => t.id === edited.id)?.code || '' })} />
                                 </div>
                             )}
+
+                            {/* Mensaje cuando no hay tickets */}
+                            {tickets.length === 0 && !showCodeModal && !showDeleteModal && !showQRModal && (
+                                <div className="mb-6 text-center py-12">
+                                    <div className="p-8 rounded-lg border-2 border-dashed" style={{ 
+                                        borderColor: 'var(--input-border)', 
+                                        background: 'var(--input-bg)',
+                                        color: 'var(--foreground)'
+                                    }}>
+                                        <div className="mb-4">
+                                            <Timer className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+                                            <h4 className="text-xl font-semibold mb-2" style={{ color: 'var(--foreground)' }}>
+                                                ¡No hay tickets registrados!
+                                            </h4>
+                                            <p className="text-sm mb-4" style={{ color: 'var(--foreground)', opacity: 0.8 }}>
+                                                Comienza agregando tickets de tus sorteos para llevar un control de ventas
+                                            </p>
+                                        </div>
+                                        
+                                        <div className="space-y-3">
+                                            <div className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>
+                                                Para agregar tickets:
+                                            </div>
+                                            
+                                            <div className="space-y-2 text-sm" style={{ color: 'var(--foreground)', opacity: 0.9 }}>
+                                                {!isMobile ? (
+                                                    <>
+                                                        <div className="flex items-center justify-center gap-2">
+                                                            <span className="px-2 py-1 rounded text-xs font-mono" style={{ background: 'var(--card-bg)', border: '1px solid var(--input-border)' }}>
+                                                                T11
+                                                            </span>
+                                                            <span>para TIEMPOS (COMODÍN)</span>
+                                                        </div>
+                                                        <div className="flex items-center justify-center gap-2">
+                                                            <span className="px-2 py-1 rounded text-xs font-mono" style={{ background: 'var(--card-bg)', border: '1px solid var(--input-border)' }}>
+                                                                T10
+                                                            </span>
+                                                            <span>para TIEMPOS (ANGUILA)</span>
+                                                        </div>
+                                                        <div className="flex items-center justify-center gap-2">
+                                                            <span className="px-2 py-1 rounded text-xs font-mono" style={{ background: 'var(--card-bg)', border: '1px solid var(--input-border)' }}>
+                                                                NNN
+                                                            </span>
+                                                            <span>para TIEMPOS (NICA)</span>
+                                                        </div>
+                                                        <div className="flex items-center justify-center gap-2">
+                                                            <span className="px-2 py-1 rounded text-xs font-mono" style={{ background: 'var(--card-bg)', border: '1px solid var(--input-border)' }}>
+                                                                TTT
+                                                            </span>
+                                                            <span>para TIEMPOS (TICA)</span>
+                                                        </div>
+                                                    </>
+                                                ) : (
+                                                    <div className="text-center">
+                                                        <Smartphone className="w-6 h-6 mx-auto mb-2 text-blue-500" />
+                                                        <span>Usa el campo &quot;Código de tiempo (móvil)&quot; arriba</span>
+                                                        <br />
+                                                        <span className="text-xs">Ingresa: T11, T10, NNN o TTT</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                         {/* Panel de resumen a la derecha */}
                         <div className="flex flex-col min-w-[260px] max-w-xs border-l border-[var(--input-border)] pl-4">
                             <h4 className="text-lg font-semibold mb-2" style={{ color: 'var(--foreground)' }}>
                                 Resumen de Ventas por Sorteo
                             </h4>
-                            <div className="space-y-2 mb-2">
-                                {Object.entries(resumenSorteos).map(([sorteo, total]) => (
-                                    <div key={sorteo} className="flex justify-between pb-2" style={{ borderBottom: '1px solid var(--input-border)' }}>
-                                        <span className="font-medium" style={{ color: 'var(--foreground)' }}>{sorteo}</span>
-                                        <span className="font-mono font-semibold" style={{ color: 'var(--foreground)' }}>₡ {total.toLocaleString('es-CR')}</span>
+                            
+                            {Object.keys(resumenSorteos).length > 0 ? (
+                                <>
+                                    <div className="space-y-2 mb-2">
+                                        {Object.entries(resumenSorteos).map(([sorteo, total]) => (
+                                            <div key={sorteo} className="flex justify-between pb-2" style={{ borderBottom: '1px solid var(--input-border)' }}>
+                                                <span className="font-medium" style={{ color: 'var(--foreground)' }}>{sorteo}</span>
+                                                <span className="font-mono font-semibold" style={{ color: 'var(--foreground)' }}>₡ {total.toLocaleString('es-CR')}</span>
+                                            </div>
+                                        ))}
                                     </div>
-                                ))}
-                            </div>
-                            <div className="text-right font-bold text-xl pt-2" style={{ color: 'var(--foreground)', borderTop: '2px solid var(--input-border)' }}>
-                                Total General: <span className="font-mono text-green-700">₡ {totalGeneral.toLocaleString('es-CR')}</span>
-                            </div>
+                                    <div className="text-right font-bold text-xl pt-2" style={{ color: 'var(--foreground)', borderTop: '2px solid var(--input-border)' }}>
+                                        Total General: <span className="font-mono text-green-700">₡ {totalGeneral.toLocaleString('es-CR')}</span>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="text-center py-8">
+                                    <div className="p-4 rounded-lg" style={{ 
+                                        background: 'var(--input-bg)',
+                                        border: '1px dashed var(--input-border)'
+                                    }}>
+                                        <div className="text-4xl mb-3">📊</div>
+                                        <p className="text-sm font-medium mb-2" style={{ color: 'var(--foreground)' }}>
+                                            Sin datos aún
+                                        </p>
+                                        <p className="text-xs" style={{ color: 'var(--foreground)', opacity: 0.7 }}>
+                                            Agrega tickets para ver el resumen aquí
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
