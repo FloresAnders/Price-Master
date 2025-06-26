@@ -738,11 +738,17 @@ export default function ControlHorario() {
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                     }`}
                   onClick={() => {
-                    setSelectedPeriod('monthly');
-                    setFullMonthView(true);
+                    if (selectedPeriod === 'monthly') {
+                      setSelectedPeriod('1-15');
+                      setViewMode('first');
+                      setFullMonthView(false);
+                    } else {
+                      setSelectedPeriod('monthly');
+                      setFullMonthView(true);
+                    }
                   }}
                 >
-                  Mensual
+                  {selectedPeriod === 'monthly' ? 'Quincenal' : 'Mensual'}
                 </button>
               </div>
             </div>
