@@ -379,7 +379,24 @@ export default function TimingControl() {
                 amountInputRef.current?.focus();
             }, 100);
         }
-    }, [showCodeModal, selectedSorteo]); const toast = useToast();
+    }, [showCodeModal, selectedSorteo]);
+
+    // useEffect para selección automática en móvil
+    useEffect(() => {
+        if (showCodeModal && isMobile && currentCode && !selectedSorteo) {
+            setTimeout(() => {
+                const filteredSorteos = getFilteredSorteos();
+                if (filteredSorteos.length > 0) {
+                    setSelectedSorteo(filteredSorteos[0].name);
+                    setSelectedSorteoIndex(0);
+                    // Enfocar el campo de monto después de seleccionar
+                    setTimeout(() => {
+                        amountInputRef.current?.focus();
+                    }, 100);
+                }
+            }, 100);
+        }
+    }, [showCodeModal, isMobile, currentCode, selectedSorteo, getFilteredSorteos]); const toast = useToast();
     const exportToPNG = async () => {
         if (!personName.trim()) {
             toast.showToast('Por favor ingresa el nombre de la persona antes de exportar', 'warning');
