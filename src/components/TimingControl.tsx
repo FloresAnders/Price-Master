@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import Image from 'next/image';
 import { SorteosService } from '../services/sorteos';
 import { Timer, Download, QrCode, Smartphone } from 'lucide-react';
 import type { Sorteo } from '../types/firestore';
@@ -65,7 +66,9 @@ export default function TimingControl() {
     const [showCodeModal, setShowCodeModal] = useState(false);
     const [currentCode, setCurrentCode] = useState(''); const [selectedSorteo, setSelectedSorteo] = useState('');
     const [modalAmount, setModalAmount] = useState('');
-    const [keyBuffer, setKeyBuffer] = useState(''); const [tickets, setTickets] = useState<TicketEntry[]>([]);
+    const [keyBuffer, setKeyBuffer] = useState(''); 
+    const [selectedSorteoIndex, setSelectedSorteoIndex] = useState(-1);
+    const [tickets, setTickets] = useState<TicketEntry[]>([]);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [ticketToDelete, setTicketToDelete] = useState<TicketEntry | null>(null);
     const [showExportConfirm, setShowExportConfirm] = useState(false);
@@ -263,6 +266,7 @@ export default function TimingControl() {
                     // Check for valid codes
                     if (newBuffer === 'T11' || newBuffer === 'T10' || newBuffer === 'NNN' || newBuffer === 'TTT') {
                         setCurrentCode(newBuffer);
+                        setSelectedSorteoIndex(-1); // Reset keyboard navigation
                         setShowCodeModal(true);
                         clearTimeout(bufferTimeout);
                         return ''; // Clear buffer after detection
@@ -284,7 +288,7 @@ export default function TimingControl() {
     }, [showCodeModal, showSummary, showDeleteModal]);
 
     // Filter sorteos based on current code
-    const getFilteredSorteos = () => {
+    const getFilteredSorteos = useCallback(() => {
         const allSorteos = sorteos.sort((a, b) => {
             const aName = a.name.toLowerCase();
             const bName = b.name.toLowerCase();
@@ -326,7 +330,7 @@ export default function TimingControl() {
             default:
                 return allSorteos;
         }
-    };
+    }, [sorteos, currentCode]);
 
     // Handle modal form submission
     const handleAddTicket = () => {
@@ -529,6 +533,7 @@ export default function TimingControl() {
         const code = mobileCodeInput.trim().toUpperCase();
         if (code === 'T11' || code === 'T10' || code === 'NNN' || code === 'TTT') {
             setCurrentCode(code);
+            setSelectedSorteoIndex(-1); // Reset keyboard navigation
             setShowCodeModal(true);
             setMobileCodeInput('');
         } else {
@@ -542,10 +547,85 @@ export default function TimingControl() {
             handleMobileCodeSubmit();
         }
     };
+    // useEffect para navegación por teclado en el modal de sorteos
+    useEffect(() => {
+        if (!showCodeModal) return;
+
+        const handleKeyDown = (e: KeyboardEvent) => {
+            const sorteos = getFilteredSorteos();
+            const maxIndex = sorteos.length - 1;
+
+            switch (e.key) {
+                case 'ArrowDown':
+                    e.preventDefault();
+                    // Navegar hacia abajo por filas (columnas * 1 fila)
+                    const downCols = window.innerWidth >= 1024 ? 3 : 2;
+                    setSelectedSorteoIndex(prev => {
+                        const newIndex = prev + downCols;
+                        return newIndex <= maxIndex ? newIndex : prev;
+                    });
+                    break;
+                
+                case 'ArrowUp':
+                    e.preventDefault();
+                    // Navegar hacia arriba por filas
+                    const upCols = window.innerWidth >= 1024 ? 3 : 2;
+                    setSelectedSorteoIndex(prev => {
+                        const newIndex = prev - upCols;
+                        return newIndex >= 0 ? newIndex : prev;
+                    });
+                    break;
+                
+                case 'ArrowRight':
+                    e.preventDefault();
+                    // Navegar a la derecha dentro de la misma fila
+                    setSelectedSorteoIndex(prev => 
+                        prev === -1 ? 0 : Math.min(prev + 1, maxIndex)
+                    );
+                    break;
+                
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    // Navegar a la izquierda dentro de la misma fila
+                    setSelectedSorteoIndex(prev => 
+                        prev <= 0 ? maxIndex : prev - 1
+                    );
+                    break;
+                
+                case 'Enter':
+                    e.preventDefault();
+                    if (selectedSorteoIndex >= 0 && selectedSorteoIndex <= maxIndex) {
+                        const selectedSorteoData = sorteos[selectedSorteoIndex];
+                        setSelectedSorteo(selectedSorteoData.name);
+                        // Focus amount input after selection
+                        setTimeout(() => {
+                            amountInputRef.current?.focus();
+                        }, 100);
+                    }
+                    break;
+                
+                case 'Escape':
+                    e.preventDefault();
+                    setShowCodeModal(false);
+                    setCurrentCode('');
+                    setSelectedSorteo('');
+                    setModalAmount('');
+                    setSelectedSorteoIndex(-1);
+                    break;
+            }
+        };
+
+        document.addEventListener('keydown', handleKeyDown);
+        
+        return () => {
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [showCodeModal, selectedSorteoIndex, getFilteredSorteos]);
+
     // Detectar si es dispositivo móvil
     useEffect(() => {
         const checkIfMobile = () => {
-            const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
+            const userAgent = navigator.userAgent || navigator.vendor || (window as Window & typeof globalThis & { opera?: string }).opera || '';
             const isMobileDevice = /android|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent) ||
                 window.innerWidth <= 768;
             setIsMobile(isMobileDevice);
@@ -619,42 +699,60 @@ export default function TimingControl() {
                             </button>
                             <h2 className="text-lg font-bold mb-4 text-center" style={{ color: 'var(--foreground)' }}>
                                 Código: {currentCode}
-                            </h2>
-                            <p className="text-sm mb-4 text-center" style={{ color: 'var(--foreground)' }}>
-                                {VALID_CODES[currentCode as keyof typeof VALID_CODES]}
-                            </p>                        <div className="space-y-4">
+                            </h2>                        <p className="text-sm mb-4 text-center" style={{ color: 'var(--foreground)' }}>
+                            {VALID_CODES[currentCode as keyof typeof VALID_CODES]}
+                        </p>
+                        
+                        <div className="text-xs text-center mb-4 p-2 rounded" style={{ 
+                            background: 'var(--input-bg)', 
+                            color: 'var(--foreground)', 
+                            opacity: 0.8 
+                        }}>
+                            💡 Usa las flechas ↑↓←→ para navegar y Enter para seleccionar
+                        </div><div className="space-y-4">
                                 <div>
                                     <label className="block text-sm font-medium mb-3" style={{ color: 'var(--foreground)' }}>
                                         Seleccionar sorteo:
                                     </label>
                                     <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 max-h-[50vh] overflow-y-auto">
-                                        {getFilteredSorteos().map((sorteo) => (
-                                            <button
-                                                key={sorteo.id || sorteo.name}
-                                                className={`px-3 py-3 rounded-md text-left focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors text-sm ${selectedSorteo === sorteo.name
-                                                    ? 'ring-2 ring-blue-500'
-                                                    : 'hover:opacity-80'
+                                        {getFilteredSorteos().map((sorteo, index) => {
+                                            const isSelected = selectedSorteo === sorteo.name;
+                                            const isKeyboardFocused = selectedSorteoIndex === index;
+                                            
+                                            return (
+                                                <button
+                                                    key={sorteo.id || sorteo.name}
+                                                    className={`px-3 py-3 rounded-md text-left focus:outline-none transition-colors text-sm ${
+                                                        isSelected 
+                                                        ? 'ring-2 ring-blue-500' 
+                                                        : isKeyboardFocused
+                                                        ? 'ring-2 ring-yellow-400'
+                                                        : 'hover:opacity-80'
                                                     }`}
-                                                style={{
-                                                    background: selectedSorteo === sorteo.name
-                                                        ? '#3b82f6'
-                                                        : 'var(--input-bg)',
-                                                    border: '1px solid var(--input-border)',
-                                                    color: selectedSorteo === sorteo.name
-                                                        ? '#ffffff'
-                                                        : 'var(--foreground)',
-                                                }}
-                                                onClick={() => {
-                                                    setSelectedSorteo(sorteo.name);
-                                                    // Focus amount input after selection
-                                                    setTimeout(() => {
-                                                        amountInputRef.current?.focus();
-                                                    }, 100);
-                                                }}
-                                            >
-                                                {sorteo.name}
-                                            </button>
-                                        ))}
+                                                    style={{
+                                                        background: isSelected 
+                                                            ? '#3b82f6' 
+                                                            : isKeyboardFocused
+                                                            ? '#fbbf24'
+                                                            : 'var(--input-bg)',
+                                                        border: '1px solid var(--input-border)',
+                                                        color: isSelected || isKeyboardFocused
+                                                            ? '#ffffff' 
+                                                            : 'var(--foreground)',
+                                                    }}
+                                                    onClick={() => {
+                                                        setSelectedSorteo(sorteo.name);
+                                                        setSelectedSorteoIndex(index);
+                                                        // Focus amount input after selection
+                                                        setTimeout(() => {
+                                                            amountInputRef.current?.focus();
+                                                        }, 100);
+                                                    }}
+                                                >
+                                                    {sorteo.name}
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 </div>
 
@@ -787,10 +885,13 @@ export default function TimingControl() {
 
                                 <div className="flex justify-center mb-4">
                                     <div className="p-4 bg-white rounded-lg">
-                                        <img
+                                        <Image
                                             src={qrCodeDataURL}
                                             alt="QR Code para descarga"
+                                            width={192}
+                                            height={192}
                                             className="w-48 h-48"
+                                            unoptimized
                                         />
                                     </div>
                                 </div>
