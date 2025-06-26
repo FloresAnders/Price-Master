@@ -26,21 +26,21 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
 }) => {
   if (!open) return null;
 
-  let icon = <CheckCircle2 className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />;
-  let confirmIcon = <CheckCircle2 className="h-4 w-4" />;
-  const cancelIcon = <XCircle className="h-4 w-4" />;
+  let icon = <CheckCircle2 className="h-5 w-5 text-[var(--foreground)]" />;
+  let confirmIcon = <CheckCircle2 className="h-4 w-4 text-[var(--foreground)]" />;
+  const cancelIcon = <XCircle className="h-4 w-4 text-[var(--foreground)]" />;
   if (actionType === 'delete') {
-    icon = <Trash2 className="h-5 w-5 text-red-600 dark:text-red-400" />;
-    confirmIcon = <Trash2 className="h-4 w-4" />;
+    icon = <Trash2 className="h-5 w-5 text-[var(--foreground)]" />;
+    confirmIcon = <Trash2 className="h-4 w-4 text-[var(--foreground)]" />;
   }
   if (actionType === 'change') {
-    icon = <AlertTriangle className="h-5 w-5 text-yellow-500 dark:text-yellow-300" />;
-    confirmIcon = <AlertTriangle className="h-4 w-4" />;
+    icon = <AlertTriangle className="h-5 w-5 text-[var(--foreground)]" />;
+    confirmIcon = <AlertTriangle className="h-4 w-4 text-[var(--foreground)]" />;
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-black/70">
-      <div className="bg-[var(--card-bg)] text-[var(--foreground)] rounded-lg shadow-lg p-4 sm:p-6 w-full max-w-xs sm:max-w-sm border border-[var(--input-border)] flex flex-col items-center mx-2">
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 dark:bg-black/80" style={{ pointerEvents: 'auto' }}>
+      <div className="bg-[var(--card-bg)] text-[var(--foreground)] rounded-lg shadow-2xl p-4 sm:p-6 w-full max-w-xs sm:max-w-sm border border-[var(--input-border)] flex flex-col items-center mx-2 relative" style={{ zIndex: 100000 }}>
         <div className="flex flex-col sm:flex-row items-center gap-2 mb-2 justify-center w-full">
           <span className="flex-shrink-0 flex items-center justify-center mb-1 sm:mb-0">{icon}</span>
           <h2 className="text-lg font-bold text-center w-full">{title}</h2>
