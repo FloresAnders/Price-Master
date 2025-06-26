@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { Clock, ChevronLeft, ChevronRight, Save, LogOut, User as UserIcon, Lock, Unlock } from 'lucide-react';
 import { LocationsService } from '../services/locations';
 import { SchedulesService } from '../services/schedules';
@@ -10,6 +11,10 @@ import LoginModal from './LoginModal';
 import ConfirmModal from './ConfirmModal';
 import type { Location } from '../types/firestore';
 import type { User as FirestoreUser } from '../types/firestore';
+import html2canvas from 'html2canvas';
+import QRCode from 'qrcode';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { storage } from '../config/firebase';
 
 interface ScheduleData {
   [employeeName: string]: {
@@ -41,6 +46,12 @@ export default function ControlHorario() {
   const [modalLoading, setModalLoading] = useState(false);
   const [editPastDaysEnabled, setEditPastDaysEnabled] = useState(false);
   const [unlockPastDaysModal, setUnlockPastDaysModal] = useState(false);
+  // Estado para exportación y QR
+  const [isExporting, setIsExporting] = useState(false);
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [qrCodeDataURL, setQRCodeDataURL] = useState('');
+  // Estado para countdown de validez del QR
+  const [qrCountdown, setQrCountdown] = useState<number | null>(null);
 
   // Cargar datos desde Firebase
   useEffect(() => {
@@ -518,6 +529,95 @@ export default function ControlHorario() {
       console.error('Export schedule as image error:', error);
     }
   };
+
+  // Función para exportar la quincena actual como PNG
+  const exportQuincenaToPNG = async () => {
+    setIsExporting(true);
+    try {
+      // Crear un contenedor temporal para la tabla exportable (HTML plano, sin Tailwind)
+      const exportDiv = document.createElement('div');
+      exportDiv.style.position = 'absolute';
+      exportDiv.style.left = '-9999px';
+      exportDiv.style.top = '0';
+      exportDiv.style.zIndex = '-1000';
+      exportDiv.style.background = '#fff';
+      exportDiv.style.color = '#171717';
+      exportDiv.style.padding = '32px';
+      exportDiv.style.borderRadius = '18px';
+      exportDiv.style.fontFamily = 'Arial, sans-serif';
+      exportDiv.style.minWidth = '340px';
+      // Generar HTML plano de la quincena
+      let tableHTML = `<h2 style='font-size:1.2rem;font-weight:bold;text-align:center;margin-bottom:1rem;'>Horario Quincenal - Ubicación: ${location}</h2>`;
+      tableHTML += `<table style='width:100%;border-collapse:collapse;font-size:1rem;'>`;
+      tableHTML += `<thead><tr><th style='border:1px solid #d1d5db;padding:6px 10px;background:#f3f4f6;'>Nombre</th>`;
+      daysToShow.forEach(day => {
+        tableHTML += `<th style='border:1px solid #d1d5db;padding:6px 10px;background:#f3f4f6;'>${day}</th>`;
+      });
+      tableHTML += `</tr></thead><tbody>`;
+      names.forEach(name => {
+        tableHTML += `<tr><td style='border:1px solid #d1d5db;padding:6px 10px;font-weight:bold;background:#f3f4f6;'>${name}</td>`;
+        daysToShow.forEach(day => {
+          const value = scheduleData[name]?.[day.toString()] || '';
+          let bg = '#fff';
+          if (value === 'N') bg = '#87CEEB';
+          if (value === 'D') bg = '#FFFF00';
+          if (value === 'L') bg = '#FF00FF';
+          tableHTML += `<td style='border:1px solid #d1d5db;padding:6px 10px;background:${bg};text-align:center;'>${value}</td>`;
+        });
+        tableHTML += `</tr>`;
+      });
+      tableHTML += `</tbody></table>`;
+      tableHTML += `<div style='margin-top:1.2rem;text-align:right;font-size:0.95rem;opacity:0.7;'>Exportado: ${new Date().toLocaleString('es-CR')}</div>`;
+      exportDiv.innerHTML = tableHTML;
+      document.body.appendChild(exportDiv);
+      await new Promise(resolve => setTimeout(resolve, 100));
+      const canvas = await html2canvas(exportDiv, {
+        useCORS: true,
+        allowTaint: true,
+        width: exportDiv.scrollWidth,
+        height: exportDiv.scrollHeight,
+        logging: false
+      });
+      document.body.removeChild(exportDiv);
+      // Subir a Firebase Storage
+      const imgData = canvas.toDataURL('image/png');
+      const blob = await (await fetch(imgData)).blob();
+      const timestamp = Date.now();
+      const fileName = `horario_quincena_${timestamp}.png`;
+      const storagePath = `exports/${fileName}`;
+      const imageRef = ref(storage, storagePath);
+      await uploadBytes(imageRef, blob);
+      const downloadUrl = await getDownloadURL(imageRef);
+      // Generar QR para descarga desde otro dispositivo
+      const qrDataUrl = await QRCode.toDataURL(downloadUrl, { width: 300 });
+      setQRCodeDataURL(qrDataUrl);
+      setShowQRModal(true);
+      setQrCountdown(60);
+      const countdownInterval = setInterval(() => {
+        setQrCountdown(prev => {
+          if (prev === null) return null;
+          if (prev <= 1) {
+            clearInterval(countdownInterval);
+            return null;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      // Borrar la imagen de Firebase después de 1 minuto
+      setTimeout(async () => {
+        try {
+          await deleteObject(imageRef);
+        } catch {
+          // Ignorar error de borrado
+        }
+      }, 60000); // 1 minuto
+    } catch {
+      alert('Error al exportar la quincena.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   // Si está cargando, mostrar loading
   if (loading) {
     return (
@@ -785,6 +885,16 @@ export default function ControlHorario() {
                   📷 Exportar Imagen
                 </button>
               )}
+              {/* Botón de exportar quincena con icono acorde (Download) */}
+              <button
+                onClick={exportQuincenaToPNG}
+                className="flex items-center gap-2 px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+                title="Exportar quincena como imagen"
+                disabled={isExporting}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 10l5 5 5-5M12 4v12" /></svg>
+                Exportar Quincena
+              </button>
             </div>
           </div>
         </div>
@@ -962,6 +1072,37 @@ export default function ControlHorario() {
         }}
         onCancel={() => setUnlockPastDaysModal(false)}
       />
+
+      {/* Modal QR para descarga (sin supervínculo Descargar QR) */}
+      {showQRModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-sm w-full flex flex-col items-center">
+            <Image
+              src={qrCodeDataURL}
+              alt="QR para descargar quincena"
+              className="mb-4"
+              width={300}
+              height={300}
+              unoptimized
+            />
+            <div className="text-xs text-red-600 mb-2 text-center">Este enlace y QR solo estarán disponibles por 1 minuto.</div>
+            <button
+              onClick={() => {
+                setShowQRModal(false);
+                setQrCountdown(null);
+              }}
+              className="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >Cerrar</button>
+          </div>
+        </div>
+      )}
+
+      {/* Toast de countdown para QR */}
+      {qrCountdown !== null && qrCountdown > 0 && (
+        <div className="fixed bottom-4 right-4 z-50 bg-red-600 text-white px-4 py-2 rounded shadow-lg animate-pulse font-semibold text-sm">
+          El enlace y QR expiran en {qrCountdown} segundo{qrCountdown === 1 ? '' : 's'}
+        </div>
+      )}
     </>
   );
 }
