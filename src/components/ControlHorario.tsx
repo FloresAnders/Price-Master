@@ -798,7 +798,7 @@ export default function ControlHorario() {
             <span className="text-sm">L - Libre</span>
           </div>
         </div>        {/* Grid de horarios */}
-        <div className="overflow-x-auto -mx-4 sm:mx-0">
+        <div className="overflow-x-auto -mx-4 sm:mx-0" style={{overflowY: 'hidden'}}>
           <div className="min-w-full inline-block">            <table className="w-full border-collapse border border-[var(--input-border)]">
               <thead>
                 <tr>
