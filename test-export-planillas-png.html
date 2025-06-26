@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test - Exportación Planillas PNG</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .employee-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin: 20px 0;
+            overflow: hidden;
+            background: white;
+        }
+        .employee-header {
+            background: linear-gradient(to right, #3b82f6, #2563eb);
+            color: white;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .export-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+        .export-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        .payroll-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .payroll-table th {
+            background: linear-gradient(to right, #f8fafc, #f1f5f9);
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            font-weight: 600;
+            text-align: center;
+        }
+        .payroll-table td {
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            text-align: center;
+        }
+        .row-regular {
+            background: #dbeafe;
+        }
+        .row-overtime {
+            background: #fed7aa;
+        }
+        .row-other {
+            background: #f3f4f6;
+        }
+        .row-extra {
+            background: #dcfce7;
+        }
+        .row-deductions {
+            background: #fecaca;
+        }
+        .row-net {
+            background: #fef3c7;
+            font-weight: bold;
+        }
+        .total-row {
+            font-weight: bold;
+        }
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #10b981;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            z-index: 1000;
+            opacity: 0;
+            transform: translateY(-20px);
+            transition: all 0.3s ease;
+        }
+        .notification.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .main-controls {
+            margin: 20px 0;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-purple {
+            background: #7c3aed;
+            color: white;
+        }
+        .btn-purple:hover {
+            background: #6d28d9;
+        }
+        .btn-green {
+            background: #10b981;
+            color: white;
+        }
+        .btn-green:hover {
+            background: #059669;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test: Exportación de Planillas PNG</h1>
+        <p>Esta página simula el componente PayrollExporter con la nueva funcionalidad de exportación individual.</p>
+        
+        <!-- Controles principales -->
+        <div class="main-controls">
+            <button class="btn btn-green" onclick="exportCSV()">
+                📊 Exportar CSV
+            </button>
+            <button class="btn btn-purple" onclick="exportAllEmployeesAsPNG()">
+                🖼️ PNG Individual
+            </button>
+        </div>
+
+        <!-- Simulación de datos de planilla -->
+        <div class="employee-card" data-employee-table="location1-0">
+            <div class="employee-header">
+                <h3>Juan Pérez</h3>
+                <button class="export-btn" onclick="exportSingleEmployee('location1-0', 'Juan Pérez')">
+                    🖼️ Exportar PNG
+                </button>
+            </div>
+            <table class="payroll-table">
+                <thead>
+                    <tr>
+                        <th>MES:</th>
+                        <th>Enero</th>
+                        <th>Quincena:</th>
+                        <th>1-15</th>
+                        <th>Extras</th>
+                    </tr>
+                    <tr>
+                        <th>DiasLaborados</th>
+                        <th>H/D</th>
+                        <th>H/T</th>
+                        <th>S/H</th>
+                        <th>T/S</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="row-regular">
+                        <td>HorasOrdinarias</td>
+                        <td>15</td>
+                        <td>8</td>
+                        <td>120</td>
+                        <td>₡3,500</td>
+                        <td>₡420,000</td>
+                    </tr>
+                    <tr class="row-overtime">
+                        <td>HorasExtras</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td>₡5,250</td>
+                        <td></td>
+                    </tr>
+                    <tr class="row-other">
+                        <td>Otros</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td>₡0</td>
+                    </tr>
+                    <tr class="row-extra">
+                        <td>Monto Extra</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td>₡25,000</td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td class="total-row">IngresosTotales</td>
+                        <td class="total-row">₡445,000</td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td>CCSS</td>
+                        <td>₡40,050 (TC)</td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td>COMPRAS</td>
+                        <td>₡15,000</td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td>ADELANTO</td>
+                        <td>₡50,000</td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td>OTROS</td>
+                        <td>₡5,000</td>
+                    </tr>
+                    <tr class="row-deductions">
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td class="total-row">DEDUCCIONESTOTALES</td>
+                        <td class="total-row">₡110,050</td>
+                    </tr>
+                    <tr class="row-net">
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td>SALARIO NETO</td>
+                        <td>₡334,950</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Segundo empleado -->
+        <div class="employee-card" data-employee-table="location1-1">
+            <div class="employee-header">
+                <h3>María González</h3>
+                <button class="export-btn" onclick="exportSingleEmployee('location1-1', 'María González')">
+                    🖼️ Exportar PNG
+                </button>
+            </div>
+            <table class="payroll-table">
+                <thead>
+                    <tr>
+                        <th>MES:</th>
+                        <th>Enero</th>
+                        <th>Quincena:</th>
+                        <th>1-15</th>
+                        <th>Extras</th>
+                    </tr>
+                    <tr>
+                        <th>DiasLaborados</th>
+                        <th>H/D</th>
+                        <th>H/T</th>
+                        <th>S/H</th>
+                        <th>T/S</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="row-regular">
+                        <td>HorasOrdinarias</td>
+                        <td>14</td>
+                        <td>8</td>
+                        <td>112</td>
+                        <td>₡3,200</td>
+                        <td>₡358,400</td>
+                    </tr>
+                    <tr class="row-overtime">
+                        <td>HorasExtras</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td>₡4,800</td>
+                        <td></td>
+                    </tr>
+                    <tr class="row-other">
+                        <td>Otros</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td>₡10,000</td>
+                    </tr>
+                    <tr class="row-extra">
+                        <td>Monto Extra</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td>₡15,000</td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td class="total-row">IngresosTotales</td>
+                        <td class="total-row">₡383,400</td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td>CCSS</td>
+                        <td>₡34,506 (TC)</td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td>COMPRAS</td>
+                        <td>₡20,000</td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td>ADELANTO</td>
+                        <td>₡30,000</td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td>OTROS</td>
+                        <td>₡0</td>
+                    </tr>
+                    <tr class="row-deductions">
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td class="total-row">DEDUCCIONESTOTALES</td>
+                        <td class="total-row">₡84,506</td>
+                    </tr>
+                    <tr class="row-net">
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td>SALARIO NETO</td>
+                        <td>₡298,894</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Notificación -->
+    <div id="notification" class="notification"></div>
+
+    <script>
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type} show`;
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        async function exportSingleEmployee(tableId, employeeName) {
+            try {
+                showNotification('⏳ Generando imagen de planilla individual...', 'success');
+                
+                const employeeTable = document.querySelector(`[data-employee-table="${tableId}"]`);
+                
+                if (employeeTable) {
+                    const canvas = await html2canvas(employeeTable, {
+                        allowTaint: true,
+                        useCORS: true,
+                        logging: false,
+                        width: employeeTable.scrollWidth,
+                        height: employeeTable.scrollHeight
+                    });
+
+                    canvas.toBlob((blob) => {
+                        if (blob) {
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            
+                            const cleanEmployeeName = employeeName.replace(/[^a-zA-Z0-9]/g, '');
+                            
+                            a.href = url;
+                            a.download = `Planilla-Test-${cleanEmployeeName}-Enero2024.png`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                            
+                            showNotification(`📸 Planilla de ${employeeName} exportada`, 'success');
+                        }
+                    }, 'image/png', 1.0);
+                }
+            } catch (error) {
+                console.error('Error exporting single employee:', error);
+                showNotification('❌ Error al exportar la planilla', 'error');
+            }
+        }
+
+        async function exportAllEmployeesAsPNG() {
+            try {
+                showNotification('⏳ Generando planillas individuales...', 'success');
+                
+                const employeeTables = document.querySelectorAll('[data-employee-table]');
+                
+                for (let i = 0; i < employeeTables.length; i++) {
+                    const table = employeeTables[i];
+                    const employeeName = table.querySelector('.employee-header h3').textContent;
+                    
+                    const canvas = await html2canvas(table, {
+                        allowTaint: true,
+                        useCORS: true,
+                        logging: false,
+                        width: table.scrollWidth,
+                        height: table.scrollHeight
+                    });
+
+                    canvas.toBlob((blob) => {
+                        if (blob) {
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            
+                            const cleanEmployeeName = employeeName.replace(/[^a-zA-Z0-9]/g, '');
+                            
+                            a.href = url;
+                            a.download = `Planilla-Test-${cleanEmployeeName}-Enero2024.png`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                        }
+                    }, 'image/png', 1.0);
+                    
+                    // Pausa entre descargas
+                    if (i < employeeTables.length - 1) {
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                    }
+                }
+                
+                showNotification(`📦 ${employeeTables.length} planillas exportadas exitosamente`, 'success');
+                
+            } catch (error) {
+                console.error('Error exporting all employees:', error);
+                showNotification('❌ Error al exportar las planillas', 'error');
+            }
+        }
+
+        function exportCSV() {
+            showNotification('📊 Exportando CSV...', 'success');
+            // Simulación de exportación CSV
+            setTimeout(() => {
+                showNotification('✅ CSV exportado exitosamente', 'success');
+            }, 1000);
+        }
+    </script>
+</body>
+</html>
