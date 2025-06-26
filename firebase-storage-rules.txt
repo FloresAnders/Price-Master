@@ -1,0 +1,32 @@
+// Firebase Storage Security Rules para Price-Master
+// Estas reglas deben configurarse en la consola de Firebase Storage
+
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Permitir lectura y escritura en la carpeta exports para todos los usuarios
+    match /exports/{allPaths=**} {
+      allow read, write: if true;
+    }
+    
+    // Denegar acceso a todas las demás carpetas por defecto
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
+/*
+INSTRUCCIONES PARA CONFIGURAR:
+
+1. Ve a la consola de Firebase (https://console.firebase.google.com/)
+2. Selecciona tu proyecto
+3. Ve a "Storage" en el menú lateral
+4. Haz clic en la pestaña "Rules"
+5. Reemplaza las reglas existentes con el contenido de arriba
+6. Haz clic en "Publish" para aplicar los cambios
+
+Nota: Estas reglas permiten acceso público a la carpeta /exports/ que es donde se 
+almacenan temporalmente las imágenes exportadas. Las imágenes se eliminan 
+automáticamente después de ser descargadas.
+*/

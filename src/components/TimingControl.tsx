@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { SorteosService } from '../services/sorteos';
-import { Timer, Download } from 'lucide-react';
+import { Timer, Download, QrCode, Smartphone } from 'lucide-react';
 import type { Sorteo } from '../types/firestore';
 import TicketCarousel from './TicketCarousel';
 import HelpTooltip from './HelpTooltip';
 import ConfirmModal from './ConfirmModal';
 import { ToastProvider, useToast } from './ToastContext';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { storage } from '../config/firebase';
+import QRCode from 'qrcode';
 
 function getNowTime() {
     const now = new Date();
@@ -66,6 +69,10 @@ export default function TimingControl() {
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [ticketToDelete, setTicketToDelete] = useState<TicketEntry | null>(null);
     const [showExportConfirm, setShowExportConfirm] = useState(false);
+    const [showQRModal, setShowQRModal] = useState(false);
+    const [qrCodeDataURL, setQRCodeDataURL] = useState('');
+    const [downloadURL, setDownloadURL] = useState('');
+    const [storageRef, setStorageRef] = useState<string>('');
     const exportRef = useRef<HTMLDivElement>(null);
     const amountInputRef = useRef<HTMLInputElement>(null);// Cargar datos desde Firebase
     useEffect(() => {
@@ -424,19 +431,55 @@ export default function TimingControl() {
                 logging: false
             });
             document.body.removeChild(resumenDiv);
-            const imgData = canvas.toDataURL('image/png');
-            const link = document.createElement('a');
+            
+            // Convertir canvas a blob
+            const blob = await new Promise<Blob>((resolve) => {
+                canvas.toBlob((blob) => {
+                    resolve(blob!);
+                }, 'image/png');
+            });
+
+            // Subir imagen a Firebase Storage
             const now = new Date();
             const day = now.getDate().toString().padStart(2, '0');
             const month = (now.getMonth() + 1).toString().padStart(2, '0');
             const cleanName = personName.trim().replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_');
             const fileName = `${day}-${month}_${cleanName}_resumen.png`;
+            const timestamp = Date.now();
+            const storagePath = `exports/${timestamp}_${fileName}`;
+            
+            toast.showToast('Subiendo imagen a la nube...', 'info');
+            
+            const imageRef = ref(storage, storagePath);
+            await uploadBytes(imageRef, blob);
+            const downloadUrl = await getDownloadURL(imageRef);
+            
+            // Generar QR con la URL de descarga
+            const qrDataUrl = await QRCode.toDataURL(downloadUrl, {
+                width: 256,
+                margin: 2,
+                color: {
+                    dark: '#000000',
+                    light: '#FFFFFF'
+                }
+            });
+            
+            // Descargar automáticamente en PC
+            const imgData = canvas.toDataURL('image/png');
+            const link = document.createElement('a');
             link.download = fileName;
             link.href = imgData;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            toast.showToast(`Resumen exportado exitosamente como: ${fileName}`, 'success');
+            
+            // Mostrar QR para móvil
+            setQRCodeDataURL(qrDataUrl);
+            setDownloadURL(downloadUrl);
+            setStorageRef(storagePath);
+            setShowQRModal(true);
+            
+            toast.showToast(`Imagen exportada exitosamente. QR generado para descarga móvil.`, 'success');
         } catch (error) {
             console.error('Error al exportar:', error);
             toast.showToast('Error al exportar la imagen. Por favor intenta de nuevo.', 'error');
@@ -445,6 +488,37 @@ export default function TimingControl() {
         }
     };    const handleEditTicket = (editedTicket: TicketEntry) => {
         setTickets(prev => prev.map(t => t.id === editedTicket.id ? { ...t, ...editedTicket } : t));
+    };
+    
+    // Función para cerrar el modal de QR y eliminar la imagen del storage
+    const handleCloseQRModal = async () => {
+        if (storageRef) {
+            try {
+                const imageRef = ref(storage, storageRef);
+                await deleteObject(imageRef);
+                toast.showToast('Imagen eliminada del almacenamiento en la nube', 'info');
+            } catch (error) {
+                console.error('Error eliminando imagen del storage:', error);
+                toast.showToast('Error al eliminar la imagen del almacenamiento', 'warning');
+            }
+        }
+        setShowQRModal(false);
+        setQRCodeDataURL('');
+        setDownloadURL('');
+        setStorageRef('');
+    };
+
+    // Función para descargar directamente desde el QR modal
+    const handleDirectDownload = () => {
+        if (downloadURL) {
+            const link = document.createElement('a');
+            link.href = downloadURL;
+            link.download = 'resumen.png';
+            link.target = '_blank';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
     };
     // Adaptar TicketEntry a Ticket para TicketCarousel
     const ticketsForCarousel = tickets.map(t => {
@@ -648,6 +722,115 @@ export default function TimingControl() {
                 />
             )}
 
+            {/* Modal de QR para descarga móvil */}
+            {showQRModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+                    <div className="rounded-2xl shadow-xl p-6 min-w-[400px] max-w-[90vw] relative" style={{ background: 'var(--card-bg)', color: 'var(--foreground)' }}>
+                        <button
+                            className="absolute top-2 right-2 hover:text-gray-500"
+                            style={{ color: 'var(--foreground)' }}
+                            onClick={handleCloseQRModal}
+                            aria-label="Cerrar modal QR"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                        
+                        <div className="text-center">
+                            <div className="flex items-center justify-center gap-2 mb-4">
+                                <Smartphone className="w-6 h-6 text-blue-600" />
+                                <h2 className="text-lg font-bold" style={{ color: 'var(--foreground)' }}>
+                                    Descarga Móvil
+                                </h2>
+                            </div>
+                            
+                            <p className="text-sm mb-4 text-gray-600" style={{ color: 'var(--foreground)' }}>
+                                Escanea este código QR con tu móvil para descargar la imagen automáticamente
+                            </p>
+                            
+                            <div className="flex justify-center mb-4">
+                                <div className="p-4 bg-white rounded-lg">
+                                    <img 
+                                        src={qrCodeDataURL} 
+                                        alt="QR Code para descarga" 
+                                        className="w-48 h-48"
+                                    />
+                                </div>
+                            </div>
+                            
+                            <div className="space-y-3">
+                                <button
+                                    className="w-full px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-blue-600 hover:bg-blue-700 text-white font-semibold flex items-center justify-center gap-2"
+                                    onClick={handleDirectDownload}
+                                >
+                                    <Download className="w-4 h-4" />
+                                    Descargar directamente
+                                </button>
+                                
+                                <button
+                                    className="w-full px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 hover:opacity-80 transition-opacity"
+                                    style={{
+                                        background: 'var(--button-bg)',
+                                        color: 'var(--button-text)',
+                                        border: '1px solid var(--input-border)'
+                                    }}
+                                    onClick={handleCloseQRModal}
+                                >
+                                    Cerrar (eliminar imagen)
+                                </button>
+                            </div>
+                            
+                            <p className="text-xs mt-3 text-gray-500" style={{ color: 'var(--foreground)', opacity: 0.7 }}>
+                                La imagen se eliminará automáticamente del almacenamiento cuando cierres este modal
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal de QR */}
+            {showQRModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4">
+                    <div className="rounded-2xl shadow-xl p-6 w-[90vw] max-w-[400px] relative" style={{ background: 'var(--card-bg)', color: 'var(--foreground)' }}>
+                        <button
+                            className="absolute top-2 right-2 hover:text-gray-500"
+                            style={{ color: 'var(--foreground)' }}
+                            onClick={handleCloseQRModal}
+                            aria-label="Cerrar modal QR"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                        <h2 className="text-lg font-bold mb-4 text-center" style={{ color: 'var(--foreground)' }}>
+                            Descarga tu resumen
+                        </h2>
+                        <div className="flex justify-center mb-4">
+                            {qrCodeDataURL ? (
+                                <img src={qrCodeDataURL} alt="QR Code" className="w-32 h-32" />
+                            ) : (
+                                <div className="w-32 h-32 flex items-center justify-center rounded-full border-2 border-dashed" style={{ borderColor: 'var(--input-border)' }}>
+                                    <span className="text-sm text-gray-500">Cargando QR...</span>
+                                </div>
+                            )}
+                        </div>
+                        <p className="text-sm mb-4 text-center" style={{ color: 'var(--foreground)' }}>
+                            Escanea el código QR para descargar el resumen en tu dispositivo móvil.
+                        </p>
+                        <div className="flex gap-2">
+                            <button
+                                className="flex-1 px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-green-600 hover:bg-green-700 text-white font-semibold flex items-center justify-center gap-2"
+                                onClick={handleDirectDownload}
+                            >
+                                <Download className="w-4 h-4" />
+                                Descargar PNG
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div ref={exportRef}
                 className="p-6 rounded-lg"
                 style={{
@@ -708,8 +891,8 @@ export default function TimingControl() {
                           onClick={exportToPNG}
                           disabled={!personName.trim() || isExporting}
                         >
-                          <Download className="w-4 h-4" />
-                          {isExporting ? 'Exportando...' : 'Exportar PNG'}
+                          <QrCode className="w-4 h-4" />
+                          {isExporting ? 'Exportando...' : 'Exportar + QR'}
                         </button>
                         <button
                           className="px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 bg-red-500 hover:bg-red-600 text-white"
