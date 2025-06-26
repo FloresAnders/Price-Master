@@ -2,6 +2,10 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { SorteosService } from '../services/sorteos';
 import { Timer, Download } from 'lucide-react';
 import type { Sorteo } from '../types/firestore';
+import TicketCarousel from './TicketCarousel';
+import HelpTooltip from './HelpTooltip';
+import ConfirmModal from './ConfirmModal';
+import { ToastProvider, useToast } from './ToastContext';
 
 function getNowTime() {
     const now = new Date();
@@ -61,7 +65,7 @@ export default function TimingControl() {
     const [keyBuffer, setKeyBuffer] = useState('');    const [tickets, setTickets] = useState<TicketEntry[]>([]);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [ticketToDelete, setTicketToDelete] = useState<TicketEntry | null>(null);
-    const [autoSaving, setAutoSaving] = useState(false);
+    const [showExportConfirm, setShowExportConfirm] = useState(false);
     const exportRef = useRef<HTMLDivElement>(null);
     const amountInputRef = useRef<HTMLInputElement>(null);// Cargar datos desde Firebase
     useEffect(() => {
@@ -123,7 +127,6 @@ export default function TimingControl() {
 
     // Función para guardar estado completo en localStorage
     const saveCompleteState = useCallback(() => {
-        setAutoSaving(true);
         const state = {
             tickets,
             personName,
@@ -131,7 +134,6 @@ export default function TimingControl() {
             timestamp: Date.now()
         };
         localStorage.setItem('timingControlCompleteState', JSON.stringify(state));
-        setTimeout(() => setAutoSaving(false), 1000);
     }, [tickets, personName, keyBuffer]);
 
     // Efecto para guardar estado completo periódicamente
@@ -363,193 +365,99 @@ export default function TimingControl() {
                 amountInputRef.current?.focus();
             }, 100);
         }
-    }, [showCodeModal, selectedSorteo]);const exportToJPG = async () => {
+    }, [showCodeModal, selectedSorteo]);const toast = useToast();
+    const exportToPNG = async () => {
         if (!personName.trim()) {
-            alert('Por favor ingresa el nombre de la persona antes de exportar');
+            toast.showToast('Por favor ingresa el nombre de la persona antes de exportar', 'warning');
             return;
         }
-
+        setShowExportConfirm(true);
+    };
+    const handleConfirmExport = async () => {
+        setShowExportConfirm(false);
         setIsExporting(true);
-
         try {
-            // Dynamically import html2canvas
-            const html2canvas = (await import('html2canvas')).default; if (exportRef.current) {
-                // Obtener colores del tema actual
-                const themeColors = getCurrentThemeColors();
-
-                // Primero, obtener todos los valores de los selects del elemento original
-                const originalSelects = exportRef.current.querySelectorAll('select');
-                const selectValues: { value: string; text: string }[] = [];
-                originalSelects.forEach((select) => {
-                    const htmlSelect = select as HTMLSelectElement;
-                    const selectedOption = htmlSelect.options[htmlSelect.selectedIndex]; const valueData = {
-                        value: htmlSelect.value,
-                        text: selectedOption && htmlSelect.value ? selectedOption.text : ''
-                    }; selectValues.push(valueData);
-                });
-
-                // Crear un clon profundo del elemento
-                const clonedElement = exportRef.current.cloneNode(true) as HTMLElement;
-
-                // Configurar el clon para que sea invisible y esté fuera de la vista
-                clonedElement.style.position = 'absolute';
-                clonedElement.style.left = '-9999px';
-                clonedElement.style.top = '0';
-                clonedElement.style.zIndex = '-1000';
-                clonedElement.style.pointerEvents = 'none';
-                // Agregar el clon al DOM temporalmente
-                document.body.appendChild(clonedElement);
-                // Esperar un momento para que el DOM se actualice
-                await new Promise(resolve => setTimeout(resolve, 100));                // Ocultar elementos que no deben aparecer en la exportación
-                const elementsToHide = clonedElement.querySelectorAll('.export-hide');
-                elementsToHide.forEach((element) => {
-                    (element as HTMLElement).style.setProperty('display', 'none', 'important');
-                });
-
-                // Mostrar y configurar el timestamp de exportación
-                const timestampElement = clonedElement.querySelector('.export-timestamp');
-                if (timestampElement) {
-                    (timestampElement as HTMLElement).style.setProperty('display', 'block', 'important');
-                    const dateTimeElement = timestampElement.querySelector('#export-date-time');
-                    if (dateTimeElement) {
-                        const now = new Date();
-                        const dateStr = now.toLocaleDateString('es-CR', {
-                            year: 'numeric',
-                            month: '2-digit',
-                            day: '2-digit'
-                        });
-                        const timeStr = now.toLocaleTimeString('es-CR', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            second: '2-digit'
-                        });
-                        dateTimeElement.textContent = `${dateStr} ${timeStr}`;
-                    }
-                }
-
-                // Reemplazar todos los selects con divs que muestren el texto seleccionado
-                const selects = clonedElement.querySelectorAll('select'); selects.forEach((select, index) => {                    // Usar los valores que obtuvimos del elemento original
-                    const selectedText = selectValues[index] ? selectValues[index].text : '';
-
-                    // Crear un div que reemplace el select
-                    const div = document.createElement('div');
-                    div.className = select.className;
-
-                    // Copiar todos los estilos del select original
-                    const computedStyle = window.getComputedStyle(select);
-                    div.style.cssText = select.style.cssText;
-
-                    // Aplicar estilos específicos para que se vea como el select original
-                    div.style.setProperty('display', 'flex', 'important');
-                    div.style.setProperty('align-items', 'center', 'important');
-                    div.style.setProperty('justify-content', 'flex-start', 'important');
-                    div.style.setProperty('padding', computedStyle.padding || '8px 12px', 'important');
-                    div.style.setProperty('border', computedStyle.border, 'important');
-                    div.style.setProperty('border-radius', computedStyle.borderRadius, 'important');
-                    div.style.setProperty('background-color', computedStyle.backgroundColor, 'important');
-                    div.style.setProperty('color', computedStyle.color, 'important');
-                    div.style.setProperty('font-family', computedStyle.fontFamily, 'important');
-                    div.style.setProperty('font-size', computedStyle.fontSize, 'important');
-                    div.style.setProperty('width', computedStyle.width, 'important');
-                    div.style.setProperty('height', computedStyle.height, 'important');
-                    div.style.setProperty('box-sizing', 'border-box', 'important');
-
-                    div.textContent = selectedText;
-
-                    // Reemplazar el select con el div
-                    select.parentNode?.replaceChild(div, select);
-                });
-
-                // Aplicar estilos explícitos solo al clon
-                const elementsToStyle = clonedElement.querySelectorAll('*');
-
-                elementsToStyle.forEach((element: Element) => {
-                    const htmlElement = element as HTMLElement;
-                    const computedStyle = window.getComputedStyle(htmlElement);
-
-                    // Convertir variables CSS a valores reales
-                    if (computedStyle.color && (
-                        computedStyle.color.includes('var(--foreground)') ||
-                        htmlElement.getAttribute('style')?.includes('var(--foreground)')
-                    )) {
-                        htmlElement.style.setProperty('color', themeColors.foreground, 'important');
-                    }
-
-                    if (computedStyle.backgroundColor && (
-                        computedStyle.backgroundColor.includes('var(--input-bg)') ||
-                        htmlElement.getAttribute('style')?.includes('var(--input-bg)')
-                    )) {
-                        htmlElement.style.setProperty('background-color', themeColors.inputBg, 'important');
-                    }
-
-                    if (computedStyle.backgroundColor && (
-                        computedStyle.backgroundColor.includes('var(--card-bg)') ||
-                        htmlElement.getAttribute('style')?.includes('var(--card-bg)')
-                    )) {
-                        htmlElement.style.setProperty('background-color', themeColors.cardBg, 'important');
-                    }
-
-                    if (computedStyle.backgroundColor && (
-                        computedStyle.backgroundColor.includes('var(--button-bg)') ||
-                        htmlElement.getAttribute('style')?.includes('var(--button-bg)')
-                    )) {
-                        htmlElement.style.setProperty('background-color', themeColors.buttonBg, 'important');
-                    }
-
-                    if (computedStyle.borderColor && (
-                        computedStyle.borderColor.includes('var(--input-border)') ||
-                        htmlElement.getAttribute('style')?.includes('var(--input-border)')
-                    )) {
-                        htmlElement.style.setProperty('border-color', themeColors.inputBorder, 'important');
-                    }
-                });
-
-                // Capturar la imagen del clon
-                const canvas = await html2canvas(clonedElement, {
-                    useCORS: true,
-                    allowTaint: true,
-                    width: clonedElement.scrollWidth,
-                    height: clonedElement.scrollHeight,
-                    logging: false
-                });
-
-                // Remover el clon del DOM inmediatamente
-                document.body.removeChild(clonedElement);
-
-                // Convert canvas to JPG with high quality
-                const imgData = canvas.toDataURL('image/jpeg', 0.95);
-
-                // Create download link
-                const link = document.createElement('a');
-                const now = new Date();
-                const day = now.getDate().toString().padStart(2, '0');
-                const month = (now.getMonth() + 1).toString().padStart(2, '0');
-
-                // Clean the person name for filename (remove special characters and slashes)
-                const cleanName = personName.trim().replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_');
-                const fileName = `${day}-${month}_${cleanName}.jpg`;
-
-                link.download = fileName;
-                link.href = imgData;
-
-                // Trigger download
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-
-                alert(`Imagen exportada exitosamente como: ${fileName}`);
-            }
+            const html2canvas = (await import('html2canvas')).default;
+            // Crear un contenedor temporal solo para el resumen
+            const resumenDiv = document.createElement('div');
+            resumenDiv.style.position = 'absolute';
+            resumenDiv.style.left = '-9999px';
+            resumenDiv.style.top = '0';
+            resumenDiv.style.zIndex = '-1000';
+            resumenDiv.style.pointerEvents = 'none';
+            resumenDiv.style.background = getCurrentThemeColors().cardBg;
+            resumenDiv.style.color = getCurrentThemeColors().foreground;
+            resumenDiv.style.padding = '32px';
+            resumenDiv.style.borderRadius = '18px';
+            resumenDiv.style.fontFamily = 'var(--font-base), Arial, sans-serif';
+            resumenDiv.style.minWidth = '340px';
+            resumenDiv.innerHTML = `
+              <div style="font-size:1.1rem;font-weight:600;margin-bottom:0.7rem;text-align:left;">Nombre: <span style='font-weight:700;'>${personName}</span></div>
+              <h2 style="font-size:1.3rem;font-weight:bold;margin-bottom:1.2rem;text-align:center;">Resumen de Ventas por Tiquete</h2>
+              <table style="width:100%;border-collapse:collapse;font-size:1.1rem;">
+                <thead><tr><th style="text-align:left;padding-bottom:8px;">Sorteo</th><th style="text-align:right;padding-bottom:8px;">Monto</th><th style="text-align:right;padding-bottom:8px;padding-left:18px;min-width:110px;">Hora</th></tr></thead>
+                <tbody>
+                  ${tickets.map(ticket =>
+                    `<tr style='border-bottom:1px solid #d1d5db;'><td style='padding:4px 18px 10px 0;'>${ticket.sorteo}</td><td style='text-align:right;padding:4px 0 10px 0;'>₡ ${ticket.amount.toLocaleString('es-CR')}</td><td style='text-align:right;padding:4px 0 10px 18px;min-width:110px;'>${ticket.time}</td></tr>`
+                  ).join('')}
+                </tbody>
+              </table>
+              <div style="margin-top:2.2rem;margin-bottom:0.5rem;font-weight:bold;font-size:1.1rem;">Totales por sorteo:</div>
+              <table style="width:100%;border-collapse:collapse;font-size:1.05rem;">
+                <thead><tr><th style="text-align:left;padding-bottom:6px;">Sorteo</th><th style="text-align:right;padding-bottom:6px;">Total</th></tr></thead>
+                <tbody>
+                  ${Object.entries(resumenSorteos).map(([sorteo, total]) =>
+                    `<tr style='border-bottom:1px solid #d1d5db;'><td style='padding:3px 18px 10px 0;'>${sorteo}</td><td style='text-align:right;padding:3px 0 10px 0;'>₡ ${total.toLocaleString('es-CR')}</td></tr>`
+                  ).join('')}
+                </tbody>
+              </table>
+              <div style="margin-top:1.2rem;text-align:right;font-weight:bold;font-size:1.15rem;">Total General: <span style='color:#16a34a;'>₡ ${totalGeneral.toLocaleString('es-CR')}</span></div>
+              <div style="margin-top:1.2rem;text-align:right;font-size:0.95rem;opacity:0.7;">Exportado: ${new Date().toLocaleString('es-CR')}</div>
+            `;
+            document.body.appendChild(resumenDiv);
+            await new Promise(resolve => setTimeout(resolve, 100));
+            const canvas = await html2canvas(resumenDiv, {
+                useCORS: true,
+                allowTaint: true,
+                width: resumenDiv.scrollWidth,
+                height: resumenDiv.scrollHeight,
+                logging: false
+            });
+            document.body.removeChild(resumenDiv);
+            const imgData = canvas.toDataURL('image/png');
+            const link = document.createElement('a');
+            const now = new Date();
+            const day = now.getDate().toString().padStart(2, '0');
+            const month = (now.getMonth() + 1).toString().padStart(2, '0');
+            const cleanName = personName.trim().replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_');
+            const fileName = `${day}-${month}_${cleanName}_resumen.png`;
+            link.download = fileName;
+            link.href = imgData;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            toast.showToast(`Resumen exportado exitosamente como: ${fileName}`, 'success');
         } catch (error) {
             console.error('Error al exportar:', error);
-            alert('Error al exportar la imagen. Por favor intenta de nuevo.');
+            toast.showToast('Error al exportar la imagen. Por favor intenta de nuevo.', 'error');
         } finally {
             setIsExporting(false);
         }
-    };    return (
-        <div className="rounded-lg shadow-md p-6" style={{ background: 'var(--card-bg)', color: 'var(--foreground)' }}>
+    };    const handleEditTicket = (editedTicket: TicketEntry) => {
+        setTickets(prev => prev.map(t => t.id === editedTicket.id ? { ...t, ...editedTicket } : t));
+    };
+    // Adaptar TicketEntry a Ticket para TicketCarousel
+    const ticketsForCarousel = tickets.map(t => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { code, ...rest } = t;
+      return rest;
+    });
+    return (
+        <ToastProvider>
+          <React.Fragment>
             {/* Modal de resumen */}
             {showSummary && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+                <div className="fixed inset-0 bg-black bg-opacity-60 z-[9999] flex items-center justify-center p-4">
                     <div className="rounded-2xl shadow-xl p-6 min-w-[320px] max-w-[90vw] relative" style={{ background: 'var(--card-bg)', color: 'var(--foreground)' }}>
                         <button
                             className="absolute top-2 right-2 hover:text-gray-500"
@@ -726,6 +634,20 @@ export default function TimingControl() {
                 </div>
             )}
 
+            {showExportConfirm && (
+                <ConfirmModal
+                    open={showExportConfirm}
+                    title="Confirmar exportación"
+                    message="¿Deseas exportar el resumen como imagen PNG?"
+                    confirmText="Exportar PNG"
+                    cancelText="Cancelar"
+                    loading={isExporting}
+                    onConfirm={handleConfirmExport}
+                    onCancel={() => setShowExportConfirm(false)}
+                    actionType="assign"
+                />
+            )}
+
             <div ref={exportRef}
                 className="p-6 rounded-lg"
                 style={{
@@ -734,169 +656,103 @@ export default function TimingControl() {
                     minHeight: '400px',
                     border: '1px solid var(--input-border)'
                 }}>
-
-                {/* Header */}
-                <div className="mb-6">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <Timer className="w-6 h-6 text-blue-600" />
-                            <h3 className="text-lg font-semibold" style={{ color: 'var(--foreground)' }}>Control de tiempos</h3>
-                        </div>
-
-                        {/* Fecha y hora de exportación - solo visible en imagen exportada */}
-                        <div className="export-timestamp hidden text-sm border border-gray-300 rounded-lg p-2 bg-gray-50"
-                            style={{ color: 'var(--foreground)', backgroundColor: 'rgba(249, 250, 251, 0.9)' }}>
-                            <div className="text-right">
-                                <div className="font-semibold text-gray-600">Exportado:</div>
-                                <div id="export-date-time" className="font-mono text-xs text-gray-700"></div>
-                            </div>
-                        </div>                        {/* Nota para pantallas medianas y grandes */}
-                        <div className="hidden md:block p-2 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-xs max-w-xs export-hide">
-                            <p><strong>Nota:</strong> Escriba T11, T10, NNN o TTT en cualquier momento para abrir el modal de entrada.</p>
-                            {autoSaving && <p className="mt-1 text-green-600"><strong>Guardando...</strong></p>}
-                        </div>
+                <div className="flex flex-col lg:flex-row gap-8 w-full">
+                  {/* Panel principal: controles y tickets */}
+                  <div className="flex-1 min-w-[320px] max-w-[600px] flex flex-col">
+                    <div className="mb-6 flex items-center gap-4">
+                      <Timer className="w-6 h-6 text-blue-600" />
+                      <h3 className="text-lg font-semibold" style={{ color: 'var(--foreground)' }}>Control de tiempos</h3>
+                      <HelpTooltip />
                     </div>
-                    {/* Nota para pantallas pequeñas */}
-                    <div className="md:hidden mt-3 p-2 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-xs export-hide">
-                        <p><strong>Nota:</strong> Escriba T11, T10, NNN o TTT para abrir el modal de entrada.</p>
-                        {autoSaving && <p className="mt-1 text-green-600"><strong>Guardando...</strong></p>}
-                    </div>
-                </div>                {/* Campo para nombre de persona */}
-                <div className="mb-4">
-                    <label className="block text-sm font-medium mb-2" style={{ color: 'var(--foreground)' }}>
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium mb-2" style={{ color: 'var(--foreground)' }}>
                         Nombre de la persona:
-                    </label>
-                    <input
+                      </label>
+                      <input
                         type="text"
                         className="w-full max-w-md px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         style={{
-                            background: 'var(--input-bg)',
-                            border: '1px solid var(--input-border)',
-                            color: 'var(--foreground)',
+                          background: 'var(--input-bg)',
+                          border: '1px solid var(--input-border)',
+                          color: 'var(--foreground)',
                         }}
                         value={personName}
                         onChange={(e) => setPersonName(e.target.value)}
                         placeholder="Ingresa tu nombre"
-                    />
-                </div>
-
-                {/* Indicador de buffer de teclas */}
-                {keyBuffer && (
-                    <div className="mb-4 export-hide">
-                        <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-mono" 
-                             style={{ 
-                                 background: 'var(--input-bg)', 
-                                 border: '1px solid var(--input-border)',
-                                 color: 'var(--foreground)'
-                             }}>
-                            Escribiendo: <span className="ml-2 font-bold">{keyBuffer}</span>
+                      />
+                    </div>
+                    {keyBuffer && (
+                      <div className="mb-4 export-hide">
+                        <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-mono"
+                          style={{
+                            background: 'var(--input-bg)',
+                            border: '1px solid var(--input-border)',
+                            color: 'var(--foreground)'
+                          }}>
+                          Escribiendo: <span className="ml-2 font-bold">{keyBuffer}</span>
                         </div>
-                    </div>
-                )}
-            
-                {/* Controles de total y resumen */}
-                <div className="mb-4 flex flex-col sm:flex-row gap-2 items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <span className="font-semibold" style={{ color: 'var(--foreground)' }}>Total:</span>
-                        <span className="font-mono text-green-700 text-lg">₡ {totalGeneral.toLocaleString('es-CR')}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
+                      </div>
+                    )}
+                    <div className="mb-4 flex flex-col sm:flex-row gap-2 items-center justify-between">
+                      <div className="flex flex-col items-start"></div>
+                      <div className="flex items-center gap-2">
                         <button
-                            className="px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            style={{
-                                background: 'var(--button-bg)',
-                                color: 'var(--button-text)',
-                            }}
-                            onClick={() => setShowSummary(true)}
+                          className="px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          style={{ background: 'var(--button-bg)', color: 'var(--button-text)' }}
+                          onClick={() => setShowSummary(true)}
                         >
-                            Ver resumen
+                          Ver resumen
                         </button>
                         <button
-                            className="px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 disabled:opacity-50"
-                            onClick={exportToJPG}
-                            disabled={!personName.trim() || isExporting}
+                          className="px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 disabled:opacity-50"
+                          onClick={exportToPNG}
+                          disabled={!personName.trim() || isExporting}
                         >
-                            <Download className="w-4 h-4" />
-                            {isExporting ? 'Exportando...' : 'Exportar JPG'}
-                        </button>                        <button
-                            className="px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 bg-red-500 hover:bg-red-600 text-white"
-                            onClick={() => {
-                                if (window.confirm('¿Seguro que deseas limpiar todos los tickets y datos guardados?')) {
-                                    clearAllLocalStorage();
-                                }
-                            }}
-                        >
-                            Limpiar todo
+                          <Download className="w-4 h-4" />
+                          {isExporting ? 'Exportando...' : 'Exportar PNG'}
                         </button>
+                        <button
+                          className="px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 bg-red-500 hover:bg-red-600 text-white"
+                          onClick={() => {
+                            if (window.confirm('¿Seguro que deseas limpiar todos los tickets y datos guardados?')) {
+                              clearAllLocalStorage();
+                            }
+                          }}
+                        >
+                          Limpiar todo
+                        </button>
+                      </div>
                     </div>
+                    {/* Lista de tickets y carrusel */}
+                    {tickets.length > 0 && !showCodeModal && !showDeleteModal && (
+                      <div className="mb-6">
+                        <h4 className="text-lg font-semibold mb-4" style={{ color: 'var(--foreground)' }}>
+                          Tickets registrados:
+                        </h4>
+                        <TicketCarousel tickets={ticketsForCarousel} onDelete={ticket => handleDeleteTicket({ ...ticket, code: '' })} onEdit={edited => handleEditTicket({ ...edited, code: tickets.find(t => t.id === edited.id)?.code || '' })} />
+                      </div>
+                    )}
+                  </div>
+                  {/* Panel de resumen a la derecha */}
+                  <div className="flex flex-col min-w-[260px] max-w-xs border-l border-[var(--input-border)] pl-4">
+                    <h4 className="text-lg font-semibold mb-2" style={{ color: 'var(--foreground)' }}>
+                      Resumen de Ventas por Sorteo
+                    </h4>
+                    <div className="space-y-2 mb-2">
+                      {Object.entries(resumenSorteos).map(([sorteo, total]) => (
+                        <div key={sorteo} className="flex justify-between pb-2" style={{ borderBottom: '1px solid var(--input-border)' }}>
+                          <span className="font-medium" style={{ color: 'var(--foreground)' }}>{sorteo}</span>
+                          <span className="font-mono font-semibold" style={{ color: 'var(--foreground)' }}>₡ {total.toLocaleString('es-CR')}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="text-right font-bold text-xl pt-2" style={{ color: 'var(--foreground)', borderTop: '2px solid var(--input-border)' }}>
+                      Total General: <span className="font-mono text-green-700">₡ {totalGeneral.toLocaleString('es-CR')}</span>
+                    </div>
+                  </div>
                 </div>
-
-                {/* Lista de tickets como pequeños tickets */}
-                {tickets.length > 0 && (
-                    <div className="mb-6">
-                        <h4 className="text-lg font-semibold mb-4" style={{ color: 'var(--foreground)' }}>
-                            Tickets registrados:
-                        </h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                            {tickets.map((ticket) => (                                <div
-                                    key={ticket.id}
-                                    className="border border-gray-300 rounded-lg p-3 text-sm"
-                                    style={{
-                                        background: 'var(--input-bg)',
-                                        borderColor: 'var(--input-border)',
-                                        color: 'var(--foreground)'
-                                    }}
-                                >
-                                    <div className="flex justify-between items-start mb-2">
-                                        <div className="font-medium text-sm" style={{ color: 'var(--foreground)' }}>
-                                            {ticket.sorteo}
-                                        </div>                                        <button
-                                            className="text-red-500 hover:text-red-700 export-hide"
-                                            onClick={() => handleDeleteTicket(ticket)}
-                                            title="Eliminar ticket"
-                                        >
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                                            </svg>
-                                        </button>
-                                    </div>
-                                    <div className="flex justify-between items-center">
-                                        <span className="font-mono font-bold text-green-700">
-                                            ₡ {ticket.amount.toLocaleString('es-CR')}
-                                        </span>
-                                        <span className="text-xs" style={{ color: 'var(--foreground)', opacity: 0.7 }}>
-                                            {ticket.time}
-                                        </span>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {/* Resumen de sorteos para exportación */}
-                {Object.keys(resumenSorteos).length > 0 && (
-                    <div className="mt-6 pt-4" style={{ borderTop: '2px solid var(--input-border)' }}>
-                        <h4 className="text-lg font-semibold mb-4" style={{ color: 'var(--foreground)' }}>
-                            Resumen de Ventas por Sorteo
-                        </h4>
-                        <div className="space-y-2 mb-4">
-                            {Object.entries(resumenSorteos).map(([sorteo, total]) => (
-                                <div key={sorteo} className="flex justify-between pb-2" style={{ borderBottom: '1px solid var(--input-border)' }}>
-                                    <span className="font-medium" style={{ color: 'var(--foreground)' }}>{sorteo}</span>
-                                    <span className="font-mono font-semibold" style={{ color: 'var(--foreground)' }}>₡ {total.toLocaleString('es-CR')}</span>
-                                </div>
-                            ))}
-                        </div>
-                        <div className="text-right font-bold text-xl pt-2" style={{
-                            color: 'var(--foreground)',
-                            borderTop: '2px solid var(--input-border)'
-                        }}>
-                            Total General: <span className="font-mono text-green-700">₡ {totalGeneral.toLocaleString('es-CR')}</span>
-                        </div>
-                    </div>
-                )}
             </div>
-        </div>
+          </React.Fragment>
+        </ToastProvider>
     );
 }
