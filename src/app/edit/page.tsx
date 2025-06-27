@@ -14,6 +14,7 @@ export default function EditPage() {
     isAuthenticated,
     isSuperAdmin,
     login,
+    logout,
     loading,
     sessionWarning,
     getSessionTimeLeft
@@ -232,10 +233,10 @@ export default function EditPage() {
 
             <div className="flex gap-4 justify-center">
               <button
-                onClick={() => window.history.back()}
-                className="bg-gray-600 dark:bg-gray-700 text-white px-6 py-3 rounded-lg hover:bg-gray-700 dark:hover:bg-gray-600 transition-colors"
+                onClick={() => logout('Access denied - insufficient permissions')}
+                className="bg-red-600 dark:bg-red-700 text-white px-6 py-3 rounded-lg hover:bg-red-700 dark:hover:bg-red-600 transition-colors"
               >
-                ← Volver
+                🚪 Cerrar Sesión
               </button>
               <button
                 onClick={() => window.location.href = '/'}

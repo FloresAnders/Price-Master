@@ -157,8 +157,8 @@ export default function ControlHorario() {
   const [isExporting, setIsExporting] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   const [qrCodeDataURL, setQRCodeDataURL] = useState('');
-  const [downloadURL, setDownloadURL] = useState('');
   const [storageRef, setStorageRef] = useState('');
+  const [imageBlob, setImageBlob] = useState<Blob | null>(null);
   // Estado para countdown de validez del QR
   const [qrCountdown, setQrCountdown] = useState<number | null>(null);
 
@@ -448,7 +448,7 @@ export default function ControlHorario() {
     });
   };
 
-  // Función para exportar horarios como imagen (Solo SuperAdmin)
+  // Función para exportar horarios como imagen (Solo SuperAdmin) - Descarga directa
   const exportScheduleAsImage = async () => {
     if (!isSuperAdmin()) {
       showNotification('Solo SuperAdmin puede exportar como imagen', 'error');
@@ -456,126 +456,157 @@ export default function ControlHorario() {
     }
 
     try {
-      // Crear un canvas temporal para generar la imagen
+      setIsExporting(true);
+
+      // Crear un canvas para generar la imagen
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       if (!ctx) {
         throw new Error('No se pudo crear el contexto del canvas');
-      }      // Configurar el canvas - más grande
-      canvas.width = 1200;
-      canvas.height = 900;
+      }
+
+      // Configurar dimensiones dinámicas basadas en el contenido
+      const employeeCount = names.length;
+      const dayCount = daysToShow.length;
+      const baseWidth = 1400;
+      const baseHeight = 800 + (employeeCount * 50);
+      
+      canvas.width = Math.max(baseWidth, 300 + (dayCount * 60));
+      canvas.height = Math.max(baseHeight, 600 + (employeeCount * 50));
 
       // Fondo blanco
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Configurar estilos de texto
-      ctx.fillStyle = '#000000';
-      ctx.font = 'bold 32px Arial';
+      // Configuraciones de diseño
+      const marginX = 60;
+      const marginY = 80;
+      const employeeNameWidth = 200;
+      const cellWidth = Math.max(50, (canvas.width - marginX * 2 - employeeNameWidth) / dayCount);
+      const cellHeight = 50;
 
-      // Usar todo el ancho disponible
-      const marginX = 50;
-      const availableWidth = canvas.width - (marginX * 2);
-      const employeeNameWidth = 250;
-      const totalDaysWidth = availableWidth - employeeNameWidth;
-      const cellWidth = totalDaysWidth / daysToShow.length;
+      let yPosition = marginY;
 
-      let yPosition = 60;
-      const lineHeight = 40;
-      const cellHeight = 45;// Título principal - centrado y más grande
-      ctx.font = 'bold 40px Arial';
+      // --- ENCABEZADO ---
+      // Título principal
+      ctx.font = 'bold 36px Arial';
       ctx.fillStyle = '#1f2937';
       ctx.textAlign = 'center';
       ctx.fillText('📅 Control de Horarios - Price Master', canvas.width / 2, yPosition);
-      ctx.textAlign = 'left';
-      yPosition += 60;
+      yPosition += 50;
 
-      // Información del reporte - centrada y más grande
-      ctx.font = '22px Arial';
+      // Información del reporte
+      ctx.font = '20px Arial';
       ctx.fillStyle = '#4b5563';
-      ctx.textAlign = 'center';
+      const selectedPeriodText = fullMonthView ? 'Mes Completo' : 
+                                  viewMode === 'first' ? 'Primera Quincena (1-15)' : 'Segunda Quincena (16-fin)';
+      
       ctx.fillText(`📍 Ubicación: ${locations.find(l => l.value === location)?.label || location}`, canvas.width / 2, yPosition);
-      yPosition += lineHeight;
-      ctx.fillText(`📅 Mes: ${monthName}`, canvas.width / 2, yPosition);
-      yPosition += lineHeight;
+      yPosition += 35;
+      ctx.fillText(`📅 Período: ${monthName} - ${selectedPeriodText}`, canvas.width / 2, yPosition);
+      yPosition += 35;
       ctx.fillText(`👤 Exportado por: ${user?.name} (SuperAdmin)`, canvas.width / 2, yPosition);
-      yPosition += lineHeight;
-      ctx.fillText(`🕒 Fecha de exportación: ${new Date().toLocaleDateString('es-ES')}`, canvas.width / 2, yPosition);
+      yPosition += 35;
+      ctx.fillText(`🕒 ${new Date().toLocaleDateString('es-CR', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })}`, canvas.width / 2, yPosition);
+      
+      yPosition += 60;
       ctx.textAlign = 'left';
-      yPosition += 60;      // Encabezados de días - más grandes y usando todo el ancho
+
+      // --- TABLA DE HORARIOS ---
+      const tableStartY = yPosition;
+      
+      // Encabezados
       ctx.font = 'bold 18px Arial';
       ctx.fillStyle = '#1f2937';
+      
+      // Encabezado "Empleado"
+      ctx.fillRect(marginX, tableStartY, employeeNameWidth, cellHeight);
+      ctx.strokeStyle = '#d1d5db';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(marginX, tableStartY, employeeNameWidth, cellHeight);
+      ctx.fillStyle = '#1f2937';
+      ctx.textAlign = 'center';
+      ctx.fillText('Empleado', marginX + employeeNameWidth / 2, tableStartY + cellHeight / 2 + 6);
 
-      // Título "Empleado"
-      ctx.fillText('Empleado', marginX, yPosition);
-
-      // Días del mes - distribuidos en todo el ancho
-      const startX = marginX + employeeNameWidth;
+      // Encabezados de días
+      const daysStartX = marginX + employeeNameWidth;
       daysToShow.forEach((day, index) => {
-        const x = startX + (index * cellWidth);
-        ctx.textAlign = 'center';
-        ctx.fillText(day.toString(), x + cellWidth / 2, yPosition);
+        const x = daysStartX + (index * cellWidth);
+        
+        // Fondo del encabezado
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillRect(x, tableStartY, cellWidth, cellHeight);
+        ctx.strokeRect(x, tableStartY, cellWidth, cellHeight);
+        
+        // Texto del día
+        ctx.fillStyle = '#1f2937';
+        ctx.fillText(day.toString(), x + cellWidth / 2, tableStartY + cellHeight / 2 + 6);
       });
-      ctx.textAlign = 'left';
-      yPosition += 40;
 
-      // Línea divisoria - usando todo el ancho
-      ctx.strokeStyle = '#e5e7eb';
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(marginX, yPosition);
-      ctx.lineTo(canvas.width - marginX, yPosition);
-      ctx.stroke();
-      yPosition += 10;      // Datos de horarios - más grandes y usando todo el ancho
-      ctx.font = '16px Arial';
-      names.forEach((employeeName) => {
-        // Nombre del empleado
+      // Filas de empleados
+      yPosition = tableStartY + cellHeight;
+      names.forEach((employeeName, empIndex) => {
+        // Celda del nombre del empleado
+        ctx.fillStyle = empIndex % 2 === 0 ? '#f8fafc' : '#ffffff';
+        ctx.fillRect(marginX, yPosition, employeeNameWidth, cellHeight);
+        ctx.strokeStyle = '#d1d5db';
+        ctx.strokeRect(marginX, yPosition, employeeNameWidth, cellHeight);
+        
         ctx.fillStyle = '#374151';
-        ctx.fillText(employeeName, marginX, yPosition + 30);
+        ctx.font = 'bold 16px Arial';
+        ctx.fillText(employeeName, marginX + 10, yPosition + cellHeight / 2 + 6);
 
-        // Horarios por día - distribuidos en todo el ancho
+        // Celdas de horarios
         daysToShow.forEach((day, dayIndex) => {
           const shift = scheduleData[employeeName]?.[day.toString()] || '';
-          const x = startX + (dayIndex * cellWidth);
-          const y = yPosition;
+          const x = daysStartX + (dayIndex * cellWidth);
 
-          // Fondo de la celda según el turno
+          // Color de fondo según el turno
+          let bgColor = empIndex % 2 === 0 ? '#f8fafc' : '#ffffff';
+          let textColor = '#000000';
+          
           if (shift === 'N') {
-            ctx.fillStyle = '#87CEEB'; // Azul claro
+            bgColor = '#87CEEB'; // Azul claro
+            textColor = '#000000';
           } else if (shift === 'D') {
-            ctx.fillStyle = '#FFFF00'; // Amarillo
+            bgColor = '#FFFF00'; // Amarillo
+            textColor = '#000000';
           } else if (shift === 'L') {
-            ctx.fillStyle = '#FF00FF'; // Magenta
-          } else {
-            ctx.fillStyle = '#f9fafb'; // Gris claro
+            bgColor = '#FF00FF'; // Magenta
+            textColor = '#ffffff';
           }
 
           // Dibujar celda
-          ctx.fillRect(x, y, cellWidth, cellHeight);
-
-          // Borde de la celda
+          ctx.fillStyle = bgColor;
+          ctx.fillRect(x, yPosition, cellWidth, cellHeight);
           ctx.strokeStyle = '#d1d5db';
-          ctx.lineWidth = 2;
-          ctx.strokeRect(x, y, cellWidth, cellHeight);
+          ctx.strokeRect(x, yPosition, cellWidth, cellHeight);
 
-          // Texto del turno - más grande
+          // Texto del turno
           if (shift) {
-            ctx.fillStyle = shift === 'L' ? '#ffffff' : '#000000';
-            ctx.font = 'bold 20px Arial';
+            ctx.fillStyle = textColor;
+            ctx.font = 'bold 18px Arial';
             ctx.textAlign = 'center';
-            ctx.fillText(shift, x + cellWidth / 2, y + cellHeight / 2 + 7);
-            ctx.textAlign = 'left';
+            ctx.fillText(shift, x + cellWidth / 2, yPosition + cellHeight / 2 + 6);
           }
         });
 
-        yPosition += cellHeight + 10;
-      });// Leyenda - centrada y más grande
-      yPosition += 50;
-      ctx.font = 'bold 22px Arial';
+        yPosition += cellHeight;
+      });
+
+      // --- LEYENDA ---
+      yPosition += 40;
+      ctx.font = 'bold 20px Arial';
       ctx.fillStyle = '#1f2937';
       ctx.textAlign = 'center';
-      ctx.fillText('📋 Leyenda de Turnos:', canvas.width / 2, yPosition);
-      ctx.textAlign = 'left';
+      ctx.fillText('📋 Leyenda de Turnos', canvas.width / 2, yPosition);
       yPosition += 40;
 
       const legendItems = [
@@ -585,70 +616,49 @@ export default function ControlHorario() {
         { label: 'Vacío = Sin asignar', color: '#f9fafb', textColor: '#000' }
       ];
 
-      // Calcular posición centrada para la leyenda - más espaciada
-      const legendWidth = legendItems.length * 200;
-      const legendStartX = (canvas.width - legendWidth) / 2;
+      const legendItemWidth = 200;
+      const legendTotalWidth = legendItems.length * legendItemWidth;
+      const legendStartX = (canvas.width - legendTotalWidth) / 2;
 
       legendItems.forEach((item, index) => {
-        const x = legendStartX + (index * 200);
-
-        // Cuadro de color - más grande
+        const x = legendStartX + (index * legendItemWidth);
+        
+        // Cuadrado de color
         ctx.fillStyle = item.color;
-        ctx.fillRect(x, yPosition - 20, 30, 30);
+        ctx.fillRect(x, yPosition - 15, 25, 25);
         ctx.strokeStyle = '#d1d5db';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(x, yPosition - 20, 30, 30);
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, yPosition - 15, 25, 25);
 
-        // Texto - más grande
+        // Texto de la leyenda
         ctx.fillStyle = '#374151';
-        ctx.font = '16px Arial';
-        ctx.fillText(item.label, x + 40, yPosition);
+        ctx.font = '14px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText(item.label, x + 35, yPosition);
       });
 
-      // Información de pie - centrada y más grande
-      yPosition = canvas.height - 80;
-      ctx.font = '14px Arial';
+      // --- PIE DE PÁGINA ---
+      yPosition = canvas.height - 60;
+      ctx.font = '12px Arial';
       ctx.fillStyle = '#9ca3af';
       ctx.textAlign = 'center';
       ctx.fillText('Generated by Price Master - Control de Horarios', canvas.width / 2, yPosition);
-      ctx.fillText(`Total de empleados: ${names.length}`, canvas.width / 2, yPosition + 20);
+      ctx.fillText(`Total de empleados: ${names.length} | Días mostrados: ${dayCount}`, canvas.width / 2, yPosition + 20);
       ctx.fillText('⚠️ Documento confidencial - Solo para uso autorizado', canvas.width / 2, yPosition + 40);
-      ctx.textAlign = 'left';
 
-      // Convertir canvas a imagen y descargar
-      canvas.toBlob(async (blob) => {
+      // Convertir a imagen y descargar directamente
+      canvas.toBlob((blob) => {
         if (blob) {
-          // Primero descargar localmente
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          a.download = `horarios-${location}-${year}-${month + 1}-${new Date().toISOString().split('T')[0]}.png`;
+          a.download = `horarios-${location}-${monthName.replace(/\s+/g, '_')}-${selectedPeriodText.replace(/\s+/g, '_')}-${new Date().toISOString().split('T')[0]}.png`;
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
           URL.revokeObjectURL(url);
 
-          try {
-            // Subir a Firebase Storage para QR
-            const timestamp = Date.now();
-            const fileName = `horario_completo_${location}_${timestamp}.png`;
-            const storagePath = `exports/${fileName}`;
-            const imageRef = ref(storage, storagePath);
-            await uploadBytes(imageRef, blob);
-            const downloadUrl = await getDownloadURL(imageRef);
-            
-            // Generar QR para descarga desde otro dispositivo
-            const qrDataUrl = await QRCode.toDataURL(downloadUrl, { width: 300 });
-            setQRCodeDataURL(qrDataUrl);
-            setDownloadURL(downloadUrl);
-            setStorageRef(storagePath);
-            setShowQRModal(true);
-            
-            showNotification('📸 Horarios exportados como imagen exitosamente. ¡QR generado para descarga móvil!', 'success');
-          } catch (qrError) {
-            console.error('Error generando QR:', qrError);
-            showNotification('📸 Horarios exportados como imagen exitosamente', 'success');
-          }
+          showNotification('📸 Horarios exportados como imagen exitosamente', 'success');
         } else {
           throw new Error('Error al generar la imagen');
         }
@@ -657,6 +667,8 @@ export default function ControlHorario() {
     } catch (error) {
       showNotification('Error al exportar horarios como imagen', 'error');
       console.error('Export schedule as image error:', error);
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -709,18 +721,26 @@ export default function ControlHorario() {
         logging: false
       });
       document.body.removeChild(exportDiv);
-      // Subir a Firebase Storage
+      
+      // Convertir canvas a blob para subir a Firebase Storage
       const imgData = canvas.toDataURL('image/png');
       const blob = await (await fetch(imgData)).blob();
+      
+      // Guardar el blob para descarga directa
+      setImageBlob(blob);
+      
+      // Subir a Firebase Storage para generar QR (sin descarga automática)
       const timestamp = Date.now();
       const fileName = `horario_quincena_${timestamp}.png`;
       const storagePath = `exports/${fileName}`;
       const imageRef = ref(storage, storagePath);
       await uploadBytes(imageRef, blob);
       const downloadUrl = await getDownloadURL(imageRef);
-      // Generar QR para descarga desde otro dispositivo
+      
+      // 3. Generar QR para descarga desde otro dispositivo
       const qrDataUrl = await QRCode.toDataURL(downloadUrl, { width: 300 });
       setQRCodeDataURL(qrDataUrl);
+      setStorageRef(storagePath);
       setShowQRModal(true);
       setQrCountdown(60);
       const countdownInterval = setInterval(() => {
@@ -733,8 +753,12 @@ export default function ControlHorario() {
           return prev - 1;
         });
       }, 1000);
-    } catch {
-      alert('Error al exportar la quincena.');
+      
+      showNotification('📥 Quincena descargada exitosamente. ¡QR generado para descarga móvil!', 'success');
+      
+    } catch (error) {
+      console.error('Error al exportar la quincena:', error);
+      showNotification('Error al exportar la quincena', 'error');
     } finally {
       setIsExporting(false);
     }
@@ -1198,56 +1222,44 @@ export default function ControlHorario() {
                   }
                   setShowQRModal(false);
                   setQrCountdown(null);
-                  setDownloadURL('');
                   setStorageRef('');
                   setQRCodeDataURL('');
+                  setImageBlob(null);
                 }}
                 className="flex-1 px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
               >
                 Cerrar
               </button>
               
-              {/* Botón para descargar imagen QR */}
+              {/* Botón para descargar imagen del horario */}
               <button 
-                onClick={async () => {
+                onClick={() => {
                   try {
-                    // Descargar la imagen del QR
-                    const response = await fetch(qrCodeDataURL);
-                    const blob = await response.blob();
-                    const url = URL.createObjectURL(blob);
-                    
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `qr-horarios-${location}-${new Date().toISOString().split('T')[0]}.png`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                    
-                    showNotification('📥 QR descargado exitosamente', 'success');
+                    // Descargar directamente usando el blob almacenado
+                    if (imageBlob) {
+                      const url = URL.createObjectURL(imageBlob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `horario-quincena-${location}-${new Date().toISOString().split('T')[0]}.png`;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      URL.revokeObjectURL(url);
+                      
+                      showNotification('📥 Horario descargado exitosamente', 'success');
+                    } else {
+                      throw new Error('No hay imagen disponible para descargar');
+                    }
                   } catch (error) {
-                    console.error('Error downloading QR image:', error);
-                    showNotification('❌ Error al descargar el QR', 'error');
+                    console.error('Error downloading schedule image:', error);
+                    showNotification('❌ Error al descargar el horario', 'error');
                   }
                 }}
-                className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
-                title="Descargar imagen QR"
+                className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                title="Descargar imagen del horario"
               >
-                📥 Descargar QR
+                📥 Descargar Horario
               </button>
-              
-              {/* Botón para descarga directa */}
-              {downloadURL && (
-                <button 
-                  onClick={() => {
-                    window.open(downloadURL, '_blank');
-                  }}
-                  className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
-                  title="Descargar imagen directamente"
-                >
-                  📄 Descargar Imagen
-                </button>
-              )}
             </div>
             
             {qrCountdown !== null && qrCountdown > 0 && (
