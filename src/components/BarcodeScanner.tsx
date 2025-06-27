@@ -35,6 +35,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
   const [connectedDeviceType, setConnectedDeviceType] = useState<'mobile' | 'tablet' | 'pc' | null>(null);
   const sessionHeartbeatRef = useRef<{ start: () => Promise<void>; stop: () => void; sessionDocId: string | null } | null>(null);
   const sessionSyncUnsubscribeRef = useRef<(() => void) | null>(null);
+  const listenersActiveRef = useRef<boolean>(false);
 
   // Funciones para manejo de sesión persistente en localStorage
   const saveSessionToStorage = useCallback((sessionId: string, expiryDate: Date) => {
@@ -101,13 +102,17 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
     }
   }, [sessionExpiry]);
 
-  // Cargar sesión existente al montar el componente
+  // Cargar sesión existente al montar el componente y activarla automáticamente
   useEffect(() => {
     const storedSession = loadSessionFromStorage();
     if (storedSession) {
       setMobileSessionId(storedSession.sessionId);
       setSessionExpiry(storedSession.expiry);
       setRequestProductName(storedSession.requestProductName);
+      
+      // Activar automáticamente el QR si hay una sesión válida
+      setShowMobileQR(true);
+      console.log('📱 Sesión restaurada automáticamente:', storedSession.sessionId);
     }
   }, [loadSessionFromStorage]);
 
@@ -302,6 +307,23 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
     }
   }, [onDetect, setCode, lastScanCheck, startCountdown]);// Generar sesión para escáner móvil con detección real de conexión y persistencia de 24h
   const generateMobileSession = useCallback(async () => {
+    // Limpiar listeners existentes antes de crear nuevos
+    if (unsubscribeRef.current && typeof unsubscribeRef.current === 'function') {
+      unsubscribeRef.current();
+      unsubscribeRef.current = null;
+    }
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+    if (countdownRef.current) {
+      clearInterval(countdownRef.current);
+      countdownRef.current = null;
+    }
+    
+    // Reset flag de listeners
+    listenersActiveRef.current = false;
+
     // Verificar si ya hay una sesión válida en localStorage
     let sessionId: string;
     let expiryDate: Date;
@@ -401,8 +423,8 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
               scan.sessionId === sessionId &&
               !scan.processed &&
               scan.source === 'mobile'
-            ); if (newScan && newScan.id) {
-              console.log('🔥 Nuevo escaneo detectado via Firebase listener:', newScan.code);
+            );            if (newScan && newScan.id) {
+              console.log('🔥 Nuevo escaneo detectado:', newScan.code);
               setCode(newScan.code);
               onDetect?.(newScan.code, newScan.productName);
 
@@ -435,6 +457,9 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
 
         // Guardar el unsubscribe para poder limpiarlo después
         unsubscribeRef.current = unsubscribe;
+        
+        // Marcar listeners como activos
+        listenersActiveRef.current = true;
       } catch (error) {
         console.error('Error setting up Firebase listener:', error);
         console.log('🔥➡️🔄 Firebase listener no disponible, usando solo polling...');
@@ -460,7 +485,160 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
         }
       };
     }
-  }, [onDetect, setCode, checkForNewScans, startCountdown, requestProductName, loadSessionFromStorage, saveSessionToStorage]);  const closeMobileSession = useCallback(() => {
+  }, [onDetect, setCode, checkForNewScans, startCountdown, requestProductName, loadSessionFromStorage, saveSessionToStorage]);
+
+  // Reactivar listeners de Firebase cuando se restaura una sesión al recargar la página
+  useEffect(() => {
+    const reactivateSessionListeners = async () => {
+      // Solo ejecutar si hay sesión válida, QR visible y no hay listeners activos
+      if (mobileSessionId && sessionExpiry && sessionExpiry > new Date() && showMobileQR && !listenersActiveRef.current) {
+        try {
+          console.log('🔄 Reactivando listeners para sesión restaurada:', mobileSessionId);
+          
+          // Marcar listeners como activos
+          listenersActiveRef.current = true;
+          
+          // Limpiar listeners existentes antes de crear nuevos
+          if (unsubscribeRef.current) {
+            unsubscribeRef.current();
+            unsubscribeRef.current = null;
+          }
+          if (pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current);
+            pollIntervalRef.current = null;
+          }
+          if (countdownRef.current) {
+            clearInterval(countdownRef.current);
+            countdownRef.current = null;
+          }
+          
+          // Crear heartbeat manager para mantener sesión PC activa
+          const heartbeatManager = SessionSyncService.createHeartbeatManager(mobileSessionId, 'pc');
+          sessionHeartbeatRef.current = heartbeatManager;
+
+          // Iniciar sesión y heartbeat
+          await heartbeatManager.start();
+
+          // Escuchar cambios en tiempo real para detectar conexiones
+          const sessionUnsubscribe = SessionSyncService.subscribeToSessionStatus(
+            mobileSessionId,
+            (sessions: SessionStatus[]) => {
+              const mobileConnected = sessions.some(session =>
+                session.source === 'mobile' &&
+                session.status === 'active'
+              );
+
+              // Determinar qué tipo de dispositivo se conectó basándose en User Agent
+              if (mobileConnected) {
+                const connectedDevice = sessions.find(session =>
+                  session.source === 'mobile' &&
+                  session.status === 'active'
+                );
+
+                // Detectar si es móvil o tablet basándose en el User Agent
+                const userAgent = connectedDevice?.userAgent || '';
+                const isMobile = /Mobile|Android|iPhone|iPad|iPod|BlackBerry|Windows Phone/i.test(userAgent);
+                const isTablet = /iPad|Tablet/i.test(userAgent);
+
+                if (isTablet) {
+                  setConnectedDeviceType('tablet' as 'mobile' | 'tablet' | 'pc');
+                } else if (isMobile) {
+                  setConnectedDeviceType('mobile');
+                } else {
+                  setConnectedDeviceType('mobile'); // Fallback para mobile
+                }
+              } else {
+                setConnectedDeviceType(null);
+              }
+
+              setHasMobileConnection(mobileConnected);
+            },
+            (error) => {
+              console.error('Error in session status subscription:', error);
+            }
+          );
+          sessionSyncUnsubscribeRef.current = sessionUnsubscribe;
+
+          // Configurar listener en tiempo real de Firebase
+          if (typeof window !== 'undefined') {
+            const { ScanningService } = await import('../services/scanning-optimized');
+            
+            try {
+              const unsubscribe = ScanningService.subscribeToScans(
+                (scans) => {
+                  // Buscar nuevos códigos no procesados para esta sesión
+                  const newScan = scans.find(scan =>
+                    scan.sessionId === mobileSessionId &&
+                    !scan.processed &&
+                    scan.source === 'mobile'
+                  );
+
+                  if (newScan && newScan.id) {
+                    console.log('🔥 Nuevo escaneo detectado:', newScan.code);
+                    setCode(newScan.code);
+                    onDetect?.(newScan.code, newScan.productName);
+
+                    // Marcar como procesado en Firebase
+                    ScanningService.markAsProcessed(newScan.id).catch(console.error);
+
+                    // Cerrar QR modal
+                    setShowMobileQR(false);
+
+                    // Limpiar el polling ya que el listener funcionó
+                    if (pollIntervalRef.current) {
+                      clearInterval(pollIntervalRef.current);
+                      pollIntervalRef.current = null;
+                    }
+                    if (countdownRef.current) {
+                      clearInterval(countdownRef.current);
+                      countdownRef.current = null;
+                    }
+                  }
+                },
+                mobileSessionId, // Filtrar por sessionId
+                (error) => {
+                  console.error('Error in Firebase scan subscription:', error);
+                  if (error.message?.includes('index') || error.message?.includes('Index')) {
+                    console.log('🔥➡️🔄 Firebase listener falló por índice, usando solo polling...');
+                  }
+                }
+              );
+
+              // Guardar el unsubscribe para poder limpiarlo después
+              unsubscribeRef.current = unsubscribe;
+              
+              // Marcar listeners como activos (redundante pero por seguridad)
+              listenersActiveRef.current = true;
+            } catch (error) {
+              console.error('Error setting up Firebase listener:', error);
+              console.log('🔥➡️🔄 Firebase listener no disponible, usando solo polling...');
+            }
+
+            // Configurar polling cada 10 segundos como fallback
+            console.log('🔄 Iniciando polling cada 10 segundos como fallback...');
+            pollIntervalRef.current = setInterval(() => {
+              checkForNewScans(mobileSessionId);
+            }, 10000); // 10 segundos
+
+            // Iniciar contador regresivo
+            startCountdown();
+          }
+        } catch (error) {
+          console.error('Error reactivando listeners para sesión restaurada:', error);
+        }
+      }
+    };
+
+    reactivateSessionListeners();
+  }, [mobileSessionId, sessionExpiry, showMobileQR, onDetect, setCode, checkForNewScans, startCountdown]);
+
+  // Función para solo ocultar el QR manteniendo la sesión activa
+  const hideMobileQR = useCallback(() => {
+    setShowMobileQR(false);
+    console.log('📱 QR ocultado, sesión mantiene activa en localStorage');
+  }, []);
+
+  const closeMobileSession = useCallback(() => {
     setShowMobileQR(false);
     setMobileSessionId(null);
     setQrCodeUrl('');
@@ -504,6 +682,9 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
 
     // Reset del contador
     setNextPollIn(10);
+    
+    // Reset flag de listeners
+    listenersActiveRef.current = false;
   }, [clearSessionFromStorage]);
 
   const fadeIn = { initial: { opacity: 0 }, animate: { opacity: 1 } };
@@ -728,7 +909,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                       📱 Usar Sesión Existente
                     </button>
                     <button
-                      onClick={clearSessionFromStorage}
+                      onClick={closeMobileSession}
                       className="flex-1 px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors text-sm font-medium"
                     >
                       🗑️ Crear Nueva
@@ -783,6 +964,14 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
           ) : (
             <div className="text-center">
               <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-xl border-2 border-green-200 dark:border-green-800 max-w-sm mx-auto">
+                {/* Indicador de sesión restaurada */}
+                <div className="mb-4 px-3 py-2 bg-green-100 dark:bg-green-900/30 rounded-lg border border-green-200 dark:border-green-700">
+                  <div className="flex items-center justify-center gap-2 text-green-800 dark:text-green-200">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span className="text-sm font-medium">✅ Sesión Restaurada Automáticamente</span>
+                  </div>
+                </div>
+                
                 <h3 className="text-xl font-bold text-gray-800 dark:text-green-300 mb-4">Escanea este QR con tu móvil</h3>
 
                 {/* QR Code - ahora real */}                <div className="bg-gray-100 dark:bg-gray-700 rounded-xl p-4 mb-4 flex items-center justify-center">
@@ -841,10 +1030,10 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
 
                 <div className="flex gap-3 mt-6">
                   <button
-                    onClick={closeMobileSession}
+                    onClick={hideMobileQR}
                     className="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors font-medium"
                   >
-                    Cancelar
+                    Cerrar
                   </button>
                   
                   {/* Botón para descargar imagen QR */}
