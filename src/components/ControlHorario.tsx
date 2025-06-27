@@ -15,7 +15,7 @@ import type { Location } from '../types/firestore';
 import type { User as FirestoreUser } from '../types/firestore';
 import html2canvas from 'html2canvas';
 import QRCode from 'qrcode';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { storage } from '../config/firebase';
 
 interface ScheduleData {
@@ -157,6 +157,8 @@ export default function ControlHorario() {
   const [isExporting, setIsExporting] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   const [qrCodeDataURL, setQRCodeDataURL] = useState('');
+  const [downloadURL, setDownloadURL] = useState('');
+  const [storageRef, setStorageRef] = useState('');
   // Estado para countdown de validez del QR
   const [qrCountdown, setQrCountdown] = useState<number | null>(null);
 
@@ -614,8 +616,9 @@ export default function ControlHorario() {
       ctx.textAlign = 'left';
 
       // Convertir canvas a imagen y descargar
-      canvas.toBlob((blob) => {
+      canvas.toBlob(async (blob) => {
         if (blob) {
+          // Primero descargar localmente
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
@@ -625,7 +628,27 @@ export default function ControlHorario() {
           document.body.removeChild(a);
           URL.revokeObjectURL(url);
 
-          showNotification('📸 Horarios exportados como imagen exitosamente', 'success');
+          try {
+            // Subir a Firebase Storage para QR
+            const timestamp = Date.now();
+            const fileName = `horario_completo_${location}_${timestamp}.png`;
+            const storagePath = `exports/${fileName}`;
+            const imageRef = ref(storage, storagePath);
+            await uploadBytes(imageRef, blob);
+            const downloadUrl = await getDownloadURL(imageRef);
+            
+            // Generar QR para descarga desde otro dispositivo
+            const qrDataUrl = await QRCode.toDataURL(downloadUrl, { width: 300 });
+            setQRCodeDataURL(qrDataUrl);
+            setDownloadURL(downloadUrl);
+            setStorageRef(storagePath);
+            setShowQRModal(true);
+            
+            showNotification('📸 Horarios exportados como imagen exitosamente. ¡QR generado para descarga móvil!', 'success');
+          } catch (qrError) {
+            console.error('Error generando QR:', qrError);
+            showNotification('📸 Horarios exportados como imagen exitosamente', 'success');
+          }
         } else {
           throw new Error('Error al generar la imagen');
         }
@@ -1142,26 +1165,96 @@ export default function ControlHorario() {
         onCancel={() => setUnlockPastDaysModal(false)}
       />
 
-      {/* Modal QR para descarga (sin supervínculo Descargar QR) */}
+      {/* Modal QR para descarga con funcionalidad de descarga de imagen */}
       {showQRModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-sm w-full flex flex-col items-center">
+            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200 mb-4 text-center">
+              📱 Descargar en tu móvil
+            </h3>
             <Image
               src={qrCodeDataURL}
-              alt="QR para descargar quincena"
-              className="mb-4"
+              alt="QR para descargar imagen"
+              className="mb-4 rounded-lg border-2 border-gray-200 dark:border-gray-600"
               width={300}
               height={300}
               unoptimized
             />
-            <div className="text-xs text-red-600 mb-2 text-center">Este enlace y QR solo estarán disponibles por 1 minuto.</div>
-            <button
-              onClick={() => {
-                setShowQRModal(false);
-                setQrCountdown(null);
-              }}
-              className="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-            >Cerrar</button>
+            <div className="text-xs text-gray-600 dark:text-gray-400 mb-4 text-center">
+              Escanea este QR con tu móvil para descargar la imagen
+            </div>
+            
+            <div className="flex gap-3 w-full">
+              <button
+                onClick={async () => {
+                  // Limpiar archivo de Firebase Storage si existe
+                  if (storageRef) {
+                    try {
+                      const fileRef = ref(storage, storageRef);
+                      await deleteObject(fileRef);
+                    } catch (error) {
+                      console.error('Error eliminando archivo de storage:', error);
+                    }
+                  }
+                  setShowQRModal(false);
+                  setQrCountdown(null);
+                  setDownloadURL('');
+                  setStorageRef('');
+                  setQRCodeDataURL('');
+                }}
+                className="flex-1 px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
+              >
+                Cerrar
+              </button>
+              
+              {/* Botón para descargar imagen QR */}
+              <button 
+                onClick={async () => {
+                  try {
+                    // Descargar la imagen del QR
+                    const response = await fetch(qrCodeDataURL);
+                    const blob = await response.blob();
+                    const url = URL.createObjectURL(blob);
+                    
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `qr-horarios-${location}-${new Date().toISOString().split('T')[0]}.png`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    
+                    showNotification('📥 QR descargado exitosamente', 'success');
+                  } catch (error) {
+                    console.error('Error downloading QR image:', error);
+                    showNotification('❌ Error al descargar el QR', 'error');
+                  }
+                }}
+                className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+                title="Descargar imagen QR"
+              >
+                📥 Descargar QR
+              </button>
+              
+              {/* Botón para descarga directa */}
+              {downloadURL && (
+                <button 
+                  onClick={() => {
+                    window.open(downloadURL, '_blank');
+                  }}
+                  className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                  title="Descargar imagen directamente"
+                >
+                  📄 Descargar Imagen
+                </button>
+              )}
+            </div>
+            
+            {qrCountdown !== null && qrCountdown > 0 && (
+              <div className="text-xs text-red-600 mt-2 text-center">
+                Este enlace expira en {qrCountdown} segundo{qrCountdown === 1 ? '' : 's'}
+              </div>
+            )}
           </div>
         </div>
       )}
