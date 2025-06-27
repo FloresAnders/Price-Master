@@ -6,7 +6,6 @@ import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { ThemeToggle } from './ThemeToggle';
-import AnimatedStickman from './AnimatedStickman';
 
 export default function Header() {
   const pathname = usePathname();

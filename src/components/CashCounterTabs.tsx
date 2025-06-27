@@ -226,13 +226,13 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
   // Ref para navegar entre inputs de denominaciones
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  // Función para manejar navegación con ENTER
+  // Función para manejar navegación con ENTER y TAB
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, currentIndex: number) => {
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' || e.key === 'Tab') {
       e.preventDefault();
       
       if (e.shiftKey) {
-        // Shift+Enter: ir al input anterior
+        // Shift+Enter/Shift+Tab: ir al input anterior
         const prevIndex = currentIndex - 1;
         if (prevIndex >= 0 && inputRefs.current[prevIndex]) {
           inputRefs.current[prevIndex]?.focus();
@@ -242,7 +242,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
           inputRefs.current[lastIndex]?.focus();
         }
       } else {
-        // Enter: ir al siguiente input
+        // Enter/Tab: ir al siguiente input
         const nextIndex = currentIndex + 1;
         if (nextIndex < denominaciones.length && inputRefs.current[nextIndex]) {
           inputRefs.current[nextIndex]?.focus();
@@ -933,6 +933,7 @@ export default function CashCounterTabs() {
   // Cargar datos al iniciar
   useEffect(() => {
     loadFromLocalStorage();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Guardar datos cuando cambien
@@ -1026,14 +1027,17 @@ export default function CashCounterTabs() {
           const importData = JSON.parse(ev.target?.result as string);
           
           if (importData.counters && Array.isArray(importData.counters)) {
-            const normalized = importData.counters.map((item: any, idx: number) => ({
-              name: item.name || `Contador ${idx + 1}`,
-              bills: item.bills || {},
-              extraAmount: item.extraAmount || 0,
-              currency: (item.currency as 'CRC' | 'USD') || 'CRC',
-              aperturaCaja: item.aperturaCaja || 0,
-              ventaActual: item.ventaActual || 0,
-            }));
+            const normalized = importData.counters.map((item: unknown, idx: number) => {
+              const counterItem = item as Record<string, unknown>;
+              return {
+                name: (typeof counterItem.name === 'string' ? counterItem.name : null) || `Contador ${idx + 1}`,
+                bills: (typeof counterItem.bills === 'object' && counterItem.bills !== null ? counterItem.bills : {}) as BillsMap,
+                extraAmount: (typeof counterItem.extraAmount === 'number' ? counterItem.extraAmount : null) || 0,
+                currency: (counterItem.currency === 'CRC' || counterItem.currency === 'USD' ? counterItem.currency : 'CRC') as 'CRC' | 'USD',
+                aperturaCaja: (typeof counterItem.aperturaCaja === 'number' ? counterItem.aperturaCaja : null) || 0,
+                ventaActual: (typeof counterItem.ventaActual === 'number' ? counterItem.ventaActual : null) || 0,
+              };
+            });
             
             const newActiveTab = Math.min(importData.activeTab || 0, normalized.length - 1);
             
@@ -1066,7 +1070,7 @@ export default function CashCounterTabs() {
         return `${countersCount} contadores • ${sizeInKB} KB`;
       }
       return 'Sin datos guardados';
-    } catch (error) {
+    } catch {
       return 'Error obteniendo información';
     }
   };
