@@ -750,16 +750,7 @@ export default function ControlHorario() {
                 </select>
               </div>
 
-              {/* Botón de exportar - Solo para SuperAdmin */}
-              {isSuperAdmin() && (
-                <button
-                  onClick={exportScheduleAsImage}
-                  className="flex items-center gap-2 px-3 py-1 text-xs sm:text-sm bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors whitespace-nowrap w-full sm:w-auto justify-center"
-                  title="Exportar como imagen"
-                >
-                  📷 <span className="hidden sm:inline">Exportar Imagen</span><span className="sm:hidden">Exportar</span>
-                </button>
-              )}
+
             </div>
           </div>
         </div>
