@@ -15,7 +15,7 @@ import type { Location } from '../types/firestore';
 import type { User as FirestoreUser } from '../types/firestore';
 import html2canvas from 'html2canvas';
 import QRCode from 'qrcode';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '../config/firebase';
 
 interface ScheduleData {
@@ -710,14 +710,6 @@ export default function ControlHorario() {
           return prev - 1;
         });
       }, 1000);
-      // Borrar la imagen de Firebase después de 1 minuto
-      setTimeout(async () => {
-        try {
-          await deleteObject(imageRef);
-        } catch {
-          // Ignorar error de borrado
-        }
-      }, 60000); // 1 minuto
     } catch {
       alert('Error al exportar la quincena.');
     } finally {
