@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   PlusCircle,
   MinusCircle,
@@ -223,6 +223,37 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
   const [nuevaVenta, setNuevaVenta] = useState<number>(0);
   const [ventaAgregada, setVentaAgregada] = useState<boolean>(false);
 
+  // Ref para navegar entre inputs de denominaciones
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  // Función para manejar navegación con ENTER
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, currentIndex: number) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      
+      if (e.shiftKey) {
+        // Shift+Enter: ir al input anterior
+        const prevIndex = currentIndex - 1;
+        if (prevIndex >= 0 && inputRefs.current[prevIndex]) {
+          inputRefs.current[prevIndex]?.focus();
+        } else {
+          // Si es el primer input, ir al último
+          const lastIndex = denominaciones.length - 1;
+          inputRefs.current[lastIndex]?.focus();
+        }
+      } else {
+        // Enter: ir al siguiente input
+        const nextIndex = currentIndex + 1;
+        if (nextIndex < denominaciones.length && inputRefs.current[nextIndex]) {
+          inputRefs.current[nextIndex]?.focus();
+        } else {
+          // Si es el último input, volver al primero
+          inputRefs.current[0]?.focus();
+        }
+      }
+    }
+  };
+
   // Sincronizar props → estado interno
   useEffect(() => {
     setBills({ ...data.bills });
@@ -231,6 +262,11 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
     setAperturaCaja(data.aperturaCaja);
     setVentaActual(data.ventaActual);
   }, [data]);
+
+  // Inicializar array de refs cuando cambien las denominaciones
+  useEffect(() => {
+    inputRefs.current = inputRefs.current.slice(0, denominaciones.length);
+  }, [denominaciones.length]);
 
   // Notificar al padre cuando cambia algún valor
   const notifyParent = (newBills: BillsMap, newExtra: number, newCurrency: 'CRC' | 'USD', newApertura?: number, newVenta?: number) => {
@@ -637,7 +673,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
 
       {/* Lista de denominaciones sin scroll interno */}
       <div className="space-y-4 mt-4 mb-32">
-        {denominaciones.map((den) => {
+        {denominaciones.map((den, index) => {
           const count = bills[den.value] || 0;
           const subtotal = den.value * count;
           return (
@@ -664,10 +700,12 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
                   <MinusCircle className="w-6 h-6 text-white" />
                 </button>
                 <input
+                  ref={(el) => { inputRefs.current[index] = el; }}
                   type="text"
                   inputMode="numeric"
                   value={count === 0 ? '' : String(count)}
                   onChange={(e) => handleManualChange(den.value, e.target.value)}
+                  onKeyDown={(e) => handleKeyDown(e, index)}
                   className={INPUT_STYLES.counter}
                   placeholder="0"
                 />
