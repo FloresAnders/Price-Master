@@ -1,5 +1,5 @@
-'use client'; 
-import React, { useState, useEffect } from 'react';
+'use client';
+import { useState, useEffect, useCallback } from 'react';
 import {
   PlusCircle,
   MinusCircle,
@@ -12,7 +12,38 @@ import {
   Eraser,
   Download,
   Upload,
+  Plus,
 } from 'lucide-react';
+
+// Modal base component to reduce code duplication
+type BaseModalProps = {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+};
+
+function BaseModal({ isOpen, onClose, title, children }: BaseModalProps) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+      <div className="bg-[var(--card-bg)] rounded-2xl shadow-xl w-full max-w-[20rem] p-4 relative">
+        <button
+          className="absolute top-2 right-2 text-[var(--foreground)] hover:text-gray-500"
+          onClick={onClose}
+          aria-label={`Cerrar ${title.toLowerCase()}`}
+        >
+          <XCircle className="w-6 h-6" />
+        </button>
+        <h2 className="text-center font-semibold mb-2 text-[var(--foreground)] text-base">
+          {title}
+        </h2>
+        {children}
+      </div>
+    </div>
+  );
+}
 
 type CalculatorModalProps = {
   isOpen: boolean;
@@ -22,10 +53,11 @@ type CalculatorModalProps = {
 function CalculatorModal({ isOpen, onClose }: CalculatorModalProps) {
   const [display, setDisplay] = useState<string>('');
 
-  const handleButtonClick = React.useCallback((value: string) => {
+  const handleButtonClick = useCallback((value: string) => {
     if (value === '=') {
       try {
-        const result = eval(display);
+        // Safer evaluation than eval()
+        const result = Function('"use strict"; return (' + display + ')')();
         setDisplay(String(result));
       } catch {
         setDisplay('Error');
@@ -77,59 +109,46 @@ function CalculatorModal({ isOpen, onClose }: CalculatorModalProps) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, handleButtonClick, onClose]);
 
-  if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-[var(--card-bg)] rounded-2xl shadow-xl w-full max-w-[20rem] p-4 relative">
-        <button
-          className="absolute top-2 right-2 text-[var(--foreground)] hover:text-gray-500"
-          onClick={onClose}
-          aria-label="Cerrar calculadora"
-        >
-          <XCircle className="w-6 h-6" />
-        </button>
-        <h2 className="text-center font-semibold mb-2 text-[var(--foreground)] text-base">
-          Calculadora
-        </h2>
-        <div className="border rounded-lg mb-3 h-10 flex items-center justify-end px-2 bg-[var(--input-bg)]">
-          <span className="text-lg text-[var(--foreground)]">{display || '0'}</span>
-        </div>
-        <div className="grid grid-cols-4 gap-1">
-          {[
-            '7',
-            '8',
-            '9',
-            '/',
-            '4',
-            '5',
-            '6',
-            '*',
-            '1',
-            '2',
-            '3',
-            '-',
-            '0',
-            '.',
-            'C',
-            '+',
-          ].map((btn) => (
-            <button
-              key={btn}
-              onClick={() => handleButtonClick(btn)}
-              className="bg-[var(--button-bg)] hover:bg-[var(--button-hover)] rounded py-2 text-sm text-[var(--foreground)] flex items-center justify-center"
-            >
-              {btn}
-            </button>
-          ))}
-          <button
-            onClick={() => handleButtonClick('=')}
-            className="col-span-4 bg-blue-600 hover:bg-blue-700 text-white rounded py-2 mt-1 text-sm"
-          >
-            =
-          </button>
-        </div>
+    <BaseModal isOpen={isOpen} onClose={onClose} title="Calculadora">
+      <div className="border rounded-lg mb-3 h-10 flex items-center justify-end px-2 bg-[var(--input-bg)]">
+        <span className="text-lg text-[var(--foreground)]">{display || '0'}</span>
       </div>
-    </div>
+      <div className="grid grid-cols-4 gap-1">
+        {[
+          '7',
+          '8',
+          '9',
+          '/',
+          '4',
+          '5',
+          '6',
+          '*',
+          '1',
+          '2',
+          '3',
+          '-',
+          '0',
+          '.',
+          'C',
+          '+',
+        ].map((btn) => (
+          <button
+            key={btn}
+            onClick={() => handleButtonClick(btn)}
+            className="bg-[var(--button-bg)] hover:bg-[var(--button-hover)] rounded py-2 text-sm text-[var(--foreground)] flex items-center justify-center"
+          >
+            {btn}
+          </button>
+        ))}
+        <button
+          onClick={() => handleButtonClick('=')}
+          className="col-span-4 bg-blue-600 hover:bg-blue-700 text-white rounded py-2 mt-1 text-sm"
+        >
+          =
+        </button>
+      </div>
+    </BaseModal>
   );
 }
 
@@ -140,6 +159,8 @@ type CashCounterData = {
   bills: BillsMap;
   extraAmount: number;
   currency: 'CRC' | 'USD';
+  aperturaCaja: number;
+  ventaActual: number;
 };
 
 type CashCounterProps = {
@@ -151,6 +172,23 @@ type CashCounterProps = {
 };
 
 function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCounterProps) {
+  // CSS Constants
+  const BUTTON_STYLES = {
+    increment: "p-2 bg-green-500 hover:bg-green-600 rounded-full",
+    decrement: "p-2 bg-red-500 hover:bg-red-600 rounded-full",
+    iconPrimary: "text-blue-500 hover:text-blue-700",
+    iconSecondary: "text-green-600 hover:text-green-800",
+    iconDanger: "text-red-500 hover:text-red-700",
+    iconWarning: "text-yellow-500 hover:text-yellow-700",
+    modal: "bg-green-500 text-white rounded-full w-16 h-16 flex items-center justify-center shadow-xl",
+    close: "absolute top-2 right-2 text-[var(--foreground)] hover:text-gray-500"
+  };
+
+  const INPUT_STYLES = {
+    counter: "w-12 text-center bg-[var(--background)] border border-[var(--input-border)] rounded py-1 text-[var(--foreground)] text-sm",
+    modal: "w-full px-2 py-1 border-none bg-transparent text-[var(--foreground)] text-right text-base focus:outline-none",
+    standard: "w-full px-2 py-1 border rounded bg-[var(--input-bg)] text-[var(--foreground)] text-base focus:outline-none"
+  };
   // Denominaciones fijas según moneda
   const denominacionesCRC = [
     { label: '₡ 20 000', value: 20000 },
@@ -180,25 +218,29 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
   const [extraAmount, setExtraAmount] = useState<number>(data.extraAmount);
   const [currency, setCurrency] = useState<'CRC' | 'USD'>(data.currency);
   const [showExtra, setShowExtra] = useState<boolean>(false);
-
-  // Estado para apertura de caja y venta actual
-  const [aperturaCaja, setAperturaCaja] = useState<number | ''>('');
-  const [ventaActual, setVentaActual] = useState<number | ''>('');
+  const [aperturaCaja, setAperturaCaja] = useState<number>(data.aperturaCaja);
+  const [ventaActual, setVentaActual] = useState<number>(data.ventaActual);
+  const [nuevaVenta, setNuevaVenta] = useState<number>(0);
+  const [ventaAgregada, setVentaAgregada] = useState<boolean>(false);
 
   // Sincronizar props → estado interno
   useEffect(() => {
     setBills({ ...data.bills });
     setExtraAmount(data.extraAmount);
     setCurrency(data.currency);
+    setAperturaCaja(data.aperturaCaja);
+    setVentaActual(data.ventaActual);
   }, [data]);
 
   // Notificar al padre cuando cambia algún valor
-  const notifyParent = (newBills: BillsMap, newExtra: number, newCurrency: 'CRC' | 'USD') => {
+  const notifyParent = (newBills: BillsMap, newExtra: number, newCurrency: 'CRC' | 'USD', newApertura?: number, newVenta?: number) => {
     onUpdate(id, {
       ...data,
       bills: newBills,
       extraAmount: newExtra,
       currency: newCurrency,
+      aperturaCaja: newApertura !== undefined ? newApertura : aperturaCaja,
+      ventaActual: newVenta !== undefined ? newVenta : ventaActual,
     });
   };
 
@@ -234,20 +276,41 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
     return sumBills + extraAmount;
   };
 
-  const formatCRC = (num: number) => {
-    return new Intl.NumberFormat('es-CR', {
+  const formatCurrency = (num: number, currency: 'CRC' | 'USD') => {
+    return new Intl.NumberFormat(currency === 'CRC' ? 'es-CR' : 'en-US', {
       style: 'currency',
-      currency: 'CRC',
+      currency: currency,
       minimumFractionDigits: 0,
     }).format(num);
   };
 
-  const formatUSD = (num: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-    }).format(num);
+  const calculateDifference = () => {
+    if (aperturaCaja === 0 && ventaActual === 0) return null;
+
+    const montoRestante = computeTotal() - ventaActual;
+    const diferencia = Math.abs(montoRestante - aperturaCaja);
+
+    if (montoRestante > aperturaCaja) {
+      return { type: 'sobrante', amount: diferencia };
+    } else if (montoRestante < aperturaCaja) {
+      return { type: 'faltante', amount: diferencia };
+    } else {
+      return { type: 'equilibrio', amount: 0 };
+    }
+  };
+
+  const renderDifferenceMessage = (className = 'text-center mx-2') => {
+    const diff = calculateDifference();
+    if (!diff) return null;
+
+    const colorClass = diff.type === 'sobrante' ? 'text-green-600' :
+      diff.type === 'faltante' ? 'text-red-600' : 'text-[var(--foreground)]';
+
+    const message = diff.type === 'sobrante' ? `Sobrante: ${formatCurrency(diff.amount, currency)}` :
+      diff.type === 'faltante' ? `Faltante: ${formatCurrency(diff.amount, currency)}` :
+        'Sin sobrante ni faltante';
+
+    return <span className={`${colorClass} font-semibold ${className}`}>{message}</span>;
   };
 
   // Manejador del input de monto adicional (formateo instantáneo)
@@ -275,6 +338,43 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
     notifyParent(bills, 0, currency);
   };
 
+  const handleAperturaCajaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value === '' ? 0 : Number(e.target.value);
+    setAperturaCaja(value);
+    notifyParent(bills, extraAmount, currency, value, ventaActual);
+  };
+
+  const handleVentaActualChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value === '' ? 0 : Number(e.target.value);
+    setVentaActual(value);
+    notifyParent(bills, extraAmount, currency, aperturaCaja, value);
+  };
+
+  const handleNuevaVentaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value === '' ? 0 : Number(e.target.value);
+    setNuevaVenta(value);
+  };
+
+  const agregarVenta = () => {
+    if (nuevaVenta > 0) {
+      const nuevaVentaTotal = ventaActual + nuevaVenta;
+      setVentaActual(nuevaVentaTotal);
+      setNuevaVenta(0); // Limpiar el input
+      
+      // Mostrar feedback visual
+      setVentaAgregada(true);
+      setTimeout(() => setVentaAgregada(false), 2000);
+      
+      notifyParent(bills, extraAmount, currency, aperturaCaja, nuevaVentaTotal);
+    }
+  };
+
+  const handleKeyPressNuevaVenta = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      agregarVenta();
+    }
+  };
+
   return (
     <div className="relative p-4 bg-[var(--card-bg)] rounded-2xl shadow-lg w-full">
       {/* Header reorganizado para móvil: iconos centrados arriba, nombre debajo */}
@@ -290,18 +390,28 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
                 });
                 setBills(resetBills);
                 setExtraAmount(0);
-                notifyParent(resetBills, 0, currency);
+                setAperturaCaja(0);
+                setVentaActual(0);
+                setNuevaVenta(0);
+                notifyParent(resetBills, 0, currency, 0, 0);
               }
             }}
-            className="text-yellow-500 hover:text-yellow-700"
+            className={BUTTON_STYLES.iconWarning}
             aria-label="Limpiar todos los montos"
           >
             <Eraser className="w-6 h-6" />
           </button>
-          {/* Botón para descargar datos */}
+          {/* ...existing code... */}
           <button
             onClick={() => {
-              const content = JSON.stringify({ name: data.name, bills, extraAmount, currency });
+              const content = JSON.stringify({
+                name: data.name,
+                bills,
+                extraAmount,
+                currency,
+                aperturaCaja,
+                ventaActual
+              });
               const blob = new Blob([content], { type: 'application/json' });
               const url = URL.createObjectURL(blob);
               const a = document.createElement('a');
@@ -315,7 +425,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
           >
             <Download className="w-6 h-6" />
           </button>
-          {/* Botón para subir/importar datos */}
+          {/* ...existing code... */}
           <button
             onClick={() => {
               const input = document.createElement('input');
@@ -339,7 +449,9 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
                       setBills(parsed.bills);
                       setExtraAmount(parsed.extraAmount);
                       setCurrency(parsed.currency);
-                      notifyParent(parsed.bills, parsed.extraAmount, parsed.currency);
+                      setAperturaCaja(parsed.aperturaCaja || 0);
+                      setVentaActual(parsed.ventaActual || 0);
+                      notifyParent(parsed.bills, parsed.extraAmount, parsed.currency, parsed.aperturaCaja || 0, parsed.ventaActual || 0);
                     } else {
                       alert('Archivo JSON inválido para Cash Counter.');
                     }
@@ -383,6 +495,33 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
         </h3>
       </div>
 
+      {/* Sección de resumen de caja */}
+      {(aperturaCaja > 0 || ventaActual > 0) && (
+        <div className="bg-[var(--input-bg)] rounded-lg p-3 mb-4 border border-[var(--input-border)]">
+          <h4 className="text-sm font-semibold text-[var(--foreground)] mb-2 text-center">Resumen de Caja</h4>
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="text-center">
+              <span className="block text-[var(--foreground)] opacity-75">Apertura</span>
+              <span className="font-medium text-[var(--foreground)]">
+                {formatCurrency(aperturaCaja, currency)}
+              </span>
+            </div>
+            <div className="text-center">
+              <span className="block text-[var(--foreground)] opacity-75">Venta</span>
+              <span className="font-medium text-[var(--foreground)]">
+                {formatCurrency(ventaActual, currency)}
+              </span>
+            </div>
+          </div>
+          {/* Mostrar diferencia si hay valores */}
+          {aperturaCaja > 0 && ventaActual > 0 && (
+            <div className="mt-2 text-center border-t border-[var(--input-border)] pt-2">
+              {renderDifferenceMessage('text-center')}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Botón para monto adicional fijo */}
       <div className="fixed bottom-32 left-6 z-20">
         <button
@@ -415,9 +554,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
                 value={
                   extraAmount === 0
                     ? ''
-                    : currency === 'CRC'
-                      ? formatCRC(extraAmount)
-                      : formatUSD(extraAmount)
+                    : formatCurrency(extraAmount, currency)
                 }
                 onChange={handleExtraChange}
                 className="w-full px-2 py-1 border-none bg-transparent text-[var(--foreground)] text-right text-base focus:outline-none"
@@ -437,8 +574,8 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
               <input
                 type="number"
                 min="0"
-                value={aperturaCaja}
-                onChange={e => setAperturaCaja(e.target.value === '' ? '' : Number(e.target.value))}
+                value={aperturaCaja || ''}
+                onChange={handleAperturaCajaChange}
                 className="w-full px-2 py-1 border rounded bg-[var(--input-bg)] text-[var(--foreground)] text-base focus:outline-none"
                 placeholder="0"
               />
@@ -448,26 +585,52 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
               <input
                 type="number"
                 min="0"
-                value={ventaActual}
-                onChange={e => setVentaActual(e.target.value === '' ? '' : Number(e.target.value))}
+                value={ventaActual || ''}
+                onChange={handleVentaActualChange}
                 className="w-full px-2 py-1 border rounded bg-[var(--input-bg)] text-[var(--foreground)] text-base focus:outline-none"
                 placeholder="0"
               />
             </div>
+            
+            {/* Nueva sección para agregar venta */}
+            <div className="mb-2">
+              <label className="block text-[var(--foreground)] text-sm mb-1">Agregar venta</label>
+              <div className="flex space-x-2">
+                <input
+                  type="number"
+                  min="0"
+                  value={nuevaVenta || ''}
+                  onChange={handleNuevaVentaChange}
+                  onKeyPress={handleKeyPressNuevaVenta}
+                  className="w-28 px-2 py-1 border rounded bg-[var(--input-bg)] text-[var(--foreground)] text-base focus:outline-none"
+                  placeholder="0"
+                />
+                <button
+                  onClick={agregarVenta}
+                  disabled={nuevaVenta <= 0}
+                  className={`px-3 py-1 rounded text-sm font-medium flex items-center whitespace-nowrap ${
+                    nuevaVenta > 0
+                      ? 'bg-green-600 hover:bg-green-700 text-white'
+                      : 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                  }`}
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  Agregar
+                </button>
+              </div>
+              {nuevaVenta > 0 && (
+                <div className="mt-1 text-xs text-[var(--foreground)] opacity-75">
+                  Total después: {formatCurrency(ventaActual + nuevaVenta, currency)}
+                </div>
+              )}
+              {ventaAgregada && (
+                <div className="mt-1 text-xs text-green-600 font-medium animate-pulse">
+                  ✓ Venta agregada correctamente
+                </div>
+              )}
+            </div>
             {/* Mensaje de sobrante/faltante */}
-            {aperturaCaja !== '' && ventaActual !== '' && (
-              (() => {
-                const montoRestante = computeTotal() - Number(ventaActual);
-                const diferencia = Math.abs(montoRestante - Number(aperturaCaja));
-                if (montoRestante > Number(aperturaCaja)) {
-                  return <div className="mt-2 text-green-600 font-semibold text-center">Sobrante: {currency === 'CRC' ? formatCRC(diferencia) : formatUSD(diferencia)}</div>;
-                } else if (montoRestante < Number(aperturaCaja)) {
-                  return <div className="mt-2 text-red-600 font-semibold text-center">Faltante: {currency === 'CRC' ? formatCRC(diferencia) : formatUSD(diferencia)}</div>;
-                } else {
-                  return <div className="mt-2 text-[var(--foreground)] font-semibold text-center">Sin sobrante ni faltante</div>;
-                }
-              })()
-            )}
+            {renderDifferenceMessage('mt-2 text-center')}
           </div>
         </div>
       )}
@@ -495,7 +658,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
               <div className="flex items-center space-x-2 w-full sm:w-1/4 justify-center mb-2 sm:mb-0">
                 <button
                   onClick={() => handleDecrement(den.value)}
-                  className="p-2 bg-red-500 hover:bg-red-600 rounded-full"
+                  className={BUTTON_STYLES.decrement}
                   aria-label={`Disminuir ${den.label}`}
                 >
                   <MinusCircle className="w-6 h-6 text-white" />
@@ -505,12 +668,12 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
                   inputMode="numeric"
                   value={count === 0 ? '' : String(count)}
                   onChange={(e) => handleManualChange(den.value, e.target.value)}
-                  className="w-12 text-center bg-[var(--background)] border border-[var(--input-border)] rounded py-1 text-[var(--foreground)] text-sm"
+                  className={INPUT_STYLES.counter}
                   placeholder="0"
                 />
                 <button
                   onClick={() => handleIncrement(den.value)}
-                  className="p-2 bg-green-500 hover:bg-green-600 rounded-full"
+                  className={BUTTON_STYLES.increment}
                   aria-label={`Aumentar ${den.label}`}
                 >
                   <PlusCircle className="w-6 h-6 text-white" />
@@ -519,7 +682,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
 
               {/* Subtotal: alineado a la derecha en escritorio, centrado en móvil */}
               <span className="font-medium text-[var(--foreground)] text-sm sm:text-base sm:w-1/4 text-center sm:text-right">
-                {currency === 'CRC' ? formatCRC(subtotal) : formatUSD(subtotal)}
+                {formatCurrency(subtotal, currency)}
               </span>
             </div>
           );
@@ -532,21 +695,9 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
           Total:
         </span>
         {/* Mensaje de sobrante/faltante entre el total y el monto */}
-        {aperturaCaja !== '' && ventaActual !== '' && (
-          (() => {
-            const montoRestante = computeTotal() - Number(ventaActual);
-            const diferencia = Math.abs(montoRestante - Number(aperturaCaja));
-            if (montoRestante > Number(aperturaCaja)) {
-              return <span className="text-green-600 font-semibold text-center mx-2">Sobrante: {currency === 'CRC' ? formatCRC(diferencia) : formatUSD(diferencia)}</span>;
-            } else if (montoRestante < Number(aperturaCaja)) {
-              return <span className="text-red-600 font-semibold text-center mx-2">Faltante: {currency === 'CRC' ? formatCRC(diferencia) : formatUSD(diferencia)}</span>;
-            } else {
-              return <span className="text-[var(--foreground)] font-semibold text-center mx-2">Sin sobrante ni faltante</span>;
-            }
-          })()
-        )}
+        {renderDifferenceMessage()}
         <span className="text-xl font-bold text-[var(--foreground)] text-center sm:text-right">
-          {currency === 'CRC' ? formatCRC(computeTotal()) : formatUSD(computeTotal())}
+          {formatCurrency(computeTotal(), currency)}
         </span>
       </div>
     </div>
@@ -567,39 +718,26 @@ function RenameModal({ isOpen, currentName, onSave, onClose }: RenameModalProps)
     setNewName(currentName);
   }, [currentName]);
 
-  if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-[var(--card-bg)] rounded-2xl shadow-xl w-full max-w-[20rem] p-4 relative">
-        <button
-          className="absolute top-2 right-2 text-[var(--foreground)] hover:text-gray-500"
-          onClick={onClose}
-          aria-label="Cerrar renombrar"
-        >
-          <XCircle className="w-6 h-6" />
-        </button>
-        <h2 className="text-center font-semibold mb-2 text-[var(--foreground)] text-base">
-          Renombrar Contador
-        </h2>
-        <div className="border rounded-lg mb-3 h-10 flex items-center justify-end px-2 bg-[var(--input-bg)]">
-          <input
-            type="text"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            className="w-full px-2 py-1 border-none bg-transparent text-[var(--foreground)] text-right text-base focus:outline-none"
-          />
-        </div>
-        <button
-          onClick={() => {
-            onSave(newName.trim() === '' ? currentName : newName);
-            onClose();
-          }}
-          className="w-full bg-purple-600 hover:bg-purple-700 text-white rounded-lg py-2"
-        >
-          Guardar
-        </button>
+    <BaseModal isOpen={isOpen} onClose={onClose} title="Renombrar Contador">
+      <div className="border rounded-lg mb-3 h-10 flex items-center justify-end px-2 bg-[var(--input-bg)]">
+        <input
+          type="text"
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          className="w-full px-2 py-1 border-none bg-transparent text-[var(--foreground)] text-right text-base focus:outline-none"
+        />
       </div>
-    </div>
+      <button
+        onClick={() => {
+          onSave(newName.trim() === '' ? currentName : newName);
+          onClose();
+        }}
+        className="w-full bg-purple-600 hover:bg-purple-700 text-white rounded-lg py-2"
+      >
+        Guardar
+      </button>
+    </BaseModal>
   );
 }
 
@@ -617,51 +755,38 @@ function CurrencyModal({ isOpen, currentCurrency, onSave, onClose }: CurrencyMod
     setSelected(currentCurrency);
   }, [currentCurrency]);
 
-  if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-[var(--card-bg)] rounded-2xl shadow-xl w-full max-w-[20rem] p-4 relative">
+    <BaseModal isOpen={isOpen} onClose={onClose} title="Seleccionar Moneda">
+      <div className="flex justify-around mb-3">
         <button
-          className="absolute top-2 right-2 text-[var(--foreground)] hover:text-gray-500"
-          onClick={onClose}
-          aria-label="Cerrar moneda"
+          onClick={() => setSelected('CRC')}
+          className={`px-4 py-2 rounded-lg ${selected === 'CRC'
+            ? 'bg-purple-600 text-white'
+            : 'bg-[var(--input-bg)] text-[var(--foreground)] hover:bg-[var(--button-hover)]'
+            }`}
         >
-          <XCircle className="w-6 h-6" />
+          Colones (CRC)
         </button>
-        <h2 className="text-center font-semibold mb-2 text-[var(--foreground)] text-base">
-          Seleccionar Moneda
-        </h2>
-        <div className="flex justify-around mb-3">
-          <button
-            onClick={() => setSelected('CRC')}
-            className={`px-4 py-2 rounded-lg ${selected === 'CRC'
-              ? 'bg-purple-600 text-white'
-              : 'bg-[var(--input-bg)] text-[var(--foreground)] hover:bg-[var(--button-hover)]'
-              }`}
-          >
-            Colones (CRC)
-          </button>
-          <button
-            onClick={() => setSelected('USD')}
-            className={`px-4 py-2 rounded-lg ${selected === 'USD'
-              ? 'bg-purple-600 text-white'
-              : 'bg-[var(--input-bg)] text-[var(--foreground)] hover:bg-[var(--button-hover)]'
-              }`}
-          >
-            Dólares (USD)
-          </button>
-        </div>
         <button
-          onClick={() => {
-            onSave(selected);
-            onClose();
-          }}
-          className="w-full bg-purple-600 hover:bg-purple-700 text-white rounded-lg py-2"
+          onClick={() => setSelected('USD')}
+          className={`px-4 py-2 rounded-lg ${selected === 'USD'
+            ? 'bg-purple-600 text-white'
+            : 'bg-[var(--input-bg)] text-[var(--foreground)] hover:bg-[var(--button-hover)]'
+            }`}
         >
-          Guardar
+          Dólares (USD)
         </button>
       </div>
-    </div>
+      <button
+        onClick={() => {
+          onSave(selected);
+          onClose();
+        }}
+        className="w-full bg-purple-600 hover:bg-purple-700 text-white rounded-lg py-2"
+      >
+        Guardar
+      </button>
+    </BaseModal>
   );
 }
 
@@ -669,6 +794,8 @@ export default function CashCounterTabs() {
   const [tabsData, setTabsData] = useState<CashCounterData[]>([]);
   const [activeTab, setActiveTab] = useState<number>(0);
   const [isCalcOpen, setIsCalcOpen] = useState<boolean>(false);
+  const [lastSaved, setLastSaved] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
 
   // Para renombrar
   const [renameModalOpen, setRenameModalOpen] = useState<boolean>(false);
@@ -677,55 +804,258 @@ export default function CashCounterTabs() {
   // Para cambiar moneda
   const [currencyModalOpen, setCurrencyModalOpen] = useState<boolean>(false);
 
-  useEffect(() => {
-    const saved = window.localStorage.getItem('cashCounters');
-    if (saved) {
-      const parsed: CashCounterData[] = JSON.parse(saved);
-      const normalized = parsed.map((item, idx) => ({
-        name: item.name || `Contador ${idx + 1}`,
-        bills: item.bills,
-        extraAmount: item.extraAmount,
-        currency: item.currency,
-      }));
-      setTabsData(normalized);
-      setActiveTab(0);
-    } else {
-      setTabsData([{ name: 'Contador 1', bills: {}, extraAmount: 0, currency: 'CRC' }]);
-      setActiveTab(0);
+  // Función para guardar en localStorage con manejo de errores
+  const saveToLocalStorage = async (data: CashCounterData[], activeTabIndex: number) => {
+    setIsSaving(true);
+    try {
+      const saveData = {
+        counters: data,
+        activeTab: activeTabIndex,
+        lastSaved: new Date().toISOString()
+      };
+      window.localStorage.setItem('cashCounters', JSON.stringify(saveData));
+      setLastSaved(new Date().toLocaleTimeString());
+      console.log('✅ Datos guardados en localStorage:', saveData);
+      
+      // Simular un pequeño delay para mostrar el indicador de guardado
+      await new Promise(resolve => setTimeout(resolve, 500));
+    } catch (error) {
+      console.error('❌ Error guardando en localStorage:', error);
+      alert('Error al guardar los datos. Verifica el espacio de almacenamiento.');
+    } finally {
+      setIsSaving(false);
     }
+  };
+
+  // Función para cargar desde localStorage con manejo de errores
+  const loadFromLocalStorage = () => {
+    try {
+      const saved = window.localStorage.getItem('cashCounters');
+      if (saved) {
+        const parsedData = JSON.parse(saved);
+        
+        // Compatibilidad con formato anterior
+        let counters: CashCounterData[];
+        let activeTabIndex = 0;
+        
+        if (Array.isArray(parsedData)) {
+          // Formato anterior: solo array de contadores
+          counters = parsedData;
+        } else if (parsedData.counters) {
+          // Formato nuevo: objeto con contadores y pestaña activa
+          counters = parsedData.counters;
+          activeTabIndex = parsedData.activeTab || 0;
+        } else {
+          throw new Error('Formato de datos no válido');
+        }
+
+        const normalized = counters.map((item, idx) => ({
+          name: item.name || `Contador ${idx + 1}`,
+          bills: item.bills || {},
+          extraAmount: item.extraAmount || 0,
+          currency: (item.currency as 'CRC' | 'USD') || 'CRC',
+          aperturaCaja: item.aperturaCaja || 0,
+          ventaActual: item.ventaActual || 0,
+        }));
+        
+        setTabsData(normalized);
+        setActiveTab(Math.min(activeTabIndex, normalized.length - 1));
+        console.log('✅ Datos cargados desde localStorage:', { counters: normalized, activeTab: activeTabIndex });
+      } else {
+        // Datos por defecto si no hay nada guardado
+        const defaultData = [{ 
+          name: 'Contador 1', 
+          bills: {}, 
+          extraAmount: 0, 
+          currency: 'CRC' as 'CRC' | 'USD', 
+          aperturaCaja: 0, 
+          ventaActual: 0 
+        }];
+        setTabsData(defaultData);
+        setActiveTab(0);
+        saveToLocalStorage(defaultData, 0);
+      }
+    } catch (error) {
+      console.error('❌ Error cargando desde localStorage:', error);
+      // Datos por defecto en caso de error
+      const defaultData = [{ 
+        name: 'Contador 1', 
+        bills: {}, 
+        extraAmount: 0, 
+        currency: 'CRC' as 'CRC' | 'USD', 
+        aperturaCaja: 0, 
+        ventaActual: 0 
+      }];
+      setTabsData(defaultData);
+      setActiveTab(0);
+      alert('Error al cargar los datos guardados. Se han restablecido los valores por defecto.');
+    }
+  };
+
+  // Cargar datos al iniciar
+  useEffect(() => {
+    loadFromLocalStorage();
   }, []);
 
+  // Guardar datos cuando cambien
   useEffect(() => {
-    window.localStorage.setItem('cashCounters', JSON.stringify(tabsData));
-  }, [tabsData]);
+    if (tabsData.length > 0) {
+      saveToLocalStorage(tabsData, activeTab);
+    }
+  }, [tabsData, activeTab]);
 
   const addNewTab = () => {
-    setTabsData((prev) => [
-      ...prev,
-      { name: `Contador ${prev.length + 1}`, bills: {}, extraAmount: 0, currency: 'CRC' },
-    ]);
-    setActiveTab(tabsData.length);
+    const newTab = { 
+      name: `Contador ${tabsData.length + 1}`, 
+      bills: {}, 
+      extraAmount: 0, 
+      currency: 'CRC' as 'CRC' | 'USD', 
+      aperturaCaja: 0, 
+      ventaActual: 0 
+    };
+    const newTabsData = [...tabsData, newTab];
+    const newActiveTab = tabsData.length;
+    
+    setTabsData(newTabsData);
+    setActiveTab(newActiveTab);
+    saveToLocalStorage(newTabsData, newActiveTab);
   };
 
   const deleteTab = (index: number) => {
-    setTabsData((prev) => {
-      const copy = [...prev];
-      copy.splice(index, 1);
-      return copy;
-    });
-    if (activeTab === index) {
-      setActiveTab(0);
-    } else if (activeTab > index) {
-      setActiveTab((prev) => prev - 1);
+    if (tabsData.length <= 1) {
+      alert('No puedes eliminar el último contador. Debe haber al menos uno.');
+      return;
     }
+    
+    const newTabsData = tabsData.filter((_, idx) => idx !== index);
+    let newActiveTab = activeTab;
+    
+    if (activeTab === index) {
+      newActiveTab = 0;
+    } else if (activeTab > index) {
+      newActiveTab = activeTab - 1;
+    }
+    
+    setTabsData(newTabsData);
+    setActiveTab(newActiveTab);
+    saveToLocalStorage(newTabsData, newActiveTab);
   };
 
   const updateTab = (index: number, newData: CashCounterData) => {
-    setTabsData((prev) => {
-      const copy = [...prev];
-      copy[index] = newData;
-      return copy;
-    });
+    const newTabsData = [...tabsData];
+    newTabsData[index] = newData;
+    setTabsData(newTabsData);
+    saveToLocalStorage(newTabsData, activeTab);
+  };
+
+  // Función para exportar todos los datos a un archivo JSON
+  const exportAllData = () => {
+    try {
+      const exportData = {
+        version: "1.0",
+        exportDate: new Date().toISOString(),
+        counters: tabsData,
+        activeTab: activeTab
+      };
+      
+      const content = JSON.stringify(exportData, null, 2);
+      const blob = new Blob([content], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `cash-counter-backup-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error exportando datos:', error);
+      alert('Error al exportar los datos.');
+    }
+  };
+
+  // Función para importar todos los datos desde un archivo JSON
+  const importAllData = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json';
+    input.onchange = (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      const file = target.files?.[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const importData = JSON.parse(ev.target?.result as string);
+          
+          if (importData.counters && Array.isArray(importData.counters)) {
+            const normalized = importData.counters.map((item: any, idx: number) => ({
+              name: item.name || `Contador ${idx + 1}`,
+              bills: item.bills || {},
+              extraAmount: item.extraAmount || 0,
+              currency: (item.currency as 'CRC' | 'USD') || 'CRC',
+              aperturaCaja: item.aperturaCaja || 0,
+              ventaActual: item.ventaActual || 0,
+            }));
+            
+            const newActiveTab = Math.min(importData.activeTab || 0, normalized.length - 1);
+            
+            setTabsData(normalized);
+            setActiveTab(newActiveTab);
+            saveToLocalStorage(normalized, newActiveTab);
+            
+            alert(`✅ Datos importados correctamente. ${normalized.length} contadores cargados.`);
+          } else {
+            alert('❌ Formato de archivo no válido para importar.');
+          }
+        } catch (error) {
+          console.error('Error importando datos:', error);
+          alert('❌ Error al procesar el archivo de importación.');
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  };
+
+  // Función para obtener información de almacenamiento
+  const getStorageInfo = () => {
+    try {
+      const data = window.localStorage.getItem('cashCounters');
+      if (data) {
+        const sizeInBytes = new Blob([data]).size;
+        const sizeInKB = (sizeInBytes / 1024).toFixed(2);
+        const countersCount = tabsData.length;
+        return `${countersCount} contadores • ${sizeInKB} KB`;
+      }
+      return 'Sin datos guardados';
+    } catch (error) {
+      return 'Error obteniendo información';
+    }
+  };
+
+  // Función para limpiar todos los datos del localStorage
+  const clearAllData = () => {
+    const storageInfo = getStorageInfo();
+    if (confirm(`⚠️ ¿Estás seguro de que quieres borrar TODOS los datos guardados?\n\nDatos actuales: ${storageInfo}\n\nEsta acción no se puede deshacer.`)) {
+      try {
+        window.localStorage.removeItem('cashCounters');
+        const defaultData = [{ 
+          name: 'Contador 1', 
+          bills: {}, 
+          extraAmount: 0, 
+          currency: 'CRC' as 'CRC' | 'USD', 
+          aperturaCaja: 0, 
+          ventaActual: 0 
+        }];
+        setTabsData(defaultData);
+        setActiveTab(0);
+        saveToLocalStorage(defaultData, 0);
+        alert('✅ Todos los datos han sido borrados y restablecidos.');
+      } catch (error) {
+        console.error('Error limpiando datos:', error);
+        alert('❌ Error al limpiar los datos.');
+      }
+    }
   };
 
   const handleRenameSave = (newName: string) => {
@@ -739,17 +1069,72 @@ export default function CashCounterTabs() {
       currency: newCurrency,
       bills: {},
       extraAmount: 0,
+      aperturaCaja: 0,
+      ventaActual: 0,
     });
   };
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 bg-[var(--background)] min-h-screen pb-32">
-      <h1 className="text-2xl text-center font-bold mb-4 text-[var(--foreground)]">Cash Counter</h1>
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold text-[var(--foreground)]">Cash Counter</h1>
+        
+        {/* Indicador de guardado */}
+        <div className="flex items-center text-sm">
+          {isSaving ? (
+            <span className="text-blue-500 flex items-center">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500 mr-2"></div>
+              Guardando...
+            </span>
+          ) : lastSaved ? (
+            <span className="text-green-600 flex items-center">
+              ✓ Guardado {lastSaved}
+            </span>
+          ) : null}
+        </div>
+      </div>
+      
+      {/* Botones de gestión de datos */}
+      <div className="flex flex-wrap justify-center gap-2 mb-4">
+        <button
+          onClick={exportAllData}
+          className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium flex items-center"
+          title="Exportar todos los datos a archivo JSON"
+        >
+          <Download className="w-4 h-4 mr-1" />
+          Exportar Todo
+        </button>
+        <button
+          onClick={importAllData}
+          className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-medium flex items-center"
+          title="Importar datos desde archivo JSON"
+        >
+          <Upload className="w-4 h-4 mr-1" />
+          Importar Todo
+        </button>
+        <button
+          onClick={clearAllData}
+          className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-medium flex items-center"
+          title="Borrar todos los datos guardados"
+        >
+          <Trash2 className="w-4 h-4 mr-1" />
+          Limpiar Todo
+        </button>
+      </div>
+      
+      {/* Información de almacenamiento */}
+      <div className="text-center text-xs text-[var(--foreground)] opacity-60 mb-4">
+        💾 {getStorageInfo()}
+      </div>
+      
       <div className="flex space-x-2 mb-4 overflow-x-auto">
         {tabsData.map((tab, idx) => (
           <div key={idx} className="relative">
             <button
-              onClick={() => setActiveTab(idx)}
+              onClick={() => {
+                setActiveTab(idx);
+                saveToLocalStorage(tabsData, idx);
+              }}
               className={`px-4 py-2 rounded-full flex-shrink-0 text-sm font-medium flex items-center ${idx === activeTab
                 ? 'bg-[var(--card-bg)] text-[var(--foreground)] shadow border-2 border-green-900'
                 : 'bg-[var(--input-bg)] text-[var(--tab-text)] hover:bg-[var(--button-hover)] border-2 border-transparent'

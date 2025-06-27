@@ -43,8 +43,9 @@ export default function Header() {
   return (
     <>
       <header className="w-full flex items-center justify-between p-4 border-b border-[var(--input-border)] bg-transparent backdrop-blur-sm relative">
-        {/* Stickman animado */}
-        <AnimatedStickman />
+        {/* Stickman animado 
+        <AnimatedStickman />*/}
+
 
         <button
           onClick={handleLogoClick}
