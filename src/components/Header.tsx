@@ -1,4 +1,4 @@
-'use client' 
+'use client'
 
 import Image from 'next/image';
 import { Settings, LogOut } from 'lucide-react';
@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { ThemeToggle } from './ThemeToggle';
+import AnimatedStickman from './AnimatedStickman';
 
 export default function Header() {
   const pathname = usePathname();
@@ -41,7 +42,10 @@ export default function Header() {
 
   return (
     <>
-      <header className="w-full flex items-center justify-between p-4 border-b border-[var(--input-border)] bg-transparent backdrop-blur-sm">
+      <header className="w-full flex items-center justify-between p-4 border-b border-[var(--input-border)] bg-transparent backdrop-blur-sm relative">
+        {/* Stickman animado */}
+        <AnimatedStickman />
+
         <button
           onClick={handleLogoClick}
           className="flex items-center gap-2 text-xl font-bold tracking-tight text-[var(--foreground)] hover:text-[var(--tab-text-active)] transition-colors cursor-pointer bg-transparent border-none p-0"
@@ -49,7 +53,7 @@ export default function Header() {
           <Image src="/favicon.ico" alt="Logo" width={28} height={28} className="inline-block align-middle" />
           Price Master
         </button>
-        
+
         <div className="flex items-center gap-2">
           <button
             onClick={handleSettingsClick}
@@ -58,7 +62,7 @@ export default function Header() {
           >
             <Settings className="w-5 h-5 text-[var(--foreground)]" />
           </button>
-          
+
           {isEditPage && (
             <button
               onClick={handleLogoutClick}
@@ -68,7 +72,7 @@ export default function Header() {
               <LogOut className="w-5 h-5 text-red-600 dark:text-red-400" />
             </button>
           )}
-          
+
           <ThemeToggle />
         </div>
       </header>
@@ -83,11 +87,11 @@ export default function Header() {
                 Cerrar Sesión
               </h3>
             </div>
-            
+
             <p className="text-[var(--tab-text)] mb-6">
               ¿Está seguro que desea cerrar sesión y regresar al inicio?
             </p>
-            
+
             <div className="flex gap-3 justify-end">
               <button
                 onClick={cancelLogout}
