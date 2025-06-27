@@ -27,12 +27,136 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   const [lastScanCheck, setLastScanCheck] = useState<Date>(new Date());
   const [nextPollIn, setNextPollIn] = useState<number>(10);
+  const [sessionExpiry, setSessionExpiry] = useState<Date | null>(null);
 
   // Estado para configuración de productos desde PC
-  const [requestProductName, setRequestProductName] = useState(false);// Estados para sincronización real
-  const [hasMobileConnection, setHasMobileConnection] = useState(false); const [connectedDeviceType, setConnectedDeviceType] = useState<'mobile' | 'tablet' | 'pc' | null>(null);
+  const [requestProductName, setRequestProductName] = useState(false);  // Estados para sincronización real
+  const [hasMobileConnection, setHasMobileConnection] = useState(false); 
+  const [connectedDeviceType, setConnectedDeviceType] = useState<'mobile' | 'tablet' | 'pc' | null>(null);
   const sessionHeartbeatRef = useRef<{ start: () => Promise<void>; stop: () => void; sessionDocId: string | null } | null>(null);
   const sessionSyncUnsubscribeRef = useRef<(() => void) | null>(null);
+
+  // Funciones para manejo de sesión persistente en localStorage
+  const saveSessionToStorage = useCallback((sessionId: string, expiryDate: Date) => {
+    if (typeof window !== 'undefined') {
+      const sessionData = {
+        sessionId,
+        expiry: expiryDate.getTime(),
+        requestProductName
+      };
+      localStorage.setItem('barcodeScanner_session', JSON.stringify(sessionData));
+    }
+  }, [requestProductName]);
+
+  const loadSessionFromStorage = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const storedData = localStorage.getItem('barcodeScanner_session');
+        if (storedData) {
+          const sessionData = JSON.parse(storedData);
+          const expiryDate = new Date(sessionData.expiry);
+          
+          // Verificar si la sesión no ha expirado
+          if (expiryDate > new Date()) {
+            return {
+              sessionId: sessionData.sessionId,
+              expiry: expiryDate,
+              requestProductName: sessionData.requestProductName
+            };
+          } else {
+            // Limpiar sesión expirada
+            localStorage.removeItem('barcodeScanner_session');
+          }
+        }
+      } catch (error) {
+        console.error('Error loading session from storage:', error);
+        localStorage.removeItem('barcodeScanner_session');
+      }
+    }
+    return null;
+  }, []);
+
+  const clearSessionFromStorage = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('barcodeScanner_session');
+    }
+  }, []);
+
+  // Función para formatear tiempo restante de la sesión
+  const getSessionTimeRemaining = useCallback(() => {
+    if (!sessionExpiry) return null;
+    
+    const now = new Date();
+    const diff = sessionExpiry.getTime() - now.getTime();
+    
+    if (diff <= 0) return null;
+    
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    } else {
+      return `${minutes}m`;
+    }
+  }, [sessionExpiry]);
+
+  // Cargar sesión existente al montar el componente
+  useEffect(() => {
+    const storedSession = loadSessionFromStorage();
+    if (storedSession) {
+      setMobileSessionId(storedSession.sessionId);
+      setSessionExpiry(storedSession.expiry);
+      setRequestProductName(storedSession.requestProductName);
+    }
+  }, [loadSessionFromStorage]);
+
+  // Generar QR automáticamente cuando hay una sesión válida cargada
+  useEffect(() => {
+    const generateQRForExistingSession = async () => {
+      if (mobileSessionId && sessionExpiry && sessionExpiry > new Date() && !qrCodeUrl) {
+        try {
+          const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/mobile-scan?session=${mobileSessionId}${requestProductName ? '&requestProductName=true' : ''}`;
+          const qrDataUrl = await QRCode.toDataURL(url, {
+            width: 256,
+            margin: 2,
+            color: {
+              dark: '#000000',
+              light: '#FFFFFF'
+            }
+          });
+          setQrCodeUrl(qrDataUrl);
+          console.log(`📱 QR regenerado para sesión existente - Válida hasta: ${sessionExpiry.toLocaleString()}`);
+        } catch (error) {
+          console.error('Error generando QR para sesión existente:', error);
+        }
+      }
+    };
+
+    generateQRForExistingSession();
+  }, [mobileSessionId, sessionExpiry, requestProductName, qrCodeUrl]);
+
+  // Verificar periódicamente si la sesión ha expirado
+  useEffect(() => {
+    const checkSessionExpiry = () => {
+      if (sessionExpiry && sessionExpiry <= new Date()) {
+        console.log('📱 Sesión expirada, limpiando...');
+        setMobileSessionId(null);
+        setSessionExpiry(null);
+        setShowMobileQR(false);
+        setQrCodeUrl('');
+        clearSessionFromStorage();
+      }
+    };
+
+    // Verificar cada minuto
+    const expiryCheckInterval = setInterval(checkSessionExpiry, 60000);
+
+    // Verificar inmediatamente
+    checkSessionExpiry();
+
+    return () => clearInterval(expiryCheckInterval);
+  }, [sessionExpiry, clearSessionFromStorage]);
 
   const unsubscribeRef = useRef<(() => void) | null>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -176,10 +300,30 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
       console.error('Error checking for new scans:', error);
       startCountdown(); // Reiniciar contador incluso si hay error
     }
-  }, [onDetect, setCode, lastScanCheck, startCountdown]);// Generar sesión para escáner móvil con detección real de conexión
+  }, [onDetect, setCode, lastScanCheck, startCountdown]);// Generar sesión para escáner móvil con detección real de conexión y persistencia de 24h
   const generateMobileSession = useCallback(async () => {
-    const sessionId = `scan-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    // Verificar si ya hay una sesión válida en localStorage
+    let sessionId: string;
+    let expiryDate: Date;
+    
+    const storedSession = loadSessionFromStorage();
+    if (storedSession && storedSession.sessionId) {
+      // Usar sesión existente válida
+      sessionId = storedSession.sessionId;
+      expiryDate = storedSession.expiry;
+      console.log('📱 Reutilizando sesión existente:', sessionId);
+    } else {
+      // Crear nueva sesión válida por 24 horas
+      sessionId = `scan-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      expiryDate = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 horas
+      console.log('📱 Creando nueva sesión válida por 24h:', sessionId);
+      
+      // Guardar en localStorage
+      saveSessionToStorage(sessionId, expiryDate);
+    }
+    
     setMobileSessionId(sessionId);
+    setSessionExpiry(expiryDate);
     setShowMobileQR(true);
     setLastScanCheck(new Date()); // Reset del timestamp
 
@@ -227,7 +371,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
           console.error('Error in session status subscription:', error);
         }
       );
-      sessionSyncUnsubscribeRef.current = sessionUnsubscribe;      // Generar QR code
+      sessionSyncUnsubscribeRef.current = sessionUnsubscribe;      // Generar QR code con sesión válida
       const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/mobile-scan?session=${sessionId}${requestProductName ? '&requestProductName=true' : ''}`;
       const qrDataUrl = await QRCode.toDataURL(url, {
         width: 256,
@@ -238,6 +382,8 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
         }
       });
       setQrCodeUrl(qrDataUrl);
+      
+      console.log(`📱 QR generado - Sesión válida hasta: ${expiryDate.toLocaleString()}`);
     } catch (err) {
       console.error('Error generating session with real connection detection:', err);
     }
@@ -314,12 +460,16 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
         }
       };
     }
-  }, [onDetect, setCode, checkForNewScans, startCountdown, requestProductName]); const closeMobileSession = useCallback(() => {
+  }, [onDetect, setCode, checkForNewScans, startCountdown, requestProductName, loadSessionFromStorage, saveSessionToStorage]);  const closeMobileSession = useCallback(() => {
     setShowMobileQR(false);
     setMobileSessionId(null);
     setQrCodeUrl('');
     setHasMobileConnection(false);
     setConnectedDeviceType(null);
+    setSessionExpiry(null);
+
+    // Limpiar sesión del localStorage solo cuando se cierra manualmente
+    clearSessionFromStorage();
 
     // Limpiar la sincronización de sesión
     if (sessionSyncUnsubscribeRef.current) {
@@ -354,7 +504,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
 
     // Reset del contador
     setNextPollIn(10);
-  }, []);
+  }, [clearSessionFromStorage]);
 
   const fadeIn = { initial: { opacity: 0 }, animate: { opacity: 1 } };
   const slideUp = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 } };
@@ -559,6 +709,34 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
             </p>
           </div>          {!showMobileQR ? (
             <div className="text-center space-y-4">
+              {/* Mostrar sesión existente si la hay */}
+              {mobileSessionId && sessionExpiry && sessionExpiry > new Date() && (
+                <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4 border border-green-200 dark:border-green-800 max-w-md mx-auto mb-4">
+                  <h4 className="text-base font-semibold text-green-800 dark:text-green-200 mb-2">
+                    🟢 Sesión Activa Encontrada
+                  </h4>
+                  <div className="text-sm text-green-700 dark:text-green-300 space-y-1">
+                    <p><strong>ID:</strong> <span className="font-mono text-xs">{mobileSessionId}</span></p>
+                    <p><strong>Válida por:</strong> {getSessionTimeRemaining()}</p>
+                    <p><strong>Configuración:</strong> {requestProductName ? 'Con nombres de productos' : 'Solo códigos'}</p>
+                  </div>
+                  <div className="flex gap-2 mt-3">
+                    <button
+                      onClick={() => setShowMobileQR(true)}
+                      className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm font-medium"
+                    >
+                      📱 Usar Sesión Existente
+                    </button>
+                    <button
+                      onClick={clearSessionFromStorage}
+                      className="flex-1 px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors text-sm font-medium"
+                    >
+                      🗑️ Crear Nueva
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Configuración desde PC para móvil */}
               <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800 max-w-md mx-auto">
                 <h4 className="text-base font-semibold text-blue-800 dark:text-blue-200 mb-3">
@@ -569,7 +747,13 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                   <input
                     type="checkbox"
                     checked={requestProductName}
-                    onChange={(e) => setRequestProductName(e.target.checked)}
+                    onChange={(e) => {
+                      setRequestProductName(e.target.checked);
+                      // Si hay sesión existente, actualizar configuración en localStorage
+                      if (mobileSessionId && sessionExpiry) {
+                        saveSessionToStorage(mobileSessionId, sessionExpiry);
+                      }
+                    }}
                     className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600 mt-0.5"
                   />
                   <div className="text-left">
@@ -591,7 +775,9 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                 className="px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold text-lg rounded-2xl shadow-lg transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-green-300 dark:focus:ring-green-900"
               >
                 <QrCodeIcon className="w-6 h-6 inline-block mr-3" />
-                Generar Código QR para Móvil
+                {mobileSessionId && sessionExpiry && sessionExpiry > new Date() 
+                  ? 'Mostrar QR de Sesión Existente' 
+                  : 'Generar Código QR para Móvil (24h)'}
               </button>
             </div>
           ) : (
@@ -618,6 +804,15 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                     Sesión: <span className="font-mono text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">{mobileSessionId}</span>
                   </p>
 
+                  {/* Indicador de tiempo restante */}
+                  {sessionExpiry && (
+                    <div className="text-xs px-3 py-2 rounded-lg bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-700">
+                      <span className="flex items-center gap-1">
+                        ⏰ <strong>Válida por:</strong> {getSessionTimeRemaining()}
+                      </span>
+                    </div>
+                  )}
+
                   {/* Indicador de configuración de nombres de productos */}
                   <div className={`text-xs px-3 py-2 rounded-lg ${requestProductName
                     ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-700'
@@ -637,7 +832,8 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                   <p className="text-xs text-gray-500 dark:text-gray-500">
                     O ingresa manualmente esta URL en tu móvil:
                   </p>
-                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-2">                    <code className="text-xs text-gray-700 dark:text-gray-300 break-all">
+                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-2">
+                    <code className="text-xs text-gray-700 dark:text-gray-300 break-all">
                     {typeof window !== 'undefined' && `${window.location.origin}/mobile-scan?session=${mobileSessionId}${requestProductName ? '&requestProductName=true' : ''}`}
                   </code>
                   </div>
@@ -649,7 +845,38 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                     className="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors font-medium"
                   >
                     Cancelar
-                  </button>                  <button onClick={async () => {
+                  </button>
+                  
+                  {/* Botón para descargar imagen QR */}
+                  <button 
+                    onClick={async () => {
+                      if (qrCodeUrl) {
+                        try {
+                          // Crear un enlace temporal para descargar la imagen
+                          const response = await fetch(qrCodeUrl);
+                          const blob = await response.blob();
+                          const url = URL.createObjectURL(blob);
+                          
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `scanner-qr-${mobileSessionId}.png`;
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          URL.revokeObjectURL(url);
+                        } catch (error) {
+                          console.error('Error downloading QR image:', error);
+                          alert('Error al descargar la imagen QR');
+                        }
+                      }
+                    }}
+                    className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors font-medium flex items-center justify-center gap-2"
+                    title="Descargar imagen QR"
+                  >
+                    📥 Descargar QR
+                  </button>
+
+                  <button onClick={async () => {
                     if (typeof window !== 'undefined' && mobileSessionId) {
                       const url = `${window.location.origin}/mobile-scan?session=${mobileSessionId}${requestProductName ? '&requestProductName=true' : ''}`;
                       try {
