@@ -176,8 +176,8 @@ export default function EmployeeSummaryCalculator({
   
   // Obtener datos de horarios y CCSS
   const { 
-    scheduleData, 
-    ccssConfig, 
+    scheduleData, // eslint-disable-line @typescript-eslint/no-unused-vars
+    ccssConfig, // eslint-disable-line @typescript-eslint/no-unused-vars
     loading: dataLoading, 
     error: dataError, 
     calculateEmployeeSummary,

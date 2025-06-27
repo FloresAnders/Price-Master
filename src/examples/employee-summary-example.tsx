@@ -208,9 +208,9 @@ export default function EmployeeSummaryExample() {
           <div>
             <h4 className="font-semibold mb-2">Datos obtenidos automáticamente:</h4>
             <ul className="list-disc list-inside space-y-1 text-xs ml-4">
-              <li><strong>Horarios:</strong> Se obtienen desde la colección 'schedules' filtrados por empleado, ubicación, año y mes</li>
-              <li><strong>Configuración CCSS:</strong> Se obtiene desde la colección 'ccss-config' con valores MT y TC actualizados</li>
-              <li><strong>Información del empleado:</strong> Se obtiene desde la colección 'locations' incluyendo tipo CCSS, horas por turno y monto extra</li>
+              <li><strong>Horarios:</strong> Se obtienen desde la colección &lsquo;schedules&rsquo; filtrados por empleado, ubicación, año y mes</li>
+              <li><strong>Configuración CCSS:</strong> Se obtiene desde la colección &lsquo;ccss-config&rsquo; con valores MT y TC actualizados</li>
+              <li><strong>Información del empleado:</strong> Se obtiene desde la colección &lsquo;locations&rsquo; incluyendo tipo CCSS, horas por turno y monto extra</li>
               <li><strong>Cálculos:</strong> Se realizan automáticamente basados en los datos reales de la base de datos</li>
             </ul>
           </div>

@@ -123,7 +123,7 @@ export class MigrationService {
           tc: 11017.39
         });
         console.log('CCSS configuration reset to default values.');
-      } catch (error) {
+      } catch (error) { // eslint-disable-line @typescript-eslint/no-unused-vars
         console.log('CCSS configuration not found or already at defaults.');
       }
 

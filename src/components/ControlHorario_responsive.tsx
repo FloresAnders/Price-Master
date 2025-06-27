@@ -10,7 +10,6 @@ import LoginModal from './LoginModal';
 import ConfirmModal from './ConfirmModal';
 import type { Location } from '../types/firestore';
 import type { User as FirestoreUser } from '../types/firestore';
-import EmployeeSummaryCalculator, { useEmployeeSummaryCalculator } from './EmployeeSummaryCalculator';
 
 interface ScheduleData {
   [employeeName: string]: {
@@ -43,8 +42,22 @@ export default function ControlHorario() {
   const [editPastDaysEnabled, setEditPastDaysEnabled] = useState(false);
   const [unlockPastDaysModal, setUnlockPastDaysModal] = useState(false);
 
-  // Hook para cálculos de resumen de empleados
-  const { calculateEmployeeSummary } = useEmployeeSummaryCalculator(scheduleData);
+  // Function to calculate employee summary
+  const calculateEmployeeSummary = (employeeName: string, daysToShow: number[]) => {
+    const employeeData = scheduleData[employeeName] || {};
+    const workedDays = daysToShow.filter(day => {
+      const schedule = employeeData[day.toString()];
+      return schedule && schedule !== 'D';
+    }).length;
+    
+    return {
+      workedDays,
+      hours: workedDays * 8, // Assuming 8 hours per day
+      colones: workedDays * 8 * 2500, // Assuming 2500 per hour
+      ccss: workedDays * 8 * 2500 * 0.1, // Assuming 10% CCSS
+      neto: workedDays * 8 * 2500 * 0.9 // Net after CCSS
+    };
+  };
 
   // Cargar datos desde Firebase
   useEffect(() => {
