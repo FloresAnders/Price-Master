@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { ThemeToggle } from './ThemeToggle';
+import AnimatedStickman from './AnimatedStickman';
 
 export default function Header() {
   const pathname = usePathname();
@@ -41,9 +42,11 @@ export default function Header() {
 
   return (
     <>
-      <header className="w-full flex items-center justify-between p-4 border-b border-[var(--input-border)] bg-transparent backdrop-blur-sm relative">
-        {/* Stickman animado 
-        <AnimatedStickman />*/}
+      <header className="w-full flex items-center justify-between p-4 border-b border-[var(--input-border)] bg-transparent backdrop-blur-sm relative overflow-hidden">
+        {/*Stickman animado */}
+        <div className="absolute inset-0 pointer-events-none">
+          <AnimatedStickman />
+        </div>
 
 
         <button

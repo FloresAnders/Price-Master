@@ -2,7 +2,7 @@
 
 export default function AnimatedStickman() {
   return (
-    <div className="absolute bottom-0 left-0 w-full h-0 overflow-visible">
+    <div className="absolute bottom-0 left-0 w-full h-8 overflow-hidden pointer-events-none">
       <div className="animate-walk absolute bottom-0 h-8 w-6">
         <svg
           viewBox="0 0 24 32"
