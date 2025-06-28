@@ -226,12 +226,12 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
   // Ref para navegar entre inputs de denominaciones
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  // Función para manejar navegación con ENTER y TAB
+  // Función para manejar navegación con ENTER, TAB y flechas
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, currentIndex: number) => {
-    if (e.key === 'Enter' || e.key === 'Tab') {
+    if (e.key === 'Enter' || e.key === 'Tab' || e.key === 'ArrowDown') {
       e.preventDefault();
       
-      if (e.shiftKey) {
+      if (e.shiftKey && (e.key === 'Enter' || e.key === 'Tab')) {
         // Shift+Enter/Shift+Tab: ir al input anterior
         const prevIndex = currentIndex - 1;
         if (prevIndex >= 0 && inputRefs.current[prevIndex]) {
@@ -242,7 +242,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
           inputRefs.current[lastIndex]?.focus();
         }
       } else {
-        // Enter/Tab: ir al siguiente input
+        // Enter/Tab/ArrowDown: ir al siguiente input
         const nextIndex = currentIndex + 1;
         if (nextIndex < denominaciones.length && inputRefs.current[nextIndex]) {
           inputRefs.current[nextIndex]?.focus();
@@ -250,6 +250,19 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
           // Si es el último input, volver al primero
           inputRefs.current[0]?.focus();
         }
+      }
+    }
+    
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      // ArrowUp: ir al input anterior
+      const prevIndex = currentIndex - 1;
+      if (prevIndex >= 0 && inputRefs.current[prevIndex]) {
+        inputRefs.current[prevIndex]?.focus();
+      } else {
+        // Si es el primer input, ir al último
+        const lastIndex = denominaciones.length - 1;
+        inputRefs.current[lastIndex]?.focus();
       }
     }
   };
