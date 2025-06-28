@@ -6,7 +6,6 @@ import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { ThemeToggle } from './ThemeToggle';
-import AnimatedStickman from './AnimatedStickman';
 
 export default function Header() {
   const pathname = usePathname();
@@ -42,20 +41,13 @@ export default function Header() {
 
   return (
     <>
-      <header className="w-full flex items-center justify-between p-4 border-b border-[var(--input-border)] bg-transparent backdrop-blur-sm relative overflow-hidden">
-        {/*Stickman animado */}
-        <div className="absolute inset-0 pointer-events-none">
-          <AnimatedStickman />
-        </div>
-
-
-        <button
-          onClick={handleLogoClick}
-          className="flex items-center gap-2 text-xl font-bold tracking-tight text-[var(--foreground)] hover:text-[var(--tab-text-active)] transition-colors cursor-pointer bg-transparent border-none p-0"
-        >
-          <Image src="/favicon.ico" alt="Logo" width={28} height={28} className="inline-block align-middle" />
-          Price Master
-        </button>
+      <header className="w-full flex items-center justify-between p-4 border-b border-[var(--input-border)] bg-transparent backdrop-blur-sm relative overflow-hidden">        <button
+        onClick={handleLogoClick}
+        className="flex items-center gap-2 text-xl font-bold tracking-tight text-[var(--foreground)] hover:text-[var(--tab-text-active)] transition-colors cursor-pointer bg-transparent border-none p-0"
+      >
+        <Image src="/favicon.ico" alt="Logo" width={28} height={28} className="inline-block align-middle" />
+        Price Master
+      </button>
 
         <div className="flex items-center gap-2">
           <button
