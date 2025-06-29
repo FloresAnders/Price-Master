@@ -546,22 +546,45 @@ export default function PayrollExporter({
     drawCell(currentX, y, colWidths[5], cellHeight, `₡${finalNetSalary.toLocaleString('es-CR', { minimumFractionDigits: 2 })}`, '#fef3c7', '#000000', true, 16);
 
     // Descargar la imagen
-    canvas.toBlob((blob) => {
-      if (blob) {
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `planilla-${employee.employeeName.replace(/\s+/g, '_')}.png`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      }
-    });
+    try {
+      const dataURL = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.href = dataURL;
+      link.download = `planilla-${employee.employeeName.replace(/\s+/g, '_')}-${periodDates}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error generating image:', error);
+      throw error;
+    }
+  };
+
+  // Función para exportar un empleado individual
+  const exportIndividualEmployee = async (employee: any, locationName: string) => {
+    if (!currentPeriod) {
+      showNotification('No hay período seleccionado', 'error');
+      return;
+    }
+    
+    const periodDates = `${currentPeriod.start.getDate()}-${currentPeriod.end.getDate()}`;
+    
+    showNotification(`📊 Generando imagen de ${employee.employeeName}...`, 'success');
+    
+    try {
+      await generateEmployeeImage(employee, locationName, periodDates);
+      showNotification(`✅ Imagen de ${employee.employeeName} descargada exitosamente`, 'success');
+    } catch (error) {
+      console.error('Error generating individual employee image:', error);
+      showNotification(`❌ Error generando imagen de ${employee.employeeName}`, 'error');
+    }
   };
 
   const exportPayroll = async () => {
-    if (!currentPeriod || memoizedPayrollCalculations.length === 0) return;
+    if (!currentPeriod || memoizedPayrollCalculations.length === 0) {
+      showNotification('No hay datos para exportar', 'error');
+      return;
+    }
 
     const periodDates = `${currentPeriod.start.getDate()}-${currentPeriod.end.getDate()}`;
     let totalEmployees = 0;
@@ -572,20 +595,45 @@ export default function PayrollExporter({
     });
 
     let processedEmployees = 0;
+    let successCount = 0;
+    let errorCount = 0;
+
+    showNotification(`📊 Iniciando exportación de ${totalEmployees} planillas...`, 'success');
 
     for (const locationData of memoizedPayrollCalculations) {
       for (const employee of locationData.employees) {
-        await new Promise(resolve => setTimeout(resolve, 100)); // Pequeña pausa entre imágenes
-        await generateEmployeeImage(employee, locationData.location.label, periodDates);
-        processedEmployees++;
-        
-        // Actualizar notificación de progreso
-        showNotification(`📊 Generando imágenes... ${processedEmployees}/${totalEmployees}`, 'success');
+        try {
+          await new Promise(resolve => setTimeout(resolve, 200)); // Pausa entre imágenes
+          await generateEmployeeImage(employee, locationData.location.label, periodDates);
+          successCount++;
+          processedEmployees++;
+          
+          // Actualizar notificación de progreso
+          showNotification(`📊 Procesando... ${processedEmployees}/${totalEmployees} (${successCount} exitosas)`, 'success');
+        } catch (error) {
+          console.error(`Error exporting ${employee.employeeName}:`, error);
+          errorCount++;
+          processedEmployees++;
+        }
       }
     }
 
-    showNotification(`📊 ${totalEmployees} imágenes de planilla generadas exitosamente`, 'success');
+    if (errorCount === 0) {
+      showNotification(`✅ ${successCount} imágenes descargadas exitosamente`, 'success');
+    } else {
+      showNotification(`⚠️ ${successCount} exitosas, ${errorCount} errores`, 'error');
+    }
   };
+
+  // Función para manejar cambios en deducciones
+  const handleDeductionChange = useCallback((locationValue: string, employeeName: string, type: 'compras' | 'adelanto' | 'otros', value: number) => {
+    updateDeduction(locationValue, employeeName, type, value);
+  }, [updateDeduction]);
+
+  // Función para manejar cambios en monto extra
+  const handleExtraAmountChange = useCallback((locationValue: string, employeeName: string, value: number) => {
+    updateDeduction(locationValue, employeeName, 'extraAmount', value);
+  }, [updateDeduction]);
 
   if (loading) {
     return (
@@ -771,13 +819,16 @@ export default function PayrollExporter({
                           <td className="border border-[var(--input-border)] p-2 text-center">
                           </td>
                           <td className="border border-[var(--input-border)] p-2 text-center">
+                            {employee.overtimeHours}
                           </td>
                           <td className="border border-[var(--input-border)] p-2 text-center">
-                            {employee.overtimeSalary.toLocaleString('es-CR', { minimumFractionDigits: 2 })}
+                            {(employee.regularSalary * 1.5).toLocaleString('es-CR', { minimumFractionDigits: 2 })}
                           </td>
                           <td className="border border-[var(--input-border)] p-2 text-center font-semibold">
+                            {overtimeTotal.toLocaleString('es-CR', { minimumFractionDigits: 2 })}
                           </td>
                         </tr>
+
                         {/* Fila de Monto Extra */}
                         <tr className="bg-green-50 dark:bg-green-900/20">
                           <td className="border border-[var(--input-border)] p-2 font-medium">
@@ -803,44 +854,33 @@ export default function PayrollExporter({
                             />
                           </td>
                         </tr>
-                        {/* Separador vacío */}
-                        <tr>
-                          <td className="border border-[var(--input-border)] p-2"></td>
-                          <td className="border border-[var(--input-border)] p-2"></td>
-                          <td className="border border-[var(--input-border)] p-2"></td>
-                          <td className="border border-[var(--input-border)] p-2"></td>
-                          <td className="border border-[var(--input-border)] p-2 font-bold text-center">
-                            IngresosTotales
+
+                        {/* Fila de INGRESOS TOTALES */}
+                        <tr className="bg-green-100 dark:bg-green-900/30 border-t-2 border-green-600">
+                          <td className="border border-[var(--input-border)] p-2 font-bold text-green-800 dark:text-green-200">
+                            INGRESOS TOTALES
                           </td>
-                          <td className="border border-[var(--input-border)] p-2 text-center font-bold">
+                          <td className="border border-[var(--input-border)] p-2"></td>
+                          <td className="border border-[var(--input-border)] p-2"></td>
+                          <td className="border border-[var(--input-border)] p-2"></td>
+                          <td className="border border-[var(--input-border)] p-2"></td>
+                          <td className="border border-[var(--input-border)] p-2 text-center font-bold text-green-800 dark:text-green-200 text-lg">
                             {totalIncome.toLocaleString('es-CR', { minimumFractionDigits: 2 })}
                           </td>
                         </tr>
-                        {/* Separador vacío */}
-                        <tr>
-                          <td className="border border-[var(--input-border)] p-2"></td>
-                          <td className="border border-[var(--input-border)] p-2"></td>
-                          <td className="border border-[var(--input-border)] p-2"></td>
-                          <td className="border border-[var(--input-border)] p-2"></td>
-                          <td className="border border-[var(--input-border)] p-2"></td>
-                          <td className="border border-[var(--input-border)] p-2"></td>
-                        </tr>
-                        {/* CCSS */}
-                        <tr>
+
+                        {/* Fila de CCSS */}
+                        <tr className="bg-red-50 dark:bg-red-900/20">
                           <td className="border border-[var(--input-border)] p-2"></td>
                           <td className="border border-[var(--input-border)] p-2"></td>
                           <td className="border border-[var(--input-border)] p-2"></td>
                           <td className="border border-[var(--input-border)] p-2"></td>
                           <td className="border border-[var(--input-border)] p-2 font-medium">CCSS</td>
-                          <td className="border border-[var(--input-border)] p-2 text-center">
-                            <span className="font-semibold">
-                              ₡{ccssAmount.toLocaleString('es-CR', { minimumFractionDigits: 2 })}
-                            </span>
-                            <span className="text-xs text-gray-500 ml-2">
-                              ({employee.ccssType === 'TC' ? 'TC' : 'MT'})
-                            </span>
+                          <td className="border border-[var(--input-border)] p-2 text-center font-semibold">
+                            {ccssAmount.toLocaleString('es-CR', { minimumFractionDigits: 2 })}
                           </td>
                         </tr>
+
                         {/* COMPRAS - Editable */}
                         <tr>
                           <td className="border border-[var(--input-border)] p-2"></td>
@@ -864,6 +904,7 @@ export default function PayrollExporter({
                             />
                           </td>
                         </tr>
+
                         {/* ADELANTO - Editable */}
                         <tr>
                           <td className="border border-[var(--input-border)] p-2"></td>
@@ -887,6 +928,7 @@ export default function PayrollExporter({
                             />
                           </td>
                         </tr>
+
                         {/* OTROS deducciones - Editable */}
                         <tr>
                           <td className="border border-[var(--input-border)] p-2"></td>
@@ -910,58 +952,63 @@ export default function PayrollExporter({
                             />
                           </td>
                         </tr>
-                        {/* DEDUCCIONESTOTALES */}
-                        <tr className="bg-red-100 dark:bg-red-900/30">
+
+                        {/* Fila de DEDUCCIONESTOTALES */}
+                        <tr className="bg-red-100 dark:bg-red-900/30 border-t-2 border-red-600">
+                          <td className="border border-[var(--input-border)] p-2 font-bold text-red-800 dark:text-red-200">
+                            DEDUCCIONESTOTALES
+                          </td>
                           <td className="border border-[var(--input-border)] p-2"></td>
                           <td className="border border-[var(--input-border)] p-2"></td>
                           <td className="border border-[var(--input-border)] p-2"></td>
                           <td className="border border-[var(--input-border)] p-2"></td>
-                          <td className="border border-[var(--input-border)] p-2 font-bold">DEDUCCIONESTOTALES</td>
-                          <td className="border border-[var(--input-border)] p-2 text-center font-bold">
-                            ₡{totalDeductions.toLocaleString('es-CR', { minimumFractionDigits: 2 })}
+                          <td className="border border-[var(--input-border)] p-2 text-center font-bold text-red-800 dark:text-red-200 text-lg">
+                            {totalDeductions.toLocaleString('es-CR', { minimumFractionDigits: 2 })}
                           </td>
                         </tr>
-                        {/* SALARIO NETO */}
-                        <tr className="bg-yellow-200 dark:bg-yellow-800">
-                          <td className="border border-[var(--input-border)] p-2"></td>
-                          <td className="border border-[var(--input-border)] p-2"></td>
-                          <td className="border border-[var(--input-border)] p-2"></td>
-                          <td className="border border-[var(--input-border)] p-2"></td>
-                          <td className="border border-[var(--input-border)] p-2 font-bold">SALARIO NETO</td>
-                          <td className="border border-[var(--input-border)] p-2 text-center font-bold text-lg">
-                            ₡{finalNetSalary.toLocaleString('es-CR', { minimumFractionDigits: 2 })}
+
+                        {/* Fila de SALARIO NETO */}
+                        <tr className="bg-yellow-100 dark:bg-yellow-900/30 border-t-4 border-yellow-600">
+                          <td className="border border-[var(--input-border)] p-3 font-bold text-yellow-800 dark:text-yellow-200 text-lg">
+                            SALARIO NETO
+                          </td>
+                          <td className="border border-[var(--input-border)] p-3"></td>
+                          <td className="border border-[var(--input-border)] p-3"></td>
+                          <td className="border border-[var(--input-border)] p-3"></td>
+                          <td className="border border-[var(--input-border)] p-3"></td>
+                          <td className="border border-[var(--input-border)] p-3 text-center font-bold text-yellow-800 dark:text-yellow-200 text-xl">
+                            {finalNetSalary.toLocaleString('es-CR', { minimumFractionDigits: 2 })}
                           </td>
                         </tr>
                       </tbody>
                     </table>
+
+                    {/* Botón de exportación individual */}
+                    <div className="mt-3 flex justify-end">
+                      <button
+                        onClick={() => exportIndividualEmployee(employee, locationData.location.label)}
+                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md flex items-center gap-2 transition-colors"
+                        title={`Exportar planilla de ${employee.employeeName}`}
+                      >
+                        <Image className="w-4 h-4" />
+                        Exportar Planilla
+                      </button>
+                    </div>
                   </div>
                 );
               })}
-              </div>
+            </div>
             )}
           </div>
         ))}
       </div>
-
-      {memoizedPayrollCalculations.length === 0 && (
-        <div className="text-center py-12">
-          <Calculator className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-[var(--foreground)] mb-2">
-            No hay datos de planilla
-          </h3>
-          <p className="text-[var(--tab-text)]">
-            No se encontraron horarios para este período y ubicación.
-          </p>
-        </div>
-      )}
-
-      {/* Canvas oculto para generar imágenes */}
-      <canvas
-        ref={canvasRef}
+      {/* Canvas oculto para exportación */}
+      <canvas 
+        ref={canvasRef} 
+        width={900} 
+        height={540} 
         style={{ display: 'none' }}
-        width={900}
-        height={540}
       />
     </div>
   );
-}
+};
