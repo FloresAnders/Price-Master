@@ -137,10 +137,8 @@ export default function PayrollExporter({
     const regularTotal = regularSalary * totalHours;
     const overtimeTotal = overtimeSalary * overtimeHours;    // Obtener deducciones editables para usar el valor de "Otros" ingresos
     const deductions = getEmployeeDeductions(locationValue, employeeName);
-    const otrosTotal = deductions.otrosIncome; // Usar valor editable en lugar de fijo
-
-    // Total de ingresos: suma de todos los T/S de las tres filas anteriores + monto extra del empleado
-    const totalIncome = regularTotal + overtimeTotal + otrosTotal + extraAmount;
+    // Total de ingresos: suma de todos los T/S + monto extra del empleado
+    const totalIncome = regularTotal + overtimeTotal + extraAmount;
 
     // Deducciones
     const ccssDeduction = ccssType === 'TC' ? CCSS_TC : CCSS_MT;
@@ -287,8 +285,7 @@ export default function PayrollExporter({
         const deductions = getEmployeeDeductions(locationData.location.value, employee.employeeName);
         const regularTotal = employee.regularSalary * employee.totalHours;
         const overtimeTotal = 0; // HorasExtras vacías por defecto
-        const otrosTotal = deductions.otrosIncome; // Usar valor editable en lugar de fijo
-        const totalIncome = regularTotal + overtimeTotal + otrosTotal;
+        const totalIncome = regularTotal + overtimeTotal + employee.extraAmount;
 
         // Calcular deducciones totales con valores actualizados
         const ccssAmount = employee.ccssType === 'TC' ? CCSS_TC : CCSS_MT;
@@ -303,8 +300,7 @@ export default function PayrollExporter({
         csvContent += `"HorasOrdinarias","${employee.totalWorkDays}","${employee.hoursPerDay}","${employee.totalHours}","${employee.regularSalary.toFixed(2)}","${regularTotal.toFixed(2)}"\n`;
 
         // Fila de HorasExtras
-        csvContent += `"HorasExtras","","","","${employee.overtimeSalary.toFixed(2)}",""\n`;        // Fila de Otros
-        csvContent += `"Otros","","","","","${otrosTotal.toFixed(2)}"\n`;
+        csvContent += `"HorasExtras","","","","${employee.overtimeSalary.toFixed(2)}",""\n`;
 
         // Fila de Monto Extra
         csvContent += `"Monto Extra","","","","","${employee.extraAmount.toFixed(2)}"\n`;
@@ -432,8 +428,7 @@ export default function PayrollExporter({
                 const deductions = getEmployeeDeductions(locationData.location.value, employee.employeeName);
                 const regularTotal = employee.regularSalary * employee.totalHours;
                 const overtimeTotal = employee.overtimeSalary * 0; // 0 horas extraordinarias por defecto
-                const otrosTotal = deductions.otrosIncome; // Usar valor editable en lugar de fijo
-                const totalIncome = regularTotal + overtimeTotal + otrosTotal;
+                const totalIncome = regularTotal + overtimeTotal + employee.extraAmount;
 
                 // Calcular deducciones totales con valores actualizados
                 const ccssAmount = employee.ccssType === 'TC' ? CCSS_TC : CCSS_MT;
@@ -505,52 +500,23 @@ export default function PayrollExporter({
                             {regularTotal.toLocaleString('es-CR', { minimumFractionDigits: 2 })}
                           </td>
                         </tr>
-
                         {/* Fila de HorasExtras */}
                         <tr className="bg-orange-50 dark:bg-orange-900/20">
                           <td className="border border-[var(--input-border)] p-2 font-medium">
                             HorasExtras
                           </td>
                           <td className="border border-[var(--input-border)] p-2 text-center">
-
                           </td>
                           <td className="border border-[var(--input-border)] p-2 text-center">
-
                           </td>
                           <td className="border border-[var(--input-border)] p-2 text-center">
-
                           </td>
                           <td className="border border-[var(--input-border)] p-2 text-center">
                             {employee.overtimeSalary.toLocaleString('es-CR', { minimumFractionDigits: 2 })}
                           </td>
                           <td className="border border-[var(--input-border)] p-2 text-center font-semibold">
-
-                          </td>
-                        </tr>                        {/* Fila de Otros */}
-                        <tr className="bg-gray-50 dark:bg-gray-800">
-                          <td className="border border-[var(--input-border)] p-2 font-medium">
-                            Otros
-                          </td>
-                          <td className="border border-[var(--input-border)] p-2 text-center"></td>
-                          <td className="border border-[var(--input-border)] p-2 text-center"></td>
-                          <td className="border border-[var(--input-border)] p-2 text-center"></td>
-                          <td className="border border-[var(--input-border)] p-2 text-center"></td>
-                          <td className="border border-[var(--input-border)] p-2 text-center">                              <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={deductions.otrosIncome ?? 0}
-                            onChange={(e) => updateDeduction(locationData.location.value, employee.employeeName, 'otrosIncome', parseFloat(e.target.value) || 0)}
-                            className="w-full text-center border-none bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-1"
-                            style={{
-                              background: 'var(--input-bg)',
-                              color: 'var(--foreground)',
-                            }}
-                            placeholder="0"
-                          />
                           </td>
                         </tr>
-
                         {/* Fila de Monto Extra */}
                         <tr className="bg-green-50 dark:bg-green-900/20">
                           <td className="border border-[var(--input-border)] p-2 font-medium">
@@ -564,7 +530,6 @@ export default function PayrollExporter({
                             ₡{employee.extraAmount.toLocaleString('es-CR', { minimumFractionDigits: 2 })}
                           </td>
                         </tr>
-
                         {/* Separador vacío */}
                         <tr>
                           <td className="border border-[var(--input-border)] p-2"></td>
@@ -578,7 +543,6 @@ export default function PayrollExporter({
                             {totalIncome.toLocaleString('es-CR', { minimumFractionDigits: 2 })}
                           </td>
                         </tr>
-
                         {/* Separador vacío */}
                         <tr>
                           <td className="border border-[var(--input-border)] p-2"></td>
@@ -588,7 +552,6 @@ export default function PayrollExporter({
                           <td className="border border-[var(--input-border)] p-2"></td>
                           <td className="border border-[var(--input-border)] p-2"></td>
                         </tr>
-
                         {/* CCSS */}
                         <tr>
                           <td className="border border-[var(--input-border)] p-2"></td>
@@ -605,7 +568,6 @@ export default function PayrollExporter({
                             </span>
                           </td>
                         </tr>
-
                         {/* COMPRAS - Editable */}
                         <tr>
                           <td className="border border-[var(--input-border)] p-2"></td>
@@ -613,22 +575,22 @@ export default function PayrollExporter({
                           <td className="border border-[var(--input-border)] p-2"></td>
                           <td className="border border-[var(--input-border)] p-2"></td>
                           <td className="border border-[var(--input-border)] p-2 font-medium">COMPRAS</td>
-                          <td className="border border-[var(--input-border)] p-2 text-center">                              <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={deductions.compras ?? 0}
-                            onChange={(e) => updateDeduction(locationData.location.value, employee.employeeName, 'compras', parseFloat(e.target.value) || 0)}
-                            className="w-full text-center border-none bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-1"
-                            style={{
-                              background: 'var(--input-bg)',
-                              color: 'var(--foreground)',
-                            }}
-                            placeholder="0.00"
-                          />
+                          <td className="border border-[var(--input-border)] p-2 text-center">
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={deductions.compras ?? 0}
+                              onChange={(e) => updateDeduction(locationData.location.value, employee.employeeName, 'compras', parseFloat(e.target.value) || 0)}
+                              className="w-full text-center border-none bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-1"
+                              style={{
+                                background: 'var(--input-bg)',
+                                color: 'var(--foreground)',
+                              }}
+                              placeholder="0.00"
+                            />
                           </td>
                         </tr>
-
                         {/* ADELANTO - Editable */}
                         <tr>
                           <td className="border border-[var(--input-border)] p-2"></td>
@@ -636,22 +598,22 @@ export default function PayrollExporter({
                           <td className="border border-[var(--input-border)] p-2"></td>
                           <td className="border border-[var(--input-border)] p-2"></td>
                           <td className="border border-[var(--input-border)] p-2 font-medium">ADELANTO</td>
-                          <td className="border border-[var(--input-border)] p-2 text-center">                              <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={deductions.adelanto ?? 0}
-                            onChange={(e) => updateDeduction(locationData.location.value, employee.employeeName, 'adelanto', parseFloat(e.target.value) || 0)}
-                            className="w-full text-center border-none bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-1"
-                            style={{
-                              background: 'var(--input-bg)',
-                              color: 'var(--foreground)',
-                            }}
-                            placeholder="0.00"
-                          />
+                          <td className="border border-[var(--input-border)] p-2 text-center">
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={deductions.adelanto ?? 0}
+                              onChange={(e) => updateDeduction(locationData.location.value, employee.employeeName, 'adelanto', parseFloat(e.target.value) || 0)}
+                              className="w-full text-center border-none bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-1"
+                              style={{
+                                background: 'var(--input-bg)',
+                                color: 'var(--foreground)',
+                              }}
+                              placeholder="0.00"
+                            />
                           </td>
                         </tr>
-
                         {/* OTROS deducciones - Editable */}
                         <tr>
                           <td className="border border-[var(--input-border)] p-2"></td>
@@ -659,22 +621,22 @@ export default function PayrollExporter({
                           <td className="border border-[var(--input-border)] p-2"></td>
                           <td className="border border-[var(--input-border)] p-2"></td>
                           <td className="border border-[var(--input-border)] p-2 font-medium">OTROS</td>
-                          <td className="border border-[var(--input-border)] p-2 text-center">                              <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={deductions.otros ?? 0}
-                            onChange={(e) => updateDeduction(locationData.location.value, employee.employeeName, 'otros', parseFloat(e.target.value) || 0)}
-                            className="w-full text-center border-none bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-1"
-                            style={{
-                              background: 'var(--input-bg)',
-                              color: 'var(--foreground)',
-                            }}
-                            placeholder="0.00"
-                          />
+                          <td className="border border-[var(--input-border)] p-2 text-center">
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={deductions.otros ?? 0}
+                              onChange={(e) => updateDeduction(locationData.location.value, employee.employeeName, 'otros', parseFloat(e.target.value) || 0)}
+                              className="w-full text-center border-none bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-1"
+                              style={{
+                                background: 'var(--input-bg)',
+                                color: 'var(--foreground)',
+                              }}
+                              placeholder="0.00"
+                            />
                           </td>
                         </tr>
-
                         {/* DEDUCCIONESTOTALES */}
                         <tr className="bg-red-100 dark:bg-red-900/30">
                           <td className="border border-[var(--input-border)] p-2"></td>

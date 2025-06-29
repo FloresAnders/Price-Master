@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, Calendar, MapPin, FileText, Download, Clock, Calculator } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, MapPin, FileText, Clock, Calculator } from 'lucide-react';
 import { LocationsService } from '../services/locations';
 import { SchedulesService, ScheduleEntry } from '../services/schedules';
 import { Location } from '../types/firestore';
@@ -280,35 +280,6 @@ export default function ScheduleReportTab() {
     return days;
   };
 
-  const exportData = () => {
-    if (!currentPeriod || scheduleData.length === 0) return;
-
-    const exportData = {
-      period: currentPeriod.label,
-      locations: scheduleData.map(locationData => ({
-        location: locationData.location.label,
-        employees: locationData.employees.map(emp => ({
-          name: emp.employeeName,
-          schedule: emp.days,
-          totalDays: Object.values(emp.days).filter(shift => shift === 'D' || shift === 'N').length
-        })),
-        totalWorkDays: locationData.totalWorkDays
-      }))
-    };
-
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `planilla-${currentPeriod.year}-${currentPeriod.month}-${currentPeriod.period}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
-    showNotification('📄 Planilla exportada exitosamente', 'success');
-  };
-
   const getCellStyle = (value: string) => {
     switch (value) {
       case 'D':
@@ -474,15 +445,6 @@ export default function ScheduleReportTab() {
                   <span className="hidden sm:inline">
                     {isEditing ? 'Salir Edición' : 'Editar Horarios'}
                   </span>
-                </button>
-                <button
-                  onClick={exportData}
-                  disabled={scheduleData.length === 0}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-md flex items-center gap-2 transition-colors"
-                  title="Exportar datos JSON"
-                >
-                  <Download className="w-4 h-4" />
-                  <span className="hidden sm:inline">JSON</span>
                 </button>
               </div>
             </div>
