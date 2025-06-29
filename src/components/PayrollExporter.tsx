@@ -2,10 +2,10 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Download, Calculator, DollarSign, Image } from 'lucide-react';
+import { Calculator, DollarSign, Image } from 'lucide-react';
 import { LocationsService } from '../services/locations';
 import { SchedulesService, ScheduleEntry } from '../services/schedules';
-import { Location } from '../types/firestore';
+import { Location, Employee } from '../types/firestore';
 
 interface BiweeklyPeriod {
   start: Date;
@@ -44,6 +44,22 @@ interface EditableDeductions {
     otros: number;
     extraAmount: number; // Para el monto extra editable
   };
+}
+
+interface EnhancedEmployeePayrollData extends EmployeePayrollData {
+  deductions: {
+    compras: number;
+    adelanto: number;
+    otros: number;
+    extraAmount: number;
+  };
+  regularTotal: number;
+  overtimeTotal: number;
+  finalExtraAmount: number;
+  totalIncome: number;
+  ccssAmount: number;
+  totalDeductions: number;
+  finalNetSalary: number;
 }
 
 interface LocationPayrollData {
@@ -112,14 +128,13 @@ export default function PayrollExporter({
       extraAmount: existing.extraAmount ?? defaults.extraAmount
     };
   }, [editableDeductions]);
-  // Calcular datos de planilla para un empleado
   const calculatePayrollData = useCallback((
     employeeName: string,
     days: { [day: number]: string },
     ccssType: 'TC' | 'MT',
     locationValue: string,
     extraAmount: number = 0,
-    employee?: { hoursPerShift?: number; [key: string]: any }
+    employee?: Employee
   ): EmployeePayrollData => {
     const workShifts = Object.values(days).filter(shift => shift === 'D' || shift === 'N');
     const totalWorkDays = workShifts.length;
@@ -279,7 +294,7 @@ export default function PayrollExporter({
     };    if (currentPeriod && locations.length > 0) {
       loadPayrollData();
     }
-  }, [currentPeriod, selectedLocation, locations]); // Removido calculatePayrollData de las dependencias
+  }, [currentPeriod, selectedLocation, locations, calculatePayrollData]);
 
   // Memorizar cálculos de planilla para evitar recálculos innecesarios
   const memoizedPayrollCalculations = useMemo(() => {
@@ -308,13 +323,13 @@ export default function PayrollExporter({
         };
       })
     }));
-  }, [payrollData, editableDeductions, getEmployeeDeductions]);
+  }, [payrollData, getEmployeeDeductions]);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Función para generar imagen de planilla para un empleado
   const generateEmployeeImage = async (
-    employee: any,
+    employee: EnhancedEmployeePayrollData,
     locationName: string,
     periodDates: string
   ): Promise<void> => {
@@ -338,7 +353,6 @@ export default function PayrollExporter({
     let y = 40;
     const margin = 20;
     const cellHeight = 35;
-    const tableWidth = canvas.width - (margin * 2);
     const colWidths = [130, 120, 120, 120, 180, 170, 170]; // Anchos de columnas ajustados
 
     // Función para dibujar celda con borde
@@ -561,7 +575,7 @@ export default function PayrollExporter({
   };
 
   // Función para exportar un empleado individual
-  const exportIndividualEmployee = async (employee: any, locationName: string) => {
+  const exportIndividualEmployee = async (employee: EnhancedEmployeePayrollData, locationName: string) => {
     if (!currentPeriod) {
       showNotification('No hay período seleccionado', 'error');
       return;
@@ -624,16 +638,6 @@ export default function PayrollExporter({
       showNotification(`⚠️ ${successCount} exitosas, ${errorCount} errores`, 'error');
     }
   };
-
-  // Función para manejar cambios en deducciones
-  const handleDeductionChange = useCallback((locationValue: string, employeeName: string, type: 'compras' | 'adelanto' | 'otros', value: number) => {
-    updateDeduction(locationValue, employeeName, type, value);
-  }, [updateDeduction]);
-
-  // Función para manejar cambios en monto extra
-  const handleExtraAmountChange = useCallback((locationValue: string, employeeName: string, value: number) => {
-    updateDeduction(locationValue, employeeName, 'extraAmount', value);
-  }, [updateDeduction]);
 
   if (loading) {
     return (
@@ -737,7 +741,6 @@ export default function PayrollExporter({
                   deductions,
                   regularTotal,
                   overtimeTotal,
-                  finalExtraAmount,
                   totalIncome,
                   ccssAmount,
                   totalDeductions,
