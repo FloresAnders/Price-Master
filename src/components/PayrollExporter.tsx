@@ -1,7 +1,7 @@
 // src/components/PayrollExporter.tsx
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Download, Calculator, DollarSign } from 'lucide-react';
 import { LocationsService } from '../services/locations';
 import { SchedulesService, ScheduleEntry } from '../services/schedules';
@@ -43,6 +43,7 @@ interface EditableDeductions {
     adelanto: number;
     otros: number;
     otrosIncome: number; // Para el monto "Otros" de ingresos
+    extraAmount: number; // Para el monto extra editable
   };
 }
 
@@ -81,10 +82,10 @@ export default function PayrollExporter({
   // Función para crear clave única del empleado
   const getEmployeeKey = (locationValue: string, employeeName: string): string => {
     return `${locationValue}-${employeeName}`;
-  };  // Función para actualizar deducciones editables
-  const updateDeduction = (locationValue: string, employeeName: string, type: 'compras' | 'adelanto' | 'otros' | 'otrosIncome', value: number) => {
+  };  // Función para actualizar deducciones editables con debounce optimizado
+  const updateDeduction = useCallback((locationValue: string, employeeName: string, type: 'compras' | 'adelanto' | 'otros' | 'otrosIncome' | 'extraAmount', value: number) => {
     const employeeKey = getEmployeeKey(locationValue, employeeName);
-    const defaults = { compras: 0, adelanto: 0, otros: 0, otrosIncome: 0 };
+    const defaults = { compras: 0, adelanto: 0, otros: 0, otrosIncome: 0, extraAmount: 0 };
 
     setEditableDeductions(prev => ({
       ...prev,
@@ -94,10 +95,10 @@ export default function PayrollExporter({
         [type]: value // Override with new value
       }
     }));
-  };  // Función para obtener deducciones editables de un empleado
+  }, []);  // Función para obtener deducciones editables de un empleado
   const getEmployeeDeductions = useCallback((locationValue: string, employeeName: string) => {
     const employeeKey = getEmployeeKey(locationValue, employeeName);
-    const defaults = { compras: 0, adelanto: 0, otros: 0, otrosIncome: 0 };
+    const defaults = { compras: 0, adelanto: 0, otros: 0, otrosIncome: 0, extraAmount: 0 };
     const existing = editableDeductions[employeeKey];
 
     if (!existing) {
@@ -109,7 +110,9 @@ export default function PayrollExporter({
       compras: existing.compras ?? defaults.compras,
       adelanto: existing.adelanto ?? defaults.adelanto,
       otros: existing.otros ?? defaults.otros,
-      otrosIncome: existing.otrosIncome ?? defaults.otrosIncome    };
+      otrosIncome: existing.otrosIncome ?? defaults.otrosIncome,
+      extraAmount: existing.extraAmount ?? defaults.extraAmount
+    };
   }, [editableDeductions]);
   // Calcular datos de planilla para un empleado
   const calculatePayrollData = useCallback((
@@ -137,8 +140,12 @@ export default function PayrollExporter({
     const regularTotal = regularSalary * totalHours;
     const overtimeTotal = overtimeSalary * overtimeHours;    // Obtener deducciones editables para usar el valor de "Otros" ingresos
     const deductions = getEmployeeDeductions(locationValue, employeeName);
-    // Total de ingresos: suma de todos los T/S + monto extra del empleado
-    const totalIncome = regularTotal + overtimeTotal + extraAmount;
+    
+    // Usar el monto extra editable en lugar del valor fijo del empleado
+    const editableExtraAmount = deductions.extraAmount > 0 ? deductions.extraAmount : extraAmount;
+    
+    // Total de ingresos: suma de todos los T/S + monto extra editable
+    const totalIncome = regularTotal + overtimeTotal + editableExtraAmount;
 
     // Deducciones
     const ccssDeduction = ccssType === 'TC' ? CCSS_TC : CCSS_MT;
@@ -158,7 +165,7 @@ export default function PayrollExporter({
       totalHours,
       regularSalary,
       overtimeSalary,
-      extraAmount,
+      extraAmount: editableExtraAmount,
       totalIncome,
       ccssDeduction,
       comprasDeduction,
@@ -246,9 +253,9 @@ export default function PayrollExporter({
               // Buscar el empleado para obtener tipo de CCSS y monto extra
               const employee = location.employees?.find(emp => emp.name === employeeName);
               const ccssType = employee?.ccssType || 'TC'; // Por defecto TC
-              const extraAmount = employee?.extraAmount || 0; // Monto extra, por defecto 0
+              const baseExtraAmount = employee?.extraAmount || 0; // Monto extra base, por defecto 0
 
-              const payrollData = calculatePayrollData(employeeName, days, ccssType, location.value, extraAmount);
+              const payrollData = calculatePayrollData(employeeName, days, ccssType, location.value, baseExtraAmount);
 
               // Solo agregar empleados que tienen días trabajados (totalWorkDays > 0)
               if (payrollData.totalWorkDays > 0) {
@@ -273,24 +280,55 @@ export default function PayrollExporter({
     };    if (currentPeriod && locations.length > 0) {
       loadPayrollData();
     }
-  }, [currentPeriod, selectedLocation, locations, calculatePayrollData]);const exportPayroll = () => {
-    if (!currentPeriod || payrollData.length === 0) return;
+  }, [currentPeriod, selectedLocation, locations]); // Removido calculatePayrollData de las dependencias
+
+  // Memorizar cálculos de planilla para evitar recálculos innecesarios
+  const memoizedPayrollCalculations = useMemo(() => {
+    return payrollData.map(locationData => ({
+      ...locationData,
+      employees: locationData.employees.map(employee => {
+        const deductions = getEmployeeDeductions(locationData.location.value, employee.employeeName);
+        const regularTotal = employee.regularSalary * employee.totalHours;
+        const overtimeTotal = employee.overtimeSalary * 0;
+        const finalExtraAmount = deductions.extraAmount > 0 ? deductions.extraAmount : employee.extraAmount;
+        const totalIncome = regularTotal + overtimeTotal + finalExtraAmount;
+        const ccssAmount = employee.ccssType === 'TC' ? CCSS_TC : CCSS_MT;
+        const totalDeductions = ccssAmount + deductions.compras + deductions.adelanto + deductions.otros;
+        const finalNetSalary = totalIncome - totalDeductions;
+
+        return {
+          ...employee,
+          deductions,
+          regularTotal,
+          overtimeTotal,
+          finalExtraAmount,
+          totalIncome,
+          ccssAmount,
+          totalDeductions,
+          finalNetSalary
+        };
+      })
+    }));
+  }, [payrollData, editableDeductions, getEmployeeDeductions]);
+
+  const exportPayroll = () => {
+    if (!currentPeriod || memoizedPayrollCalculations.length === 0) return;
 
     let csvContent = "data:text/csv;charset=utf-8,";
     const periodDates = `${currentPeriod.start.getDate()}-${currentPeriod.end.getDate()}`;
 
-    payrollData.forEach(locationData => {
+    memoizedPayrollCalculations.forEach(locationData => {
       csvContent += `\nUBICACION: ${locationData.location.label}\n`;
-      locationData.employees.forEach(employee => {        // Calcular totales según formato solicitado con deducciones actuales
-        const deductions = getEmployeeDeductions(locationData.location.value, employee.employeeName);
-        const regularTotal = employee.regularSalary * employee.totalHours;
-        const overtimeTotal = 0; // HorasExtras vacías por defecto
-        const totalIncome = regularTotal + overtimeTotal + employee.extraAmount;
-
-        // Calcular deducciones totales con valores actualizados
-        const ccssAmount = employee.ccssType === 'TC' ? CCSS_TC : CCSS_MT;
-        const totalDeductions = ccssAmount + deductions.compras + deductions.adelanto + deductions.otros;
-        const finalNetSalary = totalIncome - totalDeductions;
+      locationData.employees.forEach(employee => {        // Usar los valores precalculados del memoized data
+        const {
+          deductions,
+          regularTotal,
+          finalExtraAmount,
+          totalIncome,
+          ccssAmount,
+          totalDeductions,
+          finalNetSalary
+        } = employee;
 
         // Encabezados con employee name y period en las columnas correctas (como en la tabla)
         csvContent += `"${employee.employeeName}","MES:","MesActual","Quincena:","${periodDates}",\n`;
@@ -303,7 +341,7 @@ export default function PayrollExporter({
         csvContent += `"HorasExtras","","","","${employee.overtimeSalary.toFixed(2)}",""\n`;
 
         // Fila de Monto Extra
-        csvContent += `"Monto Extra","","","","","${employee.extraAmount.toFixed(2)}"\n`;
+        csvContent += `"Monto Extra","","","","","${finalExtraAmount.toFixed(2)}"\n`;
 
         // Separador y filas de totales
         csvContent += `"","","","","IngresosTotales","${totalIncome.toFixed(2)}"\n`;
@@ -393,7 +431,7 @@ export default function PayrollExporter({
           {/* Botón de exportar */}
           <button
             onClick={exportPayroll}
-            disabled={payrollData.length === 0}
+            disabled={memoizedPayrollCalculations.length === 0}
             className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-md flex items-center gap-2 transition-colors"
             title="Exportar planilla de pago"
           >
@@ -405,7 +443,7 @@ export default function PayrollExporter({
 
       {/* Contenido de planilla */}
       <div className="space-y-6">
-        {payrollData.map((locationData, locationIndex) => (
+        {memoizedPayrollCalculations.map((locationData, locationIndex) => (
           <div key={locationIndex} className="border border-[var(--input-border)] rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
               <h4 className="text-lg font-semibold flex items-center gap-2">
@@ -423,17 +461,18 @@ export default function PayrollExporter({
               <div className="text-center py-8 text-[var(--tab-text)]">
                 <Calculator className="w-8 h-8 mx-auto mb-2 opacity-50" />
                 <p>No hay datos de planilla para este período</p>
-              </div>) : (<div className="space-y-6">                {locationData.employees.map((employee, empIndex) => {
-                // Calcular totales según el formato solicitado con deducciones actuales
-                const deductions = getEmployeeDeductions(locationData.location.value, employee.employeeName);
-                const regularTotal = employee.regularSalary * employee.totalHours;
-                const overtimeTotal = employee.overtimeSalary * 0; // 0 horas extraordinarias por defecto
-                const totalIncome = regularTotal + overtimeTotal + employee.extraAmount;
-
-                // Calcular deducciones totales con valores actualizados
-                const ccssAmount = employee.ccssType === 'TC' ? CCSS_TC : CCSS_MT;
-                const totalDeductions = ccssAmount + deductions.compras + deductions.adelanto + deductions.otros;
-                const finalNetSalary = totalIncome - totalDeductions;
+              </div>              ) : (<div className="space-y-6">                {locationData.employees.map((employee, empIndex) => {
+                // Usar los valores precalculados
+                const {
+                  deductions,
+                  regularTotal,
+                  overtimeTotal,
+                  finalExtraAmount,
+                  totalIncome,
+                  ccssAmount,
+                  totalDeductions,
+                  finalNetSalary
+                } = employee;
 
                 return (
                   <div key={empIndex} className="overflow-x-auto">
@@ -526,8 +565,20 @@ export default function PayrollExporter({
                           <td className="border border-[var(--input-border)] p-2 text-center"></td>
                           <td className="border border-[var(--input-border)] p-2 text-center"></td>
                           <td className="border border-[var(--input-border)] p-2 text-center"></td>
-                          <td className="border border-[var(--input-border)] p-2 text-center font-semibold">
-                            ₡{employee.extraAmount.toLocaleString('es-CR', { minimumFractionDigits: 2 })}
+                          <td className="border border-[var(--input-border)] p-2 text-center">
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={deductions.extraAmount > 0 ? deductions.extraAmount : (employee.extraAmount > 0 ? employee.extraAmount : '')}
+                              onChange={(e) => updateDeduction(locationData.location.value, employee.employeeName, 'extraAmount', parseFloat(e.target.value) || 0)}
+                              className="w-full text-center border-none bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-1 font-semibold"
+                              style={{
+                                background: 'var(--input-bg)',
+                                color: 'var(--foreground)',
+                              }}
+                              placeholder="0.00"
+                            />
                           </td>
                         </tr>
                         {/* Separador vacío */}
@@ -580,7 +631,7 @@ export default function PayrollExporter({
                               type="number"
                               min="0"
                               step="0.01"
-                              value={deductions.compras ?? 0}
+                              value={deductions.compras > 0 ? deductions.compras : ''}
                               onChange={(e) => updateDeduction(locationData.location.value, employee.employeeName, 'compras', parseFloat(e.target.value) || 0)}
                               className="w-full text-center border-none bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-1"
                               style={{
@@ -603,7 +654,7 @@ export default function PayrollExporter({
                               type="number"
                               min="0"
                               step="0.01"
-                              value={deductions.adelanto ?? 0}
+                              value={deductions.adelanto > 0 ? deductions.adelanto : ''}
                               onChange={(e) => updateDeduction(locationData.location.value, employee.employeeName, 'adelanto', parseFloat(e.target.value) || 0)}
                               className="w-full text-center border-none bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-1"
                               style={{
@@ -626,7 +677,7 @@ export default function PayrollExporter({
                               type="number"
                               min="0"
                               step="0.01"
-                              value={deductions.otros ?? 0}
+                              value={deductions.otros > 0 ? deductions.otros : ''}
                               onChange={(e) => updateDeduction(locationData.location.value, employee.employeeName, 'otros', parseFloat(e.target.value) || 0)}
                               className="w-full text-center border-none bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-1"
                               style={{
@@ -670,7 +721,7 @@ export default function PayrollExporter({
         ))}
       </div>
 
-      {payrollData.length === 0 && (
+      {memoizedPayrollCalculations.length === 0 && (
         <div className="text-center py-12">
           <Calculator className="w-12 h-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-[var(--foreground)] mb-2">
