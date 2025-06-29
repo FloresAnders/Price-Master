@@ -1,8 +1,8 @@
 // src/components/PayrollExporter.tsx
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Download, Calculator, DollarSign } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { Download, Calculator, DollarSign, Image } from 'lucide-react';
 import { LocationsService } from '../services/locations';
 import { SchedulesService, ScheduleEntry } from '../services/schedules';
 import { Location } from '../types/firestore';
@@ -310,58 +310,281 @@ export default function PayrollExporter({
     }));
   }, [payrollData, editableDeductions, getEmployeeDeductions]);
 
-  const exportPayroll = () => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Función para generar imagen de planilla para un empleado
+  const generateEmployeeImage = async (
+    employee: any,
+    locationName: string,
+    periodDates: string
+  ): Promise<void> => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Configurar canvas (más grande para mejor resolución)
+    canvas.width = 900;
+    canvas.height = 540;
+
+    // Fondo blanco
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Configuración inicial
+    ctx.textAlign = 'left';
+    ctx.font = '14px Arial';
+    let y = 40;
+    const margin = 20;
+    const cellHeight = 35;
+    const tableWidth = canvas.width - (margin * 2);
+    const colWidths = [130, 120, 120, 120, 180, 170, 170]; // Anchos de columnas ajustados
+
+    // Función para dibujar celda con borde
+    const drawCell = (x: number, y: number, width: number, height: number, text: string, bgColor: string = '#ffffff', textColor: string = '#000000', bold: boolean = false, fontSize: number = 14) => {
+      // Fondo de celda
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(x, y, width, height);
+      
+      // Borde
+      ctx.strokeStyle = '#6b7280';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x, y, width, height);
+      
+      // Texto
+      ctx.fillStyle = textColor;
+      ctx.font = bold ? `bold ${fontSize}px Arial` : `${fontSize}px Arial`;
+      ctx.textAlign = 'center';
+      
+      // Centrar texto en la celda
+      const textX = x + width / 2;
+      const textY = y + height / 2 + fontSize / 3;
+      ctx.fillText(text, textX, textY);
+    };
+
+    // Encabezado principal (igual que en la tabla HTML)
+    let currentX = margin;
+    
+    // Primera fila de encabezados
+    drawCell(currentX, y, colWidths[0], cellHeight, employee.employeeName, '#f3f4f6', '#000000', true, 16);
+    currentX += colWidths[0];
+    drawCell(currentX, y, colWidths[1], cellHeight, 'MES:', '#f3f4f6', '#000000', true);
+    currentX += colWidths[1];
+    drawCell(currentX, y, colWidths[2], cellHeight, 'MesActual', '#f3f4f6', '#000000', true);
+    currentX += colWidths[2];
+    drawCell(currentX, y, colWidths[3], cellHeight, 'Quincena:', '#f3f4f6', '#000000', true);
+    currentX += colWidths[3];
+    drawCell(currentX, y, colWidths[4], cellHeight, periodDates, '#f3f4f6', '#000000', true);
+    currentX += colWidths[4];
+    drawCell(currentX, y, colWidths[5] + colWidths[6], cellHeight, '', '#f3f4f6', '#000000', true);
+
+    y += cellHeight;
+    currentX = margin;
+
+    // Segunda fila de encabezados
+    drawCell(currentX, y, colWidths[0], cellHeight, '', '#f9fafb', '#000000', false, 12);
+    currentX += colWidths[0];
+    drawCell(currentX, y, colWidths[1], cellHeight, 'DiasLaborados', '#f9fafb', '#000000', false, 12);
+    currentX += colWidths[1];
+    drawCell(currentX, y, colWidths[2], cellHeight, 'H/D', '#f9fafb', '#000000', false, 12);
+    currentX += colWidths[2];
+    drawCell(currentX, y, colWidths[3], cellHeight, 'H/T', '#f9fafb', '#000000', false, 12);
+    currentX += colWidths[3];
+    drawCell(currentX, y, colWidths[4], cellHeight, 'S/H', '#f9fafb', '#000000', false, 12);
+    currentX += colWidths[4];
+    drawCell(currentX, y, colWidths[5], cellHeight, 'T/S', '#f9fafb', '#000000', false, 12);
+
+    y += cellHeight;
+
+    // Obtener datos calculados
+    const deductions = getEmployeeDeductions(locationName.toLowerCase().replace(/\s+/g, '-'), employee.employeeName);
+    const regularTotal = employee.regularSalary * employee.totalHours;
+    const finalExtraAmount = deductions.extraAmount > 0 ? deductions.extraAmount : employee.extraAmount;
+    const totalIncome = regularTotal + finalExtraAmount;
+    const ccssAmount = employee.ccssType === 'TC' ? CCSS_TC : CCSS_MT;
+    const totalDeductions = ccssAmount + deductions.compras + deductions.adelanto + deductions.otros;
+    const finalNetSalary = totalIncome - totalDeductions;
+
+    // Fila de Horas Ordinarias (fondo azul claro)
+    currentX = margin;
+    drawCell(currentX, y, colWidths[0], cellHeight, 'HorasOrdinarias', '#dbeafe', '#000000', true);
+    currentX += colWidths[0];
+    drawCell(currentX, y, colWidths[1], cellHeight, employee.totalWorkDays.toString(), '#dbeafe');
+    currentX += colWidths[1];
+    drawCell(currentX, y, colWidths[2], cellHeight, employee.hoursPerDay.toString(), '#dbeafe');
+    currentX += colWidths[2];
+    drawCell(currentX, y, colWidths[3], cellHeight, employee.totalHours.toString(), '#dbeafe');
+    currentX += colWidths[3];
+    drawCell(currentX, y, colWidths[4], cellHeight, employee.regularSalary.toLocaleString('es-CR', { minimumFractionDigits: 2 }), '#dbeafe');
+    currentX += colWidths[4];
+    drawCell(currentX, y, colWidths[5], cellHeight, regularTotal.toLocaleString('es-CR', { minimumFractionDigits: 2 }), '#dbeafe', '#000000', true);
+
+    y += cellHeight;
+
+    // Fila de Horas Extras (fondo naranja claro)
+    currentX = margin;
+    drawCell(currentX, y, colWidths[0], cellHeight, 'HorasExtras', '#fed7aa', '#000000', true);
+    currentX += colWidths[0];
+    drawCell(currentX, y, colWidths[1], cellHeight, '', '#fed7aa');
+    currentX += colWidths[1];
+    drawCell(currentX, y, colWidths[2], cellHeight, '', '#fed7aa');
+    currentX += colWidths[2];
+    drawCell(currentX, y, colWidths[3], cellHeight, '', '#fed7aa');
+    currentX += colWidths[3];
+    drawCell(currentX, y, colWidths[4], cellHeight, employee.overtimeSalary.toLocaleString('es-CR', { minimumFractionDigits: 2 }), '#fed7aa');
+    currentX += colWidths[4];
+    drawCell(currentX, y, colWidths[5], cellHeight, '', '#fed7aa', '#000000', true);
+
+    y += cellHeight;
+
+    // Fila de Monto Extra (fondo verde claro)
+    currentX = margin;
+    drawCell(currentX, y, colWidths[0], cellHeight, 'Monto Extra', '#dcfce7', '#000000', true);
+    currentX += colWidths[0];
+    drawCell(currentX, y, colWidths[1], cellHeight, '', '#dcfce7');
+    currentX += colWidths[1];
+    drawCell(currentX, y, colWidths[2], cellHeight, '', '#dcfce7');
+    currentX += colWidths[2];
+    drawCell(currentX, y, colWidths[3], cellHeight, '', '#dcfce7');
+    currentX += colWidths[3];
+    drawCell(currentX, y, colWidths[4], cellHeight, '', '#dcfce7');
+    currentX += colWidths[4];
+    drawCell(currentX, y, colWidths[5], cellHeight, finalExtraAmount.toLocaleString('es-CR', { minimumFractionDigits: 2 }), '#dcfce7', '#000000', true);
+
+    y += cellHeight;
+
+    // Fila separadora
+    currentX = margin;
+    for (let i = 0; i < 4; i++) {
+      drawCell(currentX, y, colWidths[i], cellHeight, '', '#ffffff');
+      currentX += colWidths[i];
+    }
+    drawCell(currentX, y, colWidths[4], cellHeight, 'IngresosTotales', '#ffffff', '#000000', true);
+    currentX += colWidths[4];
+    drawCell(currentX, y, colWidths[5], cellHeight, totalIncome.toLocaleString('es-CR', { minimumFractionDigits: 2 }), '#ffffff', '#000000', true);
+
+    y += cellHeight;
+
+    // Fila separadora vacía
+    currentX = margin;
+    for (let i = 0; i < colWidths.length - 1; i++) {
+      drawCell(currentX, y, colWidths[i], cellHeight, '', '#ffffff');
+      currentX += colWidths[i];
+    }
+
+    y += cellHeight;
+
+    // CCSS
+    currentX = margin;
+    for (let i = 0; i < 4; i++) {
+      drawCell(currentX, y, colWidths[i], cellHeight, '', '#ffffff');
+      currentX += colWidths[i];
+    }
+    drawCell(currentX, y, colWidths[4], cellHeight, 'CCSS', '#ffffff', '#000000', true);
+    currentX += colWidths[4];
+    drawCell(currentX, y, colWidths[5], cellHeight, `₡${ccssAmount.toLocaleString('es-CR', { minimumFractionDigits: 2 })} (${employee.ccssType})`, '#ffffff');
+
+    y += cellHeight;
+
+    // COMPRAS
+    currentX = margin;
+    for (let i = 0; i < 4; i++) {
+      drawCell(currentX, y, colWidths[i], cellHeight, '', '#ffffff');
+      currentX += colWidths[i];
+    }
+    drawCell(currentX, y, colWidths[4], cellHeight, 'COMPRAS', '#ffffff', '#000000', true);
+    currentX += colWidths[4];
+    drawCell(currentX, y, colWidths[5], cellHeight, deductions.compras.toLocaleString('es-CR', { minimumFractionDigits: 2 }), '#ffffff');
+
+    y += cellHeight;
+
+    // ADELANTO
+    currentX = margin;
+    for (let i = 0; i < 4; i++) {
+      drawCell(currentX, y, colWidths[i], cellHeight, '', '#ffffff');
+      currentX += colWidths[i];
+    }
+    drawCell(currentX, y, colWidths[4], cellHeight, 'ADELANTO', '#ffffff', '#000000', true);
+    currentX += colWidths[4];
+    drawCell(currentX, y, colWidths[5], cellHeight, deductions.adelanto.toLocaleString('es-CR', { minimumFractionDigits: 2 }), '#ffffff');
+
+    y += cellHeight;
+
+    // OTROS
+    currentX = margin;
+    for (let i = 0; i < 4; i++) {
+      drawCell(currentX, y, colWidths[i], cellHeight, '', '#ffffff');
+      currentX += colWidths[i];
+    }
+    drawCell(currentX, y, colWidths[4], cellHeight, 'OTROS', '#ffffff', '#000000', true);
+    currentX += colWidths[4];
+    drawCell(currentX, y, colWidths[5], cellHeight, deductions.otros.toLocaleString('es-CR', { minimumFractionDigits: 2 }), '#ffffff');
+
+    y += cellHeight;
+
+    // DEDUCCIONESTOTALES (fondo rojo claro)
+    currentX = margin;
+    for (let i = 0; i < 4; i++) {
+      drawCell(currentX, y, colWidths[i], cellHeight, '', '#fecaca');
+      currentX += colWidths[i];
+    }
+    drawCell(currentX, y, colWidths[4], cellHeight, 'DEDUCCIONESTOTALES', '#fecaca', '#000000', true);
+    currentX += colWidths[4];
+    drawCell(currentX, y, colWidths[5], cellHeight, `₡${totalDeductions.toLocaleString('es-CR', { minimumFractionDigits: 2 })}`, '#fecaca', '#000000', true);
+
+    y += cellHeight;
+
+    // SALARIO NETO (fondo amarillo)
+    currentX = margin;
+    for (let i = 0; i < 4; i++) {
+      drawCell(currentX, y, colWidths[i], cellHeight, '', '#fef3c7');
+      currentX += colWidths[i];
+    }
+    drawCell(currentX, y, colWidths[4], cellHeight, 'SALARIO NETO', '#fef3c7', '#000000', true, 16);
+    currentX += colWidths[4];
+    drawCell(currentX, y, colWidths[5], cellHeight, `₡${finalNetSalary.toLocaleString('es-CR', { minimumFractionDigits: 2 })}`, '#fef3c7', '#000000', true, 16);
+
+    // Descargar la imagen
+    canvas.toBlob((blob) => {
+      if (blob) {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `planilla-${employee.employeeName.replace(/\s+/g, '_')}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
+    });
+  };
+
+  const exportPayroll = async () => {
     if (!currentPeriod || memoizedPayrollCalculations.length === 0) return;
 
-    let csvContent = "data:text/csv;charset=utf-8,";
     const periodDates = `${currentPeriod.start.getDate()}-${currentPeriod.end.getDate()}`;
+    let totalEmployees = 0;
 
+    // Contar total de empleados para mostrar progreso
     memoizedPayrollCalculations.forEach(locationData => {
-      csvContent += `\nUBICACION: ${locationData.location.label}\n`;
-      locationData.employees.forEach(employee => {        // Usar los valores precalculados del memoized data
-        const {
-          deductions,
-          regularTotal,
-          finalExtraAmount,
-          totalIncome,
-          ccssAmount,
-          totalDeductions,
-          finalNetSalary
-        } = employee;
-
-        // Encabezados con employee name y period en las columnas correctas (como en la tabla)
-        csvContent += `"${employee.employeeName}","MES:","MesActual","Quincena:","${periodDates}",\n`;
-        csvContent += ",DiasLaborados,H/D,H/T,S/H,T/S\n";
-
-        // Fila de HorasOrdinarias
-        csvContent += `"HorasOrdinarias","${employee.totalWorkDays}","${employee.hoursPerDay}","${employee.totalHours}","${employee.regularSalary.toFixed(2)}","${regularTotal.toFixed(2)}"\n`;
-
-        // Fila de HorasExtras
-        csvContent += `"HorasExtras","","","","${employee.overtimeSalary.toFixed(2)}",""\n`;
-
-        // Fila de Monto Extra
-        csvContent += `"Monto Extra","","","","","${finalExtraAmount.toFixed(2)}"\n`;
-
-        // Separador y filas de totales
-        csvContent += `"","","","","IngresosTotales","${totalIncome.toFixed(2)}"\n`;
-        csvContent += `"","","","","",\n`;
-        csvContent += `"","","","","CCSS","${ccssAmount.toFixed(2)} (${employee.ccssType})"\n`;
-        csvContent += `"","","","","COMPRAS","${deductions.compras.toFixed(2)}"\n`;
-        csvContent += `"","","","","ADELANTO","${deductions.adelanto.toFixed(2)}"\n`;
-        csvContent += `"","","","","OTROS","${deductions.otros.toFixed(2)}"\n`;
-        csvContent += `"","","","","DEDUCCIONESTOTALES","${totalDeductions.toFixed(2)}"\n`;
-        csvContent += `"","","","","SALARIO NETO","${finalNetSalary.toFixed(2)}"\n`;
-        csvContent += "\n";
-      });
+      totalEmployees += locationData.employees.length;
     });
 
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `planilla-${currentPeriod.year}-${currentPeriod.month}-${currentPeriod.period}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link); showNotification('📊 Planilla de pago exportada exitosamente', 'success');
+    let processedEmployees = 0;
+
+    for (const locationData of memoizedPayrollCalculations) {
+      for (const employee of locationData.employees) {
+        await new Promise(resolve => setTimeout(resolve, 100)); // Pequeña pausa entre imágenes
+        await generateEmployeeImage(employee, locationData.location.label, periodDates);
+        processedEmployees++;
+        
+        // Actualizar notificación de progreso
+        showNotification(`📊 Generando imágenes... ${processedEmployees}/${totalEmployees}`, 'success');
+      }
+    }
+
+    showNotification(`📊 ${totalEmployees} imágenes de planilla generadas exitosamente`, 'success');
   };
 
   if (loading) {
@@ -432,10 +655,10 @@ export default function PayrollExporter({
             onClick={exportPayroll}
             disabled={memoizedPayrollCalculations.length === 0}
             className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-md flex items-center gap-2 transition-colors"
-            title="Exportar planilla de pago"
+            title="Exportar planillas como imágenes"
           >
-            <Download className="w-4 h-4" />
-            <span className="hidden sm:inline">Exportar Planilla</span>
+            <Image className="w-4 h-4" />
+            <span className="hidden sm:inline">Exportar Imágenes</span>
           </button>
         </div>
       </div>
@@ -731,6 +954,14 @@ export default function PayrollExporter({
           </p>
         </div>
       )}
+
+      {/* Canvas oculto para generar imágenes */}
+      <canvas
+        ref={canvasRef}
+        style={{ display: 'none' }}
+        width={900}
+        height={540}
+      />
     </div>
   );
 }
