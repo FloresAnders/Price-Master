@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Save, Download, Upload, AlertCircle, Check, FileText, MapPin, Users, Clock, DollarSign } from 'lucide-react';
+import { Save, Download, Upload, AlertCircle, Check, FileText, MapPin, Users, Clock, DollarSign, Eye, EyeOff } from 'lucide-react';
 import { LocationsService } from '../services/locations';
 import { SorteosService } from '../services/sorteos';
 import { UsersService } from '../services/users';
@@ -24,7 +24,9 @@ export default function DataEditor() {
     const [originalCcssData, setOriginalCcssData] = useState<CcssConfig>({ mt: 3672.46, tc: 11017.39 });
     const [hasChanges, setHasChanges] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);    // Detectar cambios
+    const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+    const [passwordVisibility, setPasswordVisibility] = useState<{ [key: number]: boolean }>({});
+    const [savingUser, setSavingUser] = useState<number | null>(null);    // Detectar cambios
     useEffect(() => {
         const locationsChanged = JSON.stringify(locationsData) !== JSON.stringify(originalLocationsData);
         const sorteosChanged = JSON.stringify(sorteosData) !== JSON.stringify(originalSorteosData);
@@ -359,6 +361,49 @@ export default function DataEditor() {
         setUsersData(updated);
     }; const removeUser = (index: number) => {
         setUsersData(usersData.filter((_, i) => i !== index));
+    };
+
+    // Funciones para manejar visibilidad de contraseñas
+    const togglePasswordVisibility = (index: number) => {
+        setPasswordVisibility(prev => ({
+            ...prev,
+            [index]: !prev[index]
+        }));
+    };
+
+    // Función para guardar usuario individual
+    const saveIndividualUser = async (index: number) => {
+        setSavingUser(index);
+        try {
+            const user = usersData[index];
+            if (user.id) {
+                // Actualizar usuario existente
+                await UsersService.updateUser(user.id, {
+                    name: user.name,
+                    location: user.location,
+                    password: user.password,
+                    role: user.role,
+                    isActive: user.isActive
+                });
+            } else {
+                // Crear nuevo usuario
+                await UsersService.addUser({
+                    name: user.name,
+                    location: user.location,
+                    password: user.password,
+                    role: user.role,
+                    isActive: user.isActive
+                });
+                // Recargar datos para obtener el ID generado
+                await loadData();
+            }
+            showNotification(`Usuario ${user.name} guardado exitosamente`, 'success');
+        } catch (error) {
+            showNotification('Error al guardar el usuario', 'error');
+            console.error('Error saving user:', error);
+        } finally {
+            setSavingUser(null);
+        }
     };
 
     // Funciones para manejar configuración CCSS
@@ -747,14 +792,28 @@ export default function DataEditor() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Contraseña:</label>
-                                    <input
-                                        type="password"
-                                        value={user.password || ''}
-                                        onChange={(e) => updateUser(index, 'password', e.target.value)}
-                                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
-                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                        placeholder="Contraseña del usuario"
-                                    />
+                                    <div className="relative">
+                                        <input
+                                            type={passwordVisibility[index] ? 'text' : 'password'}
+                                            value={user.password || ''}
+                                            onChange={(e) => updateUser(index, 'password', e.target.value)}
+                                            className="w-full px-3 py-2 pr-10 border border-[var(--input-border)] rounded-md"
+                                            style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                            placeholder="Contraseña del usuario"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => togglePasswordVisibility(index)}
+                                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+                                            title={passwordVisibility[index] ? "Ocultar contraseña" : "Mostrar contraseña"}
+                                        >
+                                            {passwordVisibility[index] ? (
+                                                <EyeOff className="w-4 h-4" />
+                                            ) : (
+                                                <Eye className="w-4 h-4" />
+                                            )}
+                                        </button>
+                                    </div>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Rol:</label>
@@ -785,7 +844,15 @@ export default function DataEditor() {
                                 </div>
                             </div>
 
-                            <div className="flex justify-end">
+                            <div className="flex justify-end gap-2">
+                                <button
+                                    onClick={() => saveIndividualUser(index)}
+                                    className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center gap-2"
+                                    disabled={savingUser === index}
+                                >
+                                    <Save className="w-4 h-4" />
+                                    {savingUser === index ? 'Guardando...' : 'Guardar'}
+                                </button>
                                 <button
                                     onClick={() => removeUser(index)}
                                     className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
