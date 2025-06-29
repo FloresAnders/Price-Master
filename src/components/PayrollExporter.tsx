@@ -118,13 +118,14 @@ export default function PayrollExporter({
     days: { [day: number]: string },
     ccssType: 'TC' | 'MT',
     locationValue: string,
-    extraAmount: number = 0
+    extraAmount: number = 0,
+    employee?: { hoursPerShift?: number; [key: string]: any }
   ): EmployeePayrollData => {
     const workShifts = Object.values(days).filter(shift => shift === 'D' || shift === 'N');
     const totalWorkDays = workShifts.length;
 
-    // Asumir 8 horas por día trabajado
-    const hoursPerDay = 8;
+    // Usar hoursPerShift del empleado o 8 horas por defecto
+    const hoursPerDay = employee?.hoursPerShift || 8;
     const totalHours = totalWorkDays * hoursPerDay;
 
     // Calcular horas regulares y extraordinarias
@@ -253,7 +254,7 @@ export default function PayrollExporter({
               const ccssType = employee?.ccssType || 'TC'; // Por defecto TC
               const baseExtraAmount = employee?.extraAmount || 0; // Monto extra base, por defecto 0
 
-              const payrollData = calculatePayrollData(employeeName, days, ccssType, location.value, baseExtraAmount);
+              const payrollData = calculatePayrollData(employeeName, days, ccssType, location.value, baseExtraAmount, employee);
 
               // Solo agregar empleados que tienen días trabajados (totalWorkDays > 0)
               if (payrollData.totalWorkDays > 0) {
