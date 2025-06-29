@@ -42,7 +42,6 @@ interface EditableDeductions {
     compras: number;
     adelanto: number;
     otros: number;
-    otrosIncome: number; // Para el monto "Otros" de ingresos
     extraAmount: number; // Para el monto extra editable
   };
 }
@@ -83,9 +82,9 @@ export default function PayrollExporter({
   const getEmployeeKey = (locationValue: string, employeeName: string): string => {
     return `${locationValue}-${employeeName}`;
   };  // Función para actualizar deducciones editables con debounce optimizado
-  const updateDeduction = useCallback((locationValue: string, employeeName: string, type: 'compras' | 'adelanto' | 'otros' | 'otrosIncome' | 'extraAmount', value: number) => {
+  const updateDeduction = useCallback((locationValue: string, employeeName: string, type: 'compras' | 'adelanto' | 'otros' | 'extraAmount', value: number) => {
     const employeeKey = getEmployeeKey(locationValue, employeeName);
-    const defaults = { compras: 0, adelanto: 0, otros: 0, otrosIncome: 0, extraAmount: 0 };
+    const defaults = { compras: 0, adelanto: 0, otros: 0, extraAmount: 0 };
 
     setEditableDeductions(prev => ({
       ...prev,
@@ -98,7 +97,7 @@ export default function PayrollExporter({
   }, []);  // Función para obtener deducciones editables de un empleado
   const getEmployeeDeductions = useCallback((locationValue: string, employeeName: string) => {
     const employeeKey = getEmployeeKey(locationValue, employeeName);
-    const defaults = { compras: 0, adelanto: 0, otros: 0, otrosIncome: 0, extraAmount: 0 };
+    const defaults = { compras: 0, adelanto: 0, otros: 0, extraAmount: 0 };
     const existing = editableDeductions[employeeKey];
 
     if (!existing) {
@@ -110,7 +109,6 @@ export default function PayrollExporter({
       compras: existing.compras ?? defaults.compras,
       adelanto: existing.adelanto ?? defaults.adelanto,
       otros: existing.otros ?? defaults.otros,
-      otrosIncome: existing.otrosIncome ?? defaults.otrosIncome,
       extraAmount: existing.extraAmount ?? defaults.extraAmount
     };
   }, [editableDeductions]);
