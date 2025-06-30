@@ -709,6 +709,7 @@ export default function PayrollExporter({
             className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-md flex items-center gap-2 transition-colors"
             title="Exportar planillas como imágenes"
           >
+            {/* eslint-disable-next-line jsx-a11y/alt-text */}
             <Image className="w-4 h-4" />
             <span className="hidden sm:inline">Exportar Imágenes</span>
           </button>
@@ -993,6 +994,7 @@ export default function PayrollExporter({
                         className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md flex items-center gap-2 transition-colors"
                         title={`Exportar planilla de ${employee.employeeName}`}
                       >
+                        {/* eslint-disable-next-line jsx-a11y/alt-text */}
                         <Image className="w-4 h-4" />
                         Exportar Planilla
                       </button>
