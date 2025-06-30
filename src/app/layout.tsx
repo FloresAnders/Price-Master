@@ -19,8 +19,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="bg-background text-foreground transition-colors duration-500 min-h-screen flex flex-col">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <Header />
-          <main className="flex-1 flex flex-col w-full justify-center items-center">
-            <div className="w-full max-w-6xl px-4">
+          <main className="flex-1 flex flex-col w-full">
+            <div className="w-full">
               {children}
             </div>
           </main>
