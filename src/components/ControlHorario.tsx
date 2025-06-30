@@ -482,7 +482,9 @@ export default function ControlHorario() {
       const marginX = 60;
       const marginY = 80;
       const employeeNameWidth = 200;
-      const cellWidth = Math.max(50, (canvas.width - marginX * 2 - employeeNameWidth) / dayCount);
+      const workedDaysColumnWidth = 120; // Nueva columna para días trabajados
+      const availableWidth = canvas.width - marginX * 2 - employeeNameWidth - workedDaysColumnWidth;
+      const cellWidth = Math.max(50, availableWidth / dayCount);
       const cellHeight = 50;
 
       let yPosition = marginY;
@@ -550,9 +552,35 @@ export default function ControlHorario() {
         ctx.fillText(day.toString(), x + cellWidth / 2, tableStartY + cellHeight / 2 + 6);
       });
 
+      // Encabezado "Días Trabajados" al final
+      const workedDaysHeaderX = daysStartX + (dayCount * cellWidth);
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(workedDaysHeaderX, tableStartY, workedDaysColumnWidth, cellHeight);
+      ctx.strokeRect(workedDaysHeaderX, tableStartY, workedDaysColumnWidth, cellHeight);
+      ctx.fillStyle = '#1f2937';
+      ctx.fillText('Días Trab.', workedDaysHeaderX + workedDaysColumnWidth / 2, tableStartY + cellHeight / 2 + 6);
+      daysToShow.forEach((day, index) => {
+        const x = daysStartX + (index * cellWidth);
+        
+        // Fondo del encabezado
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillRect(x, tableStartY, cellWidth, cellHeight);
+        ctx.strokeRect(x, tableStartY, cellWidth, cellHeight);
+        
+        // Texto del día
+        ctx.fillStyle = '#1f2937';
+        ctx.fillText(day.toString(), x + cellWidth / 2, tableStartY + cellHeight / 2 + 6);
+      });
+
       // Filas de empleados
       yPosition = tableStartY + cellHeight;
       names.forEach((employeeName, empIndex) => {
+        // Calcular días trabajados para este empleado
+        const workedDaysCount = daysToShow.filter(day => {
+          const shift = scheduleData[employeeName]?.[day.toString()] || '';
+          return shift === 'N' || shift === 'D'; // Solo contar Nocturno y Diurno
+        }).length;
+
         // Celda del nombre del empleado
         ctx.fillStyle = empIndex % 2 === 0 ? '#f8fafc' : '#ffffff';
         ctx.fillRect(marginX, yPosition, employeeNameWidth, cellHeight);
@@ -561,6 +589,7 @@ export default function ControlHorario() {
         
         ctx.fillStyle = '#374151';
         ctx.font = 'bold 16px Arial';
+        ctx.textAlign = 'left';
         ctx.fillText(employeeName, marginX + 10, yPosition + cellHeight / 2 + 6);
 
         // Celdas de horarios
@@ -597,6 +626,17 @@ export default function ControlHorario() {
             ctx.fillText(shift, x + cellWidth / 2, yPosition + cellHeight / 2 + 6);
           }
         });
+
+        // Celda de días trabajados al final
+        const workedDaysCellX = daysStartX + (dayCount * cellWidth);
+        ctx.fillStyle = empIndex % 2 === 0 ? '#e0f2fe' : '#f0f8ff'; // Color ligeramente diferente
+        ctx.fillRect(workedDaysCellX, yPosition, workedDaysColumnWidth, cellHeight);
+        ctx.strokeRect(workedDaysCellX, yPosition, workedDaysColumnWidth, cellHeight);
+        
+        ctx.fillStyle = '#1565c0'; // Color azul para resaltar
+        ctx.font = 'bold 18px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(workedDaysCount.toString(), workedDaysCellX + workedDaysColumnWidth / 2, yPosition + cellHeight / 2 + 6);
 
         yPosition += cellHeight;
       });
@@ -695,8 +735,15 @@ export default function ControlHorario() {
       daysToShow.forEach(day => {
         tableHTML += `<th style='border:1px solid #d1d5db;padding:6px 10px;background:#f3f4f6;'>${day}</th>`;
       });
+      tableHTML += `<th style='border:1px solid #d1d5db;padding:6px 10px;background:#e0f2fe;color:#1565c0;font-weight:bold;'>Días Trab.</th>`;
       tableHTML += `</tr></thead><tbody>`;
       names.forEach(name => {
+        // Calcular días trabajados para este empleado
+        const workedDaysCount = daysToShow.filter(day => {
+          const shift = scheduleData[name]?.[day.toString()] || '';
+          return shift === 'N' || shift === 'D'; // Solo contar Nocturno y Diurno
+        }).length;
+        
         tableHTML += `<tr><td style='border:1px solid #d1d5db;padding:6px 10px;font-weight:bold;background:#f3f4f6;'>${name}</td>`;
         daysToShow.forEach(day => {
           const value = scheduleData[name]?.[day.toString()] || '';
@@ -706,6 +753,7 @@ export default function ControlHorario() {
           if (value === 'L') bg = '#FF00FF';
           tableHTML += `<td style='border:1px solid #d1d5db;padding:6px 10px;background:${bg};text-align:center;'>${value}</td>`;
         });
+        tableHTML += `<td style='border:1px solid #d1d5db;padding:6px 10px;background:#e0f2fe;text-align:center;font-weight:bold;color:#1565c0;'>${workedDaysCount}</td>`;
         tableHTML += `</tr>`;
       });
       tableHTML += `</tbody></table>`;
