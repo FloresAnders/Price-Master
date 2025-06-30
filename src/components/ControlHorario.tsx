@@ -1058,7 +1058,11 @@ export default function ControlHorario() {
                   const isToday =
                     today.getFullYear() === currentDate.getFullYear() &&
                     today.getMonth() === currentDate.getMonth() &&
-                    today.getDate() === day; return (<th
+                    today.getDate() === day;
+                  
+                  // Obtener el nombre del día de la semana
+                  const dayDate = new Date(year, month, day);
+                  const dayName = dayDate.toLocaleDateString('es-CR', { weekday: 'long' }); return (<th
                       key={day}
                       className={`border border-[var(--input-border)] p-2 font-semibold text-center transition-colors text-xs ${isToday ? 'ring-2 ring-green-400 ring-offset-2 ring-offset-[var(--card-bg)]' : ''}`}
                       style={{
@@ -1068,6 +1072,7 @@ export default function ControlHorario() {
                         borderColor: isToday ? '#4ade80' : undefined,
                         height: '40px'
                       }}
+                      title={`${dayName}, ${day} de ${monthName}`}
                     >
                       {day}
                     </th>
