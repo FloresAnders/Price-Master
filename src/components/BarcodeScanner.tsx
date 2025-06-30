@@ -972,7 +972,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                   </div>
                 </div>
                 
-                <h3 className="text-xl font-bold text-gray-800 dark:text-green-300 mb-4">Escanea este QR con tu móvil</h3>
+                <h3 className="text-xl font-bold text-gray-800 dark:text-green-300 mb-4">EscaneA este QR con tu móvil</h3>
 
                 {/* QR Code - ahora real */}                <div className="bg-gray-100 dark:bg-gray-700 rounded-xl p-4 mb-4 flex items-center justify-center">
                   {qrCodeUrl ? (

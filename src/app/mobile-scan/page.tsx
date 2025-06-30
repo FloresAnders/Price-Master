@@ -343,7 +343,7 @@ function MobileScanContent() {
         </div>        <p className="text-sm text-blue-600 dark:text-blue-400 ml-7">
           Esta configuración fue establecida desde la PC donde se generó el QR.
           {requestProductName
-            ? " Se te pedirá ingresar un nombre opcional para cada código escaneado."
+            ? " Se te pedirá ingresar un nombre REQUERIDO para cada código escaneado."
             : " Solo se enviarán los códigos de barras sin solicitar nombres."
           }
         </p>
@@ -456,7 +456,7 @@ function MobileScanContent() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-card-bg rounded-lg p-6 w-full max-w-md">
             <h3 className="text-lg font-semibold mb-4 text-foreground">
-              Nombre del Producto (Opcional)
+              {requestProductName ? 'Nombre del Producto (Requerido)' : 'Nombre del Producto (Opcional)'}
             </h3>
             <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">
               Código: <span className="font-mono bg-input-bg px-2 py-1 rounded">{pendingCode}</span>
@@ -466,11 +466,11 @@ function MobileScanContent() {
               type="text"
               value={productName}
               onChange={(e) => setProductName(e.target.value)}
-              placeholder="Ingresa el nombre del producto (opcional)"
+              placeholder={requestProductName ? "Ingresa el nombre del producto (requerido)" : "Ingresa el nombre del producto (opcional)"}
               className="w-full bg-input-bg border border-input-border rounded-lg px-4 py-3 text-foreground placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500 mb-4"
               autoFocus
               onKeyDown={(e) => {
-                if (e.key === 'Enter') {
+                if (e.key === 'Enter' && (!requestProductName || productName.trim())) {
                   handleNameSubmit();
                 } else if (e.key === 'Escape') {
                   handleNameCancel();
@@ -487,7 +487,8 @@ function MobileScanContent() {
               </button>
               <button
                 onClick={handleNameSubmit}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-white font-medium"
+                disabled={requestProductName && !productName.trim()}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed px-4 py-2 rounded-lg text-white font-medium"
               >
                 Continuar
               </button>
