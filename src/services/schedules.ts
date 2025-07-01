@@ -181,7 +181,7 @@ export class SchedulesService {
 
   /**
    * Update or create schedule entry hours worked (specific for DELIFOOD)
-   * Always store horasPorDia, even if 0
+   * If hours is 0, delete the document. Otherwise store the hours.
    */
   static async updateScheduleHours(
     locationValue: string,
@@ -195,23 +195,33 @@ export class SchedulesService {
       // Find existing entry first
       const existingEntry = await this.findScheduleEntry(locationValue, employeeName, year, month, day);
 
-      if (existingEntry && existingEntry.id) {
-        // Update existing document - always store horasPorDia even if 0
-        await this.updateSchedule(existingEntry.id, { 
-          shift: '',
-          horasPorDia: horasPorDia
-        });
+      if (horasPorDia <= 0) {
+        // If hours is 0 or negative, delete the document if it exists
+        if (existingEntry && existingEntry.id) {
+          await this.deleteSchedule(existingEntry.id);
+          console.log(`Documento eliminado (0 horas): ${existingEntry.id}`);
+        }
+        // If no existing document, do nothing (already "empty")
       } else {
-        // Create new document - always store horasPorDia even if 0
-        await this.addSchedule({
-          locationValue,
-          employeeName,
-          year,
-          month,
-          day,
-          shift: '',
-          horasPorDia: horasPorDia
-        });
+        // If hours > 0, create or update the document
+        if (existingEntry && existingEntry.id) {
+          // Update existing document
+          await this.updateSchedule(existingEntry.id, { 
+            shift: '',
+            horasPorDia: horasPorDia
+          });
+        } else {
+          // Create new document
+          await this.addSchedule({
+            locationValue,
+            employeeName,
+            year,
+            month,
+            day,
+            shift: '',
+            horasPorDia: horasPorDia
+          });
+        }
       }
     } catch (error) {
       console.error('Error al actualizar horas trabajadas:', error);

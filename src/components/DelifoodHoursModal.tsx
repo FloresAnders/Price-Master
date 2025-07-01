@@ -127,6 +127,9 @@ export default function DelifoodHoursModal({
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               Puedes usar decimales (ej: 8.5 para 8 horas y 30 minutos)
             </p>
+            <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 font-medium">
+              💡 Poner 0 horas eliminará este registro
+            </p>
           </div>
 
           {error && (
@@ -134,28 +137,6 @@ export default function DelifoodHoursModal({
               <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
             </div>
           )}
-
-          {/* Quick hour buttons */}
-          <div className="mb-6">
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Horas comunes:
-            </p>
-            <div className="grid grid-cols-4 gap-2">
-              {[0, 4, 6, 8].map((quickHour) => (
-                <button
-                  key={quickHour}
-                  onClick={() => setHours(quickHour)}
-                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    hours === quickHour
-                      ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 border-2 border-blue-500'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  {quickHour}h
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
 
         {/* Footer */}
@@ -170,7 +151,11 @@ export default function DelifoodHoursModal({
           <button
             onClick={handleSave}
             disabled={saving}
-            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+            className={`flex-1 px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 ${
+              hours === 0 
+                ? 'bg-red-600 hover:bg-red-700 text-white' 
+                : 'bg-blue-600 hover:bg-blue-700 text-white'
+            }`}
           >
             {saving ? (
               <>
@@ -179,8 +164,17 @@ export default function DelifoodHoursModal({
               </>
             ) : (
               <>
-                <Save className="w-4 h-4" />
-                Guardar
+                {hours === 0 ? (
+                  <>
+                    <X className="w-4 h-4" />
+                    Eliminar
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    Guardar
+                  </>
+                )}
               </>
             )}
           </button>

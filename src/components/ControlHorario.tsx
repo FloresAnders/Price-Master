@@ -31,13 +31,17 @@ function EmployeeTooltipSummary({
   locationValue, 
   year, 
   month, 
-  daysToShow 
+  daysToShow,
+  isDelifoodLocation = false,
+  delifoodHoursData = {}
 }: {
   employeeName: string;
   locationValue: string;
   year: number;
   month: number;
   daysToShow: number[];
+  isDelifoodLocation?: boolean;
+  delifoodHoursData?: { [employeeName: string]: { [day: string]: { hours: number } } };
 }) {
   const [summary, setSummary] = React.useState<{
     workedDays: number;
@@ -61,19 +65,38 @@ function EmployeeTooltipSummary({
           month
         );
 
-        // Convertir a formato de turnos
-        const scheduleData: { [day: string]: string } = {};
-        schedules.forEach((schedule) => {
-          scheduleData[schedule.day.toString()] = schedule.shift;
-        });
+        let workedDaysInPeriod = 0;
+        let totalHours = 0;
 
-        // Calcular días trabajados solo en el período mostrado (daysToShow)
-        const workedDaysInPeriod = daysToShow.filter(day => {
-          const shift = scheduleData[day.toString()] || '';
-          return shift === 'N' || shift === 'D'; // Solo contar Nocturno y Diurno
-        }).length;        // Obtener horas por día desde la configuración del empleado en la BD
-        const hoursPerDay = employee?.hoursPerShift || 8; // Fallback a 8 si no está definido
-        const totalHours = workedDaysInPeriod * hoursPerDay;
+        if (isDelifoodLocation) {
+          // Para DELIFOOD, usar las horas directamente de horasPorDia
+          totalHours = daysToShow.reduce((total, day) => {
+            const hours = delifoodHoursData[employeeName]?.[day.toString()]?.hours || 0;
+            return total + hours;
+          }, 0);
+          
+          // Para DELIFOOD, los "días trabajados" son los días que tienen horas > 0
+          workedDaysInPeriod = daysToShow.filter(day => {
+            const hours = delifoodHoursData[employeeName]?.[day.toString()]?.hours || 0;
+            return hours > 0;
+          }).length;
+        } else {
+          // Para ubicaciones normales, usar la lógica original
+          const scheduleData: { [day: string]: string } = {};
+          schedules.forEach((schedule) => {
+            scheduleData[schedule.day.toString()] = schedule.shift;
+          });
+
+          // Calcular días trabajados solo en el período mostrado (daysToShow)
+          workedDaysInPeriod = daysToShow.filter(day => {
+            const shift = scheduleData[day.toString()] || '';
+            return shift === 'N' || shift === 'D'; // Solo contar Nocturno y Diurno
+          }).length;
+
+          // Obtener horas por día desde la configuración del empleado en la BD
+          const hoursPerDay = employee?.hoursPerShift || 8; // Fallback a 8 si no está definido
+          totalHours = workedDaysInPeriod * hoursPerDay;
+        }
 
         // Calcular salario bruto con valor fijo
         const hourlyRate = 1529.62;
@@ -113,7 +136,7 @@ function EmployeeTooltipSummary({
     };
 
     fetchSummary();
-  }, [employeeName, locationValue, year, month, daysToShow]);
+  }, [employeeName, locationValue, year, month, daysToShow, isDelifoodLocation, delifoodHoursData]);
 
   if (!summary) {
     return <div>Cargando...</div>;
@@ -121,7 +144,7 @@ function EmployeeTooltipSummary({
 
   return (
     <>
-      <div><b>Días trabajados:</b> {summary.workedDays}</div>
+      <div><b>{isDelifoodLocation ? 'Días con horas:' : 'Días trabajados:'}</b> {summary.workedDays}</div>
       <div><b>Horas trabajadas:</b> {summary.hours}</div>
       <div><b>Total bruto:</b> ₡{summary.colones.toLocaleString('es-CR')}</div>
       <div><b>CCSS:</b> -₡{summary.ccss.toLocaleString('es-CR', { minimumFractionDigits: 2 })}</div>
@@ -228,22 +251,16 @@ export default function ControlHorario() {
         if (isDelifoodLocation) {
           const newDelifoodData: { [employeeName: string]: { [day: string]: { hours: number } } } = {};
           
-          // Obtener todos los días del mes
-          const daysInMonth = new Date(year, month + 1, 0).getDate();
-          
           names.forEach((employeeName, index) => {
             newDelifoodData[employeeName] = {};
             
-            // Inicializar todos los días del mes con 0 horas
-            for (let day = 1; day <= daysInMonth; day++) {
-              newDelifoodData[employeeName][day.toString()] = { hours: 0 };
-            }
-            
-            // Sobrescribir con los datos reales de Firestore
+            // Solo agregar días que realmente tienen datos en Firestore
             scheduleEntries[index].forEach(entry => {
-              const hours = (entry.horasPorDia !== undefined && entry.horasPorDia !== null) ? entry.horasPorDia : 0;
-              newDelifoodData[employeeName][entry.day.toString()] = { hours };
-              console.log(`✅ DELIFOOD data loaded: ${employeeName} - day ${entry.day} - hours: ${hours} (raw: ${entry.horasPorDia}) - month: ${entry.month}`);
+              if (entry.horasPorDia !== undefined && entry.horasPorDia !== null && entry.horasPorDia > 0) {
+                const hours = entry.horasPorDia;
+                newDelifoodData[employeeName][entry.day.toString()] = { hours };
+                console.log(`✅ DELIFOOD data loaded: ${employeeName} - day ${entry.day} - hours: ${hours} (raw: ${entry.horasPorDia}) - month: ${entry.month}`);
+              }
             });
             
             console.log(`Datos finales para ${employeeName}:`, newDelifoodData[employeeName]);
@@ -519,18 +536,30 @@ export default function ControlHorario() {
 
       // Actualizar estado local
       setDelifoodHoursData(prev => {
-        const newData = {
-          ...prev,
-          [employeeName]: {
-            ...prev[employeeName],
-            [day.toString()]: { hours }
+        const newData = { ...prev };
+        
+        if (hours <= 0) {
+          // Si las horas son 0, eliminar la entrada del estado local
+          if (newData[employeeName]) {
+            delete newData[employeeName][day.toString()];
           }
-        };
+        } else {
+          // Si las horas son > 0, agregar/actualizar la entrada
+          if (!newData[employeeName]) {
+            newData[employeeName] = {};
+          }
+          newData[employeeName][day.toString()] = { hours };
+        }
+        
         console.log('Nuevo estado local:', newData);
         return newData;
       });
 
-      setNotification({ message: 'Horas guardadas correctamente', type: 'success' });
+      if (hours <= 0) {
+        setNotification({ message: 'Registro eliminado (0 horas)', type: 'success' });
+      } else {
+        setNotification({ message: 'Horas guardadas correctamente', type: 'success' });
+      }
     } catch (error) {
       console.error('Error al guardar horas:', error);
       setNotification({ message: 'Error al guardar las horas', type: 'error' });
@@ -538,15 +567,6 @@ export default function ControlHorario() {
       setSaving(false);
       setDelifoodModal({ isOpen: false, employeeName: '', day: 0, currentHours: 0 });
     }
-  };
-
-  const getTotalDelifoodHours = (employeeName: string) => {
-    if (!delifoodHoursData[employeeName]) return 0;
-    
-    return daysToShow.reduce((total, day) => {
-      const hours = delifoodHoursData[employeeName]?.[day.toString()]?.hours || 0;
-      return total + hours;
-    }, 0);
   };
 
   // Función para cambiar mes
@@ -1279,6 +1299,8 @@ export default function ControlHorario() {
                       year={year}
                       month={month}
                       daysToShow={daysToShow}
+                      isDelifoodLocation={isDelifoodLocation}
+                      delifoodHoursData={delifoodHoursData}
                     />
                   </div>
                 </td>
