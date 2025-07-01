@@ -448,7 +448,7 @@ export default function PayrollExporter({
     currentX += colWidths[0];
     drawCell(currentX, y, colWidths[1], cellHeight, 'MES:', '#f3f4f6', '#000000', true);
     currentX += colWidths[1];
-    drawCell(currentX, y, colWidths[2], cellHeight, 'MesActual', '#f3f4f6', '#000000', true);
+    drawCell(currentX, y, colWidths[2], cellHeight, new Date().toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }), '#f3f4f6', '#000000', true);
     currentX += colWidths[2];
     drawCell(currentX, y, colWidths[3], cellHeight, 'Quincena:', '#f3f4f6', '#000000', true);
     currentX += colWidths[3];
@@ -822,7 +822,7 @@ export default function PayrollExporter({
                             MES:
                           </th>
                           <th className="border border-[var(--input-border)] p-2 font-semibold text-center bg-[var(--input-bg)]">
-                            MesActual
+                            {new Date().toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
                           </th>
                           <th className="border border-[var(--input-border)] p-2 font-semibold text-center bg-[var(--input-bg)]">
                             Quincena:
