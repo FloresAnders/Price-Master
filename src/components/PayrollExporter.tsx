@@ -81,7 +81,9 @@ export default function PayrollExporter({
   const [locations, setLocations] = useState<Location[]>([]);
   const [payrollData, setPayrollData] = useState<LocationPayrollData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);const [editableDeductions, setEditableDeductions] = useState<EditableDeductions>({});
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);  const [editableDeductions, setEditableDeductions] = useState<EditableDeductions>({});
+  const [tempInputValues, setTempInputValues] = useState<{ [key: string]: string }>({});
+  const [debounceTimers, setDebounceTimers] = useState<{ [key: string]: NodeJS.Timeout }>({});
 
   // Constantes de salario
   const REGULAR_HOURLY_RATE = 1529.62;
@@ -98,19 +100,49 @@ export default function PayrollExporter({
   const getEmployeeKey = (locationValue: string, employeeName: string): string => {
     return `${locationValue}-${employeeName}`;
   };  // Función para actualizar deducciones editables con debounce optimizado
-  const updateDeduction = useCallback((locationValue: string, employeeName: string, type: 'compras' | 'adelanto' | 'otros' | 'extraAmount', value: number) => {
+  const updateDeduction = useCallback((locationValue: string, employeeName: string, type: 'compras' | 'adelanto' | 'otros' | 'extraAmount', inputValue: string) => {
     const employeeKey = getEmployeeKey(locationValue, employeeName);
+    const inputKey = `${employeeKey}-${type}`;
     const defaults = { compras: 0, adelanto: 0, otros: 0, extraAmount: 0 };
 
-    setEditableDeductions(prev => ({
+    // Actualizar el valor temporal inmediatamente para responsividad de UI
+    setTempInputValues(prev => ({
       ...prev,
-      [employeeKey]: {
-        ...defaults,
-        ...prev[employeeKey], // Spread existing values
-        [type]: value // Override with new value
-      }
+      [inputKey]: inputValue
     }));
-  }, []);  // Función para obtener deducciones editables de un empleado
+
+    // Limpiar timer anterior si existe
+    if (debounceTimers[inputKey]) {
+      clearTimeout(debounceTimers[inputKey]);
+    }
+
+    // Crear nuevo timer para debounce
+    const newTimer = setTimeout(() => {
+      const numericValue = parseFloat(inputValue) || 0;
+      
+      setEditableDeductions(prev => ({
+        ...prev,
+        [employeeKey]: {
+          ...defaults,
+          ...prev[employeeKey], // Spread existing values
+          [type]: numericValue // Override with new value
+        }
+      }));
+
+      // Limpiar el timer del estado
+      setDebounceTimers(prev => {
+        const newTimers = { ...prev };
+        delete newTimers[inputKey];
+        return newTimers;
+      });
+    }, 1000); // 500ms de debounce
+
+    // Guardar el timer
+    setDebounceTimers(prev => ({
+      ...prev,
+      [inputKey]: newTimer
+    }));
+  }, [debounceTimers]);  // Función para obtener deducciones editables de un empleado
   const getEmployeeDeductions = useCallback((locationValue: string, employeeName: string) => {
     const employeeKey = getEmployeeKey(locationValue, employeeName);
     const defaults = { compras: 0, adelanto: 0, otros: 0, extraAmount: 0 };
@@ -128,6 +160,28 @@ export default function PayrollExporter({
       extraAmount: existing.extraAmount ?? defaults.extraAmount
     };
   }, [editableDeductions]);
+
+  // Función para obtener el valor temporal de un input (para mostrar mientras se escribe)
+  const getTempInputValue = useCallback((locationValue: string, employeeName: string, type: 'compras' | 'adelanto' | 'otros' | 'extraAmount'): string => {
+    const employeeKey = getEmployeeKey(locationValue, employeeName);
+    const inputKey = `${employeeKey}-${type}`;
+    
+    // Si hay un valor temporal, usarlo
+    if (tempInputValues[inputKey] !== undefined) {
+      return tempInputValues[inputKey];
+    }
+    
+    // Sino, usar el valor guardado directamente del estado
+    const defaults = { compras: 0, adelanto: 0, otros: 0, extraAmount: 0 };
+    const existing = editableDeductions[employeeKey];
+    
+    if (!existing) {
+      return '';
+    }
+    
+    const value = existing[type] ?? defaults[type];
+    return value > 0 ? value.toString() : '';
+  }, [tempInputValues, editableDeductions]);
   const calculatePayrollData = useCallback((
     employeeName: string,
     days: { [day: number]: string },
@@ -201,6 +255,15 @@ export default function PayrollExporter({
     };
     loadLocations();
   }, []);
+
+  // Limpiar timers al desmontar el componente
+  useEffect(() => {
+    return () => {
+      Object.values(debounceTimers).forEach(timer => {
+        if (timer) clearTimeout(timer);
+      });
+    };
+  }, [debounceTimers]);
 
   // Cargar datos de planilla cuando cambie el período o ubicación
   useEffect(() => {
@@ -411,8 +474,8 @@ export default function PayrollExporter({
 
     y += cellHeight;
 
-    // Obtener datos calculados
-    const deductions = getEmployeeDeductions(locationName.toLowerCase().replace(/\s+/g, '-'), employee.employeeName);
+    // Obtener datos calculados - usar el mismo locationValue que se usa en los inputs
+    const deductions = getEmployeeDeductions(locationName, employee.employeeName);
     const regularTotal = employee.regularSalary * employee.totalHours;
     const finalExtraAmount = deductions.extraAmount > 0 ? deductions.extraAmount : employee.extraAmount;
     const totalIncome = regularTotal + finalExtraAmount;
@@ -618,7 +681,7 @@ export default function PayrollExporter({
       for (const employee of locationData.employees) {
         try {
           await new Promise(resolve => setTimeout(resolve, 200)); // Pausa entre imágenes
-          await generateEmployeeImage(employee, locationData.location.label, periodDates);
+          await generateEmployeeImage(employee, locationData.location.value, periodDates);
           successCount++;
           processedEmployees++;
           
@@ -739,7 +802,6 @@ export default function PayrollExporter({
               </div>              ) : (<div className="space-y-6">                {locationData.employees.map((employee, empIndex) => {
                 // Usar los valores precalculados
                 const {
-                  deductions,
                   regularTotal,
                   overtimeTotal,
                   totalIncome,
@@ -847,8 +909,8 @@ export default function PayrollExporter({
                               type="number"
                               min="0"
                               step="0.01"
-                              value={deductions.extraAmount > 0 ? deductions.extraAmount : (employee.extraAmount > 0 ? employee.extraAmount : '')}
-                              onChange={(e) => updateDeduction(locationData.location.value, employee.employeeName, 'extraAmount', parseFloat(e.target.value) || 0)}
+                              value={getTempInputValue(locationData.location.value, employee.employeeName, 'extraAmount')}
+                              onChange={(e) => updateDeduction(locationData.location.value, employee.employeeName, 'extraAmount', e.target.value)}
                               className="w-full text-center border-none bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-1 font-semibold"
                               style={{
                                 background: 'var(--input-bg)',
@@ -897,8 +959,8 @@ export default function PayrollExporter({
                               type="number"
                               min="0"
                               step="0.01"
-                              value={deductions.compras > 0 ? deductions.compras : ''}
-                              onChange={(e) => updateDeduction(locationData.location.value, employee.employeeName, 'compras', parseFloat(e.target.value) || 0)}
+                              value={getTempInputValue(locationData.location.value, employee.employeeName, 'compras')}
+                              onChange={(e) => updateDeduction(locationData.location.value, employee.employeeName, 'compras', e.target.value)}
                               className="w-full text-center border-none bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-1"
                               style={{
                                 background: 'var(--input-bg)',
@@ -921,8 +983,8 @@ export default function PayrollExporter({
                               type="number"
                               min="0"
                               step="0.01"
-                              value={deductions.adelanto > 0 ? deductions.adelanto : ''}
-                              onChange={(e) => updateDeduction(locationData.location.value, employee.employeeName, 'adelanto', parseFloat(e.target.value) || 0)}
+                              value={getTempInputValue(locationData.location.value, employee.employeeName, 'adelanto')}
+                              onChange={(e) => updateDeduction(locationData.location.value, employee.employeeName, 'adelanto', e.target.value)}
                               className="w-full text-center border-none bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-1"
                               style={{
                                 background: 'var(--input-bg)',
@@ -945,8 +1007,8 @@ export default function PayrollExporter({
                               type="number"
                               min="0"
                               step="0.01"
-                              value={deductions.otros > 0 ? deductions.otros : ''}
-                              onChange={(e) => updateDeduction(locationData.location.value, employee.employeeName, 'otros', parseFloat(e.target.value) || 0)}
+                              value={getTempInputValue(locationData.location.value, employee.employeeName, 'otros')}
+                              onChange={(e) => updateDeduction(locationData.location.value, employee.employeeName, 'otros', e.target.value)}
                               className="w-full text-center border-none bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-1"
                               style={{
                                 background: 'var(--input-bg)',
@@ -990,7 +1052,7 @@ export default function PayrollExporter({
                     {/* Botón de exportación individual */}
                     <div className="mt-3 flex justify-end">
                       <button
-                        onClick={() => exportIndividualEmployee(employee, locationData.location.label)}
+                        onClick={() => exportIndividualEmployee(employee, locationData.location.value)}
                         className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md flex items-center gap-2 transition-colors"
                         title={`Exportar planilla de ${employee.employeeName}`}
                       >
