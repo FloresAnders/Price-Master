@@ -9,6 +9,7 @@ import { SchedulesService } from '../services/schedules';
 import { CcssConfigService } from '../services/ccss-config';
 import { useAuth } from '../hooks/useAuth';
 import LoginModal from './LoginModal';
+import DelifoodHoursModal from './DelifoodHoursModal';
 import ConfirmModal from './ConfirmModal';
 import EmployeeSummaryCalculator from './EmployeeSummaryCalculator';
 import type { Location } from '../types/firestore';
@@ -161,6 +162,14 @@ export default function ControlHorario() {
   const [imageBlob, setImageBlob] = useState<Blob | null>(null);
   // Estado para countdown de validez del QR
   const [qrCountdown, setQrCountdown] = useState<number | null>(null);
+  // Estado para horas de DELIFOOD
+  const [delifoodHoursData, setDelifoodHoursData] = useState<{ [employeeName: string]: { [day: string]: { hours: number } } }>({});
+  const [delifoodModal, setDelifoodModal] = useState<{ isOpen: boolean; employeeName: string; day: number; currentHours: number }>({
+    isOpen: false,
+    employeeName: '',
+    day: 0,
+    currentHours: 0
+  });
 
   // Cargar datos desde Firebase
   useEffect(() => {
@@ -191,6 +200,9 @@ export default function ControlHorario() {
     setTimeout(() => setNotification(null), 3000);
   };
 
+  // Verificar si la ubicación actual es DELIFOOD
+  const isDelifoodLocation = location.toLowerCase().includes('delifood');
+
   // Cargar horarios de Firebase cuando cambie la ubicación
   useEffect(() => {
     const loadScheduleData = async () => {
@@ -203,20 +215,57 @@ export default function ControlHorario() {
       try {
         const scheduleEntries = await Promise.all(
           names.map(employeeName =>
-            SchedulesService.getSchedulesByLocationEmployeeMonth(location, employeeName, year, month)
+            SchedulesService.getSchedulesByLocationEmployeeMonth(location, employeeName, year, month + 1) // month + 1 porque JS usa 0-11 pero Firestore 1-12
           )
         );
 
-        const newScheduleData: ScheduleData = {};
+        console.log('=== LOADING SCHEDULE DATA ===');
+        console.log('Location:', location, 'isDelifoodLocation:', isDelifoodLocation);
+        console.log('Year:', year, 'Month (JS 0-11):', month, 'Month (Firestore 1-12):', month + 1);
+        console.log('Schedule entries cargadas:', scheduleEntries);
 
-        names.forEach((employeeName, index) => {
-          newScheduleData[employeeName] = {};
-          scheduleEntries[index].forEach(entry => {
-            newScheduleData[employeeName][entry.day.toString()] = entry.shift;
+        // Si es DELIFOOD, cargar datos de horas
+        if (isDelifoodLocation) {
+          const newDelifoodData: { [employeeName: string]: { [day: string]: { hours: number } } } = {};
+          
+          // Obtener todos los días del mes
+          const daysInMonth = new Date(year, month + 1, 0).getDate();
+          
+          names.forEach((employeeName, index) => {
+            newDelifoodData[employeeName] = {};
+            
+            // Inicializar todos los días del mes con 0 horas
+            for (let day = 1; day <= daysInMonth; day++) {
+              newDelifoodData[employeeName][day.toString()] = { hours: 0 };
+            }
+            
+            // Sobrescribir con los datos reales de Firestore
+            scheduleEntries[index].forEach(entry => {
+              const hours = (entry.horasPorDia !== undefined && entry.horasPorDia !== null) ? entry.horasPorDia : 0;
+              newDelifoodData[employeeName][entry.day.toString()] = { hours };
+              console.log(`✅ DELIFOOD data loaded: ${employeeName} - day ${entry.day} - hours: ${hours} (raw: ${entry.horasPorDia}) - month: ${entry.month}`);
+            });
+            
+            console.log(`Datos finales para ${employeeName}:`, newDelifoodData[employeeName]);
           });
-        });
 
-        setScheduleData(newScheduleData);
+          console.log('=== SETTING DELIFOOD DATA ===');
+          console.log('Final newDelifoodData:', newDelifoodData);
+          setDelifoodHoursData(newDelifoodData);
+          console.log('===============================');
+        } else {
+          // Para ubicaciones normales, cargar datos de turnos
+          const newScheduleData: ScheduleData = {};
+
+          names.forEach((employeeName, index) => {
+            newScheduleData[employeeName] = {};
+            scheduleEntries[index].forEach(entry => {
+              newScheduleData[employeeName][entry.day.toString()] = entry.shift;
+            });
+          });
+
+          setScheduleData(newScheduleData);
+        }
       } catch (error) {
         console.error('Error loading schedule data:', error);
         showNotification('Error al cargar los horarios', 'error');
@@ -224,7 +273,7 @@ export default function ControlHorario() {
     };
 
     loadScheduleData();
-  }, [location, locations, currentDate]);
+  }, [location, locations, currentDate, isDelifoodLocation, isAuthenticated, loading]);
 
   // Manejar login exitoso
   const handleLoginSuccess = (userData: FirestoreUser) => {
@@ -433,6 +482,71 @@ export default function ControlHorario() {
   // Función para manejar cambios en las celdas
   const handleCellChange = (employeeName: string, day: number, value: string) => {
     updateScheduleCell(employeeName, day.toString(), value);
+  };
+
+  // Funciones para DELIFOOD
+  const handleDelifoodCellClick = (employeeName: string, day: number) => {
+    const currentHours = delifoodHoursData[employeeName]?.[day.toString()]?.hours || 0;
+    setDelifoodModal({
+      isOpen: true,
+      employeeName,
+      day,
+      currentHours
+    });
+  };
+
+  const handleDelifoodHoursSave = async (hours: number) => {
+    const { employeeName, day } = delifoodModal;
+    
+    console.log('Guardando horas:', { location, employeeName, year, month: month + 1, day, hours });
+    
+    if (!location || !employeeName) return;
+
+    try {
+      setSaving(true);
+      
+      // Actualizar en Firebase
+      await SchedulesService.updateScheduleHours(
+        location,
+        employeeName,
+        year,
+        month + 1,
+        day,
+        hours
+      );
+
+      console.log('Horas guardadas en Firebase, actualizando estado local');
+
+      // Actualizar estado local
+      setDelifoodHoursData(prev => {
+        const newData = {
+          ...prev,
+          [employeeName]: {
+            ...prev[employeeName],
+            [day.toString()]: { hours }
+          }
+        };
+        console.log('Nuevo estado local:', newData);
+        return newData;
+      });
+
+      setNotification({ message: 'Horas guardadas correctamente', type: 'success' });
+    } catch (error) {
+      console.error('Error al guardar horas:', error);
+      setNotification({ message: 'Error al guardar las horas', type: 'error' });
+    } finally {
+      setSaving(false);
+      setDelifoodModal({ isOpen: false, employeeName: '', day: 0, currentHours: 0 });
+    }
+  };
+
+  const getTotalDelifoodHours = (employeeName: string) => {
+    if (!delifoodHoursData[employeeName]) return 0;
+    
+    return daysToShow.reduce((total, day) => {
+      const hours = delifoodHoursData[employeeName]?.[day.toString()]?.hours || 0;
+      return total + hours;
+    }, 0);
   };
 
   // Función para cambiar mes
@@ -1076,20 +1190,33 @@ export default function ControlHorario() {
         </div>
 
         {/* Leyenda de colores */}
-        <div className="mb-6 flex flex-wrap gap-4 justify-center">
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded" style={{ backgroundColor: '#87CEEB' }}></div>
-            <span className="text-sm">N - Nocturno</span>
+        {isDelifoodLocation ? (
+          <div className="mb-6 flex flex-wrap gap-4 justify-center">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded" style={{ backgroundColor: '#d1fae5' }}></div>
+              <span className="text-sm">Con horas registradas</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded" style={{ backgroundColor: 'var(--input-bg)' }}></div>
+              <span className="text-sm">Sin horas registradas</span>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded" style={{ backgroundColor: '#FFFF00' }}></div>
-            <span className="text-sm">D - Diurno</span>
+        ) : (
+          <div className="mb-6 flex flex-wrap gap-4 justify-center">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded" style={{ backgroundColor: '#87CEEB' }}></div>
+              <span className="text-sm">N - Nocturno</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded" style={{ backgroundColor: '#FFFF00' }}></div>
+              <span className="text-sm">D - Diurno</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded" style={{ backgroundColor: '#FF00FF' }}></div>
+              <span className="text-sm">L - Libre</span>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded" style={{ backgroundColor: '#FF00FF' }}></div>
-            <span className="text-sm">L - Libre</span>
-          </div>
-        </div>        {/* Grid de horarios */}
+        )}        {/* Grid de horarios */}
         <div className="overflow-x-auto -mx-4 sm:mx-0" style={{overflowY: 'hidden'}}>
           <div className="min-w-full inline-block">            <table className="w-full border-collapse border border-[var(--input-border)]">
             <thead>
@@ -1167,13 +1294,41 @@ export default function ControlHorario() {
                     !editPastDaysEnabled
                   ) {
                     disabled = true;
-                  } return (<td key={day} className="border border-[var(--input-border)] p-0" style={{ minWidth: fullMonthView ? '32px' : '40px' }}>
-                    <select
-                      value={value}
-                      onChange={(e) => handleCellChange(name, day, e.target.value)}
-                      className={`w-full h-full p-1 border-none outline-none text-center font-semibold cursor-pointer text-xs ${disabled ? 'bg-gray-200 text-gray-400 dark:bg-gray-800 dark:text-gray-500' : ''}`}
-                      style={{ ...getCellStyle(value), minWidth: fullMonthView ? '32px' : '40px', height: '40px' }}
-                      disabled={disabled}
+                  }
+
+                  // Si es DELIFOOD, mostrar celda de horas
+                  if (isDelifoodLocation) {
+                    const hours = delifoodHoursData[name]?.[day.toString()]?.hours || 0;
+                    
+                    return (
+                      <td key={day} className="border border-[var(--input-border)] p-0" style={{ minWidth: fullMonthView ? '32px' : '40px' }}>
+                        <button
+                          onClick={() => !disabled && handleDelifoodCellClick(name, day)}
+                          className={`w-full h-full p-1 text-center font-semibold cursor-pointer text-xs border-none outline-none ${disabled ? 'bg-gray-200 text-gray-400 dark:bg-gray-800 dark:text-gray-500' : ''}`}
+                          style={{ 
+                            minWidth: fullMonthView ? '32px' : '40px', 
+                            height: '40px',
+                            backgroundColor: hours > 0 ? '#d1fae5' : 'var(--input-bg)',
+                            color: hours > 0 ? '#065f46' : 'var(--foreground)'
+                          }}
+                          disabled={disabled}
+                          title={hours > 0 ? `${hours}h trabajadas - Clic para editar` : 'Clic para agregar horas'}
+                        >
+                          {hours > 0 ? `${hours}h` : '▼'}
+                        </button>
+                      </td>
+                    );
+                  }
+
+                  // Si no es DELIFOOD, mostrar select normal
+                  return (
+                    <td key={day} className="border border-[var(--input-border)] p-0" style={{ minWidth: fullMonthView ? '32px' : '40px' }}>
+                      <select
+                        value={value}
+                        onChange={(e) => handleCellChange(name, day, e.target.value)}
+                        className={`w-full h-full p-1 border-none outline-none text-center font-semibold cursor-pointer text-xs ${disabled ? 'bg-gray-200 text-gray-400 dark:bg-gray-800 dark:text-gray-500' : ''}`}
+                        style={{ ...getCellStyle(value), minWidth: fullMonthView ? '32px' : '40px', height: '40px' }}
+                        disabled={disabled}
                     >
                       {shiftOptions.map(option => (
                         <option key={option.value} value={option.value}>
@@ -1329,6 +1484,21 @@ export default function ControlHorario() {
         <div className="fixed bottom-4 right-4 z-50 bg-red-600 text-white px-4 py-2 rounded shadow-lg animate-pulse font-semibold text-sm">
           El enlace y QR expiran en {qrCountdown} segundo{qrCountdown === 1 ? '' : 's'}
         </div>
+      )}
+
+      {/* Modal de horas para DELIFOOD */}
+      {isDelifoodLocation && (
+        <DelifoodHoursModal
+          isOpen={delifoodModal.isOpen}
+          onClose={() => setDelifoodModal({ isOpen: false, employeeName: '', day: 0, currentHours: 0 })}
+          onSave={handleDelifoodHoursSave}
+          employeeName={delifoodModal.employeeName}
+          day={delifoodModal.day}
+          month={month + 1}
+          year={year}
+          locationValue={location}
+          currentHours={delifoodModal.currentHours}
+        />
       )}
     </>
   );

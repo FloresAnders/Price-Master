@@ -37,5 +37,14 @@
       "YESI",
       "NAZARETH"
     ]
+  },
+  {
+    "label": "DELIFOOD TEST",
+    "value": "DELIFOOD_TEST",
+    "names": [
+      "JUAN",
+      "MARIA",
+      "CARLOS"
+    ]
   }
 ]

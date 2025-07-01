@@ -8,6 +8,7 @@ export interface ScheduleEntry {
   month: number;
   day: number;
   shift: string; // 'N', 'D', 'L', or empty string
+  horasPorDia?: number; // Específico para DELIFOOD
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -174,6 +175,46 @@ export class SchedulesService {
       }
     } catch (error) {
       console.error('Error al actualizar/eliminar documento:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update or create schedule entry hours worked (specific for DELIFOOD)
+   * Always store horasPorDia, even if 0
+   */
+  static async updateScheduleHours(
+    locationValue: string,
+    employeeName: string,
+    year: number,
+    month: number,
+    day: number,
+    horasPorDia: number
+  ): Promise<void> {
+    try {
+      // Find existing entry first
+      const existingEntry = await this.findScheduleEntry(locationValue, employeeName, year, month, day);
+
+      if (existingEntry && existingEntry.id) {
+        // Update existing document - always store horasPorDia even if 0
+        await this.updateSchedule(existingEntry.id, { 
+          shift: '',
+          horasPorDia: horasPorDia
+        });
+      } else {
+        // Create new document - always store horasPorDia even if 0
+        await this.addSchedule({
+          locationValue,
+          employeeName,
+          year,
+          month,
+          day,
+          shift: '',
+          horasPorDia: horasPorDia
+        });
+      }
+    } catch (error) {
+      console.error('Error al actualizar horas trabajadas:', error);
       throw error;
     }
   }
