@@ -686,13 +686,14 @@ export default function ControlHorario() {
         ctx.fillText(day.toString(), x + cellWidth / 2, tableStartY + cellHeight / 2 + 6);
       });
 
-      // Encabezado "Días Trabajados" al final
+      // Encabezado "Días Trabajados" o "Total Horas" al final
       const workedDaysHeaderX = daysStartX + (dayCount * cellWidth);
       ctx.fillStyle = '#f8fafc';
       ctx.fillRect(workedDaysHeaderX, tableStartY, workedDaysColumnWidth, cellHeight);
       ctx.strokeRect(workedDaysHeaderX, tableStartY, workedDaysColumnWidth, cellHeight);
       ctx.fillStyle = '#1f2937';
-      ctx.fillText('Días Trab.', workedDaysHeaderX + workedDaysColumnWidth / 2, tableStartY + cellHeight / 2 + 6);
+      const headerText = isDelifoodLocation ? 'Total Horas' : 'Días Trab.';
+      ctx.fillText(headerText, workedDaysHeaderX + workedDaysColumnWidth / 2, tableStartY + cellHeight / 2 + 6);
       daysToShow.forEach((day, index) => {
         const x = daysStartX + (index * cellWidth);
         
@@ -709,11 +710,21 @@ export default function ControlHorario() {
       // Filas de empleados
       yPosition = tableStartY + cellHeight;
       names.forEach((employeeName, empIndex) => {
-        // Calcular días trabajados para este empleado
-        const workedDaysCount = daysToShow.filter(day => {
-          const shift = scheduleData[employeeName]?.[day.toString()] || '';
-          return shift === 'N' || shift === 'D'; // Solo contar Nocturno y Diurno
-        }).length;
+        // Calcular días trabajados o total de horas según el tipo de ubicación
+        let summaryValue = 0;
+        if (isDelifoodLocation) {
+          // Para DELIFOOD, sumar todas las horas del período
+          summaryValue = daysToShow.reduce((total, day) => {
+            const hours = delifoodHoursData[employeeName]?.[day.toString()]?.hours || 0;
+            return total + hours;
+          }, 0);
+        } else {
+          // Para ubicaciones normales, contar días trabajados
+          summaryValue = daysToShow.filter(day => {
+            const shift = scheduleData[employeeName]?.[day.toString()] || '';
+            return shift === 'N' || shift === 'D'; // Solo contar Nocturno y Diurno
+          }).length;
+        }
 
         // Celda del nombre del empleado
         ctx.fillStyle = empIndex % 2 === 0 ? '#f8fafc' : '#ffffff';
@@ -728,49 +739,80 @@ export default function ControlHorario() {
 
         // Celdas de horarios
         daysToShow.forEach((day, dayIndex) => {
-          const shift = scheduleData[employeeName]?.[day.toString()] || '';
           const x = daysStartX + (dayIndex * cellWidth);
 
-          // Color de fondo según el turno
-          let bgColor = empIndex % 2 === 0 ? '#f8fafc' : '#ffffff';
-          let textColor = '#000000';
-          
-          if (shift === 'N') {
-            bgColor = '#87CEEB'; // Azul claro
-            textColor = '#000000';
-          } else if (shift === 'D') {
-            bgColor = '#FFFF00'; // Amarillo
-            textColor = '#000000';
-          } else if (shift === 'L') {
-            bgColor = '#FF00FF'; // Magenta
-            textColor = '#ffffff';
-          }
+          if (isDelifoodLocation) {
+            // Para DELIFOOD, mostrar horas
+            const hours = delifoodHoursData[employeeName]?.[day.toString()]?.hours || 0;
+            
+            // Color de fondo según si hay horas registradas
+            let bgColor = empIndex % 2 === 0 ? '#f8fafc' : '#ffffff';
+            let textColor = '#000000';
+            
+            if (hours > 0) {
+              bgColor = '#d1fae5'; // Verde claro para horas registradas
+              textColor = '#065f46'; // Verde oscuro para el texto
+            }
 
-          // Dibujar celda
-          ctx.fillStyle = bgColor;
-          ctx.fillRect(x, yPosition, cellWidth, cellHeight);
-          ctx.strokeStyle = '#d1d5db';
-          ctx.strokeRect(x, yPosition, cellWidth, cellHeight);
+            // Dibujar celda
+            ctx.fillStyle = bgColor;
+            ctx.fillRect(x, yPosition, cellWidth, cellHeight);
+            ctx.strokeStyle = '#d1d5db';
+            ctx.strokeRect(x, yPosition, cellWidth, cellHeight);
 
-          // Texto del turno
-          if (shift) {
-            ctx.fillStyle = textColor;
-            ctx.font = 'bold 18px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText(shift, x + cellWidth / 2, yPosition + cellHeight / 2 + 6);
+            // Texto de las horas
+            if (hours > 0) {
+              ctx.fillStyle = textColor;
+              ctx.font = 'bold 16px Arial';
+              ctx.textAlign = 'center';
+              ctx.fillText(hours.toString(), x + cellWidth / 2, yPosition + cellHeight / 2 + 6);
+            }
+          } else {
+            // Para ubicaciones normales, mostrar turnos
+            const shift = scheduleData[employeeName]?.[day.toString()] || '';
+
+            // Color de fondo según el turno
+            let bgColor = empIndex % 2 === 0 ? '#f8fafc' : '#ffffff';
+            let textColor = '#000000';
+            
+            if (shift === 'N') {
+              bgColor = '#87CEEB'; // Azul claro
+              textColor = '#000000';
+            } else if (shift === 'D') {
+              bgColor = '#FFFF00'; // Amarillo
+              textColor = '#000000';
+            } else if (shift === 'L') {
+              bgColor = '#FF00FF'; // Magenta
+              textColor = '#ffffff';
+            }
+
+            // Dibujar celda
+            ctx.fillStyle = bgColor;
+            ctx.fillRect(x, yPosition, cellWidth, cellHeight);
+            ctx.strokeStyle = '#d1d5db';
+            ctx.strokeRect(x, yPosition, cellWidth, cellHeight);
+
+            // Texto del turno
+            if (shift) {
+              ctx.fillStyle = textColor;
+              ctx.font = 'bold 18px Arial';
+              ctx.textAlign = 'center';
+              ctx.fillText(shift, x + cellWidth / 2, yPosition + cellHeight / 2 + 6);
+            }
           }
         });
 
-        // Celda de días trabajados al final
-        const workedDaysCellX = daysStartX + (dayCount * cellWidth);
+        // Celda de resumen al final (días trabajados o total horas)
+        const summaryCellX = daysStartX + (dayCount * cellWidth);
         ctx.fillStyle = empIndex % 2 === 0 ? '#e0f2fe' : '#f0f8ff'; // Color ligeramente diferente
-        ctx.fillRect(workedDaysCellX, yPosition, workedDaysColumnWidth, cellHeight);
-        ctx.strokeRect(workedDaysCellX, yPosition, workedDaysColumnWidth, cellHeight);
+        ctx.fillRect(summaryCellX, yPosition, workedDaysColumnWidth, cellHeight);
+        ctx.strokeRect(summaryCellX, yPosition, workedDaysColumnWidth, cellHeight);
         
         ctx.fillStyle = '#1565c0'; // Color azul para resaltar
         ctx.font = 'bold 18px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText(workedDaysCount.toString(), workedDaysCellX + workedDaysColumnWidth / 2, yPosition + cellHeight / 2 + 6);
+        const displayValue = isDelifoodLocation ? `${summaryValue}h` : summaryValue.toString();
+        ctx.fillText(displayValue, summaryCellX + workedDaysColumnWidth / 2, yPosition + cellHeight / 2 + 6);
 
         yPosition += cellHeight;
       });
@@ -780,17 +822,22 @@ export default function ControlHorario() {
       ctx.font = 'bold 20px Arial';
       ctx.fillStyle = '#1f2937';
       ctx.textAlign = 'center';
-      ctx.fillText('📋 Leyenda de Turnos', canvas.width / 2, yPosition);
+      const legendTitle = isDelifoodLocation ? '📋 Leyenda de Horas' : '📋 Leyenda de Turnos';
+      ctx.fillText(legendTitle, canvas.width / 2, yPosition);
       yPosition += 40;
 
-      const legendItems = [
+      const legendItems = isDelifoodLocation ? [
+        { label: 'Verde = Con horas registradas', color: '#d1fae5', textColor: '#000' },
+        { label: 'Vacío = Sin horas registradas', color: '#f9fafb', textColor: '#000' },
+        { label: 'Número = Horas trabajadas', color: '#ffffff', textColor: '#000' }
+      ] : [
         { label: 'N = Nocturno', color: '#87CEEB', textColor: '#000' },
         { label: 'D = Diurno', color: '#FFFF00', textColor: '#000' },
         { label: 'L = Libre', color: '#FF00FF', textColor: '#fff' },
         { label: 'Vacío = Sin asignar', color: '#f9fafb', textColor: '#000' }
       ];
 
-      const legendItemWidth = 200;
+      const legendItemWidth = isDelifoodLocation ? 250 : 200;
       const legendTotalWidth = legendItems.length * legendItemWidth;
       const legendStartX = (canvas.width - legendTotalWidth) / 2;
 
@@ -817,7 +864,8 @@ export default function ControlHorario() {
       ctx.fillStyle = '#9ca3af';
       ctx.textAlign = 'center';
       ctx.fillText('Generated by Price Master - Control de Horarios', canvas.width / 2, yPosition);
-      ctx.fillText(`Total de empleados: ${names.length} | Días mostrados: ${dayCount}`, canvas.width / 2, yPosition + 20);
+      const summaryText = isDelifoodLocation ? 'Horas mostradas' : 'Días mostrados';
+      ctx.fillText(`Total de empleados: ${names.length} | ${summaryText}: ${dayCount}`, canvas.width / 2, yPosition + 20);
       ctx.fillText('⚠️ Documento confidencial - Solo para uso autorizado', canvas.width / 2, yPosition + 40);
 
       // Convertir a imagen y descargar directamente
@@ -826,13 +874,15 @@ export default function ControlHorario() {
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          a.download = `horarios-${location}-${monthName.replace(/\s+/g, '_')}-${selectedPeriodText.replace(/\s+/g, '_')}-${new Date().toISOString().split('T')[0]}.png`;
+          const filePrefix = isDelifoodLocation ? 'horas-delifood' : 'horarios';
+          a.download = `${filePrefix}-${location}-${monthName.replace(/\s+/g, '_')}-${selectedPeriodText.replace(/\s+/g, '_')}-${new Date().toISOString().split('T')[0]}.png`;
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
           URL.revokeObjectURL(url);
 
-          showNotification('📸 Horarios exportados como imagen exitosamente', 'success');
+          const successMessage = isDelifoodLocation ? '📸 Horas DELIFOOD exportadas como imagen exitosamente' : '📸 Horarios exportados como imagen exitosamente';
+          showNotification(successMessage, 'success');
         } else {
           throw new Error('Error al generar la imagen');
         }
@@ -869,25 +919,46 @@ export default function ControlHorario() {
       daysToShow.forEach(day => {
         tableHTML += `<th style='border:1px solid #d1d5db;padding:6px 10px;background:#f3f4f6;'>${day}</th>`;
       });
-      tableHTML += `<th style='border:1px solid #d1d5db;padding:6px 10px;background:#e0f2fe;color:#1565c0;font-weight:bold;'>Días Trab.</th>`;
+      const summaryHeader = isDelifoodLocation ? 'Total Horas' : 'Días Trab.';
+      tableHTML += `<th style='border:1px solid #d1d5db;padding:6px 10px;background:#e0f2fe;color:#1565c0;font-weight:bold;'>${summaryHeader}</th>`;
       tableHTML += `</tr></thead><tbody>`;
       names.forEach(name => {
-        // Calcular días trabajados para este empleado
-        const workedDaysCount = daysToShow.filter(day => {
-          const shift = scheduleData[name]?.[day.toString()] || '';
-          return shift === 'N' || shift === 'D'; // Solo contar Nocturno y Diurno
-        }).length;
+        // Calcular resumen según el tipo de ubicación
+        let summaryValue = 0;
+        if (isDelifoodLocation) {
+          // Para DELIFOOD, sumar todas las horas
+          summaryValue = daysToShow.reduce((total, day) => {
+            const hours = delifoodHoursData[name]?.[day.toString()]?.hours || 0;
+            return total + hours;
+          }, 0);
+        } else {
+          // Para ubicaciones normales, contar días trabajados
+          summaryValue = daysToShow.filter(day => {
+            const shift = scheduleData[name]?.[day.toString()] || '';
+            return shift === 'N' || shift === 'D'; // Solo contar Nocturno y Diurno
+          }).length;
+        }
         
         tableHTML += `<tr><td style='border:1px solid #d1d5db;padding:6px 10px;font-weight:bold;background:#f3f4f6;'>${name}</td>`;
         daysToShow.forEach(day => {
-          const value = scheduleData[name]?.[day.toString()] || '';
-          let bg = '#fff';
-          if (value === 'N') bg = '#87CEEB';
-          if (value === 'D') bg = '#FFFF00';
-          if (value === 'L') bg = '#FF00FF';
-          tableHTML += `<td style='border:1px solid #d1d5db;padding:6px 10px;background:${bg};text-align:center;'>${value}</td>`;
+          if (isDelifoodLocation) {
+            // Para DELIFOOD, mostrar horas
+            const hours = delifoodHoursData[name]?.[day.toString()]?.hours || 0;
+            const bg = hours > 0 ? '#d1fae5' : '#fff'; // Verde claro si hay horas
+            const displayValue = hours > 0 ? hours.toString() : '';
+            tableHTML += `<td style='border:1px solid #d1d5db;padding:6px 10px;background:${bg};text-align:center;color:#065f46;font-weight:${hours > 0 ? 'bold' : 'normal'};'>${displayValue}</td>`;
+          } else {
+            // Para ubicaciones normales, mostrar turnos
+            const value = scheduleData[name]?.[day.toString()] || '';
+            let bg = '#fff';
+            if (value === 'N') bg = '#87CEEB';
+            if (value === 'D') bg = '#FFFF00';
+            if (value === 'L') bg = '#FF00FF';
+            tableHTML += `<td style='border:1px solid #d1d5db;padding:6px 10px;background:${bg};text-align:center;'>${value}</td>`;
+          }
         });
-        tableHTML += `<td style='border:1px solid #d1d5db;padding:6px 10px;background:#e0f2fe;text-align:center;font-weight:bold;color:#1565c0;'>${workedDaysCount}</td>`;
+        const displaySummary = isDelifoodLocation ? `${summaryValue}h` : summaryValue.toString();
+        tableHTML += `<td style='border:1px solid #d1d5db;padding:6px 10px;background:#e0f2fe;text-align:center;font-weight:bold;color:#1565c0;'>${displaySummary}</td>`;
         tableHTML += `</tr>`;
       });
       tableHTML += `</tbody></table>`;
@@ -913,7 +984,8 @@ export default function ControlHorario() {
       
       // Subir a Firebase Storage para generar QR (sin descarga automática)
       const timestamp = Date.now();
-      const fileName = `horario_quincena_${timestamp}.png`;
+      const filePrefix = isDelifoodLocation ? 'horas_delifood_quincena' : 'horario_quincena';
+      const fileName = `${filePrefix}_${timestamp}.png`;
       const storagePath = `exports/${fileName}`;
       const imageRef = ref(storage, storagePath);
       await uploadBytes(imageRef, blob);
@@ -936,7 +1008,10 @@ export default function ControlHorario() {
         });
       }, 1000);
       
-      showNotification('📥 Quincena descargada exitosamente. ¡QR generado para descarga móvil!', 'success');
+      const successMessage = isDelifoodLocation ? 
+        '📥 Horas DELIFOOD descargadas exitosamente. ¡QR generado para descarga móvil!' : 
+        '📥 Quincena descargada exitosamente. ¡QR generado para descarga móvil!';
+      showNotification(successMessage, 'success');
       
     } catch (error) {
       console.error('Error al exportar la quincena:', error);
@@ -1199,11 +1274,11 @@ export default function ControlHorario() {
               <button
                 onClick={exportQuincenaToPNG}
                 className="flex items-center gap-2 px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
-                title="Exportar quincena como imagen"
+                title={isDelifoodLocation ? "Exportar horas DELIFOOD como imagen" : "Exportar quincena como imagen"}
                 disabled={isExporting}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 10l5 5 5-5M12 4v12" /></svg>
-                Exportar Quincena
+                {isDelifoodLocation ? 'Exportar Horas' : 'Exportar Quincena'}
               </button>
             </div>
           </div>
