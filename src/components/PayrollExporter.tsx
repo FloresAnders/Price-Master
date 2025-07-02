@@ -304,8 +304,8 @@ export default function PayrollExporter({
         const payrollDataArray: LocationPayrollData[] = [];
 
         const locationsToProcess = selectedLocation === 'all' ?
-          locations :
-          locations.filter(loc => loc.value === selectedLocation);
+          locations.filter(location => location.value !== 'DELIFOOD') :
+          locations.filter(loc => loc.value === selectedLocation && loc.value !== 'DELIFOOD');
 
         locationsToProcess.forEach(location => {
           const locationSchedules = locationGroups.get(location.value) || [];
@@ -747,7 +747,7 @@ export default function PayrollExporter({
             }}
           >
             <option value="all">Todas las ubicaciones</option>
-            {locations.map(location => (
+            {locations.filter(location => location.value !== 'DELIFOOD').map(location => (
               <option key={location.value} value={location.value}>
                 {location.label}
               </option>

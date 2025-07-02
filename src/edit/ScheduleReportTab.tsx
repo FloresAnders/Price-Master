@@ -186,8 +186,8 @@ export default function ScheduleReportTab() {
 
       // Filtrar ubicaciones según selección
       const locationsToProcess = selectedLocation === 'all' ?
-        locations :
-        locations.filter(loc => loc.value === selectedLocation);
+        locations.filter(location => location.value !== 'DELIFOOD') :
+        locations.filter(loc => loc.value === selectedLocation && loc.value !== 'DELIFOOD');
 
       locationsToProcess.forEach(location => {
         const locationSchedules = locationGroups.get(location.value) || [];
@@ -346,7 +346,7 @@ export default function ScheduleReportTab() {
           className="px-3 py-2 border border-[var(--input-border)] rounded-md bg-[var(--input-bg)] text-[var(--text-color)]"
         >
           <option value="all">Todas las ubicaciones</option>
-          {locations.map(location => (<option key={location.value} value={location.value}>
+          {locations.filter(location => location.value !== 'DELIFOOD').map(location => (<option key={location.value} value={location.value}>
             {location.label}
           </option>
           ))}
