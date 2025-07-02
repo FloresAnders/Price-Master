@@ -2,11 +2,12 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, Calendar, MapPin, FileText, Clock, Calculator } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, MapPin, FileText, Clock, Calculator, Eye } from 'lucide-react';
 import { LocationsService } from '../services/locations';
 import { SchedulesService, ScheduleEntry } from '../services/schedules';
 import { Location } from '../types/firestore';
 import PayrollExporter from './PayrollExporter';
+import PayrollRecordsViewer from './PayrollRecordsViewer';
 
 interface BiweeklyPeriod {
   start: Date;
@@ -36,7 +37,7 @@ export default function ScheduleReportTab() {
   const [scheduleData, setScheduleData] = useState<LocationSchedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const [activeTab, setActiveTab] = useState<'schedule' | 'payroll'>('schedule');
+  const [activeTab, setActiveTab] = useState<'schedule' | 'payroll' | 'records'>('schedule');
 
   // Estado para manejar horarios editables
   const [editableSchedules, setEditableSchedules] = useState<{ [key: string]: string }>({});
@@ -402,6 +403,16 @@ export default function ScheduleReportTab() {
             <Calculator className="w-4 h-4" />
             Planilla de Pago
           </button>
+          <button
+            onClick={() => setActiveTab('records')}
+            className={`px-4 py-2 rounded-md flex items-center gap-2 transition-colors ${activeTab === 'records'
+                ? 'bg-purple-600 text-white'
+                : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+              }`}
+          >
+            <Eye className="w-4 h-4" />
+            Registros Guardados
+          </button>
         </div>
       </div>
 
@@ -650,12 +661,17 @@ export default function ScheduleReportTab() {
               </div>
             ))}
           </div>
-        </>      ) : (
+        </>      ) : activeTab === 'payroll' ? (
         /* Tab de Planilla de Pago */
         <PayrollExporter 
           currentPeriod={currentPeriod}
           selectedLocation={selectedLocation}
           onLocationChange={setSelectedLocation}
+        />
+      ) : (
+        /* Tab de Registros Guardados */
+        <PayrollRecordsViewer 
+          selectedLocation={selectedLocation}
         />
       )}
     </div>

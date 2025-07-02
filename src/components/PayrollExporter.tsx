@@ -2,9 +2,10 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Calculator, DollarSign, Image } from 'lucide-react';
+import { Calculator, DollarSign, Image, Save } from 'lucide-react';
 import { LocationsService } from '../services/locations';
 import { SchedulesService, ScheduleEntry } from '../services/schedules';
+import { PayrollRecordsService } from '../services/payroll-records';
 import { Location, Employee } from '../types/firestore';
 
 interface BiweeklyPeriod {
@@ -657,6 +658,34 @@ export default function PayrollExporter({
     }
   };
 
+  // Función para guardar registro de planilla
+  const savePayrollRecord = async (employee: EnhancedEmployeePayrollData, locationValue: string) => {
+    if (!currentPeriod) {
+      showNotification('No hay período seleccionado', 'error');
+      return;
+    }
+
+    try {
+      showNotification(`💾 Guardando registro de ${employee.employeeName}...`, 'success');
+      
+      await PayrollRecordsService.saveRecord(
+        locationValue,
+        employee.employeeName,
+        currentPeriod.year,
+        currentPeriod.month,
+        currentPeriod.period,
+        employee.totalWorkDays,
+        employee.hoursPerDay,
+        employee.totalHours
+      );
+
+      showNotification(`✅ Registro de ${employee.employeeName} guardado exitosamente`, 'success');
+    } catch (error) {
+      console.error('Error saving payroll record:', error);
+      showNotification(`❌ Error guardando registro de ${employee.employeeName}`, 'error');
+    }
+  };
+
   const exportPayroll = async () => {
     if (!currentPeriod || memoizedPayrollCalculations.length === 0) {
       showNotification('No hay datos para exportar', 'error');
@@ -1049,8 +1078,16 @@ export default function PayrollExporter({
                       </tbody>
                     </table>
 
-                    {/* Botón de exportación individual */}
-                    <div className="mt-3 flex justify-end">
+                    {/* Botones de acción */}
+                    <div className="mt-3 flex justify-end gap-2">
+                      <button
+                        onClick={() => savePayrollRecord(employee, locationData.location.value)}
+                        className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md flex items-center gap-2 transition-colors"
+                        title={`Guardar registro de ${employee.employeeName}`}
+                      >
+                        <Save className="w-4 h-4" />
+                        Guardar Registro
+                      </button>
                       <button
                         onClick={() => exportIndividualEmployee(employee, locationData.location.value)}
                         className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md flex items-center gap-2 transition-colors"
