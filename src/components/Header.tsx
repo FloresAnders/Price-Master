@@ -11,11 +11,28 @@ export default function Header() {
   const pathname = usePathname();
   const { logout } = useAuth();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showHomeConfirm, setShowHomeConfirm] = useState(false);
   const isEditPage = pathname === '/edit';
 
   const handleLogoClick = () => {
-    // Navega al HomeMenu (quita el hash)
-    window.location.hash = '';
+    if (isEditPage) {
+      // Si está en la página de edición, mostrar advertencia
+      setShowHomeConfirm(true);
+    } else {
+      // Si no está en edición, navegar directamente al home
+      window.location.hash = '';
+    }
+  };
+
+  const confirmGoHome = () => {
+    // Cerrar sesión y regresar al inicio
+    logout('Navigating to home from edit page');
+    setShowHomeConfirm(false);
+    window.location.href = '/';
+  };
+
+  const cancelGoHome = () => {
+    setShowHomeConfirm(false);
   };
 
   const handleSettingsClick = () => {
@@ -99,6 +116,39 @@ export default function Header() {
                 className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 transition-colors"
               >
                 Cerrar Sesión
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmación para ir al home */}
+      {showHomeConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-[var(--card-bg)] rounded-lg p-6 max-w-sm w-full border border-[var(--input-border)]">
+            <div className="flex items-center gap-3 mb-4">
+              <LogOut className="w-6 h-6 text-orange-600" />
+              <h3 className="text-lg font-semibold text-[var(--foreground)]">
+                Ir al Inicio
+              </h3>
+            </div>
+
+            <p className="text-[var(--tab-text)] mb-6">
+              Al regresar al inicio, su sesión será cerrada. ¿Desea continuar?
+            </p>
+
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={cancelGoHome}
+                className="px-4 py-2 rounded-md border border-[var(--input-border)] text-[var(--foreground)] hover:bg-[var(--hover-bg)] transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmGoHome}
+                className="px-4 py-2 rounded-md bg-orange-600 text-white hover:bg-orange-700 transition-colors"
+              >
+                Ir al Inicio
               </button>
             </div>
           </div>
