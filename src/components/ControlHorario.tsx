@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { Clock, ChevronLeft, ChevronRight, Save, LogOut, User as UserIcon, Lock, Unlock } from 'lucide-react';
 import { LocationsService } from '../services/locations';
 import { SchedulesService } from '../services/schedules';
+import type { ScheduleEntry } from '../services/schedules';
 import { CcssConfigService } from '../services/ccss-config';
 import { useAuth } from '../hooks/useAuth';
 import LoginModal from './LoginModal';
@@ -62,7 +63,7 @@ function EmployeeTooltipSummary({
           locationValue,
           employeeName,
           year,
-          month
+          month // 🧪 TESTING: SIN +1
         );
 
         let workedDaysInPeriod = 0;
@@ -236,16 +237,35 @@ export default function ControlHorario() {
       const month = currentDate.getMonth();
 
       try {
-        const scheduleEntries = await Promise.all(
+        // TESTING: Probar sin el +1 para verificar si el problema es al revés
+        const testMonth = month; // Sin +1
+        console.log('🧪 TESTING: Querying with month WITHOUT +1:', testMonth);
+        
+        const scheduleEntries: ScheduleEntry[][] = await Promise.all(
           names.map(employeeName =>
-            SchedulesService.getSchedulesByLocationEmployeeMonth(location, employeeName, year, month + 1) // month + 1 porque JS usa 0-11 pero Firestore 1-12
+            SchedulesService.getSchedulesByLocationEmployeeMonth(location, employeeName, year, testMonth) // SIN +1 para probar
           )
         );
 
         console.log('=== LOADING SCHEDULE DATA ===');
         console.log('Location:', location, 'isDelifoodLocation:', isDelifoodLocation);
-        console.log('Year:', year, 'Month (JS 0-11):', month, 'Month (Firestore 1-12):', month + 1);
-        console.log('Schedule entries cargadas:', scheduleEntries);
+        console.log('Year:', year);
+        console.log('Current JavaScript Date:', currentDate);
+        console.log('Month (JS 0-based):', month, '- Month name:', new Date(year, month).toLocaleDateString('es-CR', { month: 'long' }));
+        console.log('Month (Firestore query - using month + 1):', month + 1);
+        console.log('Raw Schedule entries from DB:', scheduleEntries);
+        
+        // Verificar qué meses están realmente en los datos
+        scheduleEntries.forEach((employeeEntries, employeeIndex) => {
+          const employeeName = names[employeeIndex];
+          console.log(`📋 Employee ${employeeName} entries:`, employeeEntries.map(entry => ({
+            day: entry.day,
+            month: entry.month,
+            year: entry.year,
+            shift: entry.shift,
+            horasPorDia: entry.horasPorDia
+          })));
+        });
 
         // Si es DELIFOOD, cargar datos de horas
         if (isDelifoodLocation) {
@@ -255,7 +275,7 @@ export default function ControlHorario() {
             newDelifoodData[employeeName] = {};
             
             // Solo agregar días que realmente tienen datos en Firestore
-            scheduleEntries[index].forEach(entry => {
+            scheduleEntries[index].forEach((entry: ScheduleEntry) => {
               if (entry.horasPorDia !== undefined && entry.horasPorDia !== null && entry.horasPorDia > 0) {
                 const hours = entry.horasPorDia;
                 newDelifoodData[employeeName][entry.day.toString()] = { hours };
@@ -274,14 +294,28 @@ export default function ControlHorario() {
           // Para ubicaciones normales, cargar datos de turnos
           const newScheduleData: ScheduleData = {};
 
+          console.log('=== LOADING NORMAL SCHEDULE DATA ===');
           names.forEach((employeeName, index) => {
             newScheduleData[employeeName] = {};
-            scheduleEntries[index].forEach(entry => {
-              newScheduleData[employeeName][entry.day.toString()] = entry.shift;
+            console.log(`Processing ${employeeName}, scheduleEntries[${index}]:`, scheduleEntries[index]);
+            
+            scheduleEntries[index].forEach((entry: ScheduleEntry) => {
+              // Verificar que exista el campo shift y no esté vacío
+              if (entry.shift && entry.shift.trim() !== '') {
+                newScheduleData[employeeName][entry.day.toString()] = entry.shift;
+                console.log(`✅ NORMAL data loaded: ${employeeName} - day ${entry.day} - shift: ${entry.shift} - month: ${entry.month}`);
+              } else {
+                console.log(`⚠️ Entry without valid shift: ${employeeName} - day ${entry.day} - shift: "${entry.shift}" - horasPorDia: ${entry.horasPorDia}`);
+              }
             });
+            
+            console.log(`Datos finales para ${employeeName}:`, newScheduleData[employeeName]);
           });
 
+          console.log('=== SETTING NORMAL SCHEDULE DATA ===');
+          console.log('Final newScheduleData:', newScheduleData);
           setScheduleData(newScheduleData);
+          console.log('====================================');
         }
       } catch (error) {
         console.error('Error loading schedule data:', error);
@@ -330,6 +364,14 @@ export default function ControlHorario() {
       setSelectedPeriod('16-30');
     }
   }, [viewMode, fullMonthView]);
+
+  // Debug logging para verificar el estado de scheduleData
+  useEffect(() => {
+    if (!isDelifoodLocation && Object.keys(scheduleData).length > 0) {
+      console.log('🔍 Current scheduleData state:', scheduleData);
+    }
+  }, [scheduleData, isDelifoodLocation]);
+
   // Verificar si necesita autenticación
   if (!isAuthenticated) {
     return (
@@ -450,11 +492,18 @@ export default function ControlHorario() {
     async function doUpdate() {
       try {
         setSaving(true);
+        
+        console.log('🔄 SAVING SCHEDULE DATA:');
+        console.log('Current Date:', currentDate);
+        console.log('JS Month (0-based):', month, '- Month name:', new Date(year, month).toLocaleDateString('es-CR', { month: 'long' }));
+        console.log('🧪 TESTING: Sending to DB WITHOUT +1:', month);
+        console.log('Full save data:', { location, employeeName, year, month: month, day: parseInt(day), newValue });
+        
         await SchedulesService.updateScheduleShift(
           location,
           employeeName,
           year,
-          month,
+          month, // 🧪 TESTING: SIN +1 para probar
           parseInt(day),
           newValue
         );
@@ -515,7 +564,7 @@ export default function ControlHorario() {
   const handleDelifoodHoursSave = async (hours: number) => {
     const { employeeName, day } = delifoodModal;
     
-    console.log('Guardando horas:', { location, employeeName, year, month: month + 1, day, hours });
+    console.log('🧪 TESTING: Guardando horas SIN +1:', { location, employeeName, year, month: month, day, hours });
     
     if (!location || !employeeName) return;
 
@@ -527,7 +576,7 @@ export default function ControlHorario() {
         location,
         employeeName,
         year,
-        month + 1,
+        month, // 🧪 TESTING: SIN +1
         day,
         hours
       );
@@ -573,11 +622,20 @@ export default function ControlHorario() {
   const changeMonth = (direction: 'prev' | 'next') => {
     setCurrentDate(prev => {
       const newDate = new Date(prev);
+      console.log('📅 CHANGING MONTH:');
+      console.log('Previous date:', prev);
+      console.log('Previous month (JS):', prev.getMonth(), '- Month name:', prev.toLocaleDateString('es-CR', { month: 'long' }));
+      
       if (direction === 'prev') {
         newDate.setMonth(newDate.getMonth() - 1);
       } else {
         newDate.setMonth(newDate.getMonth() + 1);
       }
+      
+      console.log('New date:', newDate);
+      console.log('New month (JS):', newDate.getMonth(), '- Month name:', newDate.toLocaleDateString('es-CR', { month: 'long' }));
+      console.log('Will query DB with month:', newDate.getMonth() + 1);
+      
       return newDate;
     });
   };
@@ -1381,6 +1439,12 @@ export default function ControlHorario() {
                 </td>
                 {daysToShow.map(day => {
                   const value = scheduleData[name]?.[day.toString()] || '';
+                  
+                  // Debug logging para ver qué valores se están obteniendo
+                  if (!isDelifoodLocation && value) {
+                    console.log(`📋 Cell value for ${name} day ${day}:`, value, 'from scheduleData:', scheduleData[name]);
+                  }
+                  
                   // Deshabilitar si el día ya pasó en cualquier mes y año, y no está habilitado el modo edición
                   let disabled = false;
                   const cellDate = new Date(year, month, day);
