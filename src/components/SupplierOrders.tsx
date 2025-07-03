@@ -8,6 +8,7 @@ interface Product {
   name: string
   quantity: number
   price?: number
+  barcode?: string
 }
 
 interface SupplierOrder {
@@ -30,6 +31,7 @@ export default function SupplierOrders() {
   // Product form states
   const [productName, setProductName] = useState('')
   const [quantity, setQuantity] = useState<number>(1)
+  const [barcode, setBarcode] = useState<string>('')
   const [price, setPrice] = useState<string>('')
   
   // Current order products
@@ -120,6 +122,7 @@ export default function SupplierOrders() {
       id: Date.now().toString(),
       name: productName.trim(),
       quantity: quantity,
+      barcode: barcode.trim() || undefined,
       price: price ? parseFloat(price) : undefined
     }
 
@@ -134,6 +137,7 @@ export default function SupplierOrders() {
     // Clear form
     setProductName('')
     setQuantity(1)
+    setBarcode('')
     setPrice('')
     setShowProductDropdown(false)
   }
@@ -224,6 +228,7 @@ export default function SupplierOrders() {
     setProducts([])
     setProductName('')
     setQuantity(1)
+    setBarcode('')
     setPrice('')
     setShowSupplierDropdown(false)
     setShowProductDropdown(false)
@@ -418,7 +423,7 @@ export default function SupplierOrders() {
               Agregar Productos
             </h3>
             
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
               <div className="relative">
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--foreground)' }}>
                   Nombre del Producto
@@ -477,6 +482,24 @@ export default function SupplierOrders() {
               
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--foreground)' }}>
+                  Código de Barras (opcional)
+                </label>
+                <input
+                  type="text"
+                  value={barcode}
+                  onChange={(e) => setBarcode(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  style={{
+                    background: 'var(--input-bg)',
+                    borderColor: 'var(--input-border)',
+                    color: 'var(--foreground)',
+                  }}
+                  placeholder="Código de barras"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--foreground)' }}>
                   Precio Unitario (opcional)
                 </label>
                 <input
@@ -519,6 +542,7 @@ export default function SupplierOrders() {
                     <tr style={{ borderBottom: '1px solid var(--border)' }}>
                       <th className="text-left py-2 px-3 font-medium" style={{ color: 'var(--foreground)' }}>Nombre</th>
                       <th className="text-center py-2 px-3 font-medium" style={{ color: 'var(--foreground)' }}>Cantidad</th>
+                      <th className="text-center py-2 px-3 font-medium" style={{ color: 'var(--foreground)' }}>Código</th>
                       <th className="text-right py-2 px-3 font-medium" style={{ color: 'var(--foreground)' }}>Precio</th>
                       <th className="text-right py-2 px-3 font-medium" style={{ color: 'var(--foreground)' }}>Total</th>
                       <th className="text-center py-2 px-3 font-medium" style={{ color: 'var(--foreground)' }}>Acciones</th>
@@ -529,6 +553,9 @@ export default function SupplierOrders() {
                       <tr key={product.id} className="hover:opacity-80" style={{ borderBottom: '1px solid var(--muted)' }}>
                         <td className="py-2 px-3" style={{ color: 'var(--foreground)' }}>{product.name}</td>
                         <td className="py-2 px-3 text-center" style={{ color: 'var(--foreground)' }}>{product.quantity}</td>
+                        <td className="py-2 px-3 text-center" style={{ color: 'var(--foreground)' }}>
+                          {product.barcode || 'N/A'}
+                        </td>
                         <td className="py-2 px-3 text-right" style={{ color: 'var(--foreground)' }}>
                           {product.price ? `₡${product.price.toFixed(2)}` : 'N/A'}
                         </td>
@@ -550,7 +577,7 @@ export default function SupplierOrders() {
                   {currentTotal > 0 && (
                     <tfoot>
                       <tr className="font-bold" style={{ borderTop: '2px solid var(--border)' }}>
-                        <td colSpan={3} className="py-2 px-3 text-right" style={{ color: 'var(--foreground)' }}>Total de la Orden:</td>
+                        <td colSpan={4} className="py-2 px-3 text-right" style={{ color: 'var(--foreground)' }}>Total de la Orden:</td>
                         <td className="py-2 px-3 text-right text-lg" style={{ color: 'var(--foreground)' }}>₡{currentTotal.toFixed(2)}</td>
                         <td></td>
                       </tr>
@@ -644,6 +671,7 @@ export default function SupplierOrders() {
                       <tr style={{ borderBottom: '1px solid var(--border)' }}>
                         <th className="text-left py-1 px-2" style={{ color: 'var(--foreground)' }}>Producto</th>
                         <th className="text-center py-1 px-2" style={{ color: 'var(--foreground)' }}>Cantidad</th>
+                        <th className="text-center py-1 px-2" style={{ color: 'var(--foreground)' }}>Código</th>
                         <th className="text-right py-1 px-2" style={{ color: 'var(--foreground)' }}>Precio</th>
                         <th className="text-right py-1 px-2" style={{ color: 'var(--foreground)' }}>Total</th>
                       </tr>
@@ -653,6 +681,9 @@ export default function SupplierOrders() {
                         <tr key={product.id} style={{ borderBottom: '1px solid var(--muted)' }}>
                           <td className="py-1 px-2" style={{ color: 'var(--foreground)' }}>{product.name}</td>
                           <td className="py-1 px-2 text-center" style={{ color: 'var(--foreground)' }}>{product.quantity}</td>
+                          <td className="py-1 px-2 text-center" style={{ color: 'var(--foreground)' }}>
+                            {product.barcode || 'N/A'}
+                          </td>
                           <td className="py-1 px-2 text-right" style={{ color: 'var(--foreground)' }}>
                             {product.price ? `₡${product.price.toFixed(2)}` : 'N/A'}
                           </td>
@@ -665,7 +696,7 @@ export default function SupplierOrders() {
                     {order.total && order.total > 0 && (
                       <tfoot>
                         <tr className="font-bold" style={{ borderTop: '2px solid var(--border)' }}>
-                          <td colSpan={3} className="py-1 px-2 text-right" style={{ color: 'var(--foreground)' }}>Total:</td>
+                          <td colSpan={4} className="py-1 px-2 text-right" style={{ color: 'var(--foreground)' }}>Total:</td>
                           <td className="py-1 px-2 text-right" style={{ color: 'var(--foreground)' }}>₡{order.total.toFixed(2)}</td>
                         </tr>
                       </tfoot>
