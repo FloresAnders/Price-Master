@@ -100,30 +100,33 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
             Price Master
           </button>
 
-          <div className="flex items-center gap-2">
-            {/* Desktop navigation */}
-            {!isEditPage && (
-              <nav className="hidden lg:flex items-center gap-1">
-                {tabs.map(tab => (
-                  <button
-                    key={tab.id}
-                    onClick={() => handleTabClick(tab.id)}
-                    className={`px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2
-                      ${activeTab === tab.id
-                        ? 'bg-[var(--tab-border-active)] text-[var(--tab-text-active)]'
-                        : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
-                      }`}
-                    title={tab.description}
-                  >
-                    <tab.icon className="w-4 h-4" />
-                    <span>{tab.name}</span>
-                  </button>
-                ))}
-              </nav>
-            )}
+          {/* Desktop navigation - centered */}
+          {!isEditPage && activeTab && (
+            <nav className="hidden lg:flex items-center gap-1 absolute left-1/2 transform -translate-x-1/2">
+              {tabs.map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => handleTabClick(tab.id)}
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 relative
+                    ${activeTab === tab.id
+                      ? 'text-[var(--tab-text-active)] font-semibold'
+                      : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
+                    }`}
+                  title={tab.description}
+                >
+                  <tab.icon className="w-4 h-4" />
+                  <span>{tab.name}</span>
+                  {activeTab === tab.id && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
+                  )}
+                </button>
+              ))}
+            </nav>
+          )}
 
+          <div className="flex items-center gap-2">
             {/* Mobile hamburger menu button */}
-            {!isEditPage && (
+            {!isEditPage && activeTab && (
               <button
                 onClick={() => setShowMobileMenu(!showMobileMenu)}
                 className="lg:hidden p-2 rounded-md hover:bg-[var(--hover-bg)] transition-colors"
@@ -156,16 +159,16 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
         </div>
 
         {/* Mobile navigation menu */}
-        {showMobileMenu && !isEditPage && (
+        {showMobileMenu && !isEditPage && activeTab && (
           <div className="lg:hidden border-t border-[var(--input-border)] bg-[var(--card-bg)]">
             <nav className="px-4 py-2 space-y-1">
               {tabs.map(tab => (
                 <button
                   key={tab.id}
                   onClick={() => handleTabClick(tab.id)}
-                  className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-3
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-3 relative
                     ${activeTab === tab.id
-                      ? 'bg-[var(--tab-border-active)] text-[var(--tab-text-active)]'
+                      ? 'text-[var(--tab-text-active)] font-semibold'
                       : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
                     }`}
                 >
@@ -174,6 +177,9 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                     <div>{tab.name}</div>
                     <div className="text-xs text-[var(--muted-foreground)]">{tab.description}</div>
                   </div>
+                  {activeTab === tab.id && (
+                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-[var(--tab-text-active)] rounded-r-full"></div>
+                  )}
                 </button>
               ))}
             </nav>
