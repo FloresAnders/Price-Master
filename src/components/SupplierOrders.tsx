@@ -38,6 +38,12 @@ export default function SupplierOrders() {
   // Orders history
   const [orders, setOrders] = useState<SupplierOrder[]>([])
   const [showOrdersList, setShowOrdersList] = useState(false)
+  
+  // Recurrent data
+  const [recurrentSuppliers, setRecurrentSuppliers] = useState<string[]>([])
+  const [recurrentProducts, setRecurrentProducts] = useState<string[]>([])
+  const [showSupplierDropdown, setShowSupplierDropdown] = useState(false)
+  const [showProductDropdown, setShowProductDropdown] = useState(false)
 
   // Auto-complete order date on component mount
   useEffect(() => {
@@ -55,12 +61,42 @@ export default function SupplierOrders() {
         console.error('Error loading orders from localStorage:', error)
       }
     }
+    
+    // Load recurrent suppliers
+    const savedSuppliers = localStorage.getItem('recurrentSuppliers')
+    if (savedSuppliers) {
+      try {
+        setRecurrentSuppliers(JSON.parse(savedSuppliers))
+      } catch (error) {
+        console.error('Error loading suppliers from localStorage:', error)
+      }
+    }
+    
+    // Load recurrent products
+    const savedProducts = localStorage.getItem('recurrentProducts')
+    if (savedProducts) {
+      try {
+        setRecurrentProducts(JSON.parse(savedProducts))
+      } catch (error) {
+        console.error('Error loading products from localStorage:', error)
+      }
+    }
   }, [])
 
   // Save orders to localStorage
   useEffect(() => {
     localStorage.setItem('supplierOrders', JSON.stringify(orders))
   }, [orders])
+  
+  // Save recurrent suppliers to localStorage
+  useEffect(() => {
+    localStorage.setItem('recurrentSuppliers', JSON.stringify(recurrentSuppliers))
+  }, [recurrentSuppliers])
+  
+  // Save recurrent products to localStorage
+  useEffect(() => {
+    localStorage.setItem('recurrentProducts', JSON.stringify(recurrentProducts))
+  }, [recurrentProducts])
 
   // Calculate total for current products
   const calculateTotal = (): number => {
@@ -85,10 +121,17 @@ export default function SupplierOrders() {
 
     setProducts(prev => [...prev, newProduct])
     
+    // Add to recurrent products if not already there
+    const trimmedName = productName.trim()
+    if (!recurrentProducts.includes(trimmedName)) {
+      setRecurrentProducts(prev => [...prev, trimmedName])
+    }
+    
     // Clear form
     setProductName('')
     setQuantity(1)
     setPrice('')
+    setShowProductDropdown(false)
   }
 
   // Remove product from current order
@@ -114,13 +157,19 @@ export default function SupplierOrders() {
     }
 
     setOrders(prev => [newOrder, ...prev])
+    
+    // Add supplier to recurrent suppliers if not already there
+    const trimmedSupplier = supplierName.trim()
+    if (!recurrentSuppliers.includes(trimmedSupplier)) {
+      setRecurrentSuppliers(prev => [...prev, trimmedSupplier])
+    }
+    
     clearForm()
     alert('Orden guardada exitosamente!')
   }
 
   // Clear form for new order
   const clearForm = () => {
-    setSupplierName('')
     setOrderDate(new Date().toISOString().split('T')[0])
     setExpectedDeliveryDate('')
     setNotes('')
@@ -128,6 +177,9 @@ export default function SupplierOrders() {
     setProductName('')
     setQuantity(1)
     setPrice('')
+    setShowSupplierDropdown(false)
+    setShowProductDropdown(false)
+    // Don't clear supplier name to keep it for convenience
   }
 
   // Delete saved order
@@ -138,6 +190,27 @@ export default function SupplierOrders() {
   }
 
   const currentTotal = calculateTotal()
+  
+  // Filter suppliers and products based on input
+  const filteredSuppliers = recurrentSuppliers.filter(supplier =>
+    supplier.toLowerCase().includes(supplierName.toLowerCase())
+  ).slice(0, 5) // Limit to 5 suggestions
+  
+  const filteredProducts = recurrentProducts.filter(product =>
+    product.toLowerCase().includes(productName.toLowerCase())
+  ).slice(0, 5) // Limit to 5 suggestions
+  
+  // Handle supplier selection
+  const selectSupplier = (supplier: string) => {
+    setSupplierName(supplier)
+    setShowSupplierDropdown(false)
+  }
+  
+  // Handle product selection
+  const selectProduct = (product: string) => {
+    setProductName(product)
+    setShowProductDropdown(false)
+  }
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -148,8 +221,12 @@ export default function SupplierOrders() {
           className={`px-6 py-2 rounded-lg font-medium transition-colors ${
             !showOrdersList 
               ? 'bg-blue-500 text-white' 
-              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              : 'hover:opacity-80'
           }`}
+          style={{
+            background: !showOrdersList ? '#3b82f6' : 'var(--button-bg)',
+            color: !showOrdersList ? '#ffffff' : 'var(--button-text)',
+          }}
         >
           Nueva Orden
         </button>
@@ -158,8 +235,12 @@ export default function SupplierOrders() {
           className={`px-6 py-2 rounded-lg font-medium transition-colors ${
             showOrdersList 
               ? 'bg-blue-500 text-white' 
-              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              : 'hover:opacity-80'
           }`}
+          style={{
+            background: showOrdersList ? '#3b82f6' : 'var(--button-bg)',
+            color: showOrdersList ? '#ffffff' : 'var(--button-text)',
+          }}
         >
           Órdenes Guardadas ({orders.length})
         </button>
@@ -169,29 +250,53 @@ export default function SupplierOrders() {
         /* New Order Form */
         <div className="space-y-6">
           {/* Main Order Form */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <div className="rounded-lg border p-6" style={{ background: 'var(--card-bg)', borderColor: 'var(--border)' }}>
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2" style={{ color: 'var(--foreground)' }}>
               <Package className="w-5 h-5" />
               Información de la Orden
             </h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+              <div className="relative">
+                <label className="block text-sm font-medium mb-1 flex items-center gap-1" style={{ color: 'var(--foreground)' }}>
                   <User className="w-4 h-4" />
                   Nombre del Proveedor
                 </label>
                 <input
                   type="text"
                   value={supplierName}
-                  onChange={(e) => setSupplierName(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  onChange={(e) => {
+                    setSupplierName(e.target.value)
+                    setShowSupplierDropdown(e.target.value.length > 0 && filteredSuppliers.length > 0)
+                  }}
+                  onFocus={() => setShowSupplierDropdown(supplierName.length > 0 && filteredSuppliers.length > 0)}
+                  onBlur={() => setTimeout(() => setShowSupplierDropdown(false), 200)}
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  style={{
+                    background: 'var(--input-bg)',
+                    borderColor: 'var(--input-border)',
+                    color: 'var(--foreground)',
+                  }}
                   placeholder="Ingresa el nombre del proveedor"
                 />
+                {showSupplierDropdown && filteredSuppliers.length > 0 && (
+                  <div className="absolute z-10 w-full mt-1 border rounded-md shadow-lg" style={{ background: 'var(--card-bg)', borderColor: 'var(--border)' }}>
+                    {filteredSuppliers.map((supplier, index) => (
+                      <button
+                        key={index}
+                        onClick={() => selectSupplier(supplier)}
+                        className="w-full px-3 py-2 text-left hover:opacity-80 first:rounded-t-md last:rounded-b-md"
+                        style={{ color: 'var(--foreground)', background: 'var(--card-bg)' }}
+                      >
+                        {supplier}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+                <label className="block text-sm font-medium mb-1 flex items-center gap-1" style={{ color: 'var(--foreground)' }}>
                   <Calendar className="w-4 h-4" />
                   Fecha de Orden
                 </label>
@@ -199,12 +304,17 @@ export default function SupplierOrders() {
                   type="date"
                   value={orderDate}
                   onChange={(e) => setOrderDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  style={{
+                    background: 'var(--input-bg)',
+                    borderColor: 'var(--input-border)',
+                    color: 'var(--foreground)',
+                  }}
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+                <label className="block text-sm font-medium mb-1 flex items-center gap-1" style={{ color: 'var(--foreground)' }}>
                   <Calendar className="w-4 h-4" />
                   Fecha Esperada de Entrega
                 </label>
@@ -212,19 +322,29 @@ export default function SupplierOrders() {
                   type="date"
                   value={expectedDeliveryDate}
                   onChange={(e) => setExpectedDeliveryDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  style={{
+                    background: 'var(--input-bg)',
+                    borderColor: 'var(--input-border)',
+                    color: 'var(--foreground)',
+                  }}
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+                <label className="block text-sm font-medium mb-1 flex items-center gap-1" style={{ color: 'var(--foreground)' }}>
                   <FileText className="w-4 h-4" />
                   Notas
                 </label>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  style={{
+                    background: 'var(--input-bg)',
+                    borderColor: 'var(--input-border)',
+                    color: 'var(--foreground)',
+                  }}
                   placeholder="Notas adicionales..."
                   rows={3}
                 />
@@ -233,29 +353,53 @@ export default function SupplierOrders() {
           </div>
 
           {/* Add Products Form */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <div className="rounded-lg border p-6" style={{ background: 'var(--card-bg)', borderColor: 'var(--border)' }}>
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2" style={{ color: 'var(--foreground)' }}>
               <Plus className="w-5 h-5" />
               Agregar Productos
             </h3>
             
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+              <div className="relative">
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--foreground)' }}>
                   Nombre del Producto
                 </label>
                 <input
                   type="text"
                   value={productName}
-                  onChange={(e) => setProductName(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  onChange={(e) => {
+                    setProductName(e.target.value)
+                    setShowProductDropdown(e.target.value.length > 0 && filteredProducts.length > 0)
+                  }}
+                  onFocus={() => setShowProductDropdown(productName.length > 0 && filteredProducts.length > 0)}
+                  onBlur={() => setTimeout(() => setShowProductDropdown(false), 200)}
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  style={{
+                    background: 'var(--input-bg)',
+                    borderColor: 'var(--input-border)',
+                    color: 'var(--foreground)',
+                  }}
                   placeholder="Nombre del producto"
                   onKeyDown={(e) => e.key === 'Enter' && addProduct()}
                 />
+                {showProductDropdown && filteredProducts.length > 0 && (
+                  <div className="absolute z-10 w-full mt-1 border rounded-md shadow-lg" style={{ background: 'var(--card-bg)', borderColor: 'var(--border)' }}>
+                    {filteredProducts.map((product, index) => (
+                      <button
+                        key={index}
+                        onClick={() => selectProduct(product)}
+                        className="w-full px-3 py-2 text-left hover:opacity-80 first:rounded-t-md last:rounded-b-md"
+                        style={{ color: 'var(--foreground)', background: 'var(--card-bg)' }}
+                      >
+                        {product}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--foreground)' }}>
                   Cantidad
                 </label>
                 <input
@@ -263,12 +407,17 @@ export default function SupplierOrders() {
                   min="1"
                   value={quantity}
                   onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  style={{
+                    background: 'var(--input-bg)',
+                    borderColor: 'var(--input-border)',
+                    color: 'var(--foreground)',
+                  }}
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--foreground)' }}>
                   Precio Unitario (opcional)
                 </label>
                 <input
@@ -277,7 +426,12 @@ export default function SupplierOrders() {
                   min="0"
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  style={{
+                    background: 'var(--input-bg)',
+                    borderColor: 'var(--input-border)',
+                    color: 'var(--foreground)',
+                  }}
                   placeholder="0.00"
                 />
               </div>
@@ -295,31 +449,31 @@ export default function SupplierOrders() {
 
           {/* Products List */}
           {products.length > 0 && (
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            <div className="rounded-lg border p-6" style={{ background: 'var(--card-bg)', borderColor: 'var(--border)' }}>
+              <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--foreground)' }}>
                 Productos en la Orden ({products.length})
               </h3>
               
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse">
                   <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-2 px-3 font-medium text-gray-700">Nombre</th>
-                      <th className="text-center py-2 px-3 font-medium text-gray-700">Cantidad</th>
-                      <th className="text-right py-2 px-3 font-medium text-gray-700">Precio</th>
-                      <th className="text-right py-2 px-3 font-medium text-gray-700">Total</th>
-                      <th className="text-center py-2 px-3 font-medium text-gray-700">Acciones</th>
+                    <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                      <th className="text-left py-2 px-3 font-medium" style={{ color: 'var(--foreground)' }}>Nombre</th>
+                      <th className="text-center py-2 px-3 font-medium" style={{ color: 'var(--foreground)' }}>Cantidad</th>
+                      <th className="text-right py-2 px-3 font-medium" style={{ color: 'var(--foreground)' }}>Precio</th>
+                      <th className="text-right py-2 px-3 font-medium" style={{ color: 'var(--foreground)' }}>Total</th>
+                      <th className="text-center py-2 px-3 font-medium" style={{ color: 'var(--foreground)' }}>Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
                     {products.map((product) => (
-                      <tr key={product.id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="py-2 px-3">{product.name}</td>
-                        <td className="py-2 px-3 text-center">{product.quantity}</td>
-                        <td className="py-2 px-3 text-right">
+                      <tr key={product.id} className="hover:opacity-80" style={{ borderBottom: '1px solid var(--muted)' }}>
+                        <td className="py-2 px-3" style={{ color: 'var(--foreground)' }}>{product.name}</td>
+                        <td className="py-2 px-3 text-center" style={{ color: 'var(--foreground)' }}>{product.quantity}</td>
+                        <td className="py-2 px-3 text-right" style={{ color: 'var(--foreground)' }}>
                           {product.price ? `₡${product.price.toFixed(2)}` : 'N/A'}
                         </td>
-                        <td className="py-2 px-3 text-right font-medium">
+                        <td className="py-2 px-3 text-right font-medium" style={{ color: 'var(--foreground)' }}>
                           {product.price ? `₡${(product.quantity * product.price).toFixed(2)}` : 'N/A'}
                         </td>
                         <td className="py-2 px-3 text-center">
@@ -336,9 +490,9 @@ export default function SupplierOrders() {
                   </tbody>
                   {currentTotal > 0 && (
                     <tfoot>
-                      <tr className="border-t-2 border-gray-300 font-bold">
-                        <td colSpan={3} className="py-2 px-3 text-right">Total de la Orden:</td>
-                        <td className="py-2 px-3 text-right text-lg">₡{currentTotal.toFixed(2)}</td>
+                      <tr className="font-bold" style={{ borderTop: '2px solid var(--border)' }}>
+                        <td colSpan={3} className="py-2 px-3 text-right" style={{ color: 'var(--foreground)' }}>Total de la Orden:</td>
+                        <td className="py-2 px-3 text-right text-lg" style={{ color: 'var(--foreground)' }}>₡{currentTotal.toFixed(2)}</td>
                         <td></td>
                       </tr>
                     </tfoot>
@@ -359,7 +513,11 @@ export default function SupplierOrders() {
             </button>
             <button
               onClick={clearForm}
-              className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500"
+              className="px-6 py-2 rounded-lg hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-gray-500"
+              style={{
+                background: 'var(--button-bg)',
+                color: 'var(--button-text)',
+              }}
             >
               Limpiar Formulario
             </button>
@@ -368,19 +526,19 @@ export default function SupplierOrders() {
       ) : (
         /* Orders List */
         <div className="space-y-4">
-          <h3 className="text-xl font-semibold text-gray-900">Órdenes Guardadas</h3>
+          <h3 className="text-xl font-semibold" style={{ color: 'var(--foreground)' }}>Órdenes Guardadas</h3>
           
           {orders.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8" style={{ color: 'var(--muted-foreground)' }}>
               No hay órdenes guardadas todavía.
             </div>
           ) : (
             orders.map((order) => (
-              <div key={order.id} className="bg-white rounded-lg border border-gray-200 p-6">
+              <div key={order.id} className="rounded-lg border p-6" style={{ background: 'var(--card-bg)', borderColor: 'var(--border)' }}>
                 <div className="flex justify-between items-start mb-4">
                   <div>
-                    <h4 className="text-lg font-medium text-gray-900">{order.supplierName}</h4>
-                    <p className="text-sm text-gray-600">
+                    <h4 className="text-lg font-medium" style={{ color: 'var(--foreground)' }}>{order.supplierName}</h4>
+                    <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>
                       Orden: {new Date(order.orderDate).toLocaleDateString()}
                       {order.expectedDeliveryDate && (
                         <> • Entrega: {new Date(order.expectedDeliveryDate).toLocaleDateString()}</>
@@ -397,7 +555,7 @@ export default function SupplierOrders() {
                 </div>
                 
                 {order.notes && (
-                  <p className="text-sm text-gray-600 mb-4">
+                  <p className="text-sm mb-4" style={{ color: 'var(--muted-foreground)' }}>
                     <strong>Notas:</strong> {order.notes}
                   </p>
                 )}
@@ -405,22 +563,22 @@ export default function SupplierOrders() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm border-collapse">
                     <thead>
-                      <tr className="border-b border-gray-200">
-                        <th className="text-left py-1 px-2">Producto</th>
-                        <th className="text-center py-1 px-2">Cantidad</th>
-                        <th className="text-right py-1 px-2">Precio</th>
-                        <th className="text-right py-1 px-2">Total</th>
+                      <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                        <th className="text-left py-1 px-2" style={{ color: 'var(--foreground)' }}>Producto</th>
+                        <th className="text-center py-1 px-2" style={{ color: 'var(--foreground)' }}>Cantidad</th>
+                        <th className="text-right py-1 px-2" style={{ color: 'var(--foreground)' }}>Precio</th>
+                        <th className="text-right py-1 px-2" style={{ color: 'var(--foreground)' }}>Total</th>
                       </tr>
                     </thead>
                     <tbody>
                       {order.products.map((product) => (
-                        <tr key={product.id} className="border-b border-gray-100">
-                          <td className="py-1 px-2">{product.name}</td>
-                          <td className="py-1 px-2 text-center">{product.quantity}</td>
-                          <td className="py-1 px-2 text-right">
+                        <tr key={product.id} style={{ borderBottom: '1px solid var(--muted)' }}>
+                          <td className="py-1 px-2" style={{ color: 'var(--foreground)' }}>{product.name}</td>
+                          <td className="py-1 px-2 text-center" style={{ color: 'var(--foreground)' }}>{product.quantity}</td>
+                          <td className="py-1 px-2 text-right" style={{ color: 'var(--foreground)' }}>
                             {product.price ? `₡${product.price.toFixed(2)}` : 'N/A'}
                           </td>
-                          <td className="py-1 px-2 text-right">
+                          <td className="py-1 px-2 text-right" style={{ color: 'var(--foreground)' }}>
                             {product.price ? `₡${(product.quantity * product.price).toFixed(2)}` : 'N/A'}
                           </td>
                         </tr>
@@ -428,9 +586,9 @@ export default function SupplierOrders() {
                     </tbody>
                     {order.total && order.total > 0 && (
                       <tfoot>
-                        <tr className="border-t-2 border-gray-300 font-bold">
-                          <td colSpan={3} className="py-1 px-2 text-right">Total:</td>
-                          <td className="py-1 px-2 text-right">₡{order.total.toFixed(2)}</td>
+                        <tr className="font-bold" style={{ borderTop: '2px solid var(--border)' }}>
+                          <td colSpan={3} className="py-1 px-2 text-right" style={{ color: 'var(--foreground)' }}>Total:</td>
+                          <td className="py-1 px-2 text-right" style={{ color: 'var(--foreground)' }}>₡{order.total.toFixed(2)}</td>
                         </tr>
                       </tfoot>
                     )}
