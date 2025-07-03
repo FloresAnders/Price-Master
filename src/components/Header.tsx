@@ -1,18 +1,42 @@
 'use client'
 
 import Image from 'next/image';
-import { Settings, LogOut } from 'lucide-react';
+import { Settings, LogOut, Menu, X, Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { ThemeToggle } from './ThemeToggle';
 
-export default function Header() {
+type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'history' | 'timingcontrol' | 'controlhorario' | 'supplierorders'
+
+interface HeaderProps {
+  activeTab?: ActiveTab | null;
+  onTabChange?: (tab: ActiveTab | null) => void;
+}
+
+export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const pathname = usePathname();
   const { logout } = useAuth();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showHomeConfirm, setShowHomeConfirm] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const isEditPage = pathname === '/edit';
+
+  // Navigation tabs
+  const tabs = [
+    { id: 'scanner' as ActiveTab, name: 'Escáner', icon: Scan, description: 'Escanear códigos de barras' },
+    { id: 'calculator' as ActiveTab, name: 'Calculadora', icon: Calculator, description: 'Calcular precios con descuentos' },
+    { id: 'converter' as ActiveTab, name: 'Conversor', icon: Type, description: 'Convertir y transformar texto' },
+    {
+      id: 'cashcounter' as ActiveTab,
+      name: 'Contador Efectivo',
+      icon: Banknote,
+      description: 'Contar billetes y monedas (CRC/USD)'
+    },
+    { id: 'timingcontrol' as ActiveTab, name: 'Control Tiempos', icon: Smartphone, description: 'Registro de venta de tiempos' },
+    { id: 'controlhorario' as ActiveTab, name: 'Control Horario', icon: Clock, description: 'Registro de horarios de trabajo' },
+    { id: 'supplierorders' as ActiveTab, name: 'Órdenes Proveedor', icon: Truck, description: 'Gestión de órdenes de proveedores' },
+  ];
 
   const handleLogoClick = () => {
     if (isEditPage) {
@@ -20,8 +44,15 @@ export default function Header() {
       setShowHomeConfirm(true);
     } else {
       // Si no está en edición, navegar directamente al home
+      onTabChange?.(null);
       window.location.hash = '';
     }
+  };
+
+  const handleTabClick = (tabId: ActiveTab) => {
+    onTabChange?.(tabId);
+    window.location.hash = `#${tabId}`;
+    setShowMobileMenu(false); // Close mobile menu when tab is selected
   };
 
   const confirmGoHome = () => {
@@ -58,35 +89,102 @@ export default function Header() {
 
   return (
     <>
-      <header className="w-full flex items-center justify-between p-4 border-b border-[var(--input-border)] bg-transparent backdrop-blur-sm relative overflow-hidden">        <button
-        onClick={handleLogoClick}
-        className="flex items-center gap-2 text-xl font-bold tracking-tight text-[var(--foreground)] hover:text-[var(--tab-text-active)] transition-colors cursor-pointer bg-transparent border-none p-0"
-      >
-        <Image src="/favicon.ico" alt="Logo" width={28} height={28} className="inline-block align-middle" />
-        Price Master
-      </button>
-
-        <div className="flex items-center gap-2">
+      <header className="w-full border-b border-[var(--input-border)] bg-transparent backdrop-blur-sm relative overflow-hidden">        
+        {/* Main header row */}
+        <div className="flex items-center justify-between p-4">
           <button
-            onClick={handleSettingsClick}
-            className="p-2 rounded-md hover:bg-[var(--hover-bg)] transition-colors"
-            title="Configuración"
+            onClick={handleLogoClick}
+            className="flex items-center gap-2 text-xl font-bold tracking-tight text-[var(--foreground)] hover:text-[var(--tab-text-active)] transition-colors cursor-pointer bg-transparent border-none p-0"
           >
-            <Settings className="w-5 h-5 text-[var(--foreground)]" />
+            <Image src="/favicon.ico" alt="Logo" width={28} height={28} className="inline-block align-middle" />
+            Price Master
           </button>
 
-          {isEditPage && (
-            <button
-              onClick={handleLogoutClick}
-              className="p-2 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
-              title="Cerrar Sesión"
-            >
-              <LogOut className="w-5 h-5 text-red-600 dark:text-red-400" />
-            </button>
+          {/* Desktop navigation - centered */}
+          {!isEditPage && activeTab && (
+            <nav className="hidden lg:flex items-center gap-1 absolute left-1/2 transform -translate-x-1/2">
+              {tabs.map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => handleTabClick(tab.id)}
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 relative
+                    ${activeTab === tab.id
+                      ? 'text-[var(--tab-text-active)] font-semibold'
+                      : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
+                    }`}
+                  title={tab.description}
+                >
+                  <tab.icon className="w-4 h-4" />
+                  <span>{tab.name}</span>
+                  {activeTab === tab.id && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
+                  )}
+                </button>
+              ))}
+            </nav>
           )}
 
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            {/* Mobile hamburger menu button */}
+            {!isEditPage && activeTab && (
+              <button
+                onClick={() => setShowMobileMenu(!showMobileMenu)}
+                className="lg:hidden p-2 rounded-md hover:bg-[var(--hover-bg)] transition-colors"
+                title="Menú"
+              >
+                {showMobileMenu ? <X className="w-5 h-5 text-[var(--foreground)]" /> : <Menu className="w-5 h-5 text-[var(--foreground)]" />}
+              </button>
+            )}
+
+            <button
+              onClick={handleSettingsClick}
+              className="p-2 rounded-md hover:bg-[var(--hover-bg)] transition-colors"
+              title="Configuración"
+            >
+              <Settings className="w-5 h-5 text-[var(--foreground)]" />
+            </button>
+
+            {isEditPage && (
+              <button
+                onClick={handleLogoutClick}
+                className="p-2 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                title="Cerrar Sesión"
+              >
+                <LogOut className="w-5 h-5 text-red-600 dark:text-red-400" />
+              </button>
+            )}
+
+            <ThemeToggle />
+          </div>
         </div>
+
+        {/* Mobile navigation menu */}
+        {showMobileMenu && !isEditPage && activeTab && (
+          <div className="lg:hidden border-t border-[var(--input-border)] bg-[var(--card-bg)]">
+            <nav className="px-4 py-2 space-y-1">
+              {tabs.map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => handleTabClick(tab.id)}
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-3 relative
+                    ${activeTab === tab.id
+                      ? 'text-[var(--tab-text-active)] font-semibold'
+                      : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
+                    }`}
+                >
+                  <tab.icon className="w-4 h-4" />
+                  <div>
+                    <div>{tab.name}</div>
+                    <div className="text-xs text-[var(--muted-foreground)]">{tab.description}</div>
+                  </div>
+                  {activeTab === tab.id && (
+                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-[var(--tab-text-active)] rounded-r-full"></div>
+                  )}
+                </button>
+              ))}
+            </nav>
+          </div>
+        )}
       </header>
 
       {/* Modal de confirmación de logout */}

@@ -20,6 +20,7 @@
     --button-bg: #f3f4f6;
     --button-text: #1f2937;
     --button-hover: #e5e7eb;
+    --hover-bg: #f3f4f6;
 
     /* Navegación de pestañas */
     --tab-text: #6b7280;
@@ -77,6 +78,7 @@
     /* gray-200 */
     --button-hover: #4b5563;
     /* gray-600 */
+    --hover-bg: #374151;
 
     /* Navegación de pestañas */
     --tab-text: #9ca3af;
