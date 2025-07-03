@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Scan, Calculator, Type, Banknote, Smartphone, Clock } from 'lucide-react';
+import { Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck } from 'lucide-react';
 import AnimatedStickman from './AnimatedStickman';
 
 const menuItems = [
@@ -9,6 +9,7 @@ const menuItems = [
   { id: 'cashcounter', name: 'Contador Efectivo', icon: Banknote, description: 'Contar billetes y monedas (CRC/USD)' },
   { id: 'timingcontrol', name: 'Control Tiempos', icon: Smartphone, description: 'Registro de venta de tiempos' },
   { id: 'controlhorario', name: 'Control Horario', icon: Clock, description: 'Registro de horarios de trabajo' },
+  { id: 'supplierorders', name: 'Órdenes Proveedor', icon: Truck, description: 'Gestión de órdenes de proveedores' },
 ];
 
 export default function HomeMenu() {

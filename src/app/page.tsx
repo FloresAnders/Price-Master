@@ -14,13 +14,15 @@ import {
   Type, Banknote,
   Scan,
   Clock,
+  Truck,
 } from 'lucide-react'
 import type { ScanHistoryEntry } from '@/types/barcode'
 import TimingControl from '@/components/TimingControl'
 import HomeMenu from '@/components/HomeMenu'
+import SupplierOrders from '@/components/SupplierOrders'
 
-// 1) Ampliamos ActiveTab para incluir "cashcounter", "controlhorario"
-type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'history' | 'timingcontrol' | 'controlhorario'
+// 1) Ampliamos ActiveTab para incluir "cashcounter", "controlhorario", "supplierorders"
+type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'history' | 'timingcontrol' | 'controlhorario' | 'supplierorders'
 
 export default function HomePage() {
   // 2) Estado para la pestaña activa
@@ -118,6 +120,7 @@ export default function HomePage() {
     },
     { id: 'timingcontrol' as ActiveTab, name: 'Control Tiempos', icon: Smartphone, description: 'Registro de venta de tiempos' },
     { id: 'controlhorario' as ActiveTab, name: 'Control Horario', icon: Clock, description: 'Registro de horarios de trabajo' },
+    { id: 'supplierorders' as ActiveTab, name: 'Órdenes Proveedor', icon: Truck, description: 'Gestión de órdenes de proveedores' },
 
   ]  // 4) Al montar, leemos el hash de la URL y marcamos la pestaña correspondiente
   useEffect(() => {
@@ -125,7 +128,7 @@ export default function HomePage() {
       if (typeof window !== 'undefined') {
         const hash = window.location.hash.replace('#', '') as ActiveTab;
         const validTabs = [
-          'scanner', 'calculator', 'converter', 'cashcounter', 'history', 'timingcontrol', 'controlhorario'
+          'scanner', 'calculator', 'converter', 'cashcounter', 'history', 'timingcontrol', 'controlhorario', 'supplierorders'
         ];
         if (validTabs.includes(hash)) {
           setActiveTab(hash);
@@ -145,7 +148,7 @@ export default function HomePage() {
       const handleHashChange = () => {
         const hash = window.location.hash.replace('#', '') as ActiveTab;
         const validTabs = [
-          'scanner', 'calculator', 'converter', 'cashcounter', 'history', 'timingcontrol', 'controlhorario'
+          'scanner', 'calculator', 'converter', 'cashcounter', 'history', 'timingcontrol', 'controlhorario', 'supplierorders'
         ];
         if (validTabs.includes(hash)) {
           setActiveTab(hash);
@@ -288,6 +291,13 @@ export default function HomePage() {
               {/* CONTROL HORARIO */}
               {activeTab === 'controlhorario' && (
                 <ControlHorario />
+              )}
+
+              {/* SUPPLIER ORDERS */}
+              {activeTab === 'supplierorders' && (
+                <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4">
+                  <SupplierOrders />
+                </div>
               )}
             </div>
           </>
