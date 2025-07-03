@@ -10,7 +10,9 @@ export const metadata = {
   icons: {
     icon: '/favicon.ico',
   },
-
+  verification: {
+    google: '9TNvqvQrFhVHvPtQR01Du1GhCiG1yjPPvCgJTGf09w0',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
