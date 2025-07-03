@@ -25,10 +25,29 @@ import SupplierOrders from '@/components/SupplierOrders'
 type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'history' | 'timingcontrol' | 'controlhorario' | 'supplierorders'
 
 export default function HomePage() {
-  // 2) Estado para la pestaña activa
-  const [activeTab, setActiveTab] = useState<ActiveTab | null>(null); // null por defecto
+  // 2) Estado para la pestaña activa - now managed by URL hash only
+  const [activeTab, setActiveTab] = useState<ActiveTab | null>(null);
   const [scanHistory, setScanHistory] = useState<ScanHistoryEntry[]>([])
   const [notification, setNotification] = useState<{ message: string; color: string } | null>(null);
+
+  // Helper function to get tab info
+  const getTabInfo = (tabId: ActiveTab | null) => {
+    const tabs = [
+      { id: 'scanner' as ActiveTab, name: 'Escáner', icon: Scan, description: 'Escanear códigos de barras' },
+      { id: 'calculator' as ActiveTab, name: 'Calculadora', icon: Calculator, description: 'Calcular precios con descuentos' },
+      { id: 'converter' as ActiveTab, name: 'Conversor', icon: Type, description: 'Convertir y transformar texto' },
+      {
+        id: 'cashcounter' as ActiveTab,
+        name: 'Contador Efectivo',
+        icon: Banknote,
+        description: 'Contar billetes y monedas (CRC/USD)'
+      },
+      { id: 'timingcontrol' as ActiveTab, name: 'Control Tiempos', icon: Smartphone, description: 'Registro de venta de tiempos' },
+      { id: 'controlhorario' as ActiveTab, name: 'Control Horario', icon: Clock, description: 'Registro de horarios de trabajo' },
+      { id: 'supplierorders' as ActiveTab, name: 'Órdenes Proveedor', icon: Truck, description: 'Gestión de órdenes de proveedores' },
+    ];
+    return tabs.find(t => t.id === tabId);
+  };
 
   // LocalStorage: load on mount
   useEffect(() => {
@@ -107,22 +126,9 @@ export default function HomePage() {
       e.code === code ? { ...e, name } : e
     ));
     showNotification('Nombre actualizado', 'indigo');
-  }  // 3) Lista de pestañas
-  const tabs = [
-    { id: 'scanner' as ActiveTab, name: 'Escáner', icon: Scan, description: 'Escanear códigos de barras' },
-    { id: 'calculator' as ActiveTab, name: 'Calculadora', icon: Calculator, description: 'Calcular precios con descuentos' },
-    { id: 'converter' as ActiveTab, name: 'Conversor', icon: Type, description: 'Convertir y transformar texto' },
-    {
-      id: 'cashcounter' as ActiveTab,
-      name: 'Contador Efectivo',
-      icon: Banknote,
-      description: 'Contar billetes y monedas (CRC/USD)'
-    },
-    { id: 'timingcontrol' as ActiveTab, name: 'Control Tiempos', icon: Smartphone, description: 'Registro de venta de tiempos' },
-    { id: 'controlhorario' as ActiveTab, name: 'Control Horario', icon: Clock, description: 'Registro de horarios de trabajo' },
-    { id: 'supplierorders' as ActiveTab, name: 'Órdenes Proveedor', icon: Truck, description: 'Gestión de órdenes de proveedores' },
-
-  ]  // 4) Al montar, leemos el hash de la URL y marcamos la pestaña correspondiente
+  }
+  
+  // 4) Al montar, leemos el hash de la URL y marcamos la pestaña correspondiente
   useEffect(() => {
     const checkAndSetTab = () => {
       if (typeof window !== 'undefined') {
@@ -162,17 +168,6 @@ export default function HomePage() {
       };
     }
   }, [])
-
-  // 5) Cada vez que cambie activeTab, actualizamos el hash en la URL
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      if (activeTab) {
-        window.history.replaceState(null, '', `#${activeTab}`);
-      } else {
-        window.history.replaceState(null, '', window.location.pathname);
-      }
-    }
-  }, [activeTab])
   return (
     <>
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -188,37 +183,13 @@ export default function HomePage() {
           <HomeMenu />
         ) : (
           <>
-            {/* Navegación por pestañas */}
-            <div className="mb-8">
-              <nav className="border-b border-[var(--input-border)]">
-                <div className="-mb-px flex space-x-8">
-                  {tabs.map(tab => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={`group relative flex-1 py-4 px-1 text-center text-sm font-medium transition-colors
-                        ${activeTab === tab.id
-                          ? 'text-[var(--tab-text-active)] border-b-2 border-[var(--tab-border-active)]'
-                          : 'text-[var(--tab-text)] border-b-2 border-[var(--tab-border)] hover:text-[var(--tab-hover-text)]'
-                        }`}
-                    >
-                      <div className="flex items-center justify-center space-x-2">
-                        <tab.icon className="w-5 h-5" />
-                        <span className="hidden sm:inline">{tab.name}</span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </nav>
-            </div>
-
-            {/* Descripción de la pestaña activa */}
+            {/* Page title for active tab */}
             <div className="mb-6 text-center">
               <h2 className="text-2xl font-bold mb-2">
-                {tabs.find(t => t.id === activeTab)?.name}
+                {getTabInfo(activeTab)?.name}
               </h2>
               <p className="text-[var(--tab-text)]">
-                {tabs.find(t => t.id === activeTab)?.description}
+                {getTabInfo(activeTab)?.description}
               </p>
             </div>
 

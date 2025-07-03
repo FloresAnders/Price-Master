@@ -1,7 +1,7 @@
 // app/layout.tsx 
 import './globals.css';
 import { ThemeProvider } from '../components/ThemeProvider';
-import Header from '../components/Header';
+import HeaderWrapper from '../components/HeaderWrapper';
 import Footer from '../components/Footer';
 
 export const metadata = {
@@ -30,7 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="bg-background text-foreground transition-colors duration-500 min-h-screen flex flex-col">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <Header />
+          <HeaderWrapper />
           <main className="flex-1 flex flex-col w-full">
             <div className="w-full">
               {children}

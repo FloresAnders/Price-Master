@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Trash2, Plus, Package, Calendar, User, FileText } from 'lucide-react'
+import { Trash2, Plus, Package, Calendar, User, FileText, Edit } from 'lucide-react'
 
 interface Product {
   id: string
@@ -38,6 +38,10 @@ export default function SupplierOrders() {
   // Orders history
   const [orders, setOrders] = useState<SupplierOrder[]>([])
   const [showOrdersList, setShowOrdersList] = useState(false)
+  
+  // Edit functionality
+  const [editingOrderId, setEditingOrderId] = useState<string | null>(null)
+  const [isEditing, setIsEditing] = useState(false)
   
   // Recurrent data
   const [recurrentSuppliers, setRecurrentSuppliers] = useState<string[]>([])
@@ -146,30 +150,74 @@ export default function SupplierOrders() {
       return
     }
 
-    const newOrder: SupplierOrder = {
-      id: Date.now().toString(),
-      supplierName: supplierName.trim(),
-      orderDate,
-      expectedDeliveryDate,
-      notes: notes.trim(),
-      products: [...products],
-      total: calculateTotal()
-    }
+    if (isEditing && editingOrderId) {
+      // Update existing order
+      const updatedOrder: SupplierOrder = {
+        id: editingOrderId,
+        supplierName: supplierName.trim(),
+        orderDate,
+        expectedDeliveryDate,
+        notes: notes.trim(),
+        products: [...products],
+        total: calculateTotal()
+      }
 
-    setOrders(prev => [newOrder, ...prev])
-    
-    // Add supplier to recurrent suppliers if not already there
-    const trimmedSupplier = supplierName.trim()
-    if (!recurrentSuppliers.includes(trimmedSupplier)) {
-      setRecurrentSuppliers(prev => [...prev, trimmedSupplier])
+      setOrders(prev => prev.map(order => 
+        order.id === editingOrderId ? updatedOrder : order
+      ))
+      
+      alert('Orden actualizada exitosamente!')
+      cancelEdit()
+    } else {
+      // Create new order
+      const newOrder: SupplierOrder = {
+        id: Date.now().toString(),
+        supplierName: supplierName.trim(),
+        orderDate,
+        expectedDeliveryDate,
+        notes: notes.trim(),
+        products: [...products],
+        total: calculateTotal()
+      }
+
+      setOrders(prev => [newOrder, ...prev])
+      
+      // Add supplier to recurrent suppliers if not already there
+      const trimmedSupplier = supplierName.trim()
+      if (!recurrentSuppliers.includes(trimmedSupplier)) {
+        setRecurrentSuppliers(prev => [...prev, trimmedSupplier])
+      }
+      
+      clearForm()
+      alert('Orden guardada exitosamente!')
     }
-    
+  }
+
+  // Start editing an existing order
+  const startEdit = (order: SupplierOrder) => {
+    setSupplierName(order.supplierName)
+    setOrderDate(order.orderDate)
+    setExpectedDeliveryDate(order.expectedDeliveryDate)
+    setNotes(order.notes)
+    setProducts([...order.products])
+    setEditingOrderId(order.id)
+    setIsEditing(true)
+    setShowOrdersList(false) // Switch to form view
+  }
+
+  // Cancel editing
+  const cancelEdit = () => {
+    setIsEditing(false)
+    setEditingOrderId(null)
     clearForm()
-    alert('Orden guardada exitosamente!')
   }
 
   // Clear form for new order
   const clearForm = () => {
+    if (!isEditing) {
+      // Only clear supplier name if not editing
+      setSupplierName('')
+    }
     setOrderDate(new Date().toISOString().split('T')[0])
     setExpectedDeliveryDate('')
     setNotes('')
@@ -179,7 +227,8 @@ export default function SupplierOrders() {
     setPrice('')
     setShowSupplierDropdown(false)
     setShowProductDropdown(false)
-    // Don't clear supplier name to keep it for convenience
+    setIsEditing(false)
+    setEditingOrderId(null)
   }
 
   // Delete saved order
@@ -217,7 +266,12 @@ export default function SupplierOrders() {
       {/* Toggle between new order and orders list */}
       <div className="flex justify-center gap-4 mb-6">
         <button
-          onClick={() => setShowOrdersList(false)}
+          onClick={() => {
+            if (isEditing) {
+              cancelEdit()
+            }
+            setShowOrdersList(false)
+          }}
           className={`px-6 py-2 rounded-lg font-medium transition-colors ${
             !showOrdersList 
               ? 'bg-blue-500 text-white' 
@@ -228,10 +282,15 @@ export default function SupplierOrders() {
             color: !showOrdersList ? '#ffffff' : 'var(--button-text)',
           }}
         >
-          Nueva Orden
+          {isEditing ? 'Editando Orden' : 'Nueva Orden'}
         </button>
         <button
-          onClick={() => setShowOrdersList(true)}
+          onClick={() => {
+            if (isEditing) {
+              cancelEdit()
+            }
+            setShowOrdersList(true)
+          }}
           className={`px-6 py-2 rounded-lg font-medium transition-colors ${
             showOrdersList 
               ? 'bg-blue-500 text-white' 
@@ -509,8 +568,18 @@ export default function SupplierOrders() {
               disabled={!supplierName.trim() || products.length === 0}
               className="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Guardar Orden
+              {isEditing ? 'Actualizar Orden' : 'Guardar Orden'}
             </button>
+            
+            {isEditing && (
+              <button
+                onClick={cancelEdit}
+                className="px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500"
+              >
+                Cancelar Edición
+              </button>
+            )}
+            
             <button
               onClick={clearForm}
               className="px-6 py-2 rounded-lg hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-gray-500"
@@ -545,13 +614,22 @@ export default function SupplierOrders() {
                       )}
                     </p>
                   </div>
-                  <button
-                    onClick={() => deleteOrder(order.id)}
-                    className="text-red-500 hover:text-red-700 p-2"
-                    title="Eliminar orden"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => startEdit(order)}
+                      className="text-blue-500 hover:text-blue-700 p-2"
+                      title="Editar orden"
+                    >
+                      <Edit className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={() => deleteOrder(order.id)}
+                      className="text-red-500 hover:text-red-700 p-2"
+                      title="Eliminar orden"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  </div>
                 </div>
                 
                 {order.notes && (
