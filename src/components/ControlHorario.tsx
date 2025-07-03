@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { Clock, ChevronLeft, ChevronRight, Save, LogOut, User as UserIcon, Lock, Unlock } from 'lucide-react';
+import { Clock, ChevronLeft, ChevronRight, Save, LogOut, User as UserIcon, Lock, Unlock, Info } from 'lucide-react';
 import { LocationsService } from '../services/locations';
 import { SchedulesService } from '../services/schedules';
 import type { ScheduleEntry } from '../services/schedules';
@@ -50,7 +50,9 @@ function EmployeeTooltipSummary({
     colones: number;
     ccss: number;
     neto: number;
-  } | null>(null);  React.useEffect(() => {
+  } | null>(null);
+
+  React.useEffect(() => {
     const fetchSummary = async () => {
       try {
         // Obtener información de la ubicación que contiene los empleados
@@ -65,6 +67,9 @@ function EmployeeTooltipSummary({
           year,
           month // 🧪 TESTING: SIN +1
         );
+
+        // Obtener configuración CCSS actualizada
+        const ccssConfig = await CcssConfigService.getCcssConfig();
 
         let workedDaysInPeriod = 0;
         let totalHours = 0;
@@ -99,21 +104,18 @@ function EmployeeTooltipSummary({
           totalHours = workedDaysInPeriod * hoursPerDay;
         }
 
-        // Calcular salario bruto con valor fijo
-        const hourlyRate = 1529.62;
-        const grossSalary = totalHours * hourlyRate;        // Obtener configuración CCSS para el descuento según el tipo del empleado
-        const ccssConfig = await CcssConfigService.getCcssConfig();
-        let ccssDeduction = 0;
+        // **USAR LA MISMA LÓGICA QUE EmployeeSummaryCalculator**
+        const hoursPerShift = employee?.hoursPerShift || 8;
+        const ccssType = employee?.ccssType || 'MT';
+        const extraAmount = employee?.extraAmount || 0;
         
-        if (employee?.ccssType === 'TC') {
-          ccssDeduction = ccssConfig.tc || 11017.39; // Tiempo Completo
-        } else if (employee?.ccssType === 'MT') {
-          ccssDeduction = ccssConfig.mt || 3672.46; // Medio Tiempo
-        } else {
-          ccssDeduction = ccssConfig.mt || 3672.46; // Fallback a MT por defecto
-        }
-
-        // Calcular neto
+        // Calcular tarifa por hora basada en el tipo de CCSS (igual que EmployeeSummaryCalculator)
+        const ccssAmount = ccssType === 'TC' ? ccssConfig.tc : ccssConfig.mt;
+        const totalColones = ccssAmount + extraAmount;
+        const hourlyRate = totalColones / (22 * hoursPerShift); // Asumiendo 22 días laborales promedio
+        
+        const grossSalary = totalHours * hourlyRate;
+        const ccssDeduction = ccssAmount;
         const netSalary = grossSalary - ccssDeduction;
 
         setSummary({
@@ -1419,10 +1421,10 @@ export default function ControlHorario() {
                     {/* Botón de información para móviles */}
                     <button
                       onClick={() => setShowEmployeeSummary(showEmployeeSummary === name ? null : name)}
-                      className="sm:hidden text-blue-500 hover:text-blue-700 p-1"
+                      className="sm:hidden flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-800/50 text-blue-600 dark:text-blue-400 transition-colors"
                       title="Ver resumen"
                     >
-                      ℹ️
+                      <Info className="w-3 h-3" />
                     </button>
                   </div>
                   {/* Tooltip al pasar el mouse - solo en pantallas grandes */}                  <div className="hidden sm:block absolute left-full top-1/2 -translate-y-1/2 ml-2 bg-gray-900 text-white text-xs rounded shadow-lg px-4 py-2 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 min-w-[180px] text-left whitespace-pre-line">
