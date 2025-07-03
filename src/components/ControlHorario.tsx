@@ -1389,24 +1389,33 @@ export default function ControlHorario() {
                     today.getFullYear() === currentDate.getFullYear() &&
                     today.getMonth() === currentDate.getMonth() &&
                     today.getDate() === day;
-                  
-                  // Obtener el nombre del día de la semana
+                  // Tooltip: día de la semana, día, mes y año
                   const dayDate = new Date(year, month, day);
-                  const dayName = dayDate.toLocaleDateString('es-CR', { weekday: 'long' }); return (<th
+                  const dayName = dayDate.toLocaleDateString('es-CR', { weekday: 'long' });
+                  const monthNameFull = dayDate.toLocaleDateString('es-CR', { month: 'long' });
+                  const tooltip = `${dayName.charAt(0).toUpperCase() + dayName.slice(1)} ${day} de ${monthNameFull} de ${year}`;
+                  return (
+                    <th
                       key={day}
-                      className={`border border-[var(--input-border)] p-2 font-semibold text-center transition-colors text-xs ${isToday ? 'ring-2 ring-green-400 ring-offset-2 ring-offset-[var(--card-bg)]' : ''}`}
+                      className={`border border-[var(--input-border)] p-2 font-semibold text-center transition-colors text-xs relative${isToday ? ' bg-green-500 text-white' : ''}`}
                       style={{
-                        background: 'var(--input-bg)',
-                        color: 'var(--foreground)',
+                        background: isToday ? '#22c55e' : 'var(--input-bg)',
+                        color: isToday ? '#fff' : 'var(--foreground)',
                         minWidth: fullMonthView ? '40px' : '20px',
-                        borderColor: isToday ? '#4ade80' : undefined,
-                        height: '40px'
+                        height: '40px',
+                        zIndex: isToday ? 1 : undefined,
+                        cursor: 'pointer',
+                        borderColor: isToday ? '#4ade80' : undefined
                       }}
-                      title={`${dayName}, ${day} de ${monthName}`}
                     >
-                      {day}
+                      <span className="relative group">
+                        {day}
+                        <span className="absolute left-1/2 -translate-x-1/2 mt-2 px-2 py-1 rounded bg-gray-900 text-white text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 shadow-lg" style={{bottom: '-2.2rem'}}>
+                          {tooltip}
+                        </span>
+                      </span>
                     </th>
-                    );
+                  );
                 })}
               </tr>
             </thead>
