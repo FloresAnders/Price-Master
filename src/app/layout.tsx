@@ -3,6 +3,7 @@ import './globals.css';
 import { ThemeProvider } from '../components/ThemeProvider';
 import HeaderWrapper from '../components/HeaderWrapper';
 import Footer from '../components/Footer';
+import ChatSystem from '../components/ChatSystem';
 
 export const metadata = {
   title: 'Price Master',
@@ -37,6 +38,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </div>
           </main>
           <Footer />
+          {/* Sistema de Chat Global */}
+          <ChatSystem />
         </ThemeProvider>
       </body>
     </html>
