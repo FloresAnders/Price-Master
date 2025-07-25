@@ -13,21 +13,23 @@ export const metadata = {
   verification: {
     google: '9TNvqvQrFhVHvPtQR01Du1GhCiG1yjPPvCgJTGf09w0',
   },
+  authors: [
+    { name: 'AndersFloresM' },
+    { name: 'AlvaroChavesC' }
+  ],
+  creator: 'AndersFloresM',
+  robots: 'index, follow',
+  generator: 'Next.js',
+  applicationName: 'Price Master',
+  keywords: ['price master', 'calculadora', 'contador', 'escaner', 'precio', 'codigo barras'],
+  other: {
+    copyright: '2025 Price Master - AndersFloresM & AlvaroChavesC'
+  }
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning className="min-h-full bg-white dark:bg-zinc-900">
-      <head>
-        <meta name="author" content="AndersFloresM, AlvaroChavesC" />
-        <meta name="creator" content="AndersFloresM" />
-        <meta name="creator" content="AlvaroChavesC" />
-        <meta name="copyright" content="2025 Price Master - AndersFloresM & AlvaroChavesC" />
-        <meta name="robots" content="index, follow" />
-        <meta name="generator" content="Next.js" />
-        <meta name="application-name" content="Price Master" />
-        <meta name="keywords" content="price master, calculadora, contador, escaner, precio, codigo barras" />
-      </head>
       <body className="bg-background text-foreground transition-colors duration-500 min-h-screen flex flex-col">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <HeaderWrapper />
