@@ -266,7 +266,7 @@ export function useUsers() {
 }
 
 export function useCcssConfig() {
-  const [ccssConfig, setCcssConfig] = useState<CcssConfig>({ mt: 3672.46, tc: 11017.39 });
+  const [ccssConfig, setCcssConfig] = useState<CcssConfig>({ mt: 3672.46, tc: 11017.39, valorhora: 1441 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 

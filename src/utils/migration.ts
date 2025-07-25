@@ -120,7 +120,8 @@ export class MigrationService {
         // We don't delete the CCSS config, just reset it to default values
         await CcssConfigService.updateCcssConfig({
           mt: 3672.46,
-          tc: 11017.39
+          tc: 11017.39,
+          valorhora: 1441
         });
         console.log('CCSS configuration reset to default values.');
       } catch (error) { // eslint-disable-line @typescript-eslint/no-unused-vars

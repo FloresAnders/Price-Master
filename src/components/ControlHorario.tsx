@@ -115,9 +115,7 @@ function EmployeeTooltipSummary({
         }
 
         // **CÁLCULOS DE SALARIO BASADOS EN DATOS REALES**
-        const hoursPerShift = employee?.hoursPerShift || 8;
         const ccssType = employee?.ccssType || 'MT';
-        const extraAmount = employee?.extraAmount || 0;
         
         // Si no hay horas trabajadas, todo es 0
         let grossSalary = 0;
