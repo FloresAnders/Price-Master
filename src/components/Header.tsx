@@ -91,7 +91,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     <>
       <header className="w-full border-b border-[var(--input-border)] bg-transparent backdrop-blur-sm relative overflow-hidden">        
         {/* Main header row */}
-        <div className="flex items-center justify-between p-4">
+        <div className="flex items-center justify-between p-4" suppressHydrationWarning>
           <button
             onClick={handleLogoClick}
             className="flex items-center gap-2 text-xl font-bold tracking-tight text-[var(--foreground)] hover:text-[var(--tab-text-active)] transition-colors cursor-pointer bg-transparent border-none p-0"
@@ -124,7 +124,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
             </nav>
           )}
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2" suppressHydrationWarning>
             {/* Mobile hamburger menu button */}
             {!isEditPage && activeTab && (
               <button
@@ -160,7 +160,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
 
         {/* Mobile navigation menu */}
         {showMobileMenu && !isEditPage && activeTab && (
-          <div className="lg:hidden border-t border-[var(--input-border)] bg-[var(--card-bg)]">
+          <div className="lg:hidden border-t border-[var(--input-border)] bg-[var(--card-bg)]" suppressHydrationWarning>
             <nav className="px-4 py-2 space-y-1">
               {tabs.map(tab => (
                 <button
@@ -173,7 +173,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                     }`}
                 >
                   <tab.icon className="w-4 h-4" />
-                  <div>
+                  <div suppressHydrationWarning>
                     <div>{tab.name}</div>
                     <div className="text-xs text-[var(--muted-foreground)]">{tab.description}</div>
                   </div>
@@ -189,9 +189,9 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
 
       {/* Modal de confirmación de logout */}
       {showLogoutConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-[var(--card-bg)] rounded-lg p-6 max-w-sm w-full border border-[var(--input-border)]">
-            <div className="flex items-center gap-3 mb-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" suppressHydrationWarning>
+          <div className="bg-[var(--card-bg)] rounded-lg p-6 max-w-sm w-full border border-[var(--input-border)]" suppressHydrationWarning>
+            <div className="flex items-center gap-3 mb-4" suppressHydrationWarning>
               <LogOut className="w-6 h-6 text-red-600" />
               <h3 className="text-lg font-semibold text-[var(--foreground)]">
                 Cerrar Sesión
@@ -202,7 +202,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               ¿Está seguro que desea cerrar sesión y regresar al inicio?
             </p>
 
-            <div className="flex gap-3 justify-end">
+            <div className="flex gap-3 justify-end" suppressHydrationWarning>
               <button
                 onClick={cancelLogout}
                 className="px-4 py-2 rounded-md border border-[var(--input-border)] text-[var(--foreground)] hover:bg-[var(--hover-bg)] transition-colors"
@@ -222,9 +222,9 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
 
       {/* Modal de confirmación para ir al home */}
       {showHomeConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-[var(--card-bg)] rounded-lg p-6 max-w-sm w-full border border-[var(--input-border)]">
-            <div className="flex items-center gap-3 mb-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" suppressHydrationWarning>
+          <div className="bg-[var(--card-bg)] rounded-lg p-6 max-w-sm w-full border border-[var(--input-border)]" suppressHydrationWarning>
+            <div className="flex items-center gap-3 mb-4" suppressHydrationWarning>
               <LogOut className="w-6 h-6 text-orange-600" />
               <h3 className="text-lg font-semibold text-[var(--foreground)]">
                 Ir al Inicio
@@ -235,7 +235,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               Al regresar al inicio, su sesión será cerrada. ¿Desea continuar?
             </p>
 
-            <div className="flex gap-3 justify-end">
+            <div className="flex gap-3 justify-end" suppressHydrationWarning>
               <button
                 onClick={cancelGoHome}
                 className="px-4 py-2 rounded-md border border-[var(--input-border)] text-[var(--foreground)] hover:bg-[var(--hover-bg)] transition-colors"

@@ -25,12 +25,12 @@ export default function Footer() {
   
   return (
     <footer className="mt-auto border-t border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)]">
-      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-2 sm:py-3 overflow-x-auto">
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-2 sm:gap-3 text-xs sm:text-sm">
-          <div className="text-center sm:text-left">
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-2 sm:py-3 overflow-x-auto" suppressHydrationWarning>
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-2 sm:gap-3 text-xs sm:text-sm" suppressHydrationWarning>
+          <div className="text-center sm:text-left" suppressHydrationWarning>
             <span>© 2025 Price Master - Escáner avanzado de códigos de barras y QR</span>
           </div>
-          <div className="flex flex-wrap items-center justify-center space-x-2 sm:space-x-3">
+          <div className="flex flex-wrap items-center justify-center space-x-2 sm:space-x-3" suppressHydrationWarning>
             {['Next.js 15', 'React 19', 'TypeScript', 'ZBar-WASM', 'Quagga2', 'Firebase'].map((tech, idx) => (
               <React.Fragment key={tech}>
                 <span className="hover:text-[var(--tab-hover-text)] transition-colors text-[var(--tab-text)] whitespace-nowrap">
@@ -41,8 +41,8 @@ export default function Footer() {
             ))}
           </div>
         </div>        {/* Additional footer sections */}
-        <div className="mt-6 pt-6 border-t border-[var(--input-border)]">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+        <div className="mt-6 pt-6 border-t border-[var(--input-border)]" suppressHydrationWarning>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8" suppressHydrationWarning>
             {[
               { title: 'Productos', items: ['Escáner de Códigos', 'Cámara en Vivo', 'Detección Multi-formato', 'Análisis ZBar-WASM'] },
               {
@@ -57,7 +57,7 @@ export default function Footer() {
               { title: 'Tecnologías', items: ['Next.js 15', 'React 19', 'TypeScript', 'Firebase'] },
               { title: 'Soporte', items: ['Centro de Ayuda', 'Documentación API', 'Términos de Uso', 'Privacidad'] },
             ].map(section => (
-              <div key={section.title}>
+              <div key={section.title} suppressHydrationWarning>
                 <h3 className="text-sm font-semibold text-[var(--foreground)] mb-3">{section.title}</h3>                <ul className="space-y-2 text-sm">
                   {section.items.map((item) => (
                     <li key={typeof item === 'string' ? item : item.name}>
@@ -80,9 +80,9 @@ export default function Footer() {
             ))}
           </div>
         </div>        {/* Social links and additional info */}
-        <div className="mt-6 pt-6 border-t border-[var(--input-border)]">
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div className="flex space-x-6">
+        <div className="mt-6 pt-6 border-t border-[var(--input-border)]" suppressHydrationWarning>
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4" suppressHydrationWarning>
+            <div className="flex space-x-6" suppressHydrationWarning>
               {[
                 {
                   label: 'GitHub',
@@ -123,15 +123,15 @@ export default function Footer() {
                 </React.Fragment>
               ))}
             </div>
-            <div className="text-xs text-[var(--tab-text)]">Desarrollado con ❤️ usando tecnologías modernas</div>
+            <div className="text-xs text-[var(--tab-text)]" suppressHydrationWarning>Desarrollado con ❤️ usando tecnologías modernas</div>
           </div>
         </div>
       </div>
 
       {/* Modal de GitHub */}
       {isGitHubModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-[var(--card-bg)] rounded-2xl shadow-xl w-full max-w-md p-6 relative border border-[var(--input-border)]">
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" suppressHydrationWarning>
+          <div className="bg-[var(--card-bg)] rounded-2xl shadow-xl w-full max-w-md p-6 relative border border-[var(--input-border)]" suppressHydrationWarning>
             <button
               className="absolute top-4 right-4 text-[var(--foreground)] hover:text-gray-500 transition-colors"
               onClick={() => setIsGitHubModalOpen(false)}
