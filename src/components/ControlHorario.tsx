@@ -12,7 +12,6 @@ import { useAuth } from '../hooks/useAuth';
 import LoginModal from './LoginModal';
 import DelifoodHoursModal from './DelifoodHoursModal';
 import ConfirmModal from './ConfirmModal';
-import EmployeeSummaryCalculator from './EmployeeSummaryCalculator';
 import type { Location } from '../types/firestore';
 import type { User as FirestoreUser } from '../types/firestore';
 import html2canvas from 'html2canvas';
@@ -1561,21 +1560,25 @@ export default function ControlHorario() {
           <div className="sm:hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
             <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-sm w-full">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold">Resumen de Empleado</h3>
+                <h3 className="text-lg font-semibold">Resumen - {showEmployeeSummary}</h3>
                 <button
                   onClick={() => setShowEmployeeSummary(null)}
                   className="text-gray-500 hover:text-gray-700"
                 >
                   ✕
                 </button>
-              </div>              <EmployeeSummaryCalculator
-                employeeName={showEmployeeSummary}
-                locationValue={location}
-                year={year}
-                month={month + 1} // month es 0-indexed, el componente espera 1-indexed
-                daysToShow={daysToShow}
-                showFullDetails={true}
-              />
+              </div>
+              <div className="space-y-2 text-sm">
+                <EmployeeTooltipSummary 
+                  employeeName={showEmployeeSummary}
+                  locationValue={location}
+                  year={year}
+                  month={month}
+                  daysToShow={daysToShow}
+                  isDelifoodLocation={isDelifoodLocation}
+                  delifoodHoursData={delifoodHoursData}
+                />
+              </div>
             </div>
           </div>
         )}
