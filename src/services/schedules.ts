@@ -157,20 +157,48 @@ export class SchedulesService {
         }
         // If no existing document, do nothing (already "empty")
       } else {
+        // Get employee hoursPerShift from location data only for work shifts (D or N)
+        let horasPorDia: number | undefined;
+        
+        if (shift === 'D' || shift === 'N') {
+          try {
+            const { LocationsService } = await import('./locations');
+            const locations = await LocationsService.findLocationsByValue(locationValue);
+            const location = locations[0];
+            const employee = location?.employees?.find(emp => emp.name === employeeName);
+            horasPorDia = employee?.hoursPerShift || 8; // Default to 8 hours if not specified
+            console.log(`🔄 Adding horasPorDia for ${employeeName} (${shift}): ${horasPorDia} hours`);
+          } catch (error) {
+            console.warn('Error getting employee hoursPerShift, using default 8:', error);
+            horasPorDia = 8; // Fallback to 8 hours
+          }
+        } else {
+          // For shifts other than D or N (like L), don't add horasPorDia
+          console.log(`ℹ️ Shift "${shift}" for ${employeeName}: no horasPorDia added`);
+        }
+
         // If setting a value
         if (existingEntry && existingEntry.id) {
-          // Update existing document
-          await this.updateSchedule(existingEntry.id, { shift });
+          // Update existing document with shift and horasPorDia (only if defined)
+          const updateData: Partial<ScheduleEntry> = { shift };
+          if (horasPorDia !== undefined) {
+            updateData.horasPorDia = horasPorDia;
+          }
+          await this.updateSchedule(existingEntry.id, updateData);
         } else {
-          // Create new document
-          await this.addSchedule({
+          // Create new document with shift and horasPorDia (only if defined)
+          const newSchedule: Omit<ScheduleEntry, 'id' | 'createdAt' | 'updatedAt'> = {
             locationValue,
             employeeName,
             year,
             month,
             day,
             shift
-          });
+          };
+          if (horasPorDia !== undefined) {
+            newSchedule.horasPorDia = horasPorDia;
+          }
+          await this.addSchedule(newSchedule);
         }
       }
     } catch (error) {
@@ -205,20 +233,20 @@ export class SchedulesService {
       } else {
         // If hours > 0, create or update the document
         if (existingEntry && existingEntry.id) {
-          // Update existing document
+          // Update existing document with shift 'L' and specific horasPorDia
           await this.updateSchedule(existingEntry.id, { 
-            shift: '',
+            shift: 'L',
             horasPorDia: horasPorDia
           });
         } else {
-          // Create new document
+          // Create new document with shift 'L' and specific horasPorDia
           await this.addSchedule({
             locationValue,
             employeeName,
             year,
             month,
             day,
-            shift: '',
+            shift: 'L',
             horasPorDia: horasPorDia
           });
         }
