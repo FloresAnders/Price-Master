@@ -14,8 +14,6 @@ import DelifoodHoursModal from './DelifoodHoursModal';
 import ConfirmModal from './ConfirmModal';
 import type { Location } from '../types/firestore';
 import type { User as FirestoreUser } from '../types/firestore';
-import html2canvas from 'html2canvas';
-import QRCode from 'qrcode';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { storage } from '../config/firebase';
 
@@ -993,6 +991,22 @@ export default function ControlHorario() {
 
   // Función para exportar la quincena actual como PNG
   const exportQuincenaToPNG = async () => {
+    // Validaciones iniciales
+    if (!location) {
+      showNotification('Error: No hay ubicación seleccionada', 'error');
+      return;
+    }
+
+    if (!names || names.length === 0) {
+      showNotification('Error: No hay empleados para exportar', 'error');
+      return;
+    }
+
+    if (!daysToShow || daysToShow.length === 0) {
+      showNotification('Error: No hay días para mostrar', 'error');
+      return;
+    }
+
     setIsExporting(true);
     try {
       // Crear un contenedor temporal para la tabla exportable (HTML plano, sin Tailwind)
@@ -1007,29 +1021,33 @@ export default function ControlHorario() {
       exportDiv.style.borderRadius = '18px';
       exportDiv.style.fontFamily = 'Arial, sans-serif';
       exportDiv.style.minWidth = '340px';
+      
       // Generar HTML plano de la quincena
       let tableHTML = `<h2 style='font-size:1.2rem;font-weight:bold;text-align:center;margin-bottom:1rem;'>Horario Quincenal - Ubicación: ${location}</h2>`;
       tableHTML += `<table style='width:100%;border-collapse:collapse;font-size:1rem;'>`;
       tableHTML += `<thead><tr><th style='border:1px solid #d1d5db;padding:6px 10px;background:#f3f4f6;'>Nombre</th>`;
+      
       daysToShow.forEach(day => {
         tableHTML += `<th style='border:1px solid #d1d5db;padding:6px 10px;background:#f3f4f6;'>${day}</th>`;
       });
+      
       const summaryHeader = isDelifoodLocation ? 'Total Horas' : 'Días Trab.';
       tableHTML += `<th style='border:1px solid #d1d5db;padding:6px 10px;background:#e0f2fe;color:#1565c0;font-weight:bold;'>${summaryHeader}</th>`;
       tableHTML += `</tr></thead><tbody>`;
+      
       names.forEach(name => {
         // Calcular resumen según el tipo de ubicación
         let summaryValue = 0;
         if (isDelifoodLocation) {
           // Para DELIFOOD, sumar todas las horas
           summaryValue = daysToShow.reduce((total, day) => {
-            const hours = delifoodHoursData[name]?.[day.toString()]?.hours || 0;
+            const hours = delifoodHoursData?.[name]?.[day.toString()]?.hours || 0;
             return total + hours;
           }, 0);
         } else {
           // Para ubicaciones normales, contar días trabajados
           summaryValue = daysToShow.filter(day => {
-            const shift = scheduleData[name]?.[day.toString()] || '';
+            const shift = scheduleData?.[name]?.[day.toString()] || '';
             return shift === 'N' || shift === 'D'; // Solo contar Nocturno y Diurno
           }).length;
         }
@@ -1038,13 +1056,13 @@ export default function ControlHorario() {
         daysToShow.forEach(day => {
           if (isDelifoodLocation) {
             // Para DELIFOOD, mostrar horas
-            const hours = delifoodHoursData[name]?.[day.toString()]?.hours || 0;
+            const hours = delifoodHoursData?.[name]?.[day.toString()]?.hours || 0;
             const bg = hours > 0 ? '#d1fae5' : '#fff'; // Verde claro si hay horas
             const displayValue = hours > 0 ? hours.toString() : '';
             tableHTML += `<td style='border:1px solid #d1d5db;padding:6px 10px;background:${bg};text-align:center;color:#065f46;font-weight:${hours > 0 ? 'bold' : 'normal'};'>${displayValue}</td>`;
           } else {
             // Para ubicaciones normales, mostrar turnos
-            const value = scheduleData[name]?.[day.toString()] || '';
+            const value = scheduleData?.[name]?.[day.toString()] || '';
             let bg = '#fff';
             if (value === 'N') bg = '#87CEEB';
             if (value === 'D') bg = '#FFFF00';
@@ -1056,11 +1074,19 @@ export default function ControlHorario() {
         tableHTML += `<td style='border:1px solid #d1d5db;padding:6px 10px;background:#e0f2fe;text-align:center;font-weight:bold;color:#1565c0;'>${displaySummary}</td>`;
         tableHTML += `</tr>`;
       });
+      
       tableHTML += `</tbody></table>`;
       tableHTML += `<div style='margin-top:1.2rem;text-align:right;font-size:0.95rem;opacity:0.7;'>Exportado: ${new Date().toLocaleString('es-CR')}</div>`;
+      
       exportDiv.innerHTML = tableHTML;
       document.body.appendChild(exportDiv);
+      
+      // Esperar un poco para que se renderice
       await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Importar html2canvas dinámicamente para evitar problemas de SSR
+      const html2canvas = (await import('html2canvas')).default;
+      
       const canvas = await html2canvas(exportDiv, {
         useCORS: true,
         allowTaint: true,
@@ -1068,6 +1094,7 @@ export default function ControlHorario() {
         height: exportDiv.scrollHeight,
         logging: false
       });
+      
       document.body.removeChild(exportDiv);
       
       // Convertir canvas a blob para subir a Firebase Storage
@@ -1077,40 +1104,108 @@ export default function ControlHorario() {
       // Guardar el blob para descarga directa
       setImageBlob(blob);
       
-      // Subir a Firebase Storage para generar QR (sin descarga automática)
-      const timestamp = Date.now();
-      const filePrefix = isDelifoodLocation ? 'horas_delifood_quincena' : 'horario_quincena';
-      const fileName = `${filePrefix}_${timestamp}.png`;
-      const storagePath = `exports/${fileName}`;
-      const imageRef = ref(storage, storagePath);
-      await uploadBytes(imageRef, blob);
-      const downloadUrl = await getDownloadURL(imageRef);
+      // Verificar que Firebase Storage esté configurado
+      if (!storage) {
+        console.warn('Firebase Storage no está configurado, solo descarga local disponible');
+        // Si no hay storage, hacer descarga directa sin QR
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const filePrefix = isDelifoodLocation ? 'horas_delifood_quincena' : 'horario_quincena';
+        a.download = `${filePrefix}_${location}_${new Date().toISOString().split('T')[0]}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        const successMessage = isDelifoodLocation ? 
+          '📥 Horas DELIFOOD descargadas exitosamente (solo descarga local)!' : 
+          '📥 Quincena descargada exitosamente (solo descarga local)!';
+        showNotification(successMessage, 'success');
+        return;
+      }
       
-      // 3. Generar QR para descarga desde otro dispositivo
-      const qrDataUrl = await QRCode.toDataURL(downloadUrl, { width: 300 });
-      setQRCodeDataURL(qrDataUrl);
-      setStorageRef(storagePath);
-      setShowQRModal(true);
-      setQrCountdown(60);
-      const countdownInterval = setInterval(() => {
-        setQrCountdown(prev => {
-          if (prev === null) return null;
-          if (prev <= 1) {
-            clearInterval(countdownInterval);
-            return null;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-      
-      const successMessage = isDelifoodLocation ? 
-        '📥 Horas DELIFOOD descargadas exitosamente. ¡QR generado para descarga móvil!' : 
-        '📥 Quincena descargada exitosamente. ¡QR generado para descarga móvil!';
-      showNotification(successMessage, 'success');
+      try {
+        // Subir a Firebase Storage para generar QR
+        const timestamp = Date.now();
+        const filePrefix = isDelifoodLocation ? 'horas_delifood_quincena' : 'horario_quincena';
+        const fileName = `${filePrefix}_${timestamp}.png`;
+        const storagePath = `exports/${fileName}`;
+        const imageRef = ref(storage, storagePath);
+        
+        console.log('Intentando subir a Firebase Storage:', storagePath);
+        await uploadBytes(imageRef, blob);
+        console.log('Archivo subido exitosamente, obteniendo URL...');
+        const downloadUrl = await getDownloadURL(imageRef);
+        console.log('URL obtenida exitosamente:', downloadUrl);
+        
+        // Importar QRCode dinámicamente para evitar problemas de SSR
+        const QRCode = (await import('qrcode')).default;
+        
+        // Generar QR para descarga desde otro dispositivo
+        const qrDataUrl = await QRCode.toDataURL(downloadUrl, { width: 300 });
+        setQRCodeDataURL(qrDataUrl);
+        setStorageRef(storagePath);
+        setShowQRModal(true);
+        setQrCountdown(60);
+        
+        const countdownInterval = setInterval(() => {
+          setQrCountdown(prev => {
+            if (prev === null) return null;
+            if (prev <= 1) {
+              clearInterval(countdownInterval);
+              return null;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+        
+        const successMessage = isDelifoodLocation ? 
+          '📥 Horas DELIFOOD exportadas exitosamente. ¡QR generado para descarga móvil!' : 
+          '📥 Quincena exportada exitosamente. ¡QR generado para descarga móvil!';
+        showNotification(successMessage, 'success');
+        
+      } catch (firebaseError) {
+        console.error('Error con Firebase Storage:', firebaseError);
+        console.log('Procediendo con descarga local como alternativa...');
+        
+        // Fallback: descarga local si Firebase falla
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const filePrefix = isDelifoodLocation ? 'horas_delifood_quincena' : 'horario_quincena';
+        a.download = `${filePrefix}_${location}_${new Date().toISOString().split('T')[0]}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        const fallbackMessage = isDelifoodLocation ? 
+          '📥 Horas DELIFOOD descargadas localmente (Firebase no disponible)' : 
+          '📥 Quincena descargada localmente (Firebase no disponible)';
+        showNotification(fallbackMessage, 'success');
+      }
       
     } catch (error) {
       console.error('Error al exportar la quincena:', error);
-      showNotification('Error al exportar la quincena', 'error');
+      let errorMessage = 'Error desconocido';
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        
+        // Proporcionar mensajes más específicos para errores comunes de Firebase
+        if (error.message.includes('Firebase')) {
+          errorMessage = 'Error de Firebase Storage - Verifique la configuración';
+        } else if (error.message.includes('permission')) {
+          errorMessage = 'Error de permisos - Verifique las reglas de Firebase Storage';
+        } else if (error.message.includes('network')) {
+          errorMessage = 'Error de conexión - Verifique su conexión a internet';
+        } else if (error.message.includes('storage')) {
+          errorMessage = 'Error de almacenamiento - Firebase Storage no disponible';
+        }
+      }
+      
+      showNotification(`Error al exportar la quincena: ${errorMessage}`, 'error');
     } finally {
       setIsExporting(false);
     }
