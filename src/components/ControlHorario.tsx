@@ -87,36 +87,72 @@ function EmployeeTooltipSummary({
             return hours > 0;
           }).length;
         } else {
-          // Para ubicaciones normales, usar la lógica original
-          const scheduleData: { [day: string]: string } = {};
+          // Para ubicaciones normales, usar datos REALES de la BD
+          const scheduleMap = new Map<number, { shift: string; horasPorDia?: number }>();
+          
+          // Crear mapa de horarios por día
           schedules.forEach((schedule) => {
-            scheduleData[schedule.day.toString()] = schedule.shift;
+            scheduleMap.set(schedule.day, {
+              shift: schedule.shift,
+              horasPorDia: schedule.horasPorDia
+            });
           });
 
-          // Calcular días trabajados solo en el período mostrado (daysToShow)
-          workedDaysInPeriod = daysToShow.filter(day => {
-            const shift = scheduleData[day.toString()] || '';
-            return shift === 'N' || shift === 'D'; // Solo contar Nocturno y Diurno
-          }).length;
-
-          // Obtener horas por día desde la configuración del empleado en la BD
-          const hoursPerDay = employee?.hoursPerShift || 8; // Fallback a 8 si no está definido
-          totalHours = workedDaysInPeriod * hoursPerDay;
+          // Calcular días trabajados y horas totales basado en el período mostrado (daysToShow)
+          daysToShow.forEach(day => {
+            const daySchedule = scheduleMap.get(day);
+            
+            if (daySchedule && (daySchedule.shift === 'N' || daySchedule.shift === 'D')) {
+              workedDaysInPeriod++;
+              
+              // Usar horasPorDia de la BD si está disponible, sino usar hoursPerShift del empleado
+              if (daySchedule.horasPorDia && daySchedule.horasPorDia > 0) {
+                totalHours += daySchedule.horasPorDia;
+              } else {
+                // Fallback: usar hoursPerShift configurado en el empleado
+                const hoursPerDay = employee?.hoursPerShift || 8;
+                totalHours += hoursPerDay;
+              }
+            }
+          });
         }
 
-        // **USAR LA MISMA LÓGICA QUE EmployeeSummaryCalculator**
+        // **CÁLCULOS DE SALARIO BASADOS EN DATOS REALES**
         const hoursPerShift = employee?.hoursPerShift || 8;
         const ccssType = employee?.ccssType || 'MT';
         const extraAmount = employee?.extraAmount || 0;
         
-        // Calcular tarifa por hora basada en el tipo de CCSS (igual que EmployeeSummaryCalculator)
-        const ccssAmount = ccssType === 'TC' ? ccssConfig.tc : ccssConfig.mt;
-        const totalColones = ccssAmount + extraAmount;
-        const hourlyRate = totalColones / (22 * hoursPerShift); // Asumiendo 22 días laborales promedio
+        // Si no hay horas trabajadas, todo es 0
+        let grossSalary = 0;
+        let ccssDeduction = 0;
+        let netSalary = 0;
+        let hourlyRate = 0;
         
-        const grossSalary = totalHours * hourlyRate;
-        const ccssDeduction = ccssAmount;
-        const netSalary = grossSalary - ccssDeduction;
+        if (totalHours > 0) {
+          // Usar valorhora de la configuración CCSS como tarifa por hora
+          hourlyRate = ccssConfig.valorhora || 1441;
+          
+          // Calcular salario bruto: horas trabajadas × valor por hora
+          grossSalary = totalHours * hourlyRate;
+          
+          // Deducción CCSS según el tipo de empleado
+          const ccssAmount = ccssType === 'TC' ? ccssConfig.tc : ccssConfig.mt;
+          ccssDeduction = ccssAmount;
+          
+          // Salario neto = bruto - deducción CCSS
+          netSalary = grossSalary - ccssDeduction;
+        }
+
+        console.log(`📊 Tooltip Summary for ${employeeName}:`, {
+          workedDaysInPeriod,
+          totalHours,
+          hourlyRate: hourlyRate.toFixed(2),
+          grossSalary: grossSalary.toFixed(2),
+          ccssDeduction,
+          netSalary: netSalary.toFixed(2),
+          period: `${daysToShow[0]}-${daysToShow[daysToShow.length - 1]}`,
+          isDelifoodLocation
+        });
 
         setSummary({
           workedDays: workedDaysInPeriod,
