@@ -222,6 +222,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
   const [ventaActual, setVentaActual] = useState<number>(data.ventaActual);
   const [nuevaVenta, setNuevaVenta] = useState<number>(0);
   const [ventaAgregada, setVentaAgregada] = useState<boolean>(false);
+  const [showBillBreakdown, setShowBillBreakdown] = useState<boolean>(false);
 
   // Ref para navegar entre inputs de denominaciones
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -331,6 +332,35 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
       currency: currency,
       minimumFractionDigits: 0,
     }).format(num);
+  };
+
+  const calculateBillBreakdown = () => {
+    if (currency === 'CRC') {
+      const bills20y10 = (bills[20000] || 0) * 20000 + (bills[10000] || 0) * 10000;
+      const bills20_10_5 = bills20y10 + (bills[5000] || 0) * 5000;
+      const bills2y1 = (bills[2000] || 0) * 2000 + (bills[1000] || 0) * 1000;
+      const monedas = (bills[500] || 0) * 500 + (bills[100] || 0) * 100 + (bills[50] || 0) * 50 + (bills[25] || 0) * 25;
+      
+      return {
+        bills20y10,
+        bills20_10_5,
+        bills2y1,
+        monedas
+      };
+    } else {
+      // Para USD
+      const bills20y10 = (bills[20] || 0) * 20 + (bills[10] || 0) * 10;
+      const bills20_10_5 = bills20y10 + (bills[5] || 0) * 5;
+      const bills2y1 = 0; // USD no tiene billetes de 2, solo de 1
+      const monedas = (bills[1] || 0) * 1; // En USD, $1 puede considerarse como "moneda" grande
+      
+      return {
+        bills20y10,
+        bills20_10_5,
+        bills2y1,
+        monedas
+      };
+    }
   };
 
   const calculateDifference = () => {
@@ -568,6 +598,83 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
               {renderDifferenceMessage('text-center')}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Checkbox para mostrar desglose de billetes */}
+      <div className="mb-4">
+        <label className="flex items-center cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showBillBreakdown}
+            onChange={(e) => setShowBillBreakdown(e.target.checked)}
+            className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          />
+          <span className="text-[var(--foreground)] text-sm font-medium">
+            Mostrar desglose por tipos de billetes
+          </span>
+        </label>
+      </div>
+
+      {/* Desglose de billetes */}
+      {showBillBreakdown && (
+        <div className="bg-[var(--input-bg)] rounded-lg p-3 mb-4 border border-[var(--input-border)]">
+          <h4 className="text-sm font-semibold text-[var(--foreground)] mb-3 text-center">
+            Desglose por Tipos de Billetes
+          </h4>
+          {(() => {
+            const breakdown = calculateBillBreakdown();
+            return (
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="text-center p-2 bg-[var(--background)] rounded">
+                  <span className="block text-[var(--foreground)] opacity-75 mb-1">
+                    {currency === 'CRC' ? '₡20k + ₡10k' : '$20 + $10'}
+                  </span>
+                  <span className="font-medium text-[var(--foreground)]">
+                    {formatCurrency(breakdown.bills20y10, currency)}
+                  </span>
+                </div>
+                <div className="text-center p-2 bg-[var(--background)] rounded">
+                  <span className="block text-[var(--foreground)] opacity-75 mb-1">
+                    {currency === 'CRC' ? '₡20k + ₡10k + ₡5k' : '$20 + $10 + $5'}
+                  </span>
+                  <span className="font-medium text-[var(--foreground)]">
+                    {formatCurrency(breakdown.bills20_10_5, currency)}
+                  </span>
+                </div>
+                {currency === 'CRC' && (
+                  <>
+                    <div className="text-center p-2 bg-[var(--background)] rounded">
+                      <span className="block text-[var(--foreground)] opacity-75 mb-1">
+                        ₡2k + ₡1k
+                      </span>
+                      <span className="font-medium text-[var(--foreground)]">
+                        {formatCurrency(breakdown.bills2y1, currency)}
+                      </span>
+                    </div>
+                    <div className="text-center p-2 bg-[var(--background)] rounded">
+                      <span className="block text-[var(--foreground)] opacity-75 mb-1">
+                        Monedas
+                      </span>
+                      <span className="font-medium text-[var(--foreground)]">
+                        {formatCurrency(breakdown.monedas, currency)}
+                      </span>
+                    </div>
+                  </>
+                )}
+                {currency === 'USD' && (
+                  <div className="text-center p-2 bg-[var(--background)] rounded col-span-2">
+                    <span className="block text-[var(--foreground)] opacity-75 mb-1">
+                      Billetes de $1
+                    </span>
+                    <span className="font-medium text-[var(--foreground)]">
+                      {formatCurrency(breakdown.monedas, currency)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
 
