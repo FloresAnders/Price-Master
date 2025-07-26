@@ -18,10 +18,10 @@ export default function LoginPage() {
         const storedUserData = localStorage.getItem('simple_login_user');
         if (storedUserData) {
             try {
-                const userData = JSON.parse(storedUserData);
+                JSON.parse(storedUserData);
                 // Si ya está autenticado, redirigir directamente a backdoor
                 router.push('/backdoor');
-            } catch (error) {
+            } catch {
                 // Si hay error al parsear, limpiar localStorage
                 localStorage.removeItem('simple_login_user');
             }
@@ -81,23 +81,12 @@ export default function LoginPage() {
                     reason: 'User exists but does not meet access rule (username != password in DB) or password mismatch'
                 });
             }
-        } catch (error) {
-            console.error('Error during login:', error);
+        } catch (_error) {
+            console.error('Error during login:', _error);
             setLoginError('Error al conectar con la base de datos. Intente nuevamente.');
         }
 
         setLoading(false);
-    };
-
-    // Función para cerrar sesión (no necesaria en login, pero se mantiene por compatibilidad)
-    const handleLogout = () => {
-        localStorage.removeItem('simple_login_user');
-        console.log('🚪 LOGOUT:', {
-            timestamp: new Date().toISOString(),
-            action: 'SIMPLE_LOGOUT'
-        });
-        // Redirigir al login después del logout
-        router.push('/login');
     };
 
     // Mostrar formulario de login

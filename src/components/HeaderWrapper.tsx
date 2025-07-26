@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Header from './Header';
 
-type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'history' | 'timingcontrol' | 'controlhorario' | 'supplierorders';
+type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'supplierorders' | 'histoscans';
 
 export default function HeaderWrapper() {
   const [activeTab, setActiveTab] = useState<ActiveTab | null>(null);
@@ -14,7 +14,7 @@ export default function HeaderWrapper() {
       if (typeof window !== 'undefined') {
         const hash = window.location.hash.replace('#', '') as ActiveTab;
         const validTabs = [
-          'scanner', 'calculator', 'converter', 'cashcounter', 'history', 'timingcontrol', 'controlhorario', 'supplierorders'
+          'scanner', 'calculator', 'converter', 'cashcounter', 'timingcontrol', 'controlhorario', 'supplierorders', 'histoscans'
         ];
         if (validTabs.includes(hash)) {
           setActiveTab(hash);

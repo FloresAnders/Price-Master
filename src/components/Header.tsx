@@ -1,13 +1,13 @@
 'use client'
 
 import Image from 'next/image';
-import { Settings, LogOut, Menu, X, Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck } from 'lucide-react';
+import { Settings, LogOut, Menu, X, Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck, History } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { ThemeToggle } from './ThemeToggle';
 
-type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'history' | 'timingcontrol' | 'controlhorario' | 'supplierorders'
+type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'supplierorders' | 'histoscans'
 
 interface HeaderProps {
   activeTab?: ActiveTab | null;
@@ -21,6 +21,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const [showHomeConfirm, setShowHomeConfirm] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const isEditPage = pathname === '/edit';
+  const isBackdoorPage = pathname === '/backdoor';
 
   // Navigation tabs
   const tabs = [
@@ -36,7 +37,13 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     { id: 'timingcontrol' as ActiveTab, name: 'Control Tiempos', icon: Smartphone, description: 'Registro de venta de tiempos' },
     { id: 'controlhorario' as ActiveTab, name: 'Control Horario', icon: Clock, description: 'Registro de horarios de trabajo' },
     { id: 'supplierorders' as ActiveTab, name: 'Órdenes Proveedor', icon: Truck, description: 'Gestión de órdenes de proveedores' },
+    { id: 'histoscans' as ActiveTab, name: 'Historial de Escaneos', icon: History, description: 'Ver historial de escaneos realizados' },
   ];
+
+  // Filter tabs for backdoor (only show specific tabs)
+  const displayTabs = isBackdoorPage
+    ? tabs.filter(tab => ['scanner', 'controlhorario', 'histoscans'].includes(tab.id))
+    : tabs.filter(tab => tab.id !== 'histoscans'); // Exclude histoscans from main page
 
   const handleLogoClick = () => {
     if (isEditPage) {
@@ -51,7 +58,9 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
 
   const handleTabClick = (tabId: ActiveTab) => {
     onTabChange?.(tabId);
-    window.location.hash = `#${tabId}`;
+    // Map histoscans tab to historial hash for backdoor
+    const hashId = isBackdoorPage && tabId === 'histoscans' ? 'historial' : tabId;
+    window.location.hash = `#${hashId}`;
     setShowMobileMenu(false); // Close mobile menu when tab is selected
   };
 
@@ -72,7 +81,13 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   };
 
   const handleLogoutClick = () => {
-    setShowLogoutConfirm(true);
+    if (isBackdoorPage) {
+      // For backdoor, logout directly without confirmation
+      localStorage.removeItem('simple_login_user');
+      window.location.href = '/login';
+    } else {
+      setShowLogoutConfirm(true);
+    }
   };
 
   const confirmLogout = () => {
@@ -89,7 +104,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
 
   return (
     <>
-      <header className="w-full border-b border-[var(--input-border)] bg-transparent backdrop-blur-sm relative overflow-hidden">        
+      <header className="w-full border-b border-[var(--input-border)] bg-transparent backdrop-blur-sm relative overflow-hidden">
         {/* Main header row */}
         <div className="flex items-center justify-between p-4" suppressHydrationWarning>
           <button
@@ -97,13 +112,13 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
             className="flex items-center gap-2 text-xl font-bold tracking-tight text-[var(--foreground)] hover:text-[var(--tab-text-active)] transition-colors cursor-pointer bg-transparent border-none p-0"
           >
             <Image src="/favicon.ico" alt="Logo" width={28} height={28} className="inline-block align-middle" />
-            Price Master
+            {isBackdoorPage ? 'Price Master BackDoor' : 'Price Master'}
           </button>
 
           {/* Desktop navigation - centered */}
           {!isEditPage && activeTab && (
             <nav className="hidden lg:flex items-center gap-1 absolute left-1/2 transform -translate-x-1/2">
-              {tabs.map(tab => (
+              {displayTabs.map(tab => (
                 <button
                   key={tab.id}
                   onClick={() => handleTabClick(tab.id)}
@@ -136,15 +151,17 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               </button>
             )}
 
-            <button
-              onClick={handleSettingsClick}
-              className="p-2 rounded-md hover:bg-[var(--hover-bg)] transition-colors"
-              title="Configuración"
-            >
-              <Settings className="w-5 h-5 text-[var(--foreground)]" />
-            </button>
+            {!isBackdoorPage && (
+              <button
+                onClick={handleSettingsClick}
+                className="p-2 rounded-md hover:bg-[var(--hover-bg)] transition-colors"
+                title="Configuración"
+              >
+                <Settings className="w-5 h-5 text-[var(--foreground)]" />
+              </button>
+            )}
 
-            {isEditPage && (
+            {(isEditPage || isBackdoorPage) && (
               <button
                 onClick={handleLogoutClick}
                 className="p-2 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
@@ -162,7 +179,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
         {showMobileMenu && !isEditPage && activeTab && (
           <div className="lg:hidden border-t border-[var(--input-border)] bg-[var(--card-bg)]" suppressHydrationWarning>
             <nav className="px-4 py-2 space-y-1">
-              {tabs.map(tab => (
+              {displayTabs.map(tab => (
                 <button
                   key={tab.id}
                   onClick={() => handleTabClick(tab.id)}

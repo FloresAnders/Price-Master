@@ -1,17 +1,27 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Shield, AlertTriangle, User, LogIn, CheckCircle } from 'lucide-react';
+import { AlertTriangle, LogIn, CheckCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import type { User as FirestoreUser } from '@/types/firestore';
+import BackdoorScanHistory from './BackdoorScanHistory';
+import BarcodeScanner from '@/components/BarcodeScanner';
+import ControlHorario from '@/components/ControlHorario';
+import ScanHistory from '@/components/ScanHistory';
+import type { ScanHistoryEntry } from '@/types/barcode';
+
+type BackdoorTab = 'scanner' | 'controlhorario' | 'histoscans';
 
 // Componente que maneja toda la lógica del backdoor
 function BackdoorContent() {
     const router = useRouter();
     const [currentUser, setCurrentUser] = useState<FirestoreUser | null>(null);
     const [loading, setLoading] = useState(true);
-    const [currentTime, setCurrentTime] = useState<string>('');
+    const [activeTab, setActiveTab] = useState<BackdoorTab | null>(null);
+    const [scanHistory, setScanHistory] = useState<ScanHistoryEntry[]>([]);
+    const [notification, setNotification] = useState<{ message: string; color: string } | null>(null);
+    const [showWelcomeBanner, setShowWelcomeBanner] = useState(true);
 
     // Verificar autenticación al cargar la página
     useEffect(() => {
@@ -26,17 +36,129 @@ function BackdoorContent() {
             const userData = JSON.parse(storedUserData);
             setCurrentUser(userData);
             setLoading(false);
-        } catch (error) {
+        } catch {
             // Si hay error al parsear, limpiar localStorage y redirigir
             localStorage.removeItem('simple_login_user');
             router.push('/login');
         }
     }, [router]);
 
-    // Establecer la hora actual solo en el cliente
+    // Hide welcome banner after 5 seconds
     useEffect(() => {
-        setCurrentTime(new Date().toLocaleTimeString());
+        const timer = setTimeout(() => {
+            setShowWelcomeBanner(false);
+        }, 5000);
+
+        return () => clearTimeout(timer);
     }, []);
+
+    // Load scan history from localStorage
+    useEffect(() => {
+        const stored = localStorage.getItem('scanHistory');
+        if (stored) {
+            try {
+                setScanHistory(JSON.parse(stored));
+            } catch (error) {
+                console.error('Error loading scan history:', error);
+            }
+        }
+    }, []);
+
+    // Save scan history to localStorage
+    useEffect(() => {
+        if (scanHistory.length > 0) {
+            localStorage.setItem('scanHistory', JSON.stringify(scanHistory));
+        }
+    }, [scanHistory]);
+
+    // Handle hash changes for tabs
+    useEffect(() => {
+        const checkAndSetTab = () => {
+            if (typeof window !== 'undefined') {
+                const hash = window.location.hash.replace('#', '');
+                // Map backdoor specific hash to standard tab names
+                let mappedTab: BackdoorTab | null = null;
+                if (hash === 'historial') {
+                    mappedTab = 'histoscans';
+                } else if (hash === 'scanner') {
+                    mappedTab = 'scanner';
+                } else if (hash === 'controlhorario') {
+                    mappedTab = 'controlhorario';
+                }
+
+                setActiveTab(mappedTab);
+            }
+        };
+        checkAndSetTab();
+
+        const handleHashChange = () => {
+            const hash = window.location.hash.replace('#', '');
+            // Map backdoor specific hash to standard tab names
+            let mappedTab: BackdoorTab | null = null;
+            if (hash === 'historial') {
+                mappedTab = 'histoscans';
+            } else if (hash === 'scanner') {
+                mappedTab = 'scanner';
+            } else if (hash === 'controlhorario') {
+                mappedTab = 'controlhorario';
+            }
+
+            setActiveTab(mappedTab);
+        };
+
+        if (typeof window !== 'undefined') {
+            window.addEventListener('hashchange', handleHashChange);
+            return () => {
+                window.removeEventListener('hashchange', handleHashChange);
+            };
+        }
+    }, []);
+
+    // Handle code detection from scanner
+    const handleCodeDetected = (code: string, productName?: string) => {
+        setScanHistory(prev => {
+            if (prev[0]?.code === code) return prev;
+            const existing = prev.find(e => e.code === code);
+            const newEntry: ScanHistoryEntry = existing
+                ? { ...existing, code, name: productName || existing.name }
+                : { code, name: productName };
+            const filtered = prev.filter(e => e.code !== code);
+            return [newEntry, ...filtered].slice(0, 20);
+        });
+    };
+
+    // Handle copy code
+    const handleCopy = (code: string) => {
+        navigator.clipboard.writeText(code);
+    };
+
+    // Handle delete code from history
+    const handleDelete = (code: string) => {
+        setScanHistory(prev => prev.filter(entry => entry.code !== code));
+    };
+
+    // Handle remove leading zero from code
+    const handleRemoveLeadingZero = (code: string) => {
+        if (code.startsWith('0')) {
+            const newCode = code.substring(1);
+            setScanHistory(prev => prev.map(entry => 
+                entry.code === code ? { ...entry, code: newCode } : entry
+            ));
+        }
+    };
+
+    // Handle rename product
+    const handleRename = (code: string, name: string) => {
+        setScanHistory(prev => prev.map(entry => 
+            entry.code === code ? { ...entry, name } : entry
+        ));
+    };
+
+    // Show notification
+    const showNotification = (message: string, color: string = 'green') => {
+        setNotification({ message, color });
+        setTimeout(() => setNotification(null), 2000);
+    };
 
     // Función para cerrar sesión
     const handleLogout = () => {
@@ -83,161 +205,151 @@ function BackdoorContent() {
     }
 
     return (
-        <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            {/* Header de bienvenida */}
-            <div className="mb-8 bg-gradient-to-r from-green-600 to-green-800 text-white p-6 rounded-xl shadow-lg">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <CheckCircle className="w-8 h-8" />
-                        <div>
-                            <h1 className="text-2xl font-bold">✅ Acceso Autorizado - Backdoor</h1>
-                            <p className="text-green-100">Bienvenido, {currentUser?.name}</p>
-                        </div>
-                    </div>
+        <>
 
-                    <button
-                        onClick={handleLogout}
-                        className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2"
+            <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                {/* Notification */}
+                {notification && (
+                    <div
+                        className={`fixed top-6 right-6 z-50 px-6 py-3 rounded-xl shadow-2xl flex items-center gap-2 font-semibold animate-fade-in-down bg-${notification.color}-500 text-white`}
+                        style={{ minWidth: 180, textAlign: 'center' }}
                     >
-                        <LogIn className="w-4 h-4 rotate-180" />
-                        Cerrar Sesión
-                    </button>
-                </div>
-            </div>
-
-            {/* Contenido del área protegida */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {/* Información del usuario */}
-                <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-6 shadow-lg">
-                    <div className="flex items-center gap-3 mb-4">
-                        <User className="w-6 h-6 text-blue-600" />
-                        <h2 className="text-xl font-semibold text-[var(--foreground)]">Información del Usuario</h2>
+                        {notification.message}
                     </div>
-                    <div className="space-y-3">
-                        <div className="flex justify-between items-center p-3 bg-[var(--muted)] rounded-lg">
-                            <span className="text-[var(--muted-foreground)]">Usuario:</span>
-                            <span className="font-semibold text-[var(--foreground)]">{currentUser?.name}</span>
-                        </div>
-                        <div className="flex justify-between items-center p-3 bg-[var(--muted)] rounded-lg">
-                            <span className="text-[var(--muted-foreground)]">ID:</span>
-                            <span className="font-semibold text-[var(--foreground)] text-xs">{currentUser?.id?.slice(-8)}</span>
-                        </div>
-                        <div className="flex justify-between items-center p-3 bg-[var(--muted)] rounded-lg">
-                            <span className="text-[var(--muted-foreground)]">Rol:</span>
-                            <span className={`font-semibold px-3 py-1 rounded-full text-sm ${currentUser?.role === 'superadmin'
-                                ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
-                                : currentUser?.role === 'admin'
-                                    ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300'
-                                    : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
-                                }`}>
-                                {currentUser?.role === 'superadmin' ? '🔴 SuperAdmin' :
-                                    currentUser?.role === 'admin' ? '🟠 Admin' : '🔵 User'}
-                            </span>
-                        </div>
-                        {currentUser?.location && (
-                            <div className="flex justify-between items-center p-3 bg-[var(--muted)] rounded-lg">
-                                <span className="text-[var(--muted-foreground)]">Ubicación:</span>
-                                <span className="font-semibold text-[var(--foreground)]">{currentUser.location}</span>
+                )}
+
+                {activeTab === null ? (
+                    <>
+                        {showWelcomeBanner && (
+                            <div className="mb-8 bg-gradient-to-r from-green-600 to-green-800 text-white p-6 rounded-xl shadow-lg transition-opacity duration-500">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-4">
+                                        <CheckCircle className="w-8 h-8" />
+                                        <div>
+                                            <h1 className="text-2xl font-bold">✅ Acceso Autorizado - Backdoor</h1>
+                                            <p className="text-green-100">Bienvenido, {currentUser?.name}</p>
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        onClick={handleLogout}
+                                        className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2"
+                                    >
+                                        <LogIn className="w-4 h-4 rotate-180" />
+                                        Cerrar Sesión
+                                    </button>
+                                </div>
                             </div>
                         )}
-                        <div className="flex justify-between items-center p-3 bg-[var(--muted)] rounded-lg">
-                            <span className="text-[var(--muted-foreground)]">Estado:</span>
-                            <span className="font-semibold bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 px-3 py-1 rounded-full text-sm">
-                                🟢 Conectado
-                            </span>
-                        </div>
-                        <div className="flex justify-between items-center p-3 bg-[var(--muted)] rounded-lg">
-                            <span className="text-[var(--muted-foreground)]">Acceso:</span>
-                            <span className="font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 px-3 py-1 rounded-full text-sm">
-                                🔵 Autorizado
-                            </span>
-                        </div>
-                    </div>
-                </div>
 
-                {/* Estadísticas de sesión */}
-                <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-6 shadow-lg">
-                    <div className="flex items-center gap-3 mb-4">
-                        <Shield className="w-6 h-6 text-green-600" />
-                        <h2 className="text-xl font-semibold text-[var(--foreground)]">Sesión Actual</h2>
-                    </div>
-                    <div className="space-y-3">
-                        <div className="flex justify-between items-center p-3 bg-[var(--muted)] rounded-lg">
-                            <span className="text-[var(--muted-foreground)]">Inicio:</span>
-                            <span className="font-semibold text-[var(--foreground)]">
-                                {currentTime || 'Cargando...'}
-                            </span>
-                        </div>
-                        <div className="flex justify-between items-center p-3 bg-[var(--muted)] rounded-lg">
-                            <span className="text-[var(--muted-foreground)]">Tipo:</span>
-                            <span className="font-semibold text-[var(--foreground)]">Backdoor Access</span>
-                        </div>
-                        <div className="flex justify-between items-center p-3 bg-[var(--muted)] rounded-lg">
-                            <span className="text-[var(--muted-foreground)]">Seguridad:</span>
-                            <span className="font-semibold bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 px-3 py-1 rounded-full text-sm">
-                                🟡 Estándar
-                            </span>
-                        </div>
-                    </div>
-                </div>
+                        {/* Menu de opciones disponibles */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+                            {/* Scanner */}
+                            <div
+                                onClick={() => window.location.hash = 'scanner'}
+                                className="bg-[var(--card-bg)] border border-[var(--border)] rounded-xl p-6 cursor-pointer hover:shadow-lg transition-all duration-200 hover:border-blue-400 group"
+                            >
+                                <div className="text-center">
+                                    <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center bg-blue-100 dark:bg-blue-900/30 rounded-xl group-hover:bg-blue-200 dark:group-hover:bg-blue-900/50 transition-colors">
+                                        <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                                        </svg>
+                                    </div>
+                                    <h3 className="text-xl font-bold text-[var(--foreground)] mb-2">Escáner</h3>
+                                    <p className="text-[var(--muted-foreground)]">Escanear códigos de barras</p>
+                                </div>
+                            </div>
 
-                {/* Información del sistema */}
-                <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-6 shadow-lg">
-                    <div className="flex items-center gap-3 mb-4">
-                        <AlertTriangle className="w-6 h-6 text-orange-600" />
-                        <h2 className="text-xl font-semibold text-[var(--foreground)]">Información</h2>
-                    </div>
-                    <div className="space-y-3 text-sm text-[var(--muted-foreground)]">
-                        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-3">
-                            <p className="text-blue-800 dark:text-blue-300">
-                                <strong>Sistema Seguro:</strong> Acceso controlado mediante autenticación de credenciales.
+                            {/* Control Horario */}
+                            <div
+                                onClick={() => window.location.hash = 'controlhorario'}
+                                className="bg-[var(--card-bg)] border border-[var(--border)] rounded-xl p-6 cursor-pointer hover:shadow-lg transition-all duration-200 hover:border-green-400 group"
+                            >
+                                <div className="text-center">
+                                    <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center bg-green-100 dark:bg-green-900/30 rounded-xl group-hover:bg-green-200 dark:group-hover:bg-green-900/50 transition-colors">
+                                        <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <circle cx="12" cy="12" r="10" />
+                                            <polyline points="12,6 12,12 16,14" />
+                                        </svg>
+                                    </div>
+                                    <h3 className="text-xl font-bold text-[var(--foreground)] mb-2">Control Horario</h3>
+                                    <p className="text-[var(--muted-foreground)]">Registro de horarios de trabajo</p>
+                                </div>
+                            </div>
+
+                            {/* Historial de Escaneos */}
+                            <div
+                                onClick={() => window.location.hash = 'historial'}
+                                className="bg-[var(--card-bg)] border border-[var(--border)] rounded-xl p-6 cursor-pointer hover:shadow-lg transition-all duration-200 hover:border-purple-400 group"
+                            >
+                                <div className="text-center">
+                                    <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center bg-purple-100 dark:bg-purple-900/30 rounded-xl group-hover:bg-purple-200 dark:group-hover:bg-purple-900/50 transition-colors">
+                                        <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    </div>
+                                    <h3 className="text-xl font-bold text-[var(--foreground)] mb-2">Historial de Escaneos</h3>
+                                    <p className="text-[var(--muted-foreground)]">Ver historial de escaneos realizados</p>
+                                </div>
+                            </div>
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        {/* Page title for active tab */}
+                        <div className="mb-6 text-center">
+                            <h2 className="text-2xl font-bold mb-2">
+                                {activeTab === 'scanner' && 'Escáner'}
+                                {activeTab === 'controlhorario' && 'Control Horario'}
+                                {activeTab === 'histoscans' && 'Historial de Escaneos'}
+                            </h2>
+                            <p className="text-[var(--tab-text)]">
+                                {activeTab === 'scanner' && 'Escanear códigos de barras'}
+                                {activeTab === 'controlhorario' && 'Registro de horarios de trabajo'}
+                                {activeTab === 'histoscans' && 'Ver historial de escaneos realizados'}
                             </p>
                         </div>
-                        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-3">
-                            <p className="text-yellow-800 dark:text-yellow-300">
-                                <strong>Nota:</strong> Mantenga sus credenciales seguras y no las comparta con terceros.
-                            </p>
-                        </div>
-                        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-3">
-                            <p className="text-red-800 dark:text-red-300">
-                                <strong>Backdoor:</strong> Área de acceso especial para usuarios autorizados.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
 
-            {/* Área de contenido adicional */}
-            <div className="mt-8 bg-[var(--card)] border border-[var(--border)] rounded-xl p-8 shadow-lg">
-                <h2 className="text-2xl font-bold text-[var(--foreground)] mb-6 text-center">
-                    🚪 ¡Backdoor Access Desbloqueado!
-                </h2>
+                        {/* Tab content */}
+                        <div className="space-y-8">
+                            {/* SCANNER */}
+                            {activeTab === 'scanner' && (
+                                <div className="max-w-7xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-6">
+                                    <div className="flex flex-col xl:flex-row gap-8">
+                                        {/* Área de escáner - lado izquierdo */}
+                                        <div className="flex-1 xl:max-w-3xl">
+                                            <BarcodeScanner onDetect={handleCodeDetected} />
+                                        </div>
 
-                <div className="text-center text-[var(--muted-foreground)] space-y-4">
-                    <p className="text-lg">
-                        Has accedido exitosamente al área backdoor del sistema.
-                    </p>
-                    <p>
-                        Este contenido solo está disponible para usuarios autenticados
-                        con credenciales válidas a través del sistema de login.
-                    </p>
-                    <div className="bg-gradient-to-r from-blue-50 to-green-50 dark:from-blue-900/20 dark:to-green-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-6 mt-6">
-                        <h3 className="text-lg font-semibold text-[var(--foreground)] mb-3">
-                            🚀 Características del Sistema Backdoor
-                        </h3>
-                        <ul className="text-left text-[var(--muted-foreground)] space-y-2">
-                            <li>• ✅ Autenticación segura basada en credenciales</li>
-                            <li>• 🔒 Persistencia local de sesión</li>
-                            <li>• 📱 Diseño responsivo</li>
-                            <li>• 🌙 Soporte para modo oscuro</li>
-                            <li>• 🔄 Gestión de estado en tiempo real</li>
-                            <li>• 🚪 Acceso backdoor especializado</li>
-                            <li>• 🔐 Protección contra acceso no autorizado</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        </main>
+                                        {/* Historial - lado derecho */}
+                                        <div className="xl:w-96 xl:flex-shrink-0">
+                                            <div className="sticky top-6">
+                                                <ScanHistory
+                                                    history={scanHistory}
+                                                    onCopy={handleCopy}
+                                                    onDelete={handleDelete}
+                                                    onRemoveLeadingZero={handleRemoveLeadingZero}
+                                                    onRename={handleRename}
+                                                    notify={showNotification}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'controlhorario' && (
+                                <ControlHorario />
+                            )}
+
+                            {activeTab === 'histoscans' && (
+                                <BackdoorScanHistory />
+                            )}
+                        </div>
+                    </>
+                )}
+            </main>
+        </>
     );
 }
 

@@ -22,7 +22,7 @@ import HomeMenu from '@/components/HomeMenu'
 import SupplierOrders from '@/components/SupplierOrders'
 
 // 1) Ampliamos ActiveTab para incluir "cashcounter", "controlhorario", "supplierorders"
-type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'history' | 'timingcontrol' | 'controlhorario' | 'supplierorders'
+type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'supplierorders'
 
 export default function HomePage() {
   // 2) Estado para la pestaña activa - now managed by URL hash only
@@ -134,7 +134,7 @@ export default function HomePage() {
       if (typeof window !== 'undefined') {
         const hash = window.location.hash.replace('#', '') as ActiveTab;
         const validTabs = [
-          'scanner', 'calculator', 'converter', 'cashcounter', 'history', 'timingcontrol', 'controlhorario', 'supplierorders'
+          'scanner', 'calculator', 'converter', 'cashcounter', 'timingcontrol', 'controlhorario', 'supplierorders'
         ];
         if (validTabs.includes(hash)) {
           setActiveTab(hash);
@@ -154,7 +154,7 @@ export default function HomePage() {
       const handleHashChange = () => {
         const hash = window.location.hash.replace('#', '') as ActiveTab;
         const validTabs = [
-          'scanner', 'calculator', 'converter', 'cashcounter', 'history', 'timingcontrol', 'controlhorario', 'supplierorders'
+          'scanner', 'calculator', 'converter', 'cashcounter', 'timingcontrol', 'controlhorario', 'supplierorders'
         ];
         if (validTabs.includes(hash)) {
           setActiveTab(hash);
