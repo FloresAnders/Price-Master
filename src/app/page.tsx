@@ -18,7 +18,7 @@ import {
 } from 'lucide-react'
 import type { ScanHistoryEntry } from '@/types/barcode'
 import TimingControl from '@/components/TimingControl'
-import HomeMenu from '@/components/HomeMenu'
+import ClientOnlyHomeMenu from '@/components/ClientOnlyHomeMenu'
 import SupplierOrders from '@/components/SupplierOrders'
 
 // 1) Ampliamos ActiveTab para incluir "cashcounter", "controlhorario", "supplierorders"
@@ -180,7 +180,7 @@ export default function HomePage() {
           </div>
         )}
         {activeTab === null ? (
-          <HomeMenu />
+          <ClientOnlyHomeMenu />
         ) : (
           <>
             {/* Page title for active tab */}

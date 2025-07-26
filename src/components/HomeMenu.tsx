@@ -18,7 +18,9 @@ export default function HomeMenu() {
   const [showStickman, setShowStickman] = useState(false);
   
   const handleNavigate = (id: string) => {
-    window.location.hash = `#${id}`;
+    if (typeof window !== 'undefined') {
+      window.location.hash = `#${id}`;
+    }
   };
 
   const handleLogoClick = () => {
