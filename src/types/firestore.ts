@@ -51,6 +51,7 @@ export interface ScanResult {
   sessionId?: string;
   processedAt?: Date;
   productName?: string; // Optional product name for scanned codes
+  location?: string; // Selected location from mobile scanning
 }
 
 export interface CcssConfig {

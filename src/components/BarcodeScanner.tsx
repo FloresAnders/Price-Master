@@ -19,6 +19,9 @@ import CameraScanner from './CameraScanner';
 import ImageDropArea from './ImageDropArea';
 import QRCode from 'qrcode';
 import { SessionSyncService, type SessionStatus } from '../services/session-sync';
+import { LocationsService } from '../services/locations';
+import { ScanningService } from '../services/scanning-optimized';
+import type { Location } from '../types/firestore';
 
 export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children }: BarcodeScannerProps & { onRemoveLeadingZero?: (code: string) => void; children?: React.ReactNode }) {
   const [activeTab, setActiveTab] = useState<'image' | 'camera' | 'mobile'>('image');
@@ -30,7 +33,14 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
   const [sessionExpiry, setSessionExpiry] = useState<Date | null>(null);
 
   // Estado para configuración de productos desde PC
-  const [requestProductName, setRequestProductName] = useState(false);  // Estados para sincronización real
+  const [requestProductName, setRequestProductName] = useState(false);
+  
+  // Estado para locations seleccionadas
+  const [availableLocations, setAvailableLocations] = useState<Location[]>([]);
+  const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
+  const [loadingLocations, setLoadingLocations] = useState(false);
+
+  // Estados para sincronización real
   const [hasMobileConnection, setHasMobileConnection] = useState(false); 
   const [connectedDeviceType, setConnectedDeviceType] = useState<'mobile' | 'tablet' | 'pc' | null>(null);
   const sessionHeartbeatRef = useRef<{ start: () => Promise<void>; stop: () => void; sessionDocId: string | null } | null>(null);
@@ -43,11 +53,12 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
       const sessionData = {
         sessionId,
         expiry: expiryDate.getTime(),
-        requestProductName
+        requestProductName,
+        selectedLocations
       };
       localStorage.setItem('barcodeScanner_session', JSON.stringify(sessionData));
     }
-  }, [requestProductName]);
+  }, [requestProductName, selectedLocations]);
 
   const loadSessionFromStorage = useCallback(() => {
     if (typeof window !== 'undefined') {
@@ -62,7 +73,8 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
             return {
               sessionId: sessionData.sessionId,
               expiry: expiryDate,
-              requestProductName: sessionData.requestProductName
+              requestProductName: sessionData.requestProductName,
+              selectedLocations: sessionData.selectedLocations || []
             };
           } else {
             // Limpiar sesión expirada
@@ -109,6 +121,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
       setMobileSessionId(storedSession.sessionId);
       setSessionExpiry(storedSession.expiry);
       setRequestProductName(storedSession.requestProductName);
+      setSelectedLocations(storedSession.selectedLocations || []);
       
       // Activar automáticamente el QR si hay una sesión válida
       setShowMobileQR(true);
@@ -116,12 +129,33 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
     }
   }, [loadSessionFromStorage]);
 
+  // Cargar locations disponibles desde Firebase
+  useEffect(() => {
+    const loadAvailableLocations = async () => {
+      setLoadingLocations(true);
+      try {
+        const locations = await LocationsService.getLocationsOrderedByLabel();
+        setAvailableLocations(locations);
+        console.log('📍 Locations cargadas:', locations.length);
+      } catch (error) {
+        console.error('Error loading locations:', error);
+        // Fallback a locations estáticas si Firebase falla
+        setAvailableLocations([]);
+      } finally {
+        setLoadingLocations(false);
+      }
+    };
+
+    loadAvailableLocations();
+  }, []);
+
   // Generar QR automáticamente cuando hay una sesión válida cargada
   useEffect(() => {
     const generateQRForExistingSession = async () => {
       if (mobileSessionId && sessionExpiry && sessionExpiry > new Date() && !qrCodeUrl) {
         try {
-          const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/mobile-scan?session=${mobileSessionId}${requestProductName ? '&requestProductName=true' : ''}`;
+          const locationsParam = selectedLocations.length > 0 ? `&locations=${encodeURIComponent(selectedLocations.join(','))}` : '';
+          const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/mobile-scan?session=${mobileSessionId}${requestProductName ? '&requestProductName=true' : ''}${locationsParam}`;
           const qrDataUrl = await QRCode.toDataURL(url, {
             width: 256,
             margin: 2,
@@ -139,7 +173,33 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
     };
 
     generateQRForExistingSession();
-  }, [mobileSessionId, sessionExpiry, requestProductName, qrCodeUrl]);
+  }, [mobileSessionId, sessionExpiry, requestProductName, selectedLocations, qrCodeUrl]);
+
+  // Regenerar QR cuando cambian las configuraciones mientras está visible
+  useEffect(() => {
+    const regenerateQRForChanges = async () => {
+      if (mobileSessionId && sessionExpiry && sessionExpiry > new Date() && showMobileQR) {
+        try {
+          const locationsParam = selectedLocations.length > 0 ? `&locations=${encodeURIComponent(selectedLocations.join(','))}` : '';
+          const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/mobile-scan?session=${mobileSessionId}${requestProductName ? '&requestProductName=true' : ''}${locationsParam}`;
+          const qrDataUrl = await QRCode.toDataURL(url, {
+            width: 256,
+            margin: 2,
+            color: {
+              dark: '#000000',
+              light: '#FFFFFF'
+            }
+          });
+          setQrCodeUrl(qrDataUrl);
+          console.log('📱 QR regenerado por cambio de configuración');
+        } catch (error) {
+          console.error('Error regenerando QR por cambio de configuración:', error);
+        }
+      }
+    };
+
+    regenerateQRForChanges();
+  }, [requestProductName, selectedLocations, mobileSessionId, sessionExpiry, showMobileQR]);
 
   // Verificar periódicamente si la sesión ha expirado
   useEffect(() => {
@@ -260,7 +320,6 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
 
     try {
       console.log('🔄 Verificando nuevos escaneos...');
-      const { ScanningService } = await import('../services/scanning-optimized');
 
       // Usar método simple sin índices complejos
       const sessionScans = await ScanningService.getScansBySession(sessionId);
@@ -394,7 +453,8 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
         }
       );
       sessionSyncUnsubscribeRef.current = sessionUnsubscribe;      // Generar QR code con sesión válida
-      const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/mobile-scan?session=${sessionId}${requestProductName ? '&requestProductName=true' : ''}`;
+      const locationsParam = selectedLocations.length > 0 ? `&locations=${encodeURIComponent(selectedLocations.join(','))}` : '';
+      const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/mobile-scan?session=${sessionId}${requestProductName ? '&requestProductName=true' : ''}${locationsParam}`;
       const qrDataUrl = await QRCode.toDataURL(url, {
         width: 256,
         margin: 2,
@@ -412,8 +472,6 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
 
     // Escuchar códigos de la sesión móvil usando Firebase
     if (typeof window !== 'undefined') {
-      // Importar dinámicamente el servicio de Firebase para evitar errores de SSR
-      const { ScanningService } = await import('../services/scanning-optimized');
       // 1. Configurar listener en tiempo real (método principal)
       try {
         const unsubscribe = ScanningService.subscribeToScans(
@@ -485,7 +543,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
         }
       };
     }
-  }, [onDetect, setCode, checkForNewScans, startCountdown, requestProductName, loadSessionFromStorage, saveSessionToStorage]);
+  }, [onDetect, setCode, checkForNewScans, startCountdown, requestProductName, selectedLocations, loadSessionFromStorage, saveSessionToStorage]);
 
   // Reactivar listeners de Firebase cuando se restaura una sesión al recargar la página
   useEffect(() => {
@@ -561,8 +619,6 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
 
           // Configurar listener en tiempo real de Firebase
           if (typeof window !== 'undefined') {
-            const { ScanningService } = await import('../services/scanning-optimized');
-            
             try {
               const unsubscribe = ScanningService.subscribeToScans(
                 (scans) => {
@@ -645,6 +701,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
     setHasMobileConnection(false);
     setConnectedDeviceType(null);
     setSessionExpiry(null);
+    setSelectedLocations([]); // Clear selected locations
 
     // Limpiar sesión del localStorage solo cuando se cierra manualmente
     clearSessionFromStorage();
@@ -900,6 +957,9 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                     <p><strong>ID:</strong> <span className="font-mono text-xs">{mobileSessionId}</span></p>
                     <p><strong>Válida por:</strong> {getSessionTimeRemaining()}</p>
                     <p><strong>Configuración:</strong> {requestProductName ? 'Con nombres de productos' : 'Solo códigos'}</p>
+                    {selectedLocations.length > 0 && (
+                      <p><strong>Ubicaciones:</strong> {selectedLocations.join(', ')}</p>
+                    )}
                   </div>
                   <div className="flex gap-2 mt-3">
                     <button
@@ -919,11 +979,12 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
               )}
 
               {/* Configuración desde PC para móvil */}
-              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800 max-w-md mx-auto">
+              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800 max-w-md mx-auto space-y-4">
                 <h4 className="text-base font-semibold text-blue-800 dark:text-blue-200 mb-3">
                   Configuración para Móvil
                 </h4>
 
+                {/* Checkbox para nombres de productos */}
                 <label className="flex items-start gap-3 cursor-pointer">
                   <input
                     type="checkbox"
@@ -949,6 +1010,61 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                     </p>
                   </div>
                 </label>
+
+                {/* Sección de selección de ubicaciones */}
+                <div className="pt-2 border-t border-blue-200 dark:border-blue-700">
+                  <h5 className="text-sm font-semibold text-blue-800 dark:text-blue-200 mb-2">
+                    📍 Ubicaciones Activas
+                  </h5>
+                  
+                  {loadingLocations ? (
+                    <div className="flex items-center justify-center py-3">
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent"></div>
+                      <span className="ml-2 text-xs text-blue-600 dark:text-blue-400">Cargando ubicaciones...</span>
+                    </div>
+                  ) : availableLocations.length > 0 ? (
+                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                      {availableLocations.map((location) => (
+                        <label key={location.id} className="flex items-center gap-2 cursor-pointer text-xs">
+                          <input
+                            type="checkbox"
+                            checked={selectedLocations.includes(location.value)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedLocations(prev => [...prev, location.value]);
+                              } else {
+                                setSelectedLocations(prev => prev.filter(loc => loc !== location.value));
+                              }
+                              // Si hay sesión existente, actualizar configuración en localStorage
+                              if (mobileSessionId && sessionExpiry) {
+                                saveSessionToStorage(mobileSessionId, sessionExpiry);
+                              }
+                            }}
+                            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-1 dark:bg-gray-700 dark:border-gray-600"
+                          />
+                          <span className="text-blue-800 dark:text-blue-200 font-medium">
+                            {location.label}
+                          </span>
+                          <span className="text-blue-600 dark:text-blue-400">
+                            ({location.names?.length || 0} empleados)
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-blue-600 dark:text-blue-400 py-2">
+                      No hay ubicaciones disponibles en la base de datos
+                    </p>
+                  )}
+                  
+                  {selectedLocations.length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-blue-200 dark:border-blue-700">
+                      <p className="text-xs text-blue-700 dark:text-blue-300">
+                        <strong>Seleccionadas:</strong> {selectedLocations.join(', ')}
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <button
@@ -1018,12 +1134,21 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                     )}
                   </div>
 
+                  {/* Indicador de ubicaciones seleccionadas */}
+                  {selectedLocations.length > 0 && (
+                    <div className="text-xs px-3 py-2 rounded-lg bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 border border-purple-200 dark:border-purple-700">
+                      <span className="flex items-center gap-1">
+                        📍 <strong>Ubicaciones:</strong> {selectedLocations.join(', ')}
+                      </span>
+                    </div>
+                  )}
+
                   <p className="text-xs text-gray-500 dark:text-gray-500">
                     O ingresa manualmente esta URL en tu móvil:
                   </p>
                   <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-2">
                     <code className="text-xs text-gray-700 dark:text-gray-300 break-all">
-                    {typeof window !== 'undefined' && `${window.location.origin}/mobile-scan?session=${mobileSessionId}${requestProductName ? '&requestProductName=true' : ''}`}
+                    {typeof window !== 'undefined' && `${window.location.origin}/mobile-scan?session=${mobileSessionId}${requestProductName ? '&requestProductName=true' : ''}${selectedLocations.length > 0 ? `&locations=${encodeURIComponent(selectedLocations.join(','))}` : ''}`}
                   </code>
                   </div>
                 </div>
@@ -1067,7 +1192,8 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
 
                   <button onClick={async () => {
                     if (typeof window !== 'undefined' && mobileSessionId) {
-                      const url = `${window.location.origin}/mobile-scan?session=${mobileSessionId}${requestProductName ? '&requestProductName=true' : ''}`;
+                      const locationsParam = selectedLocations.length > 0 ? `&locations=${encodeURIComponent(selectedLocations.join(','))}` : '';
+                      const url = `${window.location.origin}/mobile-scan?session=${mobileSessionId}${requestProductName ? '&requestProductName=true' : ''}${locationsParam}`;
                       try {
                         // Try modern clipboard API first
                         if (navigator.clipboard && navigator.clipboard.writeText) {

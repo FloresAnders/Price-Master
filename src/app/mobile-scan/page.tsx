@@ -17,6 +17,7 @@ function MobileScanContent() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('session');
   const requestProductNameParam = searchParams.get('requestProductName');
+  const locationsParam = searchParams.get('locations');
 
   const [code, setCode] = useState('');
   const [lastScanned, setLastScanned] = useState<string[]>([]);
@@ -26,7 +27,12 @@ function MobileScanContent() {
   const [isClient, setIsClient] = useState(false);
   const [requestProductName, setRequestProductName] = useState(false);
   const [showNameModal, setShowNameModal] = useState(false);
-  const [pendingCode, setPendingCode] = useState<string>(''); const [productName, setProductName] = useState('');  // Estados para sincronización real
+  const [pendingCode, setPendingCode] = useState<string>(''); const [productName, setProductName] = useState('');
+  
+  // Estado para ubicaciones
+  const [availableLocations, setAvailableLocations] = useState<string[]>([]);
+  const [selectedLocation, setSelectedLocation] = useState<string>('');
+  const [showLocationModal, setShowLocationModal] = useState(false);  // Estados para sincronización real
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking');
   const [connectedDeviceType, setConnectedDeviceType] = useState<'pc' | 'laptop' | 'desktop' | null>(null);
   const sessionHeartbeatRef = useRef<{ start: () => Promise<void>; stop: () => void; sessionDocId: string | null } | null>(null);
@@ -56,6 +62,24 @@ function MobileScanContent() {
       setRequestProductName(true);
     }
   }, [requestProductNameParam]);
+
+  // Process locations from URL parameter
+  useEffect(() => {
+    if (locationsParam) {
+      try {
+        const locations = decodeURIComponent(locationsParam).split(',').filter(loc => loc.trim());
+        setAvailableLocations(locations);
+        // Auto-select the first location if only one is provided
+        if (locations.length === 1) {
+          setSelectedLocation(locations[0]);
+        }
+        console.log('📍 Ubicaciones disponibles desde URL:', locations);
+      } catch (error) {
+        console.error('Error parsing locations from URL:', error);
+        setAvailableLocations([]);
+      }
+    }
+  }, [locationsParam]);
 
   // Check online status
   useEffect(() => {
@@ -171,7 +195,19 @@ function MobileScanContent() {
     if (!isOnline) {
       setError('Sin conexión a internet. Inténtalo más tarde.');
       return;
-    }    // If requestProductName is enabled and no name provided, show modal
+    }
+
+    // If there are multiple locations and none is selected, show location modal
+    if (availableLocations.length > 1 && !selectedLocation) {
+      setPendingCode(scannedCode);
+      if (nameForProduct) {
+        setProductName(nameForProduct);
+      }
+      setShowLocationModal(true);
+      return;
+    }
+
+    // If requestProductName is enabled and no name provided, show modal
     if (requestProductName && !nameForProduct?.trim()) {
       setPendingCode(scannedCode);
       setShowNameModal(true);
@@ -184,7 +220,8 @@ function MobileScanContent() {
         userName: 'Móvil',
         processed: false,
         ...(sessionId && { sessionId }),
-        ...(nameForProduct?.trim() && { productName: nameForProduct.trim() })
+        ...(nameForProduct?.trim() && { productName: nameForProduct.trim() }),
+        ...(selectedLocation && { location: selectedLocation })
       };
 
       // Enviar al servicio de scanning y también a localStorage para sincronización con PC
@@ -197,13 +234,22 @@ function MobileScanContent() {
           sessionId,
           timestamp: Date.now(),
           processed: false,
-          ...(nameForProduct?.trim() && { productName: nameForProduct.trim() })
+          ...(nameForProduct?.trim() && { productName: nameForProduct.trim() }),
+          ...(selectedLocation && { location: selectedLocation })
         });
         localStorage.setItem('mobile-scans', JSON.stringify(mobileScans));
       }
-      const message = nameForProduct?.trim()
-        ? `Código ${scannedCode} (${nameForProduct.trim()}) enviado correctamente`
-        : `Código ${scannedCode} enviado correctamente`;
+      
+      // Create success message including location if present
+      let message = `Código ${scannedCode}`;
+      if (nameForProduct?.trim()) {
+        message += ` (${nameForProduct.trim()})`;
+      }
+      if (selectedLocation) {
+        message += ` [${selectedLocation}]`;
+      }
+      message += ' enviado correctamente';
+      
       setSuccess(message);
       setLastScanned(prev => [...prev.slice(-4), scannedCode]); // Keep last 5
       setCode('');
@@ -213,7 +259,7 @@ function MobileScanContent() {
       console.error('Error submitting code:', error);
       setError('Error al enviar el código. Inténtalo de nuevo.');
     }
-  }, [lastScanned, sessionId, isOnline, requestProductName]);
+  }, [lastScanned, sessionId, isOnline, requestProductName, availableLocations, selectedLocation]);
   // Handler para eliminar primer dígito
   const handleRemoveLeadingZero = useCallback(() => {
     if (detectedCode && detectedCode.length > 1 && detectedCode[0] === '0') {
@@ -234,6 +280,24 @@ function MobileScanContent() {
   // Handle name modal cancel
   const handleNameCancel = useCallback(() => {
     setShowNameModal(false);
+    setPendingCode('');
+    setProductName('');
+  }, []);
+
+  // Handle location modal submission
+  const handleLocationSubmit = useCallback(() => {
+    if (pendingCode && selectedLocation) {
+      const nameForProduct = productName.trim() || '';
+      submitCode(pendingCode, nameForProduct);
+      setShowLocationModal(false);
+      setPendingCode('');
+      setProductName('');
+    }
+  }, [pendingCode, selectedLocation, productName, submitCode]);
+
+  // Handle location modal cancel
+  const handleLocationCancel = useCallback(() => {
+    setShowLocationModal(false);
     setPendingCode('');
     setProductName('');
   }, []);
@@ -334,7 +398,7 @@ function MobileScanContent() {
           <span className="text-green-800 dark:text-green-200">{success}</span>
         </div>
       )}      {/* Product Name Configuration Status - Set by PC */}
-      <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 mb-6 border border-blue-200 dark:border-blue-800">
+      <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 mb-4 border border-blue-200 dark:border-blue-800">
         <div className="flex items-center gap-3 mb-2">
           <div className={`w-4 h-4 rounded-full ${requestProductName ? 'bg-blue-500' : 'bg-gray-400'}`}></div>
           <h4 className="font-medium text-blue-800 dark:text-blue-200">
@@ -348,6 +412,59 @@ function MobileScanContent() {
           }
         </p>
       </div>
+
+      {/* Location Configuration Status - Set by PC */}
+      {availableLocations.length > 0 && (
+        <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4 mb-4 border border-purple-200 dark:border-purple-800">
+          <div className="flex items-center gap-3 mb-2">
+            <div className={`w-4 h-4 rounded-full ${selectedLocation ? 'bg-purple-500' : 'bg-gray-400'}`}></div>
+            <h4 className="font-medium text-purple-800 dark:text-purple-200">
+              📍 Ubicaciones Configuradas
+            </h4>
+          </div>
+
+          <div className="ml-7 space-y-2">
+            <p className="text-sm text-purple-600 dark:text-purple-400">
+              Se configuraron {availableLocations.length} ubicación(es) desde la PC.
+            </p>
+            
+            {availableLocations.length === 1 ? (
+              <p className="text-sm text-purple-600 dark:text-purple-400">
+                <strong>Ubicación seleccionada automáticamente:</strong> {selectedLocation}
+              </p>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-sm text-purple-600 dark:text-purple-400">
+                  <strong>Ubicaciones disponibles:</strong> {availableLocations.join(', ')}
+                </p>
+                {selectedLocation ? (
+                  <p className="text-sm text-purple-600 dark:text-purple-400">
+                    <strong>Ubicación actual:</strong> {selectedLocation}
+                  </p>
+                ) : (
+                  <div className="mt-2">
+                    <label className="block text-sm font-medium text-purple-700 dark:text-purple-300 mb-1">
+                      Selecciona una ubicación:
+                    </label>
+                    <select
+                      value={selectedLocation}
+                      onChange={(e) => setSelectedLocation(e.target.value)}
+                      className="w-full bg-input-bg border border-input-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:border-purple-500 text-sm"
+                    >
+                      <option value="">-- Seleccionar ubicación --</option>
+                      {availableLocations.map((location) => (
+                        <option key={location} value={location}>
+                          {location}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Camera Section */}
       <div className="mb-6">
@@ -449,6 +566,55 @@ function MobileScanContent() {
               </div>
             ))}
           </div>        </div>
+      )}
+
+      {/* Location Selection Modal */}
+      {showLocationModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-card-bg rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4 text-foreground">
+              📍 Seleccionar Ubicación
+            </h3>
+            <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">
+              Código: <span className="font-mono bg-input-bg px-2 py-1 rounded">{pendingCode}</span>
+            </p>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-foreground mb-2">
+                Selecciona la ubicación para este escaneo:
+              </label>
+              <select
+                value={selectedLocation}
+                onChange={(e) => setSelectedLocation(e.target.value)}
+                className="w-full bg-input-bg border border-input-border rounded-lg px-4 py-3 text-foreground focus:outline-none focus:border-purple-500"
+                autoFocus
+              >
+                <option value="">-- Seleccionar ubicación --</option>
+                {availableLocations.map((location) => (
+                  <option key={location} value={location}>
+                    {location}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleLocationCancel}
+                className="flex-1 bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 px-4 py-2 rounded-lg text-white font-medium"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleLocationSubmit}
+                disabled={!selectedLocation}
+                className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed px-4 py-2 rounded-lg text-white font-medium"
+              >
+                Continuar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Product Name Modal */}
