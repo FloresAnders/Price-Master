@@ -13,6 +13,8 @@ import {
   Download,
   Upload,
   Plus,
+  RefreshCw,
+  Smartphone,
 } from 'lucide-react';
 
 // Modal base component to reduce code duplication
@@ -152,6 +154,188 @@ function CalculatorModal({ isOpen, onClose }: CalculatorModalProps) {
   );
 }
 
+type SinpeModalProps = {
+  isOpen: boolean;
+  onClose: () => void;
+  currency: 'CRC' | 'USD';
+};
+
+function SinpeModal({ isOpen, onClose, currency }: SinpeModalProps) {
+  const [montoActual, setMontoActual] = useState<number>(0);
+  const [montoARecibir, setMontoARecibir] = useState<number>(0);
+
+  // Cargar datos desde localStorage al inicializar
+  useEffect(() => {
+    const savedMontoActual = localStorage.getItem('sinpe-monto-actual');
+    if (savedMontoActual) {
+      const parsed = parseFloat(savedMontoActual);
+      if (!isNaN(parsed)) {
+        setMontoActual(parsed);
+      }
+    }
+  }, []);
+
+  // Guardar monto actual en localStorage cuando cambie
+  useEffect(() => {
+    localStorage.setItem('sinpe-monto-actual', montoActual.toString());
+  }, [montoActual]);
+
+  const formatCurrency = (num: number, currency: 'CRC' | 'USD') => {
+    return new Intl.NumberFormat(currency === 'CRC' ? 'es-CR' : 'en-US', {
+      style: 'currency',
+      currency: currency,
+      minimumFractionDigits: 0,
+    }).format(num);
+  };
+
+  const totalEsperado = montoActual + montoARecibir;
+
+  const handleMontoActualChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value === '' ? 0 : Number(e.target.value);
+    setMontoActual(value);
+  };
+
+  const handleMontoARecibirChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value === '' ? 0 : Number(e.target.value);
+    setMontoARecibir(value);
+  };
+
+  const handleReload = () => {
+    setMontoActual(totalEsperado);
+    setMontoARecibir(0);
+    // El localStorage se actualiza automáticamente por el useEffect
+  };
+
+  const handleClear = () => {
+    setMontoActual(0);
+    setMontoARecibir(0);
+    // El localStorage se actualiza automáticamente por el useEffect
+  };
+
+  // Manejar paste en el campo de monto actual
+  const handlePaste = async (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    try {
+      const pastedText = e.clipboardData.getData('text');
+      // Extraer números del texto pegado
+      const numbers = pastedText.replace(/[^\d.,]/g, '').replace(',', '.');
+      const value = parseFloat(numbers);
+      if (!isNaN(value)) {
+        setMontoActual(value);
+      }
+    } catch (error) {
+      console.error('Error al pegar:', error);
+    }
+  };
+
+  // Permitir cerrar modal con ESC
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
+  return (
+    <BaseModal isOpen={isOpen} onClose={onClose} title="Verificador SINPE">
+      <div className="space-y-4">
+        {/* Monto Actual */}
+        <div>
+          <label className="block text-[var(--foreground)] text-sm mb-2 font-medium">
+            Monto Actual (pegar aquí)
+          </label>
+          <div className="border rounded-lg p-3 bg-[var(--input-bg)] flex items-center">
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={montoActual || ''}
+              onChange={handleMontoActualChange}
+              onPaste={handlePaste}
+              className="w-full bg-transparent text-[var(--foreground)] text-right text-lg focus:outline-none"
+              placeholder="0"
+            />
+          </div>
+          <div className="text-xs text-[var(--foreground)] opacity-60 mt-1">
+            {formatCurrency(montoActual, currency)}
+          </div>
+        </div>
+
+        {/* Monto a Recibir */}
+        <div>
+          <label className="block text-[var(--foreground)] text-sm mb-2 font-medium">
+            Monto a Recibir
+          </label>
+          <div className="border rounded-lg p-3 bg-[var(--input-bg)] flex items-center">
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={montoARecibir || ''}
+              onChange={handleMontoARecibirChange}
+              className="w-full bg-transparent text-[var(--foreground)] text-right text-lg focus:outline-none"
+              placeholder="0"
+            />
+          </div>
+          <div className="text-xs text-[var(--foreground)] opacity-60 mt-1">
+            {formatCurrency(montoARecibir, currency)}
+          </div>
+        </div>
+
+        {/* Total Esperado */}
+        <div className="bg-[var(--background)] rounded-lg p-4 border-2 border-green-500">
+          <label className="block text-[var(--foreground)] text-sm mb-2 font-medium text-center">
+            Total Esperado
+          </label>
+          <div className="text-center">
+            <span className="text-2xl font-bold text-green-600">
+              {formatCurrency(totalEsperado, currency)}
+            </span>
+          </div>
+        </div>
+
+        {/* Botones de acción */}
+        <div className="flex space-x-2">
+          <button
+            onClick={handleReload}
+            disabled={totalEsperado === 0}
+            className={`flex-1 flex items-center justify-center px-4 py-3 rounded-lg font-medium ${
+              totalEsperado > 0
+                ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                : 'bg-gray-400 text-gray-600 cursor-not-allowed'
+            }`}
+            title="Mover total a monto actual y limpiar monto a recibir"
+          >
+            <RefreshCw className="w-5 h-5 mr-2" />
+            Recargar
+          </button>
+          <button
+            onClick={handleClear}
+            className="flex-1 flex items-center justify-center px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium"
+            title="Limpiar todos los campos"
+          >
+            <Trash2 className="w-5 h-5 mr-2" />
+            Limpiar
+          </button>
+        </div>
+
+        {/* Instrucciones */}
+        <div className="text-xs text-[var(--foreground)] opacity-75 text-center mt-4 p-3 bg-[var(--input-bg)] rounded-lg">
+          <p className="mb-1">💡 <strong>Instrucciones:</strong></p>
+          <p className="mb-1">• Pega el monto actual desde SINPE en el primer campo</p>
+          <p className="mb-1">• Ingresa el monto que vas a recibir</p>
+          <p>• Usa &quot;Recargar&quot; para actualizar y continuar</p>
+        </div>
+      </div>
+    </BaseModal>
+  );
+}
+
 type BillsMap = Record<number, number>;
 
 type CashCounterData = {
@@ -231,7 +415,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, currentIndex: number) => {
     if (e.key === 'Enter' || e.key === 'Tab' || e.key === 'ArrowDown') {
       e.preventDefault();
-      
+
       if (e.shiftKey && (e.key === 'Enter' || e.key === 'Tab')) {
         // Shift+Enter/Shift+Tab: ir al input anterior
         const prevIndex = currentIndex - 1;
@@ -253,7 +437,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
         }
       }
     }
-    
+
     if (e.key === 'ArrowUp') {
       e.preventDefault();
       // ArrowUp: ir al input anterior
@@ -340,7 +524,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
       const bills20_10_5 = bills20y10 + (bills[5000] || 0) * 5000;
       const bills2y1 = (bills[2000] || 0) * 2000 + (bills[1000] || 0) * 1000;
       const monedas = (bills[500] || 0) * 500 + (bills[100] || 0) * 100 + (bills[50] || 0) * 50 + (bills[25] || 0) * 25;
-      
+
       return {
         bills20y10,
         bills20_10_5,
@@ -353,7 +537,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
       const bills20_10_5 = bills20y10 + (bills[5] || 0) * 5;
       const bills2y1 = 0; // USD no tiene billetes de 2, solo de 1
       const monedas = (bills[1] || 0) * 1; // En USD, $1 puede considerarse como "moneda" grande
-      
+
       return {
         bills20y10,
         bills20_10_5,
@@ -439,11 +623,11 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
       const nuevaVentaTotal = ventaActual + nuevaVenta;
       setVentaActual(nuevaVentaTotal);
       setNuevaVenta(0); // Limpiar el input
-      
+
       // Mostrar feedback visual
       setVentaAgregada(true);
       setTimeout(() => setVentaAgregada(false), 2000);
-      
+
       notifyParent(bills, extraAmount, currency, aperturaCaja, nuevaVentaTotal);
     }
   };
@@ -747,7 +931,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
                 placeholder="0"
               />
             </div>
-            
+
             {/* Nueva sección para agregar venta */}
             <div className="mb-2">
               <label className="block text-[var(--foreground)] text-sm mb-1">Agregar venta</label>
@@ -764,11 +948,10 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
                 <button
                   onClick={agregarVenta}
                   disabled={nuevaVenta <= 0}
-                  className={`px-3 py-1 rounded text-sm font-medium flex items-center whitespace-nowrap ${
-                    nuevaVenta > 0
+                  className={`px-3 py-1 rounded text-sm font-medium flex items-center whitespace-nowrap ${nuevaVenta > 0
                       ? 'bg-green-600 hover:bg-green-700 text-white'
                       : 'bg-gray-400 text-gray-600 cursor-not-allowed'
-                  }`}
+                    }`}
                 >
                   <Plus className="w-4 h-4 mr-1" />
                   Agregar
@@ -952,6 +1135,7 @@ export default function CashCounterTabs() {
   const [tabsData, setTabsData] = useState<CashCounterData[]>([]);
   const [activeTab, setActiveTab] = useState<number>(0);
   const [isCalcOpen, setIsCalcOpen] = useState<boolean>(false);
+  const [isSinpeOpen, setIsSinpeOpen] = useState<boolean>(false);
   const [lastSaved, setLastSaved] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
 
@@ -974,7 +1158,7 @@ export default function CashCounterTabs() {
       window.localStorage.setItem('cashCounters', JSON.stringify(saveData));
       setLastSaved(new Date().toLocaleTimeString());
       console.log('✅ Datos guardados en localStorage:', saveData);
-      
+
       // Simular un pequeño delay para mostrar el indicador de guardado
       await new Promise(resolve => setTimeout(resolve, 500));
     } catch (error) {
@@ -991,11 +1175,11 @@ export default function CashCounterTabs() {
       const saved = window.localStorage.getItem('cashCounters');
       if (saved) {
         const parsedData = JSON.parse(saved);
-        
+
         // Compatibilidad con formato anterior
         let counters: CashCounterData[];
         let activeTabIndex = 0;
-        
+
         if (Array.isArray(parsedData)) {
           // Formato anterior: solo array de contadores
           counters = parsedData;
@@ -1015,19 +1199,19 @@ export default function CashCounterTabs() {
           aperturaCaja: item.aperturaCaja || 0,
           ventaActual: item.ventaActual || 0,
         }));
-        
+
         setTabsData(normalized);
         setActiveTab(Math.min(activeTabIndex, normalized.length - 1));
         console.log('✅ Datos cargados desde localStorage:', { counters: normalized, activeTab: activeTabIndex });
       } else {
         // Datos por defecto si no hay nada guardado
-        const defaultData = [{ 
-          name: 'Contador 1', 
-          bills: {}, 
-          extraAmount: 0, 
-          currency: 'CRC' as 'CRC' | 'USD', 
-          aperturaCaja: 0, 
-          ventaActual: 0 
+        const defaultData = [{
+          name: 'Contador 1',
+          bills: {},
+          extraAmount: 0,
+          currency: 'CRC' as 'CRC' | 'USD',
+          aperturaCaja: 0,
+          ventaActual: 0
         }];
         setTabsData(defaultData);
         setActiveTab(0);
@@ -1036,13 +1220,13 @@ export default function CashCounterTabs() {
     } catch (error) {
       console.error('❌ Error cargando desde localStorage:', error);
       // Datos por defecto en caso de error
-      const defaultData = [{ 
-        name: 'Contador 1', 
-        bills: {}, 
-        extraAmount: 0, 
-        currency: 'CRC' as 'CRC' | 'USD', 
-        aperturaCaja: 0, 
-        ventaActual: 0 
+      const defaultData = [{
+        name: 'Contador 1',
+        bills: {},
+        extraAmount: 0,
+        currency: 'CRC' as 'CRC' | 'USD',
+        aperturaCaja: 0,
+        ventaActual: 0
       }];
       setTabsData(defaultData);
       setActiveTab(0);
@@ -1053,7 +1237,7 @@ export default function CashCounterTabs() {
   // Cargar datos al iniciar
   useEffect(() => {
     loadFromLocalStorage();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Guardar datos cuando cambien
@@ -1064,17 +1248,17 @@ export default function CashCounterTabs() {
   }, [tabsData, activeTab]);
 
   const addNewTab = () => {
-    const newTab = { 
-      name: `Contador ${tabsData.length + 1}`, 
-      bills: {}, 
-      extraAmount: 0, 
-      currency: 'CRC' as 'CRC' | 'USD', 
-      aperturaCaja: 0, 
-      ventaActual: 0 
+    const newTab = {
+      name: `Contador ${tabsData.length + 1}`,
+      bills: {},
+      extraAmount: 0,
+      currency: 'CRC' as 'CRC' | 'USD',
+      aperturaCaja: 0,
+      ventaActual: 0
     };
     const newTabsData = [...tabsData, newTab];
     const newActiveTab = tabsData.length;
-    
+
     setTabsData(newTabsData);
     setActiveTab(newActiveTab);
     saveToLocalStorage(newTabsData, newActiveTab);
@@ -1085,16 +1269,16 @@ export default function CashCounterTabs() {
       alert('No puedes eliminar el último contador. Debe haber al menos uno.');
       return;
     }
-    
+
     const newTabsData = tabsData.filter((_, idx) => idx !== index);
     let newActiveTab = activeTab;
-    
+
     if (activeTab === index) {
       newActiveTab = 0;
     } else if (activeTab > index) {
       newActiveTab = activeTab - 1;
     }
-    
+
     setTabsData(newTabsData);
     setActiveTab(newActiveTab);
     saveToLocalStorage(newTabsData, newActiveTab);
@@ -1116,7 +1300,7 @@ export default function CashCounterTabs() {
         counters: tabsData,
         activeTab: activeTab
       };
-      
+
       const content = JSON.stringify(exportData, null, 2);
       const blob = new Blob([content], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -1140,12 +1324,12 @@ export default function CashCounterTabs() {
       const target = e.target as HTMLInputElement;
       const file = target.files?.[0];
       if (!file) return;
-      
+
       const reader = new FileReader();
       reader.onload = (ev) => {
         try {
           const importData = JSON.parse(ev.target?.result as string);
-          
+
           if (importData.counters && Array.isArray(importData.counters)) {
             const normalized = importData.counters.map((item: unknown, idx: number) => {
               const counterItem = item as Record<string, unknown>;
@@ -1158,13 +1342,13 @@ export default function CashCounterTabs() {
                 ventaActual: (typeof counterItem.ventaActual === 'number' ? counterItem.ventaActual : null) || 0,
               };
             });
-            
+
             const newActiveTab = Math.min(importData.activeTab || 0, normalized.length - 1);
-            
+
             setTabsData(normalized);
             setActiveTab(newActiveTab);
             saveToLocalStorage(normalized, newActiveTab);
-            
+
             alert(`✅ Datos importados correctamente. ${normalized.length} contadores cargados.`);
           } else {
             alert('❌ Formato de archivo no válido para importar.');
@@ -1201,13 +1385,13 @@ export default function CashCounterTabs() {
     if (confirm(`⚠️ ¿Estás seguro de que quieres borrar TODOS los datos guardados?\n\nDatos actuales: ${storageInfo}\n\nEsta acción no se puede deshacer.`)) {
       try {
         window.localStorage.removeItem('cashCounters');
-        const defaultData = [{ 
-          name: 'Contador 1', 
-          bills: {}, 
-          extraAmount: 0, 
-          currency: 'CRC' as 'CRC' | 'USD', 
-          aperturaCaja: 0, 
-          ventaActual: 0 
+        const defaultData = [{
+          name: 'Contador 1',
+          bills: {},
+          extraAmount: 0,
+          currency: 'CRC' as 'CRC' | 'USD',
+          aperturaCaja: 0,
+          ventaActual: 0
         }];
         setTabsData(defaultData);
         setActiveTab(0);
@@ -1240,7 +1424,7 @@ export default function CashCounterTabs() {
     <div className="p-4 sm:p-6 lg:p-8 bg-[var(--background)] min-h-screen pb-32">
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-2xl font-bold text-[var(--foreground)]">Cash Counter</h1>
-        
+
         {/* Indicador de guardado */}
         <div className="flex items-center text-sm">
           {isSaving ? (
@@ -1255,7 +1439,7 @@ export default function CashCounterTabs() {
           ) : null}
         </div>
       </div>
-      
+
       {/* Botones de gestión de datos */}
       <div className="flex flex-wrap justify-center gap-2 mb-4">
         <button
@@ -1283,12 +1467,12 @@ export default function CashCounterTabs() {
           Limpiar Todo
         </button>
       </div>
-      
+
       {/* Información de almacenamiento */}
       <div className="text-center text-xs text-[var(--foreground)] opacity-60 mb-4">
         💾 {getStorageInfo()}
       </div>
-      
+
       <div className="flex space-x-2 mb-4 overflow-x-auto">
         {tabsData.map((tab, idx) => (
           <div key={idx} className="relative">
@@ -1358,6 +1542,15 @@ export default function CashCounterTabs() {
         )}
       </div>
 
+      {/* Botón para abrir modal de verificar sinpe */}
+      <button
+        onClick={() => setIsSinpeOpen(true)}
+        className="fixed bottom-52 right-6 bg-green-600 hover:bg-green-700 text-white rounded-full w-16 h-16 flex items-center justify-center shadow-xl z-10"
+        aria-label="Abrir verificador SINPE"
+      >
+        <Smartphone className="w-6 h-6" />
+      </button>
+
       {/* Botón para abrir modal de calculadora */}
       <button
         onClick={() => setIsCalcOpen(true)}
@@ -1369,6 +1562,13 @@ export default function CashCounterTabs() {
 
       {/* Modal de calculadora */}
       <CalculatorModal isOpen={isCalcOpen} onClose={() => setIsCalcOpen(false)} />
+
+      {/* Modal de verificador SINPE */}
+      <SinpeModal 
+        isOpen={isSinpeOpen} 
+        onClose={() => setIsSinpeOpen(false)} 
+        currency={tabsData[activeTab]?.currency || 'CRC'} 
+      />
     </div>
   );
 }
