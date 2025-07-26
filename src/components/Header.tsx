@@ -49,10 +49,12 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     if (isEditPage) {
       // Si está en la página de edición, mostrar advertencia
       setShowHomeConfirm(true);
+    } else if (isBackdoorPage) {
+      // Si está en backdoor, redirigir a /backdoor
+      window.location.href = '/backdoor';
     } else {
-      // Si no está en edición, navegar directamente al home
-      onTabChange?.(null);
-      window.location.hash = '';
+      // Si está en la página principal, redirigir a /
+      window.location.href = '/';
     }
   };
 
