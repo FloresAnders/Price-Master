@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import { Settings, LogOut, Menu, X, Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck, History } from 'lucide-react';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { ThemeToggle } from './ThemeToggle';
 
@@ -20,8 +20,14 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showHomeConfirm, setShowHomeConfirm] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [isClient, setIsClient] = useState(false);
   const isEditPage = pathname === '/edit';
   const isBackdoorPage = pathname === '/backdoor';
+
+  // Ensure component is mounted on client
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // Navigation tabs
   const tabs = [
@@ -46,6 +52,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     : tabs.filter(tab => tab.id !== 'histoscans'); // Exclude histoscans from main page
 
   const handleLogoClick = () => {
+    if (!isClient) return;
+    
     if (isEditPage) {
       // Si está en la página de edición, mostrar advertencia
       setShowHomeConfirm(true);
@@ -59,6 +67,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   };
 
   const handleTabClick = (tabId: ActiveTab) => {
+    if (!isClient) return;
+    
     onTabChange?.(tabId);
     // Map histoscans tab to historial hash for backdoor
     const hashId = isBackdoorPage && tabId === 'histoscans' ? 'historial' : tabId;
@@ -67,6 +77,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   };
 
   const confirmGoHome = () => {
+    if (!isClient) return;
+    
     // Cerrar sesión y regresar al inicio
     logout('Navigating to home from edit page');
     setShowHomeConfirm(false);
@@ -78,11 +90,15 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   };
 
   const handleSettingsClick = () => {
+    if (!isClient) return;
+    
     // Navega a la página de edición
     window.location.href = '/edit';
   };
 
   const handleLogoutClick = () => {
+    if (!isClient) return;
+    
     if (isBackdoorPage) {
       // For backdoor, logout directly without confirmation
       localStorage.removeItem('simple_login_user');
@@ -93,6 +109,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   };
 
   const confirmLogout = () => {
+    if (!isClient) return;
+    
     // Cerrar sesión usando el hook de autenticación
     logout('Manual logout from edit page');
     setShowLogoutConfirm(false);

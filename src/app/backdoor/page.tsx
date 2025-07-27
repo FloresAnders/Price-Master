@@ -6,12 +6,13 @@ import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import type { User as FirestoreUser } from '@/types/firestore';
 import BackdoorScanHistory from './BackdoorScanHistory';
+import Pruebas from './Pruebas';
 import BarcodeScanner from '@/components/BarcodeScanner';
 import ControlHorario from '@/components/ControlHorario';
 import ScanHistory from '@/components/ScanHistory';
 import type { ScanHistoryEntry } from '@/types/barcode';
 
-type BackdoorTab = 'scanner' | 'controlhorario' | 'histoscans';
+type BackdoorTab = 'scanner' | 'controlhorario' | 'histoscans' | 'pruebas';
 
 // Componente que maneja toda la lógica del backdoor
 function BackdoorContent() {
@@ -22,9 +23,17 @@ function BackdoorContent() {
     const [scanHistory, setScanHistory] = useState<ScanHistoryEntry[]>([]);
     const [notification, setNotification] = useState<{ message: string; color: string } | null>(null);
     const [showWelcomeBanner, setShowWelcomeBanner] = useState(true);
+    const [isClient, setIsClient] = useState(false);
+
+    // Ensure component is mounted on client
+    useEffect(() => {
+        setIsClient(true);
+    }, []);
 
     // Verificar autenticación al cargar la página
     useEffect(() => {
+        if (!isClient) return;
+        
         const storedUserData = localStorage.getItem('simple_login_user');
         if (!storedUserData) {
             // Si no está autenticado, redirigir al login
@@ -41,7 +50,7 @@ function BackdoorContent() {
             localStorage.removeItem('simple_login_user');
             router.push('/login');
         }
-    }, [router]);
+    }, [router, isClient]);
 
     // Hide welcome banner after 5 seconds
     useEffect(() => {
@@ -54,6 +63,8 @@ function BackdoorContent() {
 
     // Load scan history from localStorage
     useEffect(() => {
+        if (!isClient) return;
+        
         const stored = localStorage.getItem('scanHistory');
         if (stored) {
             try {
@@ -62,33 +73,38 @@ function BackdoorContent() {
                 console.error('Error loading scan history:', error);
             }
         }
-    }, []);
+    }, [isClient]);
 
     // Save scan history to localStorage
     useEffect(() => {
+        if (!isClient) return;
+        
         if (scanHistory.length > 0) {
             localStorage.setItem('scanHistory', JSON.stringify(scanHistory));
         }
-    }, [scanHistory]);
+    }, [scanHistory, isClient]);
 
     // Handle hash changes for tabs
     useEffect(() => {
+        if (!isClient) return;
+        
         const checkAndSetTab = () => {
-            if (typeof window !== 'undefined') {
-                const hash = window.location.hash.replace('#', '');
-                // Map backdoor specific hash to standard tab names
-                let mappedTab: BackdoorTab | null = null;
-                if (hash === 'historial') {
-                    mappedTab = 'histoscans';
-                } else if (hash === 'scanner') {
-                    mappedTab = 'scanner';
-                } else if (hash === 'controlhorario') {
-                    mappedTab = 'controlhorario';
-                }
-
-                setActiveTab(mappedTab);
+            const hash = window.location.hash.replace('#', '');
+            // Map backdoor specific hash to standard tab names
+            let mappedTab: BackdoorTab | null = null;
+            if (hash === 'historial') {
+                mappedTab = 'histoscans';
+            } else if (hash === 'scanner') {
+                mappedTab = 'scanner';
+            } else if (hash === 'controlhorario') {
+                mappedTab = 'controlhorario';
+            } else if (hash === 'pruebas') {
+                mappedTab = 'pruebas';
             }
+
+            setActiveTab(mappedTab);
         };
+        
         checkAndSetTab();
 
         const handleHashChange = () => {
@@ -101,18 +117,18 @@ function BackdoorContent() {
                 mappedTab = 'scanner';
             } else if (hash === 'controlhorario') {
                 mappedTab = 'controlhorario';
+            } else if (hash === 'pruebas') {
+                mappedTab = 'pruebas';
             }
 
             setActiveTab(mappedTab);
         };
 
-        if (typeof window !== 'undefined') {
-            window.addEventListener('hashchange', handleHashChange);
-            return () => {
-                window.removeEventListener('hashchange', handleHashChange);
-            };
-        }
-    }, []);
+        window.addEventListener('hashchange', handleHashChange);
+        return () => {
+            window.removeEventListener('hashchange', handleHashChange);
+        };
+    }, [isClient]);
 
     // Handle code detection from scanner
     const handleCodeDetected = (code: string, productName?: string) => {
@@ -162,7 +178,9 @@ function BackdoorContent() {
 
     // Función para cerrar sesión
     const handleLogout = () => {
-        localStorage.removeItem('simple_login_user');
+        if (isClient) {
+            localStorage.removeItem('simple_login_user');
+        }
         setCurrentUser(null);
         console.log('🚪 LOGOUT:', {
             timestamp: new Date().toISOString(),
@@ -243,10 +261,10 @@ function BackdoorContent() {
                         )}
 
                         {/* Menu de opciones disponibles */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
                             {/* Scanner */}
                             <div
-                                onClick={() => window.location.hash = 'scanner'}
+                                onClick={() => isClient && (window.location.hash = 'scanner')}
                                 className="bg-[var(--card-bg)] border border-[var(--border)] rounded-xl p-6 cursor-pointer hover:shadow-lg transition-all duration-200 hover:border-blue-400 group"
                             >
                                 <div className="text-center">
@@ -262,7 +280,7 @@ function BackdoorContent() {
 
                             {/* Control Horario */}
                             <div
-                                onClick={() => window.location.hash = 'controlhorario'}
+                                onClick={() => isClient && (window.location.hash = 'controlhorario')}
                                 className="bg-[var(--card-bg)] border border-[var(--border)] rounded-xl p-6 cursor-pointer hover:shadow-lg transition-all duration-200 hover:border-green-400 group"
                             >
                                 <div className="text-center">
@@ -279,7 +297,7 @@ function BackdoorContent() {
 
                             {/* Historial de Escaneos */}
                             <div
-                                onClick={() => window.location.hash = 'historial'}
+                                onClick={() => isClient && (window.location.hash = 'historial')}
                                 className="bg-[var(--card-bg)] border border-[var(--border)] rounded-xl p-6 cursor-pointer hover:shadow-lg transition-all duration-200 hover:border-purple-400 group"
                             >
                                 <div className="text-center">
@@ -292,6 +310,22 @@ function BackdoorContent() {
                                     <p className="text-[var(--muted-foreground)]">Ver historial de escaneos realizados</p>
                                 </div>
                             </div>
+
+                            {/* Pruebas */}
+                            <div
+                                onClick={() => isClient && (window.location.hash = 'pruebas')}
+                                className="bg-[var(--card-bg)] border border-[var(--border)] rounded-xl p-6 cursor-pointer hover:shadow-lg transition-all duration-200 hover:border-orange-400 group"
+                            >
+                                <div className="text-center">
+                                    <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center bg-orange-100 dark:bg-orange-900/30 rounded-xl group-hover:bg-orange-200 dark:group-hover:bg-orange-900/50 transition-colors">
+                                        <svg className="w-8 h-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                        </svg>
+                                    </div>
+                                    <h3 className="text-xl font-bold text-[var(--foreground)] mb-2">Pruebas</h3>
+                                    <p className="text-[var(--muted-foreground)]">Área de pruebas y testing</p>
+                                </div>
+                            </div>
                         </div>
                     </>
                 ) : (
@@ -302,11 +336,13 @@ function BackdoorContent() {
                                 {activeTab === 'scanner' && 'Escáner'}
                                 {activeTab === 'controlhorario' && 'Control Horario'}
                                 {activeTab === 'histoscans' && 'Historial de Escaneos'}
+                                {activeTab === 'pruebas' && 'Pruebas'}
                             </h2>
                             <p className="text-[var(--tab-text)]">
                                 {activeTab === 'scanner' && 'Escanear códigos de barras'}
                                 {activeTab === 'controlhorario' && 'Registro de horarios de trabajo'}
                                 {activeTab === 'histoscans' && 'Ver historial de escaneos realizados'}
+                                {activeTab === 'pruebas' && 'Área de pruebas y testing'}
                             </p>
                         </div>
 
@@ -344,6 +380,10 @@ function BackdoorContent() {
 
                             {activeTab === 'histoscans' && (
                                 <BackdoorScanHistory />
+                            )}
+
+                            {activeTab === 'pruebas' && (
+                                <Pruebas />
                             )}
                         </div>
                     </>

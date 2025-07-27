@@ -12,9 +12,17 @@ export default function LoginPage() {
     const [showPassword, setShowPassword] = useState(false);
     const [loginError, setLoginError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [isClient, setIsClient] = useState(false);
+
+    // Ensure component is mounted on client
+    useEffect(() => {
+        setIsClient(true);
+    }, []);
 
     // Verificar si ya está autenticado al cargar la página
     useEffect(() => {
+        if (!isClient) return;
+        
         const storedUserData = localStorage.getItem('simple_login_user');
         if (storedUserData) {
             try {
@@ -26,7 +34,7 @@ export default function LoginPage() {
                 localStorage.removeItem('simple_login_user');
             }
         }
-    }, [router]);
+    }, [router, isClient]);
 
     // Función para manejar el login
     const handleLogin = async (e: React.FormEvent) => {
@@ -57,7 +65,9 @@ export default function LoginPage() {
             // Y que la contraseña ingresada coincida con la contraseña de BD
             if (foundUser.password === foundUser.name && foundUser.password === password.trim()) {
                 // Login exitoso: usuario existe, está activo, y cumple la regla de acceso
-                localStorage.setItem('simple_login_user', JSON.stringify(foundUser));
+                if (isClient) {
+                    localStorage.setItem('simple_login_user', JSON.stringify(foundUser));
+                }
 
                 // Log de acceso exitoso
                 console.log('✅ LOGIN EXITOSO:', {
