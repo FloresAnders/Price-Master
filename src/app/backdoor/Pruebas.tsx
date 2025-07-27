@@ -78,10 +78,29 @@ export default function Pruebas() {
         setUploadProgress(0);
 
         try {
+            // Verificar configuración antes de subir
+            setTestResults(prev => ({
+                ...prev,
+                'pre-upload-check': `🔍 Verificando configuración de Firebase...`,
+                'storage-bucket': `📦 Bucket: ${process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 'NO CONFIGURADO'}`,
+                'firebase-project': `🔧 Proyecto: ${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'NO CONFIGURADO'}`
+            }));
+
+            if (!storage) {
+                throw new Error('Firebase Storage no está inicializado. Verifica las variables de entorno.');
+            }
+
             // Crear referencia en Firebase Storage (usando /exports/ que tiene permisos)
             const timestamp = Date.now();
             const fileName = `${timestamp}-${selectedFile.name}`;
             const storageRef = ref(storage, `exports/images/${fileName}`);
+
+            setTestResults(prev => ({
+                ...prev,
+                'pre-upload-check': `✅ Configuración verificada`,
+                'upload-path': `📁 Ruta de subida: exports/images/${fileName}`,
+                'file-info': `📄 Archivo: ${selectedFile.name} (${(selectedFile.size / 1024 / 1024).toFixed(2)}MB)`
+            }));
 
             // Crear tarea de subida con seguimiento de progreso
             const uploadTask = uploadBytesResumable(storageRef, selectedFile);
@@ -190,10 +209,24 @@ export default function Pruebas() {
         setActiveTest('firebase-connection-test');
         
         try {
-            // Test 1: Verificar configuración de Firebase
+            // Test 1: Verificar variables de entorno
+            const envVars = {
+                apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+                authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+                projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+                storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+                appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
+            };
+
+            const missingVars = Object.entries(envVars).filter(([key, value]) => !value);
+            
             setTestResults(prev => ({
                 ...prev,
-                'firebase-config': `🔧 Verificando configuración de Firebase...`
+                'firebase-env': missingVars.length === 0 
+                    ? `✅ Todas las variables de entorno están configuradas`
+                    : `❌ Variables faltantes: ${missingVars.map(([key]) => key).join(', ')}`,
+                'firebase-config': `🔧 Storage Bucket: ${envVars.storageBucket || 'NO CONFIGURADO'}`,
+                'firebase-project': `🔧 Project ID: ${envVars.projectId || 'NO CONFIGURADO'}`
             }));
 
             if (!storage) {

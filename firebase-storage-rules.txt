@@ -9,9 +9,14 @@ service firebase.storage {
       allow read, write: if true;
     }
     
-    // Denegar acceso a todas las demás carpetas por defecto
+    // Permitir acceso a test-images para pruebas
+    match /test-images/{allPaths=**} {
+      allow read, write: if true;
+    }
+    
+    // Acceso temporal para desarrollo hasta 2026-07-25
     match /{allPaths=**} {
-      allow read, write: if false;
+      allow read, write: if request.time < timestamp.date(2026, 7, 25);
     }
   }
 }
