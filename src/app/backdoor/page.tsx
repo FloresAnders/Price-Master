@@ -12,6 +12,7 @@ import BarcodeScanner from '@/components/BarcodeScanner';
 import ControlHorario from '@/components/ControlHorario';
 import ScanHistory from '@/components/ScanHistory';
 import SessionCounter from '@/components/SessionCounter';
+import BackdoorSettings from '@/components/BackdoorSettings';
 import type { ScanHistoryEntry } from '@/types/barcode';
 
 type BackdoorTab = 'scanner' | 'controlhorario' | 'histoscans' | 'pruebas';
@@ -250,6 +251,16 @@ function BackdoorContent() {
                     onHide={() => setShowSessionCounter(false)}
                 />
             )}
+
+            {/* Configuración de Backdoor */}
+            <BackdoorSettings 
+                currentUser={currentUser}
+                onSessionExtended={() => {
+                    // Forzar actualización del SessionCounter
+                    setShowSessionCounter(false);
+                    setTimeout(() => setShowSessionCounter(true), 100);
+                }}
+            />
 
             {/* Botón para mostrar contador cuando está oculto */}
             {!showSessionCounter && (
