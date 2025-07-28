@@ -411,8 +411,23 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
   // Ref para navegar entre inputs de denominaciones
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  // Función para manejar navegación con ENTER, TAB y flechas
+  // Función para manejar navegación con ENTER, TAB y flechas, y sumar/restar con +/-
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, currentIndex: number) => {
+    const denomination = denominaciones[currentIndex];
+    
+    // Manejar teclas + y - para incrementar/decrementar
+    if (e.key === '+') {
+      e.preventDefault();
+      handleIncrement(denomination.value);
+      return;
+    }
+    
+    if (e.key === '-') {
+      e.preventDefault();
+      handleDecrement(denomination.value);
+      return;
+    }
+
     if (e.key === 'Enter' || e.key === 'Tab' || e.key === 'ArrowDown') {
       e.preventDefault();
 
@@ -632,10 +647,56 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
     }
   };
 
-  const handleKeyPressNuevaVenta = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  // Función para manejar teclas + y - en inputs numéricos
+  const handleNumericKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>, 
+    value: number, 
+    setValue: (value: number) => void,
+    increment: number = 1
+  ) => {
+    if (e.key === '+') {
+      e.preventDefault();
+      const newValue = value + increment;
+      setValue(newValue);
+    } else if (e.key === '-') {
+      e.preventDefault();
+      const newValue = Math.max(value - increment, 0);
+      setValue(newValue);
+    }
+  };
+
+  // Manejadores específicos para cada input
+  const handleExtraAmountKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const increment = currency === 'CRC' ? 1000 : 1;
+    handleNumericKeyDown(e, extraAmount, (newValue) => {
+      setExtraAmount(newValue);
+      notifyParent(bills, newValue, currency);
+    }, increment);
+  };
+
+  const handleAperturaCajaKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const increment = currency === 'CRC' ? 1000 : 1;
+    handleNumericKeyDown(e, aperturaCaja, (newValue) => {
+      setAperturaCaja(newValue);
+      notifyParent(bills, extraAmount, currency, newValue, ventaActual);
+    }, increment);
+  };
+
+  const handleVentaActualKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const increment = currency === 'CRC' ? 1000 : 1;
+    handleNumericKeyDown(e, ventaActual, (newValue) => {
+      setVentaActual(newValue);
+      notifyParent(bills, extraAmount, currency, aperturaCaja, newValue);
+    }, increment);
+  };
+
+  const handleNuevaVentaKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       agregarVenta();
+      return;
     }
+    const increment = currency === 'CRC' ? 1000 : 1;
+    handleNumericKeyDown(e, nuevaVenta, setNuevaVenta, increment);
   };
 
   return (
@@ -897,6 +958,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
                     : formatCurrency(extraAmount, currency)
                 }
                 onChange={handleExtraChange}
+                onKeyDown={handleExtraAmountKeyDown}
                 className="w-full px-2 py-1 border-none bg-transparent text-[var(--foreground)] text-right text-base focus:outline-none"
                 placeholder="0"
               />
@@ -916,6 +978,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
                 min="0"
                 value={aperturaCaja || ''}
                 onChange={handleAperturaCajaChange}
+                onKeyDown={handleAperturaCajaKeyDown}
                 className="w-full px-2 py-1 border rounded bg-[var(--input-bg)] text-[var(--foreground)] text-base focus:outline-none"
                 placeholder="0"
               />
@@ -927,6 +990,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
                 min="0"
                 value={ventaActual || ''}
                 onChange={handleVentaActualChange}
+                onKeyDown={handleVentaActualKeyDown}
                 className="w-full px-2 py-1 border rounded bg-[var(--input-bg)] text-[var(--foreground)] text-base focus:outline-none"
                 placeholder="0"
               />
@@ -941,7 +1005,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
                   min="0"
                   value={nuevaVenta || ''}
                   onChange={handleNuevaVentaChange}
-                  onKeyPress={handleKeyPressNuevaVenta}
+                  onKeyDown={handleNuevaVentaKeyDown}
                   className="w-28 px-2 py-1 border rounded bg-[var(--input-bg)] text-[var(--foreground)] text-base focus:outline-none"
                   placeholder="0"
                 />

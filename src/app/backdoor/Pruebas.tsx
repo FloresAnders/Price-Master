@@ -218,7 +218,7 @@ export default function Pruebas() {
                 appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
             };
 
-            const missingVars = Object.entries(envVars).filter(([key, value]) => !value);
+            const missingVars = Object.entries(envVars).filter(([, value]) => !value);
             
             setTestResults(prev => ({
                 ...prev,
@@ -507,6 +507,7 @@ export default function Pruebas() {
             {/* Firebase Image Upload Section */}
             <div className="bg-[var(--input-bg)] rounded-lg border border-[var(--border)] p-6 mb-8">
                 <h3 className="text-lg font-semibold text-[var(--foreground)] mb-4 flex items-center">
+                    {/* eslint-disable-next-line jsx-a11y/alt-text */}
                     <Image className="w-5 h-5 mr-2 text-purple-600" />
                     Subir Imagen a Firebase Storage (/exports/images/)
                 </h3>
