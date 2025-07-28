@@ -1,15 +1,17 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { AlertTriangle, LogIn, CheckCircle } from 'lucide-react';
+import { AlertTriangle, LogIn, CheckCircle, Clock } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import type { User as FirestoreUser } from '@/types/firestore';
+import { isSessionValid, getSession, clearSession } from '@/utils/session';
 import BackdoorScanHistory from './BackdoorScanHistory';
 import Pruebas from './Pruebas';
 import BarcodeScanner from '@/components/BarcodeScanner';
 import ControlHorario from '@/components/ControlHorario';
 import ScanHistory from '@/components/ScanHistory';
+import SessionCounter from '@/components/SessionCounter';
 import type { ScanHistoryEntry } from '@/types/barcode';
 
 type BackdoorTab = 'scanner' | 'controlhorario' | 'histoscans' | 'pruebas';
@@ -24,6 +26,7 @@ function BackdoorContent() {
     const [notification, setNotification] = useState<{ message: string; color: string } | null>(null);
     const [showWelcomeBanner, setShowWelcomeBanner] = useState(true);
     const [isClient, setIsClient] = useState(false);
+    const [showSessionCounter, setShowSessionCounter] = useState(true);
 
     // Ensure component is mounted on client
     useEffect(() => {
@@ -34,23 +37,38 @@ function BackdoorContent() {
     useEffect(() => {
         if (!isClient) return;
         
-        const storedUserData = localStorage.getItem('simple_login_user');
-        if (!storedUserData) {
-            // Si no está autenticado, redirigir al login
-            router.push('/login');
+        if (!isSessionValid()) {
+            // Sesión no válida o expirada, limpiar y redirigir
+            clearSession();
+            router.push('/login?expired=true');
             return;
         }
-
-        try {
-            const userData = JSON.parse(storedUserData);
-            setCurrentUser(userData);
-            setLoading(false);
-        } catch {
-            // Si hay error al parsear, limpiar localStorage y redirigir
-            localStorage.removeItem('simple_login_user');
-            router.push('/login');
+        
+        // Obtener datos de sesión válida
+        const sessionData = getSession();
+        if (sessionData) {
+            setCurrentUser(sessionData);
         }
+        setLoading(false);
     }, [router, isClient]);
+
+    // Verificar periódicamente si la sesión ha expirado (cada minuto)
+    useEffect(() => {
+        if (!isClient || !currentUser) return;
+
+        const checkSessionExpiration = () => {
+            if (!isSessionValid()) {
+                clearSession();
+                router.push('/login?expired=true');
+                return;
+            }
+        };
+
+        // Verificar cada minuto
+        const interval = setInterval(checkSessionExpiration, 60000);
+        
+        return () => clearInterval(interval);
+    }, [router, isClient, currentUser]);
 
     // Hide welcome banner after 5 seconds
     useEffect(() => {
@@ -178,9 +196,7 @@ function BackdoorContent() {
 
     // Función para cerrar sesión
     const handleLogout = () => {
-        if (isClient) {
-            localStorage.removeItem('simple_login_user');
-        }
+        clearSession();
         setCurrentUser(null);
         console.log('🚪 LOGOUT:', {
             timestamp: new Date().toISOString(),
@@ -224,6 +240,27 @@ function BackdoorContent() {
 
     return (
         <>
+            {/* Contador flotante de sesión */}
+            {showSessionCounter && (
+                <SessionCounter 
+                    onExpired={() => {
+                        clearSession();
+                        router.push('/login?expired=true');
+                    }}
+                    onHide={() => setShowSessionCounter(false)}
+                />
+            )}
+
+            {/* Botón para mostrar contador cuando está oculto */}
+            {!showSessionCounter && (
+                <button
+                    onClick={() => setShowSessionCounter(true)}
+                    className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center group"
+                    title="Mostrar contador de sesión"
+                >
+                    <Clock className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                </button>
+            )}
 
             <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 {/* Notification */}
@@ -246,6 +283,9 @@ function BackdoorContent() {
                                         <div>
                                             <h1 className="text-2xl font-bold">✅ Acceso Autorizado - Backdoor</h1>
                                             <p className="text-green-100">Bienvenido, {currentUser?.name}</p>
+                                            <p className="text-green-200 text-sm mt-1">
+                                                💡 Usa el contador flotante para ver el tiempo de sesión restante
+                                            </p>
                                         </div>
                                     </div>
 

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Lock, Eye, AlertTriangle, User } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { UsersService } from '@/services/users';
+import { createSession, saveSession, isSessionValid, clearSession } from '@/utils/session';
 
 export default function LoginPage() {
     const router = useRouter();
@@ -17,21 +18,29 @@ export default function LoginPage() {
     // Ensure component is mounted on client
     useEffect(() => {
         setIsClient(true);
+        
+        // Verificar si llegó aquí por sesión expirada
+        if (typeof window !== 'undefined') {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('expired') === 'true') {
+                setLoginError('Su sesión ha expirado después de 5 horas. Por favor, inicie sesión nuevamente.');
+            }
+        }
     }, []);
 
     // Verificar si ya está autenticado al cargar la página
     useEffect(() => {
         if (!isClient) return;
         
-        const storedUserData = localStorage.getItem('simple_login_user');
-        if (storedUserData) {
-            try {
-                JSON.parse(storedUserData);
-                // Si ya está autenticado, redirigir directamente a backdoor
-                router.push('/backdoor');
-            } catch {
-                // Si hay error al parsear, limpiar localStorage
-                localStorage.removeItem('simple_login_user');
+        if (isSessionValid()) {
+            // Si la sesión es válida, redirigir directamente a backdoor
+            router.push('/backdoor');
+        } else {
+            // Si hay una sesión expirada, limpiarla y mostrar mensaje
+            const storedUserData = localStorage.getItem('simple_login_user');
+            if (storedUserData) {
+                clearSession();
+                setLoginError('Su sesión ha expirado después de 5 horas. Por favor, inicie sesión nuevamente.');
             }
         }
     }, [router, isClient]);
@@ -66,7 +75,9 @@ export default function LoginPage() {
             if (foundUser.password === foundUser.name && foundUser.password === password.trim()) {
                 // Login exitoso: usuario existe, está activo, y cumple la regla de acceso
                 if (isClient) {
-                    localStorage.setItem('simple_login_user', JSON.stringify(foundUser));
+                    // Crear y guardar sesión con expiración de 5 horas
+                    const sessionData = createSession(foundUser);
+                    saveSession(sessionData);
                 }
 
                 // Log de acceso exitoso
