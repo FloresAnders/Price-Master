@@ -15,8 +15,11 @@ import {
   Plus,
   RefreshCw,
   Smartphone,
+  FolderOpen,
+  Save,
+  RotateCcw,
 } from 'lucide-react';
-
+/*Menu,*/
 // Modal base component to reduce code duplication
 type BaseModalProps = {
   isOpen: boolean;
@@ -304,11 +307,10 @@ function SinpeModal({ isOpen, onClose, currency }: SinpeModalProps) {
           <button
             onClick={handleReload}
             disabled={totalEsperado === 0}
-            className={`flex-1 flex items-center justify-center px-4 py-3 rounded-lg font-medium ${
-              totalEsperado > 0
+            className={`flex-1 flex items-center justify-center px-4 py-3 rounded-lg font-medium ${totalEsperado > 0
                 ? 'bg-blue-600 hover:bg-blue-700 text-white'
                 : 'bg-gray-400 text-gray-600 cursor-not-allowed'
-            }`}
+              }`}
             title="Mover total a monto actual y limpiar monto a recibir"
           >
             <RefreshCw className="w-5 h-5 mr-2" />
@@ -414,14 +416,14 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
   // Función para manejar navegación con ENTER, TAB y flechas, y sumar/restar con +/-
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, currentIndex: number) => {
     const denomination = denominaciones[currentIndex];
-    
+
     // Manejar teclas + y - para incrementar/decrementar
     if (e.key === '+') {
       e.preventDefault();
       handleIncrement(denomination.value);
       return;
     }
-    
+
     if (e.key === '-') {
       e.preventDefault();
       handleDecrement(denomination.value);
@@ -649,8 +651,8 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
 
   // Función para manejar teclas + y - en inputs numéricos
   const handleNumericKeyDown = (
-    e: React.KeyboardEvent<HTMLInputElement>, 
-    value: number, 
+    e: React.KeyboardEvent<HTMLInputElement>,
+    value: number,
     setValue: (value: number) => void,
     increment: number = 1
   ) => {
@@ -820,7 +822,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
       </div>
 
       {/* Sección de resumen de caja */}
-      {(aperturaCaja > 0 || ventaActual > 0) && (
+      {(aperturaCaja > 0 && ventaActual > 0) && (
         <div className="bg-[var(--input-bg)] rounded-lg p-3 mb-4 border border-[var(--input-border)]">
           <h4 className="text-sm font-semibold text-[var(--foreground)] mb-2 text-center">Resumen de Caja</h4>
           <div className="grid grid-cols-2 gap-4 text-sm">
@@ -838,11 +840,9 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
             </div>
           </div>
           {/* Mostrar diferencia si hay valores */}
-          {aperturaCaja > 0 && ventaActual > 0 && (
-            <div className="mt-2 text-center border-t border-[var(--input-border)] pt-2">
-              {renderDifferenceMessage('text-center')}
-            </div>
-          )}
+          <div className="mt-2 text-center border-t border-[var(--input-border)] pt-2">
+            {renderDifferenceMessage('text-center')}
+          </div>
         </div>
       )}
 
@@ -1013,8 +1013,8 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
                   onClick={agregarVenta}
                   disabled={nuevaVenta <= 0}
                   className={`px-3 py-1 rounded text-sm font-medium flex items-center whitespace-nowrap ${nuevaVenta > 0
-                      ? 'bg-green-600 hover:bg-green-700 text-white'
-                      : 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                    ? 'bg-green-600 hover:bg-green-700 text-white'
+                    : 'bg-gray-400 text-gray-600 cursor-not-allowed'
                     }`}
                 >
                   <Plus className="w-4 h-4 mr-1" />
@@ -1118,18 +1118,41 @@ type RenameModalProps = {
 
 function RenameModal({ isOpen, currentName, onSave, onClose }: RenameModalProps) {
   const [newName, setNewName] = useState<string>(currentName);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setNewName(currentName);
   }, [currentName]);
 
+  // Seleccionar todo el texto cuando se abre el modal
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      // Pequeño delay para asegurar que el modal esté completamente renderizado
+      setTimeout(() => {
+        inputRef.current?.focus();
+        inputRef.current?.select();
+      }, 100);
+    }
+  }, [isOpen]);
+
+  // Manejar tecla Enter para guardar
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      onSave(newName.trim() === '' ? currentName : newName);
+      onClose();
+    }
+  };
+
   return (
     <BaseModal isOpen={isOpen} onClose={onClose} title="Renombrar Contador">
       <div className="border rounded-lg mb-3 h-10 flex items-center justify-end px-2 bg-[var(--input-bg)]">
         <input
+          ref={inputRef}
           type="text"
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
+          onKeyDown={handleKeyDown}
           className="w-full px-2 py-1 border-none bg-transparent text-[var(--foreground)] text-right text-base focus:outline-none"
         />
       </div>
@@ -1195,6 +1218,66 @@ function CurrencyModal({ isOpen, currentCurrency, onSave, onClose }: CurrencyMod
   );
 }
 
+type MenuModalProps = {
+  isOpen: boolean;
+  onClose: () => void;
+  onExport: () => void;
+  onImport: () => void;
+  onClear: () => void;
+  storageInfo: string;
+};
+
+function MenuModal({ isOpen, onClose, onExport, onImport, onClear, storageInfo }: MenuModalProps) {
+  return (
+    <BaseModal isOpen={isOpen} onClose={onClose} title="Gestión de Datos">
+      <div className="space-y-3">
+        {/* Información de almacenamiento */}
+        <div className="bg-[var(--input-bg)] rounded-lg p-3 text-center">
+          <span className="text-xs text-[var(--foreground)] opacity-75">
+            {storageInfo}
+          </span>
+        </div>
+
+        {/* Botón de exportar */}
+        <button
+          onClick={() => {
+            onExport();
+            onClose();
+          }}
+          className="w-full flex items-center justify-center px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
+        >
+          <Save className="w-5 h-5 mr-2" />
+          Exportar Respaldo
+        </button>
+
+        {/* Botón de importar */}
+        <button
+          onClick={() => {
+            onImport();
+            onClose();
+          }}
+          className="w-full flex items-center justify-center px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium"
+        >
+          <FolderOpen className="w-5 h-5 mr-2" />
+          Importar Respaldo
+        </button>
+
+        {/* Botón de limpiar */}
+        <button
+          onClick={() => {
+            onClear();
+            onClose();
+          }}
+          className="w-full flex items-center justify-center px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium"
+        >
+          <RotateCcw className="w-5 h-5 mr-2" />
+          Restablecer Todo
+        </button>
+      </div>
+    </BaseModal>
+  );
+}
+
 export default function CashCounterTabs() {
   const [tabsData, setTabsData] = useState<CashCounterData[]>([]);
   const [activeTab, setActiveTab] = useState<number>(0);
@@ -1209,6 +1292,9 @@ export default function CashCounterTabs() {
 
   // Para cambiar moneda
   const [currencyModalOpen, setCurrencyModalOpen] = useState<boolean>(false);
+
+  // Para el menú de gestión de datos
+  const [menuModalOpen, setMenuModalOpen] = useState<boolean>(false);
 
   // Función para guardar en localStorage con manejo de errores
   const saveToLocalStorage = async (data: CashCounterData[], activeTabIndex: number) => {
@@ -1489,53 +1575,33 @@ export default function CashCounterTabs() {
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-2xl font-bold text-[var(--foreground)]">Cash Counter</h1>
 
-        {/* Indicador de guardado */}
-        <div className="flex items-center text-sm">
-          {isSaving ? (
-            <span className="text-blue-500 flex items-center">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500 mr-2"></div>
-              Guardando...
-            </span>
-          ) : lastSaved ? (
-            <span className="text-green-600 flex items-center">
-              ✓ Guardado {lastSaved}
-            </span>
-          ) : null}
+        <div className="flex items-center space-x-3">
+          {/* Indicador de guardado */}
+          <div className="flex items-center text-sm">
+            {isSaving ? (
+              <span className="text-blue-500 flex items-center">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500 mr-2"></div>
+                Guardando...
+              </span>
+            ) : lastSaved ? (
+              <span className="text-green-600 flex items-center">
+                ✓ Guardado {lastSaved}
+              </span>
+            ) : null}
+          </div>
+
+          {/* Botón de menú 
+          <button
+            onClick={() => setMenuModalOpen(true)}
+            className="p-2 text-[var(--foreground)] hover:text-blue-600 hover:bg-[var(--button-hover)] rounded-lg transition-colors"
+            aria-label="Abrir menú de gestión"
+          >
+            <Menu className="w-6 h-6" />
+          </button>*/}
         </div>
       </div>
 
-      {/* Botones de gestión de datos */}
-      <div className="flex flex-wrap justify-center gap-2 mb-4">
-        <button
-          onClick={exportAllData}
-          className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium flex items-center"
-          title="Exportar todos los datos a archivo JSON"
-        >
-          <Download className="w-4 h-4 mr-1" />
-          Exportar Todo
-        </button>
-        <button
-          onClick={importAllData}
-          className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-medium flex items-center"
-          title="Importar datos desde archivo JSON"
-        >
-          <Upload className="w-4 h-4 mr-1" />
-          Importar Todo
-        </button>
-        <button
-          onClick={clearAllData}
-          className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-medium flex items-center"
-          title="Borrar todos los datos guardados"
-        >
-          <Trash2 className="w-4 h-4 mr-1" />
-          Limpiar Todo
-        </button>
-      </div>
 
-      {/* Información de almacenamiento */}
-      <div className="text-center text-xs text-[var(--foreground)] opacity-60 mb-4">
-        💾 {getStorageInfo()}
-      </div>
 
       <div className="flex space-x-2 mb-4 overflow-x-auto">
         {tabsData.map((tab, idx) => (
@@ -1572,22 +1638,6 @@ export default function CashCounterTabs() {
           Nuevo
         </button>
       </div>
-
-      {/* Modal para renombrar */}
-      <RenameModal
-        isOpen={renameModalOpen}
-        currentName={tabsData[renameIndex]?.name || ''}
-        onSave={handleRenameSave}
-        onClose={() => setRenameModalOpen(false)}
-      />
-
-      {/* Modal para seleccionar moneda */}
-      <CurrencyModal
-        isOpen={currencyModalOpen}
-        currentCurrency={tabsData[activeTab]?.currency || 'CRC'}
-        onSave={handleCurrencySave}
-        onClose={() => setCurrencyModalOpen(false)}
-      />
 
       <div className="border border-t-0 border-[var(--input-border)] bg-[var(--card-bg)] rounded-b-2xl p-4 min-h-[200px]">
         {tabsData.length > 0 ? (
@@ -1628,10 +1678,36 @@ export default function CashCounterTabs() {
       <CalculatorModal isOpen={isCalcOpen} onClose={() => setIsCalcOpen(false)} />
 
       {/* Modal de verificador SINPE */}
-      <SinpeModal 
-        isOpen={isSinpeOpen} 
-        onClose={() => setIsSinpeOpen(false)} 
-        currency={tabsData[activeTab]?.currency || 'CRC'} 
+      <SinpeModal
+        isOpen={isSinpeOpen}
+        onClose={() => setIsSinpeOpen(false)}
+        currency={tabsData[activeTab]?.currency || 'CRC'}
+      />
+
+      {/* Modal para renombrar */}
+      <RenameModal
+        isOpen={renameModalOpen}
+        currentName={tabsData[renameIndex]?.name || ''}
+        onSave={handleRenameSave}
+        onClose={() => setRenameModalOpen(false)}
+      />
+
+      {/* Modal para seleccionar moneda */}
+      <CurrencyModal
+        isOpen={currencyModalOpen}
+        currentCurrency={tabsData[activeTab]?.currency || 'CRC'}
+        onSave={handleCurrencySave}
+        onClose={() => setCurrencyModalOpen(false)}
+      />
+
+      {/* Modal de gestión de datos */}
+      <MenuModal
+        isOpen={menuModalOpen}
+        onClose={() => setMenuModalOpen(false)}
+        onExport={exportAllData}
+        onImport={importAllData}
+        onClear={clearAllData}
+        storageInfo={getStorageInfo()}
       />
     </div>
   );

@@ -27,114 +27,30 @@ export default function Footer() {
   
   return (
     <footer className="mt-auto border-t border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)]">
-      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-2 sm:py-3 overflow-x-auto" suppressHydrationWarning>
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-2 sm:gap-3 text-xs sm:text-sm" suppressHydrationWarning>
+      <div className="max-w-7xl mx-auto px-4 py-4" suppressHydrationWarning>
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4" suppressHydrationWarning>
           <div className="text-center sm:text-left" suppressHydrationWarning>
-            <span>© 2025 Price Master - Escáner avanzado de códigos de barras y QR</span>
+            <span className="text-sm text-[var(--tab-text)]">© {new Date().getFullYear()} Price Master</span>
           </div>
-          <div className="flex flex-wrap items-center justify-center space-x-2 sm:space-x-3" suppressHydrationWarning>
-            {['Next.js 15', 'React 19', 'TypeScript', 'ZBar-WASM', 'Quagga2', 'Firebase'].map((tech, idx) => (
-              <React.Fragment key={tech}>
-                <span className="hover:text-[var(--tab-hover-text)] transition-colors text-[var(--tab-text)] whitespace-nowrap">
-                  {tech}
-                </span>
-                {idx < 5 && <span className="text-[var(--input-border)]">•</span>}
-              </React.Fragment>
-            ))}
-          </div>
-        </div>        {/* Additional footer sections */}
-        <div className="mt-6 pt-6 border-t border-[var(--input-border)]" suppressHydrationWarning>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8" suppressHydrationWarning>
-            {[
-              { title: 'Productos', items: ['Escáner de Códigos', 'Cámara en Vivo', 'Detección Multi-formato', 'Análisis ZBar-WASM'] },
-              {
-                title: 'Empresa',
-                items: [
-                  'Acerca de',
-                  { name: 'Equipo', action: () => setIsGitHubModalOpen(true) },
-                  'Carreras',
-                  'Contacto'
-                ]
-              },
-              { title: 'Tecnologías', items: ['Next.js 15', 'React 19', 'TypeScript', 'Firebase'] },
-              { title: 'Soporte', items: ['Centro de Ayuda', 'Documentación API', 'Términos de Uso', 'Privacidad'] },
-            ].map(section => (
-              <div key={section.title} suppressHydrationWarning>
-                <h3 className="text-sm font-semibold text-[var(--foreground)] mb-3">{section.title}</h3>                <ul className="space-y-2 text-sm">
-                  {section.items.map((item) => (
-                    <li key={typeof item === 'string' ? item : item.name}>
-                      {typeof item === 'string' ? (
-                        <a href="#" className="hover:text-[var(--tab-hover-text)] transition-colors text-[var(--tab-text)]">
-                          {item}
-                        </a>
-                      ) : (
-                        <button
-                          onClick={item.action}
-                          className="hover:text-[var(--tab-hover-text)] transition-colors text-[var(--tab-text)] text-left"
-                        >
-                          {item.name}
-                        </button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </div>        {/* Social links and additional info */}
-        <div className="mt-6 pt-6 border-t border-[var(--input-border)]" suppressHydrationWarning>
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-4" suppressHydrationWarning>
-            <div className="flex space-x-6" suppressHydrationWarning>
-              {[
-                {
-                  label: 'GitHub',
-                  svg: (<svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 0C4.477 0 0 4.484 0 10.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0110 4.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.203 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.942.359.31.678.921.678 1.856 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0020 10.017C20 4.484 15.522 0 10 0z" clipRule="evenodd" /></svg>),
-                  action: () => setIsGitHubModalOpen(true)
-                },
-                {
-                  label: 'Easter Egg',
-                  svg: (
-                    <div className="relative">
-                      <span className="text-lg" title="🥚 Easter Egg - Click me!">🥚</span>
-                    </div>
-                  ),
-                  action: () => router.push('/login')
-                },
-                {
-                  label: 'Documentación',
-                  svg: (<svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" /><path fillRule="evenodd" d="M4 5a2 2 0 012-2v1a1 1 0 001 1h6a1 1 0 001-1V3a2 2 0 012 2v6.5a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 100 2h6a1 1 0 100-2H7zm0 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" /></svg>),
-                  href: '#'
-                },
-                {
-                  label: 'Firebase',
-                  svg: (<svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path d="M3.5 3.5l2.83 5.18L8.5 3.5l5 9 2.5-4.5-1 2.5L18.5 18l-7-3.5L3.5 18l-1-14.5z" /></svg>),
-                  href: '#'
-                },
-              ].map(link => (
-                <React.Fragment key={link.label}>
-                  {link.action ? (
-                    <button
-                      onClick={link.action}
-                      className="hover:text-[var(--tab-hover-text)] transition-colors text-[var(--tab-text)]"
-                      aria-label={link.label}
-                    >
-                      {link.svg}
-                      <span className="sr-only">{link.label}</span>
-                    </button>
-                  ) : (
-                    <a
-                      href={link.href}
-                      className="hover:text-[var(--tab-hover-text)] transition-colors text-[var(--tab-text)]"
-                      aria-label={link.label}
-                    >
-                      {link.svg}
-                      <span className="sr-only">{link.label}</span>
-                    </a>
-                  )}
-                </React.Fragment>
-              ))}
-            </div>
-            <div className="text-xs text-[var(--tab-text)]" suppressHydrationWarning>Desarrollado con ❤️ usando tecnologías modernas</div>
+          <div className="flex items-center space-x-4" suppressHydrationWarning>
+            <button
+              onClick={() => setIsGitHubModalOpen(true)}
+              className="flex items-center space-x-2 hover:text-[var(--tab-hover-text)] transition-colors text-[var(--tab-text)]"
+              aria-label="GitHub"
+            >
+              <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 0C4.477 0 0 4.484 0 10.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0110 4.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.203 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.942.359.31.678.921.678 1.856 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0020 10.017C20 4.484 15.522 0 10 0z" clipRule="evenodd" />
+              </svg>
+              <span className="text-sm">Equipo</span>
+            </button>
+            <button
+              onClick={() => router.push('/login')}
+              className="flex items-center space-x-2 hover:text-[var(--tab-hover-text)] transition-colors text-[var(--tab-text)] opacity-50 hover:opacity-100"
+              aria-label="Mmmm"
+              title="Mmmm"
+            >
+              <span className="text-lg">ㅤㅤ</span>
+            </button>
           </div>
         </div>
       </div>
