@@ -20,7 +20,7 @@ function MobileScanContent() {
   const locationsParam = searchParams.get('locations');
 
   const [code, setCode] = useState('');
-  const [lastScanned, setLastScanned] = useState<string[]>([]);
+  const [lastScanned, setLastScanned] = useState<{code: string, productName?: string, location?: string}[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(true);
@@ -187,7 +187,7 @@ function MobileScanContent() {
     }
 
     // Check if already scanned recently
-    if (lastScanned.includes(scannedCode)) {
+    if (lastScanned.some(scan => scan.code === scannedCode)) {
       setError('Este código ya fue escaneado recientemente');
       return;
     }
@@ -251,7 +251,11 @@ function MobileScanContent() {
       message += ' enviado correctamente';
       
       setSuccess(message);
-      setLastScanned(prev => [...prev.slice(-4), scannedCode]); // Keep last 5
+      setLastScanned(prev => [...prev.slice(-4), {
+        code: scannedCode,
+        ...(nameForProduct?.trim() && { productName: nameForProduct.trim() }),
+        ...(selectedLocation && { location: selectedLocation })
+      }]); // Keep last 5
       setCode('');
       // Clear success message after 2 seconds
       setTimeout(() => setSuccess(null), 2000);
@@ -559,10 +563,17 @@ function MobileScanContent() {
         <div className="bg-card-bg rounded-lg p-4">
           <h2 className="text-lg font-semibold mb-3">Códigos Enviados Recientemente</h2>
           <div className="space-y-2">
-            {lastScanned.slice().reverse().map((scannedCode, index) => (
+            {lastScanned.slice().reverse().map((scan, index) => (
               <div key={index} className="bg-input-bg rounded px-3 py-2 flex items-center gap-2">
                 <Check className="w-4 h-4 text-green-500 dark:text-green-400" />
-                <span className="font-mono">{scannedCode}</span>
+                <div className="flex flex-col flex-1 min-w-0">
+                  <span className="font-mono text-sm">{scan.code}</span>
+                  {scan.productName && (
+                    <span className="text-xs text-blue-600 dark:text-blue-400 truncate">
+                      📝 {scan.productName}
+                    </span>
+                  )}
+                </div>
               </div>
             ))}
           </div>        </div>
