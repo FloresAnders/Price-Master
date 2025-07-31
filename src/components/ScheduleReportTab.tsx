@@ -667,6 +667,8 @@ export default function ScheduleReportTab() {
           currentPeriod={currentPeriod}
           selectedLocation={selectedLocation}
           onLocationChange={setSelectedLocation}
+          availablePeriods={availablePeriods}
+          onPeriodChange={setCurrentPeriod}
         />
       ) : (
         /* Tab de Registros Guardados */

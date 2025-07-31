@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Calculator, DollarSign, Image, Save } from 'lucide-react';
+import { Calculator, DollarSign, Image, Save, Calendar } from 'lucide-react';
 import { LocationsService } from '../services/locations';
 import { SchedulesService, ScheduleEntry } from '../services/schedules';
 import { PayrollRecordsService } from '../services/payroll-records';
@@ -72,12 +72,16 @@ interface PayrollExporterProps {
   currentPeriod: BiweeklyPeriod | null;
   selectedLocation?: string;
   onLocationChange?: (location: string) => void;
+  availablePeriods?: BiweeklyPeriod[];
+  onPeriodChange?: (period: BiweeklyPeriod) => void;
 }
 
 export default function PayrollExporter({ 
   currentPeriod, 
   selectedLocation = 'all', 
-  onLocationChange 
+  onLocationChange,
+  availablePeriods = [],
+  onPeriodChange
 }: PayrollExporterProps) {
   const [locations, setLocations] = useState<Location[]>([]);
   const [payrollData, setPayrollData] = useState<LocationPayrollData[]>([]);
@@ -783,15 +787,46 @@ export default function PayrollExporter({
             ))}
           </select>
 
-          {/* Mostrar período actual - solo lectura */}
-          <div className="px-3 py-2 rounded-md border text-sm text-gray-600 dark:text-gray-400"
-            style={{
-              background: 'var(--input-bg)',
-              border: '1px solid var(--input-border)',
-              color: 'var(--foreground)',
-            }}
-          >
-            {currentPeriod ? currentPeriod.label : 'Sin período seleccionado'}
+          {/* Selector de período - ahora interactivo */}
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-[var(--tab-text)]" />
+            <select
+              value={currentPeriod ? `${currentPeriod.year}-${currentPeriod.month}-${currentPeriod.period}` : ''}
+              onChange={(e) => {
+                if (e.target.value && onPeriodChange) {
+                  const [year, month, period] = e.target.value.split('-');
+                  const selectedPeriod = availablePeriods.find(p =>
+                    p.year === parseInt(year) &&
+                    p.month === parseInt(month) &&
+                    p.period === period
+                  );
+                  if (selectedPeriod) {
+                    onPeriodChange(selectedPeriod);
+                  }
+                }
+              }}
+              className="px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 min-w-[200px]"
+              style={{
+                background: 'var(--input-bg)',
+                border: '1px solid var(--input-border)',
+                color: 'var(--foreground)',
+              }}
+              disabled={!onPeriodChange || availablePeriods.length === 0}
+              title={onPeriodChange ? "Seleccionar quincena para la planilla" : "Período controlado desde la pestaña Horarios"}
+            >
+              {availablePeriods.length === 0 ? (
+                <option value="">Cargando quincenas...</option>
+              ) : (
+                availablePeriods.map((period) => (
+                  <option
+                    key={`${period.year}-${period.month}-${period.period}`}
+                    value={`${period.year}-${period.month}-${period.period}`}
+                  >
+                    {period.label}
+                  </option>
+                ))
+              )}
+            </select>
           </div>
 
           {/* Botón de exportar */}
