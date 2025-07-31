@@ -124,8 +124,8 @@ function EmployeeTooltipSummary({
         let hourlyRate = 0;
         
         if (totalHours > 0) {
-          // Usar valorhora de la configuración CCSS como tarifa por hora
-          hourlyRate = ccssConfig.valorhora || 1441;
+          // Usar horabruta de la configuración CCSS obtenida desde la base de datos
+          hourlyRate = ccssConfig.horabruta;
           
           // Calcular salario bruto: horas trabajadas × valor por hora
           grossSalary = totalHours * hourlyRate;
