@@ -47,6 +47,7 @@ function EmployeeTooltipSummary({
     colones: number;
     ccss: number;
     neto: number;
+    extraAmount: number;
   } | null>(null);
 
   React.useEffect(() => {
@@ -116,6 +117,7 @@ function EmployeeTooltipSummary({
 
         // **CÁLCULOS DE SALARIO BASADOS EN DATOS REALES**
         const ccssType = employee?.ccssType || 'MT';
+        const extraAmount = employee?.extraAmount || 0;
         
         // Si no hay horas trabajadas, todo es 0
         let grossSalary = 0;
@@ -134,8 +136,11 @@ function EmployeeTooltipSummary({
           const ccssAmount = ccssType === 'TC' ? ccssConfig.tc : ccssConfig.mt;
           ccssDeduction = ccssAmount;
           
-          // Salario neto = bruto - deducción CCSS
-          netSalary = grossSalary - ccssDeduction;
+          // Salario neto = bruto - deducción CCSS + monto extra
+          netSalary = grossSalary - ccssDeduction + extraAmount;
+        } else {
+          // Si no hay horas trabajadas, pero hay extraAmount, solo mostrar el extra
+          netSalary = extraAmount;
         }
 
         console.log(`📊 Tooltip Summary for ${employeeName}:`, {
@@ -144,6 +149,7 @@ function EmployeeTooltipSummary({
           hourlyRate: hourlyRate.toFixed(2),
           grossSalary: grossSalary.toFixed(2),
           ccssDeduction,
+          extraAmount,
           netSalary: netSalary.toFixed(2),
           period: `${daysToShow[0]}-${daysToShow[daysToShow.length - 1]}`,
           isDelifoodLocation
@@ -154,7 +160,8 @@ function EmployeeTooltipSummary({
           hours: totalHours,
           colones: grossSalary,
           ccss: ccssDeduction,
-          neto: netSalary
+          neto: netSalary,
+          extraAmount: extraAmount
         });
       } catch (error) {
         console.error('Error fetching employee summary:', error);
@@ -164,7 +171,8 @@ function EmployeeTooltipSummary({
           hours: 0,
           colones: 0,
           ccss: 0,
-          neto: 0
+          neto: 0,
+          extraAmount: 0
         });
       }
     };
@@ -182,6 +190,9 @@ function EmployeeTooltipSummary({
       <div><b>Horas trabajadas:</b> {summary.hours}</div>
       <div><b>Total bruto:</b> ₡{summary.colones.toLocaleString('es-CR')}</div>
       <div><b>CCSS:</b> -₡{summary.ccss.toLocaleString('es-CR', { minimumFractionDigits: 2 })}</div>
+      {summary.extraAmount > 0 && (
+        <div><b>Monto extra:</b> +₡{summary.extraAmount.toLocaleString('es-CR', { minimumFractionDigits: 2 })}</div>
+      )}
       <div><b>Salario neto:</b> ₡{summary.neto.toLocaleString('es-CR', { minimumFractionDigits: 2 })}</div>
     </>
   );
