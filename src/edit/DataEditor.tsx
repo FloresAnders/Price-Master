@@ -9,6 +9,7 @@ import { UsersService } from '../services/users';
 import { CcssConfigService } from '../services/ccss-config';
 import { Location, Sorteo, User, CcssConfig } from '../types/firestore';
 import ScheduleReportTab from '../components/ScheduleReportTab';
+import ConfirmModal from '../components/ConfirmModal';
 
 type DataFile = 'locations' | 'sorteos' | 'users' | 'schedules' | 'ccss';
 
@@ -26,7 +27,26 @@ export default function DataEditor() {
     const [isSaving, setIsSaving] = useState(false);
     const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
     const [passwordVisibility, setPasswordVisibility] = useState<{ [key: number]: boolean }>({});
-    const [savingUser, setSavingUser] = useState<number | null>(null);    // Detectar cambios
+    const [savingUser, setSavingUser] = useState<number | null>(null);
+    const [savingLocation, setSavingLocation] = useState<number | null>(null);
+    
+    // Estado para trackear cambios individuales de ubicaciones
+    const [originalLocationsByIndex, setOriginalLocationsByIndex] = useState<{ [key: number]: Location }>({});
+    
+    // Estado para modal de confirmación   
+    const [confirmModal, setConfirmModal] = useState<{
+        open: boolean;
+        title: string;
+        message: string;
+        onConfirm: (() => void) | null;
+        loading: boolean;
+    }>({
+        open: false,
+        title: '',
+        message: '',
+        onConfirm: null,
+        loading: false
+    });    // Detectar cambios
     useEffect(() => {
         const locationsChanged = JSON.stringify(locationsData) !== JSON.stringify(originalLocationsData);
         const sorteosChanged = JSON.stringify(sorteosData) !== JSON.stringify(originalSorteosData);
@@ -67,7 +87,14 @@ export default function DataEditor() {
             });
 
             setLocationsData(migratedLocations);
-            setOriginalLocationsData(JSON.parse(JSON.stringify(migratedLocations)));            // Cargar sorteos desde Firebase
+            setOriginalLocationsData(JSON.parse(JSON.stringify(migratedLocations)));
+            
+            // Inicializar tracking de ubicaciones originales por índice
+            const locationsByIndex: { [key: number]: Location } = {};
+            migratedLocations.forEach((location, index) => {
+                locationsByIndex[index] = JSON.parse(JSON.stringify(location));
+            });
+            setOriginalLocationsByIndex(locationsByIndex);            // Cargar sorteos desde Firebase
             const sorteos = await SorteosService.getAllSorteos();
             setSorteosData(sorteos);
             setOriginalSorteosData(JSON.parse(JSON.stringify(sorteos)));
@@ -96,6 +123,16 @@ export default function DataEditor() {
     const showNotification = (message: string, type: 'success' | 'error' | 'info') => {
         setNotification({ message, type });
         setTimeout(() => setNotification(null), 3000);
+    };
+
+    // Función para verificar si una ubicación específica ha cambiado
+    const hasLocationChanged = (index: number): boolean => {
+        const currentLocation = locationsData[index];
+        const originalLocation = originalLocationsByIndex[index];
+        
+        if (!originalLocation || !currentLocation) return true; // Si no hay original, considerar como cambio
+        
+        return JSON.stringify(currentLocation) !== JSON.stringify(originalLocation);
     };
 
     const saveData = async () => {
@@ -265,7 +302,14 @@ export default function DataEditor() {
             names: [], // Mantener compatibilidad hacia atrás
             employees: [] // Nueva estructura para empleados con tipo CCSS
         };
+        const newIndex = locationsData.length;
         setLocationsData([...locationsData, newLocation]);
+        
+        // Agregar al tracking como nueva ubicación (sin original)
+        setOriginalLocationsByIndex(prev => ({
+            ...prev,
+            [newIndex]: JSON.parse(JSON.stringify(newLocation))
+        }));
     };
 
     const updateLocation = (index: number, field: keyof Location, value: string | string[]) => {
@@ -275,7 +319,27 @@ export default function DataEditor() {
     };
 
     const removeLocation = (index: number) => {
-        setLocationsData(locationsData.filter((_, i) => i !== index));
+        const location = locationsData[index];
+        const locationName = location.label || location.value || `Ubicación ${index + 1}`;
+        
+        openConfirmModal(
+            'Eliminar Ubicación',
+            `¿Está seguro de que desea eliminar la ubicación "${locationName}"? Esta acción no se puede deshacer.`,
+            () => {
+                setLocationsData(locationsData.filter((_, i) => i !== index));
+                
+                // Actualizar el tracking removiendo la ubicación eliminada y reindexando
+                const newTracking: { [key: number]: Location } = {};
+                const filteredLocations = locationsData.filter((_, i) => i !== index);
+                filteredLocations.forEach((location, newIndex) => {
+                    const originalIndex = newIndex >= index ? newIndex + 1 : newIndex;
+                    if (originalLocationsByIndex[originalIndex]) {
+                        newTracking[newIndex] = originalLocationsByIndex[originalIndex];
+                    }
+                });
+                setOriginalLocationsByIndex(newTracking);
+            }
+        );
     }; const addEmployeeName = (locationIndex: number) => {
         const updated = [...locationsData];
         // Asegurar que existe el array de employees
@@ -324,11 +388,22 @@ export default function DataEditor() {
     };
 
     const removeEmployeeName = (locationIndex: number, employeeIndex: number) => {
-        const updated = [...locationsData];
-        if (updated[locationIndex].employees) {
-            updated[locationIndex].employees = updated[locationIndex].employees.filter((_, i) => i !== employeeIndex);
-        }
-        setLocationsData(updated);
+        const location = locationsData[locationIndex];
+        const employee = location.employees?.[employeeIndex];
+        const employeeName = employee?.name || `Empleado ${employeeIndex + 1}`;
+        const locationName = location.label || location.value || `Ubicación ${locationIndex + 1}`;
+        
+        openConfirmModal(
+            'Eliminar Empleado',
+            `¿Está seguro de que desea eliminar al empleado "${employeeName}" de la ubicación "${locationName}"? Esta acción no se puede deshacer.`,
+            () => {
+                const updated = [...locationsData];
+                if (updated[locationIndex].employees) {
+                    updated[locationIndex].employees = updated[locationIndex].employees.filter((_, i) => i !== employeeIndex);
+                }
+                setLocationsData(updated);
+            }
+        );
     };
 
     // Funciones para manejar sorteos
@@ -346,7 +421,16 @@ export default function DataEditor() {
     };
 
     const removeSorteo = (index: number) => {
-        setSorteosData(sorteosData.filter((_, i) => i !== index));
+        const sorteo = sorteosData[index];
+        const sorteoName = sorteo.name || `Sorteo ${index + 1}`;
+        
+        openConfirmModal(
+            'Eliminar Sorteo',
+            `¿Está seguro de que desea eliminar el sorteo "${sorteoName}"? Esta acción no se puede deshacer.`,
+            () => {
+                setSorteosData(sorteosData.filter((_, i) => i !== index));
+            }
+        );
     };    // Funciones para manejar usuarios
     const addUser = () => {
         const newUser: User = {
@@ -364,7 +448,16 @@ export default function DataEditor() {
         updated[index] = { ...updated[index], [field]: value };
         setUsersData(updated);
     }; const removeUser = (index: number) => {
-        setUsersData(usersData.filter((_, i) => i !== index));
+        const user = usersData[index];
+        const userName = user.name || `Usuario ${index + 1}`;
+        
+        openConfirmModal(
+            'Eliminar Usuario',
+            `¿Está seguro de que desea eliminar al usuario "${userName}"? Esta acción no se puede deshacer.`,
+            () => {
+                setUsersData(usersData.filter((_, i) => i !== index));
+            }
+        );
     };
 
     // Funciones para manejar visibilidad de contraseñas
@@ -373,6 +466,35 @@ export default function DataEditor() {
             ...prev,
             [index]: !prev[index]
         }));
+    };
+
+    // Funciones para manejar modal de confirmación
+    const openConfirmModal = (title: string, message: string, onConfirm: () => void) => {
+        setConfirmModal({
+            open: true,
+            title,
+            message,
+            onConfirm,
+            loading: false
+        });
+    };
+
+    const closeConfirmModal = () => {
+        setConfirmModal({
+            open: false,
+            title: '',
+            message: '',
+            onConfirm: null,
+            loading: false
+        });
+    };
+
+    const handleConfirm = () => {
+        if (confirmModal.onConfirm) {
+            setConfirmModal(prev => ({ ...prev, loading: true }));
+            confirmModal.onConfirm();
+            closeConfirmModal();
+        }
     };
 
     // Función para guardar usuario individual
@@ -407,6 +529,59 @@ export default function DataEditor() {
             console.error('Error saving user:', error);
         } finally {
             setSavingUser(null);
+        }
+    };
+
+    // Función para guardar ubicación individual
+    const saveIndividualLocation = async (index: number) => {
+        setSavingLocation(index);
+        try {
+            const location = locationsData[index];
+            
+            if (location.id) {
+                // Actualizar ubicación existente
+                const namesToSave = location.employees
+                    ? location.employees.map(emp => emp.name)
+                    : location.names || [];
+
+                await LocationsService.updateLocation(location.id, {
+                    label: location.label,
+                    value: location.value,
+                    names: namesToSave, // Mantener compatibilidad hacia atrás
+                    employees: location.employees || [] // Nueva estructura con tipo CCSS
+                });
+            } else {
+                // Crear nueva ubicación
+                const namesToSave = location.employees
+                    ? location.employees.map(emp => emp.name)
+                    : location.names || [];
+
+                await LocationsService.addLocation({
+                    label: location.label,
+                    value: location.value,
+                    names: namesToSave, // Mantener compatibilidad hacia atrás
+                    employees: location.employees || [] // Nueva estructura con tipo CCSS
+                });
+                // Recargar datos para obtener el ID generado
+                await loadData();
+            }
+            
+            const locationName = location.label || location.value || `Ubicación ${index + 1}`;
+            showNotification(`Ubicación "${locationName}" guardada exitosamente`, 'success');
+            
+            // Actualizar el tracking de la ubicación original después de guardar
+            // Si recargamos datos, el tracking se actualizará en loadData
+            if (location.id) {
+                setOriginalLocationsByIndex(prev => ({
+                    ...prev,
+                    [index]: JSON.parse(JSON.stringify(locationsData[index]))
+                }));
+            }
+        } catch (error) {
+            showNotification('Error al guardar la ubicación', 'error');
+            console.error('Error saving location:', error);
+        } finally {
+            setSavingLocation(null);
         }
     };
 
@@ -582,7 +757,14 @@ export default function DataEditor() {
                     </div>
 
                     {locationsData.map((location, locationIndex) => (
-                        <div key={locationIndex} className="border border-[var(--input-border)] rounded-lg p-4">
+                        <div key={locationIndex} className="border border-[var(--input-border)] rounded-lg p-4 relative">
+                            {/* Indicador de cambios */}
+                            {hasLocationChanged(locationIndex) && (
+                                <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-1 bg-orange-100 dark:bg-orange-900/20 text-orange-800 dark:text-orange-200 rounded-full text-xs font-medium">
+                                    <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+                                    Cambios pendientes
+                                </div>
+                            )}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Valor:</label>
@@ -699,7 +881,19 @@ export default function DataEditor() {
                                 </div>
                             </div>
 
-                            <div className="flex justify-end">
+                            <div className="flex justify-end gap-2">
+                                <button
+                                    onClick={() => saveIndividualLocation(locationIndex)}
+                                    className={`px-4 py-2 rounded-md transition-colors flex items-center gap-2 ${
+                                        hasLocationChanged(locationIndex) && savingLocation !== locationIndex
+                                            ? 'bg-green-600 hover:bg-green-700 text-white'
+                                            : 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                                    }`}
+                                    disabled={!hasLocationChanged(locationIndex) || savingLocation === locationIndex}
+                                >
+                                    <Save className="w-4 h-4" />
+                                    {savingLocation === locationIndex ? 'Guardando...' : 'Guardar Ubicación'}
+                                </button>
                                 <button
                                     onClick={() => removeLocation(locationIndex)}
                                     className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors">
@@ -1102,6 +1296,19 @@ export default function DataEditor() {
                     </div>
                 </div>
             )}
+
+            {/* Modal de confirmación */}
+            <ConfirmModal
+                open={confirmModal.open}
+                title={confirmModal.title}
+                message={confirmModal.message}
+                confirmText="Eliminar"
+                cancelText="Cancelar"
+                loading={confirmModal.loading}
+                onConfirm={handleConfirm}
+                onCancel={closeConfirmModal}
+                actionType="delete"
+            />
         </div>
     );
 }
