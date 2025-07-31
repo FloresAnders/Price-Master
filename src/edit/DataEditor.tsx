@@ -17,11 +17,11 @@ export default function DataEditor() {
     const [locationsData, setLocationsData] = useState<Location[]>([]);
     const [sorteosData, setSorteosData] = useState<Sorteo[]>([]);
     const [usersData, setUsersData] = useState<User[]>([]);
-    const [ccssData, setCcssData] = useState<CcssConfig>({ mt: 3672.46, tc: 11017.39, valorhora: 1441 });
+    const [ccssData, setCcssData] = useState<CcssConfig>({ mt: 3672.46, tc: 11017.39, valorhora: 1441, horabruta: 1529.62 });
     const [originalLocationsData, setOriginalLocationsData] = useState<Location[]>([]);
     const [originalSorteosData, setOriginalSorteosData] = useState<Sorteo[]>([]);
     const [originalUsersData, setOriginalUsersData] = useState<User[]>([]);
-    const [originalCcssData, setOriginalCcssData] = useState<CcssConfig>({ mt: 3672.46, tc: 11017.39, valorhora: 1441 });
+    const [originalCcssData, setOriginalCcssData] = useState<CcssConfig>({ mt: 3672.46, tc: 11017.39, valorhora: 1441, horabruta: 1529.62 });
     const [hasChanges, setHasChanges] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
@@ -159,7 +159,8 @@ export default function DataEditor() {
             await CcssConfigService.updateCcssConfig({
                 mt: ccssData.mt,
                 tc: ccssData.tc,
-                valorhora: ccssData.valorhora
+                valorhora: ccssData.valorhora,
+                horabruta: ccssData.horabruta
             });
 
             // Guardar también en localStorage como respaldo
@@ -240,7 +241,8 @@ export default function DataEditor() {
                         setCcssData({
                             mt: ccssConfig.mt,
                             tc: ccssConfig.tc,
-                            valorhora: typeof ccssConfig.valorhora === 'number' ? ccssConfig.valorhora : 1441
+                            valorhora: typeof ccssConfig.valorhora === 'number' ? ccssConfig.valorhora : 1441,
+                            horabruta: typeof ccssConfig.horabruta === 'number' ? ccssConfig.horabruta : 1529.62
                         });
                     }
                 }
@@ -409,7 +411,7 @@ export default function DataEditor() {
     };
 
     // Funciones para manejar configuración CCSS
-    const updateCcssConfig = (field: 'mt' | 'tc' | 'valorhora', value: number) => {
+    const updateCcssConfig = (field: 'mt' | 'tc' | 'valorhora' | 'horabruta', value: number) => {
         setCcssData(prev => ({
             ...prev,
             [field]: value
@@ -902,7 +904,7 @@ export default function DataEditor() {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
                         {/* Tiempo Completo */}
                         <div className="border border-[var(--input-border)] rounded-lg p-6">
                             <div className="flex items-center gap-3 mb-4">
@@ -1001,6 +1003,39 @@ export default function DataEditor() {
                                 </p>
                             </div>
                         </div>
+
+                        {/* Hora Bruta */}
+                        <div className="border border-[var(--input-border)] rounded-lg p-6">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
+                                    <DollarSign className="w-6 h-6 text-purple-600" />
+                                </div>
+                                <div>
+                                    <h5 className="font-semibold text-lg">Hora Bruta</h5>
+                                    <p className="text-sm text-[var(--muted-foreground)]">Tarifa horaria bruta</p>
+                                </div>
+                            </div>
+                            
+                            <div className="space-y-3">
+                                <label className="block text-sm font-medium">Monto Hora Bruta:</label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--muted-foreground)]">₡</span>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        value={ccssData.horabruta || 1529.62}
+                                        onChange={(e) => updateCcssConfig('horabruta', parseFloat(e.target.value) || 0)}
+                                        className="w-full pl-8 pr-3 py-3 border border-[var(--input-border)] rounded-md text-lg font-semibold"
+                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                        placeholder="1529.62"
+                                    />
+                                </div>
+                                <p className="text-xs text-[var(--muted-foreground)]">
+                                    Valor por defecto: ₡1,529.62
+                                </p>
+                            </div>
+                        </div>
                     </div>
 
                     {/* Resumen de configuración */}
@@ -1009,7 +1044,7 @@ export default function DataEditor() {
                             <FileText className="w-5 h-5" />
                             Resumen de Configuración
                         </h5>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 text-sm">
                             <div className="flex justify-between">
                                 <span className="text-[var(--muted-foreground)]">Tiempo Completo (TC):</span>
                                 <span className="font-medium">₡{ccssData.tc.toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
@@ -1021,6 +1056,10 @@ export default function DataEditor() {
                             <div className="flex justify-between">
                                 <span className="text-[var(--muted-foreground)]">Valor por Hora:</span>
                                 <span className="font-medium">₡{(ccssData.valorhora || 1441).toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-[var(--muted-foreground)]">Hora Bruta:</span>
+                                <span className="font-medium">₡{(ccssData.horabruta || 1529.62).toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
                             </div>
                         </div>
                         
@@ -1041,6 +1080,7 @@ export default function DataEditor() {
                                     updateCcssConfig('tc', 11017.39);
                                     updateCcssConfig('mt', 3672.46);
                                     updateCcssConfig('valorhora', 1441);
+                                    updateCcssConfig('horabruta', 1529.62);
                                 }
                             }}
                             className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors"

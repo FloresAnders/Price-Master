@@ -59,5 +59,6 @@ export interface CcssConfig {
   mt: number; // Valor para Medio Tiempo
   tc: number; // Valor para Tiempo Completo
   valorhora: number; // Valor por hora predeterminado
+  horabruta: number; // Valor por hora bruta
   updatedAt?: Date;
 }

@@ -19,6 +19,7 @@ export class CcssConfigService {
         mt: 3672.46,
         tc: 11017.39,
         valorhora: 1441,
+        horabruta: 1529.62,
         updatedAt: new Date()
       };
     } catch (error) {
@@ -28,6 +29,7 @@ export class CcssConfigService {
         mt: 3672.46,
         tc: 11017.39,
         valorhora: 1441,
+        horabruta: 1529.62,
         updatedAt: new Date()
       };
     }
@@ -69,7 +71,8 @@ export class CcssConfigService {
         await this.updateCcssConfig({
           mt: 3672.46,
           tc: 11017.39,
-          valorhora: 1441
+          valorhora: 1441,
+          horabruta: 1529.62
         });
       }
     } catch (error) {
