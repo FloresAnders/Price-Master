@@ -1,12 +1,33 @@
-// src/components/Footer.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 
 export default function Footer() {
   const [isGitHubModalOpen, setIsGitHubModalOpen] = useState(false);
-  const router = useRouter();
+
+  const motivationalPhrases = [
+    '¡Tu esfuerzo marca la diferencia cada día!',
+    'La excelencia se logra con constancia. ¡Sigue adelante!',
+    'Cada precio bien gestionado es un paso al éxito.',
+    'Trabajar en equipo nos hace más fuertes.',
+    'La actitud positiva transforma el trabajo en resultados.',
+    '¡Gracias por tu dedicación y profesionalismo!',
+    'El éxito es la suma de pequeños esfuerzos repetidos.',
+    'Tu trabajo impulsa el crecimiento de todos.',
+    'La innovación comienza con tu iniciativa.',
+    '¡Sigue aprendiendo y creciendo cada día!'
+  ];
+
+  const getRandomIndex = () => Math.floor(Math.random() * motivationalPhrases.length);
+  const [phraseIndex, setPhraseIndex] = useState(getRandomIndex());
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPhraseIndex(prev => (prev + 1) % motivationalPhrases.length);
+    }, 1800000); // Cambia cada 30 minutos
+    return () => clearInterval(interval);
+  }, [motivationalPhrases.length]);
+
 
   // Handle ESC key to close modal
   useEffect(() => {
@@ -26,39 +47,27 @@ export default function Footer() {
   }, [isGitHubModalOpen]);
   
   return (
-    <footer className="mt-auto border-t border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)]">
-      <div className="max-w-7xl mx-auto px-4 py-4" suppressHydrationWarning>
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-4" suppressHydrationWarning>
-          <div className="text-center sm:text-left" suppressHydrationWarning>
-            <span className="text-sm text-[var(--tab-text)]">© {new Date().getFullYear()} Price Master</span>
-          </div>
-          <div className="flex items-center space-x-4" suppressHydrationWarning>
-            <button
-              onClick={() => setIsGitHubModalOpen(true)}
-              className="flex items-center space-x-2 hover:text-[var(--tab-hover-text)] transition-colors text-[var(--tab-text)]"
-              aria-label="GitHub"
-            >
-              <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 0C4.477 0 0 4.484 0 10.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0110 4.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.203 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.942.359.31.678.921.678 1.856 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0020 10.017C20 4.484 15.522 0 10 0z" clipRule="evenodd" />
-              </svg>
-              <span className="text-sm">Equipo</span>
-            </button>
-            <button
-              onClick={() => router.push('/login')}
-              className="flex items-center space-x-2 hover:text-[var(--tab-hover-text)] transition-colors text-[var(--tab-text)] opacity-50 hover:opacity-100"
-              aria-label="Mmmm"
-              title="Mmmm"
-            >
-              <span className="text-lg">ㅤㅤ</span>
-            </button>
-          </div>
+    <footer className="w-full mt-auto">
+      <div className="bg-[var(--card-bg)] text-[var(--foreground)] py-8 px-2 border-t border-[var(--input-border)]">
+        <div className="max-w-6xl mx-auto flex flex-col items-center justify-center gap-4">
+          <button
+            aria-label="GitHub"
+            className="group rounded-full bg-gradient-to-tr from-[#24292e] to-[var(--input-border)] p-2 shadow-lg border border-[var(--input-border)] focus:outline-none relative overflow-hidden"
+            onClick={() => setIsGitHubModalOpen(true)}
+          >
+            <span className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none">
+              <span className="absolute left-0 top-0 w-full h-full animate-pulse bg-gradient-to-r from-[#24292e] via-[var(--tab-hover-text)] to-[var(--input-border)] opacity-30 rounded-full"></span>
+            </span>
+            <svg className="w-8 h-8 relative z-10" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 0C4.477 0 0 4.484 0 10.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0110 4.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.203 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.942.359.31.678.921.678 1.856 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0020 10.017C20 4.484 15.522 0 10 0z" clipRule="evenodd" />
+            </svg>
+          </button>
         </div>
       </div>
-
-      {/* Modal de GitHub */}
+      {/* Modal original visual del equipo */}
       {isGitHubModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" suppressHydrationWarning>
-          <div className="bg-[var(--card-bg)] rounded-2xl shadow-xl w-full max-w-md p-6 relative border border-[var(--input-border)]" suppressHydrationWarning>
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+          <div className="bg-[var(--card-bg)] text-[var(--foreground)] rounded-2xl shadow-xl w-full max-w-md p-6 relative border border-[var(--input-border)]">
             <button
               className="absolute top-4 right-4 text-[var(--foreground)] hover:text-gray-500 transition-colors"
               onClick={() => setIsGitHubModalOpen(false)}
@@ -116,6 +125,18 @@ export default function Footer() {
           </div>
         </div>
       )}
+      {/* Barra negra inferior */}
+      <div className="bg-[var(--background)] text-[var(--foreground)] text-xs py-3 px-2 border-t border-[var(--input-border)]">
+        <div className="max-w-6xl mx-auto flex flex-col items-center justify-center">
+          <span className="text-sm text-[var(--tab-text)]">
+            © {new Date().getFullYear()} Price Master
+            <span className="mx-2">|</span>
+            <span className="font-medium transition-opacity duration-700" key={phraseIndex}>
+              {motivationalPhrases[phraseIndex]}
+            </span>
+          </span>
+        </div>
+      </div>
     </footer>
   );
 }
