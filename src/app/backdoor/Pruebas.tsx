@@ -351,6 +351,251 @@ export default function Pruebas() {
         }
     };
 
+    // Función para eliminar horarios masivamente por ubicación y mes
+    const deleteSchedulesByLocationAndMonth = async () => {
+        setActiveTest('delete-schedules-filter');
+        
+        try {
+            setTestResults(prev => ({
+                ...prev,
+                'delete-init': '🔄 Iniciando eliminación masiva de horarios...',
+                'delete-status': '📊 Obteniendo datos de schedules desde Firebase...'
+            }));
+
+            // Importar servicios necesarios
+            const { SchedulesService } = await import('@/services/schedules');
+            const { LocationsService } = await import('@/services/locations');
+            
+            // Obtener todos los schedules y locations
+            const allSchedules = await SchedulesService.getAllSchedules();
+            const allLocations = await LocationsService.getAllLocations();
+            
+            setTestResults(prev => ({
+                ...prev,
+                'delete-data': `✅ Datos obtenidos: ${allSchedules.length} registros de horarios`,
+                'delete-locations': `📍 Ubicaciones disponibles: ${allLocations.map(l => l.label).join(', ')}`
+            }));
+
+            // Crear modal de confirmación con filtros
+            const deleteModal = document.createElement('div');
+            deleteModal.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+                background: rgba(0,0,0,0.8); z-index: 10000; display: flex; 
+                align-items: center; justify-content: center;
+            `;
+            
+            deleteModal.innerHTML = `
+                <div style="background: white; padding: 24px; border-radius: 12px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto;">
+                    <h3 style="margin: 0 0 20px 0; color: #dc2626; font-size: 20px; font-weight: bold;">
+                        🗑️ Eliminar Horarios Masivamente
+                    </h3>
+                    
+                    <div style="background: #fef2f2; padding: 12px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #dc2626;">
+                        <p style="margin: 0; color: #991b1b; font-weight: 600;">
+                            ⚠️ ADVERTENCIA: Esta acción eliminará permanentemente los registros seleccionados
+                        </p>
+                        <p style="margin: 8px 0 0 0; color: #7f1d1d; font-size: 14px;">
+                            No se puede deshacer. Asegúrate de hacer backup antes de continuar.
+                        </p>
+                    </div>
+                    
+                    <!-- Filtro de Ubicación -->
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #374151;">
+                            📍 Ubicación:
+                        </label>
+                        <select id="locationSelect" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; background: white;">
+                            <option value="">Seleccionar ubicación...</option>
+                            ${allLocations.map(location => `
+                                <option value="${location.value}">${location.label} (${location.value})</option>
+                            `).join('')}
+                        </select>
+                    </div>
+                    
+                    <!-- Filtro de Año y Mes -->
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #374151;">
+                            📅 Año y Mes:
+                        </label>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                            <div>
+                                <label style="display: block; margin-bottom: 4px; font-size: 14px; color: #6b7280;">Año:</label>
+                                <select id="yearSelect" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; background: white;">
+                                    <option value="">Seleccionar año...</option>
+                                    <option value="2024">2024</option>
+                                    <option value="2025">2025</option>
+                                    <option value="2026">2026</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 4px; font-size: 14px; color: #6b7280;">Mes:</label>
+                                <select id="monthSelect" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; background: white;">
+                                    <option value="">Seleccionar mes...</option>
+                                    <option value="1">Enero</option>
+                                    <option value="2">Febrero</option>
+                                    <option value="3">Marzo</option>
+                                    <option value="4">Abril</option>
+                                    <option value="5">Mayo</option>
+                                    <option value="6">Junio</option>
+                                    <option value="7">Julio</option>
+                                    <option value="8">Agosto</option>
+                                    <option value="9">Septiembre</option>
+                                    <option value="10">Octubre</option>
+                                    <option value="11">Noviembre</option>
+                                    <option value="12">Diciembre</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Vista previa de registros a eliminar -->
+                    <div id="previewSection" style="margin-bottom: 20px; display: none;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #374151;">
+                            📋 Vista Previa:
+                        </label>
+                        <div id="previewContent" style="max-height: 200px; overflow-y: auto; border: 1px solid #d1d5db; border-radius: 6px; padding: 12px; background: #f9fafb;">
+                            <!-- Contenido se llena dinámicamente -->
+                        </div>
+                    </div>
+                    
+                    <!-- Botones de acción -->
+                    <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                        <button id="cancelDelete" style="background: #6b7280; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer;">
+                            Cancelar
+                        </button>
+                        <button id="previewDelete" style="background: #3b82f6; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer;">
+                            🔍 Vista Previa
+                        </button>
+                        <button id="executeDelete" style="background: #dc2626; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; display: none;">
+                            🗑️ Eliminar Registros
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(deleteModal);
+            
+            // Event listeners
+            document.getElementById('cancelDelete')?.addEventListener('click', () => {
+                document.body.removeChild(deleteModal);
+                setActiveTest(null);
+            });
+            
+            // Vista previa de registros a eliminar
+            document.getElementById('previewDelete')?.addEventListener('click', () => {
+                const locationValue = (document.getElementById('locationSelect') as HTMLSelectElement).value;
+                const year = parseInt((document.getElementById('yearSelect') as HTMLSelectElement).value);
+                const month = parseInt((document.getElementById('monthSelect') as HTMLSelectElement).value);
+                
+                if (!locationValue || !year || !month) {
+                    alert('Por favor selecciona ubicación, año y mes');
+                    return;
+                }
+                
+                // Filtrar registros que coincidan con los criterios
+                const recordsToDelete = allSchedules.filter(schedule => 
+                    schedule.locationValue === locationValue &&
+                    schedule.year === year &&
+                    schedule.month === month
+                );
+                
+                const previewSection = document.getElementById('previewSection');
+                const previewContent = document.getElementById('previewContent');
+                const executeButton = document.getElementById('executeDelete');
+                
+                if (recordsToDelete.length === 0) {
+                    if (previewContent) {
+                        previewContent.innerHTML = '<p style="color: #6b7280; margin: 0;">No se encontraron registros con los criterios seleccionados.</p>';
+                    }
+                    if (executeButton) executeButton.style.display = 'none';
+                } else {
+                    if (previewContent) {
+                        previewContent.innerHTML = `
+                            <p style="margin: 0 0 12px 0; font-weight: 600; color: #dc2626;">
+                                Se eliminarán ${recordsToDelete.length} registros:
+                            </p>
+                            ${recordsToDelete.slice(0, 10).map(record => `
+                                <div style="margin-bottom: 8px; padding: 8px; background: white; border-radius: 4px; border-left: 3px solid #dc2626;">
+                                    <strong>${record.employeeName}</strong> - Día ${record.day}
+                                    ${record.shift ? ` - Turno: ${record.shift}` : ''}
+                                    ${record.horasPorDia ? ` - Horas: ${record.horasPorDia}` : ''}
+                                </div>
+                            `).join('')}
+                            ${recordsToDelete.length > 10 ? `<p style="margin: 8px 0 0 0; color: #6b7280; font-style: italic;">... y ${recordsToDelete.length - 10} registros más</p>` : ''}
+                        `;
+                    }
+                    if (executeButton) executeButton.style.display = 'inline-block';
+                }
+                
+                if (previewSection) previewSection.style.display = 'block';
+            });
+            
+            // Ejecutar eliminación
+            document.getElementById('executeDelete')?.addEventListener('click', async () => {
+                const locationValue = (document.getElementById('locationSelect') as HTMLSelectElement).value;
+                const year = parseInt((document.getElementById('yearSelect') as HTMLSelectElement).value);
+                const month = parseInt((document.getElementById('monthSelect') as HTMLSelectElement).value);
+                
+                // Doble confirmación
+                const confirmed = confirm(`¿Estás ABSOLUTAMENTE SEGURO que quieres eliminar todos los horarios de ${locationValue} del mes ${month}/${year}?\n\nEsta acción NO se puede deshacer.`);
+                if (!confirmed) return;
+                
+                try {
+                    // Obtener registros a eliminar
+                    const recordsToDelete = allSchedules.filter(schedule => 
+                        schedule.locationValue === locationValue &&
+                        schedule.year === year &&
+                        schedule.month === month
+                    );
+                    
+                    setTestResults(prev => ({
+                        ...prev,
+                        'delete-progress': `🔄 Eliminando ${recordsToDelete.length} registros...`
+                    }));
+                    
+                    // Eliminar uno por uno
+                    let deletedCount = 0;
+                    let errorCount = 0;
+                    
+                    for (const record of recordsToDelete) {
+                        try {
+                            if (record.id) {
+                                await SchedulesService.deleteSchedule(record.id);
+                                deletedCount++;
+                            }
+                        } catch (error) {
+                            console.error(`Error eliminando registro ${record.id}:`, error);
+                            errorCount++;
+                        }
+                    }
+                    
+                    setTestResults(prev => ({
+                        ...prev,
+                        'delete-success': `✅ Eliminación completada: ${deletedCount} registros eliminados`,
+                        'delete-errors': errorCount > 0 ? `⚠️ Errores: ${errorCount} registros no pudieron eliminarse` : '',
+                        'delete-summary': `📊 Resumen: ${deletedCount}/${recordsToDelete.length} registros procesados exitosamente`
+                    }));
+                    
+                    document.body.removeChild(deleteModal);
+                    setActiveTest(null);
+                    
+                } catch (error) {
+                    setTestResults(prev => ({
+                        ...prev,
+                        'delete-error': `❌ Error durante eliminación: ${error instanceof Error ? error.message : 'Error desconocido'}`
+                    }));
+                }
+            });
+            
+        } catch (error) {
+            setTestResults(prev => ({
+                ...prev,
+                'delete-error': `❌ Error durante eliminación masiva: ${error instanceof Error ? error.message : 'Error desconocido'}`
+            }));
+            setActiveTest(null);
+        }
+    };
+
     // Función para exportar horarios/schedules con filtros
     const exportSchedulesWithFilters = async () => {
         setActiveTest('export-schedules-filters');
@@ -845,6 +1090,7 @@ export default function Pruebas() {
             tests: [
                 { id: 'export-schedules-filters', name: 'Exportar con Filtros', action: exportSchedulesWithFilters },
                 { id: 'import-schedules', name: 'Importar Horarios', action: importSchedulesFromFile },
+                { id: 'delete-schedules-filter', name: 'Eliminar por Ubicación/Mes', action: deleteSchedulesByLocationAndMonth },
                 { id: 'validate-schedules', name: 'Validar Integridad' },
                 { id: 'backup-schedules', name: 'Backup Completo' }
             ]
