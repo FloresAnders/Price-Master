@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import FooterButtons from './FooterButtons';
 
 export default function Footer() {
   const [isGitHubModalOpen, setIsGitHubModalOpen] = useState(false);
@@ -45,9 +46,11 @@ export default function Footer() {
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [isGitHubModalOpen]);
-  
+
   return (
     <footer className="w-full mt-auto">
+       <FooterButtons onGitHubClick={() => setIsGitHubModalOpen(true)} />
+     
       <div className="bg-[var(--card-bg)] text-[var(--foreground)] py-8 px-2 border-t border-[var(--input-border)]">
         <div className="max-w-6xl mx-auto flex flex-col items-center justify-center gap-4">
           <button
