@@ -1,7 +1,7 @@
     'use client';
 
 import React, { useState, useRef } from 'react';
-import { TestTube, Beaker, FlaskConical, Zap, Code, Database, Upload, Image, CheckCircle, AlertCircle, Calendar, FileText } from 'lucide-react';
+import { TestTube, Beaker, FlaskConical, Zap, Code, Database, Upload, Image, CheckCircle, AlertCircle, Calendar } from 'lucide-react';
 import { storage } from '@/config/firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
@@ -454,11 +454,11 @@ export default function Pruebas() {
             
             // Event listeners
             document.getElementById('selectAllLocations')?.addEventListener('click', () => {
-                document.querySelectorAll('#locationFilters input[type="checkbox"]').forEach((cb: any) => cb.checked = true);
+                document.querySelectorAll('#locationFilters input[type="checkbox"]').forEach((cb) => (cb as HTMLInputElement).checked = true);
             });
             
             document.getElementById('clearAllLocations')?.addEventListener('click', () => {
-                document.querySelectorAll('#locationFilters input[type="checkbox"]').forEach((cb: any) => cb.checked = false);
+                document.querySelectorAll('#locationFilters input[type="checkbox"]').forEach((cb) => (cb as HTMLInputElement).checked = false);
             });
             
             document.getElementById('cancelExport')?.addEventListener('click', () => {
@@ -470,7 +470,7 @@ export default function Pruebas() {
                 const dateFrom = (document.getElementById('dateFrom') as HTMLInputElement).value;
                 const dateTo = (document.getElementById('dateTo') as HTMLInputElement).value;
                 const selectedLocations = Array.from(document.querySelectorAll('#locationFilters input[type="checkbox"]:checked'))
-                    .map((cb: any) => cb.value);
+                    .map((cb) => (cb as HTMLInputElement).value);
                 
                 if (!dateFrom || !dateTo) {
                     alert('Por favor selecciona ambas fechas');
@@ -675,7 +675,15 @@ export default function Pruebas() {
     };
 
     // Función auxiliar para verificar duplicados
-    const checkForDuplicates = async (schedulesToImport: any[]) => {
+    const checkForDuplicates = async (schedulesToImport: Array<{
+        locationValue: string;
+        employeeName: string;
+        year: number;
+        month: number;
+        day: number;
+        shift: string;
+        horasPorDia?: number;
+    }>) => {
         try {
             const { SchedulesService } = await import('@/services/schedules');
             const existingSchedules = await SchedulesService.getAllSchedules();
@@ -700,13 +708,22 @@ export default function Pruebas() {
             });
             
             return { duplicates, news };
-        } catch (error) {
+        } catch {
+            // Error is intentionally ignored - fallback to treating all as new
             return { duplicates: 0, news: schedulesToImport.length };
         }
     };
 
     // Función auxiliar para realizar la importación
-    const performImport = async (schedules: any[]) => {
+    const performImport = async (schedules: Array<{
+        locationValue: string;
+        employeeName: string;
+        year: number;
+        month: number;
+        day: number;
+        shift: string;
+        horasPorDia?: number;
+    }>) => {
         try {
             const { SchedulesService } = await import('@/services/schedules');
             
@@ -728,7 +745,7 @@ export default function Pruebas() {
                         year: schedule.year,
                         month: schedule.month,
                         day: schedule.day,
-                        shift: schedule.shift,
+                        shift: schedule.shift || '', // Ensure shift is always a string
                         ...(schedule.horasPorDia && { horasPorDia: schedule.horasPorDia })
                     };
                     

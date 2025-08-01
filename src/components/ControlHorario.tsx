@@ -58,12 +58,12 @@ function EmployeeTooltipSummary({
         const currentLocation = locations[0]; // Tomar la primera coincidencia
         const employee = currentLocation?.employees?.find(emp => emp.name === employeeName);
         
-        // Obtener horarios del empleado para este mes
+        // Obtener horarios del empleado para este mes - usar JavaScript month (0-11)
         const schedules = await SchedulesService.getSchedulesByLocationEmployeeMonth(
           locationValue,
           employeeName,
           year,
-          month // 🧪 TESTING: SIN +1
+          month // Usar JavaScript month (0-11) para consistencia
         );
 
         // Obtener configuración CCSS actualizada
@@ -281,13 +281,16 @@ export default function ControlHorario() {
       const month = currentDate.getMonth();
 
       try {
-        // TESTING: Probar sin el +1 para verificar si el problema es al revés
-        const testMonth = month; // Sin +1
-        console.log('🧪 TESTING: Querying with month WITHOUT +1:', testMonth);
+        // Determinar el mes correcto para la consulta
+        // Si los datos históricos están guardados con JavaScript month (0-11), usar month
+        // Si están guardados con calendario month (1-12), usar month + 1
+        const dbMonth = month; // Temporal: usar month directamente para ver datos históricos
+        console.log('🧪 TESTING: Querying with JavaScript month (0-11):', dbMonth);
+        console.log('Current month displayed:', new Date(year, month).toLocaleDateString('es-CR', { month: 'long' }));
         
         const scheduleEntries: ScheduleEntry[][] = await Promise.all(
           names.map(employeeName =>
-            SchedulesService.getSchedulesByLocationEmployeeMonth(location, employeeName, year, testMonth) // SIN +1 para probar
+            SchedulesService.getSchedulesByLocationEmployeeMonth(location, employeeName, year, dbMonth)
           )
         );
 
@@ -296,7 +299,7 @@ export default function ControlHorario() {
         console.log('Year:', year);
         console.log('Current JavaScript Date:', currentDate);
         console.log('Month (JS 0-based):', month, '- Month name:', new Date(year, month).toLocaleDateString('es-CR', { month: 'long' }));
-        console.log('Month (Firestore query - using month + 1):', month + 1);
+        console.log('Month queried in DB:', dbMonth);
         console.log('Raw Schedule entries from DB:', scheduleEntries);
         
         // Verificar qué meses están realmente en los datos
@@ -576,14 +579,14 @@ export default function ControlHorario() {
         console.log('🔄 SAVING SCHEDULE DATA:');
         console.log('Current Date:', currentDate);
         console.log('JS Month (0-based):', month, '- Month name:', new Date(year, month).toLocaleDateString('es-CR', { month: 'long' }));
-        console.log('🧪 TESTING: Sending to DB WITHOUT +1:', month);
+        console.log('🧪 TESTING: Sending to DB with JavaScript month:', month);
         console.log('Full save data:', { location, employeeName, year, month: month, day: parseInt(day), newValue });
         
         await SchedulesService.updateScheduleShift(
           location,
           employeeName,
           year,
-          month, // 🧪 TESTING: SIN +1 para probar
+          month, // Usar JavaScript month (0-11) para consistencia
           parseInt(day),
           newValue
         );
@@ -685,19 +688,19 @@ export default function ControlHorario() {
   const handleDelifoodHoursSave = async (hours: number) => {
     const { employeeName, day } = delifoodModal;
     
-    console.log('🧪 TESTING: Guardando horas SIN +1:', { location, employeeName, year, month: month, day, hours });
+    console.log('🧪 TESTING: Guardando horas con JavaScript month:', { location, employeeName, year, month: month, day, hours });
     
     if (!location || !employeeName) return;
 
     try {
       setSaving(true);
       
-      // Actualizar en Firebase
+      // Actualizar en Firebase - usar JavaScript month (0-11) para consistencia
       await SchedulesService.updateScheduleHours(
         location,
         employeeName,
         year,
-        month, // 🧪 TESTING: SIN +1
+        month, // Usar JavaScript month (0-11) para consistencia
         day,
         hours
       );
@@ -755,7 +758,7 @@ export default function ControlHorario() {
       
       console.log('New date:', newDate);
       console.log('New month (JS):', newDate.getMonth(), '- Month name:', newDate.toLocaleDateString('es-CR', { month: 'long' }));
-      console.log('Will query DB with month:', newDate.getMonth() + 1);
+      console.log('Will query DB with month (JavaScript 0-11):', newDate.getMonth());
       
       return newDate;
     });
@@ -1857,7 +1860,7 @@ export default function ControlHorario() {
           onSave={handleDelifoodHoursSave}
           employeeName={delifoodModal.employeeName}
           day={delifoodModal.day}
-          month={month + 1}
+          month={month}
           year={year}
           locationValue={location}
           currentHours={delifoodModal.currentHours}
