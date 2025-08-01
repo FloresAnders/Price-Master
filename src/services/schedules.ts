@@ -7,7 +7,7 @@ export interface ScheduleEntry {
   year: number;
   month: number;
   day: number;
-  shift: string; // 'N', 'D', 'L', or empty string
+  shift: string; // 'N', 'D', 'L', 'V', 'I', or empty string
   horasPorDia?: number; // Específico para DELIFOOD
   createdAt?: Date;
   updatedAt?: Date;

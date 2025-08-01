@@ -14,7 +14,7 @@ import DelifoodHoursModal from './DelifoodHoursModal';
 import ConfirmModal from './ConfirmModal';
 import type { Location } from '../types/firestore';
 import type { User as FirestoreUser } from '../types/firestore';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { ref, deleteObject } from 'firebase/storage';
 import { storage } from '../config/firebase';
 
 interface ScheduleData {
@@ -467,6 +467,13 @@ export default function ControlHorario() {
   const updateScheduleCell = async (employeeName: string, day: string, newValue: string) => {
     const currentValue = scheduleData[employeeName]?.[day] || '';
 
+    // Validar que solo usuarios ADMIN puedan asignar turnos V (Vacaciones) e I (Incapacidad)
+    if (newValue && ['V', 'I'].includes(newValue) && !isUserAdmin()) {
+      const stateName = newValue === 'V' ? 'Vacaciones' : 'Incapacidad';
+      showNotification(`Solo usuarios ADMIN pueden asignar "${stateName}".`, 'error');
+      return;
+    }
+
     // Validar que solo pueda haber una persona por día con el mismo turno (N, D) - permitir máximo 2 L
     if (newValue && ['N', 'D'].includes(newValue)) {
       // Verificar si ya hay alguien más con este turno en este día (solo para N y D)
@@ -491,10 +498,19 @@ export default function ControlHorario() {
     }
 
     // Confirmar asignación de turno nuevo
-    if (!currentValue && ['N', 'D', 'L'].includes(newValue)) {
+    if (!currentValue && ['N', 'D', 'L', 'V', 'I'].includes(newValue)) {
+      let confirmMessage = `¿Está seguro de asignar el turno "${newValue}" a ${employeeName} el día ${day}?`;
+      
+      // Mensajes específicos para los nuevos estados
+      if (newValue === 'V') {
+        confirmMessage = `¿Está seguro de marcar a ${employeeName} como "Vacaciones" el día ${day}?`;
+      } else if (newValue === 'I') {
+        confirmMessage = `¿Está seguro de marcar a ${employeeName} como "Incapacidad" el día ${day}?`;
+      }
+
       setConfirmModal({
         open: true,
-        message: `¿Está seguro de asignar el turno "${newValue}" a ${employeeName} el día ${day}?`,
+        message: confirmMessage,
         onConfirm: async () => {
           setModalLoading(true);
           await doUpdate();
@@ -507,14 +523,34 @@ export default function ControlHorario() {
     }
 
     // Confirmar cambio o eliminación de turno
-    if (currentValue && ['N', 'D', 'L'].includes(currentValue) && currentValue !== newValue) {
+    if (currentValue && ['N', 'D', 'L', 'V', 'I'].includes(currentValue) && currentValue !== newValue) {
       let confirmMessage = '';
       let actionType: 'delete' | 'change' = 'change';
       if (newValue === '' || newValue.trim() === '') {
-        confirmMessage = `¿Está seguro de eliminar el turno "${currentValue}" de ${employeeName} del día ${day}? Esto eliminará el registro de la base de datos.`;
+        // Mensaje específico según el tipo de estado que se está eliminando
+        let stateDescription = currentValue;
+        if (currentValue === 'V') stateDescription = 'Vacaciones';
+        else if (currentValue === 'I') stateDescription = 'Incapacidad';
+        else if (currentValue === 'L') stateDescription = 'Libre';
+        else if (currentValue === 'N') stateDescription = 'Nocturno';
+        else if (currentValue === 'D') stateDescription = 'Diurno';
+        
+        confirmMessage = `¿Está seguro de eliminar "${stateDescription}" de ${employeeName} del día ${day}? Esto eliminará el registro de la base de datos.`;
         actionType = 'delete';
       } else {
-        confirmMessage = `¿Está seguro de cambiar el turno de ${employeeName} del día ${day} de "${currentValue}" a "${newValue}"?`;
+        // Mensajes específicos para cambios
+        let fromDescription = currentValue;
+        let toDescription = newValue;
+        
+        if (currentValue === 'V') fromDescription = 'Vacaciones';
+        else if (currentValue === 'I') fromDescription = 'Incapacidad';
+        else if (currentValue === 'L') fromDescription = 'Libre';
+        
+        if (newValue === 'V') toDescription = 'Vacaciones';
+        else if (newValue === 'I') toDescription = 'Incapacidad';
+        else if (newValue === 'L') toDescription = 'Libre';
+        
+        confirmMessage = `¿Está seguro de cambiar a ${employeeName} del día ${day} de "${fromDescription}" a "${toDescription}"?`;
         actionType = 'change';
       }
       setConfirmModal({
@@ -570,17 +606,49 @@ export default function ControlHorario() {
         setSaving(false);
       }
     }
-  };// Opciones de turnos disponibles
-  const shiftOptions = [
+  };
+
+  // Función para verificar si el usuario es admin
+  const isUserAdmin = () => {
+    return user?.role === 'admin' || user?.role === 'superadmin';
+  };
+
+  // Opciones de turnos disponibles
+  const getShiftOptions = () => {
+    const baseOptions = [
+      { value: '', label: '', color: 'var(--input-bg)', textColor: 'var(--foreground)' },
+      { value: 'N', label: 'N', color: '#87CEEB', textColor: '#000' },
+      { value: 'D', label: 'D', color: '#FFFF00', textColor: '#000' },
+      { value: 'L', label: 'L', color: '#FF00FF', textColor: '#FFF' },
+    ];
+
+    // Agregar opciones adicionales solo para usuarios ADMIN
+    if (isUserAdmin()) {
+      baseOptions.push(
+        { value: 'V', label: 'V', color: '#28a745', textColor: '#FFF' }, // Verde para Vacaciones
+        { value: 'I', label: 'I', color: '#fd7e14', textColor: '#FFF' }  // Naranja para Incapacidad
+      );
+    }
+
+    return baseOptions;
+  };
+
+  const shiftOptions = getShiftOptions();
+
+  // Opciones completas para visualización (todos los usuarios pueden ver los colores)
+  const getAllShiftColors = () => [
     { value: '', label: '', color: 'var(--input-bg)', textColor: 'var(--foreground)' },
     { value: 'N', label: 'N', color: '#87CEEB', textColor: '#000' },
     { value: 'D', label: 'D', color: '#FFFF00', textColor: '#000' },
     { value: 'L', label: 'L', color: '#FF00FF', textColor: '#FFF' },
+    { value: 'V', label: 'V', color: '#28a745', textColor: '#FFF' }, // Verde para Vacaciones
+    { value: 'I', label: 'I', color: '#fd7e14', textColor: '#FFF' }  // Naranja para Incapacidad
   ];
 
-  // Función para obtener el color de fondo según la letra
+  // Función para obtener el color de fondo según la letra (todos los usuarios ven todos los colores)
   const getCellStyle = (value: string) => {
-    const option = shiftOptions.find(opt => opt.value === value);
+    const allColors = getAllShiftColors();
+    const option = allColors.find(opt => opt.value === value);
     return option ? {
       backgroundColor: option.color,
       color: option.textColor
@@ -591,6 +659,15 @@ export default function ControlHorario() {
   };
   // Función para manejar cambios en las celdas
   const handleCellChange = (employeeName: string, day: number, value: string) => {
+    const currentValue = scheduleData[employeeName]?.[day.toString()] || '';
+    
+    // Prevenir cambios en celdas V/I por usuarios regulares
+    if (!isUserAdmin() && ['V', 'I'].includes(currentValue)) {
+      const stateName = currentValue === 'V' ? 'Vacaciones' : 'Incapacidad';
+      showNotification(`Solo usuarios ADMIN pueden modificar estados de "${stateName}".`, 'error');
+      return;
+    }
+    
     updateScheduleCell(employeeName, day.toString(), value);
   };
 
@@ -886,6 +963,12 @@ export default function ControlHorario() {
             } else if (shift === 'L') {
               bgColor = '#FF00FF'; // Magenta
               textColor = '#ffffff';
+            } else if (shift === 'V') {
+              bgColor = '#28a745'; // Verde para Vacaciones
+              textColor = '#ffffff';
+            } else if (shift === 'I') {
+              bgColor = '#fd7e14'; // Naranja para Incapacidad
+              textColor = '#ffffff';
             }
 
             // Dibujar celda
@@ -1076,6 +1159,8 @@ export default function ControlHorario() {
             if (value === 'N') bg = '#87CEEB';
             if (value === 'D') bg = '#FFFF00';
             if (value === 'L') bg = '#FF00FF';
+            if (value === 'V') bg = '#28a745'; // Verde para Vacaciones
+            if (value === 'I') bg = '#fd7e14'; // Naranja para Incapacidad
             tableHTML += `<td style='border:1px solid #d1d5db;padding:6px 10px;background:${bg};text-align:center;'>${value}</td>`;
           }
         });
@@ -1106,94 +1191,27 @@ export default function ControlHorario() {
       
       document.body.removeChild(exportDiv);
       
-      // Convertir canvas a blob para subir a Firebase Storage
+      // Convertir canvas a blob y descargar directamente
       const imgData = canvas.toDataURL('image/png');
       const blob = await (await fetch(imgData)).blob();
       
-      // Guardar el blob para descarga directa
-      setImageBlob(blob);
+      // Crear enlace de descarga
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const filePrefix = isDelifoodLocation ? 'horas_delifood_quincena' : 'horario_quincena';
+      const filenameSuffix = selectedPeriod === 'monthly' ? 'mensual' : 
+                            selectedPeriod === '1-15' ? 'primera_quincena' : 'segunda_quincena';
+      a.download = `${filePrefix}_${location}_${monthName}_${year}_${filenameSuffix}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
       
-      // Verificar que Firebase Storage esté configurado
-      if (!storage) {
-        console.warn('Firebase Storage no está configurado, solo descarga local disponible');
-        // Si no hay storage, hacer descarga directa sin QR
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        const filePrefix = isDelifoodLocation ? 'horas_delifood_quincena' : 'horario_quincena';
-        a.download = `${filePrefix}_${location}_${new Date().toISOString().split('T')[0]}.png`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        
-        const successMessage = isDelifoodLocation ? 
-          '📥 Horas DELIFOOD descargadas exitosamente (solo descarga local)!' : 
-          '📥 Quincena descargada exitosamente (solo descarga local)!';
-        showNotification(successMessage, 'success');
-        return;
-      }
-      
-      try {
-        // Subir a Firebase Storage para generar QR
-        const timestamp = Date.now();
-        const filePrefix = isDelifoodLocation ? 'horas_delifood_quincena' : 'horario_quincena';
-        const fileName = `${filePrefix}_${timestamp}.png`;
-        const storagePath = `exports/${fileName}`;
-        const imageRef = ref(storage, storagePath);
-        
-        console.log('Intentando subir a Firebase Storage:', storagePath);
-        await uploadBytes(imageRef, blob);
-        console.log('Archivo subido exitosamente, obteniendo URL...');
-        const downloadUrl = await getDownloadURL(imageRef);
-        console.log('URL obtenida exitosamente:', downloadUrl);
-        
-        // Importar QRCode dinámicamente para evitar problemas de SSR
-        const QRCode = (await import('qrcode')).default;
-        
-        // Generar QR para descarga desde otro dispositivo
-        const qrDataUrl = await QRCode.toDataURL(downloadUrl, { width: 300 });
-        setQRCodeDataURL(qrDataUrl);
-        setStorageRef(storagePath);
-        setShowQRModal(true);
-        setQrCountdown(60);
-        
-        const countdownInterval = setInterval(() => {
-          setQrCountdown(prev => {
-            if (prev === null) return null;
-            if (prev <= 1) {
-              clearInterval(countdownInterval);
-              return null;
-            }
-            return prev - 1;
-          });
-        }, 1000);
-        
-        const successMessage = isDelifoodLocation ? 
-          '📥 Horas DELIFOOD exportadas exitosamente. ¡QR generado para descarga móvil!' : 
-          '📥 Quincena exportada exitosamente. ¡QR generado para descarga móvil!';
-        showNotification(successMessage, 'success');
-        
-      } catch (firebaseError) {
-        console.error('Error con Firebase Storage:', firebaseError);
-        console.log('Procediendo con descarga local como alternativa...');
-        
-        // Fallback: descarga local si Firebase falla
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        const filePrefix = isDelifoodLocation ? 'horas_delifood_quincena' : 'horario_quincena';
-        a.download = `${filePrefix}_${location}_${new Date().toISOString().split('T')[0]}.png`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        
-        const fallbackMessage = isDelifoodLocation ? 
-          '📥 Horas DELIFOOD descargadas localmente (Firebase no disponible)' : 
-          '📥 Quincena descargada localmente (Firebase no disponible)';
-        showNotification(fallbackMessage, 'success');
-      }
+      const successMessage = isDelifoodLocation ? 
+        '📥 Horas DELIFOOD exportadas exitosamente!' : 
+        '📥 Quincena exportada exitosamente!';
+      showNotification(successMessage, 'success');
       
     } catch (error) {
       console.error('Error al exportar la quincena:', error);
@@ -1201,17 +1219,6 @@ export default function ControlHorario() {
       
       if (error instanceof Error) {
         errorMessage = error.message;
-        
-        // Proporcionar mensajes más específicos para errores comunes de Firebase
-        if (error.message.includes('Firebase')) {
-          errorMessage = 'Error de Firebase Storage - Verifique la configuración';
-        } else if (error.message.includes('permission')) {
-          errorMessage = 'Error de permisos - Verifique las reglas de Firebase Storage';
-        } else if (error.message.includes('network')) {
-          errorMessage = 'Error de conexión - Verifique su conexión a internet';
-        } else if (error.message.includes('storage')) {
-          errorMessage = 'Error de almacenamiento - Firebase Storage no disponible';
-        }
       }
       
       showNotification(`Error al exportar la quincena: ${errorMessage}`, 'error');
@@ -1509,6 +1516,14 @@ export default function ControlHorario() {
               <div className="w-4 h-4 rounded" style={{ backgroundColor: '#FF00FF' }}></div>
               <span className="text-sm">L - Libre</span>
             </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded" style={{ backgroundColor: '#28a745' }}></div>
+              <span className="text-sm">V - Vacaciones</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded" style={{ backgroundColor: '#fd7e14' }}></div>
+              <span className="text-sm">I - Incapacidad</span>
+            </div>
           </div>
         )}        {/* Grid de horarios */}
         <div className="overflow-x-auto -mx-4 sm:mx-0" style={{overflowY: 'hidden'}}>
@@ -1607,6 +1622,11 @@ export default function ControlHorario() {
                     disabled = true;
                   }
 
+                  // Deshabilitar si la celda tiene V o I y el usuario no es ADMIN
+                  if (!isUserAdmin() && ['V', 'I'].includes(value)) {
+                    disabled = true;
+                  }
+
                   // Si es DELIFOOD, mostrar celda de horas
                   if (isDelifoodLocation) {
                     const hours = delifoodHoursData[name]?.[day.toString()]?.hours || 0;
@@ -1631,7 +1651,34 @@ export default function ControlHorario() {
                     );
                   }
 
-                  // Si no es DELIFOOD, mostrar select normal
+                  // Si no es DELIFOOD, mostrar select normal o div readonly para V/I
+                  // Crear título descriptivo para el tooltip
+                  let cellTitle = '';
+                  if (disabled && ['V', 'I'].includes(value) && !isUserAdmin()) {
+                    const stateName = value === 'V' ? 'Vacaciones' : 'Incapacidad';
+                    cellTitle = `${stateName} - Solo ADMIN puede modificar`;
+                  }
+
+                  // Si la celda tiene V o I y el usuario no es admin, mostrar como div readonly
+                  if (['V', 'I'].includes(value) && !isUserAdmin()) {
+                    return (
+                      <td key={day} className="border border-[var(--input-border)] p-0" style={{ minWidth: fullMonthView ? '32px' : '40px' }}>
+                        <div
+                          className="w-full h-full p-1 text-center font-semibold text-xs flex items-center justify-center"
+                          style={{ 
+                            ...getCellStyle(value), 
+                            minWidth: fullMonthView ? '32px' : '40px', 
+                            height: '40px',
+                            cursor: 'not-allowed'
+                          }}
+                          title={cellTitle}
+                        >
+                          {value}
+                        </div>
+                      </td>
+                    );
+                  }
+
                   return (
                     <td key={day} className="border border-[var(--input-border)] p-0" style={{ minWidth: fullMonthView ? '32px' : '40px' }}>
                       <select
@@ -1640,6 +1687,7 @@ export default function ControlHorario() {
                         className={`w-full h-full p-1 border-none outline-none text-center font-semibold cursor-pointer text-xs ${disabled ? 'bg-gray-200 text-gray-400 dark:bg-gray-800 dark:text-gray-500' : ''}`}
                         style={{ ...getCellStyle(value), minWidth: fullMonthView ? '32px' : '40px', height: '40px' }}
                         disabled={disabled}
+                        title={cellTitle}
                     >
                       {shiftOptions.map(option => (
                         <option key={option.value} value={option.value}>
