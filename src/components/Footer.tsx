@@ -49,7 +49,7 @@ export default function Footer() {
 
   return (
     <footer className="w-full mt-auto">
-       <FooterButtons onGitHubClick={() => setIsGitHubModalOpen(true)} />
+       <FooterButtons />
      
       <div className="bg-[var(--card-bg)] text-[var(--foreground)] py-8 px-2 border-t border-[var(--input-border)]">
         <div className="max-w-6xl mx-auto flex flex-col items-center justify-center gap-4">

@@ -2,11 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 
-interface FooterButtonsProps {
-    onGitHubClick: () => void;
-}
-
-export default function FooterButtons({ onGitHubClick }: FooterButtonsProps) {
+export default function FooterButtons() {
     const router = useRouter();
 
     return (
