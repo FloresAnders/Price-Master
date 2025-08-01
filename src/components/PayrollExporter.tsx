@@ -973,7 +973,7 @@ export default function PayrollExporter({
                               type="number"
                               min="0"
                               step="0.01"
-                              value={getTempInputValue(locationData.location.value, employee.employeeName, 'extraAmount')}
+                              value={getTempInputValue(locationData.location.value, employee.employeeName, 'extraAmount') || employee.finalExtraAmount.toString()}
                               onChange={(e) => updateDeduction(locationData.location.value, employee.employeeName, 'extraAmount', e.target.value)}
                               className="w-full text-center border-none bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-1 font-semibold"
                               style={{
