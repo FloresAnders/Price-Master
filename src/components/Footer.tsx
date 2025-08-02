@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import FooterButtons from './FooterButtons';
-
+import { useRouter } from 'next/navigation';
 export default function Footer() {
   const [isGitHubModalOpen, setIsGitHubModalOpen] = useState(false);
+  const router = useRouter();
 
   const motivationalPhrases = [
     '¡Tu esfuerzo marca la diferencia cada día!',
@@ -49,8 +49,7 @@ export default function Footer() {
 
   return (
     <footer className="w-full mt-auto">
-       <FooterButtons />
-     
+
       <div className="bg-[var(--card-bg)] text-[var(--foreground)] py-8 px-2 border-t border-[var(--input-border)]">
         <div className="max-w-6xl mx-auto flex flex-col items-center justify-center gap-4">
           <button
@@ -130,10 +129,13 @@ export default function Footer() {
       )}
       {/* Barra negra inferior */}
       <div className="bg-[var(--background)] text-[var(--foreground)] text-xs py-3 px-2 border-t border-[var(--input-border)]">
-        <div className="max-w-6xl mx-auto flex flex-col items-center justify-center">
-          <span className="text-sm text-[var(--tab-text)]">
+        <div className="max-w-6xl mx-auto flex items-center justify-center">
+          <span className="text-sm text-[var(--tab-text)] flex items-center">
             © {new Date().getFullYear()} Price Master
-            <span className="mx-2">|</span>
+            <button
+              onClick={() => router.push('/login')}
+              className="mx-2 hover:text-[var(--tab-hover-text)] transition-colors text-[var(--tab-text)] opacity-50 hover:opacity-100"
+            >|</button>
             <span className="font-medium transition-opacity duration-700" key={phraseIndex}>
               {motivationalPhrases[phraseIndex]}
             </span>
