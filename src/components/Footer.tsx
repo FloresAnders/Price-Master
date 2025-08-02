@@ -2,22 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import frasesData from '../data/frases.json';
+
 export default function Footer() {
   const [isGitHubModalOpen, setIsGitHubModalOpen] = useState(false);
   const router = useRouter();
 
-  const motivationalPhrases = [
-    '¡Tu esfuerzo marca la diferencia cada día!',
-    'La excelencia se logra con constancia. ¡Sigue adelante!',
-    'Cada precio bien gestionado es un paso al éxito.',
-    'Trabajar en equipo nos hace más fuertes.',
-    'La actitud positiva transforma el trabajo en resultados.',
-    '¡Gracias por tu dedicación y profesionalismo!',
-    'El éxito es la suma de pequeños esfuerzos repetidos.',
-    'Tu trabajo impulsa el crecimiento de todos.',
-    'La innovación comienza con tu iniciativa.',
-    '¡Sigue aprendiendo y creciendo cada día!'
-  ];
+  const motivationalPhrases = frasesData;
 
   const getRandomIndex = () => Math.floor(Math.random() * motivationalPhrases.length);
   const [phraseIndex, setPhraseIndex] = useState(getRandomIndex());
