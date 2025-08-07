@@ -52,6 +52,7 @@ export interface ScanResult {
   processedAt?: Date;
   productName?: string; // Optional product name for scanned codes
   location?: string; // Selected location from mobile scanning
+  hasImages?: boolean; // Indicates if the code has associated images
 }
 
 export interface CcssConfig {

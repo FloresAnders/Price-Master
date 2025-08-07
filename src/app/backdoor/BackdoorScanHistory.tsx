@@ -1,10 +1,12 @@
 'use client'
 
-import React, { useState, useEffect } from 'react';
-import { History, Copy, Trash2, Search, Eye, Calendar, MapPin, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { History, Copy, Trash2, Search, Eye, Calendar, MapPin, RefreshCw, Image, X, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import type { ScanResult } from '@/types/firestore';
 import { ScanningService } from '@/services/scanning';
 import locations from '@/data/locations.json';
+import { storage } from '@/config/firebase';
+import { ref, listAll, getDownloadURL } from 'firebase/storage';
 
 export default function BackdoorScanHistory() {
   const [scanHistory, setScanHistory] = useState<ScanResult[]>([]);
@@ -12,6 +14,33 @@ export default function BackdoorScanHistory() {
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
   const [notification, setNotification] = useState<{ message: string; color: string } | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  // Image modal states
+  const [showImagesModal, setShowImagesModal] = useState(false);
+  const [codeImages, setCodeImages] = useState<string[]>([]);
+  const [loadingImages, setLoadingImages] = useState(false);
+  const [currentImageCode, setCurrentImageCode] = useState('');
+  const [imageLoadError, setImageLoadError] = useState<string | null>(null);
+  const [thumbnailLoadingStates, setThumbnailLoadingStates] = useState<{ [key: number]: boolean }>({});
+
+  // Function to check if a code has images
+  const checkCodeHasImages = useCallback(async (barcodeCode: string): Promise<boolean> => {
+    try {
+      const storageRef = ref(storage, 'barcode-images/');
+      const result = await listAll(storageRef);
+      
+      const hasImages = result.items.some(item => {
+        const fileName = item.name;
+        return fileName === `${barcodeCode}.jpg` || 
+               fileName.match(new RegExp(`^${barcodeCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\(\\d+\\)\\.jpg$`));
+      });
+      
+      return hasImages;
+    } catch (error) {
+      console.error('Error checking if code has images:', error);
+      return false;
+    }
+  }, []);
 
   // Load scan history from Firebase
   useEffect(() => {
@@ -21,7 +50,16 @@ export default function BackdoorScanHistory() {
         const scans = await ScanningService.getAllScans();
         // Filtrar DELIFOOD_TEST desde el inicio
         const filteredScans = scans.filter(scan => scan.location !== 'DELIFOOD_TEST');
-        setScanHistory(filteredScans);
+        
+        // Check which codes have images
+        const scansWithImageInfo = await Promise.all(
+          filteredScans.map(async (scan) => {
+            const hasImages = await checkCodeHasImages(scan.code);
+            return { ...scan, hasImages };
+          })
+        );
+        
+        setScanHistory(scansWithImageInfo);
       } catch (error) {
         console.error('Error loading scan history:', error);
         showNotification('Error al cargar el historial', 'red');
@@ -31,7 +69,7 @@ export default function BackdoorScanHistory() {
     };
 
     loadScanHistory();
-  }, []);
+  }, [checkCodeHasImages]);
 
   // Show notification
   const showNotification = (message: string, color: string = 'green') => {
@@ -113,6 +151,149 @@ export default function BackdoorScanHistory() {
       setLoading(false);
     }
   };
+
+  // Function to load images for a specific barcode from Firebase Storage
+  const loadImagesForCode = useCallback(async (barcodeCode: string) => {
+    setLoadingImages(true);
+    setImageLoadError(null);
+    
+    try {
+      // Reference to the barcode-images folder
+      const storageRef = ref(storage, 'barcode-images/');
+      
+      // List all files in the barcode-images folder
+      const result = await listAll(storageRef);
+      
+      // Filter files that match the barcode pattern
+      const matchingFiles = result.items.filter(item => {
+        const fileName = item.name;
+        // Match exact code name or code with numbers in parentheses
+        return fileName === `${barcodeCode}.jpg` || 
+               fileName.match(new RegExp(`^${barcodeCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\(\\d+\\)\\.jpg$`));
+      });
+
+      // Get download URLs for matching files
+      const imageUrls = await Promise.all(
+        matchingFiles.map(async (fileRef) => {
+          try {
+            return await getDownloadURL(fileRef);
+          } catch (error) {
+            console.error(`Error getting download URL for ${fileRef.name}:`, error);
+            return null;
+          }
+        })
+      );
+
+      // Filter out any failed downloads
+      const validUrls = imageUrls.filter(url => url !== null) as string[];
+      
+      setCodeImages(validUrls);
+      
+      if (validUrls.length === 0) {
+        setImageLoadError('No se encontraron imágenes para este código');
+      }
+      
+    } catch (error) {
+      console.error('Error loading images:', error);
+      setImageLoadError('Error al cargar las imágenes');
+      setCodeImages([]);
+    } finally {
+      setLoadingImages(false);
+    }
+  }, []);
+
+  // Function to open images modal
+  const handleShowImages = useCallback(async (barcodeCode: string) => {
+    setCurrentImageCode(barcodeCode);
+    setShowImagesModal(true);
+    setThumbnailLoadingStates({});
+    await loadImagesForCode(barcodeCode);
+  }, [loadImagesForCode]);
+
+  // Handle thumbnail load states
+  const handleThumbnailLoad = (index: number) => {
+    setThumbnailLoadingStates(prev => ({ ...prev, [index]: false }));
+  };
+
+  const handleThumbnailLoadStart = (index: number) => {
+    setThumbnailLoadingStates(prev => ({ ...prev, [index]: true }));
+  };
+
+  // Download individual image
+  const downloadImage = async (imageUrl: string, index: number) => {
+    try {
+      // Use a direct link approach instead of fetch to avoid CORS issues
+      const link = document.createElement('a');
+      link.href = imageUrl;
+      link.download = `${currentImageCode}_imagen_${index + 1}.jpg`;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      
+      // Add crossorigin attribute to handle CORS
+      link.setAttribute('crossorigin', 'anonymous');
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      showNotification('Descarga iniciada', 'green');
+    } catch (error) {
+      console.error('Error downloading image:', error);
+      showNotification('Error al descargar la imagen', 'red');
+    }
+  };
+
+  // Download all images
+  const downloadAllImages = async () => {
+    if (codeImages.length === 0) return;
+    
+    try {
+      // Download each image with a small delay to avoid overwhelming the browser
+      for (let i = 0; i < codeImages.length; i++) {
+        const imageUrl = codeImages[i];
+        
+        const link = document.createElement('a');
+        link.href = imageUrl;
+        link.download = `${currentImageCode}_imagen_${i + 1}.jpg`;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.setAttribute('crossorigin', 'anonymous');
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Small delay between downloads to avoid overwhelming the browser
+        if (i < codeImages.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+      
+      showNotification(`${codeImages.length} descargas iniciadas`, 'green');
+    } catch (error) {
+      console.error('Error downloading images:', error);
+      showNotification('Error al descargar las imágenes', 'red');
+    }
+  };
+
+  // Keyboard navigation for image modal
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!showImagesModal) return;
+      
+      switch (event.key) {
+        case 'Escape':
+          event.preventDefault();
+          setShowImagesModal(false);
+          break;
+      }
+    };
+
+    if (showImagesModal) {
+      document.addEventListener('keydown', handleKeyDown);
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [showImagesModal]);
 
   // Filter history based on search term and location
   const filteredHistory = scanHistory.filter(entry => {
@@ -212,7 +393,7 @@ export default function BackdoorScanHistory() {
 
           {/* Stats */}
           {scanHistory.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
                 <div className="flex items-center gap-2">
                   <Eye className="w-5 h-5 text-blue-600" />
@@ -233,10 +414,20 @@ export default function BackdoorScanHistory() {
 
               <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 rounded-lg p-4">
                 <div className="flex items-center gap-2">
-                  <Search className="w-5 h-5 text-purple-600" />
-                  <span className="text-sm font-medium text-purple-800 dark:text-purple-300">Filtrados</span>
+                  <Image className="w-5 h-5 text-purple-600" />
+                  <span className="text-sm font-medium text-purple-800 dark:text-purple-300">Con Imágenes</span>
                 </div>
-                <p className="text-2xl font-bold text-purple-600 mt-1">{filteredHistory.length}</p>
+                <p className="text-2xl font-bold text-purple-600 mt-1">
+                  {scanHistory.filter(entry => entry.hasImages).length}
+                </p>
+              </div>
+
+              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-4">
+                <div className="flex items-center gap-2">
+                  <Search className="w-5 h-5 text-amber-600" />
+                  <span className="text-sm font-medium text-amber-800 dark:text-amber-300">Filtrados</span>
+                </div>
+                <p className="text-2xl font-bold text-amber-600 mt-1">{filteredHistory.length}</p>
               </div>
 
               <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-lg p-4">
@@ -277,6 +468,12 @@ export default function BackdoorScanHistory() {
                       <span className="font-mono text-lg font-medium text-[var(--foreground)]">
                         {entry.code}
                       </span>
+                      {entry.hasImages && (
+                        <span className="text-xs text-[var(--muted-foreground)] bg-purple-100 dark:bg-purple-900/30 px-2 py-1 rounded flex items-center gap-1">
+                          <Image className="w-3 h-3" />
+                          Imágenes
+                        </span>
+                      )}
                       {entry.productName && (
                         <span className="text-sm text-[var(--muted-foreground)] bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded">
                           {entry.productName}
@@ -316,6 +513,15 @@ export default function BackdoorScanHistory() {
                     >
                       <Copy className="w-4 h-4" />
                     </button>
+                    {entry.hasImages && (
+                      <button
+                        onClick={() => handleShowImages(entry.code)}
+                        className="p-2 text-purple-600 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded-md transition-colors"
+                        title="Ver imágenes"
+                      >
+                        <Image className="w-4 h-4" />
+                      </button>
+                    )}
                     <button
                       onClick={refreshHistory}
                       className="p-2 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30 rounded-md transition-colors"
@@ -350,6 +556,117 @@ export default function BackdoorScanHistory() {
             </p>
           </div>
         </>
+      )}
+
+      {/* Images Modal */}
+      {showImagesModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-95 z-50 flex flex-col">
+          {/* Header */}
+          <div className="bg-black bg-opacity-50 p-4 flex items-center justify-between">
+            <div className="text-white">
+              <h3 className="text-lg font-semibold">
+                Imágenes del código: {currentImageCode}
+              </h3>
+              {codeImages.length > 0 && (
+                <p className="text-sm text-gray-300 mt-1">
+                  {codeImages.length} imagen{codeImages.length > 1 ? 'es' : ''} encontrada{codeImages.length > 1 ? 's' : ''}
+                </p>
+              )}
+            </div>
+            <button
+              onClick={() => setShowImagesModal(false)}
+              className="p-2 hover:bg-white hover:bg-opacity-20 rounded-full transition-colors text-white"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 p-8 overflow-y-auto">
+            {loadingImages ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center text-white">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+                  <p>Cargando imágenes...</p>
+                </div>
+              </div>
+            ) : imageLoadError ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center text-white">
+                  <Image className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                  <h3 className="text-lg font-medium mb-2">No se encontraron imágenes</h3>
+                  <p className="text-gray-300">{imageLoadError}</p>
+                </div>
+              </div>
+            ) : codeImages.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                {codeImages.map((imageUrl, index) => (
+                  <div key={index} className="relative group">
+                    <div className="aspect-square overflow-hidden rounded-lg bg-black bg-opacity-30">
+                      {thumbnailLoadingStates[index] && (
+                        <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                        </div>
+                      )}
+                      <img
+                        src={imageUrl}
+                        alt={`Imagen ${index + 1} del código ${currentImageCode}`}
+                        className="w-full h-full object-cover cursor-pointer transition-transform duration-200 group-hover:scale-105"
+                        loading="lazy"
+                        onLoadStart={() => handleThumbnailLoadStart(index)}
+                        onLoad={() => handleThumbnailLoad(index)}
+                        onError={() => handleThumbnailLoad(index)}
+                        onClick={() => {
+                          // Abrir imagen en nueva pestaña para vista completa
+                          window.open(imageUrl, '_blank');
+                        }}
+                      />
+                    </div>
+                    <div className="absolute top-2 left-2 bg-black bg-opacity-70 text-white text-sm px-2 py-1 rounded">
+                      {index + 1}
+                    </div>
+                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          downloadImage(imageUrl, index);
+                        }}
+                        className="p-1 bg-black bg-opacity-70 text-white rounded-full hover:bg-opacity-90 transition-colors"
+                        title="Descargar imagen"
+                      >
+                        <Download className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center text-white">
+                  <Image className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                  <h3 className="text-lg font-medium mb-2">No se encontraron imágenes</h3>
+                  <p className="text-gray-300">Este código no tiene imágenes asociadas</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="bg-black bg-opacity-50 p-4 flex items-center justify-between">
+            <div className="text-white text-sm opacity-70">
+              Click en imagen para ver completa • ESC para cerrar
+            </div>
+            {codeImages.length > 0 && (
+              <button
+                onClick={() => downloadAllImages()}
+                className="flex items-center gap-2 px-4 py-2 bg-white bg-opacity-20 hover:bg-opacity-30 text-white rounded-lg transition-colors"
+              >
+                <Download className="w-4 h-4" />
+                Descargar todas
+              </button>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
