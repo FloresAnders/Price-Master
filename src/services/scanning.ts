@@ -8,9 +8,11 @@ import {
     query,
     orderBy,
     limit, where,
-    onSnapshot
+    onSnapshot,
+    getDoc
 } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { ref, listAll, deleteObject } from 'firebase/storage';
+import { db, storage } from '../config/firebase';
 import type { ScanResult } from '../types/firestore';
 
 export type { ScanResult } from '../types/firestore';
@@ -110,11 +112,71 @@ export class ScanningService {
     }
 
     /**
+     * Delete images associated with a barcode from Firebase Storage
+     */
+    static async deleteAssociatedImages(barcodeCode: string): Promise<number> {
+        try {
+            // Reference to the barcode-images folder
+            const storageRef = ref(storage, 'barcode-images/');
+            
+            // List all files in the barcode-images folder
+            const result = await listAll(storageRef);
+            
+            // Filter files that match the barcode pattern
+            const matchingFiles = result.items.filter(item => {
+                const fileName = item.name;
+                // Match exact code name or code with numbers in parentheses
+                return fileName === `${barcodeCode}.jpg` || 
+                       fileName.match(new RegExp(`^${barcodeCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\(\\d+\\)\\.jpg$`));
+            });
+
+            // Delete all matching files
+            const deletePromises = matchingFiles.map(async (fileRef) => {
+                try {
+                    await deleteObject(fileRef);
+                    console.log(`Deleted image: ${fileRef.name}`);
+                } catch (error) {
+                    console.error(`Error deleting image ${fileRef.name}:`, error);
+                    throw error;
+                }
+            });
+
+            await Promise.all(deletePromises);
+            
+            console.log(`Deleted ${matchingFiles.length} images for code: ${barcodeCode}`);
+            return matchingFiles.length;
+        } catch (error) {
+            console.error('Error deleting associated images:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Delete a scan
      */
     static async deleteScan(scanId: string): Promise<void> {
         try {
+            // First, get the scan to obtain the barcode code
+            const scanDoc = await getDoc(doc(db, this.COLLECTION_NAME, scanId));
+            
+            if (!scanDoc.exists()) {
+                throw new Error('Scan not found');
+            }
+            
+            const scanData = scanDoc.data() as ScanResult;
+            const barcodeCode = scanData.code;
+            
+            // Delete the scan document from Firestore
             await deleteDoc(doc(db, this.COLLECTION_NAME, scanId));
+            
+            // Delete associated images from Firebase Storage
+            try {
+                const deletedImagesCount = await this.deleteAssociatedImages(barcodeCode);
+                console.log(`Deleted scan ${scanId} and ${deletedImagesCount} associated images for code: ${barcodeCode}`);
+            } catch (imageError) {
+                console.warn(`Scan deleted but failed to delete images for code ${barcodeCode}:`, imageError);
+                // Don't throw here - the scan was successfully deleted
+            }
         } catch (error) {
             console.error('Error deleting scan:', error);
             throw error;

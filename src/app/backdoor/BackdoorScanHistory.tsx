@@ -124,11 +124,11 @@ export default function BackdoorScanHistory() {
 
   // Delete individual scan
   const deleteScan = async (scanId: string, code: string) => {
-    if (window.confirm(`¿Estás seguro de que deseas eliminar el código ${code}?`)) {
+    if (window.confirm(`¿Estás seguro de que deseas eliminar el código ${code}?\n\nEsto también eliminará todas las imágenes asociadas a este código.`)) {
       try {
         await ScanningService.deleteScan(scanId);
         setScanHistory(prev => prev.filter(scan => scan.id !== scanId));
-        showNotification('Código eliminado', 'red');
+        showNotification('Código e imágenes eliminados', 'red');
       } catch (error) {
         console.error('Error deleting scan:', error);
         showNotification('Error al eliminar el código', 'red');

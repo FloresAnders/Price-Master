@@ -154,7 +154,7 @@ export default function ScanHistory({ history, onCopy, onDelete, onRemoveLeading
     notify?.('¡Código copiado!', 'green');
   }, [onCopy, notify]); const handleDelete = useCallback((code: string) => {
     onDelete?.(code);
-    notify?.('Código eliminado', 'red');
+    notify?.('Código e imágenes eliminados', 'red');
   }, [onDelete, notify]);
 
   // Function to load images for a specific barcode from Firebase Storage
