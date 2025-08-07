@@ -1,7 +1,7 @@
 // app/page.tsx
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import BarcodeScanner from '@/components/BarcodeScanner'
 import PriceCalculator from '@/components/PriceCalculator'
 import TextConversion from '@/components/TextConversion'
@@ -20,6 +20,8 @@ import type { ScanHistoryEntry } from '@/types/barcode'
 import TimingControl from '@/components/TimingControl'
 import ClientOnlyHomeMenu from '@/components/ClientOnlyHomeMenu'
 import SupplierOrders from '@/components/SupplierOrders'
+import { storage } from '@/config/firebase'
+import { ref, listAll } from 'firebase/storage'
 
 // 1) Ampliamos ActiveTab para incluir "cashcounter", "controlhorario", "supplierorders"
 type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'supplierorders'
@@ -62,19 +64,42 @@ export default function HomePage() {
   useEffect(() => {
     localStorage.setItem('scanHistory', JSON.stringify(scanHistory))
   }, [scanHistory])
+
+  // Function to check if a code has images in Firebase Storage
+  const checkCodeHasImages = useCallback(async (barcodeCode: string): Promise<boolean> => {
+    try {
+      const storageRef = ref(storage, 'barcode-images/');
+      const result = await listAll(storageRef);
+      
+      const hasImages = result.items.some(item => {
+        const fileName = item.name;
+        return fileName === `${barcodeCode}.jpg` || 
+               fileName.match(new RegExp(`^${barcodeCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\(\\d+\\)\\.jpg$`));
+      });
+      
+      return hasImages;
+    } catch (error) {
+      console.error('Error checking if code has images:', error);
+      return false;
+    }
+  }, []);
+
   // Función para manejar códigos detectados por el escáner
-  const handleCodeDetected = (code: string, productName?: string) => {
+  const handleCodeDetected = useCallback(async (code: string, productName?: string) => {
+    // Check if code has images
+    const hasImages = await checkCodeHasImages(code);
+    
     setScanHistory(prev => {
       if (prev[0]?.code === code) return prev
       // Si ya existe, lo sube al tope pero mantiene el nombre existente o usa el nuevo
       const existing = prev.find(e => e.code === code)
       const newEntry: ScanHistoryEntry = existing
-        ? { ...existing, code, name: productName || existing.name }
-        : { code, name: productName }
+        ? { ...existing, code, name: productName || existing.name, hasImages }
+        : { code, name: productName, hasImages }
       const filtered = prev.filter(e => e.code !== code)
       return [newEntry, ...filtered].slice(0, 20)
     })
-  }
+  }, [checkCodeHasImages])
 
   // Helper to show notification
   const showNotification = (message: string, color: string = 'green') => {
@@ -127,6 +152,39 @@ export default function HomePage() {
     ));
     showNotification('Nombre actualizado', 'indigo');
   }
+
+  // Handler: mostrar imágenes
+  const handleShowImages = useCallback((code: string) => {
+    showNotification(`Mostrando imágenes de: ${code}`, 'purple');
+  }, []);
+
+  // Effect to check if existing codes in history have images
+  useEffect(() => {
+    if (scanHistory.length === 0) return;
+
+    const updateHistoryWithImages = async () => {
+      const updatedHistory = await Promise.all(
+        scanHistory.map(async (entry) => {
+          if (entry.hasImages === undefined) {
+            const hasImages = await checkCodeHasImages(entry.code);
+            return { ...entry, hasImages };
+          }
+          return entry;
+        })
+      );
+
+      // Only update if there are changes
+      const hasChanges = updatedHistory.some((entry, index) => 
+        entry.hasImages !== scanHistory[index]?.hasImages
+      );
+
+      if (hasChanges) {
+        setScanHistory(updatedHistory);
+      }
+    };
+
+    updateHistoryWithImages();
+  }, [checkCodeHasImages, scanHistory]); // Added scanHistory back as dependency
   
   // 4) Al montar, leemos el hash de la URL y marcamos la pestaña correspondiente
   useEffect(() => {
@@ -213,6 +271,7 @@ export default function HomePage() {
                           onDelete={handleDelete}
                           onRemoveLeadingZero={handleRemoveLeadingZero}
                           onRename={handleRename}
+                          onShowImages={handleShowImages}
                           notify={showNotification}
                         />
                       </div>

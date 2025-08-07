@@ -1,10 +1,14 @@
 'use client';
 import React, { useState, useCallback, memo } from 'react';
-import { Copy, Trash2, Edit3, ArrowLeftCircle, Download } from 'lucide-react';
+import { Copy, Trash2, Edit3, ArrowLeftCircle, Download, Image as ImageIcon, X, AlertCircle } from 'lucide-react';
+import Image from 'next/image';
 import type { ScanHistoryProps as BaseScanHistoryProps, ScanHistoryEntry } from '../types/barcode';
+import { storage } from '../config/firebase';
+import { ref, listAll, getDownloadURL } from 'firebase/storage';
 
 interface ScanHistoryProps extends BaseScanHistoryProps {
   notify?: (msg: string, color?: string) => void;
+  onShowImages?: (code: string) => void;
 }
 
 interface ScanHistoryRowProps {
@@ -18,6 +22,7 @@ interface ScanHistoryRowProps {
   onRemoveLeadingZero?: (code: string) => void;
   onCopy?: (code: string) => void;
   onDelete?: (code: string) => void;
+  onShowImages?: (code: string) => void;
   notify?: (msg: string, color?: string) => void;
 }
 
@@ -33,6 +38,7 @@ const ScanHistoryRow = memo(function ScanHistoryRow({
   onRemoveLeadingZero,
   onCopy,
   onDelete,
+  onShowImages,
   notify,
 }: ScanHistoryRowProps) {
   return (
@@ -95,6 +101,19 @@ const ScanHistoryRow = memo(function ScanHistoryRow({
         >
           <Copy className="w-6 h-6" />
         </button>
+        {/* Image button - only show if code has images */}
+        {entry.hasImages && (
+          <button
+            className="p-2 text-purple-500 hover:text-purple-700 bg-purple-100 dark:bg-purple-900 rounded-full border-none"
+            title="Ver imágenes"
+            onClick={() => {
+              onShowImages?.(entry.code);
+              notify?.('Abriendo imágenes', 'purple');
+            }}
+          >
+            <ImageIcon className="w-6 h-6" />
+          </button>
+        )}
         <button
           className="p-2 text-red-500 hover:text-red-700 bg-red-100 dark:bg-red-900 rounded-full border-none"
           title="Eliminar código"
@@ -110,9 +129,16 @@ const ScanHistoryRow = memo(function ScanHistoryRow({
   );
 });
 
-export default function ScanHistory({ history, onCopy, onDelete, onRemoveLeadingZero, onRename, notify }: ScanHistoryProps) {
+export default function ScanHistory({ history, onCopy, onDelete, onRemoveLeadingZero, onRename, onShowImages, notify }: ScanHistoryProps) {
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [editValue, setEditValue] = useState('');
+  
+  // Estados para modal de imágenes
+  const [showImagesModal, setShowImagesModal] = useState(false);
+  const [currentImageCode, setCurrentImageCode] = useState<string>('');
+  const [codeImages, setCodeImages] = useState<string[]>([]);
+  const [loadingImages, setLoadingImages] = useState(false);
+  const [imageLoadError, setImageLoadError] = useState<string | null>(null);
 
   // Memoized handlers for row actions
   const handleRename = useCallback((code: string, name: string) => {
@@ -129,7 +155,75 @@ export default function ScanHistory({ history, onCopy, onDelete, onRemoveLeading
   }, [onCopy, notify]); const handleDelete = useCallback((code: string) => {
     onDelete?.(code);
     notify?.('Código eliminado', 'red');
-  }, [onDelete, notify]);  const handleExport = useCallback(() => {
+  }, [onDelete, notify]);
+
+  // Function to load images for a specific barcode from Firebase Storage
+  const loadImagesForCode = useCallback(async (barcodeCode: string) => {
+    setLoadingImages(true);
+    setImageLoadError(null);
+    
+    try {
+      // Reference to the barcode-images folder
+      const storageRef = ref(storage, 'barcode-images/');
+      
+      // List all files in the barcode-images folder
+      const result = await listAll(storageRef);
+      
+      // Filter files that match the barcode pattern
+      const matchingFiles = result.items.filter(item => {
+        const fileName = item.name;
+        // Match exact code name or code with numbers in parentheses
+        return fileName === `${barcodeCode}.jpg` || 
+               fileName.match(new RegExp(`^${barcodeCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\(\\d+\\)\\.jpg$`));
+      });
+
+      // Get download URLs for matching files
+      const imageUrls = await Promise.all(
+        matchingFiles.map(async (fileRef) => {
+          try {
+            return await getDownloadURL(fileRef);
+          } catch (error) {
+            console.error(`Error getting download URL for ${fileRef.name}:`, error);
+            return null;
+          }
+        })
+      );
+
+      // Filter out any failed downloads
+      const validUrls = imageUrls.filter(url => url !== null) as string[];
+      
+      setCodeImages(validUrls);
+      
+      if (validUrls.length === 0) {
+        setImageLoadError('No se encontraron imágenes para este código');
+      }
+      
+    } catch (error) {
+      console.error('Error loading images:', error);
+      setImageLoadError('Error al cargar las imágenes');
+      setCodeImages([]);
+    } finally {
+      setLoadingImages(false);
+    }
+  }, []);
+
+  // Function to handle showing images
+  const handleShowImages = useCallback(async (barcodeCode: string) => {
+    setCurrentImageCode(barcodeCode);
+    setShowImagesModal(true);
+    await loadImagesForCode(barcodeCode);
+    onShowImages?.(barcodeCode);
+  }, [loadImagesForCode, onShowImages]);
+
+  // Function to close images modal
+  const handleCloseImagesModal = useCallback(() => {
+    setShowImagesModal(false);
+    setCurrentImageCode('');
+    setCodeImages([]);
+    setImageLoadError(null);
+  }, []);
+
+  const handleExport = useCallback(() => {
     if (history.length === 0) {
       notify?.('No hay códigos para exportar', 'orange');
       return;
@@ -204,10 +298,97 @@ export default function ScanHistory({ history, onCopy, onDelete, onRemoveLeading
           onRemoveLeadingZero={handleRemoveLeadingZero}
           onCopy={handleCopy}
           onDelete={handleDelete}
+          onShowImages={handleShowImages}
           notify={notify}
         />
       ))}
     </div>
+
+    {/* Images Modal */}
+    {showImagesModal && (
+      <div className="fixed inset-0 bg-black bg-opacity-95 flex items-center justify-center p-4 z-50">
+        <div className="bg-[var(--card-bg)] rounded-lg w-full h-full max-w-none max-h-none overflow-hidden flex flex-col">
+          {/* Modal Header */}
+          <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-600 flex-shrink-0">
+            <h3 className="text-xl font-semibold text-[var(--foreground)]">
+              📷 Imágenes del Código
+            </h3>
+            <button
+              onClick={handleCloseImagesModal}
+              className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+            >
+              <X className="w-6 h-6 text-gray-500 dark:text-gray-400" />
+            </button>
+          </div>
+
+          {/* Current Code Display */}
+          <div className="px-6 py-3 border-b border-gray-200 dark:border-gray-600 flex-shrink-0">
+            <p className="text-gray-600 dark:text-gray-300 text-sm">
+              Código: <span className="font-mono bg-[var(--input-bg)] px-3 py-1 rounded text-base">{currentImageCode}</span>
+            </p>
+          </div>
+
+          {/* Modal Content */}
+          <div className="flex-1 overflow-auto p-6">
+            {loadingImages ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <span className="text-lg text-gray-600 dark:text-gray-300">Cargando imágenes...</span>
+                </div>
+              </div>
+            ) : imageLoadError ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <AlertCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <p className="text-lg text-gray-600 dark:text-gray-300">{imageLoadError}</p>
+                </div>
+              </div>
+            ) : codeImages.length > 0 ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6 h-fit">
+                {codeImages.map((imageUrl, index) => (
+                  <div key={index} className="relative group">
+                    <Image
+                      src={imageUrl}
+                      alt={`Imagen ${index + 1} del código ${currentImageCode}`}
+                      width={400}
+                      height={300}
+                      className="w-full h-auto max-h-96 object-contain rounded-lg border border-gray-200 dark:border-gray-600 shadow-lg transition-transform group-hover:scale-105 cursor-pointer"
+                      onClick={() => window.open(imageUrl, '_blank')}
+                      title="Clic para abrir en nueva ventana"
+                      onError={(e) => {
+                        console.error(`Error loading image ${index + 1}:`, e);
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                    <div className="absolute top-3 left-3 bg-black bg-opacity-80 text-white px-3 py-1 rounded-full text-sm font-medium">
+                      {index + 1}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <ImageIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <p className="text-lg text-gray-600 dark:text-gray-300">No hay imágenes disponibles</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Modal Footer */}
+          <div className="p-6 border-t border-gray-200 dark:border-gray-600 flex-shrink-0">
+            <button
+              onClick={handleCloseImagesModal}
+              className="w-full bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 px-6 py-3 rounded-lg text-white font-medium text-lg transition-colors"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
   </div >
   );
 }

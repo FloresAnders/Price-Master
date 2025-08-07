@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, Suspense, useRef } from 'react';
-import { QrCode, Smartphone, Check, AlertCircle, Wifi, WifiOff, Camera } from 'lucide-react';
+import { QrCode, Smartphone, Check, AlertCircle, Wifi, WifiOff, Camera, Image as ImageIcon, X } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
+import Image from 'next/image';
 import { ScanningService } from '../../services/scanning';
 import { useBarcodeScanner } from '../../hooks/useBarcodeScanner';
 import CameraScanner from '../../components/CameraScanner';
@@ -10,7 +11,7 @@ import ImageDropArea from '../../components/ImageDropArea';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { SessionSyncService, type SessionStatus } from '../../services/session-sync';
 import { storage } from '../../config/firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, listAll } from 'firebase/storage';
 
 // Force dynamic rendering for this page
 export const dynamic = 'force-dynamic';
@@ -22,7 +23,7 @@ function MobileScanContent() {
   const locationsParam = searchParams.get('locations');
 
   const [code, setCode] = useState('');
-  const [lastScanned, setLastScanned] = useState<{code: string, productName?: string, location?: string}[]>([]);
+  const [lastScanned, setLastScanned] = useState<{code: string, productName?: string, location?: string, hasImages?: boolean}[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(true);
@@ -35,7 +36,16 @@ function MobileScanContent() {
   // Estado para ubicaciones
   const [availableLocations, setAvailableLocations] = useState<string[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<string>('');
-  const [showLocationModal, setShowLocationModal] = useState(false);  // Estados para sincronización real
+  const [showLocationModal, setShowLocationModal] = useState(false);
+
+  // Estados para modal de imágenes
+  const [showImagesModal, setShowImagesModal] = useState(false);
+  const [currentImageCode, setCurrentImageCode] = useState<string>('');
+  const [codeImages, setCodeImages] = useState<string[]>([]);
+  const [loadingImages, setLoadingImages] = useState(false);
+  const [imageLoadError, setImageLoadError] = useState<string | null>(null);
+
+  // Estados para sincronización real
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking');
   const [connectedDeviceType, setConnectedDeviceType] = useState<'pc' | 'laptop' | 'desktop' | null>(null);
   const sessionHeartbeatRef = useRef<{ start: () => Promise<void>; stop: () => void; sessionDocId: string | null } | null>(null);
@@ -184,6 +194,90 @@ function MobileScanContent() {
     };
   }, [sessionId, isClient]);
 
+  // Function to load images for a specific barcode from Firebase Storage
+  const loadImagesForCode = useCallback(async (barcodeCode: string) => {
+    setLoadingImages(true);
+    setImageLoadError(null);
+    
+    try {
+      // Reference to the barcode-images folder
+      const storageRef = ref(storage, 'barcode-images/');
+      
+      // List all files in the barcode-images folder
+      const result = await listAll(storageRef);
+      
+      // Filter files that match the barcode pattern
+      const matchingFiles = result.items.filter(item => {
+        const fileName = item.name;
+        // Match exact code name or code with numbers in parentheses
+        return fileName === `${barcodeCode}.jpg` || 
+               fileName.match(new RegExp(`^${barcodeCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\(\\d+\\)\\.jpg$`));
+      });
+
+      // Get download URLs for matching files
+      const imageUrls = await Promise.all(
+        matchingFiles.map(async (fileRef) => {
+          try {
+            return await getDownloadURL(fileRef);
+          } catch (error) {
+            console.error(`Error getting download URL for ${fileRef.name}:`, error);
+            return null;
+          }
+        })
+      );
+
+      // Filter out any failed downloads
+      const validUrls = imageUrls.filter(url => url !== null) as string[];
+      
+      setCodeImages(validUrls);
+      
+      if (validUrls.length === 0) {
+        setImageLoadError('No se encontraron imágenes para este código');
+      }
+      
+    } catch (error) {
+      console.error('Error loading images:', error);
+      setImageLoadError('Error al cargar las imágenes');
+      setCodeImages([]);
+    } finally {
+      setLoadingImages(false);
+    }
+  }, []);
+
+  // Function to open images modal
+  const handleShowImages = useCallback(async (barcodeCode: string) => {
+    setCurrentImageCode(barcodeCode);
+    setShowImagesModal(true);
+    await loadImagesForCode(barcodeCode);
+  }, [loadImagesForCode]);
+
+  // Function to check if a code has images in Firebase Storage
+  const checkCodeHasImages = useCallback(async (barcodeCode: string): Promise<boolean> => {
+    try {
+      const storageRef = ref(storage, 'barcode-images/');
+      const result = await listAll(storageRef);
+      
+      const hasImages = result.items.some(item => {
+        const fileName = item.name;
+        return fileName === `${barcodeCode}.jpg` || 
+               fileName.match(new RegExp(`^${barcodeCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\(\\d+\\)\\.jpg$`));
+      });
+      
+      return hasImages;
+    } catch (error) {
+      console.error('Error checking if code has images:', error);
+      return false;
+    }
+  }, []);
+
+  // Function to close images modal
+  const handleCloseImagesModal = useCallback(() => {
+    setShowImagesModal(false);
+    setCurrentImageCode('');
+    setCodeImages([]);
+    setImageLoadError(null);
+  }, []);
+
   // Camera capture function for uploading images
   // Allows users to take photos and upload them to Firebase Storage
   // Images are named with the barcode code and consecutive numbers if multiple images are taken
@@ -317,10 +411,14 @@ function MobileScanContent() {
       message += ' enviado correctamente';
       
       setSuccess(message);
+      
+      // Check if code has images and update lastScanned
+      const hasImages = await checkCodeHasImages(scannedCode);
       setLastScanned(prev => [...prev.slice(-4), {
         code: scannedCode,
         ...(nameForProduct?.trim() && { productName: nameForProduct.trim() }),
-        ...(selectedLocation && { location: selectedLocation })
+        ...(selectedLocation && { location: selectedLocation }),
+        hasImages
       }]); // Keep last 5
       setCode('');
       setUploadedImagesCount(0); // Reset images count after successful submission
@@ -330,7 +428,7 @@ function MobileScanContent() {
       console.error('Error submitting code:', error);
       setError('Error al enviar el código. Inténtalo de nuevo.');
     }
-  }, [lastScanned, sessionId, isOnline, requestProductName, availableLocations, selectedLocation]);
+  }, [lastScanned, sessionId, isOnline, requestProductName, availableLocations, selectedLocation, checkCodeHasImages]);
   // Handler para eliminar primer dígito
   const handleRemoveLeadingZero = useCallback(() => {
     if (detectedCode && detectedCode.length > 1 && detectedCode[0] === '0') {
@@ -372,6 +470,35 @@ function MobileScanContent() {
     setPendingCode('');
     setProductName('');
   }, []);
+
+  // Effect to check if existing codes in history have images
+  useEffect(() => {
+    if (!isClient || lastScanned.length === 0) return;
+
+    const updateHistoryWithImages = async () => {
+      const updatedScans = await Promise.all(
+        lastScanned.map(async (scan) => {
+          if (scan.hasImages === undefined) {
+            const hasImages = await checkCodeHasImages(scan.code);
+            return { ...scan, hasImages };
+          }
+          return scan;
+        })
+      );
+
+      // Only update if there are changes
+      const hasChanges = updatedScans.some((scan, index) => 
+        scan.hasImages !== lastScanned[index]?.hasImages
+      );
+
+      if (hasChanges) {
+        setLastScanned(updatedScans);
+      }
+    };
+
+    updateHistoryWithImages();
+  }, [isClient, checkCodeHasImages, lastScanned]); // Added lastScanned back as dependency
+
   // Handle manual code input
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -646,6 +773,16 @@ function MobileScanContent() {
                     </span>
                   )}
                 </div>
+                {/* Image icon - only show if code has images */}
+                {scan.hasImages && (
+                  <button
+                    onClick={() => handleShowImages(scan.code)}
+                    className="p-1 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+                    title="Ver imágenes"
+                  >
+                    <ImageIcon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  </button>
+                )}
               </div>
             ))}
           </div>        </div>
@@ -693,7 +830,7 @@ function MobileScanContent() {
                 disabled={!selectedLocation}
                 className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed px-4 py-2 rounded-lg text-white font-medium"
               >
-                Continuar
+                Enviar
               </button>
             </div>
           </div>
@@ -763,6 +900,92 @@ function MobileScanContent() {
                 className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed px-4 py-2 rounded-lg text-white font-medium"
               >
                 Continuar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Images Modal */}
+      {showImagesModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-95 flex items-center justify-center p-4 z-50">
+          <div className="bg-card-bg rounded-lg w-full h-full max-w-none max-h-none overflow-hidden flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-600 flex-shrink-0">
+              <h3 className="text-xl font-semibold text-foreground">
+                📷 Imágenes del Código
+              </h3>
+              <button
+                onClick={handleCloseImagesModal}
+                className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              >
+                <X className="w-6 h-6 text-gray-500 dark:text-gray-400" />
+              </button>
+            </div>
+
+            {/* Current Code Display */}
+            <div className="px-6 py-3 border-b border-gray-200 dark:border-gray-600 flex-shrink-0">
+              <p className="text-gray-600 dark:text-gray-300 text-sm">
+                Código: <span className="font-mono bg-input-bg px-3 py-1 rounded text-base">{currentImageCode}</span>
+              </p>
+            </div>
+
+            {/* Modal Content */}
+            <div className="flex-1 overflow-auto p-6">
+              {loadingImages ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <span className="text-lg text-gray-600 dark:text-gray-300">Cargando imágenes...</span>
+                  </div>
+                </div>
+              ) : imageLoadError ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <AlertCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <p className="text-lg text-gray-600 dark:text-gray-300">{imageLoadError}</p>
+                  </div>
+                </div>
+              ) : codeImages.length > 0 ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 h-fit">
+                  {codeImages.map((imageUrl, index) => (
+                    <div key={index} className="relative group">
+                      <Image
+                        src={imageUrl}
+                        alt={`Imagen ${index + 1} del código ${currentImageCode}`}
+                        width={400}
+                        height={300}
+                        className="w-full h-auto max-h-96 object-contain rounded-lg border border-gray-200 dark:border-gray-600 shadow-lg transition-transform group-hover:scale-105 cursor-pointer"
+                        onClick={() => window.open(imageUrl, '_blank')}
+                        title="Clic para abrir en nueva ventana"
+                        onError={(e) => {
+                          console.error(`Error loading image ${index + 1}:`, e);
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                      <div className="absolute top-3 left-3 bg-black bg-opacity-80 text-white px-3 py-1 rounded-full text-sm font-medium">
+                        {index + 1}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <ImageIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <p className="text-lg text-gray-600 dark:text-gray-300">No hay imágenes disponibles</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 border-t border-gray-200 dark:border-gray-600 flex-shrink-0">
+              <button
+                onClick={handleCloseImagesModal}
+                className="w-full bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 px-6 py-3 rounded-lg text-white font-medium text-lg transition-colors"
+              >
+                Cerrar
               </button>
             </div>
           </div>

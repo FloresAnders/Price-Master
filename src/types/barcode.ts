@@ -13,6 +13,7 @@ export interface BarcodeScannerProps {
 export interface ScanHistoryEntry {
   code: string;
   name?: string;
+  hasImages?: boolean;
 }
 export interface ScanHistoryProps {
   history: ScanHistoryEntry[];
