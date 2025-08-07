@@ -7,7 +7,7 @@ import TicketCarousel from './TicketCarousel';
 import HelpTooltip from './HelpTooltip';
 import ConfirmModal from './ConfirmModal';
 import { ToastProvider, useToast } from './ToastContext';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '../config/firebase';
 import QRCode from 'qrcode';
 
@@ -75,7 +75,6 @@ export default function TimingControl() {
     const [showQRModal, setShowQRModal] = useState(false);
     const [qrCodeDataURL, setQRCodeDataURL] = useState('');
     const [downloadURL, setDownloadURL] = useState('');
-    const [storageRef, setStorageRef] = useState<string>('');
     const [isMobile, setIsMobile] = useState(false);
     const [mobileCodeInput, setMobileCodeInput] = useState('');
     const exportRef = useRef<HTMLDivElement>(null);
@@ -500,7 +499,6 @@ export default function TimingControl() {
             // Mostrar QR para móvil
             setQRCodeDataURL(qrDataUrl);
             setDownloadURL(downloadUrl);
-            setStorageRef(storagePath);
             setShowQRModal(true);
 
             toast.showToast(`Imagen exportada exitosamente. QR generado para descarga móvil.`, 'success');
@@ -519,7 +517,6 @@ export default function TimingControl() {
         setShowQRModal(false);
         setQRCodeDataURL('');
         setDownloadURL('');
-        setStorageRef('');
     };
 
     // Función para descargar directamente desde el QR modal

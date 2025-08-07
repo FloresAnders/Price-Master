@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, Suspense, useRef } from 'react';
-import { QrCode, Smartphone, Check, AlertCircle, Wifi, WifiOff } from 'lucide-react';
+import { QrCode, Smartphone, Check, AlertCircle, Wifi, WifiOff, Camera } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { ScanningService } from '../../services/scanning';
 import { useBarcodeScanner } from '../../hooks/useBarcodeScanner';
@@ -9,6 +9,8 @@ import CameraScanner from '../../components/CameraScanner';
 import ImageDropArea from '../../components/ImageDropArea';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { SessionSyncService, type SessionStatus } from '../../services/session-sync';
+import { storage } from '../../config/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 // Force dynamic rendering for this page
 export const dynamic = 'force-dynamic';
@@ -28,6 +30,7 @@ function MobileScanContent() {
   const [requestProductName, setRequestProductName] = useState(false);
   const [showNameModal, setShowNameModal] = useState(false);
   const [pendingCode, setPendingCode] = useState<string>(''); const [productName, setProductName] = useState('');
+  const [uploadedImagesCount, setUploadedImagesCount] = useState(0);
   
   // Estado para ubicaciones
   const [availableLocations, setAvailableLocations] = useState<string[]>([]);
@@ -179,7 +182,70 @@ function MobileScanContent() {
         sessionHeartbeatRef.current = null;
       }
     };
-  }, [sessionId, isClient]);// Submit scanned code
+  }, [sessionId, isClient]);
+
+  // Camera capture function for uploading images
+  // Allows users to take photos and upload them to Firebase Storage
+  // Images are named with the barcode code and consecutive numbers if multiple images are taken
+  const handleCameraCapture = useCallback(async () => {
+    const codeToUse = pendingCode || code;
+    if (!codeToUse.trim()) {
+      setError('Ingresa un código antes de tomar una foto');
+      return;
+    }
+
+    try {
+      // Create input element for camera capture
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.capture = 'environment'; // Use back camera on mobile
+
+      input.onchange = async (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (!file) return;
+
+        try {
+          setError(null);
+          
+          // Generate filename with consecutive number
+          const baseFileName = codeToUse.trim();
+          const fileName = uploadedImagesCount === 0 
+            ? `${baseFileName}.jpg` 
+            : `${baseFileName}(${uploadedImagesCount + 1}).jpg`;
+
+          // Create Firebase storage reference
+          const storageRef = ref(storage, `barcode-images/${fileName}`);
+
+          // Upload file to Firebase Storage
+          await uploadBytes(storageRef, file);
+          
+          // Get download URL (optional, for verification)
+          const downloadURL = await getDownloadURL(storageRef);
+          console.log('Imagen subida exitosamente:', downloadURL);
+
+          // Update images count
+          setUploadedImagesCount(prev => prev + 1);
+          
+          setSuccess(`Imagen ${uploadedImagesCount + 1} subida correctamente`);
+          setTimeout(() => setSuccess(null), 2000);
+
+        } catch (uploadError) {
+          console.error('Error uploading image:', uploadError);
+          setError('Error al subir la imagen. Inténtalo de nuevo.');
+        }
+      };
+
+      // Trigger file selection
+      input.click();
+
+    } catch (error) {
+      console.error('Error setting up camera capture:', error);
+      setError('Error al acceder a la cámara');
+    }
+  }, [pendingCode, code, uploadedImagesCount]);
+
+// Submit scanned code
   const submitCode = useCallback(async (scannedCode: string, nameForProduct?: string) => {
     if (!scannedCode.trim()) {
       setError('Código vacío');
@@ -257,6 +323,7 @@ function MobileScanContent() {
         ...(selectedLocation && { location: selectedLocation })
       }]); // Keep last 5
       setCode('');
+      setUploadedImagesCount(0); // Reset images count after successful submission
       // Clear success message after 2 seconds
       setTimeout(() => setSuccess(null), 2000);
     } catch (error) {
@@ -310,6 +377,11 @@ function MobileScanContent() {
     e.preventDefault();
     submitCode(code);
   };
+
+  // Reset uploaded images count when code changes
+  useEffect(() => {
+    setUploadedImagesCount(0);
+  }, [code, pendingCode]);
   return (
     <div className="min-h-screen bg-background text-foreground p-4">      {/* Header */}
       <div className="flex items-center justify-between mb-6">
@@ -654,6 +726,29 @@ function MobileScanContent() {
                 }
               }}
             />
+
+            {/* Camera Capture Button */}
+            <button
+              type="button"
+              onClick={handleCameraCapture}
+              disabled={!isOnline}
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed px-4 py-3 rounded-lg text-white font-semibold flex items-center justify-center gap-2 mb-4"
+            >
+              <Camera className="w-4 h-4" />
+              Agregar Imagen
+            </button>
+
+            {/* Images count display */}
+            {uploadedImagesCount > 0 && (
+              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 border border-blue-200 dark:border-blue-800 mb-4">
+                <div className="flex items-center gap-2">
+                  <Camera className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <span className="text-blue-800 dark:text-blue-200 text-sm">
+                    Se {uploadedImagesCount === 1 ? 'agregó' : 'agregaron'} {uploadedImagesCount} imagen{uploadedImagesCount > 1 ? 'es' : ''}
+                  </span>
+                </div>
+              </div>
+            )}
 
             <div className="flex gap-3">
               <button
