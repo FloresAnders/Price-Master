@@ -17,6 +17,13 @@ import type { User as FirestoreUser } from '../types/firestore';
 import { ref, deleteObject } from 'firebase/storage';
 import { storage } from '../config/firebase';
 
+interface ControlHorarioProps {
+  // Prop opcional para pasar el usuario cuando se usa desde el backdoor
+  currentUser?: FirestoreUser | null;
+  // Prop para indicar si está en modo backdoor
+  isBackdoorMode?: boolean;
+}
+
 interface ScheduleData {
   [employeeName: string]: {
     [day: string]: string;
@@ -198,8 +205,27 @@ function EmployeeTooltipSummary({
   );
 }
 
-export default function ControlHorario() {
-  const { user, isAuthenticated, login, logout, canChangeLocation, isSuperAdmin } = useAuth();
+export default function ControlHorario({ currentUser: propCurrentUser, isBackdoorMode = false }: ControlHorarioProps = {}) {
+  const { user: authUser, isAuthenticated, login, logout, canChangeLocation, isSuperAdmin } = useAuth();
+  
+  // Usar el usuario del prop si está en modo backdoor, sino usar el del hook useAuth
+  const user = isBackdoorMode && propCurrentUser ? propCurrentUser : authUser;
+  const isUserAuthenticated = isBackdoorMode ? !!propCurrentUser : isAuthenticated;
+  
+  // Funciones de autorización que funcionan tanto en modo backdoor como normal
+  const userCanChangeLocation = () => {
+    if (isBackdoorMode && user) {
+      return user.role === 'admin' || user.role === 'superadmin';
+    }
+    return canChangeLocation();
+  };
+  
+  const userIsSuperAdmin = () => {
+    if (isBackdoorMode && user) {
+      return user.role === 'superadmin';
+    }
+    return isSuperAdmin();
+  };
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
@@ -257,10 +283,10 @@ export default function ControlHorario() {
 
   // Efecto para manejar la ubicación del usuario autenticado
   useEffect(() => {
-    if (isAuthenticated && user?.location && !location) {
+    if (isUserAuthenticated && user?.location && !location) {
       setLocation(user.location);
     }
-  }, [isAuthenticated, user, location]);
+  }, [isUserAuthenticated, user, location]);
 
   // Función para mostrar notificaciones
   const showNotification = (message: string, type: 'success' | 'error') => {
@@ -371,7 +397,7 @@ export default function ControlHorario() {
     };
 
     loadScheduleData();
-  }, [location, locations, currentDate, isDelifoodLocation, isAuthenticated, loading]);
+  }, [location, locations, currentDate, isDelifoodLocation, isUserAuthenticated, loading]);
 
   // Manejar login exitoso
   const handleLoginSuccess = (userData: FirestoreUser) => {
@@ -387,7 +413,7 @@ export default function ControlHorario() {
   useEffect(() => {
     const today = new Date();
     const isCurrentMonth = today.getFullYear() === currentDate.getFullYear() && today.getMonth() === currentDate.getMonth();
-    if (isAuthenticated && !loading && isCurrentMonth && !autoQuincenaRef.current) {
+    if (isUserAuthenticated && !loading && isCurrentMonth && !autoQuincenaRef.current) {
       if (today.getDate() > 15) {
         setViewMode('second');
       } else {
@@ -399,7 +425,7 @@ export default function ControlHorario() {
     if (!isCurrentMonth) {
       autoQuincenaRef.current = false;
     }
-  }, [isAuthenticated, loading, currentDate, viewMode]);
+  }, [isUserAuthenticated, loading, currentDate, viewMode]);
 
   // Sincronizar selectedPeriod con viewMode y fullMonthView
   useEffect(() => {
@@ -420,7 +446,22 @@ export default function ControlHorario() {
   }, [scheduleData, isDelifoodLocation]);
 
   // Verificar si necesita autenticación
-  if (!isAuthenticated) {
+  if (!isUserAuthenticated) {
+    // Si está en modo backdoor, no mostrar el login modal ya que la autenticación se maneja en el backdoor
+    if (isBackdoorMode) {
+      return (
+        <div className="max-w-4xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4 sm:p-6">
+          <div className="text-center py-8">
+            <Clock className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 text-blue-600" />
+            <h3 className="text-xl sm:text-2xl font-semibold mb-4">Control de Horarios</h3>
+            <p className="text-sm sm:text-base text-[var(--tab-text)] mb-6">
+              Error: No se pudo cargar la información del usuario.
+            </p>
+          </div>
+        </div>
+      );
+    }
+    
     return (
       <div className="max-w-4xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4 sm:p-6">
         <div className="text-center py-8">
@@ -766,7 +807,7 @@ export default function ControlHorario() {
 
   // Función para exportar horarios como imagen (Solo SuperAdmin) - Descarga directa
   const exportScheduleAsImage = async () => {
-    if (!isSuperAdmin()) {
+    if (!userIsSuperAdmin()) {
       showNotification('Solo SuperAdmin puede exportar como imagen', 'error');
       return;
     }
@@ -1331,7 +1372,7 @@ export default function ControlHorario() {
 
             <div className="flex flex-col sm:flex-row items-center gap-4">
               {/* Selector de ubicación - solo para administradores */}
-              {canChangeLocation() ? (
+              {userCanChangeLocation() ? (
                 <select
                   className="w-full sm:w-auto px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   style={{
@@ -1350,15 +1391,17 @@ export default function ControlHorario() {
               ) : (
                 <div className="hidden sm:block px-3 py-2 text-sm text-[var(--tab-text)]">
                 </div>
-              )}              {/* Botón de logout */}
-              <button
-                onClick={() => logout()}
-                className="flex items-center gap-2 px-3 py-2 text-red-600 hover:bg-red-50 rounded-md transition-colors w-full sm:w-auto justify-center"
-                title="Cerrar sesión"
-              >
-                <LogOut className="w-4 h-4" />
-                <span>Salir</span>
-              </button>
+              )}              {/* Botón de logout - oculto en modo backdoor */}
+              {!isBackdoorMode && (
+                <button
+                  onClick={() => logout()}
+                  className="flex items-center gap-2 px-3 py-2 text-red-600 hover:bg-red-50 rounded-md transition-colors w-full sm:w-auto justify-center"
+                  title="Cerrar sesión"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Salir</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -1470,7 +1513,7 @@ export default function ControlHorario() {
               </div>
 
               {/* Botón de exportar - Solo para SuperAdmin */}
-              {isSuperAdmin() && (
+              {userIsSuperAdmin() && (
                 <button
                   onClick={exportScheduleAsImage}
                   className="flex items-center gap-2 px-3 py-1 text-sm bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"

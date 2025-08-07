@@ -426,7 +426,10 @@ function BackdoorContent() {
                             )}
 
                             {activeTab === 'controlhorario' && (
-                                <ControlHorario />
+                                <ControlHorario 
+                                    currentUser={currentUser} 
+                                    isBackdoorMode={true} 
+                                />
                             )}
 
                             {activeTab === 'histoscans' && (
