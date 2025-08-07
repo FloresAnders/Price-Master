@@ -29,6 +29,31 @@ export default function TextConversion() {
     }
   };
 
+  const pasteFromClipboard = async () => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        const clipboardText = await navigator.clipboard.readText();
+        setText(clipboardText);
+      } else {
+        // Fallback message for older browsers
+        alert('Paste functionality not supported in this browser. Please paste manually.');
+      }
+    } catch (error) {
+      console.error('Error reading from clipboard:', error);
+      alert('Unable to access clipboard. Please paste manually.');
+    }
+  };
+
+  const toTitleCase = (str: string) => {
+    return str.replace(/\w\S*/g, (txt) => {
+      return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
+    });
+  };
+
+  const clearInput = () => {
+    setText('');
+  };
+
   return (
     <div
       className="flex flex-col items-center justify-center gap-6 p-8 rounded-xl shadow-lg w-full max-w-4xl mx-auto"
@@ -88,6 +113,48 @@ export default function TextConversion() {
           onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--button-bg)')}
         >
           To Lowercase
+        </button>
+        <button
+          onClick={() => {
+            const titleCaseText = toTitleCase(text);
+            setText(titleCaseText);
+            copyToClipboard(titleCaseText);
+          }}
+          className="w-full px-6 py-4 text-xl rounded-md transition-colors font-medium"
+          style={{
+            background: 'var(--button-bg)',
+            color: 'var(--button-text)',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--button-hover)')}
+          onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--button-bg)')}
+        >
+          To Title Case (Aa)
+        </button>
+      </div>
+      <div className="flex flex-col sm:flex-row gap-4 w-full mt-4">
+        <button
+          onClick={clearInput}
+          className="w-full px-6 py-4 text-xl rounded-md transition-colors font-medium"
+          style={{
+            background: 'var(--button-bg)',
+            color: 'var(--button-text)',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--button-hover)')}
+          onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--button-bg)')}
+        >
+          Limpiar
+        </button>
+        <button
+          onClick={pasteFromClipboard}
+          className="w-full px-6 py-4 text-xl rounded-md transition-colors font-medium"
+          style={{
+            background: 'var(--button-bg)',
+            color: 'var(--button-text)',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--button-hover)')}
+          onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--button-bg)')}
+        >
+          Pegar
         </button>
       </div>
     </div>
