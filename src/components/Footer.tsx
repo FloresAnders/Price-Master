@@ -10,15 +10,24 @@ export default function Footer() {
 
   const motivationalPhrases = frasesData;
 
-  const getRandomIndex = () => Math.floor(Math.random() * motivationalPhrases.length);
-  const [phraseIndex, setPhraseIndex] = useState(getRandomIndex());
+  const [phraseIndex, setPhraseIndex] = useState(0); // Start with 0 to avoid hydration mismatch
+  const [isClient, setIsClient] = useState(false);
+
+  // Set random index and client flag after component mounts
+  useEffect(() => {
+    const getRandomIndex = () => Math.floor(Math.random() * motivationalPhrases.length);
+    setIsClient(true);
+    setPhraseIndex(getRandomIndex());
+  }, [motivationalPhrases.length]);
 
   useEffect(() => {
+    if (!isClient) return; // Don't start interval until client-side
+    
     const interval = setInterval(() => {
       setPhraseIndex(prev => (prev + 1) % motivationalPhrases.length);
     }, 1800000); // Cambia cada 30 minutos
     return () => clearInterval(interval);
-  }, [motivationalPhrases.length]);
+  }, [motivationalPhrases.length, isClient]);
 
 
   // Handle ESC key to close modal
@@ -128,7 +137,7 @@ export default function Footer() {
               className="mx-2 hover:text-[var(--tab-hover-text)] transition-colors text-[var(--tab-text)] opacity-50 hover:opacity-100"
             >|</button>
             <span className="font-medium transition-opacity duration-700" key={phraseIndex}>
-              {motivationalPhrases[phraseIndex]}
+              {isClient ? motivationalPhrases[phraseIndex] : motivationalPhrases[0]}
             </span>
           </span>
         </div>

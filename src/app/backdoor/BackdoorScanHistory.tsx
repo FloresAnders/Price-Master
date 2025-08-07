@@ -1,7 +1,8 @@
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { History, Copy, Trash2, Search, Eye, Calendar, MapPin, RefreshCw, Image, X, ChevronLeft, ChevronRight, Download } from 'lucide-react';
+import Image from 'next/image';
+import { History, Copy, Trash2, Search, Eye, Calendar, MapPin, RefreshCw, Image as ImageIcon, X, Download } from 'lucide-react';
 import type { ScanResult } from '@/types/firestore';
 import { ScanningService } from '@/services/scanning';
 import locations from '@/data/locations.json';
@@ -414,7 +415,7 @@ export default function BackdoorScanHistory() {
 
               <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 rounded-lg p-4">
                 <div className="flex items-center gap-2">
-                  <Image className="w-5 h-5 text-purple-600" />
+                  <ImageIcon className="w-5 h-5 text-purple-600" />
                   <span className="text-sm font-medium text-purple-800 dark:text-purple-300">Con Imágenes</span>
                 </div>
                 <p className="text-2xl font-bold text-purple-600 mt-1">
@@ -470,7 +471,7 @@ export default function BackdoorScanHistory() {
                       </span>
                       {entry.hasImages && (
                         <span className="text-xs text-[var(--muted-foreground)] bg-purple-100 dark:bg-purple-900/30 px-2 py-1 rounded flex items-center gap-1">
-                          <Image className="w-3 h-3" />
+                          <ImageIcon className="w-3 h-3" />
                           Imágenes
                         </span>
                       )}
@@ -519,7 +520,7 @@ export default function BackdoorScanHistory() {
                         className="p-2 text-purple-600 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded-md transition-colors"
                         title="Ver imágenes"
                       >
-                        <Image className="w-4 h-4" />
+                        <ImageIcon className="w-4 h-4" />
                       </button>
                     )}
                     <button
@@ -593,7 +594,7 @@ export default function BackdoorScanHistory() {
             ) : imageLoadError ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center text-white">
-                  <Image className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                  <ImageIcon className="w-16 h-16 mx-auto mb-4 opacity-50" />
                   <h3 className="text-lg font-medium mb-2">No se encontraron imágenes</h3>
                   <p className="text-gray-300">{imageLoadError}</p>
                 </div>
@@ -608,9 +609,11 @@ export default function BackdoorScanHistory() {
                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
                         </div>
                       )}
-                      <img
+                      <Image
                         src={imageUrl}
                         alt={`Imagen ${index + 1} del código ${currentImageCode}`}
+                        width={400}
+                        height={400}
                         className="w-full h-full object-cover cursor-pointer transition-transform duration-200 group-hover:scale-105"
                         loading="lazy"
                         onLoadStart={() => handleThumbnailLoadStart(index)}
@@ -643,7 +646,7 @@ export default function BackdoorScanHistory() {
             ) : (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center text-white">
-                  <Image className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                  <ImageIcon className="w-16 h-16 mx-auto mb-4 opacity-50" />
                   <h3 className="text-lg font-medium mb-2">No se encontraron imágenes</h3>
                   <p className="text-gray-300">Este código no tiene imágenes asociadas</p>
                 </div>
