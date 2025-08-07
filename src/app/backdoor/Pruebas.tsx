@@ -1,9 +1,10 @@
     'use client';
 
 import React, { useState, useRef } from 'react';
-import { TestTube, Beaker, FlaskConical, Zap, Code, Database, Upload, Image, CheckCircle, AlertCircle, Calendar } from 'lucide-react';
+import { TestTube, Beaker, FlaskConical, Zap, Code, Database, Upload, Image, CheckCircle, AlertCircle, Calendar, Mail } from 'lucide-react';
 import { storage } from '@/config/firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { useEmail } from '@/hooks/useEmail';
 
 export default function Pruebas() {
     const [activeTest, setActiveTest] = useState<string | null>(null);
@@ -13,6 +14,9 @@ export default function Pruebas() {
     const [uploadedImageUrl, setUploadedImageUrl] = useState<string>('');
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    
+    // Hook para funcionalidad de correo
+    const { sendEmail, sendTestEmail, checkEmailConfig, isLoading: emailLoading, error: emailError } = useEmail();
 
     const handleRunTest = (testId: string, testName: string) => {
         setActiveTest(testId);
@@ -1031,6 +1035,355 @@ export default function Pruebas() {
         }
     };
 
+    // Funciones de correo electrónico
+    const testEmailConfiguration = async () => {
+        setActiveTest('email-config-test');
+        
+        try {
+            setTestResults(prev => ({
+                ...prev,
+                'email-config-start': '🔄 Verificando configuración de Gmail...'
+            }));
+
+            const config = await checkEmailConfig();
+            
+            if (config) {
+                if (config.configured) {
+                    setTestResults(prev => ({
+                        ...prev,
+                        'email-config-success': '✅ Configuración de Gmail válida',
+                        'email-config-user': `📧 Usuario configurado: ${config.user}`,
+                        'email-config-message': `💬 ${config.message}`
+                    }));
+                } else {
+                    setTestResults(prev => ({
+                        ...prev,
+                        'email-config-error': `❌ Error de configuración: ${config.error}`,
+                        'email-config-help': '💡 Verifica las variables GMAIL_USER y GMAIL_APP_PASSWORD en .env.local'
+                    }));
+                }
+            }
+            
+            if (emailError) {
+                setTestResults(prev => ({
+                    ...prev,
+                    'email-config-error': `❌ Error: ${emailError}`
+                }));
+            }
+            
+        } catch (error) {
+            setTestResults(prev => ({
+                ...prev,
+                'email-config-error': `❌ Error inesperado: ${error instanceof Error ? error.message : 'Error desconocido'}`
+            }));
+        }
+        
+        setActiveTest(null);
+    };
+
+    const sendTestEmailFunction = async () => {
+        setActiveTest('send-test-email');
+        
+        try {
+            // Crear modal para solicitar email
+            const emailModal = document.createElement('div');
+            emailModal.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+                background: rgba(0,0,0,0.8); z-index: 10000; display: flex; 
+                align-items: center; justify-content: center;
+            `;
+            
+            emailModal.innerHTML = `
+                <div style="background: white; padding: 24px; border-radius: 12px; max-width: 500px; width: 90%;">
+                    <h3 style="margin: 0 0 20px 0; color: #059669; font-size: 20px; font-weight: bold;">
+                        📧 Enviar Correo de Prueba
+                    </h3>
+                    
+                    <div style="background: #f0f9ff; padding: 12px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #0284c7;">
+                        <p style="margin: 0; color: #0284c7; font-weight: 600;">
+                            💡 Información sobre el correo de prueba
+                        </p>
+                        <p style="margin: 8px 0 0 0; color: #0369a1; font-size: 14px;">
+                            Se enviará un correo con información sobre la configuración y estado del sistema.
+                        </p>
+                    </div>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #374151;">
+                            Dirección de correo electrónico:
+                        </label>
+                        <input 
+                            type="email" 
+                            id="emailInput" 
+                            placeholder="ejemplo@gmail.com"
+                            style="width: 100%; padding: 10px; border: 2px solid #d1d5db; border-radius: 6px; font-size: 16px;"
+                            required
+                        />
+                    </div>
+                    
+                    <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                        <button 
+                            id="cancelEmailBtn"
+                            style="padding: 10px 20px; background: #6b7280; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;"
+                        >
+                            Cancelar
+                        </button>
+                        <button 
+                            id="sendEmailBtn"
+                            style="padding: 10px 20px; background: #059669; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;"
+                        >
+                            Enviar Prueba
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(emailModal);
+            
+            const emailInput = document.getElementById('emailInput') as HTMLInputElement;
+            const sendBtn = document.getElementById('sendEmailBtn');
+            const cancelBtn = document.getElementById('cancelEmailBtn');
+            
+            emailInput.focus();
+            
+            const handleSend = async () => {
+                const email = emailInput.value.trim();
+                
+                if (!email) {
+                    alert('Por favor ingresa un email válido');
+                    return;
+                }
+                
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(email)) {
+                    alert('Por favor ingresa un formato de email válido');
+                    return;
+                }
+                
+                document.body.removeChild(emailModal);
+                
+                setTestResults(prev => ({
+                    ...prev,
+                    'email-send-start': `📧 Enviando correo de prueba a: ${email}...`
+                }));
+                
+                try {
+                    const result = await sendTestEmail(email);
+                    
+                    if (result && result.success) {
+                        setTestResults(prev => ({
+                            ...prev,
+                            'email-send-success': '✅ Correo de prueba enviado exitosamente!',
+                            'email-send-id': `📄 ID del mensaje: ${result.messageId}`,
+                            'email-send-response': `📡 Respuesta del servidor: ${result.response}`,
+                            'email-send-tip': '💡 Revisa tu bandeja de entrada (y spam) en unos minutos'
+                        }));
+                    } else {
+                        setTestResults(prev => ({
+                            ...prev,
+                            'email-send-error': '❌ Error al enviar el correo de prueba'
+                        }));
+                    }
+                    
+                } catch (error) {
+                    setTestResults(prev => ({
+                        ...prev,
+                        'email-send-error': `❌ Error: ${error instanceof Error ? error.message : 'Error desconocido'}`
+                    }));
+                }
+                
+                setActiveTest(null);
+            };
+            
+            const handleCancel = () => {
+                document.body.removeChild(emailModal);
+                setActiveTest(null);
+            };
+            
+            sendBtn?.addEventListener('click', handleSend);
+            cancelBtn?.addEventListener('click', handleCancel);
+            
+            emailInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    handleSend();
+                }
+            });
+            
+        } catch (error) {
+            setTestResults(prev => ({
+                ...prev,
+                'email-send-error': `❌ Error inesperado: ${error instanceof Error ? error.message : 'Error desconocido'}`
+            }));
+            setActiveTest(null);
+        }
+    };
+
+    const sendCustomEmail = async () => {
+        setActiveTest('send-custom-email');
+        
+        try {
+            // Crear modal para correo personalizado
+            const customEmailModal = document.createElement('div');
+            customEmailModal.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+                background: rgba(0,0,0,0.8); z-index: 10000; display: flex; 
+                align-items: center; justify-content: center;
+            `;
+            
+            customEmailModal.innerHTML = `
+                <div style="background: white; padding: 24px; border-radius: 12px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto;">
+                    <h3 style="margin: 0 0 20px 0; color: #7c3aed; font-size: 20px; font-weight: bold;">
+                        ✉️ Enviar Correo Personalizado
+                    </h3>
+                    
+                    <div style="background: #f5f3ff; padding: 12px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #7c3aed;">
+                        <p style="margin: 0; color: #7c3aed; font-weight: 600;">
+                            📝 Componer correo personalizado
+                        </p>
+                        <p style="margin: 8px 0 0 0; color: #6d28d9; font-size: 14px;">
+                            Envía un correo con contenido personalizado desde el sistema Price Master.
+                        </p>
+                    </div>
+                    
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #374151;">
+                            Para (email):
+                        </label>
+                        <input 
+                            type="email" 
+                            id="customEmailTo" 
+                            placeholder="destinatario@ejemplo.com"
+                            style="width: 100%; padding: 10px; border: 2px solid #d1d5db; border-radius: 6px; font-size: 16px;"
+                            required
+                        />
+                    </div>
+                    
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #374151;">
+                            Asunto:
+                        </label>
+                        <input 
+                            type="text" 
+                            id="customEmailSubject" 
+                            placeholder="Asunto del correo"
+                            style="width: 100%; padding: 10px; border: 2px solid #d1d5db; border-radius: 6px; font-size: 16px;"
+                            required
+                        />
+                    </div>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #374151;">
+                            Mensaje:
+                        </label>
+                        <textarea 
+                            id="customEmailMessage" 
+                            placeholder="Escribe tu mensaje aquí..."
+                            rows="6"
+                            style="width: 100%; padding: 10px; border: 2px solid #d1d5db; border-radius: 6px; font-size: 16px; resize: vertical;"
+                            required
+                        ></textarea>
+                    </div>
+                    
+                    <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                        <button 
+                            id="cancelCustomEmailBtn"
+                            style="padding: 10px 20px; background: #6b7280; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;"
+                        >
+                            Cancelar
+                        </button>
+                        <button 
+                            id="sendCustomEmailBtn"
+                            style="padding: 10px 20px; background: #7c3aed; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;"
+                        >
+                            Enviar Correo
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(customEmailModal);
+            
+            const emailToInput = document.getElementById('customEmailTo') as HTMLInputElement;
+            const emailSubjectInput = document.getElementById('customEmailSubject') as HTMLInputElement;
+            const emailMessageInput = document.getElementById('customEmailMessage') as HTMLTextAreaElement;
+            const sendBtn = document.getElementById('sendCustomEmailBtn');
+            const cancelBtn = document.getElementById('cancelCustomEmailBtn');
+            
+            emailToInput.focus();
+            
+            const handleSend = async () => {
+                const to = emailToInput.value.trim();
+                const subject = emailSubjectInput.value.trim();
+                const message = emailMessageInput.value.trim();
+                
+                if (!to || !subject || !message) {
+                    alert('Por favor completa todos los campos');
+                    return;
+                }
+                
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(to)) {
+                    alert('Por favor ingresa un formato de email válido');
+                    return;
+                }
+                
+                document.body.removeChild(customEmailModal);
+                
+                setTestResults(prev => ({
+                    ...prev,
+                    'custom-email-start': `📧 Enviando correo personalizado a: ${to}...`,
+                    'custom-email-subject': `📋 Asunto: ${subject}`
+                }));
+                
+                try {
+                    const result = await sendEmail({
+                        to,
+                        subject,
+                        text: message
+                    });
+                    
+                    if (result && result.success) {
+                        setTestResults(prev => ({
+                            ...prev,
+                            'custom-email-success': '✅ Correo personalizado enviado exitosamente!',
+                            'custom-email-id': `📄 ID del mensaje: ${result.messageId}`,
+                            'custom-email-response': `📡 Respuesta del servidor: ${result.response}`,
+                            'custom-email-tip': '💡 El destinatario debería recibir el correo en unos minutos'
+                        }));
+                    } else {
+                        setTestResults(prev => ({
+                            ...prev,
+                            'custom-email-error': '❌ Error al enviar el correo personalizado'
+                        }));
+                    }
+                    
+                } catch (error) {
+                    setTestResults(prev => ({
+                        ...prev,
+                        'custom-email-error': `❌ Error: ${error instanceof Error ? error.message : 'Error desconocido'}`
+                    }));
+                }
+                
+                setActiveTest(null);
+            };
+            
+            const handleCancel = () => {
+                document.body.removeChild(customEmailModal);
+                setActiveTest(null);
+            };
+            
+            sendBtn?.addEventListener('click', handleSend);
+            cancelBtn?.addEventListener('click', handleCancel);
+            
+        } catch (error) {
+            setTestResults(prev => ({
+                ...prev,
+                'custom-email-error': `❌ Error inesperado: ${error instanceof Error ? error.message : 'Error desconocido'}`
+            }));
+            setActiveTest(null);
+        }
+    };
+
     const testSections = [
         {
             id: 'api-tests',
@@ -1094,6 +1447,18 @@ export default function Pruebas() {
                 { id: 'validate-schedules', name: 'Validar Integridad' },
                 { id: 'backup-schedules', name: 'Backup Completo' }
             ]
+        },
+        {
+            id: 'email-tests',
+            title: 'Correo Electrónico (Gmail)',
+            icon: <Mail className="w-6 h-6" />,
+            color: 'emerald',
+            description: 'Envío de correos electrónicos mediante Gmail con configuración anti-spam',
+            tests: [
+                { id: 'email-config', name: 'Verificar Configuración', action: testEmailConfiguration },
+                { id: 'send-test-email', name: 'Enviar Correo de Prueba', action: sendTestEmailFunction },
+                { id: 'send-custom-email', name: 'Enviar Correo Personalizado', action: sendCustomEmail }
+            ]
         }
     ];
 
@@ -1128,6 +1493,12 @@ export default function Pruebas() {
                 hover: 'hover:bg-indigo-200 dark:hover:bg-indigo-900/50',
                 text: 'text-indigo-600',
                 border: 'border-indigo-400'
+            },
+            emerald: {
+                bg: 'bg-emerald-100 dark:bg-emerald-900/30',
+                hover: 'hover:bg-emerald-200 dark:hover:bg-emerald-900/50',
+                text: 'text-emerald-600',
+                border: 'border-emerald-400'
             }
         };
         return colorMap[color as keyof typeof colorMap] || colorMap.blue;
@@ -1488,6 +1859,100 @@ service firebase.storage {
                                 <li>3. Comprobar reglas de Storage</li>
                                 <li>4. Intentar subir imagen de prueba</li>
                             </ol>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Email Configuration Section */}
+            <div className="bg-[var(--input-bg)] rounded-lg border border-[var(--border)] p-6 mb-8">
+                <h3 className="text-lg font-semibold text-[var(--foreground)] mb-4 flex items-center">
+                    <Mail className="w-5 h-5 mr-2 text-emerald-600" />
+                    Configuración de Gmail para Correo Electrónico
+                </h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                        <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg">
+                            <h4 className="font-semibold text-emerald-700 dark:text-emerald-400 mb-2">✅ Funcionalidades Disponibles</h4>
+                            <ul className="text-sm text-emerald-600 dark:text-emerald-300 space-y-1">
+                                <li>• Verificación de configuración Gmail</li>
+                                <li>• Envío de correos de prueba</li>
+                                <li>• Correos personalizados</li>
+                                <li>• Configuración anti-spam incluida</li>
+                                <li>• Headers optimizados para deliverability</li>
+                            </ul>
+                        </div>
+                        
+                        <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                            <h4 className="font-semibold text-yellow-700 dark:text-yellow-400 mb-2">⚠️ Configuración Requerida</h4>
+                            <div className="space-y-2">
+                                <p className="text-sm text-yellow-600 dark:text-yellow-300">
+                                    <strong>Variables de entorno necesarias en .env.local:</strong>
+                                </p>
+                                <pre className="text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded">
+{`GMAIL_USER=tu-email@gmail.com
+GMAIL_APP_PASSWORD=abcd-efgh-ijkl-mnop`}
+                                </pre>
+                                <p className="text-xs text-yellow-600 dark:text-yellow-300">
+                                    ⚠️ Usa contraseña de aplicación, NO tu contraseña normal
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div className="space-y-4">
+                        <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                            <h4 className="font-semibold text-blue-700 dark:text-blue-400 mb-2">🔧 Pasos de Configuración</h4>
+                            <ol className="text-sm text-blue-600 dark:text-blue-300 space-y-1">
+                                <li>1. Habilitar verificación en 2 pasos en Google</li>
+                                <li>2. Generar contraseña de aplicación</li>
+                                <li>3. Agregar variables al .env.local</li>
+                                <li>4. Reiniciar el servidor</li>
+                                <li>5. Ejecutar "Verificar Configuración"</li>
+                            </ol>
+                        </div>
+                        
+                        <div className="p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
+                            <h4 className="font-semibold text-purple-700 dark:text-purple-400 mb-2">🛡️ Características Anti-Spam</h4>
+                            <ul className="text-sm text-purple-600 dark:text-purple-300 space-y-1">
+                                <li>• Headers de prioridad normales</li>
+                                <li>• HTML bien formado con estilos inline</li>
+                                <li>• Rate limiting (5 correos/20s)</li>
+                                <li>• Message-ID único generado</li>
+                                <li>• From name descriptivo</li>
+                                <li>• Reply-To configurado</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-900/20 border border-gray-200 dark:border-gray-800 rounded-lg">
+                    <h4 className="font-semibold text-gray-700 dark:text-gray-400 mb-2">📖 Documentación Completa</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
+                        Para una guía paso a paso completa, consulta el archivo <code className="bg-gray-200 dark:bg-gray-700 px-1 rounded">GMAIL_SETUP.md</code> en la raíz del proyecto.
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                        <div>
+                            <strong className="text-gray-700 dark:text-gray-300">Incluye:</strong>
+                            <ul className="text-gray-600 dark:text-gray-400 mt-1">
+                                <li>• Configuración detallada</li>
+                                <li>• Solución de problemas</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <strong className="text-gray-700 dark:text-gray-300">Ejemplos:</strong>
+                            <ul className="text-gray-600 dark:text-gray-400 mt-1">
+                                <li>• Correos de prueba</li>
+                                <li>• Mensajes personalizados</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <strong className="text-gray-700 dark:text-gray-300">Seguridad:</strong>
+                            <ul className="text-gray-600 dark:text-gray-400 mt-1">
+                                <li>• Mejores prácticas</li>
+                                <li>• Gestión de credenciales</li>
+                            </ul>
                         </div>
                     </div>
                 </div>
