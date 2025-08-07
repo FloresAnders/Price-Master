@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { Shield, Lock, Eye, AlertTriangle, User, Clock } from 'lucide-react';
 import DataEditor from '@/edit/DataEditor';
 import LoginModal from '@/components/LoginModal';
+import AutoBackup from '@/components/AutoBackup';
 import { useAuth } from '@/hooks/useAuth';
 import type { User as FirestoreUser } from '@/types/firestore';
 
@@ -286,6 +287,9 @@ export default function EditPage() {
           </div>
         </div>
       </div>
+
+      {/* Sistema de Backup Automático para SuperAdmin */}
+      {user && <AutoBackup user={user} isVisible={true} />}
 
       {/* Componente del Editor de Datos */}
       <DataEditor />

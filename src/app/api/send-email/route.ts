@@ -18,7 +18,7 @@ const createTransporter = () => {
 };
 
 // Configuración de opciones de correo para evitar spam
-const getMailOptions = (to: string, subject: string, text: string, html?: string) => {
+const getMailOptions = (to: string, subject: string, text: string, html?: string, attachments?: any[]) => {
   return {
     from: {
       name: 'Price Master System',
@@ -43,6 +43,8 @@ const getMailOptions = (to: string, subject: string, text: string, html?: string
         </div>
       </div>
     `,
+    // Adjuntos
+    attachments: attachments || [],
     // Headers para evitar spam
     headers: {
       'X-Priority': '3',
@@ -60,7 +62,7 @@ const getMailOptions = (to: string, subject: string, text: string, html?: string
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { to, subject, text, html } = body;
+    const { to, subject, text, html, attachments } = body;
 
     // Validaciones básicas
     if (!to || !subject || !text) {
@@ -94,7 +96,7 @@ export async function POST(request: NextRequest) {
     await transporter.verify();
 
     // Configurar opciones del correo
-    const mailOptions = getMailOptions(to, subject, text, html);
+    const mailOptions = getMailOptions(to, subject, text, html, attachments);
 
     // Enviar correo
     const info = await transporter.sendMail(mailOptions);
