@@ -514,18 +514,8 @@ export default function TimingControl() {
         setTickets(prev => prev.map(t => t.id === editedTicket.id ? { ...t, ...editedTicket } : t));
     };
 
-    // Función para cerrar el modal de QR y eliminar la imagen del storage
-    const handleCloseQRModal = async () => {
-        if (storageRef) {
-            try {
-                const imageRef = ref(storage, storageRef);
-                await deleteObject(imageRef);
-                toast.showToast('Imagen eliminada del almacenamiento en la nube', 'info');
-            } catch (error) {
-                console.error('Error eliminando imagen del storage:', error);
-                toast.showToast('Error al eliminar la imagen del almacenamiento', 'warning');
-            }
-        }
+    // Función para cerrar el modal de QR sin eliminar la imagen del storage
+    const handleCloseQRModal = () => {
         setShowQRModal(false);
         setQRCodeDataURL('');
         setDownloadURL('');
@@ -931,12 +921,12 @@ export default function TimingControl() {
                                         }}
                                         onClick={handleCloseQRModal}
                                     >
-                                        Cerrar (eliminar imagen)
+                                        Cerrar
                                     </button>
                                 </div>
 
                                 <p className="text-xs mt-3 text-gray-500" style={{ color: 'var(--foreground)', opacity: 0.7 }}>
-                                    La imagen se eliminará automáticamente del almacenamiento cuando cierres este modal
+                                    La imagen permanecerá disponible en el almacenamiento en la nube
                                 </p>
                             </div>
                         </div>
