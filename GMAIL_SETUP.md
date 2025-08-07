@@ -61,15 +61,12 @@ npm run dev
 - Comprueba que las credenciales de Gmail sean válidas
 - Verifica la conexión con los servidores de Gmail
 
-### 2. Enviar Correo de Prueba
-- Envía un correo de prueba a cualquier dirección
-- Incluye información del sistema y configuración
-- Útil para verificar que todo funciona correctamente
-
-### 3. Enviar Correo Personalizado
+### 2. Enviar Correo Personalizado
 - Permite componer y enviar correos personalizados
 - Campos: destinatario, asunto y mensaje
 - Útil para notificaciones del sistema
+
+### 3. Programa 3 Correos Automáticos
 
 ## 🛡️ Configuración Anti-Spam
 
@@ -117,13 +114,6 @@ El sistema incluye las siguientes configuraciones para evitar que los correos ll
 
 ## 📝 Ejemplos de Uso
 
-### Correo de Prueba Típico
-```
-Para: destinatario@ejemplo.com
-Asunto: Prueba de envío - Price Master System
-Contenido: Información del sistema, fecha/hora, estado de configuración
-```
-
 ### Correo Personalizado de Ejemplo
 ```
 Para: administrador@empresa.com
@@ -143,7 +133,7 @@ Contenido: Se ha completado el inventario del día.
 
 ## 💡 Consejos
 
-1. **Prueba primero**: Siempre usa "Enviar Correo de Prueba" antes de envíos importantes
+1. **Prueba primero**: Siempre usa "Enviar Correo Personalizado" antes de envíos importantes
 2. **Revisa spam**: Los primeros correos pueden llegar a spam hasta establecer reputación
 3. **Monitorea**: Revisa los logs del sistema para cualquier error de envío
 4. **Backup**: Mantén respaldo de la configuración de las variables de entorno

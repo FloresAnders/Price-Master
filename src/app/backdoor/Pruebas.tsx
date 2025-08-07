@@ -16,7 +16,7 @@ export default function Pruebas() {
     const fileInputRef = useRef<HTMLInputElement>(null);
     
     // Hook para funcionalidad de correo
-    const { sendEmail, sendTestEmail, checkEmailConfig, isLoading: emailLoading, error: emailError } = useEmail();
+    const { sendEmail, checkEmailConfig, isLoading: emailLoading, error: emailError } = useEmail();
 
     const handleRunTest = (testId: string, testName: string) => {
         setActiveTest(testId);
@@ -1081,143 +1081,6 @@ export default function Pruebas() {
         setActiveTest(null);
     };
 
-    const sendTestEmailFunction = async () => {
-        setActiveTest('send-test-email');
-        
-        try {
-            // Crear modal para solicitar email
-            const emailModal = document.createElement('div');
-            emailModal.style.cssText = `
-                position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-                background: rgba(0,0,0,0.8); z-index: 10000; display: flex; 
-                align-items: center; justify-content: center;
-            `;
-            
-            emailModal.innerHTML = `
-                <div style="background: white; padding: 24px; border-radius: 12px; max-width: 500px; width: 90%;">
-                    <h3 style="margin: 0 0 20px 0; color: #059669; font-size: 20px; font-weight: bold;">
-                        📧 Enviar Correo de Prueba
-                    </h3>
-                    
-                    <div style="background: #f0f9ff; padding: 12px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #0284c7;">
-                        <p style="margin: 0; color: #0284c7; font-weight: 600;">
-                            💡 Información sobre el correo de prueba
-                        </p>
-                        <p style="margin: 8px 0 0 0; color: #0369a1; font-size: 14px;">
-                            Se enviará un correo con información sobre la configuración y estado del sistema.
-                        </p>
-                    </div>
-                    
-                    <div style="margin-bottom: 20px;">
-                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #374151;">
-                            Dirección de correo electrónico:
-                        </label>
-                        <input 
-                            type="email" 
-                            id="emailInput" 
-                            placeholder="ejemplo@gmail.com"
-                            style="width: 100%; padding: 10px; border: 2px solid #d1d5db; border-radius: 6px; font-size: 16px;"
-                            required
-                        />
-                    </div>
-                    
-                    <div style="display: flex; gap: 12px; justify-content: flex-end;">
-                        <button 
-                            id="cancelEmailBtn"
-                            style="padding: 10px 20px; background: #6b7280; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;"
-                        >
-                            Cancelar
-                        </button>
-                        <button 
-                            id="sendEmailBtn"
-                            style="padding: 10px 20px; background: #059669; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;"
-                        >
-                            Enviar Prueba
-                        </button>
-                    </div>
-                </div>
-            `;
-            
-            document.body.appendChild(emailModal);
-            
-            const emailInput = document.getElementById('emailInput') as HTMLInputElement;
-            const sendBtn = document.getElementById('sendEmailBtn');
-            const cancelBtn = document.getElementById('cancelEmailBtn');
-            
-            emailInput.focus();
-            
-            const handleSend = async () => {
-                const email = emailInput.value.trim();
-                
-                if (!email) {
-                    alert('Por favor ingresa un email válido');
-                    return;
-                }
-                
-                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                if (!emailRegex.test(email)) {
-                    alert('Por favor ingresa un formato de email válido');
-                    return;
-                }
-                
-                document.body.removeChild(emailModal);
-                
-                setTestResults(prev => ({
-                    ...prev,
-                    'email-send-start': `📧 Enviando correo de prueba a: ${email}...`
-                }));
-                
-                try {
-                    const result = await sendTestEmail(email);
-                    
-                    if (result && result.success) {
-                        setTestResults(prev => ({
-                            ...prev,
-                            'email-send-success': '✅ Correo de prueba enviado exitosamente!',
-                            'email-send-id': `📄 ID del mensaje: ${result.messageId}`,
-                            'email-send-response': `📡 Respuesta del servidor: ${result.response}`,
-                            'email-send-tip': '💡 Revisa tu bandeja de entrada (y spam) en unos minutos'
-                        }));
-                    } else {
-                        setTestResults(prev => ({
-                            ...prev,
-                            'email-send-error': '❌ Error al enviar el correo de prueba'
-                        }));
-                    }
-                    
-                } catch (error) {
-                    setTestResults(prev => ({
-                        ...prev,
-                        'email-send-error': `❌ Error: ${error instanceof Error ? error.message : 'Error desconocido'}`
-                    }));
-                }
-                
-                setActiveTest(null);
-            };
-            
-            const handleCancel = () => {
-                document.body.removeChild(emailModal);
-                setActiveTest(null);
-            };
-            
-            sendBtn?.addEventListener('click', handleSend);
-            cancelBtn?.addEventListener('click', handleCancel);
-            
-            emailInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    handleSend();
-                }
-            });
-            
-        } catch (error) {
-            setTestResults(prev => ({
-                ...prev,
-                'email-send-error': `❌ Error inesperado: ${error instanceof Error ? error.message : 'Error desconocido'}`
-            }));
-            setActiveTest(null);
-        }
-    };
-
     const sendCustomEmail = async () => {
         setActiveTest('send-custom-email');
         
@@ -1384,6 +1247,8 @@ export default function Pruebas() {
         }
     };
 
+
+
     const testSections = [
         {
             id: 'api-tests',
@@ -1456,7 +1321,6 @@ export default function Pruebas() {
             description: 'Envío de correos electrónicos mediante Gmail con configuración anti-spam',
             tests: [
                 { id: 'email-config', name: 'Verificar Configuración', action: testEmailConfiguration },
-                { id: 'send-test-email', name: 'Enviar Correo de Prueba', action: sendTestEmailFunction },
                 { id: 'send-custom-email', name: 'Enviar Correo Personalizado', action: sendCustomEmail }
             ]
         }
