@@ -16,7 +16,7 @@ export default function Pruebas() {
     const fileInputRef = useRef<HTMLInputElement>(null);
     
     // Hook para funcionalidad de correo
-    const { sendEmail, checkEmailConfig, isLoading: emailLoading, error: emailError } = useEmail();
+    const { sendEmail, checkEmailConfig, error: emailError } = useEmail();
 
     const handleRunTest = (testId: string, testName: string) => {
         setActiveTest(testId);
@@ -1773,7 +1773,7 @@ GMAIL_APP_PASSWORD=abcd-efgh-ijkl-mnop`}
                                 <li>2. Generar contraseña de aplicación</li>
                                 <li>3. Agregar variables al .env.local</li>
                                 <li>4. Reiniciar el servidor</li>
-                                <li>5. Ejecutar "Verificar Configuración"</li>
+                                <li>5. Ejecutar &quot;Verificar Configuración&quot;</li>
                             </ol>
                         </div>
                         

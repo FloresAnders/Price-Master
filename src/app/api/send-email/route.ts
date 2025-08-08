@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 
+interface EmailAttachment {
+  filename: string;
+  content: Buffer | string;
+  encoding?: string;
+  contentType?: string;
+}
+
 // Configuración del transportador de Gmail
 const createTransporter = () => {
   return nodemailer.createTransport({
@@ -18,7 +25,7 @@ const createTransporter = () => {
 };
 
 // Configuración de opciones de correo para evitar spam
-const getMailOptions = (to: string, subject: string, text: string, html?: string, attachments?: any[]) => {
+const getMailOptions = (to: string, subject: string, text: string, html?: string, attachments?: EmailAttachment[]) => {
   return {
     from: {
       name: 'Price Master System',

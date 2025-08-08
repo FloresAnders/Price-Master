@@ -1,10 +1,16 @@
 import { CcssConfigService } from './ccss-config';
 import { FirestoreService } from './firestore';
 
+// Server-side only - don't import this in client components
 export interface BackupData {
   timestamp: string;
   version: string;
-  ccssConfig: any;
+  ccssConfig: {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    default?: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    collection?: any[];
+  };
   metadata: {
     exportedBy: string;
     exportedAt: string;
@@ -75,17 +81,18 @@ export class BackupService {
   /**
    * Validate backup file structure
    */
-  static validateBackup(backupData: any): boolean {
+  static validateBackup(backupData: unknown): boolean {
     try {
+      const data = backupData as BackupData;
       return (
-        backupData &&
-        typeof backupData.timestamp === 'string' &&
-        typeof backupData.version === 'string' &&
-        backupData.ccssConfig &&
-        backupData.metadata &&
-        typeof backupData.metadata.exportedBy === 'string'
+        data &&
+        typeof data.timestamp === 'string' &&
+        typeof data.version === 'string' &&
+        data.ccssConfig &&
+        data.metadata &&
+        typeof data.metadata.exportedBy === 'string'
       );
-    } catch (error) {
+    } catch {
       return false;
     }
   }
@@ -101,14 +108,17 @@ export class BackupService {
 
       // Restore default configuration
       if (backupData.ccssConfig.default) {
-        await CcssConfigService.updateCcssConfig(backupData.ccssConfig.default);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await CcssConfigService.updateCcssConfig(backupData.ccssConfig.default as any);
       }
 
       // If backup contains full collection data, restore additional documents
       if (backupData.ccssConfig.collection && Array.isArray(backupData.ccssConfig.collection)) {
         for (const doc of backupData.ccssConfig.collection) {
-          if (doc.id && doc.id !== 'default') {
-            await FirestoreService.addWithId('ccss-config', doc.id, doc);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const docData = doc as any;
+          if (docData.id && docData.id !== 'default') {
+            await FirestoreService.addWithId('ccss-config', docData.id, docData);
           }
         }
       }
@@ -119,20 +129,39 @@ export class BackupService {
   }
 
   /**
-   * Send backup via email
+   * Send backup via email (server-side only)
    */
   static async sendBackupByEmail(backupData: BackupData, email: string): Promise<void> {
+    // This method should be called from API routes only
+    // Import nodemailer dynamically to avoid client-side issues
+    const nodemailer = (await import('nodemailer')).default;
+    
     try {
-      const jsonString = JSON.stringify(backupData, null, 2);
       const now = new Date();
-      const filename = `backup_ccss_${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}_${now.getHours().toString().padStart(2,'0')}${now.getMinutes().toString().padStart(2,'0')}.json`;
+      const base64Data = Buffer.from(JSON.stringify(backupData, null, 2)).toString('base64');
+      const filename = `ccss-backup-${now.toISOString().split('T')[0]}.json`;
 
-      // Convert JSON to base64 for email attachment
-      const base64Data = btoa(unescape(encodeURIComponent(jsonString)));
+      // Create transporter
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: process.env.GMAIL_USER,
+          pass: process.env.GMAIL_APP_PASSWORD,
+        },
+        pool: true,
+        maxConnections: 1,
+        rateDelta: 20000,
+        rateLimit: 5,
+      });
 
-      const emailData = {
+      // Send email
+      await transporter.sendMail({
+        from: {
+          name: 'Price Master System',
+          address: process.env.GMAIL_USER || '',
+        },
         to: email,
-        subject: `🗄️ Backup de Configuración CCSS - ${now.toLocaleDateString()}`,
+        subject: `🗄️ Backup CCSS - ${now.toLocaleDateString()}`,
         text: `Se adjunta el backup de la configuración CCSS generado el ${now.toLocaleString()}.
 
 📋 Detalles del backup:
@@ -177,21 +206,17 @@ Este archivo contiene toda la configuración CCSS y puede ser usado para restaur
           filename: filename,
           content: base64Data,
           encoding: 'base64'
-        }]
-      };
-
-      const response = await fetch('/api/send-email', {
-        method: 'POST',
+        }],
         headers: {
-          'Content-Type': 'application/json',
+          'X-Priority': '3',
+          'X-MSMail-Priority': 'Normal',
+          'Importance': 'Normal',
+          'X-Mailer': 'Price Master System',
+          'Reply-To': process.env.GMAIL_USER || '',
         },
-        body: JSON.stringify(emailData),
+        messageId: `<${Date.now()}.${Math.random().toString(36).substr(2, 9)}@pricemaster.local>`,
+        date: new Date(),
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to send email');
-      }
 
     } catch (error) {
       console.error('Error sending backup email:', error);

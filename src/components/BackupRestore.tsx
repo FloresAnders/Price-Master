@@ -2,14 +2,14 @@
 
 import React, { useState } from 'react';
 import { Upload, AlertCircle, CheckCircle, Loader, FileText, Database } from 'lucide-react';
-import { BackupService } from '../services/backup';
+import { ClientBackupService, BackupData } from '../services/backup-client';
 
 export default function BackupRestore() {
   const [isRestoring, setIsRestoring] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState('');
-  const [backupInfo, setBackupInfo] = useState<any>(null);
+  const [backupInfo, setBackupInfo] = useState<BackupData | null>(null);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -27,7 +27,7 @@ export default function BackupRestore() {
             const content = e.target?.result as string;
             const backupData = JSON.parse(content);
             
-            if (BackupService.validateBackup(backupData)) {
+            if (ClientBackupService.validateBackup(backupData)) {
               setBackupInfo(backupData);
               setMessage('✅ Archivo de backup válido detectado');
               setStatus('success');
@@ -36,7 +36,7 @@ export default function BackupRestore() {
               setStatus('error');
               setSelectedFile(null);
             }
-          } catch (error) {
+          } catch {
             setMessage('❌ Error al leer el archivo JSON');
             setStatus('error');
             setSelectedFile(null);
@@ -59,7 +59,7 @@ export default function BackupRestore() {
     setMessage('Restaurando configuración CCSS...');
 
     try {
-      await BackupService.restoreCcssBackup(backupInfo);
+      await ClientBackupService.restoreCcssBackup(backupInfo);
       setStatus('success');
       setMessage('✅ Configuración CCSS restaurada exitosamente');
     } catch (error) {
@@ -138,11 +138,11 @@ export default function BackupRestore() {
             </div>
             <div>
               <span className="text-orange-600 dark:text-orange-400 font-medium">Exportado por:</span>
-              <p className="text-orange-800 dark:text-orange-200">{backupInfo.metadata.exportedBy}</p>
+              <p className="text-orange-800 dark:text-orange-200">{backupInfo.metadata?.exportedBy || 'Desconocido'}</p>
             </div>
             <div>
               <span className="text-orange-600 dark:text-orange-400 font-medium">Versión del sistema:</span>
-              <p className="text-orange-800 dark:text-orange-200">{backupInfo.metadata.systemVersion}</p>
+              <p className="text-orange-800 dark:text-orange-200">{backupInfo.metadata?.systemVersion || 'Desconocido'}</p>
             </div>
             <div>
               <span className="text-orange-600 dark:text-orange-400 font-medium">Versión del backup:</span>
