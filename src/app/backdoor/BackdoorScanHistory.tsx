@@ -60,6 +60,9 @@ export default function BackdoorScanHistory() {
           })
         );
         
+        // Ordenar por timestamp descendente (más recientes primero)
+        scansWithImageInfo.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+        
         setScanHistory(scansWithImageInfo);
       } catch (error) {
         console.error('Error loading scan history:', error);
@@ -143,8 +146,41 @@ export default function BackdoorScanHistory() {
       const scans = await ScanningService.getAllScans();
       // Filtrar DELIFOOD_TEST al actualizar
       const filteredScans = scans.filter(scan => scan.location !== 'DELIFOOD_TEST');
-      setScanHistory(filteredScans);
-      showNotification('Historial actualizado', 'green');
+      
+      // Obtener códigos existentes para comparar
+      const existingCodes = new Set(scanHistory.map(scan => scan.code));
+      
+      // Identificar códigos nuevos que necesitan verificación de imágenes
+      const newScans = filteredScans.filter(scan => !existingCodes.has(scan.code));
+      const existingScans = filteredScans.filter(scan => existingCodes.has(scan.code));
+      
+      // Solo verificar imágenes para códigos nuevos
+      const newScansWithImageStatus = await Promise.all(
+        newScans.map(async (scan) => {
+          const hasImages = await checkCodeHasImages(scan.code);
+          return { ...scan, hasImages };
+        })
+      );
+      
+      // Mantener el estado de imágenes de los códigos existentes
+      const existingScansWithCurrentImageStatus = existingScans.map(scan => {
+        const existingScan = scanHistory.find(existing => existing.code === scan.code);
+        return { ...scan, hasImages: existingScan?.hasImages || false };
+      });
+      
+      // Combinar todos los escaneos
+      const allScansWithImageStatus = [...existingScansWithCurrentImageStatus, ...newScansWithImageStatus];
+      
+      // Ordenar por timestamp descendente (más recientes primero)
+      allScansWithImageStatus.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+      
+      setScanHistory(allScansWithImageStatus);
+      
+      if (newScans.length > 0) {
+        showNotification(`Historial actualizado - ${newScans.length} código${newScans.length > 1 ? 's' : ''} nuevo${newScans.length > 1 ? 's' : ''}`, 'green');
+      } else {
+        showNotification('Historial actualizado - Sin cambios', 'green');
+      }
     } catch (error) {
       console.error('Error refreshing history:', error);
       showNotification('Error al actualizar el historial', 'red');
