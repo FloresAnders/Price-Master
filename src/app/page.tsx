@@ -70,13 +70,13 @@ export default function HomePage() {
     try {
       const storageRef = ref(storage, 'barcode-images/');
       const result = await listAll(storageRef);
-      
+
       const hasImages = result.items.some(item => {
         const fileName = item.name;
-        return fileName === `${barcodeCode}.jpg` || 
-               fileName.match(new RegExp(`^${barcodeCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\(\\d+\\)\\.jpg$`));
+        return fileName === `${barcodeCode}.jpg` ||
+          fileName.match(new RegExp(`^${barcodeCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\(\\d+\\)\\.jpg$`));
       });
-      
+
       return hasImages;
     } catch (error) {
       console.error('Error checking if code has images:', error);
@@ -88,7 +88,7 @@ export default function HomePage() {
   const handleCodeDetected = useCallback(async (code: string, productName?: string) => {
     // Check if code has images
     const hasImages = await checkCodeHasImages(code);
-    
+
     setScanHistory(prev => {
       if (prev[0]?.code === code) return prev
       // Si ya existe, lo sube al tope pero mantiene el nombre existente o usa el nuevo
@@ -174,7 +174,7 @@ export default function HomePage() {
       );
 
       // Only update if there are changes
-      const hasChanges = updatedHistory.some((entry, index) => 
+      const hasChanges = updatedHistory.some((entry, index) =>
         entry.hasImages !== scanHistory[index]?.hasImages
       );
 
@@ -185,7 +185,7 @@ export default function HomePage() {
 
     updateHistoryWithImages();
   }, [checkCodeHasImages, scanHistory]); // Added scanHistory back as dependency
-  
+
   // 4) Al montar, leemos el hash de la URL y marcamos la pestaña correspondiente
   useEffect(() => {
     const checkAndSetTab = () => {
@@ -282,19 +282,7 @@ export default function HomePage() {
 
               {/* CALCULATOR */}
               {activeTab === 'calculator' && (
-                <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4">
-                  <PriceCalculator />
-                  <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-green-50 rounded-lg p-4">
-                      <h3 className="font-medium text-green-800 mb-2">🇨🇷 Para Costa Rica:</h3>
-                      <p className="text-sm text-green-700">IVA configurado al 13% por defecto. Puedes cambiarlo según tus necesidades.</p>
-                    </div>
-                    <div className="bg-yellow-50 rounded-lg p-4">
-                      <h3 className="font-medium text-yellow-800 mb-2">💰 Cálculo inteligente:</h3>
-                      <p className="text-sm text-yellow-700">El descuento se aplica primero y luego se calcula el impuesto sobre el precio con descuento.</p>
-                    </div>
-                  </div>
-                </div>
+                <PriceCalculator />
               )}
 
               {/* CONVERTER */}
