@@ -65,7 +65,18 @@ const ScanHistoryRow = memo(function ScanHistoryRow({
             />
           </form>
         ) : (
-          entry.name && <span className="text-sm font-semibold text-indigo-600 dark:text-indigo-300 mb-1 truncate max-w-full">{entry.name}</span>
+          entry.name && (
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(entry.name || '');
+                notify?.('¡Nombre copiado!', 'indigo');
+              }}
+              className="text-sm font-semibold text-indigo-600 dark:text-indigo-300 mb-1 truncate max-w-full uppercase hover:bg-indigo-100 dark:hover:bg-indigo-900/30 px-2 py-1 rounded transition-colors cursor-pointer"
+              title="Clic para copiar nombre"
+            >
+              {entry.name.toUpperCase()}
+            </button>
+          )
         )}
         <span className="font-mono text-lg md:text-xl select-all text-left break-all text-indigo-900 dark:text-indigo-100 bg-white/70 dark:bg-zinc-800/70 px-3 py-2 rounded-lg shadow-sm whitespace-nowrap overflow-x-auto w-full max-w-full" style={{ letterSpacing: '0.10em', marginTop: '0.1rem', marginBottom: '0.1rem', display: 'block' }}>
           {entry.code}

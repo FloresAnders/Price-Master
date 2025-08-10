@@ -570,9 +570,16 @@ export default function BackdoorScanHistory() {
                         </span>
                       )}
                       {entry.productName && (
-                        <span className="text-sm text-[var(--muted-foreground)] bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded">
-                          {entry.productName}
-                        </span>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText((entry.productName || '').toUpperCase());
+                            showNotification('¡Nombre copiado!', 'blue');
+                          }}
+                          className="text-sm text-[var(--muted-foreground)] bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors cursor-pointer uppercase"
+                          title="Clic para copiar nombre"
+                        >
+                          {entry.productName.toUpperCase()}
+                        </button>
                       )}
                       {entry.location && (
                         <span className="text-sm text-[var(--muted-foreground)] bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded flex items-center gap-1">
