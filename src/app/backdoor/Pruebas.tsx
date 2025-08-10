@@ -5,6 +5,7 @@ import { TestTube, Beaker, FlaskConical, Zap, Code, Database, Upload, Image, Che
 import { storage } from '@/config/firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { useEmail } from '@/hooks/useEmail';
+import CompleteBackupRestore from '@/components/CompleteBackupRestore';
 
 export default function Pruebas() {
     const [activeTest, setActiveTest] = useState<string | null>(null);
@@ -1820,6 +1821,30 @@ GMAIL_APP_PASSWORD=abcd-efgh-ijkl-mnop`}
                         </div>
                     </div>
                 </div>
+            </div>
+
+            {/* Complete Database Backup Section */}
+            <div className="bg-[var(--input-bg)] rounded-lg border border-[var(--border)] p-6 mb-8">
+                <h3 className="text-lg font-semibold text-[var(--foreground)] mb-4 flex items-center">
+                    <Database className="w-5 h-5 mr-2 text-emerald-600" />
+                    Backup Completo de Base de Datos
+                </h3>
+                
+                <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg mb-6">
+                    <h4 className="font-semibold text-emerald-700 dark:text-emerald-400 mb-2">📋 Servicios Incluidos en el Backup</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <ul className="text-sm text-emerald-600 dark:text-emerald-300 space-y-1">
+                            <li>✅ <strong>Locations</strong> - Ubicaciones del sistema</li>
+                            <li>✅ <strong>Users</strong> - Usuarios y configuraciones</li>
+                        </ul>
+                        <ul className="text-sm text-emerald-600 dark:text-emerald-300 space-y-1">
+                            <li>✅ <strong>Schedules</strong> - Horarios y turnos</li>
+                            <li>✅ <strong>PayrollRecords</strong> - Registros de nómina</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <CompleteBackupRestore />
             </div>
 
             {/* Quick Actions */}

@@ -14,6 +14,7 @@ import ScanHistory from '@/components/ScanHistory';
 import SessionCounter from '@/components/SessionCounter';
 import BackdoorSettings from '@/components/BackdoorSettings';
 import type { ScanHistoryEntry } from '@/types/barcode';
+import CompleteBackupRestore from '@/components/CompleteBackupRestore';
 
 type BackdoorTab = 'scanner' | 'controlhorario' | 'histoscans' | 'pruebas';
 
@@ -461,6 +462,7 @@ const BackdoorPageDynamic = dynamic(() => Promise.resolve(BackdoorContent), {
                     <span className="text-lg text-[var(--muted-foreground)]">Cargando...</span>
                 </div>
             </div>
+            <CompleteBackupRestore />
         </main>
     )
 });
