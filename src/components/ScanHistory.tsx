@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useCallback, memo } from 'react';
-import { Copy, Trash2, Edit3, ArrowLeftCircle, Download, Image as ImageIcon, X, AlertCircle } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Copy, Trash2, Edit3, ArrowLeftCircle, Download, Image as ImageIcon, X, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import Image from 'next/image';
 import type { ScanHistoryProps as BaseScanHistoryProps, ScanHistoryEntry } from '../types/barcode';
 import { storage } from '../config/firebase';
@@ -139,6 +140,11 @@ export default function ScanHistory({ history, onCopy, onDelete, onRemoveLeading
   const [codeImages, setCodeImages] = useState<string[]>([]);
   const [loadingImages, setLoadingImages] = useState(false);
   const [imageLoadError, setImageLoadError] = useState<string | null>(null);
+  
+  // Estados para modal de imagen individual
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [selectedImageUrl, setSelectedImageUrl] = useState<string>('');
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0);
 
   // Memoized handlers for row actions
   const handleRename = useCallback((code: string, name: string) => {
@@ -223,6 +229,35 @@ export default function ScanHistory({ history, onCopy, onDelete, onRemoveLeading
     setImageLoadError(null);
   }, []);
 
+  // Functions for individual image modal
+  const handleOpenImageModal = useCallback((imageUrl: string, index: number) => {
+    setSelectedImageUrl(imageUrl);
+    setSelectedImageIndex(index);
+    setShowImageModal(true);
+  }, []);
+
+  const handleCloseImageModal = useCallback(() => {
+    setShowImageModal(false);
+    setSelectedImageUrl('');
+    setSelectedImageIndex(0);
+  }, []);
+
+  const handleNextImage = useCallback(() => {
+    if (codeImages.length > 1) {
+      const nextIndex = (selectedImageIndex + 1) % codeImages.length;
+      setSelectedImageIndex(nextIndex);
+      setSelectedImageUrl(codeImages[nextIndex]);
+    }
+  }, [codeImages, selectedImageIndex]);
+
+  const handlePreviousImage = useCallback(() => {
+    if (codeImages.length > 1) {
+      const prevIndex = selectedImageIndex === 0 ? codeImages.length - 1 : selectedImageIndex - 1;
+      setSelectedImageIndex(prevIndex);
+      setSelectedImageUrl(codeImages[prevIndex]);
+    }
+  }, [codeImages, selectedImageIndex]);
+
   const handleExport = useCallback(() => {
     if (history.length === 0) {
       notify?.('No hay códigos para exportar', 'orange');
@@ -249,6 +284,53 @@ export default function ScanHistory({ history, onCopy, onDelete, onRemoveLeading
     document.body.removeChild(link);
     notify?.(`${numericCodes.length} códigos numéricos exportados exitosamente`, 'green');
   }, [history, notify]);
+
+  // Handle keyboard navigation for image modal
+  React.useEffect(() => {
+    if (!showImageModal) return;
+
+    // Disable body scroll when modal is open
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyPress = (e: KeyboardEvent) => {
+      switch (e.key) {
+        case 'Escape':
+          handleCloseImageModal();
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          handlePreviousImage();
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          handleNextImage();
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    
+    return () => {
+      // Re-enable body scroll when modal is closed
+      document.body.style.overflow = 'unset';
+      window.removeEventListener('keydown', handleKeyPress);
+    };
+  }, [showImageModal, handleCloseImageModal, handlePreviousImage, handleNextImage]);
+
+  // Handle ESC key for main images modal
+  React.useEffect(() => {
+    if (!showImagesModal) return;
+
+    const handleKeyPress = (e: KeyboardEvent) => {
+      // Only handle ESC if individual image modal is not open
+      if (e.key === 'Escape' && !showImageModal) {
+        handleCloseImagesModal();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [showImagesModal, showImageModal, handleCloseImagesModal]);
 
   if (history.length === 0) {
     return (
@@ -354,8 +436,8 @@ export default function ScanHistory({ history, onCopy, onDelete, onRemoveLeading
                       width={400}
                       height={300}
                       className="w-full h-auto max-h-96 object-contain rounded-lg border border-gray-200 dark:border-gray-600 shadow-lg transition-transform group-hover:scale-105 cursor-pointer"
-                      onClick={() => window.open(imageUrl, '_blank')}
-                      title="Clic para abrir en nueva ventana"
+                      onClick={() => handleOpenImageModal(imageUrl, index)}
+                      title="Clic para ver en pantalla completa"
                       onError={(e) => {
                         console.error(`Error loading image ${index + 1}:`, e);
                         (e.target as HTMLImageElement).style.display = 'none';
@@ -388,6 +470,77 @@ export default function ScanHistory({ history, onCopy, onDelete, onRemoveLeading
           </div>
         </div>
       </div>
+    )}
+
+    {/* Individual Image Modal - 90% Screen */}
+    {showImageModal && typeof window !== 'undefined' && createPortal(
+      <div 
+        className="fixed inset-0 bg-black bg-opacity-95 flex items-center justify-center p-4 z-[9999]"
+        style={{ 
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 9999,
+          isolation: 'isolate'
+        }}
+      >
+        <div className="relative w-[90%] h-[90%] flex items-center justify-center">
+          {/* Close Button */}
+          <button
+            onClick={handleCloseImageModal}
+            className="absolute top-4 right-4 z-10 p-3 rounded-full bg-black bg-opacity-70 hover:bg-opacity-90 transition-all duration-200"
+          >
+            <X className="w-6 h-6 text-white" />
+          </button>
+
+          {/* Image Counter */}
+          {codeImages.length > 1 && (
+            <div className="absolute top-4 left-4 z-10 px-4 py-2 rounded-full bg-black bg-opacity-70 text-white text-sm font-medium">
+              {selectedImageIndex + 1} de {codeImages.length}
+            </div>
+          )}
+
+          {/* Previous Button */}
+          {codeImages.length > 1 && (
+            <button
+              onClick={handlePreviousImage}
+              className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10 p-3 rounded-full bg-black bg-opacity-70 hover:bg-opacity-90 transition-all duration-200"
+            >
+              <ChevronLeft className="w-6 h-6 text-white" />
+            </button>
+          )}
+
+          {/* Next Button */}
+          {codeImages.length > 1 && (
+            <button
+              onClick={handleNextImage}
+              className="absolute right-4 top-1/2 transform -translate-y-1/2 z-10 p-3 rounded-full bg-black bg-opacity-70 hover:bg-opacity-90 transition-all duration-200"
+            >
+              <ChevronRight className="w-6 h-6 text-white" />
+            </button>
+          )}
+
+          {/* Main Image */}
+          <Image
+            src={selectedImageUrl}
+            alt={`Imagen ${selectedImageIndex + 1} del código ${currentImageCode}`}
+            width={1200}
+            height={800}
+            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+            onError={(e) => {
+              console.error(`Error loading selected image:`, e);
+            }}
+          />
+
+          {/* Image Info */}
+          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10 px-4 py-2 rounded-full bg-black bg-opacity-70 text-white text-sm">
+            Código: {currentImageCode} • Imagen {selectedImageIndex + 1} de {codeImages.length}
+          </div>
+        </div>
+      </div>,
+      document.body
     )}
   </div >
   );

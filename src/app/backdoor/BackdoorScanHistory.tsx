@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import { History, Copy, Trash2, Search, Eye, Calendar, MapPin, RefreshCw, Image as ImageIcon, X, Download } from 'lucide-react';
+import { History, Copy, Trash2, Search, Eye, Calendar, MapPin, RefreshCw, Image as ImageIcon, X, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { ScanResult } from '@/types/firestore';
 import { ScanningService } from '@/services/scanning';
 import locations from '@/data/locations.json';
@@ -23,6 +23,11 @@ export default function BackdoorScanHistory() {
   const [currentImageCode, setCurrentImageCode] = useState('');
   const [imageLoadError, setImageLoadError] = useState<string | null>(null);
   const [thumbnailLoadingStates, setThumbnailLoadingStates] = useState<{ [key: number]: boolean }>({});
+  
+  // Individual image modal states
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [selectedImageUrl, setSelectedImageUrl] = useState<string>('');
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0);
 
   // Function to check if a code has images
   const checkCodeHasImages = useCallback(async (barcodeCode: string): Promise<boolean> => {
@@ -313,24 +318,77 @@ export default function BackdoorScanHistory() {
     }
   };
 
+  // Functions for individual image modal
+  const handleOpenImageModal = useCallback((imageUrl: string, index: number) => {
+    setSelectedImageUrl(imageUrl);
+    setSelectedImageIndex(index);
+    setShowImageModal(true);
+  }, []);
+
+  const handleCloseImageModal = useCallback(() => {
+    setShowImageModal(false);
+    setSelectedImageUrl('');
+    setSelectedImageIndex(0);
+  }, []);
+
+  const handleNextImage = useCallback(() => {
+    if (codeImages.length > 1) {
+      const nextIndex = (selectedImageIndex + 1) % codeImages.length;
+      setSelectedImageIndex(nextIndex);
+      setSelectedImageUrl(codeImages[nextIndex]);
+    }
+  }, [codeImages, selectedImageIndex]);
+
+  const handlePreviousImage = useCallback(() => {
+    if (codeImages.length > 1) {
+      const prevIndex = selectedImageIndex === 0 ? codeImages.length - 1 : selectedImageIndex - 1;
+      setSelectedImageIndex(prevIndex);
+      setSelectedImageUrl(codeImages[prevIndex]);
+    }
+  }, [codeImages, selectedImageIndex]);
+
   // Keyboard navigation for image modal
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (!showImagesModal) return;
-      
-      switch (event.key) {
-        case 'Escape':
-          event.preventDefault();
-          setShowImagesModal(false);
-          break;
+      if (showImageModal) {
+        // Disable body scroll when individual image modal is open
+        document.body.style.overflow = 'hidden';
+        
+        switch (event.key) {
+          case 'Escape':
+            event.preventDefault();
+            handleCloseImageModal();
+            break;
+          case 'ArrowLeft':
+            event.preventDefault();
+            handlePreviousImage();
+            break;
+          case 'ArrowRight':
+            event.preventDefault();
+            handleNextImage();
+            break;
+        }
+      } else if (showImagesModal) {
+        switch (event.key) {
+          case 'Escape':
+            event.preventDefault();
+            setShowImagesModal(false);
+            break;
+        }
       }
     };
 
-    if (showImagesModal) {
+    if (showImagesModal || showImageModal) {
       document.addEventListener('keydown', handleKeyDown);
-      return () => document.removeEventListener('keydown', handleKeyDown);
+      return () => {
+        // Re-enable body scroll when modal is closed
+        if (showImageModal) {
+          document.body.style.overflow = 'unset';
+        }
+        document.removeEventListener('keydown', handleKeyDown);
+      };
     }
-  }, [showImagesModal]);
+  }, [showImagesModal, showImageModal, handleCloseImageModal, handlePreviousImage, handleNextImage]);
 
   // Filter history based on search term and location
   const filteredHistory = scanHistory.filter(entry => {
@@ -656,8 +714,8 @@ export default function BackdoorScanHistory() {
                         onLoad={() => handleThumbnailLoad(index)}
                         onError={() => handleThumbnailLoad(index)}
                         onClick={() => {
-                          // Abrir imagen en nueva pestaña para vista completa
-                          window.open(imageUrl, '_blank');
+                          // Abrir imagen en modal de pantalla completa
+                          handleOpenImageModal(imageUrl, index);
                         }}
                       />
                     </div>
@@ -704,6 +762,94 @@ export default function BackdoorScanHistory() {
                 Descargar todas
               </button>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Individual Image Modal - 90% Screen */}
+      {showImageModal && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-95 flex items-center justify-center p-4 z-[9999]"
+          style={{ 
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 9999,
+            isolation: 'isolate'
+          }}
+        >
+          <div className="relative w-[90%] h-[90%] flex items-center justify-center">
+            {/* Close Button */}
+            <button
+              onClick={handleCloseImageModal}
+              className="absolute top-4 right-4 z-10 p-3 rounded-full bg-black bg-opacity-70 hover:bg-opacity-90 transition-all duration-200"
+            >
+              <X className="w-6 h-6 text-white" />
+            </button>
+
+            {/* Image Counter */}
+            {codeImages.length > 1 && (
+              <div className="absolute top-4 left-4 z-10 px-4 py-2 rounded-full bg-black bg-opacity-70 text-white text-sm font-medium">
+                {selectedImageIndex + 1} de {codeImages.length}
+              </div>
+            )}
+
+            {/* Previous Button */}
+            {codeImages.length > 1 && (
+              <button
+                onClick={handlePreviousImage}
+                className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10 p-3 rounded-full bg-black bg-opacity-70 hover:bg-opacity-90 transition-all duration-200"
+              >
+                <ChevronLeft className="w-6 h-6 text-white" />
+              </button>
+            )}
+
+            {/* Next Button */}
+            {codeImages.length > 1 && (
+              <button
+                onClick={handleNextImage}
+                className="absolute right-4 top-1/2 transform -translate-y-1/2 z-10 p-3 rounded-full bg-black bg-opacity-70 hover:bg-opacity-90 transition-all duration-200"
+              >
+                <ChevronRight className="w-6 h-6 text-white" />
+              </button>
+            )}
+
+            {/* Main Image */}
+            <Image
+              src={selectedImageUrl}
+              alt={`Imagen ${selectedImageIndex + 1} del código ${currentImageCode}`}
+              width={1200}
+              height={800}
+              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+              onError={(e) => {
+                console.error(`Error loading selected image:`, e);
+              }}
+            />
+
+            {/* Image Info */}
+            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10 px-4 py-2 rounded-full bg-black bg-opacity-70 text-white text-sm">
+              Código: {currentImageCode} • Imagen {selectedImageIndex + 1} de {codeImages.length}
+            </div>
+
+            {/* Download Button */}
+            <button
+              onClick={() => {
+                const link = document.createElement('a');
+                link.href = selectedImageUrl;
+                link.download = `${currentImageCode}_imagen_${selectedImageIndex + 1}.jpg`;
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                link.setAttribute('crossorigin', 'anonymous');
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              }}
+              className="absolute bottom-4 right-4 z-10 p-3 rounded-full bg-black bg-opacity-70 hover:bg-opacity-90 transition-all duration-200 flex items-center gap-2"
+            >
+              <Download className="w-5 h-5 text-white" />
+            </button>
           </div>
         </div>
       )}
