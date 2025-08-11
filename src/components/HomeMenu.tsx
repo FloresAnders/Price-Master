@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck, Settings } from 'lucide-react';
+import { Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck, Settings, History } from 'lucide-react';
 import AnimatedStickman from './AnimatedStickman';
 import { User, UserPermissions } from '../types/firestore';
 
@@ -11,6 +11,7 @@ const menuItems = [
   { id: 'timingcontrol', name: 'Control Tiempos', icon: Smartphone, description: 'Registro de venta de tiempos', permission: 'timingcontrol' as keyof UserPermissions },
   { id: 'controlhorario', name: 'Control Horario', icon: Clock, description: 'Registro de horarios de trabajo', permission: 'controlhorario' as keyof UserPermissions },
   { id: 'supplierorders', name: 'Órdenes Proveedor', icon: Truck, description: 'Gestión de órdenes de proveedores', permission: 'supplierorders' as keyof UserPermissions },
+  { id: 'scanhistory', name: 'Historial de Escaneos', icon: History, description: 'Ver historial completo de escaneos', permission: 'scanhistory' as keyof UserPermissions },
   { id: 'edit', name: 'Mantenimiento', icon: Settings, description: 'Gestión y mantenimiento del sistema', permission: 'mantenimiento' as keyof UserPermissions },
 ];
 
