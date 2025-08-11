@@ -3,13 +3,11 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { Clock, ChevronLeft, ChevronRight, Save, LogOut, User as UserIcon, Lock, Unlock, Info } from 'lucide-react';
+import { Clock, ChevronLeft, ChevronRight, Save, User as UserIcon, Lock, Unlock, Info } from 'lucide-react';
 import { LocationsService } from '../services/locations';
 import { SchedulesService } from '../services/schedules';
 import type { ScheduleEntry } from '../services/schedules';
 import { CcssConfigService } from '../services/ccss-config';
-import { useAuth } from '../hooks/useAuth';
-import LoginModal from './LoginModal';
 import DelifoodHoursModal from './DelifoodHoursModal';
 import ConfirmModal from './ConfirmModal';
 import type { Location } from '../types/firestore';
@@ -18,9 +16,9 @@ import { ref, deleteObject } from 'firebase/storage';
 import { storage } from '../config/firebase';
 
 interface ControlHorarioProps {
-  // Prop opcional para pasar el usuario cuando se usa desde el backdoor
+  // Usuario opcional para funcionalidades de autorización (admin, etc.)
   currentUser?: FirestoreUser | null;
-  // Prop para indicar si está en modo backdoor
+  // Indica si está en modo backdoor (opcional, por defecto false)
   isBackdoorMode?: boolean;
 }
 
@@ -206,27 +204,17 @@ function EmployeeTooltipSummary({
 }
 
 export default function ControlHorario({ currentUser: propCurrentUser, isBackdoorMode = false }: ControlHorarioProps = {}) {
-  const { user: authUser, isAuthenticated, login, logout, canChangeLocation, isSuperAdmin } = useAuth();
+  // Siempre usar el usuario del prop (puede ser null)
+  const user = propCurrentUser;
   
-  // Usar el usuario del prop si está en modo backdoor, sino usar el del hook useAuth
-  const user = isBackdoorMode && propCurrentUser ? propCurrentUser : authUser;
-  const isUserAuthenticated = isBackdoorMode ? !!propCurrentUser : isAuthenticated;
-  
-  // Funciones de autorización que funcionan tanto en modo backdoor como normal
+  // Funciones de autorización simplificadas
   const userCanChangeLocation = () => {
-    if (isBackdoorMode && user) {
-      return user.role === 'admin' || user.role === 'superadmin';
-    }
-    return canChangeLocation();
+    return user?.role === 'admin' || user?.role === 'superadmin';
   };
   
   const userIsSuperAdmin = () => {
-    if (isBackdoorMode && user) {
-      return user.role === 'superadmin';
-    }
-    return isSuperAdmin();
+    return user?.role === 'superadmin';
   };
-  const [showLoginModal, setShowLoginModal] = useState(false);
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
   const [location, setLocation] = useState('');
@@ -281,12 +269,12 @@ export default function ControlHorario({ currentUser: propCurrentUser, isBackdoo
     loadData();
   }, []);
 
-  // Efecto para manejar la ubicación del usuario autenticado
+  // Efecto para manejar la ubicación del usuario
   useEffect(() => {
-    if (isUserAuthenticated && user?.location && !location) {
+    if (user?.location && !location) {
       setLocation(user.location);
     }
-  }, [isUserAuthenticated, user, location]);
+  }, [user, location]);
 
   // Función para mostrar notificaciones
   const showNotification = (message: string, type: 'success' | 'error') => {
@@ -397,23 +385,14 @@ export default function ControlHorario({ currentUser: propCurrentUser, isBackdoo
     };
 
     loadScheduleData();
-  }, [location, locations, currentDate, isDelifoodLocation, isUserAuthenticated, loading]);
-
-  // Manejar login exitoso
-  const handleLoginSuccess = (userData: FirestoreUser) => {
-    login(userData);
-    setShowLoginModal(false);
-    if (userData.location) {
-      setLocation(userData.location);
-    }
-  };
+  }, [location, locations, currentDate, isDelifoodLocation, loading]);
 
   // --- AUTO-QUINCENA: Detectar y mostrar la quincena actual SOLO al cargar el mes actual por PRIMERA VEZ en la sesión ---
   const autoQuincenaRef = React.useRef<boolean>(false);
   useEffect(() => {
     const today = new Date();
     const isCurrentMonth = today.getFullYear() === currentDate.getFullYear() && today.getMonth() === currentDate.getMonth();
-    if (isUserAuthenticated && !loading && isCurrentMonth && !autoQuincenaRef.current) {
+    if (!loading && isCurrentMonth && !autoQuincenaRef.current) {
       if (today.getDate() > 15) {
         setViewMode('second');
       } else {
@@ -425,7 +404,7 @@ export default function ControlHorario({ currentUser: propCurrentUser, isBackdoo
     if (!isCurrentMonth) {
       autoQuincenaRef.current = false;
     }
-  }, [isUserAuthenticated, loading, currentDate, viewMode]);
+  }, [loading, currentDate, viewMode]);
 
   // Sincronizar selectedPeriod con viewMode y fullMonthView
   useEffect(() => {
@@ -444,49 +423,6 @@ export default function ControlHorario({ currentUser: propCurrentUser, isBackdoo
       console.log('🔍 Current scheduleData state:', scheduleData);
     }
   }, [scheduleData, isDelifoodLocation]);
-
-  // Verificar si necesita autenticación
-  if (!isUserAuthenticated) {
-    // Si está en modo backdoor, no mostrar el login modal ya que la autenticación se maneja en el backdoor
-    if (isBackdoorMode) {
-      return (
-        <div className="max-w-4xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4 sm:p-6">
-          <div className="text-center py-8">
-            <Clock className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 text-blue-600" />
-            <h3 className="text-xl sm:text-2xl font-semibold mb-4">Control de Horarios</h3>
-            <p className="text-sm sm:text-base text-[var(--tab-text)] mb-6">
-              Error: No se pudo cargar la información del usuario.
-            </p>
-          </div>
-        </div>
-      );
-    }
-    
-    return (
-      <div className="max-w-4xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4 sm:p-6">
-        <div className="text-center py-8">
-          <Clock className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 text-blue-600" />
-          <h3 className="text-xl sm:text-2xl font-semibold mb-4">Control de Horarios</h3>
-          <p className="text-sm sm:text-base text-[var(--tab-text)] mb-6">
-            Necesitas iniciar sesión para acceder a esta funcionalidad
-          </p>
-          <button
-            onClick={() => setShowLoginModal(true)}
-            className="bg-blue-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg hover:bg-blue-700 transition-colors text-sm sm:text-base"
-          >
-            Iniciar Sesión
-          </button>
-        </div>
-
-        <LoginModal
-          isOpen={showLoginModal}
-          onLoginSuccess={handleLoginSuccess}
-          onClose={() => setShowLoginModal(false)}
-          title="Control de Horarios"
-        />
-      </div>
-    );
-  }
 
   const names = locations.find(l => l.value === location)?.names || [];
 
@@ -1363,8 +1299,12 @@ export default function ControlHorario({ currentUser: propCurrentUser, isBackdoo
               <div>
                 <h3 className="text-xl sm:text-2xl font-semibold mb-2 sm:mb-4">Control de Horarios</h3>
                 <p className="text-sm sm:text-base text-[var(--tab-text)] mb-4 sm:mb-6">
-                  <span className="block sm:inline">Usuario: {user?.name}</span>
-                  <span className="hidden sm:inline"> - </span>
+                  {user?.name && (
+                    <>
+                      <span className="block sm:inline">Usuario: {user.name}</span>
+                      <span className="hidden sm:inline"> - </span>
+                    </>
+                  )}
                   <span className="block sm:inline">Ubicación: {location}</span>
                 </p>
               </div>
@@ -1391,16 +1331,6 @@ export default function ControlHorario({ currentUser: propCurrentUser, isBackdoo
               ) : (
                 <div className="hidden sm:block px-3 py-2 text-sm text-[var(--tab-text)]">
                 </div>
-              )}              {/* Botón de logout - oculto en modo backdoor */}
-              {!isBackdoorMode && (
-                <button
-                  onClick={() => logout()}
-                  className="flex items-center gap-2 px-3 py-2 text-red-600 hover:bg-red-50 rounded-md transition-colors w-full sm:w-auto justify-center"
-                  title="Cerrar sesión"
-                >
-                  <LogOut className="w-4 h-4" />
-                  <span>Salir</span>
-                </button>
               )}
             </div>
           </div>
