@@ -16,17 +16,19 @@ import {
   Clock,
   Truck,
   Settings,
+  History,
 } from 'lucide-react'
 import type { ScanHistoryEntry } from '@/types/barcode'
 import TimingControl from '@/components/TimingControl'
 import ClientOnlyHomeMenu from '@/components/ClientOnlyHomeMenu'
 import SupplierOrders from '@/components/SupplierOrders'
 import Mantenimiento from '@/components/Mantenimiento'
+import ScanHistoryTable from '@/components/ScanHistoryTable'
 import { storage } from '@/config/firebase'
 import { ref, listAll } from 'firebase/storage'
 
-// 1) Ampliamos ActiveTab para incluir "cashcounter", "controlhorario", "supplierorders", "edit"
-type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'supplierorders' | 'edit'
+// 1) Ampliamos ActiveTab para incluir "cashcounter", "controlhorario", "supplierorders", "edit", "scanhistory"
+type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'supplierorders' | 'scanhistory' | 'edit'
 
 export default function HomePage() {
   // 2) Estado para la pestaña activa - now managed by URL hash only
@@ -49,6 +51,7 @@ export default function HomePage() {
       { id: 'timingcontrol' as ActiveTab, name: 'Control Tiempos', icon: Smartphone, description: 'Registro de venta de tiempos' },
       { id: 'controlhorario' as ActiveTab, name: 'Control Horario', icon: Clock, description: 'Registro de horarios de trabajo' },
       { id: 'supplierorders' as ActiveTab, name: 'Órdenes Proveedor', icon: Truck, description: 'Gestión de órdenes de proveedores' },
+      { id: 'scanhistory' as ActiveTab, name: 'Historial de Escaneos', icon: History, description: 'Ver historial completo de escaneos' },
       { id: 'edit' as ActiveTab, name: 'Mantenimiento', icon: Settings, description: 'Gestión y mantenimiento del sistema' },
     ];
     return tabs.find(t => t.id === tabId);
@@ -195,7 +198,7 @@ export default function HomePage() {
       if (typeof window !== 'undefined') {
         const hash = window.location.hash.replace('#', '') as ActiveTab;
         const validTabs = [
-          'scanner', 'calculator', 'converter', 'cashcounter', 'timingcontrol', 'controlhorario', 'supplierorders'
+          'scanner', 'calculator', 'converter', 'cashcounter', 'timingcontrol', 'controlhorario', 'supplierorders', 'scanhistory'
         ];
         if (validTabs.includes(hash)) {
           setActiveTab(hash);
@@ -218,7 +221,7 @@ export default function HomePage() {
       const handleHashChange = () => {
         const hash = window.location.hash.replace('#', '') as ActiveTab;
         const validTabs = [
-          'scanner', 'calculator', 'converter', 'cashcounter', 'timingcontrol', 'controlhorario', 'supplierorders', 'edit'
+          'scanner', 'calculator', 'converter', 'cashcounter', 'timingcontrol', 'controlhorario', 'supplierorders', 'scanhistory', 'edit'
         ];
         if (validTabs.includes(hash)) {
           setActiveTab(hash);
@@ -321,6 +324,13 @@ export default function HomePage() {
               {activeTab === 'supplierorders' && (
                 <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4">
                   <SupplierOrders />
+                </div>
+              )}
+
+              {/* HISTORIAL DE ESCANEOS */}
+              {activeTab === 'scanhistory' && (
+                <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4">
+                  <ScanHistoryTable notify={showNotification} />
                 </div>
               )}
 

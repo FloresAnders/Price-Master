@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { ThemeToggle } from './ThemeToggle';
 
-type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'supplierorders' | 'histoscans' | 'edit'
+type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'supplierorders' | 'histoscans' | 'scanhistory' | 'edit'
 
 interface HeaderProps {
   activeTab?: ActiveTab | null;
@@ -48,7 +48,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   // Filter tabs for backdoor (only show specific tabs)
   const displayTabs = isBackdoorPage
     ? tabs.filter(tab => ['scanner', 'controlhorario', 'histoscans'].includes(tab.id))
-    : tabs.filter(tab => tab.id !== 'histoscans'); // Exclude histoscans from main page, but include edit
+    : tabs; // Show all tabs in main page
 
   const handleLogoClick = () => {
     if (!isClient) return;
@@ -65,9 +65,18 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const handleTabClick = (tabId: ActiveTab) => {
     if (!isClient) return;
     
+    // Manejar navegación especial para historial de escaneos en backdoor
+    if (tabId === 'histoscans' && isBackdoorPage) {
+      // En backdoor, usar hash 'historial'
+      onTabChange?.(tabId);
+      window.location.hash = '#historial';
+      setShowMobileMenu(false);
+      return;
+    }
+    
+    // Para todas las demás páginas, usar hash normal
     onTabChange?.(tabId);
-    // Map histoscans tab to historial hash for backdoor
-    const hashId = isBackdoorPage && tabId === 'histoscans' ? 'historial' : tabId;
+    const hashId = tabId === 'histoscans' ? 'scanhistory' : tabId;
     window.location.hash = `#${hashId}`;
     setShowMobileMenu(false); // Close mobile menu when tab is selected
   };
