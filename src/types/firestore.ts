@@ -17,6 +17,17 @@ export interface Sorteo {
   id?: string;
   name: string;
 }
+export interface UserPermissions {
+  scanner: boolean;      // Escáner - Escanear códigos de barras
+  calculator: boolean;   // Calculadora - Calcular precios con descuentos
+  converter: boolean;    // Conversor - Convertir y transformar texto
+  cashcounter: boolean;  // Contador Efectivo - Contar billetes y monedas
+  timingcontrol: boolean; // Control Tiempos - Registro de venta de tiempos
+  controlhorario: boolean; // Control Horario - Registro de horarios de trabajo
+  supplierorders: boolean; // Órdenes Proveedor - Gestión de órdenes de proveedores
+  mantenimiento: boolean;  // Mantenimiento - Nueva sección de mantenimiento
+}
+
 export interface User {
   id?: string;
   name: string;
@@ -24,6 +35,7 @@ export interface User {
   password?: string;
   role?: 'admin' | 'user' | 'superadmin';
   isActive?: boolean;
+  permissions?: UserPermissions;
   createdAt?: Date;
   updatedAt?: Date;
 }

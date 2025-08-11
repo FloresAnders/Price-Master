@@ -15,16 +15,18 @@ import {
   Scan,
   Clock,
   Truck,
+  Settings,
 } from 'lucide-react'
 import type { ScanHistoryEntry } from '@/types/barcode'
 import TimingControl from '@/components/TimingControl'
 import ClientOnlyHomeMenu from '@/components/ClientOnlyHomeMenu'
 import SupplierOrders from '@/components/SupplierOrders'
+import Mantenimiento from '@/components/Mantenimiento'
 import { storage } from '@/config/firebase'
 import { ref, listAll } from 'firebase/storage'
 
-// 1) Ampliamos ActiveTab para incluir "cashcounter", "controlhorario", "supplierorders"
-type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'supplierorders'
+// 1) Ampliamos ActiveTab para incluir "cashcounter", "controlhorario", "supplierorders", "edit"
+type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'supplierorders' | 'edit'
 
 export default function HomePage() {
   // 2) Estado para la pestaña activa - now managed by URL hash only
@@ -47,6 +49,7 @@ export default function HomePage() {
       { id: 'timingcontrol' as ActiveTab, name: 'Control Tiempos', icon: Smartphone, description: 'Registro de venta de tiempos' },
       { id: 'controlhorario' as ActiveTab, name: 'Control Horario', icon: Clock, description: 'Registro de horarios de trabajo' },
       { id: 'supplierorders' as ActiveTab, name: 'Órdenes Proveedor', icon: Truck, description: 'Gestión de órdenes de proveedores' },
+      { id: 'edit' as ActiveTab, name: 'Mantenimiento', icon: Settings, description: 'Gestión y mantenimiento del sistema' },
     ];
     return tabs.find(t => t.id === tabId);
   };
@@ -196,6 +199,9 @@ export default function HomePage() {
         ];
         if (validTabs.includes(hash)) {
           setActiveTab(hash);
+        } else if (hash === 'edit') {
+          // Special handling for edit tab
+          setActiveTab('edit');
         } else {
           setActiveTab(null); // Si no hay hash válido, mostrar HomeMenu
         }
@@ -212,7 +218,7 @@ export default function HomePage() {
       const handleHashChange = () => {
         const hash = window.location.hash.replace('#', '') as ActiveTab;
         const validTabs = [
-          'scanner', 'calculator', 'converter', 'cashcounter', 'timingcontrol', 'controlhorario', 'supplierorders'
+          'scanner', 'calculator', 'converter', 'cashcounter', 'timingcontrol', 'controlhorario', 'supplierorders', 'edit'
         ];
         if (validTabs.includes(hash)) {
           setActiveTab(hash);
@@ -316,6 +322,11 @@ export default function HomePage() {
                 <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4">
                   <SupplierOrders />
                 </div>
+              )}
+
+              {/* EDIT / MANTENIMIENTO */}
+              {activeTab === 'edit' && (
+                <Mantenimiento />
               )}
             </div>
           </>

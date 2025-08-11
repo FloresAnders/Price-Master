@@ -1,7 +1,8 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { User } from '../types/firestore';
 
 // Import HomeMenu dynamically with SSR disabled to prevent hydration errors
 const HomeMenu = dynamic(() => import('./HomeMenu'), {
@@ -13,7 +14,7 @@ const HomeMenu = dynamic(() => import('./HomeMenu'), {
       </div>
       <div className="h-8 bg-gray-200 rounded w-64 mb-8 animate-pulse"></div>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 w-full max-w-4xl">
-        {[...Array(7)].map((_, index) => (
+        {[...Array(8)].map((_, index) => (
           <div
             key={index}
             className="bg-gray-200 rounded-xl p-6 animate-pulse"
@@ -30,5 +31,20 @@ const HomeMenu = dynamic(() => import('./HomeMenu'), {
 });
 
 export default function ClientOnlyHomeMenu() {
-  return <HomeMenu />;
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    // Get current user from localStorage or session
+    // This is a simple implementation - you might want to use a proper auth context
+    const savedUser = localStorage.getItem('currentUser');
+    if (savedUser) {
+      try {
+        setCurrentUser(JSON.parse(savedUser));
+      } catch (error) {
+        console.error('Error parsing saved user:', error);
+      }
+    }
+  }, []);
+
+  return <HomeMenu currentUser={currentUser} />;
 }

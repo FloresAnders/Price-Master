@@ -1,24 +1,52 @@
 import React, { useState, useEffect } from 'react';
-import { Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck } from 'lucide-react';
+import { Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck, Settings } from 'lucide-react';
 import AnimatedStickman from './AnimatedStickman';
+import { User, UserPermissions } from '../types/firestore';
 
 const menuItems = [
-  { id: 'scanner', name: 'Escáner', icon: Scan, description: 'Escanear códigos de barras' },
-  { id: 'calculator', name: 'Calculadora', icon: Calculator, description: 'Calcular precios con descuentos' },
-  { id: 'converter', name: 'Conversor', icon: Type, description: 'Convertir y transformar texto' },
-  { id: 'cashcounter', name: 'Contador Efectivo', icon: Banknote, description: 'Contar billetes y monedas (CRC/USD)' },
-  { id: 'timingcontrol', name: 'Control Tiempos', icon: Smartphone, description: 'Registro de venta de tiempos' },
-  { id: 'controlhorario', name: 'Control Horario', icon: Clock, description: 'Registro de horarios de trabajo' },
-  { id: 'supplierorders', name: 'Órdenes Proveedor', icon: Truck, description: 'Gestión de órdenes de proveedores' },
+  { id: 'scanner', name: 'Escáner', icon: Scan, description: 'Escanear códigos de barras', permission: 'scanner' as keyof UserPermissions },
+  { id: 'calculator', name: 'Calculadora', icon: Calculator, description: 'Calcular precios con descuentos', permission: 'calculator' as keyof UserPermissions },
+  { id: 'converter', name: 'Conversor', icon: Type, description: 'Convertir y transformar texto', permission: 'converter' as keyof UserPermissions },
+  { id: 'cashcounter', name: 'Contador Efectivo', icon: Banknote, description: 'Contar billetes y monedas (CRC/USD)', permission: 'cashcounter' as keyof UserPermissions },
+  { id: 'timingcontrol', name: 'Control Tiempos', icon: Smartphone, description: 'Registro de venta de tiempos', permission: 'timingcontrol' as keyof UserPermissions },
+  { id: 'controlhorario', name: 'Control Horario', icon: Clock, description: 'Registro de horarios de trabajo', permission: 'controlhorario' as keyof UserPermissions },
+  { id: 'supplierorders', name: 'Órdenes Proveedor', icon: Truck, description: 'Gestión de órdenes de proveedores', permission: 'supplierorders' as keyof UserPermissions },
+  { id: 'edit', name: 'Mantenimiento', icon: Settings, description: 'Gestión y mantenimiento del sistema', permission: 'mantenimiento' as keyof UserPermissions },
 ];
 
-export default function HomeMenu() {
+interface HomeMenuProps {
+  currentUser?: User | null;
+}
+
+export default function HomeMenu({ currentUser }: HomeMenuProps) {
   const [hovered, setHovered] = useState(false);
   const [clickCount, setClickCount] = useState(0);
   const [showStickman, setShowStickman] = useState(false);
   
+  // Filter menu items based on user permissions
+  const getVisibleMenuItems = () => {
+    if (!currentUser) {
+      // If no user is logged in, show all items (fallback behavior)
+      return menuItems;
+    }
+
+    // If user has no permissions defined, default to showing all (for backward compatibility)
+    if (!currentUser.permissions) {
+      return menuItems;
+    }
+
+    // Filter items based on user permissions
+    return menuItems.filter(item => {
+      const hasPermission = currentUser.permissions?.[item.permission];
+      return hasPermission === true;
+    });
+  };
+
+  const visibleMenuItems = getVisibleMenuItems();
+  
   const handleNavigate = (id: string) => {
     if (typeof window !== 'undefined') {
+      // Todos los elementos usan hash navigation
       window.location.hash = `#${id}`;
     }
   };
@@ -57,7 +85,7 @@ export default function HomeMenu() {
       </div>
       <h1 className="text-3xl font-bold mb-8 text-center">Bienvenido a Price Master</h1>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 w-full max-w-4xl">
-        {menuItems.map(item => (
+        {visibleMenuItems.map(item => (
           <button
             key={item.id}
             onClick={() => handleNavigate(item.id)}

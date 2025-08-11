@@ -5,7 +5,6 @@ import { Lock, Eye, AlertTriangle, User } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { UsersService } from '@/services/users';
 import { createSession, saveSession, isSessionValid, clearSession } from '@/utils/session';
-import CompleteBackupRestore from '@/components/CompleteBackupRestore';
 
 export default function LoginPage() {
     const router = useRouter();
@@ -204,7 +203,6 @@ export default function LoginPage() {
                     <p className="text-sm text-[var(--muted-foreground)]">
                         ¿Problemas para acceder? Contacta al administrador del sistema.
                     </p>
-
                 </div>
             </div>
         </main>

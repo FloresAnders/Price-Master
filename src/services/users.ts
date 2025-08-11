@@ -1,5 +1,6 @@
 import { FirestoreService } from './firestore';
 import { User } from '../types/firestore';
+import { getDefaultPermissions } from '../utils/permissions';
 
 export class UsersService {
   private static readonly COLLECTION_NAME = 'users';
@@ -25,6 +26,8 @@ export class UsersService {
     const userWithTimestamps = {
       ...user,
       isActive: user.isActive ?? true,
+      // Add default permissions based on role if not provided
+      permissions: user.permissions || getDefaultPermissions(user.role),
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -90,5 +93,65 @@ export class UsersService {
       user.name.toLowerCase().includes(searchTermLower) ||
       (user.location && user.location.toLowerCase().includes(searchTermLower))
     );
+  }
+
+  /**
+   * Update user permissions
+   */
+  static async updateUserPermissions(id: string, permissions: Partial<import('../types/firestore').UserPermissions>): Promise<void> {
+    const user = await this.getUserById(id);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const currentPermissions = user.permissions || getDefaultPermissions(user.role);
+    const updatedPermissions = {
+      ...currentPermissions,
+      ...permissions
+    };
+
+    return await this.updateUser(id, { permissions: updatedPermissions });
+  }
+
+  /**
+   * Reset user permissions to default based on role
+   */
+  static async resetUserPermissions(id: string): Promise<void> {
+    const user = await this.getUserById(id);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const defaultPermissions = getDefaultPermissions(user.role);
+    return await this.updateUser(id, { permissions: defaultPermissions });
+  }
+
+  /**
+   * Migrate existing users to add default permissions
+   */
+  static async migrateUsersPermissions(): Promise<{ updated: number; skipped: number }> {
+    const users = await this.getAllUsers();
+    let updated = 0;
+    let skipped = 0;
+
+    for (const user of users) {
+      if (!user.id) {
+        skipped++;
+        continue;
+      }
+
+      // If user already has permissions, skip
+      if (user.permissions) {
+        skipped++;
+        continue;
+      }
+
+      // Add default permissions based on role
+      const defaultPermissions = getDefaultPermissions(user.role);
+      await this.updateUser(user.id, { permissions: defaultPermissions });
+      updated++;
+    }
+
+    return { updated, skipped };
   }
 }

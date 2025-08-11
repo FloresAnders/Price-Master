@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { ThemeToggle } from './ThemeToggle';
 
-type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'supplierorders' | 'histoscans'
+type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'supplierorders' | 'histoscans' | 'edit'
 
 interface HeaderProps {
   activeTab?: ActiveTab | null;
@@ -18,10 +18,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const pathname = usePathname();
   const { logout } = useAuth();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const [showHomeConfirm, setShowHomeConfirm] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [isClient, setIsClient] = useState(false);
-  const isEditPage = pathname === '/edit';
   const isBackdoorPage = pathname === '/backdoor';
 
   // Ensure component is mounted on client
@@ -43,25 +41,23 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     { id: 'timingcontrol' as ActiveTab, name: 'Control Tiempos', icon: Smartphone, description: 'Registro de venta de tiempos' },
     { id: 'controlhorario' as ActiveTab, name: 'Control Horario', icon: Clock, description: 'Registro de horarios de trabajo' },
     { id: 'supplierorders' as ActiveTab, name: 'Órdenes Proveedor', icon: Truck, description: 'Gestión de órdenes de proveedores' },
+    { id: 'edit' as ActiveTab, name: 'Mantenimiento', icon: Settings, description: 'Gestión y mantenimiento del sistema' },
     { id: 'histoscans' as ActiveTab, name: 'Historial de Escaneos', icon: History, description: 'Ver historial de escaneos realizados' },
   ];
 
   // Filter tabs for backdoor (only show specific tabs)
   const displayTabs = isBackdoorPage
     ? tabs.filter(tab => ['scanner', 'controlhorario', 'histoscans'].includes(tab.id))
-    : tabs.filter(tab => tab.id !== 'histoscans'); // Exclude histoscans from main page
+    : tabs.filter(tab => tab.id !== 'histoscans'); // Exclude histoscans from main page, but include edit
 
   const handleLogoClick = () => {
     if (!isClient) return;
     
-    if (isEditPage) {
-      // Si está en la página de edición, mostrar advertencia
-      setShowHomeConfirm(true);
-    } else if (isBackdoorPage) {
+    if (isBackdoorPage) {
       // Si está en backdoor, redirigir a /backdoor
       window.location.href = '/backdoor';
     } else {
-      // Si está en la página principal, redirigir a /
+      // Si está en cualquier sección o página principal, redirigir a /
       window.location.href = '/';
     }
   };
@@ -74,26 +70,6 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     const hashId = isBackdoorPage && tabId === 'histoscans' ? 'historial' : tabId;
     window.location.hash = `#${hashId}`;
     setShowMobileMenu(false); // Close mobile menu when tab is selected
-  };
-
-  const confirmGoHome = () => {
-    if (!isClient) return;
-    
-    // Cerrar sesión y regresar al inicio
-    logout('Navigating to home from edit page');
-    setShowHomeConfirm(false);
-    window.location.href = '/';
-  };
-
-  const cancelGoHome = () => {
-    setShowHomeConfirm(false);
-  };
-
-  const handleSettingsClick = () => {
-    if (!isClient) return;
-    
-    // Navega a la página de edición
-    window.location.href = '/edit';
   };
 
   const handleLogoutClick = () => {
@@ -136,7 +112,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
           </button>
 
           {/* Desktop navigation - centered */}
-          {!isEditPage && activeTab && (
+          {activeTab && (
             <nav className="hidden lg:flex items-center gap-1 absolute left-1/2 transform -translate-x-1/2">
               {displayTabs.map(tab => (
                 <button
@@ -161,7 +137,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
 
           <div className="flex items-center gap-2" suppressHydrationWarning>
             {/* Mobile hamburger menu button */}
-            {!isEditPage && activeTab && (
+            {activeTab && (
               <button
                 onClick={() => setShowMobileMenu(!showMobileMenu)}
                 className="lg:hidden p-2 rounded-md hover:bg-[var(--hover-bg)] transition-colors"
@@ -171,17 +147,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               </button>
             )}
 
-            {!isBackdoorPage && (
-              <button
-                onClick={handleSettingsClick}
-                className="p-2 rounded-md hover:bg-[var(--hover-bg)] transition-colors"
-                title="Configuración"
-              >
-                <Settings className="w-5 h-5 text-[var(--foreground)]" />
-              </button>
-            )}
-
-            {(isEditPage || isBackdoorPage) && (
+            {isBackdoorPage && (
               <button
                 onClick={handleLogoutClick}
                 className="p-2 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
@@ -196,7 +162,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
         </div>
 
         {/* Mobile navigation menu */}
-        {showMobileMenu && !isEditPage && activeTab && (
+        {showMobileMenu && activeTab && (
           <div className="lg:hidden border-t border-[var(--input-border)] bg-[var(--card-bg)]" suppressHydrationWarning>
             <nav className="px-4 py-2 space-y-1">
               {displayTabs.map(tab => (
@@ -251,39 +217,6 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                 className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 transition-colors"
               >
                 Cerrar Sesión
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal de confirmación para ir al home */}
-      {showHomeConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" suppressHydrationWarning>
-          <div className="bg-[var(--card-bg)] rounded-lg p-6 max-w-sm w-full border border-[var(--input-border)]" suppressHydrationWarning>
-            <div className="flex items-center gap-3 mb-4" suppressHydrationWarning>
-              <LogOut className="w-6 h-6 text-orange-600" />
-              <h3 className="text-lg font-semibold text-[var(--foreground)]">
-                Ir al Inicio
-              </h3>
-            </div>
-
-            <p className="text-[var(--tab-text)] mb-6">
-              Al regresar al inicio, su sesión será cerrada. ¿Desea continuar?
-            </p>
-
-            <div className="flex gap-3 justify-end" suppressHydrationWarning>
-              <button
-                onClick={cancelGoHome}
-                className="px-4 py-2 rounded-md border border-[var(--input-border)] text-[var(--foreground)] hover:bg-[var(--hover-bg)] transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={confirmGoHome}
-                className="px-4 py-2 rounded-md bg-orange-600 text-white hover:bg-orange-700 transition-colors"
-              >
-                Ir al Inicio
               </button>
             </div>
           </div>
