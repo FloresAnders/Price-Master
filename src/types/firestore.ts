@@ -26,6 +26,7 @@ export interface UserPermissions {
   controlhorario: boolean; // Control Horario - Registro de horarios de trabajo
   supplierorders: boolean; // Órdenes Proveedor - Gestión de órdenes de proveedores
   mantenimiento: boolean;  // Mantenimiento - Nueva sección de mantenimiento
+  scanhistory: boolean;    // Historial General de Escaneos - Ver historial completo de escaneos
 }
 
 export interface User {

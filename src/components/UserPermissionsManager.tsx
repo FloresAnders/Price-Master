@@ -19,6 +19,19 @@ const PERMISSION_LABELS = {
   controlhorario: 'Control Horario',
   supplierorders: 'Órdenes Proveedor',
   mantenimiento: 'Mantenimiento',
+  scanhistory: 'Historial de Escaneos',
+};
+
+const PERMISSION_DESCRIPTIONS = {
+  scanner: 'Escanear códigos de barras',
+  calculator: 'Calcular precios con descuentos',
+  converter: 'Convertir y transformar texto',
+  cashcounter: 'Contar billetes y monedas',
+  timingcontrol: 'Registro de venta de tiempos',
+  controlhorario: 'Registro de horarios de trabajo',
+  supplierorders: 'Gestión de órdenes de proveedores',
+  mantenimiento: 'Acceso al panel de administración',
+  scanhistory: 'Ver historial completo de escaneos realizados',
 };
 
 export default function UserPermissionsManager({ userId, onClose }: UserPermissionsManagerProps) {
@@ -121,6 +134,23 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
     }
   };
 
+  const ensureAllPermissions = async () => {
+    setLoading(true);
+    try {
+      const result = await UsersService.ensureAllPermissions();
+      setMessage({ 
+        type: 'success', 
+        text: `Permisos actualizados: ${result.updated} usuarios actualizados, ${result.skipped} ya estaban al día` 
+      });
+      await loadUsers(); // Reload users to see changes
+    } catch (error) {
+      console.error('Error ensuring all permissions:', error);
+      setMessage({ type: 'error', text: 'Error al actualizar permisos de usuarios' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="p-6">
@@ -157,19 +187,35 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
         </div>
       )}
 
-      {/* Migration Button */}
+      {/* Migration Buttons */}
       <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded">
-        <h3 className="font-semibold mb-2">Migración de Usuarios</h3>
-        <p className="text-sm text-gray-600 mb-3">
-          Agrega permisos predeterminados a usuarios que no los tienen configurados.
-        </p>
-        <button
-          onClick={migrateAllUsers}
-          disabled={loading}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-        >
-          Migrar Usuarios
-        </button>
+        <h3 className="font-semibold mb-2">Gestión de Permisos</h3>
+        <div className="space-y-3">
+          <div>
+            <p className="text-sm text-gray-600 mb-2">
+              Agrega permisos predeterminados a usuarios que no los tienen configurados.
+            </p>
+            <button
+              onClick={migrateAllUsers}
+              disabled={loading}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+            >
+              Migrar Usuarios Nuevos
+            </button>
+          </div>
+          <div>
+            <p className="text-sm text-gray-600 mb-2">
+              Actualiza todos los usuarios para asegurar que tengan todos los permisos disponibles (útil cuando se agregan nuevos permisos).
+            </p>
+            <button
+              onClick={ensureAllPermissions}
+              disabled={loading}
+              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+            >
+              Actualizar Permisos Existentes
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* User Selection */}
@@ -197,32 +243,84 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
           {/* User Info */}
           <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded">
             <h3 className="font-semibold mb-2">Información del Usuario</h3>
-            <p><strong>Nombre:</strong> {selectedUser.name}</p>
-            <p><strong>Rol:</strong> {selectedUser.role}</p>
-            <p><strong>Ubicación:</strong> {selectedUser.location}</p>
-            <p><strong>Estado:</strong> {selectedUser.isActive ? 'Activo' : 'Inactivo'}</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p><strong>Nombre:</strong> {selectedUser.name}</p>
+                <p><strong>Rol:</strong> {selectedUser.role}</p>
+                <p><strong>Ubicación:</strong> {selectedUser.location}</p>
+                <p><strong>Estado:</strong> {selectedUser.isActive ? 'Activo' : 'Inactivo'}</p>
+              </div>
+              <div>
+                <h4 className="font-medium mb-2">Permisos Actuales:</h4>
+                <div className="flex flex-wrap gap-1">
+                  {Object.entries(selectedUser.permissions || getDefaultPermissions(selectedUser.role))
+                    .filter(([_, hasAccess]) => hasAccess)
+                    .map(([permission]) => (
+                      <span
+                        key={permission}
+                        className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded border border-blue-200"
+                      >
+                        {PERMISSION_LABELS[permission as keyof typeof PERMISSION_LABELS]}
+                      </span>
+                    ))
+                  }
+                  {Object.values(selectedUser.permissions || getDefaultPermissions(selectedUser.role))
+                    .filter(Boolean).length === 0 && (
+                    <span className="text-xs text-gray-500 italic">Sin permisos activos</span>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Quick Actions */}
-          <div className="mb-6 flex gap-2 flex-wrap">
-            <button
-              onClick={handleSelectAll}
-              className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
-            >
-              Seleccionar Todo
-            </button>
-            <button
-              onClick={handleSelectNone}
-              className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
-            >
-              Deseleccionar Todo
-            </button>
-            <button
-              onClick={handleResetToDefault}
-              className="px-3 py-1 bg-gray-600 text-white rounded text-sm hover:bg-gray-700"
-            >
-              Permisos por Defecto
-            </button>
+          <div className="mb-6">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="font-semibold">Acciones Rápidas</h3>
+              <div className="text-sm text-gray-600">
+                Rol: <strong>{selectedUser.role}</strong> 
+                <span className="ml-2 text-xs bg-gray-100 px-2 py-1 rounded">
+                  {selectedUser.role === 'superadmin' ? 'Acceso total' : 
+                   selectedUser.role === 'admin' ? 'Acceso amplio' : 'Acceso básico'}
+                </span>
+              </div>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={handleSelectAll}
+                className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
+              >
+                Seleccionar Todo
+              </button>
+              <button
+                onClick={handleSelectNone}
+                className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+              >
+                Deseleccionar Todo
+              </button>
+              <button
+                onClick={handleResetToDefault}
+                className="px-3 py-1 bg-gray-600 text-white rounded text-sm hover:bg-gray-700"
+              >
+                Permisos por Defecto
+              </button>
+            </div>
+            <div className="mt-2 text-xs text-gray-600">
+              <strong>Permisos predeterminados para {selectedUser.role}:</strong>
+              <div className="flex flex-wrap gap-1 mt-1">
+                {Object.entries(getDefaultPermissions(selectedUser.role))
+                  .filter(([_, hasAccess]) => hasAccess)
+                  .map(([permission]) => (
+                    <span
+                      key={permission}
+                      className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded"
+                    >
+                      {PERMISSION_LABELS[permission as keyof typeof PERMISSION_LABELS]}
+                    </span>
+                  ))
+                }
+              </div>
+            </div>
           </div>
 
           {/* Permissions Grid */}
@@ -230,16 +328,19 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
             <h3 className="font-semibold mb-4">Permisos de Secciones</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {Object.entries(PERMISSION_LABELS).map(([key, label]) => (
-                <div key={key} className="flex items-center p-3 border border-gray-200 rounded">
+                <div key={key} className="flex items-start p-3 border border-gray-200 rounded">
                   <input
                     type="checkbox"
                     id={key}
                     checked={permissions[key as keyof UserPermissions]}
                     onChange={(e) => handlePermissionChange(key as keyof UserPermissions, e.target.checked)}
-                    className="mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    className="mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mt-1"
                   />
-                  <label htmlFor={key} className="flex-1 text-sm font-medium cursor-pointer">
-                    {label}
+                  <label htmlFor={key} className="flex-1 text-sm cursor-pointer">
+                    <div className="font-medium">{label}</div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {PERMISSION_DESCRIPTIONS[key as keyof typeof PERMISSION_DESCRIPTIONS]}
+                    </div>
                   </label>
                 </div>
               ))}

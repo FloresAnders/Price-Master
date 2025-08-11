@@ -154,4 +154,44 @@ export class UsersService {
 
     return { updated, skipped };
   }
+
+  /**
+   * Update existing users to ensure they have all available permissions
+   * This is useful when new permissions are added to the system
+   */
+  static async ensureAllPermissions(): Promise<{ updated: number; skipped: number }> {
+    const users = await this.getAllUsers();
+    let updated = 0;
+    let skipped = 0;
+
+    for (const user of users) {
+      if (!user.id) {
+        skipped++;
+        continue;
+      }
+
+      const defaultPermissions = getDefaultPermissions(user.role);
+      const currentPermissions = user.permissions || {};
+      
+      // Check if user is missing any permissions
+      let needsUpdate = false;
+      const updatedPermissions: import('../types/firestore').UserPermissions = { ...defaultPermissions, ...currentPermissions };
+
+      for (const [permission, defaultValue] of Object.entries(defaultPermissions)) {
+        if (!(permission in currentPermissions)) {
+          (updatedPermissions as any)[permission] = defaultValue;
+          needsUpdate = true;
+        }
+      }
+
+      if (needsUpdate) {
+        await this.updateUser(user.id, { permissions: updatedPermissions });
+        updated++;
+      } else {
+        skipped++;
+      }
+    }
+
+    return { updated, skipped };
+  }
 }

@@ -2,12 +2,13 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Save, Download, Upload, AlertCircle, Check, FileText, MapPin, Users, Clock, DollarSign, Eye, EyeOff } from 'lucide-react';
+import { Save, Download, Upload, AlertCircle, Check, FileText, MapPin, Users, Clock, DollarSign, Eye, EyeOff, Settings } from 'lucide-react';
 import { LocationsService } from '../services/locations';
 import { SorteosService } from '../services/sorteos';
 import { UsersService } from '../services/users';
 import { CcssConfigService } from '../services/ccss-config';
-import { Location, Sorteo, User, CcssConfig } from '../types/firestore';
+import { Location, Sorteo, User, CcssConfig, UserPermissions } from '../types/firestore';
+import { getDefaultPermissions } from '../utils/permissions';
 import ScheduleReportTab from '../components/ScheduleReportTab';
 import ConfirmModal from '../components/ConfirmModal';
 
@@ -29,6 +30,7 @@ export default function DataEditor() {
     const [passwordVisibility, setPasswordVisibility] = useState<{ [key: number]: boolean }>({});
     const [savingUser, setSavingUser] = useState<number | null>(null);
     const [savingLocation, setSavingLocation] = useState<number | null>(null);
+    const [showPermissions, setShowPermissions] = useState<{ [key: number]: boolean }>({});
     
     // Estado para trackear cambios individuales de ubicaciones
     const [originalLocationsByIndex, setOriginalLocationsByIndex] = useState<{ [key: number]: Location }>({});
@@ -101,6 +103,14 @@ export default function DataEditor() {
 
             // Cargar usuarios desde Firebase
             const users = await UsersService.getAllUsers();
+            
+            // Asegurar que todos los usuarios tengan todos los permisos disponibles
+            try {
+                await UsersService.ensureAllPermissions();
+            } catch (error) {
+                console.warn('Error ensuring all permissions:', error);
+            }
+            
             setUsersData(users);
             setOriginalUsersData(JSON.parse(JSON.stringify(users)));
 
@@ -123,6 +133,35 @@ export default function DataEditor() {
     const showNotification = (message: string, type: 'success' | 'error' | 'info') => {
         setNotification({ message, type });
         setTimeout(() => setNotification(null), 3000);
+    };
+
+    // Funciones para manejar modal de confirmación
+    const openConfirmModal = (title: string, message: string, onConfirm: () => void) => {
+        setConfirmModal({
+            open: true,
+            title,
+            message,
+            onConfirm,
+            loading: false
+        });
+    };
+
+    const closeConfirmModal = () => {
+        setConfirmModal({
+            open: false,
+            title: '',
+            message: '',
+            onConfirm: null,
+            loading: false
+        });
+    };
+
+    const handleConfirm = () => {
+        if (confirmModal.onConfirm) {
+            setConfirmModal(prev => ({ ...prev, loading: true }));
+            confirmModal.onConfirm();
+            closeConfirmModal();
+        }
     };
 
     // Función para verificar si una ubicación específica ha cambiado
@@ -443,9 +482,25 @@ export default function DataEditor() {
         setUsersData([...usersData, newUser]);
     };
 
-    const updateUser = (index: number, field: keyof User, value: string | boolean) => {
+    const updateUser = (index: number, field: keyof User, value: any) => {
         const updated = [...usersData];
-        updated[index] = { ...updated[index], [field]: value };
+        
+        // Si se está cambiando el rol, preguntar si se quieren actualizar los permisos
+        if (field === 'role' && updated[index].role !== value) {
+            const shouldUpdatePermissions = window.confirm(
+                `¿Deseas actualizar los permisos de "${updated[index].name || 'este usuario'}" a los predeterminados del rol "${value}"?\n\n` +
+                `Esto reemplazará los permisos actuales con los permisos estándar del rol seleccionado.`
+            );
+            
+            updated[index] = { ...updated[index], [field]: value };
+            
+            if (shouldUpdatePermissions) {
+                updated[index].permissions = getDefaultPermissions(value as 'admin' | 'user' | 'superadmin');
+            }
+        } else {
+            updated[index] = { ...updated[index], [field]: value };
+        }
+        
         setUsersData(updated);
     }; const removeUser = (index: number) => {
         const user = usersData[index];
@@ -468,33 +523,305 @@ export default function DataEditor() {
         }));
     };
 
-    // Funciones para manejar modal de confirmación
-    const openConfirmModal = (title: string, message: string, onConfirm: () => void) => {
-        setConfirmModal({
-            open: true,
-            title,
-            message,
-            onConfirm,
-            loading: false
-        });
+    // Funciones para manejar visibilidad de permisos
+    const togglePermissionsVisibility = (index: number) => {
+        setShowPermissions(prev => ({
+            ...prev,
+            [index]: !prev[index]
+        }));
     };
 
-    const closeConfirmModal = () => {
-        setConfirmModal({
-            open: false,
-            title: '',
-            message: '',
-            onConfirm: null,
-            loading: false
-        });
-    };
-
-    const handleConfirm = () => {
-        if (confirmModal.onConfirm) {
-            setConfirmModal(prev => ({ ...prev, loading: true }));
-            confirmModal.onConfirm();
-            closeConfirmModal();
+    // Función para actualizar permisos de usuario con guardado automático
+    const updateUserPermission = async (userIndex: number, permission: keyof UserPermissions, value: boolean) => {
+        const updated = [...usersData];
+        const user = updated[userIndex];
+        
+        if (!user.permissions) {
+            user.permissions = getDefaultPermissions(user.role || 'user');
         }
+        user.permissions[permission] = value;
+        
+        // Actualizar estado local inmediatamente
+        setUsersData(updated);
+        
+        // Guardar en base de datos si el usuario tiene ID
+        if (user.id) {
+            try {
+                setSavingUser(userIndex);
+                await UsersService.updateUserPermissions(user.id, { [permission]: value });
+                
+                // Mostrar notificación de éxito
+                setNotification({ 
+                    message: `Permiso "${getPermissionLabel(permission)}" ${value ? 'activado' : 'desactivado'} para ${user.name}`, 
+                    type: 'success' 
+                });
+                setTimeout(() => setNotification(null), 3000);
+                
+            } catch (error) {
+                console.error('Error updating user permission:', error);
+                
+                // Revertir cambio en caso de error
+                updated[userIndex].permissions![permission] = !value;
+                setUsersData([...updated]);
+                
+                setNotification({ 
+                    message: `Error al actualizar el permiso "${getPermissionLabel(permission)}"`, 
+                    type: 'error' 
+                });
+                setTimeout(() => setNotification(null), 5000);
+            } finally {
+                setSavingUser(null);
+            }
+        }
+    };
+
+    // Función para resetear permisos a predeterminados con guardado automático
+    const resetUserPermissionsToDefault = (userIndex: number) => {
+        const user = usersData[userIndex];
+        
+        openConfirmModal(
+            "Restablecer Permisos",
+            `¿Estás seguro de restablecer los permisos de "${user.name}" a los predeterminados del rol "${user.role}"?\n\nEsto reemplazará todos los permisos personalizados.`,
+            async () => {
+                const updated = [...usersData];
+                const defaultPermissions = getDefaultPermissions(user.role || 'user');
+                
+                updated[userIndex].permissions = defaultPermissions;
+                setUsersData(updated);
+                
+                // Guardar en base de datos si el usuario tiene ID
+                if (user.id) {
+                    try {
+                        setSavingUser(userIndex);
+                        await UsersService.updateUserPermissions(user.id, defaultPermissions);
+                        
+                        setNotification({ 
+                            message: `Permisos restablecidos a predeterminados para ${user.name}`, 
+                            type: 'success' 
+                        });
+                        setTimeout(() => setNotification(null), 3000);
+                        
+                    } catch (error) {
+                        console.error('Error resetting user permissions:', error);
+                        setNotification({ 
+                            message: `Error al restablecer permisos para ${user.name}`, 
+                            type: 'error' 
+                        });
+                        setTimeout(() => setNotification(null), 5000);
+                    } finally {
+                        setSavingUser(null);
+                    }
+                }
+            }
+        );
+    };
+
+    // Función para habilitar/deshabilitar todos los permisos con guardado automático
+    const setAllUserPermissions = (userIndex: number, value: boolean) => {
+        const user = usersData[userIndex];
+        const action = value ? 'habilitar todos' : 'deshabilitar todos';
+        
+        openConfirmModal(
+            `${value ? 'Habilitar' : 'Deshabilitar'} Todos los Permisos`,
+            `¿Estás seguro de ${action} los permisos para "${user.name}"?`,
+            async () => {
+                const updated = [...usersData];
+                const permissionKeys: (keyof UserPermissions)[] = [
+                    'scanner', 'calculator', 'converter', 'cashcounter', 
+                    'timingcontrol', 'controlhorario', 'supplierorders', 'mantenimiento', 'scanhistory'
+                ];
+                
+                if (!updated[userIndex].permissions) {
+                    updated[userIndex].permissions = getDefaultPermissions(updated[userIndex].role || 'user');
+                }
+                
+                const newPermissions: Partial<UserPermissions> = {};
+                permissionKeys.forEach(key => {
+                    updated[userIndex].permissions![key] = value;
+                    newPermissions[key] = value;
+                });
+                
+                setUsersData(updated);
+                
+                // Guardar en base de datos si el usuario tiene ID
+                if (user.id) {
+                    try {
+                        setSavingUser(userIndex);
+                        await UsersService.updateUserPermissions(user.id, newPermissions);
+                        
+                        setNotification({ 
+                            message: `Todos los permisos ${value ? 'habilitados' : 'deshabilitados'} para ${user.name}`, 
+                            type: 'success' 
+                        });
+                        setTimeout(() => setNotification(null), 3000);
+                        
+                    } catch (error) {
+                        console.error('Error updating all user permissions:', error);
+                        setNotification({ 
+                            message: `Error al actualizar permisos para ${user.name}`, 
+                            type: 'error' 
+                        });
+                        setTimeout(() => setNotification(null), 5000);
+                    } finally {
+                        setSavingUser(null);
+                    }
+                }
+            }
+        );
+    };
+
+    // Función para obtener etiquetas de permisos
+    const getPermissionLabel = (permission: string): string => {
+        const labels: { [key: string]: string } = {
+            scanner: 'Escáner',
+            calculator: 'Calculadora',
+            converter: 'Conversor',
+            cashcounter: 'Contador Efectivo',
+            timingcontrol: 'Control Tiempos',
+            controlhorario: 'Control Horario',
+            supplierorders: 'Órdenes Proveedor',
+            mantenimiento: 'Mantenimiento',
+            scanhistory: 'Historial de Escaneos',
+        };
+        return labels[permission] || permission;
+    };
+
+    // Función para obtener descripciones de permisos
+    const getPermissionDescription = (permission: string): string => {
+        const descriptions: { [key: string]: string } = {
+            scanner: 'Escanear códigos de barras',
+            calculator: 'Calcular precios con descuentos',
+            converter: 'Convertir y transformar texto',
+            cashcounter: 'Contar billetes y monedas',
+            timingcontrol: 'Registro de venta de tiempos',
+            controlhorario: 'Registro de horarios de trabajo',
+            supplierorders: 'Gestión de órdenes de proveedores',
+            mantenimiento: 'Acceso al panel de administración',
+            scanhistory: 'Ver historial completo de escaneos realizados',
+        };
+        return descriptions[permission] || permission;
+    };
+
+    // Función para renderizar la lista de permisos editables
+    const renderUserPermissions = (user: User, index: number) => {
+        const defaultPermissions = getDefaultPermissions(user.role || 'user');
+        const userPermissions = { ...defaultPermissions, ...(user.permissions || {}) };
+        const isNewUser = !user.id;
+        const isDisabled = savingUser === index || isNewUser;
+        
+        return (
+            <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>Permisos de Usuario:</span>
+                    <div className="flex gap-2 items-center">
+                        {savingUser === index && (
+                            <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
+                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600 dark:border-blue-400"></div>
+                                <span>Guardando...</span>
+                            </div>
+                        )}
+                        {isNewUser && (
+                            <div className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+                                <span>⚠️ Guarda el usuario primero</span>
+                            </div>
+                        )}
+                        <button
+                            onClick={() => setAllUserPermissions(index, true)}
+                            disabled={isDisabled}
+                            className="text-xs px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Habilitar Todo
+                        </button>
+                        <button
+                            onClick={() => setAllUserPermissions(index, false)}
+                            disabled={isDisabled}
+                            className="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Deshabilitar Todo
+                        </button>
+                        <button
+                            onClick={() => resetUserPermissionsToDefault(index)}
+                            disabled={isDisabled}
+                            className="text-xs px-2 py-1 bg-gray-600 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Predeterminados
+                        </button>
+                        <button
+                            onClick={() => togglePermissionsVisibility(index)}
+                            className="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+                        >
+                            {showPermissions[index] ? 'Vista Compacta' : 'Vista Detallada'}
+                        </button>
+                    </div>
+                </div>
+                
+                {showPermissions[index] ? (
+                    // Vista detallada con checkboxes editables
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {Object.entries(userPermissions).map(([permission, hasAccess]) => (
+                            <div
+                                key={permission}
+                                className={`flex items-center gap-3 p-3 border-2 rounded-lg transition-all ${
+                                    hasAccess 
+                                        ? 'border-green-300 dark:border-green-600 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30' 
+                                        : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800/70'
+                                }`}
+                            >
+                                <input
+                                    type="checkbox"
+                                    id={`${index}-${permission}`}
+                                    checked={hasAccess}
+                                    disabled={isDisabled}
+                                    onChange={(e) => updateUserPermission(index, permission as keyof UserPermissions, e.target.checked)}
+                                    className="w-5 h-5 text-green-600 border-2 rounded focus:ring-green-500 focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    style={{ 
+                                        backgroundColor: 'var(--input-bg)', 
+                                        borderColor: 'var(--input-border)' 
+                                    }}
+                                />
+                                <label 
+                                    htmlFor={`${index}-${permission}`}
+                                    className="cursor-pointer flex-1"
+                                >
+                                    <div className="font-medium" style={{ color: 'var(--foreground)' }}>{getPermissionLabel(permission)}</div>
+                                    <div className="text-sm" style={{ color: 'var(--muted-foreground)' }}>{getPermissionDescription(permission)}</div>
+                                </label>
+                                <div className={`px-2 py-1 rounded text-xs font-medium ${
+                                    hasAccess 
+                                        ? 'bg-green-200 dark:bg-green-900/40 text-green-800 dark:text-green-200' 
+                                        : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                                }`}>
+                                    {hasAccess ? 'Activo' : 'Inactivo'}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    // Vista compacta con indicadores
+                    <div className="flex flex-wrap gap-1">
+                        {Object.entries(userPermissions).map(([permission, hasAccess]) => (
+                            <label
+                                key={permission}
+                                className={`flex items-center gap-1 text-xs px-2 py-1 rounded cursor-pointer border transition-colors ${
+                                    hasAccess 
+                                        ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 border-green-200 dark:border-green-700 hover:bg-green-200 dark:hover:bg-green-900/50' 
+                                        : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 border-red-200 dark:border-red-700 hover:bg-red-200 dark:hover:bg-red-900/50'
+                                }`}
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={hasAccess}
+                                    disabled={isDisabled}
+                                    onChange={(e) => updateUserPermission(index, permission as keyof UserPermissions, e.target.checked)}
+                                    className="w-3 h-3 disabled:opacity-50"
+                                />
+                                <span>{getPermissionLabel(permission)}</span>
+                            </label>
+                        ))}
+                    </div>
+                )}
+            </div>
+        );
     };
 
     // Función para guardar usuario individual
@@ -947,7 +1274,12 @@ export default function DataEditor() {
             {activeFile === 'users' && (
                 <div className="space-y-4">
                     <div className="flex justify-between items-center">
-                        <h4 className="text-lg font-semibold">Configuración de Usuarios</h4>
+                        <div>
+                            <h4 className="text-lg font-semibold">Configuración de Usuarios</h4>
+                            <p className="text-sm text-gray-600 mt-1">
+                                Gestiona usuarios, roles y permisos del sistema
+                            </p>
+                        </div>
                         <button
                             onClick={addUser}
                             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
@@ -1039,6 +1371,28 @@ export default function DataEditor() {
                                         />
                                         <span className="text-sm">Usuario activo</span>
                                     </div>
+                                </div>
+                            </div>
+
+                            {/* Sección de Permisos */}
+                            <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <Settings className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                                    <h5 className="font-medium" style={{ color: 'var(--foreground)' }}>Permisos del Usuario</h5>
+                                    <span className="text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
+                                        Rol: {user.role || 'user'}
+                                    </span>
+                                </div>
+                                {renderUserPermissions(user, index)}
+                                <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                                    <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
+                                        � <strong>Guardado Automático:</strong> Los cambios en permisos se guardan automáticamente en la base de datos.
+                                        {!user.id && (
+                                            <span className="text-amber-600 dark:text-amber-400 ml-2">
+                                                ⚠️ Guarda el usuario primero para habilitar el guardado automático de permisos.
+                                            </span>
+                                        )}
+                                    </p>
                                 </div>
                             </div>
 
