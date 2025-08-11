@@ -207,7 +207,6 @@ export default function LoginPage() {
 
                 </div>
             </div>
-            <CompleteBackupRestore />
         </main>
     );
 }
