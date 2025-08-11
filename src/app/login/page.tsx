@@ -5,6 +5,7 @@ import { Lock, Eye, AlertTriangle, User } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { UsersService } from '@/services/users';
 import { createSession, saveSession, isSessionValid, clearSession } from '@/utils/session';
+import CompleteBackupRestore from '@/components/CompleteBackupRestore';
 
 export default function LoginPage() {
     const router = useRouter();
@@ -18,7 +19,7 @@ export default function LoginPage() {
     // Ensure component is mounted on client
     useEffect(() => {
         setIsClient(true);
-        
+
         // Verificar si llegó aquí por sesión expirada
         if (typeof window !== 'undefined') {
             const urlParams = new URLSearchParams(window.location.search);
@@ -31,7 +32,7 @@ export default function LoginPage() {
     // Verificar si ya está autenticado al cargar la página
     useEffect(() => {
         if (!isClient) return;
-        
+
         if (isSessionValid()) {
             // Si la sesión es válida, redirigir directamente a backdoor
             router.push('/backdoor');
@@ -203,8 +204,10 @@ export default function LoginPage() {
                     <p className="text-sm text-[var(--muted-foreground)]">
                         ¿Problemas para acceder? Contacta al administrador del sistema.
                     </p>
+
                 </div>
             </div>
+            <CompleteBackupRestore />
         </main>
     );
 }
