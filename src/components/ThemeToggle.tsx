@@ -16,7 +16,7 @@ export function ThemeToggle() {
   if (!mounted) {
     return (
       <button
-        className="p-2 rounded-lg bg-gray-200 dark:bg-gray-800 w-10 h-10"
+        className="p-2 rounded-lg bg-transparent w-10 h-10"
         aria-label="Cambiando tema, cargando"
       >
         {/* Placeholder mientras carga */}
@@ -28,7 +28,7 @@ export function ThemeToggle() {
   return (
     <button
       onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-      className="p-2 rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors duration-200"
+      className="p-2 rounded-lg bg-transparent hover:bg-transparent focus:bg-transparent active:bg-transparent transition-colors duration-200 hover:opacity-70"
       aria-label="Cambiar tema"
     >
       {theme === 'dark' ? (
