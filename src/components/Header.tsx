@@ -211,15 +211,20 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               <div className="px-4 py-3 border-b border-[var(--input-border)] bg-[var(--hover-bg)]">
                 <div className="flex items-center gap-2">
                   <User className="w-5 h-5 text-[var(--muted-foreground)]" />
-                  <div>
-                    <div className="font-medium text-[var(--foreground)]">{user.name}</div>
-                    {user.location && (
-                      <div className="text-sm text-[var(--muted-foreground)]">
-                        {user.location}
-                      </div>
-                    )}
-                  </div>
+                  <div className="font-medium text-[var(--foreground)]">{user.name}</div>
+                  <button
+                    onClick={handleLogoutClick}
+                    className="ml-2 p-1 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                    title="Cerrar Sesión"
+                  >
+                    <LogOut className="w-5 h-5 text-red-600 dark:text-red-400" />
+                  </button>
                 </div>
+                {user.location && (
+                  <div className="text-sm text-[var(--muted-foreground)] mt-1">
+                    {user.location}
+                  </div>
+                )}
               </div>
             )}
             
