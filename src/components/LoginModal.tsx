@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Lock, User, Eye, EyeOff } from 'lucide-react';
 import { UsersService } from '../services/users';
 import type { User as UserType } from '../types/firestore';
+import Footer from './Footer';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -56,9 +57,17 @@ export default function LoginModal({ isOpen, onLoginSuccess, onClose, title, can
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-[var(--card-bg)] rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
-        <div className="text-center mb-6">
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex flex-col items-center justify-center z-50"
+      style={{
+        backgroundImage: "url('/background.png')",
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        paddingBottom: '4rem',
+      }}
+    >
+  <div className="bg-[var(--card-bg)] rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
+  <div className="text-center mb-6">
           <Lock className="w-12 h-12 mx-auto mb-4 text-blue-600" />
           <h2 className="text-2xl font-semibold mb-2">Iniciar Sesión</h2>
           <p className="text-[var(--tab-text)]">
@@ -166,6 +175,9 @@ export default function LoginModal({ isOpen, onLoginSuccess, onClose, title, can
               {loading ? 'Verificando...' : 'Iniciar Sesión'}
             </button>
           </div>        </form>
+      </div>
+      <div className="w-full fixed left-0 bottom-0 z-50">
+        <Footer />
       </div>
     </div>
   );
