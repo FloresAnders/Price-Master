@@ -1,4 +1,6 @@
+
 'use client';
+import Footer from './Footer';
 
 import React from 'react';
 import { useAuth } from '@/hooks/useAuth';
@@ -28,23 +30,22 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
   if (!isAuthenticated || !user) {
     return (
       <>
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-zinc-900 dark:to-zinc-800">
-          <div className="text-center">
-            <div className="animate-pulse text-gray-600 dark:text-gray-300">
-              Iniciando sesión...
-            </div>
-          </div>
+  <div className="flex items-center justify-start">
+
         </div>
 
-        <LoginModal
-          isOpen={true}
-          onClose={() => {}} // No permitir cerrar
-          onLoginSuccess={(userData: User, keepActive?: boolean) => {
-            login(userData, keepActive);
-          }}
-          title="Price Master"
-          canClose={false} // No mostrar botón cancelar
-        />
+        <div className="mb-32 sm:mb-48">
+          <LoginModal
+            isOpen={true}
+            onClose={() => {}} // No permitir cerrar
+            onLoginSuccess={(userData: User, keepActive?: boolean) => {
+              login(userData, keepActive);
+            }}
+            title="Price Master"
+            canClose={false} // No mostrar botón cancelar
+          />
+        </div>
+        <Footer />
       </>
     );
   }

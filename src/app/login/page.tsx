@@ -112,8 +112,7 @@ export default function LoginPage() {
 
     // Mostrar formulario de login
     return (
-        <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div className="max-w-md mx-auto bg-[var(--card)] border-2 border-blue-200 dark:border-blue-800 rounded-xl shadow-lg p-8">
+    <div className="max-w-md w-full bg-[var(--card)] border-2 border-blue-200 dark:border-blue-800 rounded-xl shadow-lg p-8 mb-32 sm:mb-48"> {/* mb-32 para móvil, mb-48 para sm+ */}
                 <div className="text-center mb-8">
                     <div className="flex justify-center mb-4">
                         <div className="bg-blue-100 dark:bg-blue-900/30 p-3 rounded-full">
@@ -205,6 +204,5 @@ export default function LoginPage() {
                     </p>
                 </div>
             </div>
-        </main>
     );
 }
