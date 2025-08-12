@@ -921,7 +921,7 @@ export default function DataEditor() {
     };
 
     return (
-        <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-6">            {/* Loading Modal */}
+        <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-2 sm:p-4 md:p-6">            {/* Loading Modal */}
             {isSaving && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-fade-in">
                     <div className="bg-[var(--card-bg)] rounded-xl p-8 flex flex-col items-center justify-center shadow-2xl border border-[var(--input-border)] max-w-sm mx-4 animate-scale-in">
@@ -963,27 +963,28 @@ export default function DataEditor() {
             )}
 
             {/* Header */}
-            <div className="mb-6 flex flex-col lg:flex-row gap-4 items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <FileText className="w-8 h-8 text-blue-600" />
+            <div className="mb-6 flex flex-col gap-4 items-center justify-between lg:flex-row lg:gap-4">
+                <div className="flex items-center gap-3 sm:gap-4 w-full lg:w-auto">
+                    <FileText className="w-7 h-7 sm:w-8 sm:h-8 text-blue-600" />
                     <div>
-                        <h3 className="text-xl font-semibold">Editor de Datos</h3>
-                        <p className="text-sm text-[var(--tab-text)]">
+                        <h3 className="text-lg sm:text-xl font-semibold">Editor de Datos</h3>
+                        <p className="text-xs sm:text-sm text-[var(--tab-text)]">
                             Editar archivos de configuración de la aplicación
                         </p>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto justify-end">
                     {hasChanges && (
-                        <div className="flex items-center gap-1 px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm">
+                        <div className="flex items-center gap-1 px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs sm:text-sm">
                             <AlertCircle className="w-4 h-4" />
                             Cambios sin guardar
                         </div>
-                    )}                    <button
+                    )}
+                    <button
                         onClick={saveData}
                         disabled={!hasChanges || isSaving}
-                        className={`px-4 py-2 rounded-md flex items-center gap-2 transition-colors ${hasChanges && !isSaving
+                        className={`px-3 py-2 sm:px-4 rounded-md flex items-center gap-2 transition-colors text-sm sm:text-base ${hasChanges && !isSaving
                             ? 'bg-green-600 hover:bg-green-700 text-white'
                             : 'bg-[var(--muted)] text-[var(--muted-foreground)] cursor-not-allowed'
                             }`}
@@ -994,13 +995,13 @@ export default function DataEditor() {
 
                     <button
                         onClick={exportData}
-                        className="px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 transition-colors"
+                        className="px-3 py-2 sm:px-4 rounded-md bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 transition-colors text-sm sm:text-base"
                     >
                         <Download className="w-4 h-4" />
                         Exportar
                     </button>
 
-                    <label className="px-4 py-2 rounded-md bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-2 transition-colors cursor-pointer">
+                    <label className="px-3 py-2 sm:px-4 rounded-md bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-2 transition-colors cursor-pointer text-sm sm:text-base">
                         <Upload className="w-4 h-4" />
                         Importar
                         <input
@@ -1014,9 +1015,9 @@ export default function DataEditor() {
             </div>
 
             {/* File Tabs */}
-            <div className="mb-6">
+            <div className="mb-6 overflow-x-auto">
                 <div className="border-b border-[var(--input-border)]">
-                    <nav className="-mb-px flex space-x-8">                        <button
+                    <nav className="-mb-px flex flex-nowrap space-x-2 sm:space-x-4 md:space-x-8">                        <button
                         onClick={() => setActiveFile('locations')}
                         className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeFile === 'locations'
                             ? 'border-blue-500 text-blue-600'
@@ -1073,18 +1074,18 @@ export default function DataEditor() {
             {/* Content */}
             {activeFile === 'locations' && (
                 <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                        <h4 className="text-lg font-semibold">Configuración de Ubicaciones</h4>
+                    <div className="flex flex-col sm:flex-row justify-between items-center gap-2 sm:gap-0">
+                        <h4 className="text-base sm:text-lg font-semibold">Configuración de Ubicaciones</h4>
                         <button
                             onClick={addLocation}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                            className="px-3 py-2 sm:px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm sm:text-base"
                         >
                             Agregar Ubicación
                         </button>
                     </div>
 
                     {locationsData.map((location, locationIndex) => (
-                        <div key={locationIndex} className="border border-[var(--input-border)] rounded-lg p-4 relative">
+                        <div key={locationIndex} className="border border-[var(--input-border)] rounded-lg p-2 sm:p-4 relative">
                             {/* Indicador de cambios */}
                             {hasLocationChanged(locationIndex) && (
                                 <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-1 bg-orange-100 dark:bg-orange-900/20 text-orange-800 dark:text-orange-200 rounded-full text-xs font-medium">
@@ -1092,7 +1093,7 @@ export default function DataEditor() {
                                     Cambios pendientes
                                 </div>
                             )}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Valor:</label>
                                     <input
@@ -1131,20 +1132,14 @@ export default function DataEditor() {
                                     )}
 
                                     {/* Header para claridad */}
-                                    {location.employees && location.employees.length > 0 && (
-                                        <div className="flex gap-2 items-center p-2 bg-gray-100 dark:bg-gray-700 rounded-md text-sm font-medium">
-                                            <div className="flex-1">Nombre del Empleado</div>
-                                            <div className="w-40 text-center">Tipo CCSS</div>
-                                            <div className="w-32 text-center">Monto Extra (₡)</div>
-                                            <div className="w-32 text-center">Horas por Turno</div>
-                                            <div className="w-10"></div>
-                                        </div>
-                                    )}
+                                    {/* Eliminamos encabezados generales, cada input tendrá su label siempre visible */}
 
                                     {/* Mostrar empleados con nueva estructura */}
                                     {location.employees?.map((employee, employeeIndex) => (
-                                        <div key={employeeIndex} className="flex gap-2 items-center p-3 border border-[var(--input-border)] rounded-md">
-                                            <div className="flex-1">
+                                        <div key={employeeIndex} className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 items-center p-2 sm:p-3 border border-[var(--input-border)] rounded-md">
+                                            {/* Nombre */}
+                                            <div className="col-span-2 sm:flex-1 min-w-[120px]">
+                                                <label className="block text-xs mb-1">Nombre</label>
                                                 <input
                                                     type="text"
                                                     value={employee.name}
@@ -1154,7 +1149,9 @@ export default function DataEditor() {
                                                     placeholder="Nombre del empleado"
                                                 />
                                             </div>
-                                            <div className="w-40">
+                                            {/* Tipo CCSS */}
+                                            <div className="col-span-1 sm:w-40">
+                                                <label className="block text-xs mb-1">Tipo CCSS</label>
                                                 <select
                                                     value={employee.ccssType}
                                                     onChange={(e) => updateEmployeeCcssType(locationIndex, employeeIndex, e.target.value as 'TC' | 'MT')}
@@ -1165,7 +1162,9 @@ export default function DataEditor() {
                                                     <option value="MT">Medio Tiempo</option>
                                                 </select>
                                             </div>
-                                            <div className="w-32">
+                                            {/* Monto Extra */}
+                                            <div className="col-span-1 sm:w-32">
+                                                <label className="block text-xs mb-1">Monto Extra (₡)</label>
                                                 <input
                                                     type="number"
                                                     min=""
@@ -1178,7 +1177,9 @@ export default function DataEditor() {
                                                     title="Monto extra en colones"
                                                 />
                                             </div>
-                                            <div className="w-32">
+                                            {/* Horas por Turno */}
+                                            <div className="col-span-1 sm:w-32">
+                                                <label className="block text-xs mb-1">Horas/Turno</label>
                                                 <input
                                                     type="number"
                                                     min="1"
@@ -1188,14 +1189,18 @@ export default function DataEditor() {
                                                     style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
                                                     placeholder="Horas por turno"
                                                     title="Cantidad de horas por turno"
-                                                />                                            </div>
-                                            <button
-                                                onClick={() => removeEmployeeName(locationIndex, employeeIndex)}
-                                                className="px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-                                                title="Eliminar empleado"
-                                            >
-                                                X
-                                            </button>
+                                                />
+                                            </div>
+                                            {/* Botón eliminar */}
+                                            <div className="col-span-2 sm:w-10 flex justify-end">
+                                                <button
+                                                    onClick={() => removeEmployeeName(locationIndex, employeeIndex)}
+                                                    className="px-2 sm:px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                                                    title="Eliminar empleado"
+                                                >
+                                                    X
+                                                </button>
+                                            </div>
                                         </div>
                                     ))}
 
@@ -1208,10 +1213,10 @@ export default function DataEditor() {
                                 </div>
                             </div>
 
-                            <div className="flex justify-end gap-2">
+                            <div className="flex flex-col sm:flex-row justify-end gap-2 mt-2">
                                 <button
                                     onClick={() => saveIndividualLocation(locationIndex)}
-                                    className={`px-4 py-2 rounded-md transition-colors flex items-center gap-2 ${
+                                    className={`px-3 py-2 sm:px-4 rounded-md transition-colors flex items-center gap-2 text-sm sm:text-base ${
                                         hasLocationChanged(locationIndex) && savingLocation !== locationIndex
                                             ? 'bg-green-600 hover:bg-green-700 text-white'
                                             : 'bg-gray-400 text-gray-600 cursor-not-allowed'
@@ -1223,7 +1228,7 @@ export default function DataEditor() {
                                 </button>
                                 <button
                                     onClick={() => removeLocation(locationIndex)}
-                                    className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors">
+                                    className="px-3 py-2 sm:px-4 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm sm:text-base">
                                     Eliminar Ubicación
                                 </button>
                             </div>
@@ -1234,20 +1239,20 @@ export default function DataEditor() {
 
             {activeFile === 'sorteos' && (
                 <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                        <h4 className="text-lg font-semibold">Configuración de Sorteos</h4>
+                    <div className="flex flex-col sm:flex-row justify-between items-center gap-2 sm:gap-0">
+                        <h4 className="text-base sm:text-lg font-semibold">Configuración de Sorteos</h4>
                         <button
                             onClick={addSorteo}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                            className="px-3 py-2 sm:px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm sm:text-base"
                         >
                             Agregar Sorteo
                         </button>
                     </div>
 
                     {sorteosData.map((sorteo, index) => (
-                        <div key={sorteo.id || index} className="border border-[var(--input-border)] rounded-lg p-4">
-                            <div className="flex gap-4 items-center">
-                                <div className="flex-1">
+                        <div key={sorteo.id || index} className="border border-[var(--input-border)] rounded-lg p-2 sm:p-4">
+                            <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 items-center">
+                                <div className="flex-1 w-full">
                                     <label className="block text-sm font-medium mb-1">Nombre del Sorteo:</label>
                                     <input
                                         type="text"
@@ -1261,7 +1266,7 @@ export default function DataEditor() {
 
                                 <button
                                     onClick={() => removeSorteo(index)}
-                                    className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                                    className="px-3 py-2 sm:px-4 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm sm:text-base w-full sm:w-auto mt-2 sm:mt-0"
                                 >
                                     Eliminar
                                 </button>
@@ -1273,23 +1278,23 @@ export default function DataEditor() {
 
             {activeFile === 'users' && (
                 <div className="space-y-4">
-                    <div className="flex justify-between items-center">
+                    <div className="flex flex-col sm:flex-row justify-between items-center gap-2 sm:gap-0">
                         <div>
-                            <h4 className="text-lg font-semibold">Configuración de Usuarios</h4>
-                            <p className="text-sm text-gray-600 mt-1">
+                            <h4 className="text-base sm:text-lg font-semibold">Configuración de Usuarios</h4>
+                            <p className="text-xs sm:text-sm text-gray-600 mt-1">
                                 Gestiona usuarios, roles y permisos del sistema
                             </p>
                         </div>
                         <button
                             onClick={addUser}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                            className="px-3 py-2 sm:px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm sm:text-base"
                         >
                             Agregar Usuario
                         </button>
                     </div>
 
                     {usersData.map((user, index) => (
-                        <div key={user.id || index} className="border border-[var(--input-border)] rounded-lg p-4">                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div key={user.id || index} className="border border-[var(--input-border)] rounded-lg p-2 sm:p-4">                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                             <div>
                                 <label className="block text-sm font-medium mb-1">Nombre:</label>
                                 <input
@@ -1319,7 +1324,7 @@ export default function DataEditor() {
                             </div>
                         </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Contraseña:</label>
                                     <div className="relative">
@@ -1375,7 +1380,7 @@ export default function DataEditor() {
                             </div>
 
                             {/* Sección de Permisos */}
-                            <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg">
+                            <div className="mb-4 p-2 sm:p-4 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg">
                                 <div className="flex items-center gap-2 mb-3">
                                     <Settings className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                                     <h5 className="font-medium" style={{ color: 'var(--foreground)' }}>Permisos del Usuario</h5>
@@ -1396,10 +1401,10 @@ export default function DataEditor() {
                                 </div>
                             </div>
 
-                            <div className="flex justify-end gap-2">
+                            <div className="flex flex-col sm:flex-row justify-end gap-2 mt-2">
                                 <button
                                     onClick={() => saveIndividualUser(index)}
-                                    className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center gap-2"
+                                    className="px-3 py-2 sm:px-4 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center gap-2 text-sm sm:text-base"
                                     disabled={savingUser === index}
                                 >
                                     <Save className="w-4 h-4" />
@@ -1407,8 +1412,7 @@ export default function DataEditor() {
                                 </button>
                                 <button
                                     onClick={() => removeUser(index)}
-                                    className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-                                >
+                                    className="px-3 py-2 sm:px-4 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm sm:text-base">
                                     Eliminar Usuario
                                 </button>
                             </div>
@@ -1423,19 +1427,19 @@ export default function DataEditor() {
             )}            {/* CCSS Payment Configuration */}
             {activeFile === 'ccss' && (
                 <div className="space-y-6">
-                    <div className="flex justify-between items-center">
+                    <div className="flex flex-col sm:flex-row justify-between items-center gap-2 sm:gap-0">
                         <div>
-                            <h4 className="text-xl font-semibold flex items-center gap-2">
-                                <DollarSign className="w-6 h-6 text-green-600" />
+                            <h4 className="text-base sm:text-xl font-semibold flex items-center gap-2">
+                                <DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
                                 Configuración de Pago CCSS
                             </h4>
-                            <p className="text-sm text-[var(--muted-foreground)] mt-1">
+                            <p className="text-xs sm:text-sm text-[var(--muted-foreground)] mt-1">
                                 Configurar los montos de pago a la Caja Costarricense de Seguro Social (CCSS)
                             </p>
                         </div>
                     </div>
 
-                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-2 sm:p-4">
                         <div className="flex items-start gap-3">
                             <div className="flex-shrink-0">
                                 <svg className="w-5 h-5 text-blue-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
@@ -1452,9 +1456,9 @@ export default function DataEditor() {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6">
                         {/* Tiempo Completo */}
-                        <div className="border border-[var(--input-border)] rounded-lg p-6">
+                        <div className="border border-[var(--input-border)] rounded-lg p-3 sm:p-6">
                             <div className="flex items-center gap-3 mb-4">
                                 <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
                                     <Clock className="w-6 h-6 text-green-600" />
@@ -1487,7 +1491,7 @@ export default function DataEditor() {
                         </div>
 
                         {/* Medio Tiempo */}
-                        <div className="border border-[var(--input-border)] rounded-lg p-6">
+                        <div className="border border-[var(--input-border)] rounded-lg p-3 sm:p-6">
                             <div className="flex items-center gap-3 mb-4">
                                 <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center">
                                     <Clock className="w-6 h-6 text-orange-600" />
@@ -1520,7 +1524,7 @@ export default function DataEditor() {
                         </div>
 
                         {/* Valor por Hora */}
-                        <div className="border border-[var(--input-border)] rounded-lg p-6">
+                        <div className="border border-[var(--input-border)] rounded-lg p-3 sm:p-6">
                             <div className="flex items-center gap-3 mb-4">
                                 <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
                                     <DollarSign className="w-6 h-6 text-blue-600" />
@@ -1553,7 +1557,7 @@ export default function DataEditor() {
                         </div>
 
                         {/* Hora Bruta */}
-                        <div className="border border-[var(--input-border)] rounded-lg p-6">
+                        <div className="border border-[var(--input-border)] rounded-lg p-3 sm:p-6">
                             <div className="flex items-center gap-3 mb-4">
                                 <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
                                     <DollarSign className="w-6 h-6 text-purple-600" />
@@ -1587,12 +1591,12 @@ export default function DataEditor() {
                     </div>
 
                     {/* Resumen de configuración */}
-                    <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-6">
+                    <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 sm:p-6">
                         <h5 className="font-semibold mb-3 flex items-center gap-2">
                             <FileText className="w-5 h-5" />
                             Resumen de Configuración
                         </h5>
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 text-sm">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-4 text-xs sm:text-sm">
                             <div className="flex justify-between">
                                 <span className="text-[var(--muted-foreground)]">Tiempo Completo (TC):</span>
                                 <span className="font-medium">₡{ccssData.tc.toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
@@ -1621,7 +1625,7 @@ export default function DataEditor() {
                     </div>
 
                     {/* Botón para resetear valores por defecto */}
-                    <div className="flex justify-between items-center">
+                    <div className="flex flex-col sm:flex-row justify-between items-center gap-2 mt-2">
                         <button
                             onClick={() => {
                                 if (confirm('¿Estás seguro de que quieres restaurar los valores por defecto?')) {
@@ -1631,7 +1635,7 @@ export default function DataEditor() {
                                     updateCcssConfig('horabruta', 1529.62);
                                 }
                             }}
-                            className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors"
+                            className="px-3 py-2 sm:px-4 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors text-sm sm:text-base w-full sm:w-auto"
                         >
                             Restaurar Valores Por Defecto
                         </button>
@@ -1639,7 +1643,7 @@ export default function DataEditor() {
                         <button
                             onClick={saveData}
                             disabled={!hasChanges || isSaving}
-                            className={`px-6 py-2 rounded-md flex items-center gap-2 transition-colors ${hasChanges && !isSaving
+                            className={`px-3 py-2 sm:px-6 rounded-md flex items-center gap-2 transition-colors text-sm sm:text-base w-full sm:w-auto ${hasChanges && !isSaving
                                 ? 'bg-green-600 hover:bg-green-700 text-white'
                                 : 'bg-[var(--muted)] text-[var(--muted-foreground)] cursor-not-allowed'
                                 }`}
