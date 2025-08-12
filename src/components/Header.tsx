@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image';
-import { Settings, LogOut, Menu, X, Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck, History } from 'lucide-react';
+import { Settings, LogOut, Menu, X, Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck, History, User } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
@@ -16,7 +16,7 @@ interface HeaderProps {
 
 export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const pathname = usePathname();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [isClient, setIsClient] = useState(false);
@@ -89,6 +89,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       localStorage.removeItem('simple_login_user');
       window.location.href = '/login';
     } else {
+      // For main app, show confirmation
       setShowLogoutConfirm(true);
     }
   };
@@ -145,6 +146,24 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
           )}
 
           <div className="flex items-center gap-2" suppressHydrationWarning>
+            {/* User info display */}
+            {user && (
+              <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)]">
+                <User className="w-4 h-4 text-[var(--muted-foreground)]" />
+                <span className="text-sm text-[var(--foreground)] font-medium">{user.name}</span>
+                {user.role && (
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${
+                    user.role === 'superadmin' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' :
+                    user.role === 'admin' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' :
+                    'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+                  }`}>
+                    {user.role === 'superadmin' ? 'Super Admin' : 
+                     user.role === 'admin' ? 'Admin' : 'Usuario'}
+                  </span>
+                )}
+              </div>
+            )}
+
             {/* Mobile hamburger menu button */}
             {activeTab && (
               <button
@@ -156,15 +175,14 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               </button>
             )}
 
-            {isBackdoorPage && (
-              <button
-                onClick={handleLogoutClick}
-                className="p-2 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
-                title="Cerrar Sesión"
-              >
-                <LogOut className="w-5 h-5 text-red-600 dark:text-red-400" />
-              </button>
-            )}
+            {/* Logout button for all pages */}
+            <button
+              onClick={handleLogoutClick}
+              className="p-2 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+              title="Cerrar Sesión"
+            >
+              <LogOut className="w-5 h-5 text-red-600 dark:text-red-400" />
+            </button>
 
             <ThemeToggle />
           </div>
@@ -173,6 +191,25 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
         {/* Mobile navigation menu */}
         {showMobileMenu && activeTab && (
           <div className="lg:hidden border-t border-[var(--input-border)] bg-[var(--card-bg)]" suppressHydrationWarning>
+            {/* User info in mobile menu */}
+            {user && (
+              <div className="px-4 py-3 border-b border-[var(--input-border)] bg-[var(--hover-bg)]">
+                <div className="flex items-center gap-2">
+                  <User className="w-5 h-5 text-[var(--muted-foreground)]" />
+                  <div>
+                    <div className="font-medium text-[var(--foreground)]">{user.name}</div>
+                    {user.role && (
+                      <div className="text-sm text-[var(--muted-foreground)]">
+                        {user.role === 'superadmin' ? 'Super Administrador' : 
+                         user.role === 'admin' ? 'Administrador' : 'Usuario'}
+                        {user.location && ` - ${user.location}`}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <nav className="px-4 py-2 space-y-1">
               {displayTabs.map(tab => (
                 <button
@@ -211,7 +248,16 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
             </div>
 
             <p className="text-[var(--tab-text)] mb-6">
-              ¿Está seguro que desea cerrar sesión y regresar al inicio?
+              ¿Está seguro que desea cerrar sesión?
+              {user && (
+                <span className="block mt-2 text-sm text-[var(--muted-foreground)]">
+                  Usuario activo: <strong>{user.name}</strong>
+                  {user.role && ` (${
+                    user.role === 'superadmin' ? 'Super Admin' : 
+                    user.role === 'admin' ? 'Admin' : 'Usuario'
+                  })`}
+                </span>
+              )}
             </p>
 
             <div className="flex gap-3 justify-end" suppressHydrationWarning>

@@ -3,6 +3,7 @@ import './globals.css';
 import { ThemeProvider } from '../components/ThemeProvider';
 import HeaderWrapper from '../components/HeaderWrapper';
 import Footer from '../components/Footer';
+import AuthWrapper from '../components/AuthWrapper';
 
 export const metadata = {
   title: 'Price Master',
@@ -32,13 +33,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning className="min-h-full bg-white dark:bg-zinc-900">
       <body className="bg-background text-foreground transition-colors duration-500 min-h-screen flex flex-col" suppressHydrationWarning>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <HeaderWrapper />
-          <main className="flex-1 flex flex-col w-full">
-            <div className="w-full" suppressHydrationWarning>
-              {children}
-            </div>
-          </main>
-          <Footer />
+          <AuthWrapper>
+            <HeaderWrapper />
+            <main className="flex-1 flex flex-col w-full">
+              <div className="w-full" suppressHydrationWarning>
+                {children}
+              </div>
+            </main>
+            <Footer />
+          </AuthWrapper>
         </ThemeProvider>
       </body>
     </html>
