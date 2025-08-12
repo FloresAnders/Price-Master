@@ -173,9 +173,16 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
           <div className="flex items-center gap-2" suppressHydrationWarning>
             {/* User info display */}
             {user && (
-              <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)]">
+              <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-transparent rounded-lg border border-[var(--input-border)]">
                 <User className="w-4 h-4 text-[var(--muted-foreground)]" />
-                <span className="text-sm text-[var(--foreground)] font-medium">{user.name}</span>
+                <span className="text-sm font-sans font-bold text-[var(--foreground)]">{user.name}</span>
+                <button
+                  onClick={handleLogoutClick}
+                  className="ml-2 p-1 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                  title="Cerrar Sesión"
+                >
+                  <LogOut className="w-5 h-5 text-red-600 dark:text-red-400" />
+                </button>
               </div>
             )}
 
@@ -190,14 +197,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               </button>
             )}
 
-            {/* Logout button for all pages */}
-            <button
-              onClick={handleLogoutClick}
-              className="p-2 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
-              title="Cerrar Sesión"
-            >
-              <LogOut className="w-5 h-5 text-red-600 dark:text-red-400" />
-            </button>
+
 
             <ThemeToggle />
           </div>
