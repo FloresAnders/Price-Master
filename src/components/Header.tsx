@@ -176,16 +176,6 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)]">
                 <User className="w-4 h-4 text-[var(--muted-foreground)]" />
                 <span className="text-sm text-[var(--foreground)] font-medium">{user.name}</span>
-                {user.role && (
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${
-                    user.role === 'superadmin' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' :
-                    user.role === 'admin' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' :
-                    'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
-                  }`}>
-                    {user.role === 'superadmin' ? 'Super Admin' : 
-                     user.role === 'admin' ? 'Admin' : 'Usuario'}
-                  </span>
-                )}
               </div>
             )}
 
@@ -223,11 +213,9 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                   <User className="w-5 h-5 text-[var(--muted-foreground)]" />
                   <div>
                     <div className="font-medium text-[var(--foreground)]">{user.name}</div>
-                    {user.role && (
+                    {user.location && (
                       <div className="text-sm text-[var(--muted-foreground)]">
-                        {user.role === 'superadmin' ? 'Super Administrador' : 
-                         user.role === 'admin' ? 'Administrador' : 'Usuario'}
-                        {user.location && ` - ${user.location}`}
+                        {user.location}
                       </div>
                     )}
                   </div>
@@ -277,10 +265,6 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               {user && (
                 <span className="block mt-2 text-sm text-[var(--muted-foreground)]">
                   Usuario activo: <strong>{user.name}</strong>
-                  {user.role && ` (${
-                    user.role === 'superadmin' ? 'Super Admin' : 
-                    user.role === 'admin' ? 'Admin' : 'Usuario'
-                  })`}
                 </span>
               )}
             </p>

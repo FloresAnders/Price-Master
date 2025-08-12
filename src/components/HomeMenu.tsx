@@ -89,18 +89,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
           style={{ cursor: 'pointer', filter: hovered ? 'drop-shadow(0 0 8px var(--foreground))' : 'none' }}
         />
       </div>
-      <h1 className="text-3xl font-bold mb-2 text-center">Bienvenido a Price Master</h1>
-      {currentUser && (
-        <div className="text-center mb-6">
-          <p className="text-lg text-[var(--foreground)] font-medium">
-            ¡Hola, {currentUser.name}!
-          </p>
-          <p className="text-sm text-[var(--muted-foreground)]">
-            {visibleMenuItems.length} herramienta{visibleMenuItems.length !== 1 ? 's' : ''} disponible{visibleMenuItems.length !== 1 ? 's' : ''} para ti
-            {currentUser.location && ` en ${currentUser.location}`}
-          </p>
-        </div>
-      )}
+      <h1 className="text-3xl font-bold mb-8 text-center">Bienvenido a Price Master</h1>
       
       {visibleMenuItems.length === 0 ? (
         <div className="text-center py-12">

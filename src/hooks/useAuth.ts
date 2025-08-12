@@ -12,6 +12,7 @@ interface SessionData {
   sessionId?: string;
   ipAddress?: string;
   userAgent?: string;
+  keepActive?: boolean; // Nueva propiedad para sesiones extendidas
 }
 
 interface AuditLog {
@@ -29,7 +30,8 @@ interface AuditLog {
 const SESSION_DURATION_HOURS = {
   superadmin: 4,    // SuperAdmin: 4 horas por seguridad
   admin: 24,        // Admin: 24 horas
-  user: 720         // User: 30 días
+  user: 720,        // User: 30 días
+  extended: 168     // Sesión extendida: 1 semana (7 días * 24 horas)
 };
 
 // Tiempo de inactividad máximo antes de logout automático (en minutos)
@@ -133,11 +135,18 @@ export function useAuth() {
       const sessionData = localStorage.getItem('pricemaster_session');
       if (sessionData) {        const session: SessionData = JSON.parse(sessionData);
 
-        // Verificar si la sesión no ha expirado según el rol
+        // Verificar si la sesión no ha expirado según el rol o configuración extendida
         const loginTime = new Date(session.loginTime);
         const now = new Date();
         const hoursElapsed = (now.getTime() - loginTime.getTime()) / (1000 * 60 * 60);
-        const maxHours = SESSION_DURATION_HOURS[session.role || 'user'] || SESSION_DURATION_HOURS.user;
+        
+        // Usar duración extendida si está activada, sino usar duración por rol
+        let maxHours;
+        if (session.keepActive) {
+          maxHours = SESSION_DURATION_HOURS.extended; // 1 semana
+        } else {
+          maxHours = SESSION_DURATION_HOURS[session.role || 'user'] || SESSION_DURATION_HOURS.user;
+        }
 
         // Verificar inactividad
         const isInactive = checkInactivity(session);        if (hoursElapsed < maxHours && !isInactive) {
@@ -219,7 +228,7 @@ export function useAuth() {
       clearInterval(sessionInterval);
     };
   }, [checkExistingSession, updateActivity]);
-  const login = (userData: User) => {
+  const login = (userData: User, keepActive: boolean = false) => {
     const sessionId = generateSessionId();
     const browserInfo = getBrowserInfo();
     
@@ -233,7 +242,8 @@ export function useAuth() {
       loginTime: new Date().toISOString(),
       lastActivity: new Date().toISOString(),
       sessionId,
-      userAgent: browserInfo.userAgent
+      userAgent: browserInfo.userAgent,
+      keepActive: keepActive // Agregar información del toggle
     };
 
     // Guardar sesión
@@ -277,8 +287,16 @@ export function useAuth() {
       const loginTime = new Date(session.loginTime);
       const now = new Date();
       const hoursElapsed = (now.getTime() - loginTime.getTime()) / (1000 * 60 * 60);
-      const maxHours = SESSION_DURATION_HOURS[session.role || 'user'] || SESSION_DURATION_HOURS.user;
-        return Math.max(0, maxHours - hoursElapsed);
+      
+      // Usar duración extendida si está activada, sino usar duración por rol
+      let maxHours;
+      if (session.keepActive) {
+        maxHours = SESSION_DURATION_HOURS.extended; // 1 semana
+      } else {
+        maxHours = SESSION_DURATION_HOURS[session.role || 'user'] || SESSION_DURATION_HOURS.user;
+      }
+      
+      return Math.max(0, maxHours - hoursElapsed);
     } catch {
       return 0;
     }

@@ -7,17 +7,19 @@ import type { User as UserType } from '../types/firestore';
 
 interface LoginModalProps {
   isOpen: boolean;
-  onLoginSuccess: (user: UserType) => void;
+  onLoginSuccess: (user: UserType, keepActive?: boolean) => void; // Agregar parámetro para keepActive
   onClose: () => void;
   title: string;
+  canClose?: boolean; // Nueva prop para controlar si se puede cerrar
 }
 
-export default function LoginModal({ isOpen, onLoginSuccess, onClose, title }: LoginModalProps) {
+export default function LoginModal({ isOpen, onLoginSuccess, onClose, title, canClose = true }: LoginModalProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [keepSessionActive, setKeepSessionActive] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,18 +37,7 @@ export default function LoginModal({ isOpen, onLoginSuccess, onClose, title }: L
       );
 
       if (user) {
-        // Guardar sesión en localStorage con todos los datos del usuario
-        const sessionData = {
-          id: user.id,
-          name: user.name,
-          location: user.location,
-          role: user.role,
-          permissions: user.permissions, // ¡Importante! Incluir los permisos
-          loginTime: new Date().toISOString()
-        };
-        localStorage.setItem('pricemaster_session', JSON.stringify(sessionData));
-
-        onLoginSuccess(user);
+        onLoginSuccess(user, keepSessionActive);
 
         // Limpiar formulario
         setUsername('');
@@ -120,24 +111,56 @@ export default function LoginModal({ isOpen, onLoginSuccess, onClose, title }: L
             </div>
           </div>
 
+          {/* Toggle para mantener sesión activa */}
+          <div className="flex items-center justify-between">
+            <label className="flex items-center cursor-pointer group">
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  checked={keepSessionActive}
+                  onChange={(e) => setKeepSessionActive(e.target.checked)}
+                  className="sr-only"
+                  disabled={loading}
+                />
+                <div className={`block w-11 h-6 rounded-full transition-colors duration-200 ease-in-out ${
+                  keepSessionActive 
+                    ? 'bg-blue-600 shadow-lg' 
+                    : 'bg-gray-300 dark:bg-gray-600'
+                } ${loading ? 'opacity-50' : 'group-hover:shadow-md'}`}>
+                </div>
+                <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-200 ease-in-out shadow-sm ${
+                  keepSessionActive ? 'translate-x-5' : 'translate-x-0'
+                }`}>
+                </div>
+              </div>
+              <div className="ml-3">
+                <span className="text-sm font-medium text-[var(--foreground)]">
+                  Mantener sesión iniciada
+                </span>
+              </div>
+            </label>
+          </div>
+
           {error && (
             <div className="text-red-500 text-sm text-center bg-red-50 p-2 rounded">
               {error}
             </div>
           )}
 
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-2 px-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
-              disabled={loading}
-            >
-              Cancelar
-            </button>
+          <div className={`flex gap-3 ${canClose ? '' : 'justify-center'}`}>
+            {canClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 py-2 px-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                disabled={loading}
+              >
+                Cancelar
+              </button>
+            )}
             <button
               type="submit"
-              className="flex-1 py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+              className={`py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 ${canClose ? 'flex-1' : 'w-full'}`}
               disabled={loading}
             >
               {loading ? 'Verificando...' : 'Iniciar Sesión'}
