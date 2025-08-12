@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { User } from '../types/firestore';
+import type { User, UserPermissions } from '../types/firestore';
 
 interface SessionData {
   id?: string;
   name: string;
   location?: string;
   role?: 'admin' | 'user' | 'superadmin';
+  permissions?: UserPermissions;
   loginTime: string;
   lastActivity?: string;
   sessionId?: string;
@@ -145,7 +146,8 @@ export function useAuth() {
             id: session.id,
             name: session.name,
             location: session.location,
-            role: session.role
+            role: session.role,
+            permissions: session.permissions // ¡Importante! Incluir los permisos desde la sesión
           };
 
           // Check if user data has changed to prevent unnecessary re-renders
@@ -153,7 +155,8 @@ export function useAuth() {
             user.id !== newUserData.id ||
             user.name !== newUserData.name ||
             user.location !== newUserData.location ||
-            user.role !== newUserData.role;
+            user.role !== newUserData.role ||
+            JSON.stringify(user.permissions) !== JSON.stringify(newUserData.permissions);
 
           if (hasUserChanged) {
             setUser(newUserData);
@@ -226,6 +229,7 @@ export function useAuth() {
       name: userData.name,
       location: userData.location,
       role: userData.role,
+      permissions: userData.permissions, // ¡Importante! Incluir los permisos
       loginTime: new Date().toISOString(),
       lastActivity: new Date().toISOString(),
       sessionId,

@@ -1,8 +1,8 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import React, { useEffect, useState } from 'react';
-import { User } from '../types/firestore';
+import React from 'react';
+import { useAuth } from '../hooks/useAuth';
 
 // Import HomeMenu dynamically with SSR disabled to prevent hydration errors
 const HomeMenu = dynamic(() => import('./HomeMenu'), {
@@ -31,20 +31,18 @@ const HomeMenu = dynamic(() => import('./HomeMenu'), {
 });
 
 export default function ClientOnlyHomeMenu() {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const { user, isAuthenticated } = useAuth();
 
-  useEffect(() => {
-    // Get current user from localStorage or session
-    // This is a simple implementation - you might want to use a proper auth context
-    const savedUser = localStorage.getItem('currentUser');
-    if (savedUser) {
-      try {
-        setCurrentUser(JSON.parse(savedUser));
-      } catch (error) {
-        console.error('Error parsing saved user:', error);
-      }
-    }
-  }, []);
+  // Only render if user is authenticated to ensure proper permission filtering
+  if (!isAuthenticated || !user) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] py-8">
+        <div className="text-center text-[var(--muted-foreground)]">
+          <p>Cargando menú personalizado...</p>
+        </div>
+      </div>
+    );
+  }
 
-  return <HomeMenu currentUser={currentUser} />;
+  return <HomeMenu currentUser={user} />;
 }

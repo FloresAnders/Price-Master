@@ -6,6 +6,8 @@ import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { ThemeToggle } from './ThemeToggle';
+import { getDefaultPermissions } from '../utils/permissions';
+import type { UserPermissions } from '../types/firestore';
 
 type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'supplierorders' | 'histoscans' | 'scanhistory' | 'edit'
 
@@ -27,23 +29,46 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     setIsClient(true);
   }, []);
 
-  // Navigation tabs
-  const tabs = [
-    { id: 'scanner' as ActiveTab, name: 'Escáner', icon: Scan, description: 'Escanear códigos de barras' },
-    { id: 'calculator' as ActiveTab, name: 'Calculadora', icon: Calculator, description: 'Calcular precios con descuentos' },
-    { id: 'converter' as ActiveTab, name: 'Conversor', icon: Type, description: 'Convertir y transformar texto' },
+  // Navigation tabs with permissions
+  const allTabs = [
+    { id: 'scanner' as ActiveTab, name: 'Escáner', icon: Scan, description: 'Escanear códigos de barras', permission: 'scanner' as keyof UserPermissions },
+    { id: 'calculator' as ActiveTab, name: 'Calculadora', icon: Calculator, description: 'Calcular precios con descuentos', permission: 'calculator' as keyof UserPermissions },
+    { id: 'converter' as ActiveTab, name: 'Conversor', icon: Type, description: 'Convertir y transformar texto', permission: 'converter' as keyof UserPermissions },
     {
       id: 'cashcounter' as ActiveTab,
       name: 'Contador Efectivo',
       icon: Banknote,
-      description: 'Contar billetes y monedas (CRC/USD)'
+      description: 'Contar billetes y monedas (CRC/USD)',
+      permission: 'cashcounter' as keyof UserPermissions
     },
-    { id: 'timingcontrol' as ActiveTab, name: 'Control Tiempos', icon: Smartphone, description: 'Registro de venta de tiempos' },
-    { id: 'controlhorario' as ActiveTab, name: 'Control Horario', icon: Clock, description: 'Registro de horarios de trabajo' },
-    { id: 'supplierorders' as ActiveTab, name: 'Órdenes Proveedor', icon: Truck, description: 'Gestión de órdenes de proveedores' },
-    { id: 'edit' as ActiveTab, name: 'Mantenimiento', icon: Settings, description: 'Gestión y mantenimiento del sistema' },
-    { id: 'histoscans' as ActiveTab, name: 'Historial de Escaneos', icon: History, description: 'Ver historial de escaneos realizados' },
+    { id: 'timingcontrol' as ActiveTab, name: 'Control Tiempos', icon: Smartphone, description: 'Registro de venta de tiempos', permission: 'timingcontrol' as keyof UserPermissions },
+    { id: 'controlhorario' as ActiveTab, name: 'Control Horario', icon: Clock, description: 'Registro de horarios de trabajo', permission: 'controlhorario' as keyof UserPermissions },
+    { id: 'supplierorders' as ActiveTab, name: 'Órdenes Proveedor', icon: Truck, description: 'Gestión de órdenes de proveedores', permission: 'supplierorders' as keyof UserPermissions },
+    { id: 'edit' as ActiveTab, name: 'Mantenimiento', icon: Settings, description: 'Gestión y mantenimiento del sistema', permission: 'mantenimiento' as keyof UserPermissions },
+    { id: 'histoscans' as ActiveTab, name: 'Historial de Escaneos', icon: History, description: 'Ver historial de escaneos realizados', permission: 'scanhistory' as keyof UserPermissions },
   ];
+
+  // Filter tabs based on user permissions
+  const getVisibleTabs = () => {
+    if (!user) {
+      return allTabs; // Fallback for safety
+    }
+
+    // Get user permissions or default permissions based on role
+    let userPermissions: UserPermissions;
+    if (user.permissions) {
+      userPermissions = user.permissions;
+    } else {
+      userPermissions = getDefaultPermissions(user.role || 'user');
+    }
+
+    return allTabs.filter(tab => {
+      const hasPermission = userPermissions[tab.permission];
+      return hasPermission === true;
+    });
+  };
+
+  const tabs = getVisibleTabs();
 
   // Filter tabs for backdoor (only show specific tabs)
   const displayTabs = isBackdoorPage

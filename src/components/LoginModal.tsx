@@ -35,12 +35,13 @@ export default function LoginModal({ isOpen, onLoginSuccess, onClose, title }: L
       );
 
       if (user) {
-        // Guardar sesión en localStorage
+        // Guardar sesión en localStorage con todos los datos del usuario
         const sessionData = {
           id: user.id,
           name: user.name,
           location: user.location,
           role: user.role,
+          permissions: user.permissions, // ¡Importante! Incluir los permisos
           loginTime: new Date().toISOString()
         };
         localStorage.setItem('pricemaster_session', JSON.stringify(sessionData));

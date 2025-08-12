@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck, Settings, History } from 'lucide-react';
 import AnimatedStickman from './AnimatedStickman';
 import { User, UserPermissions } from '../types/firestore';
+import { getDefaultPermissions } from '../utils/permissions';
 
 const menuItems = [
   { id: 'scanner', name: 'Escáner', icon: Scan, description: 'Escanear códigos de barras', permission: 'scanner' as keyof UserPermissions },
@@ -27,18 +28,22 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   // Filter menu items based on user permissions
   const getVisibleMenuItems = () => {
     if (!currentUser) {
-      // If no user is logged in, show all items (fallback behavior)
-      return menuItems;
+      // If no user is logged in, show no items for security
+      return [];
     }
 
-    // If user has no permissions defined, default to showing all (for backward compatibility)
-    if (!currentUser.permissions) {
-      return menuItems;
+    // Get user permissions or default permissions based on role
+    let userPermissions: UserPermissions;
+    if (currentUser.permissions) {
+      userPermissions = currentUser.permissions;
+    } else {
+      // If no permissions are defined, use default permissions based on role
+      userPermissions = getDefaultPermissions(currentUser.role || 'user');
     }
 
     // Filter items based on user permissions
     return menuItems.filter(item => {
-      const hasPermission = currentUser.permissions?.[item.permission];
+      const hasPermission = userPermissions[item.permission];
       return hasPermission === true;
     });
   };
@@ -84,21 +89,50 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
           style={{ cursor: 'pointer', filter: hovered ? 'drop-shadow(0 0 8px var(--foreground))' : 'none' }}
         />
       </div>
-      <h1 className="text-3xl font-bold mb-8 text-center">Bienvenido a Price Master</h1>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 w-full max-w-4xl">
-        {visibleMenuItems.map(item => (
-          <button
-            key={item.id}
-            onClick={() => handleNavigate(item.id)}
-            className="bg-[var(--card-bg)] dark:bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl shadow-md p-6 flex flex-col items-center transition hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 group"
-            style={{ minHeight: 160 }}
-          >
-            <item.icon className="w-10 h-10 mb-3 text-[var(--foreground)] group-hover:scale-110 transition-transform" />
-            <span className="text-lg font-semibold mb-1 text-[var(--foreground)] dark:text-[var(--foreground)]">{item.name}</span>
-            <span className="text-sm text-[var(--tab-text)] text-center">{item.description}</span>
-          </button>
-        ))}
-      </div>
+      <h1 className="text-3xl font-bold mb-2 text-center">Bienvenido a Price Master</h1>
+      {currentUser && (
+        <div className="text-center mb-6">
+          <p className="text-lg text-[var(--foreground)] font-medium">
+            ¡Hola, {currentUser.name}!
+          </p>
+          <p className="text-sm text-[var(--muted-foreground)]">
+            {visibleMenuItems.length} herramienta{visibleMenuItems.length !== 1 ? 's' : ''} disponible{visibleMenuItems.length !== 1 ? 's' : ''} para ti
+            {currentUser.location && ` en ${currentUser.location}`}
+          </p>
+        </div>
+      )}
+      
+      {visibleMenuItems.length === 0 ? (
+        <div className="text-center py-12">
+          <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl p-8 max-w-md mx-auto">
+            <Settings className="w-16 h-16 mx-auto mb-4 text-[var(--muted-foreground)]" />
+            <h3 className="text-xl font-semibold mb-2 text-[var(--foreground)]">
+              Sin herramientas disponibles
+            </h3>
+            <p className="text-[var(--muted-foreground)] mb-4">
+              No tienes permisos para acceder a ninguna herramienta en este momento.
+            </p>
+            <p className="text-sm text-[var(--muted-foreground)]">
+              Contacta a tu administrador para obtener acceso a las funcionalidades que necesitas.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 w-full max-w-4xl">
+          {visibleMenuItems.map(item => (
+            <button
+              key={item.id}
+              onClick={() => handleNavigate(item.id)}
+              className="bg-[var(--card-bg)] dark:bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl shadow-md p-6 flex flex-col items-center transition hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 group"
+              style={{ minHeight: 160 }}
+            >
+              <item.icon className="w-10 h-10 mb-3 text-[var(--foreground)] group-hover:scale-110 transition-transform" />
+              <span className="text-lg font-semibold mb-1 text-[var(--foreground)] dark:text-[var(--foreground)]">{item.name}</span>
+              <span className="text-sm text-[var(--tab-text)] text-center">{item.description}</span>
+            </button>
+          ))}
+        </div>
+      )}
       
       {/* AnimatedStickman aparece solo después de 5 clicks */}
       {showStickman && (
