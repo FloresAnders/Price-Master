@@ -8,6 +8,7 @@ import TextConversion from '@/components/TextConversion'
 import ScanHistory from '@/components/ScanHistory'
 import CashCounterTabs from '@/components/CashCounterTabs'
 import ControlHorario from '@/components/ControlHorario'
+import { useAuth } from '@/hooks/useAuth'
 import {
   Calculator,
   Smartphone,
@@ -31,6 +32,9 @@ import { ref, listAll } from 'firebase/storage'
 type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'supplierorders' | 'scanhistory' | 'edit'
 
 export default function HomePage() {
+  // Hook para obtener el usuario autenticado
+  const { user } = useAuth();
+  
   // 2) Estado para la pestaña activa - now managed by URL hash only
   const [activeTab, setActiveTab] = useState<ActiveTab | null>(null);
   const [scanHistory, setScanHistory] = useState<ScanHistoryEntry[]>([])
@@ -317,7 +321,7 @@ export default function HomePage() {
 
               {/* CONTROL HORARIO */}
               {activeTab === 'controlhorario' && (
-                <ControlHorario />
+                <ControlHorario currentUser={user} />
               )}
 
               {/* SUPPLIER ORDERS */}

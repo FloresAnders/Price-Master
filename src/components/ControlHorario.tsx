@@ -207,13 +207,42 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
   // Siempre usar el usuario del prop (puede ser null)
   const user = propCurrentUser;
   
+  console.log('🚀 CONTROLHORARIO INICIADO');
+  console.log('📋 Props recibidos:', { propCurrentUser });
+  console.log('👤 Usuario procesado:', user);
+  
+  // Debug: mostrar información del usuario
+  console.log('🔍 ControlHorario - Usuario actual:', {
+    nombre: user?.name || 'No autenticado',
+    rol: user?.role || 'Sin rol',
+    ubicacionAsignada: user?.location || 'Sin ubicación asignada',
+    tienePermisos: !!user?.permissions?.controlhorario,
+    objetoCompleto: user
+  });
+  
   // Funciones de autorización simplificadas
   const userCanChangeLocation = () => {
+    // Solo admin y superadmin pueden usar el selector de ubicación
+    // PERO: Todos los usuarios (incluyendo admin/superadmin) ven predeterminadamente su ubicación asignada
+    // Los usuarios con rol "user" están completamente restringidos a su ubicación asignada
     return user?.role === 'admin' || user?.role === 'superadmin';
   };
   
   const userIsSuperAdmin = () => {
     return user?.role === 'superadmin';
+  };
+
+  // Función para manejar cambios de ubicación con validaciones
+  const handleLocationChange = (newLocation: string) => {
+    // Bloquear cambios para usuarios con rol "user"
+    if (user?.role === 'user') {
+      console.warn(`🚫 BLOQUEO: Usuario "${user.name}" (rol: user) intentó cambiar ubicación. Manteniendo: ${user?.location}`);
+      showNotification('No tienes permisos para cambiar de ubicación', 'error');
+      return;
+    }
+    
+    console.log(`✅ Cambio de ubicación autorizado para usuario "${user?.name}" (rol: ${user?.role}): ${newLocation}`);
+    setLocation(newLocation);
   };
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
@@ -269,12 +298,44 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
     loadData();
   }, []);
 
-  // Efecto para manejar la ubicación del usuario
+  // Efecto principal para manejar la ubicación del usuario
   useEffect(() => {
-    if (user?.location && !location) {
+    console.log('🔍 Efecto ubicación ejecutándose:', {
+      usuario: user?.name,
+      rol: user?.role,
+      ubicacionAsignada: user?.location,
+      ubicacionActual: location,
+      existeUsuario: !!user
+    });
+
+    // Si no hay usuario, no hacer nada
+    if (!user) {
+      console.log('❌ No hay usuario, saliendo...');
+      return;
+    }
+
+    // Para usuarios con rol "user": FORZAR únicamente su ubicación asignada
+    if (user.role === 'user' && user.location) {
+      console.log(`🔒 USUARIO RESTRINGIDO: "${user.name}" (rol: user) DEBE usar ubicación: ${user.location}`);
+      setLocation(user.location);
+      return;
+    }
+
+    // Para otros roles: si tienen ubicación asignada y no hay una seleccionada, usar la asignada como default
+    if (user.location && !location) {
+      console.log(`🏢 CARGA AUTOMÁTICA: Mostrando ubicación asignada para usuario "${user.name}" (${user.role}): ${user.location}`);
       setLocation(user.location);
     }
-  }, [user, location]);
+  }, [user]); // Solo depender de user, no de location
+
+  // Efecto adicional para bloquear cambios de ubicación en usuarios "user"
+  useEffect(() => {
+    if (user?.role === 'user' && user?.location && location && location !== user.location) {
+      console.warn(`🚫 BLOQUEO: Usuario "${user.name}" (rol: user) intentó cambiar a ubicación "${location}". Forzando regreso a "${user.location}"`);
+      setLocation(user.location);
+      showNotification(`Acceso restringido. Solo puedes ver: ${user.location}`, 'error');
+    }
+  }, [location, user]); // Monitorear cambios en location para usuarios "user"
 
   // Función para mostrar notificaciones
   const showNotification = (message: string, type: 'success' | 'error') => {
@@ -289,6 +350,14 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
   useEffect(() => {
     const loadScheduleData = async () => {
       if (!location || !locations.find(l => l.value === location)?.names?.length) return;
+
+      // Validación de seguridad: usuarios con rol "user" solo pueden acceder a su ubicación asignada
+      if (user?.role === 'user' && user?.location && location !== user.location) {
+        console.warn(`🚫 Usuario "${user.name}" (rol: user) intentando acceder a ubicación no autorizada: ${location}. Ubicación asignada: ${user.location}`);
+        setLocation(user.location);
+        showNotification('Acceso restringido a tu ubicación asignada', 'error');
+        return;
+      }
 
       const names = locations.find(l => l.value === location)?.names || [];
       const year = currentDate.getFullYear();
@@ -1209,6 +1278,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
 
   // Si está cargando, mostrar loading
   if (loading) {
+    console.log('⏳ COMPONENTE EN ESTADO LOADING - datos de ubicaciones aún no cargados');
     return (
       <div className="max-w-4xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4 sm:p-6">
         <div className="flex flex-col items-center justify-center py-12">
@@ -1231,8 +1301,58 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
       </div>
     );
   }
-  // Si no hay ubicación seleccionada, mostrar selector
+  // Si no hay ubicación seleccionada, mostrar selector o mensaje apropiado
   if (!location) {
+    console.log('🚨 SIN UBICACIÓN - Análisis de situación:', {
+      tieneUsuario: !!user,
+      nombreUsuario: user?.name,
+      rolUsuario: user?.role,
+      ubicacionAsignada: user?.location,
+      estadoLocation: location
+    });
+
+    // Si cualquier usuario tiene ubicación asignada, mostrar loading mientras se establece
+    if (user?.location) {
+      console.log(`⏳ MOSTRANDO LOADING para usuario ${user.name} con ubicación asignada: ${user.location}`);
+      return (
+        <div className="max-w-4xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4 sm:p-6">
+          <div className="flex flex-col items-center justify-center py-12">
+            <div className="relative flex items-center justify-center mb-4">
+              <svg className="animate-spin-slow w-8 h-8 sm:w-12 sm:h-12 text-[var(--foreground)]" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="24" cy="24" r="22" stroke="currentColor" strokeWidth="4" opacity="0.2" />
+                <line x1="24" y1="24" x2="24" y2="10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                <line x1="24" y1="24" x2="36" y2="24" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+              </svg>
+            </div>
+            <div className="text-sm sm:text-lg flex items-center">
+              Cargando ubicación asignada: {user.location}
+              <span className="inline-block w-6 text-left">
+                <span className="loading-dot">.</span>
+                <span className="loading-dot">.</span>
+                <span className="loading-dot">.</span>
+              </span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Si es usuario con rol "user" sin ubicación asignada, mostrar error
+    if (user?.role === 'user' && !user?.location) {
+      return (
+        <div className="max-w-4xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4 sm:p-6">
+          <div className="text-center mb-8">
+            <Clock className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 text-red-600" />
+            <h3 className="text-xl sm:text-2xl font-semibold mb-4">Acceso Restringido</h3>
+            <p className="text-sm sm:text-base text-[var(--tab-text)] mb-6">
+              No tienes una ubicación asignada. Contacta al administrador.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    // Solo para admin/superadmin SIN ubicación asignada, mostrar selector manual
     return (
       <div className="max-w-4xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4 sm:p-6">
         <div className="text-center mb-8">
@@ -1256,7 +1376,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
                 color: 'var(--foreground)',
               }}
               value={location}
-              onChange={e => setLocation(e.target.value)}
+              onChange={e => handleLocationChange(e.target.value)}
             >
               <option value="">Seleccionar ubicación</option>
               {locations.map((loc: Location) => (
@@ -1311,7 +1431,9 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
             </div>
 
             <div className="flex flex-col sm:flex-row items-center gap-4">
-              {/* Selector de ubicación - solo para administradores */}
+              {/* Selector de ubicación - solo para admin y superadmin
+                  TODOS los usuarios ven predeterminadamente su ubicación asignada
+                  Los usuarios con rol "user" están restringidos solo a su ubicación */}
               {userCanChangeLocation() ? (
                 <select
                   className="w-full sm:w-auto px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -1321,7 +1443,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
                     color: 'var(--foreground)',
                   }}
                   value={location}
-                  onChange={e => setLocation(e.target.value)}
+                  onChange={e => handleLocationChange(e.target.value)}
                 >
                   <option value="">Seleccionar ubicación</option>
                   {locations.map((loc: Location) => (
