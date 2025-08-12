@@ -326,7 +326,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
       console.log(`🏢 CARGA AUTOMÁTICA: Mostrando ubicación asignada para usuario "${user.name}" (${user.role}): ${user.location}`);
       setLocation(user.location);
     }
-  }, [user]); // Solo depender de user, no de location
+  }, [user, location]); // Incluir location como dependencia
 
   // Efecto adicional para bloquear cambios de ubicación en usuarios "user"
   useEffect(() => {
@@ -454,7 +454,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
     };
 
     loadScheduleData();
-  }, [location, locations, currentDate, isDelifoodLocation, loading]);
+  }, [location, locations, currentDate, isDelifoodLocation, loading, user]); // Agregar user como dependencia
 
   // --- AUTO-QUINCENA: Detectar y mostrar la quincena actual SOLO al cargar el mes actual por PRIMERA VEZ en la sesión ---
   const autoQuincenaRef = React.useRef<boolean>(false);
@@ -473,7 +473,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
     if (!isCurrentMonth) {
       autoQuincenaRef.current = false;
     }
-  }, [loading, currentDate, viewMode]);
+  }, [loading, currentDate]); // Remover viewMode ya que se modifica internamente
 
   // Sincronizar selectedPeriod con viewMode y fullMonthView
   useEffect(() => {
