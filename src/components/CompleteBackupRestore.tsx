@@ -7,10 +7,10 @@ interface CompleteBackupData {
   timestamp: string;
   version: string;
   data: {
-    locations: { collection: any[]; count: number };
-    users: { collection: any[]; count: number };
-    schedules: { collection: any[]; count: number };
-    payrollRecords: { collection: any[]; count: number };
+    locations: { collection: unknown[]; count: number };
+    users: { collection: unknown[]; count: number };
+    schedules: { collection: unknown[]; count: number };
+    payrollRecords: { collection: unknown[]; count: number };
   };
   metadata: {
     exportedBy: string;
@@ -27,7 +27,7 @@ interface IndividualBackupData {
   version: string;
   serviceName: string;
   data: {
-    collection: any[];
+    collection: unknown[];
     count: number;
   };
   metadata: {
@@ -42,8 +42,8 @@ interface BackupData {
   timestamp: string;
   version: string;
   ccssConfig: {
-    default?: any;
-    collection?: any[];
+    default?: unknown;
+    collection?: unknown[];
   };
   metadata: {
     exportedBy: string;
@@ -65,7 +65,11 @@ export default function CompleteBackupRestore() {
 
   const validateBackup = (backupData: unknown): { isValid: boolean; type: 'ccss' | 'complete' | 'individual' | 'unknown' } => {
     try {
-      const data = backupData as any;
+      if (!backupData || typeof backupData !== 'object') {
+        return { isValid: false, type: 'unknown' };
+      }
+
+      const data = backupData as Record<string, unknown>;
       
       // Check for individual service backup structure
       if (data &&
@@ -73,12 +77,21 @@ export default function CompleteBackupRestore() {
           typeof data.version === 'string' &&
           typeof data.serviceName === 'string' &&
           data.data &&
-          Array.isArray(data.data.collection) &&
-          typeof data.data.count === 'number' &&
-          data.metadata &&
-          typeof data.metadata.exportedBy === 'string' &&
-          data.metadata.backupType === 'individual-service') {
-        return { isValid: true, type: 'individual' };
+          typeof data.data === 'object' &&
+          data.data !== null) {
+        
+        const dataObj = data.data as Record<string, unknown>;
+        const metadataObj = data.metadata as Record<string, unknown>;
+        
+        if (Array.isArray(dataObj.collection) &&
+            typeof dataObj.count === 'number' &&
+            data.metadata &&
+            typeof data.metadata === 'object' &&
+            data.metadata !== null &&
+            typeof metadataObj.exportedBy === 'string' &&
+            metadataObj.backupType === 'individual-service') {
+          return { isValid: true, type: 'individual' };
+        }
       }
       
       // Check for complete backup structure
@@ -86,14 +99,23 @@ export default function CompleteBackupRestore() {
           typeof data.timestamp === 'string' &&
           typeof data.version === 'string' &&
           data.data &&
-          data.data.locations &&
-          data.data.users &&
-          data.data.schedules &&
-          data.data.payrollRecords &&
-          data.metadata &&
-          typeof data.metadata.exportedBy === 'string' &&
-          data.metadata.backupType === 'complete-database') {
-        return { isValid: true, type: 'complete' };
+          typeof data.data === 'object' &&
+          data.data !== null) {
+        
+        const dataObj = data.data as Record<string, unknown>;
+        const metadataObj = data.metadata as Record<string, unknown>;
+        
+        if (dataObj.locations &&
+            dataObj.users &&
+            dataObj.schedules &&
+            dataObj.payrollRecords &&
+            data.metadata &&
+            typeof data.metadata === 'object' &&
+            data.metadata !== null &&
+            typeof metadataObj.exportedBy === 'string' &&
+            metadataObj.backupType === 'complete-database') {
+          return { isValid: true, type: 'complete' };
+        }
       }
       
       // Check for CCSS backup structure (legacy)
@@ -102,8 +124,14 @@ export default function CompleteBackupRestore() {
           typeof data.version === 'string' &&
           data.ccssConfig &&
           data.metadata &&
-          typeof data.metadata.exportedBy === 'string') {
-        return { isValid: true, type: 'ccss' };
+          typeof data.metadata === 'object' &&
+          data.metadata !== null) {
+        
+        const metadataObj = data.metadata as Record<string, unknown>;
+        
+        if (typeof metadataObj.exportedBy === 'string') {
+          return { isValid: true, type: 'ccss' };
+        }
       }
       
       return { isValid: false, type: 'unknown' };
@@ -135,7 +163,7 @@ export default function CompleteBackupRestore() {
           setSelectedFile(null);
           setBackupInfo(null);
         }
-      } catch (error) {
+      } catch {
         setMessage('❌ Error al leer el archivo: Formato JSON inválido');
         setStatus('error');
         setSelectedFile(null);

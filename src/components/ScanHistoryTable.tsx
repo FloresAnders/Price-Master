@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import { Copy, Trash2, Search, Eye, Calendar, MapPin, RefreshCw, Image as ImageIcon, X, Download, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Copy, Trash2, Search, Eye, MapPin, RefreshCw, Image as ImageIcon, X, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { ScanResult } from '@/types/firestore';
 import { ScanningService } from '@/services/scanning';
 import locations from '@/data/locations.json';
@@ -163,11 +163,11 @@ export default function ScanHistoryTable({ notify }: ScanHistoryTableProps) {
   });
 
   // Format date
-  const formatDate = (timestamp: any) => {
+  const formatDate = (timestamp: unknown) => {
     if (!timestamp) return 'Fecha no disponible';
     
     let date: Date;
-    if (timestamp.toDate && typeof timestamp.toDate === 'function') {
+    if (timestamp && typeof timestamp === 'object' && 'toDate' in timestamp && typeof timestamp.toDate === 'function') {
       date = timestamp.toDate();
     } else if (timestamp instanceof Date) {
       date = timestamp;

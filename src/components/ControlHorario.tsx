@@ -203,7 +203,7 @@ function EmployeeTooltipSummary({
   );
 }
 
-export default function ControlHorario({ currentUser: propCurrentUser, isBackdoorMode = false }: ControlHorarioProps = {}) {
+export default function ControlHorario({ currentUser: propCurrentUser }: ControlHorarioProps = {}) {
   // Siempre usar el usuario del prop (puede ser null)
   const user = propCurrentUser;
   

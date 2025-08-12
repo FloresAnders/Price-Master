@@ -482,7 +482,7 @@ export default function DataEditor() {
         setUsersData([...usersData, newUser]);
     };
 
-    const updateUser = (index: number, field: keyof User, value: any) => {
+    const updateUser = (index: number, field: keyof User, value: unknown) => {
         const updated = [...usersData];
         
         // Si se está cambiando el rol, preguntar si se quieren actualizar los permisos
@@ -492,7 +492,7 @@ export default function DataEditor() {
                 `Esto reemplazará los permisos actuales con los permisos estándar del rol seleccionado.`
             );
             
-            updated[index] = { ...updated[index], [field]: value };
+            updated[index] = { ...updated[index], [field]: value as User[typeof field] };
             
             if (shouldUpdatePermissions) {
                 updated[index].permissions = getDefaultPermissions(value as 'admin' | 'user' | 'superadmin');

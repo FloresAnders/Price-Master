@@ -179,7 +179,7 @@ export class UsersService {
 
       for (const [permission, defaultValue] of Object.entries(defaultPermissions)) {
         if (!(permission in currentPermissions)) {
-          (updatedPermissions as any)[permission] = defaultValue;
+          (updatedPermissions as unknown as Record<string, unknown>)[permission] = defaultValue;
           needsUpdate = true;
         }
       }

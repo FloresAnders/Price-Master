@@ -254,7 +254,7 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
                 <h4 className="font-medium mb-2">Permisos Actuales:</h4>
                 <div className="flex flex-wrap gap-1">
                   {Object.entries(selectedUser.permissions || getDefaultPermissions(selectedUser.role))
-                    .filter(([_, hasAccess]) => hasAccess)
+                    .filter(([, hasAccess]) => hasAccess)
                     .map(([permission]) => (
                       <span
                         key={permission}
@@ -309,7 +309,7 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
               <strong>Permisos predeterminados para {selectedUser.role}:</strong>
               <div className="flex flex-wrap gap-1 mt-1">
                 {Object.entries(getDefaultPermissions(selectedUser.role))
-                  .filter(([_, hasAccess]) => hasAccess)
+                  .filter(([, hasAccess]) => hasAccess)
                   .map(([permission]) => (
                     <span
                       key={permission}
