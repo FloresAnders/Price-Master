@@ -11,17 +11,71 @@ import {
     onSnapshot,
     getDoc
 } from 'firebase/firestore';
-import { ref, listAll, deleteObject } from 'firebase/storage';
+import { ref, listAll, deleteObject, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../config/firebase';
 import type { ScanResult } from '../types/firestore';
 
 export type { ScanResult } from '../types/firestore';
 
+// Cache para evitar consultas repetidas
+class ScanningCache {
+    private static scansCache: ScanResult[] | null = null;
+    private static scansCacheTime: number = 0;
+    private static readonly CACHE_DURATION = 30000; // 30 segundos
+    
+    private static imageStatusCache = new Map<string, boolean>();
+    private static imageListCache: string[] | null = null;
+    private static imageListCacheTime: number = 0;
+    
+    static getCachedScans(): ScanResult[] | null {
+        if (this.scansCache && Date.now() - this.scansCacheTime < this.CACHE_DURATION) {
+            return this.scansCache;
+        }
+        return null;
+    }
+    
+    static setCachedScans(scans: ScanResult[]): void {
+        this.scansCache = scans;
+        this.scansCacheTime = Date.now();
+    }
+    
+    static invalidateScansCache(): void {
+        this.scansCache = null;
+        this.scansCacheTime = 0;
+    }
+    
+    static getImageStatus(code: string): boolean | null {
+        return this.imageStatusCache.get(code) ?? null;
+    }
+    
+    static setImageStatus(code: string, hasImages: boolean): void {
+        this.imageStatusCache.set(code, hasImages);
+    }
+    
+    static getCachedImageList(): string[] | null {
+        if (this.imageListCache && Date.now() - this.imageListCacheTime < this.CACHE_DURATION) {
+            return this.imageListCache;
+        }
+        return null;
+    }
+    
+    static setCachedImageList(images: string[]): void {
+        this.imageListCache = images;
+        this.imageListCacheTime = Date.now();
+    }
+    
+    static invalidateImageCache(): void {
+        this.imageListCache = null;
+        this.imageListCacheTime = 0;
+        this.imageStatusCache.clear();
+    }
+}
+
 export class ScanningService {
     private static readonly COLLECTION_NAME = 'scans';
 
     /**
-     * Add a new scan result
+     * Add a new scan result (optimized)
      */
     static async addScan(scan: Omit<ScanResult, 'id' | 'timestamp'>): Promise<string> {
         try {
@@ -32,6 +86,10 @@ export class ScanningService {
             };
 
             const docRef = await addDoc(collection(db, this.COLLECTION_NAME), scanWithTimestamp);
+            
+            // Invalidar caché para que se recargue con el nuevo scan
+            ScanningCache.invalidateScansCache();
+            
             return docRef.id;
         } catch (error) {
             console.error('Error adding scan:', error);
@@ -40,10 +98,16 @@ export class ScanningService {
     }
 
     /**
-     * Get all scan results
+     * Get all scan results with optimized caching
      */
     static async getAllScans(): Promise<ScanResult[]> {
         try {
+            // Primero intentar usar caché
+            const cachedScans = ScanningCache.getCachedScans();
+            if (cachedScans) {
+                return cachedScans;
+            }
+
             const q = query(
                 collection(db, this.COLLECTION_NAME),
                 orderBy('timestamp', 'desc'),
@@ -51,11 +115,16 @@ export class ScanningService {
             );
             const querySnapshot = await getDocs(q);
 
-            return querySnapshot.docs.map(doc => ({
+            const scans = querySnapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data(),
                 timestamp: doc.data().timestamp?.toDate() || new Date()
             } as ScanResult));
+
+            // Guardar en caché
+            ScanningCache.setCachedScans(scans);
+            
+            return scans;
         } catch (error) {
             console.error('Error getting scans:', error);
             throw error;
@@ -112,39 +181,119 @@ export class ScanningService {
     }
 
     /**
-     * Delete images associated with a barcode from Firebase Storage
+     * Get all image filenames from Storage (optimized with cache)
+     */
+    private static async getAllImageFilenames(): Promise<string[]> {
+        try {
+            // Intentar usar caché primero
+            const cachedList = ScanningCache.getCachedImageList();
+            if (cachedList) {
+                return cachedList;
+            }
+
+            // Si no hay caché, hacer una sola consulta a Storage
+            const storageRef = ref(storage, 'barcode-images/');
+            const result = await listAll(storageRef);
+            
+            const filenames = result.items.map(item => item.name);
+            
+            // Guardar en caché
+            ScanningCache.setCachedImageList(filenames);
+            
+            return filenames;
+        } catch (error) {
+            console.error('Error getting image filenames:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Check if multiple codes have images (batch operation)
+     */
+    static async checkMultipleCodesHaveImages(codes: string[]): Promise<Map<string, boolean>> {
+        try {
+            const result = new Map<string, boolean>();
+            
+            // Primero verificar caché
+            const uncachedCodes: string[] = [];
+            for (const code of codes) {
+                const cached = ScanningCache.getImageStatus(code);
+                if (cached !== null) {
+                    result.set(code, cached);
+                } else {
+                    uncachedCodes.push(code);
+                }
+            }
+            
+            // Si todos están en caché, retornar inmediatamente
+            if (uncachedCodes.length === 0) {
+                return result;
+            }
+            
+            // Una sola consulta para obtener todos los nombres de archivo
+            const allFilenames = await this.getAllImageFilenames();
+            
+            // Verificar cada código no cacheado
+            for (const code of uncachedCodes) {
+                const hasImages = allFilenames.some(fileName => {
+                    return fileName === `${code}.jpg` || 
+                           fileName.match(new RegExp(`^${code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\(\\d+\\)\\.jpg$`));
+                });
+                
+                result.set(code, hasImages);
+                ScanningCache.setImageStatus(code, hasImages);
+            }
+            
+            return result;
+        } catch (error) {
+            console.error('Error checking multiple codes for images:', error);
+            // En caso de error, asumir que no tienen imágenes
+            const result = new Map<string, boolean>();
+            codes.forEach(code => result.set(code, false));
+            return result;
+        }
+    }
+
+    /**
+     * Check if a single code has images (uses batch method internally)
+     */
+    static async checkCodeHasImages(code: string): Promise<boolean> {
+        const result = await this.checkMultipleCodesHaveImages([code]);
+        return result.get(code) ?? false;
+    }
+    /**
+     * Delete images associated with a barcode from Firebase Storage (optimized)
      */
     static async deleteAssociatedImages(barcodeCode: string): Promise<number> {
         try {
-            // Reference to the barcode-images folder
-            const storageRef = ref(storage, 'barcode-images/');
+            // Usar la lista cacheada si está disponible
+            const allFilenames = await this.getAllImageFilenames();
             
-            // List all files in the barcode-images folder
-            const result = await listAll(storageRef);
-            
-            // Filter files that match the barcode pattern
-            const matchingFiles = result.items.filter(item => {
-                const fileName = item.name;
-                // Match exact code name or code with numbers in parentheses
+            // Filtrar archivos que coinciden con el patrón del código
+            const matchingFilenames = allFilenames.filter(fileName => {
                 return fileName === `${barcodeCode}.jpg` || 
                        fileName.match(new RegExp(`^${barcodeCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\(\\d+\\)\\.jpg$`));
             });
 
-            // Delete all matching files
-            const deletePromises = matchingFiles.map(async (fileRef) => {
+            // Eliminar archivos coincidentes
+            const deletePromises = matchingFilenames.map(async (fileName) => {
                 try {
+                    const fileRef = ref(storage, `barcode-images/${fileName}`);
                     await deleteObject(fileRef);
-                    console.log(`Deleted image: ${fileRef.name}`);
+                    console.log(`Deleted image: ${fileName}`);
                 } catch (error) {
-                    console.error(`Error deleting image ${fileRef.name}:`, error);
+                    console.error(`Error deleting image ${fileName}:`, error);
                     throw error;
                 }
             });
 
             await Promise.all(deletePromises);
             
-            console.log(`Deleted ${matchingFiles.length} images for code: ${barcodeCode}`);
-            return matchingFiles.length;
+            // Invalidar caché después de eliminar
+            ScanningCache.invalidateImageCache();
+            
+            console.log(`Deleted ${matchingFilenames.length} images for code: ${barcodeCode}`);
+            return matchingFilenames.length;
         } catch (error) {
             console.error('Error deleting associated images:', error);
             throw error;
@@ -152,7 +301,7 @@ export class ScanningService {
     }
 
     /**
-     * Delete a scan
+     * Delete a scan (optimized)
      */
     static async deleteScan(scanId: string): Promise<void> {
         try {
@@ -168,6 +317,9 @@ export class ScanningService {
             
             // Delete the scan document from Firestore
             await deleteDoc(doc(db, this.COLLECTION_NAME, scanId));
+            
+            // Invalidar caché de scans
+            ScanningCache.invalidateScansCache();
             
             // Delete associated images from Firebase Storage
             try {
@@ -261,6 +413,48 @@ export class ScanningService {
             console.error('Error setting up scan subscription:', error);
             throw error;
         }
+    }
+
+    /**
+     * Get images for a specific barcode (optimized)
+     */
+    static async getImagesForCode(barcodeCode: string): Promise<string[]> {
+        try {
+            // Usar la lista cacheada para filtrar
+            const allFilenames = await this.getAllImageFilenames();
+            
+            const matchingFilenames = allFilenames.filter(fileName => {
+                return fileName === `${barcodeCode}.jpg` || 
+                       fileName.match(new RegExp(`^${barcodeCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\(\\d+\\)\\.jpg$`));
+            });
+
+            // Convertir a URLs de descarga
+            const imageUrls = await Promise.all(
+                matchingFilenames.map(async (fileName) => {
+                    try {
+                        const fileRef = ref(storage, `barcode-images/${fileName}`);
+                        return await getDownloadURL(fileRef);
+                    } catch (error) {
+                        console.error(`Error getting download URL for ${fileName}:`, error);
+                        return null;
+                    }
+                })
+            );
+
+            // Filtrar URLs válidas
+            return imageUrls.filter((url): url is string => url !== null);
+        } catch (error) {
+            console.error('Error getting images for code:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Force refresh cache (para usar cuando sepas que los datos han cambiado)
+     */
+    static forceRefreshCache(): void {
+        ScanningCache.invalidateScansCache();
+        ScanningCache.invalidateImageCache();
     }
 
     /**

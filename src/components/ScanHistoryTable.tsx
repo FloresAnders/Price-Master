@@ -4,81 +4,42 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { History, Copy, Trash2, Search, Eye, Calendar, MapPin, RefreshCw, Image as ImageIcon, X, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { ScanResult } from '@/types/firestore';
-import { ScanningService } from '@/services/scanning';
+import { useScanHistory, useScanImages } from '@/hooks/useScanHistory';
 import locations from '@/data/locations.json';
-import { storage } from '@/config/firebase';
-import { ref, listAll, getDownloadURL } from 'firebase/storage';
 
 export default function ScanHistoryTable() {
-  const [scanHistory, setScanHistory] = useState<ScanResult[]>([]);
+  // Usar hooks optimizados
+  const { 
+    scanHistory, 
+    loading, 
+    error, 
+    refreshHistory, 
+    deleteScan: deleteScanService, 
+    clearHistory: clearHistoryService 
+  } = useScanHistory();
+  
+  const {
+    codeImages,
+    loadingImages,
+    imageLoadError,
+    loadImagesForCode,
+    clearImages
+  } = useScanImages();
+
+  // Local state
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
   const [notification, setNotification] = useState<{ message: string; color: string } | null>(null);
-  const [loading, setLoading] = useState(true);
   
   // Image modal states
   const [showImagesModal, setShowImagesModal] = useState(false);
-  const [codeImages, setCodeImages] = useState<string[]>([]);
-  const [loadingImages, setLoadingImages] = useState(false);
   const [currentImageCode, setCurrentImageCode] = useState('');
-  const [imageLoadError, setImageLoadError] = useState<string | null>(null);
   const [thumbnailLoadingStates, setThumbnailLoadingStates] = useState<{ [key: number]: boolean }>({});
   
   // Individual image modal states
   const [showImageModal, setShowImageModal] = useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState<string>('');
   const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0);
-
-  // Function to check if a code has images
-  const checkCodeHasImages = useCallback(async (barcodeCode: string): Promise<boolean> => {
-    try {
-      const storageRef = ref(storage, 'barcode-images/');
-      const result = await listAll(storageRef);
-      
-      const hasImages = result.items.some(item => {
-        const fileName = item.name;
-        return fileName === `${barcodeCode}.jpg` || 
-               fileName.match(new RegExp(`^${barcodeCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\(\\d+\\)\\.jpg$`));
-      });
-      
-      return hasImages;
-    } catch (error) {
-      console.error('Error checking if code has images:', error);
-      return false;
-    }
-  }, []);
-
-  // Load scan history from Firebase
-  useEffect(() => {
-    const loadScanHistory = async () => {
-      try {
-        setLoading(true);
-        const scans = await ScanningService.getAllScans();
-        // Filtrar DELIFOOD_TEST desde el inicio
-        const filteredScans = scans.filter(scan => scan.location !== 'DELIFOOD_TEST');
-        
-        // Check which codes have images
-        const scansWithImageInfo = await Promise.all(
-          filteredScans.map(async (scan) => {
-            const hasImages = await checkCodeHasImages(scan.code);
-            return { ...scan, hasImages };
-          })
-        );
-        
-        // Ordenar por timestamp descendente (más recientes primero)
-        scansWithImageInfo.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-        
-        setScanHistory(scansWithImageInfo);
-      } catch (error) {
-        console.error('Error loading scan history:', error);
-        showNotification('Error al cargar el historial', 'red');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadScanHistory();
-  }, [checkCodeHasImages]);
 
   // Show notification
   const showNotification = (message: string, color: string = 'green') => {
@@ -116,12 +77,7 @@ export default function ScanHistoryTable() {
   const clearHistory = async () => {
     if (window.confirm('¿Estás seguro de que deseas eliminar todo el historial? Esta acción no se puede deshacer.')) {
       try {
-        // Note: This would delete all scans from Firebase - use with caution
-        const deletePromises = scanHistory.map(scan =>
-          scan.id ? ScanningService.deleteScan(scan.id) : Promise.resolve()
-        );
-        await Promise.all(deletePromises);
-        setScanHistory([]);
+        await clearHistoryService();
         showNotification('Historial eliminado', 'red');
       } catch (error) {
         console.error('Error clearing history:', error);
@@ -134,8 +90,7 @@ export default function ScanHistoryTable() {
   const deleteScan = async (scanId: string, code: string) => {
     if (window.confirm(`¿Estás seguro de que deseas eliminar el código ${code}?\n\nEsto también eliminará todas las imágenes asociadas a este código.`)) {
       try {
-        await ScanningService.deleteScan(scanId);
-        setScanHistory(prev => prev.filter(scan => scan.id !== scanId));
+        await deleteScanService(scanId);
         showNotification('Código e imágenes eliminados', 'red');
       } catch (error) {
         console.error('Error deleting scan:', error);
@@ -145,112 +100,28 @@ export default function ScanHistoryTable() {
   };
 
   // Refresh history
-  const refreshHistory = async () => {
+  const handleRefreshHistory = async () => {
     try {
-      setLoading(true);
-      const scans = await ScanningService.getAllScans();
-      // Filtrar DELIFOOD_TEST al actualizar
-      const filteredScans = scans.filter(scan => scan.location !== 'DELIFOOD_TEST');
-      
-      // Obtener códigos existentes para comparar
-      const existingCodes = new Set(scanHistory.map(scan => scan.code));
-      
-      // Identificar códigos nuevos que necesitan verificación de imágenes
-      const newScans = filteredScans.filter(scan => !existingCodes.has(scan.code));
-      const existingScans = filteredScans.filter(scan => existingCodes.has(scan.code));
-      
-      // Solo verificar imágenes para códigos nuevos
-      const newScansWithImageStatus = await Promise.all(
-        newScans.map(async (scan) => {
-          const hasImages = await checkCodeHasImages(scan.code);
-          return { ...scan, hasImages };
-        })
-      );
-      
-      // Mantener el estado de imágenes de los códigos existentes
-      const existingScansWithCurrentImageStatus = existingScans.map(scan => {
-        const existingScan = scanHistory.find(existing => existing.code === scan.code);
-        return { ...scan, hasImages: existingScan?.hasImages || false };
-      });
-      
-      // Combinar todos los escaneos
-      const allScansWithImageStatus = [...existingScansWithCurrentImageStatus, ...newScansWithImageStatus];
-      
-      // Ordenar por timestamp descendente (más recientes primero)
-      allScansWithImageStatus.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-      
-      setScanHistory(allScansWithImageStatus);
-      
-      if (newScans.length > 0) {
-        showNotification(`Historial actualizado - ${newScans.length} código${newScans.length > 1 ? 's' : ''} nuevo${newScans.length > 1 ? 's' : ''}`, 'green');
+      const result = await refreshHistory();
+      if (result.newCount > 0) {
+        showNotification(`Historial actualizado - ${result.newCount} código${result.newCount > 1 ? 's' : ''} nuevo${result.newCount > 1 ? 's' : ''}`, 'green');
       } else {
         showNotification('Historial actualizado - Sin cambios', 'green');
       }
     } catch (error) {
       console.error('Error refreshing history:', error);
       showNotification('Error al actualizar el historial', 'red');
-    } finally {
-      setLoading(false);
     }
   };
-
-  // Function to load images for a specific barcode from Firebase Storage
-  const loadImagesForCode = useCallback(async (barcodeCode: string) => {
-    setLoadingImages(true);
-    setImageLoadError(null);
-    
-    try {
-      // Reference to the barcode-images folder
-      const storageRef = ref(storage, 'barcode-images/');
-      
-      // List all files in the barcode-images folder
-      const result = await listAll(storageRef);
-      
-      // Filter files that match the barcode pattern
-      const matchingFiles = result.items.filter(item => {
-        const fileName = item.name;
-        // Match exact code name or code with numbers in parentheses
-        return fileName === `${barcodeCode}.jpg` || 
-               fileName.match(new RegExp(`^${barcodeCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\(\\d+\\)\\.jpg$`));
-      });
-
-      // Get download URLs for matching files
-      const imageUrls = await Promise.all(
-        matchingFiles.map(async (fileRef) => {
-          try {
-            return await getDownloadURL(fileRef);
-          } catch (error) {
-            console.error(`Error getting download URL for ${fileRef.name}:`, error);
-            return null;
-          }
-        })
-      );
-
-      // Filter out any failed downloads
-      const validUrls = imageUrls.filter(url => url !== null) as string[];
-      
-      setCodeImages(validUrls);
-      
-      if (validUrls.length === 0) {
-        setImageLoadError('No se encontraron imágenes para este código');
-      }
-      
-    } catch (error) {
-      console.error('Error loading images:', error);
-      setImageLoadError('Error al cargar las imágenes');
-      setCodeImages([]);
-    } finally {
-      setLoadingImages(false);
-    }
-  }, []);
 
   // Function to open images modal
   const handleShowImages = useCallback(async (barcodeCode: string) => {
     setCurrentImageCode(barcodeCode);
     setShowImagesModal(true);
     setThumbnailLoadingStates({});
+    clearImages(); // Clear previous images
     await loadImagesForCode(barcodeCode);
-  }, [loadImagesForCode]);
+  }, [loadImagesForCode, clearImages]);
 
   // Handle thumbnail load states
   const handleThumbnailLoad = (index: number) => {
@@ -453,7 +324,7 @@ export default function ScanHistoryTable() {
         {scanHistory.length > 0 && (
           <div className="flex gap-2">
             <button
-              onClick={refreshHistory}
+              onClick={handleRefreshHistory}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
               disabled={loading}
             >
@@ -655,7 +526,7 @@ export default function ScanHistoryTable() {
                       </button>
                     )}
                     <button
-                      onClick={refreshHistory}
+                      onClick={handleRefreshHistory}
                       className="p-2 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30 rounded-md transition-colors"
                       title="Actualizar historial"
                       disabled={loading}
