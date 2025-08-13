@@ -1,6 +1,6 @@
 /**
  * Script de diagnóstico para Firebase Storage
- * Coloca este código en la consola del navegador en localhost:3001/backdoor
+ * Coloca este código en la consola del navegador en la aplicación web
  */
 
 console.log('🔥 Iniciando diagnóstico de Firebase Storage...');

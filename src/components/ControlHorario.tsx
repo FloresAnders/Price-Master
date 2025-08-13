@@ -18,8 +18,6 @@ import { storage } from '../config/firebase';
 interface ControlHorarioProps {
   // Usuario opcional para funcionalidades de autorización (admin, etc.)
   currentUser?: FirestoreUser | null;
-  // Indica si está en modo backdoor (opcional, por defecto false)
-  isBackdoorMode?: boolean;
 }
 
 interface ScheduleData {

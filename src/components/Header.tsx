@@ -22,7 +22,6 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [isClient, setIsClient] = useState(false);
-  const isBackdoorPage = pathname === '/backdoor';
 
   // Ensure component is mounted on client
   useEffect(() => {
@@ -70,36 +69,20 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
 
   const tabs = getVisibleTabs();
 
-  // Filter tabs for backdoor (only show specific tabs)
-  const displayTabs = isBackdoorPage
-    ? tabs.filter(tab => ['scanner', 'controlhorario', 'histoscans'].includes(tab.id))
-    : tabs; // Show all tabs in main page
+  // Show all tabs
+  const displayTabs = tabs;
 
   const handleLogoClick = () => {
     if (!isClient) return;
     
-    if (isBackdoorPage) {
-      // Si está en backdoor, redirigir a /backdoor
-      window.location.href = '/backdoor';
-    } else {
-      // Si está en cualquier sección o página principal, redirigir a /
-      window.location.href = '/';
-    }
+    // Redirigir a la página principal
+    window.location.href = '/';
   };
 
   const handleTabClick = (tabId: ActiveTab) => {
     if (!isClient) return;
     
-    // Manejar navegación especial para historial de escaneos en backdoor
-    if (tabId === 'histoscans' && isBackdoorPage) {
-      // En backdoor, usar hash 'historial'
-      onTabChange?.(tabId);
-      window.location.hash = '#historial';
-      setShowMobileMenu(false);
-      return;
-    }
-    
-    // Para todas las demás páginas, usar hash normal
+    // Para todas las páginas, usar hash normal
     onTabChange?.(tabId);
     const hashId = tabId === 'histoscans' ? 'scanhistory' : tabId;
     window.location.hash = `#${hashId}`;
@@ -109,14 +92,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const handleLogoutClick = () => {
     if (!isClient) return;
     
-    if (isBackdoorPage) {
-      // For backdoor, logout directly without confirmation
-      localStorage.removeItem('simple_login_user');
-      window.location.href = '/login';
-    } else {
-      // For main app, show confirmation
-      setShowLogoutConfirm(true);
-    }
+    // Show confirmation for logout
+    setShowLogoutConfirm(true);
   };
 
   const confirmLogout = () => {
@@ -143,7 +120,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
             className="flex items-center gap-2 text-xl font-bold tracking-tight text-[var(--foreground)] hover:text-[var(--tab-text-active)] transition-colors cursor-pointer bg-transparent border-none p-0"
           >
             <Image src="/favicon.ico" alt="Logo" width={28} height={28} className="inline-block align-middle" />
-            {isBackdoorPage ? 'Price Master BackDoor' : 'Price Master'}
+            Price Master
           </button>
 
           {/* Desktop navigation - centered */}
