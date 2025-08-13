@@ -2,21 +2,18 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import { Copy, Trash2, Search, Eye, MapPin, RefreshCw, Image as ImageIcon, X, Download, ChevronLeft, ChevronRight } from 'lucide-react';
+import { History, Copy, Trash2, Search, Eye, Calendar, MapPin, RefreshCw, Image as ImageIcon, X, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { ScanResult } from '@/types/firestore';
 import { ScanningService } from '@/services/scanning';
 import locations from '@/data/locations.json';
 import { storage } from '@/config/firebase';
 import { ref, listAll, getDownloadURL } from 'firebase/storage';
 
-interface ScanHistoryTableProps {
-  notify?: (message: string, color: string) => void;
-}
-
-export default function ScanHistoryTable({ notify }: ScanHistoryTableProps) {
+export default function ScanHistoryTable() {
   const [scanHistory, setScanHistory] = useState<ScanResult[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
+  const [notification, setNotification] = useState<{ message: string; color: string } | null>(null);
   const [loading, setLoading] = useState(true);
   
   // Image modal states
@@ -51,114 +48,356 @@ export default function ScanHistoryTable({ notify }: ScanHistoryTableProps) {
     }
   }, []);
 
-  // Load scan history with image checking
-  const loadScanHistory = useCallback(async () => {
-    setLoading(true);
+  // Load scan history from Firebase
+  useEffect(() => {
+    const loadScanHistory = async () => {
+      try {
+        setLoading(true);
+        const scans = await ScanningService.getAllScans();
+        // Filtrar DELIFOOD_TEST desde el inicio
+        const filteredScans = scans.filter(scan => scan.location !== 'DELIFOOD_TEST');
+        
+        // Check which codes have images
+        const scansWithImageInfo = await Promise.all(
+          filteredScans.map(async (scan) => {
+            const hasImages = await checkCodeHasImages(scan.code);
+            return { ...scan, hasImages };
+          })
+        );
+        
+        // Ordenar por timestamp descendente (más recientes primero)
+        scansWithImageInfo.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+        
+        setScanHistory(scansWithImageInfo);
+      } catch (error) {
+        console.error('Error loading scan history:', error);
+        showNotification('Error al cargar el historial', 'red');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadScanHistory();
+  }, [checkCodeHasImages]);
+
+  // Show notification
+  const showNotification = (message: string, color: string = 'green') => {
+    setNotification({ message, color });
+    setTimeout(() => setNotification(null), 2000);
+  };
+
+  // Handle copy
+  const handleCopy = async (code: string) => {
     try {
-      const history = await ScanningService.getAllScans();
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(code);
+      } else {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = code;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      showNotification('¡Código copiado!', 'green');
+    } catch (error) {
+      console.error('Error copying to clipboard:', error);
+      showNotification('Error al copiar código', 'red');
+    }
+  };
+
+  // Clear all history
+  const clearHistory = async () => {
+    if (window.confirm('¿Estás seguro de que deseas eliminar todo el historial? Esta acción no se puede deshacer.')) {
+      try {
+        // Note: This would delete all scans from Firebase - use with caution
+        const deletePromises = scanHistory.map(scan =>
+          scan.id ? ScanningService.deleteScan(scan.id) : Promise.resolve()
+        );
+        await Promise.all(deletePromises);
+        setScanHistory([]);
+        showNotification('Historial eliminado', 'red');
+      } catch (error) {
+        console.error('Error clearing history:', error);
+        showNotification('Error al eliminar el historial', 'red');
+      }
+    }
+  };
+
+  // Delete individual scan
+  const deleteScan = async (scanId: string, code: string) => {
+    if (window.confirm(`¿Estás seguro de que deseas eliminar el código ${code}?\n\nEsto también eliminará todas las imágenes asociadas a este código.`)) {
+      try {
+        await ScanningService.deleteScan(scanId);
+        setScanHistory(prev => prev.filter(scan => scan.id !== scanId));
+        showNotification('Código e imágenes eliminados', 'red');
+      } catch (error) {
+        console.error('Error deleting scan:', error);
+        showNotification('Error al eliminar el código', 'red');
+      }
+    }
+  };
+
+  // Refresh history
+  const refreshHistory = async () => {
+    try {
+      setLoading(true);
+      const scans = await ScanningService.getAllScans();
+      // Filtrar DELIFOOD_TEST al actualizar
+      const filteredScans = scans.filter(scan => scan.location !== 'DELIFOOD_TEST');
       
-      // Check for images for each scan result
-      const historyWithImages = await Promise.all(
-        history.map(async (scan: ScanResult) => {
+      // Obtener códigos existentes para comparar
+      const existingCodes = new Set(scanHistory.map(scan => scan.code));
+      
+      // Identificar códigos nuevos que necesitan verificación de imágenes
+      const newScans = filteredScans.filter(scan => !existingCodes.has(scan.code));
+      const existingScans = filteredScans.filter(scan => existingCodes.has(scan.code));
+      
+      // Solo verificar imágenes para códigos nuevos
+      const newScansWithImageStatus = await Promise.all(
+        newScans.map(async (scan) => {
           const hasImages = await checkCodeHasImages(scan.code);
           return { ...scan, hasImages };
         })
       );
       
-      setScanHistory(historyWithImages);
+      // Mantener el estado de imágenes de los códigos existentes
+      const existingScansWithCurrentImageStatus = existingScans.map(scan => {
+        const existingScan = scanHistory.find(existing => existing.code === scan.code);
+        return { ...scan, hasImages: existingScan?.hasImages || false };
+      });
+      
+      // Combinar todos los escaneos
+      const allScansWithImageStatus = [...existingScansWithCurrentImageStatus, ...newScansWithImageStatus];
+      
+      // Ordenar por timestamp descendente (más recientes primero)
+      allScansWithImageStatus.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+      
+      setScanHistory(allScansWithImageStatus);
+      
+      if (newScans.length > 0) {
+        showNotification(`Historial actualizado - ${newScans.length} código${newScans.length > 1 ? 's' : ''} nuevo${newScans.length > 1 ? 's' : ''}`, 'green');
+      } else {
+        showNotification('Historial actualizado - Sin cambios', 'green');
+      }
     } catch (error) {
-      console.error('Error loading scan history:', error);
-      notify?.('Error al cargar el historial de escaneos', 'red');
+      console.error('Error refreshing history:', error);
+      showNotification('Error al actualizar el historial', 'red');
     } finally {
       setLoading(false);
     }
-  }, [checkCodeHasImages, notify]);
-
-  useEffect(() => {
-    loadScanHistory();
-  }, [loadScanHistory]);
-
-  // Function to copy to clipboard
-  const handleCopy = (text: string) => {
-    navigator.clipboard.writeText(text).then(() => {
-      notify?.('Copiado al portapapeles', 'green');
-    }).catch(() => {
-      notify?.('Error al copiar', 'red');
-    });
   };
 
-  // Function to delete scan record
-  const handleDelete = async (scanId: string) => {
-    if (!confirm('¿Estás seguro de que quieres eliminar este registro?')) return;
-    
-    try {
-      await ScanningService.deleteScan(scanId);
-      setScanHistory(prev => prev.filter(scan => scan.id !== scanId));
-      notify?.('Registro eliminado correctamente', 'orange');
-    } catch (error) {
-      console.error('Error deleting scan record:', error);
-      notify?.('Error al eliminar el registro', 'red');
-    }
-  };
-
-  // Function to load and show images for a specific code
-  const showCodeImages = async (barcodeCode: string) => {
+  // Function to load images for a specific barcode from Firebase Storage
+  const loadImagesForCode = useCallback(async (barcodeCode: string) => {
     setLoadingImages(true);
     setImageLoadError(null);
-    setCurrentImageCode(barcodeCode);
-    setCodeImages([]);
-    setShowImagesModal(true);
-
+    
     try {
+      // Reference to the barcode-images folder
       const storageRef = ref(storage, 'barcode-images/');
+      
+      // List all files in the barcode-images folder
       const result = await listAll(storageRef);
       
-      const imagePromises = result.items
-        .filter(item => {
-          const fileName = item.name;
-          return fileName === `${barcodeCode}.jpg` || 
-                 fileName.match(new RegExp(`^${barcodeCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\(\\d+\\)\\.jpg$`));
+      // Filter files that match the barcode pattern
+      const matchingFiles = result.items.filter(item => {
+        const fileName = item.name;
+        // Match exact code name or code with numbers in parentheses
+        return fileName === `${barcodeCode}.jpg` || 
+               fileName.match(new RegExp(`^${barcodeCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\(\\d+\\)\\.jpg$`));
+      });
+
+      // Get download URLs for matching files
+      const imageUrls = await Promise.all(
+        matchingFiles.map(async (fileRef) => {
+          try {
+            return await getDownloadURL(fileRef);
+          } catch (error) {
+            console.error(`Error getting download URL for ${fileRef.name}:`, error);
+            return null;
+          }
         })
-        .map(item => getDownloadURL(item));
+      );
 
-      if (imagePromises.length === 0) {
+      // Filter out any failed downloads
+      const validUrls = imageUrls.filter(url => url !== null) as string[];
+      
+      setCodeImages(validUrls);
+      
+      if (validUrls.length === 0) {
         setImageLoadError('No se encontraron imágenes para este código');
-        return;
       }
-
-      const imageUrls = await Promise.all(imagePromises);
-      setCodeImages(imageUrls);
+      
     } catch (error) {
       console.error('Error loading images:', error);
       setImageLoadError('Error al cargar las imágenes');
+      setCodeImages([]);
     } finally {
       setLoadingImages(false);
     }
+  }, []);
+
+  // Function to open images modal
+  const handleShowImages = useCallback(async (barcodeCode: string) => {
+    setCurrentImageCode(barcodeCode);
+    setShowImagesModal(true);
+    setThumbnailLoadingStates({});
+    await loadImagesForCode(barcodeCode);
+  }, [loadImagesForCode]);
+
+  // Handle thumbnail load states
+  const handleThumbnailLoad = (index: number) => {
+    setThumbnailLoadingStates(prev => ({ ...prev, [index]: false }));
   };
 
-  // Function to open individual image modal
-  const openImageModal = (imageUrl: string, index: number) => {
-    setSelectedImageUrl(imageUrl);
-    setSelectedImageIndex(index);
-    setShowImageModal(true);
+  const handleThumbnailLoadStart = (index: number) => {
+    setThumbnailLoadingStates(prev => ({ ...prev, [index]: true }));
   };
 
-  // Navigate between images in modal
-  const navigateImage = (direction: 'prev' | 'next') => {
-    if (direction === 'prev') {
-      setSelectedImageIndex(prev => prev > 0 ? prev - 1 : codeImages.length - 1);
-      setSelectedImageUrl(codeImages[selectedImageIndex > 0 ? selectedImageIndex - 1 : codeImages.length - 1]);
-    } else {
-      setSelectedImageIndex(prev => prev < codeImages.length - 1 ? prev + 1 : 0);
-      setSelectedImageUrl(codeImages[selectedImageIndex < codeImages.length - 1 ? selectedImageIndex + 1 : 0]);
+  // Download individual image
+  const downloadImage = async (imageUrl: string, index: number) => {
+    try {
+      // Use a direct link approach instead of fetch to avoid CORS issues
+      const link = document.createElement('a');
+      link.href = imageUrl;
+      link.download = `${currentImageCode}_imagen_${index + 1}.jpg`;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      
+      // Add crossorigin attribute to handle CORS
+      link.setAttribute('crossorigin', 'anonymous');
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      showNotification('Descarga iniciada', 'green');
+    } catch (error) {
+      console.error('Error downloading image:', error);
+      showNotification('Error al descargar la imagen', 'red');
     }
   };
 
-  // Filter scan history based on search and location
-  const filteredHistory = scanHistory.filter(scan => {
-    const matchesSearch = scan.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         scan.productName?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesLocation = selectedLocation === 'all' || scan.location === selectedLocation;
+  // Download all images
+  const downloadAllImages = async () => {
+    if (codeImages.length === 0) return;
+    
+    try {
+      // Download each image with a small delay to avoid overwhelming the browser
+      for (let i = 0; i < codeImages.length; i++) {
+        const imageUrl = codeImages[i];
+        
+        const link = document.createElement('a');
+        link.href = imageUrl;
+        link.download = `${currentImageCode}_imagen_${i + 1}.jpg`;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.setAttribute('crossorigin', 'anonymous');
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Small delay between downloads to avoid overwhelming the browser
+        if (i < codeImages.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+      
+      showNotification(`${codeImages.length} descargas iniciadas`, 'green');
+    } catch (error) {
+      console.error('Error downloading images:', error);
+      showNotification('Error al descargar las imágenes', 'red');
+    }
+  };
+
+  // Functions for individual image modal
+  const handleOpenImageModal = useCallback((imageUrl: string, index: number) => {
+    setSelectedImageUrl(imageUrl);
+    setSelectedImageIndex(index);
+    setShowImageModal(true);
+  }, []);
+
+  const handleCloseImageModal = useCallback(() => {
+    setShowImageModal(false);
+    setSelectedImageUrl('');
+    setSelectedImageIndex(0);
+  }, []);
+
+  const handleNextImage = useCallback(() => {
+    if (codeImages.length > 1) {
+      const nextIndex = (selectedImageIndex + 1) % codeImages.length;
+      setSelectedImageIndex(nextIndex);
+      setSelectedImageUrl(codeImages[nextIndex]);
+    }
+  }, [codeImages, selectedImageIndex]);
+
+  const handlePreviousImage = useCallback(() => {
+    if (codeImages.length > 1) {
+      const prevIndex = selectedImageIndex === 0 ? codeImages.length - 1 : selectedImageIndex - 1;
+      setSelectedImageIndex(prevIndex);
+      setSelectedImageUrl(codeImages[prevIndex]);
+    }
+  }, [codeImages, selectedImageIndex]);
+
+  // Keyboard navigation for image modal
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (showImageModal) {
+        // Disable body scroll when individual image modal is open
+        document.body.style.overflow = 'hidden';
+        
+        switch (event.key) {
+          case 'Escape':
+            event.preventDefault();
+            handleCloseImageModal();
+            break;
+          case 'ArrowLeft':
+            event.preventDefault();
+            handlePreviousImage();
+            break;
+          case 'ArrowRight':
+            event.preventDefault();
+            handleNextImage();
+            break;
+        }
+      } else if (showImagesModal) {
+        switch (event.key) {
+          case 'Escape':
+            event.preventDefault();
+            setShowImagesModal(false);
+            break;
+        }
+      }
+    };
+
+    if (showImagesModal || showImageModal) {
+      document.addEventListener('keydown', handleKeyDown);
+      return () => {
+        // Re-enable body scroll when modal is closed
+        if (showImageModal) {
+          document.body.style.overflow = 'unset';
+        }
+        document.removeEventListener('keydown', handleKeyDown);
+      };
+    }
+  }, [showImagesModal, showImageModal, handleCloseImageModal, handlePreviousImage, handleNextImage]);
+
+  // Filter history based on search term and location
+  const filteredHistory = scanHistory.filter(entry => {
+    const matchesSearch = entry.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (entry.productName && entry.productName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (entry.userName && entry.userName.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    const matchesLocation = selectedLocation === 'all' || entry.location === selectedLocation;
+
     return matchesSearch && matchesLocation;
   });
 
@@ -193,279 +432,450 @@ export default function ScanHistoryTable({ notify }: ScanHistoryTableProps) {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Search and filter controls */}
-      <div className="flex flex-col sm:flex-row gap-4 items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <input
-            type="text"
-            placeholder="Buscar por código o nombre de producto..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-          />
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <MapPin className="w-4 h-4 text-gray-400" />
-          <select
-            value={selectedLocation}
-            onChange={(e) => setSelectedLocation(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-          >
-            <option value="all">Todas las ubicaciones</option>
-            {locations.map(location => (
-              <option key={location.value} value={location.value}>
-                {location.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        
-        <button
-          onClick={loadScanHistory}
-          disabled={loading}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+    <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-6">
+      {/* Notification */}
+      {notification && (
+        <div
+          className={`fixed top-6 right-6 z-50 px-6 py-3 rounded-xl shadow-2xl flex items-center gap-2 font-semibold animate-fade-in-down bg-${notification.color}-500 text-white`}
+          style={{ minWidth: 180, textAlign: 'center' }}
         >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          Actualizar
-        </button>
+          {notification.message}
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <History className="w-6 h-6 text-blue-600" />
+          <h2 className="text-2xl font-bold text-[var(--foreground)]">Historial de Escaneos</h2>
+        </div>
+
+        {scanHistory.length > 0 && (
+          <div className="flex gap-2">
+            <button
+              onClick={refreshHistory}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+              disabled={loading}
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              Actualizar
+            </button>
+            <button
+              onClick={clearHistory}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
+            >
+              <Trash2 className="w-4 h-4" />
+              Limpiar Todo
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
-          <div className="text-2xl font-bold text-blue-600">{scanHistory.length}</div>
-          <div className="text-sm text-gray-600 dark:text-gray-400">Total de escaneos</div>
+      {loading && (
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="text-[var(--muted-foreground)] mt-2">Cargando historial...</p>
         </div>
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
-          <div className="text-2xl font-bold text-green-600">{filteredHistory.length}</div>
-          <div className="text-sm text-gray-600 dark:text-gray-400">Resultados filtrados</div>
-        </div>
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
-          <div className="text-2xl font-bold text-purple-600">{scanHistory.filter(s => s.hasImages).length}</div>
-          <div className="text-sm text-gray-600 dark:text-gray-400">Con imágenes</div>
-        </div>
-      </div>
+      )}
 
-      {/* Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-        <div className="overflow-x-auto">
-          {loading ? (
-            <div className="flex items-center justify-center p-8">
-              <RefreshCw className="w-6 h-6 animate-spin text-blue-600 mr-2" />
-              <span>Cargando historial...</span>
+      {!loading && (
+        <>
+          {/* Filters */}
+          {scanHistory.length > 0 && (
+            <div className="mb-6 space-y-4">
+              {/* Search bar */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[var(--muted-foreground)]" />
+                <input
+                  type="text"
+                  placeholder="Buscar en el historial..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] text-[var(--foreground)] focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              {/* Location filter */}
+              <div className="relative">
+                <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[var(--muted-foreground)]" />
+                <select
+                  value={selectedLocation}
+                  onChange={(e) => setSelectedLocation(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] text-[var(--foreground)] focus:outline-none focus:border-blue-500"
+                >
+                  <option value="all">Todas las ubicaciones</option>
+                  {locations
+                    .filter(location => location.value !== 'DELIFOOD_TEST')
+                    .map((location) => (
+                      <option key={location.value} value={location.value}>
+                        {location.label}
+                      </option>
+                    ))}
+                </select>
+              </div>
             </div>
-          ) : filteredHistory.length === 0 ? (
-            <div className="text-center p-8 text-gray-500">
-              {searchTerm || selectedLocation !== 'all' 
-                ? 'No se encontraron resultados con los filtros aplicados' 
-                : 'No hay registros de escaneos'}
+          )}
+
+          {/* Stats */}
+          {scanHistory.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
+                <div className="flex items-center gap-2">
+                  <Eye className="w-5 h-5 text-blue-600" />
+                  <span className="text-sm font-medium text-blue-800 dark:text-blue-300">Total Escaneos</span>
+                </div>
+                <p className="text-2xl font-bold text-blue-600 mt-1">{scanHistory.length}</p>
+              </div>
+
+              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-4">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-green-600" />
+                  <span className="text-sm font-medium text-green-800 dark:text-green-300">Con Nombre</span>
+                </div>
+                <p className="text-2xl font-bold text-green-600 mt-1">
+                  {scanHistory.filter(entry => entry.productName).length}
+                </p>
+              </div>
+
+              <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 rounded-lg p-4">
+                <div className="flex items-center gap-2">
+                  <ImageIcon className="w-5 h-5 text-purple-600" />
+                  <span className="text-sm font-medium text-purple-800 dark:text-purple-300">Con Imágenes</span>
+                </div>
+                <p className="text-2xl font-bold text-purple-600 mt-1">
+                  {scanHistory.filter(entry => entry.hasImages).length}
+                </p>
+              </div>
+
+              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-4">
+                <div className="flex items-center gap-2">
+                  <Search className="w-5 h-5 text-amber-600" />
+                  <span className="text-sm font-medium text-amber-800 dark:text-amber-300">Filtrados</span>
+                </div>
+                <p className="text-2xl font-bold text-amber-600 mt-1">{filteredHistory.length}</p>
+              </div>
+
+              <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-lg p-4">
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-orange-600" />
+                  <span className="text-sm font-medium text-orange-800 dark:text-orange-300">Con Ubicación</span>
+                </div>
+                <p className="text-2xl font-bold text-orange-600 mt-1">
+                  {scanHistory.filter(entry => entry.location).length}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* History list */}
+          {filteredHistory.length === 0 ? (
+            <div className="text-center py-12">
+              <History className="w-16 h-16 text-[var(--muted-foreground)] mx-auto mb-4 opacity-50" />
+              <h3 className="text-lg font-medium text-[var(--foreground)] mb-2">
+                {scanHistory.length === 0 ? 'No hay escaneos en el historial' : 'No se encontraron resultados'}
+              </h3>
+              <p className="text-[var(--muted-foreground)]">
+                {scanHistory.length === 0
+                  ? 'Los códigos escaneados aparecerán aquí automáticamente'
+                  : 'Intenta con un término de búsqueda diferente o selecciona otra ubicación'
+                }
+              </p>
             </div>
           ) : (
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-900">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Código
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Producto
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Ubicación
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Fecha
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Acciones
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {filteredHistory.map((scan, index) => (
-                  <tr key={scan.id || index} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-mono text-gray-900 dark:text-gray-100">
-                          {scan.code}
+            <div className="space-y-3">
+              {filteredHistory.map((entry, index) => (
+                <div
+                  key={`${entry.code}-${entry.id || index}`}
+                  className="flex items-center justify-between p-4 bg-[var(--muted)] hover:bg-[var(--hover-bg)] rounded-lg border border-[var(--input-border)] transition-colors"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="font-mono text-lg font-medium text-[var(--foreground)]">
+                        {entry.code}
+                      </span>
+                      {entry.hasImages && (
+                        <span className="text-xs text-[var(--muted-foreground)] bg-purple-100 dark:bg-purple-900/30 px-2 py-1 rounded flex items-center gap-1">
+                          <ImageIcon className="w-3 h-3" />
+                          Imágenes
                         </span>
-                        {scan.hasImages && (
-                          <ImageIcon className="w-4 h-4 text-blue-500" />
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 dark:text-gray-100">
-                        {scan.productName ? (
-                          <button
-                            onClick={() => handleCopy(scan.productName!.toUpperCase())}
-                            className="hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer underline decoration-dotted hover:decoration-solid transition-colors"
-                            title="Clic para copiar en mayúsculas"
-                          >
-                            {scan.productName}
-                          </button>
-                        ) : (
-                          'Sin nombre'
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 dark:text-gray-100">
-                        {getLocationLabel(scan.location || '')}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 dark:text-gray-100">
-                        {formatDate(scan.timestamp)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex items-center gap-2">
+                      )}
+                      {entry.productName && (
                         <button
-                          onClick={() => handleCopy(scan.code)}
-                          className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
-                          title="Copiar código"
+                          onClick={() => {
+                            navigator.clipboard.writeText((entry.productName || '').toUpperCase());
+                            showNotification('¡Nombre copiado!', 'blue');
+                          }}
+                          className="text-sm text-[var(--muted-foreground)] bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors cursor-pointer uppercase"
+                          title="Clic para copiar nombre"
                         >
-                          <Copy className="w-4 h-4" />
+                          {entry.productName.toUpperCase()}
                         </button>
-                        
-                        {scan.hasImages && (
-                          <button
-                            onClick={() => showCodeImages(scan.code)}
-                            className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300"
-                            title="Ver imágenes"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                        )}
-                        
-                        <button
-                          onClick={() => handleDelete(scan.id!)}
-                          className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
-                          title="Eliminar registro"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      )}
+                      {entry.location && (
+                        <span className="text-sm text-[var(--muted-foreground)] bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded flex items-center gap-1">
+                          <MapPin className="w-3 h-3" />
+                          {entry.location}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-4 text-sm text-[var(--muted-foreground)]">
+                      <span>
+                        Fuente: {entry.source === 'mobile' ? '📱 Móvil' : '💻 Web'}
+                      </span>
+                      {entry.userName && (
+                        <span>Usuario: {entry.userName}</span>
+                      )}
+                      <span>
+                        {entry.timestamp.toLocaleDateString()} {entry.timestamp.toLocaleTimeString()}
+                      </span>
+                      <span className={`px-2 py-1 rounded text-xs ${entry.processed
+                          ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                          : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300'
+                        }`}>
+                        {entry.processed ? 'Procesado' : 'Pendiente'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleCopy(entry.code)}
+                      className="p-2 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-md transition-colors"
+                      title="Copiar código"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </button>
+                    {entry.hasImages && (
+                      <button
+                        onClick={() => handleShowImages(entry.code)}
+                        className="p-2 text-purple-600 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded-md transition-colors"
+                        title="Ver imágenes"
+                      >
+                        <ImageIcon className="w-4 h-4" />
+                      </button>
+                    )}
+                    <button
+                      onClick={refreshHistory}
+                      className="p-2 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30 rounded-md transition-colors"
+                      title="Actualizar historial"
+                      disabled={loading}
+                    >
+                      <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                    </button>
+                    {entry.id && (
+                      <button
+                        onClick={() => deleteScan(entry.id!, entry.code)}
+                        className="p-2 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-md transition-colors"
+                        title="Eliminar código"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
-        </div>
-      </div>
+
+          {/* Footer info */}
+          <div className="mt-6 pt-4 border-t border-[var(--input-border)]">
+            <p className="text-sm text-[var(--muted-foreground)] text-center">
+              Mostrando escaneos de la base de datos Firebase • Filtrados por ubicación: {
+                selectedLocation === 'all'
+                  ? 'Todas las ubicaciones'
+                  : locations.find(loc => loc.value === selectedLocation)?.label || selectedLocation
+              }
+            </p>
+          </div>
+        </>
+      )}
 
       {/* Images Modal */}
       {showImagesModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="fixed inset-0 bg-black bg-opacity-95 z-50 flex flex-col">
+          {/* Header */}
+          <div className="bg-black bg-opacity-50 p-4 flex items-center justify-between">
+            <div className="text-white">
               <h3 className="text-lg font-semibold">
-                Imágenes para código: {currentImageCode}
+                Imágenes del código: {currentImageCode}
               </h3>
-              <button
-                onClick={() => setShowImagesModal(false)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-              >
-                <X className="w-6 h-6" />
-              </button>
+              {codeImages.length > 0 && (
+                <p className="text-sm text-gray-300 mt-1">
+                  {codeImages.length} imagen{codeImages.length > 1 ? 'es' : ''} encontrada{codeImages.length > 1 ? 's' : ''}
+                </p>
+              )}
             </div>
-            
-            <div className="p-4 max-h-[calc(90vh-120px)] overflow-y-auto">
-              {loadingImages ? (
-                <div className="flex items-center justify-center p-8">
-                  <RefreshCw className="w-6 h-6 animate-spin text-blue-600 mr-2" />
-                  <span>Cargando imágenes...</span>
+            <button
+              onClick={() => setShowImagesModal(false)}
+              className="p-2 hover:bg-white hover:bg-opacity-20 rounded-full transition-colors text-white"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 p-8 overflow-y-auto">
+            {loadingImages ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center text-white">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+                  <p>Cargando imágenes...</p>
                 </div>
-              ) : imageLoadError ? (
-                <div className="text-center p-8 text-red-500">
-                  {imageLoadError}
+              </div>
+            ) : imageLoadError ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center text-white">
+                  <ImageIcon className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                  <h3 className="text-lg font-medium mb-2">No se encontraron imágenes</h3>
+                  <p className="text-gray-300">{imageLoadError}</p>
                 </div>
-              ) : codeImages.length === 0 ? (
-                <div className="text-center p-8 text-gray-500">
-                  No se encontraron imágenes
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {codeImages.map((imageUrl, index) => (
-                    <div key={index} className="relative group cursor-pointer">
+              </div>
+            ) : codeImages.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                {codeImages.map((imageUrl, index) => (
+                  <div key={index} className="relative group">
+                    <div className="aspect-square overflow-hidden rounded-lg bg-black bg-opacity-30">
                       {thumbnailLoadingStates[index] && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded-lg">
-                          <RefreshCw className="w-6 h-6 animate-spin text-blue-600" />
+                        <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
                         </div>
                       )}
                       <Image
                         src={imageUrl}
-                        alt={`Imagen ${index + 1} para código ${currentImageCode}`}
-                        width={300}
-                        height={200}
-                        className="w-full h-48 object-cover rounded-lg transition-transform group-hover:scale-105"
-                        onLoadingComplete={() => setThumbnailLoadingStates(prev => ({ ...prev, [index]: false }))}
-                        onError={() => setThumbnailLoadingStates(prev => ({ ...prev, [index]: false }))}
-                        onLoadStart={() => setThumbnailLoadingStates(prev => ({ ...prev, [index]: true }))}
-                        onClick={() => openImageModal(imageUrl, index)}
+                        alt={`Imagen ${index + 1} del código ${currentImageCode}`}
+                        width={400}
+                        height={400}
+                        className="w-full h-full object-cover cursor-pointer transition-transform duration-200 group-hover:scale-105"
+                        loading="lazy"
+                        onLoadStart={() => handleThumbnailLoadStart(index)}
+                        onLoad={() => handleThumbnailLoad(index)}
+                        onError={() => handleThumbnailLoad(index)}
+                        onClick={() => {
+                          // Abrir imagen en modal de pantalla completa
+                          handleOpenImageModal(imageUrl, index);
+                        }}
                       />
                     </div>
-                  ))}
+                    <div className="absolute top-2 left-2 bg-black bg-opacity-70 text-white text-sm px-2 py-1 rounded">
+                      {index + 1}
+                    </div>
+                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          downloadImage(imageUrl, index);
+                        }}
+                        className="p-1 bg-black bg-opacity-70 text-white rounded-full hover:bg-opacity-90 transition-colors"
+                        title="Descargar imagen"
+                      >
+                        <Download className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center text-white">
+                  <ImageIcon className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                  <h3 className="text-lg font-medium mb-2">No se encontraron imágenes</h3>
+                  <p className="text-gray-300">Este código no tiene imágenes asociadas</p>
                 </div>
-              )}
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="bg-black bg-opacity-50 p-4 flex items-center justify-between">
+            <div className="text-white text-sm opacity-70">
+              Click en imagen para ver completa • ESC para cerrar
             </div>
+            {codeImages.length > 0 && (
+              <button
+                onClick={() => downloadAllImages()}
+                className="flex items-center gap-2 px-4 py-2 bg-white bg-opacity-20 hover:bg-opacity-30 text-white rounded-lg transition-colors"
+              >
+                <Download className="w-4 h-4" />
+                Descargar todas
+              </button>
+            )}
           </div>
         </div>
       )}
 
-      {/* Individual Image Modal */}
+      {/* Individual Image Modal - 90% Screen */}
       {showImageModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 p-4">
-          <div className="relative w-full h-full flex items-center justify-center">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-95 flex items-center justify-center p-4 z-[9999]"
+          style={{ 
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 9999,
+            isolation: 'isolate'
+          }}
+        >
+          <div className="relative w-[90%] h-[90%] flex items-center justify-center">
+            {/* Close Button */}
             <button
-              onClick={() => setShowImageModal(false)}
-              className="absolute top-4 right-4 z-10 p-2 rounded-full bg-black bg-opacity-70 hover:bg-opacity-90 transition-all duration-200"
+              onClick={handleCloseImageModal}
+              className="absolute top-4 right-4 z-10 p-3 rounded-full bg-black bg-opacity-70 hover:bg-opacity-90 transition-all duration-200"
             >
               <X className="w-6 h-6 text-white" />
             </button>
-            
+
+            {/* Image Counter */}
             {codeImages.length > 1 && (
-              <>
-                <button
-                  onClick={() => navigateImage('prev')}
-                  className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10 p-3 rounded-full bg-black bg-opacity-70 hover:bg-opacity-90 transition-all duration-200"
-                >
-                  <ChevronLeft className="w-6 h-6 text-white" />
-                </button>
-                
-                <button
-                  onClick={() => navigateImage('next')}
-                  className="absolute right-4 top-1/2 transform -translate-y-1/2 z-10 p-3 rounded-full bg-black bg-opacity-70 hover:bg-opacity-90 transition-all duration-200"
-                >
-                  <ChevronRight className="w-6 h-6 text-white" />
-                </button>
-              </>
+              <div className="absolute top-4 left-4 z-10 px-4 py-2 rounded-full bg-black bg-opacity-70 text-white text-sm font-medium">
+                {selectedImageIndex + 1} de {codeImages.length}
+              </div>
             )}
-            
+
+            {/* Previous Button */}
+            {codeImages.length > 1 && (
+              <button
+                onClick={handlePreviousImage}
+                className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10 p-3 rounded-full bg-black bg-opacity-70 hover:bg-opacity-90 transition-all duration-200"
+              >
+                <ChevronLeft className="w-6 h-6 text-white" />
+              </button>
+            )}
+
+            {/* Next Button */}
+            {codeImages.length > 1 && (
+              <button
+                onClick={handleNextImage}
+                className="absolute right-4 top-1/2 transform -translate-y-1/2 z-10 p-3 rounded-full bg-black bg-opacity-70 hover:bg-opacity-90 transition-all duration-200"
+              >
+                <ChevronRight className="w-6 h-6 text-white" />
+              </button>
+            )}
+
+            {/* Main Image */}
             <Image
               src={selectedImageUrl}
-              alt={`Imagen ${selectedImageIndex + 1} de ${codeImages.length}`}
+              alt={`Imagen ${selectedImageIndex + 1} del código ${currentImageCode}`}
               width={1200}
               height={800}
-              className="max-w-full max-h-full object-contain"
+              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+              onError={(e) => {
+                console.error(`Error loading selected image:`, e);
+              }}
             />
-            
-            <div className="absolute bottom-4 left-4 z-10 px-4 py-2 rounded-full bg-black bg-opacity-70 text-white text-sm">
-              {selectedImageIndex + 1} de {codeImages.length}
+
+            {/* Image Info */}
+            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10 px-4 py-2 rounded-full bg-black bg-opacity-70 text-white text-sm">
+              Código: {currentImageCode} • Imagen {selectedImageIndex + 1} de {codeImages.length}
             </div>
-            
+
+            {/* Download Button */}
             <button
               onClick={() => {
                 const link = document.createElement('a');
                 link.href = selectedImageUrl;
-                link.download = `${currentImageCode}_${selectedImageIndex + 1}.jpg`;
+                link.download = `${currentImageCode}_imagen_${selectedImageIndex + 1}.jpg`;
                 link.target = '_blank';
                 link.rel = 'noopener noreferrer';
                 link.setAttribute('crossorigin', 'anonymous');
