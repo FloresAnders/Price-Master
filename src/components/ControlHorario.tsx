@@ -209,64 +209,8 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
   
   // Siempre usar el usuario del prop (puede ser null), si no hay prop usar el del auth
   const user = propCurrentUser || authUser;
-  
-  // Verificar si el usuario tiene permiso para usar el control horario
-  if (!hasPermission(user?.permissions, 'controlhorario')) {
-    return (
-      <div className="flex items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)]">
-        <div className="text-center">
-          <Lock className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-[var(--foreground)] mb-2">
-            Acceso Restringido
-          </h3>
-          <p className="text-[var(--muted-foreground)]">
-            No tienes permisos para acceder al Control de Horario.
-          </p>
-          <p className="text-sm text-[var(--muted-foreground)] mt-2">
-            Contacta a un administrador para obtener acceso.
-          </p>
-        </div>
-      </div>
-    );
-  }
-  
-  console.log('🚀 CONTROLHORARIO INICIADO');
-  console.log('📋 Props recibidos:', { propCurrentUser });
-  console.log('👤 Usuario procesado:', user);
-  
-  // Debug: mostrar información del usuario
-  console.log('🔍 ControlHorario - Usuario actual:', {
-    nombre: user?.name || 'No autenticado',
-    rol: user?.role || 'Sin rol',
-    ubicacionAsignada: user?.location || 'Sin ubicación asignada',
-    tienePermisos: !!user?.permissions?.controlhorario,
-    objetoCompleto: user
-  });
-  
-  // Funciones de autorización simplificadas
-  const userCanChangeLocation = () => {
-    // Solo admin y superadmin pueden usar el selector de ubicación
-    // PERO: Todos los usuarios (incluyendo admin/superadmin) ven predeterminadamente su ubicación asignada
-    // Los usuarios con rol "user" están completamente restringidos a su ubicación asignada
-    return user?.role === 'admin' || user?.role === 'superadmin';
-  };
-  
-  const userIsSuperAdmin = () => {
-    return user?.role === 'superadmin';
-  };
 
-  // Función para manejar cambios de ubicación con validaciones
-  const handleLocationChange = (newLocation: string) => {
-    // Bloquear cambios para usuarios con rol "user"
-    if (user?.role === 'user') {
-      console.warn(`🚫 BLOQUEO: Usuario "${user.name}" (rol: user) intentó cambiar ubicación. Manteniendo: ${user?.location}`);
-      showNotification('No tienes permisos para cambiar de ubicación', 'error');
-      return;
-    }
-    
-    console.log(`✅ Cambio de ubicación autorizado para usuario "${user?.name}" (rol: ${user?.role}): ${newLocation}`);
-    setLocation(newLocation);
-  };
+  // Declarar todos los hooks primero, antes de cualquier return condicional
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
   const [location, setLocation] = useState('');
@@ -305,6 +249,19 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
     currentHours: 0
   });
 
+  // useRef hooks
+  const autoQuincenaRef = React.useRef<boolean>(false);
+
+  // Helper functions that will be used in useEffect hooks
+  const showNotification = (message: string, type: 'success' | 'error') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 3000);
+  };
+
+  // Verificar si la ubicación actual es DELIFOOD
+  const isDelifoodLocation = location.toLowerCase().includes('delifood');
+
+  // All useEffect hooks must be declared before any conditional returns
   // Cargar datos desde Firebase
   useEffect(() => {
     const loadData = async () => {
@@ -359,15 +316,6 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
       showNotification(`Acceso restringido. Solo puedes ver: ${user.location}`, 'error');
     }
   }, [location, user]); // Monitorear cambios en location para usuarios "user"
-
-  // Función para mostrar notificaciones
-  const showNotification = (message: string, type: 'success' | 'error') => {
-    setNotification({ message, type });
-    setTimeout(() => setNotification(null), 3000);
-  };
-
-  // Verificar si la ubicación actual es DELIFOOD
-  const isDelifoodLocation = location.toLowerCase().includes('delifood');
 
   // Cargar horarios de Firebase cuando cambie la ubicación
   useEffect(() => {
@@ -438,41 +386,27 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
             
             console.log(`Datos finales para ${employeeName}:`, newDelifoodData[employeeName]);
           });
-
-          console.log('=== SETTING DELIFOOD DATA ===');
-          console.log('Final newDelifoodData:', newDelifoodData);
+          
           setDelifoodHoursData(newDelifoodData);
-          console.log('===============================');
-        } else {
-          // Para ubicaciones normales, cargar datos de turnos
-          const newScheduleData: ScheduleData = {};
-
-          console.log('=== LOADING NORMAL SCHEDULE DATA ===');
-          names.forEach((employeeName, index) => {
-            newScheduleData[employeeName] = {};
-            console.log(`Processing ${employeeName}, scheduleEntries[${index}]:`, scheduleEntries[index]);
-            
-            scheduleEntries[index].forEach((entry: ScheduleEntry) => {
-              // Verificar que exista el campo shift y no esté vacío
-              if (entry.shift && entry.shift.trim() !== '') {
-                newScheduleData[employeeName][entry.day.toString()] = entry.shift;
-                console.log(`✅ NORMAL data loaded: ${employeeName} - day ${entry.day} - shift: ${entry.shift} - month: ${entry.month}`);
-              } else {
-                console.log(`⚠️ Entry without valid shift: ${employeeName} - day ${entry.day} - shift: "${entry.shift}" - horasPorDia: ${entry.horasPorDia}`);
-              }
-            });
-            
-            console.log(`Datos finales para ${employeeName}:`, newScheduleData[employeeName]);
-          });
-
-          console.log('=== SETTING NORMAL SCHEDULE DATA ===');
-          console.log('Final newScheduleData:', newScheduleData);
-          setScheduleData(newScheduleData);
-          console.log('====================================');
         }
+
+        // Procesar datos para tabla normal
+        const newScheduleData: ScheduleData = {};
+        names.forEach((employeeName, index) => {
+          newScheduleData[employeeName] = {};
+          scheduleEntries[index].forEach((entry: ScheduleEntry) => {
+            // Para todas las ubicaciones, incluir en la tabla si hay turno asignado
+            if (entry.shift && entry.shift.trim() !== '') {
+              newScheduleData[employeeName][entry.day.toString()] = entry.shift;
+              console.log(`📅 Schedule data: ${employeeName} - day ${entry.day} - shift: ${entry.shift} - month: ${entry.month}`);
+            }
+          });
+        });
+
+        setScheduleData(newScheduleData);
+        console.log('🎯 Final schedule data loaded:', newScheduleData);
       } catch (error) {
         console.error('Error loading schedule data:', error);
-        showNotification('Error al cargar los horarios', 'error');
       }
     };
 
@@ -480,7 +414,6 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
   }, [location, locations, currentDate, isDelifoodLocation, loading, user]); // Agregar user como dependencia
 
   // --- AUTO-QUINCENA: Detectar y mostrar la quincena actual SOLO al cargar el mes actual por PRIMERA VEZ en la sesión ---
-  const autoQuincenaRef = React.useRef<boolean>(false);
   useEffect(() => {
     const today = new Date();
     const isCurrentMonth = today.getFullYear() === currentDate.getFullYear() && today.getMonth() === currentDate.getMonth();
@@ -491,32 +424,99 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
         setViewMode('first');
       }
       autoQuincenaRef.current = true;
+      console.log('🗓️ AUTO-QUINCENA aplicada:', today.getDate() > 15 ? 'Segunda quincena' : 'Primera quincena');
     }
-    // Si cambias de mes, permite volver a auto-quincena si regresas al mes actual
-    if (!isCurrentMonth) {
-      autoQuincenaRef.current = false;
-    }
-  }, [loading, currentDate]); // Remover viewMode ya que se modifica internamente
+  }, [loading, currentDate]);
 
-  // Sincronizar selectedPeriod con viewMode y fullMonthView
+  // Efecto para manejar countdown del QR
   useEffect(() => {
-    if (fullMonthView) {
-      setSelectedPeriod('monthly');
-    } else if (viewMode === 'first') {
-      setSelectedPeriod('1-15');
-    } else if (viewMode === 'second') {
-      setSelectedPeriod('16-30');
+    let interval: NodeJS.Timeout;
+    if (qrCountdown !== null && qrCountdown > 0) {
+      interval = setInterval(() => {
+        setQrCountdown(prev => prev !== null ? prev - 1 : null);
+      }, 1000);
+    } else if (qrCountdown === 0) {
+      setQrCountdown(null);
+      setShowQRModal(false);
+      setQRCodeDataURL('');
     }
-  }, [viewMode, fullMonthView]);
+    return () => clearInterval(interval);
+  }, [qrCountdown]);
 
-  // Debug logging para verificar el estado de scheduleData
+  // Efecto para limpiar recursos cuando se cierre el modal QR
   useEffect(() => {
-    if (!isDelifoodLocation && Object.keys(scheduleData).length > 0) {
-      console.log('🔍 Current scheduleData state:', scheduleData);
+    if (!showQRModal) {
+      // Limpiar imagen del storage cuando se cierre el modal
+      if (storageRef) {
+        const imageRef = ref(storage, storageRef);
+        deleteObject(imageRef).catch(error => {
+          console.log('Storage cleanup error (expected):', error);
+        });
+        setStorageRef('');
+      }
+      setQRCodeDataURL('');
+      setImageBlob(null);
     }
-  }, [scheduleData, isDelifoodLocation]);
+  }, [showQRModal, storageRef]);
 
+  
+  // Verificar si el usuario tiene permiso para usar el control horario
+  if (!hasPermission(user?.permissions, 'controlhorario')) {
+    return (
+      <div className="flex items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)]">
+        <div className="text-center">
+          <Lock className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-[var(--foreground)] mb-2">
+            Acceso Restringido
+          </h3>
+          <p className="text-[var(--muted-foreground)]">
+            No tienes permisos para acceder al Control de Horario.
+          </p>
+          <p className="text-sm text-[var(--muted-foreground)] mt-2">
+            Contacta a un administrador para obtener acceso.
+          </p>
+        </div>
+      </div>
+    );
+  }
+  
+  console.log('🚀 CONTROLHORARIO INICIADO');
+  console.log('📋 Props recibidos:', { propCurrentUser });
+  console.log('👤 Usuario procesado:', user);
+  
+  // Debug: mostrar información del usuario
+  console.log('🔍 ControlHorario - Usuario actual:', {
+    nombre: user?.name || 'No autenticado',
+    rol: user?.role || 'Sin rol',
+    ubicacionAsignada: user?.location || 'Sin ubicación asignada',
+    tienePermisos: !!user?.permissions?.controlhorario,
+    objetoCompleto: user
+  });
+  
+  // Función para manejar cambios de ubicación con validaciones
+  const handleLocationChange = (newLocation: string) => {
+    // Bloquear cambios para usuarios con rol "user"
+    if (user?.role === 'user') {
+      console.warn(`🚫 BLOQUEO: Usuario "${user.name}" (rol: user) intentó cambiar ubicación. Manteniendo: ${user?.location}`);
+      showNotification('No tienes permisos para cambiar de ubicación', 'error');
+      return;
+    }
+    
+    console.log(`✅ Cambio de ubicación autorizado para usuario "${user?.name}" (rol: ${user?.role}): ${newLocation}`);
+    setLocation(newLocation);
+  };
+
+  // Component helper functions and variables
   const names = locations.find(l => l.value === location)?.names || [];
+
+  // Funciones de autorización simplificadas
+  const userCanChangeLocation = () => {
+    return user?.role === 'admin' || user?.role === 'superadmin';
+  };
+  
+  const userIsSuperAdmin = () => {
+    return user?.role === 'superadmin';
+  };
 
   // Obtener información del mes actual
   const year = currentDate.getFullYear();

@@ -551,7 +551,7 @@ export default function DataEditor() {
         // Cast to handle scanhistoryLocations type safely
         if (permission === 'scanhistoryLocations') return;
         
-        (user.permissions as any)[permission] = value;
+        (user.permissions as unknown as Record<string, unknown>)[permission] = value;
         
         // Si se está desactivando scanhistory, limpiar las locaciones
         if (permission === 'scanhistory' && !value) {
@@ -565,7 +565,7 @@ export default function DataEditor() {
         if (user.id) {
             try {
                 setSavingUser(userIndex);
-                const updateData: any = { [permission]: value };
+                const updateData: Record<string, unknown> = { [permission]: value };
                 
                 // Incluir limpieza de locaciones en la actualización si es necesario
                 if (permission === 'scanhistory' && !value) {
@@ -585,7 +585,7 @@ export default function DataEditor() {
                 console.error('Error updating user permission:', error);
                 
                 // Revertir cambio en caso de error
-                (updated[userIndex].permissions as any)![permission] = !value;
+                (updated[userIndex].permissions as unknown as Record<string, unknown>)![permission] = !value;
                 if (permission === 'scanhistory' && !value) {
                     // Restaurar las locaciones si hubo error
                     delete updated[userIndex].permissions!.scanhistoryLocations;
@@ -717,8 +717,8 @@ export default function DataEditor() {
                 
                 const newPermissions: Partial<UserPermissions> = {};
                 permissionKeys.forEach(key => {
-                    (updated[userIndex].permissions as any)![key] = value;
-                    (newPermissions as any)[key] = value;
+                    (updated[userIndex].permissions as unknown as Record<string, unknown>)![key] = value;
+                    (newPermissions as unknown as Record<string, unknown>)[key] = value;
                 });
                 
                 // Si se están desactivando todos los permisos, limpiar las locaciones
