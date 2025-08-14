@@ -34,6 +34,10 @@ export default function ScanHistoryTable() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
   const [notification, setNotification] = useState<{ message: string; color: string } | null>(null);
+  
+  // Date filter states
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
 
   // Image modal states
   const [showImagesModal, setShowImagesModal] = useState(false);
@@ -49,6 +53,34 @@ export default function ScanHistoryTable() {
   const showNotification = (message: string, color: string = 'green') => {
     setNotification({ message, color });
     setTimeout(() => setNotification(null), 2000);
+  };
+
+  // Quick date filter functions
+  const setDateRange = (days: number) => {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(end.getDate() - days);
+    
+    setStartDate(start.toISOString().split('T')[0]);
+    setEndDate(end.toISOString().split('T')[0]);
+  };
+
+  const setThisWeek = () => {
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const start = new Date(today);
+    start.setDate(today.getDate() - dayOfWeek);
+    
+    setStartDate(start.toISOString().split('T')[0]);
+    setEndDate(today.toISOString().split('T')[0]);
+  };
+
+  const setThisMonth = () => {
+    const today = new Date();
+    const start = new Date(today.getFullYear(), today.getMonth(), 1);
+    
+    setStartDate(start.toISOString().split('T')[0]);
+    setEndDate(today.toISOString().split('T')[0]);
   };
 
   // Handle copy
@@ -265,13 +297,28 @@ export default function ScanHistoryTable() {
     }
   }, [showImagesModal, showImageModal, handleCloseImageModal, handlePreviousImage, handleNextImage]);
 
-  // Filter history based on search term, location, and user permissions
+  // Filter history based on search term, location, dates, and user permissions
   const filteredHistory = scanHistory.filter(entry => {
     const matchesSearch = entry.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (entry.productName && entry.productName.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (entry.userName && entry.userName.toLowerCase().includes(searchTerm.toLowerCase()));
 
     const matchesLocation = selectedLocation === 'all' || entry.location === selectedLocation;
+
+    // Date filtering
+    let matchesDateRange = true;
+    if (startDate || endDate) {
+      const entryDate = new Date(entry.timestamp);
+      const startDateTime = startDate ? new Date(startDate + 'T00:00:00') : null;
+      const endDateTime = endDate ? new Date(endDate + 'T23:59:59') : null;
+      
+      if (startDateTime && entryDate < startDateTime) {
+        matchesDateRange = false;
+      }
+      if (endDateTime && entryDate > endDateTime) {
+        matchesDateRange = false;
+      }
+    }
 
     // Filtrar por ubicaciones permitidas para el usuario
     let matchesUserLocations = true;
@@ -287,7 +334,7 @@ export default function ScanHistoryTable() {
       matchesUserLocations = false;
     }
 
-    return matchesSearch && matchesLocation && matchesUserLocations;
+    return matchesSearch && matchesLocation && matchesDateRange && matchesUserLocations;
   });
 
   // Filtrar las ubicaciones disponibles en el selector basado en los permisos del usuario
@@ -401,24 +448,114 @@ export default function ScanHistoryTable() {
                 />
               </div>
 
-              {/* Location filter */}
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[var(--muted-foreground)]" />
-                <select
-                  value={selectedLocation}
-                  onChange={(e) => setSelectedLocation(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] text-[var(--foreground)] focus:outline-none focus:border-blue-500"
-                >
-                  <option value="all">Todas las ubicaciones permitidas</option>
-                  {availableLocations
-                    .filter(location => location.value !== 'DELIFOOD_TEST')
-                    .map((location) => (
-                      <option key={location.value} value={location.value}>
-                        {location.label}
-                      </option>
-                    ))}
-                </select>
+              {/* Filters row */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Location filter */}
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[var(--muted-foreground)]" />
+                  <select
+                    value={selectedLocation}
+                    onChange={(e) => setSelectedLocation(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] text-[var(--foreground)] focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="all">Todas las ubicaciones permitidas</option>
+                    {availableLocations
+                      .filter(location => location.value !== 'DELIFOOD_TEST')
+                      .map((location) => (
+                        <option key={location.value} value={location.value}>
+                          {location.label}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
+                {/* Start date filter */}
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[var(--muted-foreground)]" />
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] text-[var(--foreground)] focus:outline-none focus:border-blue-500"
+                    placeholder="Fecha inicio"
+                    title="Filtrar desde fecha"
+                  />
+                </div>
+
+                {/* End date filter */}
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[var(--muted-foreground)]" />
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] text-[var(--foreground)] focus:outline-none focus:border-blue-500"
+                    placeholder="Fecha fin"
+                    title="Filtrar hasta fecha"
+                  />
+                </div>
               </div>
+
+              {/* Quick date filters */}
+              <div className="flex flex-wrap gap-2">
+                <span className="text-sm text-[var(--muted-foreground)] flex items-center">
+                  Filtros rápidos:
+                </span>
+                <button
+                  onClick={() => setDateRange(0)}
+                  className="px-3 py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors"
+                >
+                  Hoy
+                </button>
+                <button
+                  onClick={() => setDateRange(1)}
+                  className="px-3 py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors"
+                >
+                  Ayer
+                </button>
+                <button
+                  onClick={() => setDateRange(7)}
+                  className="px-3 py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors"
+                >
+                  Últimos 7 días
+                </button>
+                <button
+                  onClick={() => setThisWeek()}
+                  className="px-3 py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors"
+                >
+                  Esta semana
+                </button>
+                <button
+                  onClick={() => setDateRange(30)}
+                  className="px-3 py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors"
+                >
+                  Últimos 30 días
+                </button>
+                <button
+                  onClick={() => setThisMonth()}
+                  className="px-3 py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors"
+                >
+                  Este mes
+                </button>
+              </div>
+
+              {/* Clear filters button */}
+              {(searchTerm || selectedLocation !== 'all' || startDate || endDate) && (
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => {
+                      setSearchTerm('');
+                      setSelectedLocation('all');
+                      setStartDate('');
+                      setEndDate('');
+                    }}
+                    className="px-4 py-2 text-sm bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors flex items-center gap-2"
+                  >
+                    <X className="w-4 h-4" />
+                    Limpiar filtros
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -593,6 +730,18 @@ export default function ScanHistoryTable() {
                      : 'Todas las ubicaciones')
                   : availableLocations.find(loc => loc.value === selectedLocation)?.label || selectedLocation
               }
+              {(startDate || endDate) && (
+                <>
+                  {' • '}
+                  Rango de fechas: {
+                    startDate && endDate
+                      ? `${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}`
+                      : startDate
+                      ? `Desde ${new Date(startDate).toLocaleDateString()}`
+                      : `Hasta ${new Date(endDate).toLocaleDateString()}`
+                  }
+                </>
+              )}
             </p>
           </div>
         </>
