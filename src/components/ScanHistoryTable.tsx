@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { History, Copy, Trash2, Search, Eye, Calendar, MapPin, RefreshCw, Image as ImageIcon, X, Download, ChevronLeft, ChevronRight } from 'lucide-react';
-import type { ScanResult } from '@/types/firestore';
 import { useScanHistory, useScanImages } from '@/hooks/useScanHistory';
 import locations from '@/data/locations.json';
 
@@ -12,7 +11,6 @@ export default function ScanHistoryTable() {
   const { 
     scanHistory, 
     loading, 
-    error, 
     refreshHistory, 
     deleteScan: deleteScanService, 
     clearHistory: clearHistoryService 
@@ -272,35 +270,35 @@ export default function ScanHistoryTable() {
     return matchesSearch && matchesLocation;
   });
 
-  // Format date
-  const formatDate = (timestamp: unknown) => {
-    if (!timestamp) return 'Fecha no disponible';
-    
-    let date: Date;
-    if (timestamp && typeof timestamp === 'object' && 'toDate' in timestamp && typeof timestamp.toDate === 'function') {
-      date = timestamp.toDate();
-    } else if (timestamp instanceof Date) {
-      date = timestamp;
-    } else if (typeof timestamp === 'string' || typeof timestamp === 'number') {
-      date = new Date(timestamp);
-    } else {
-      return 'Fecha no válida';
-    }
-    
-    return date.toLocaleString('es-ES', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+  // Format date - commented out as not currently used
+  // const formatDate = (timestamp: unknown) => {
+  //   if (!timestamp) return 'Fecha no disponible';
+  //   
+  //   let date: Date;
+  //   if (timestamp && typeof timestamp === 'object' && 'toDate' in timestamp && typeof timestamp.toDate === 'function') {
+  //     date = timestamp.toDate();
+  //   } else if (timestamp instanceof Date) {
+  //     date = timestamp;
+  //   } else if (typeof timestamp === 'string' || typeof timestamp === 'number') {
+  //     date = new Date(timestamp);
+  //   } else {
+  //     return 'Fecha no válida';
+  //   }
+  //   
+  //   return date.toLocaleString('es-ES', {
+  //     year: 'numeric',
+  //     month: '2-digit',
+  //     day: '2-digit',
+  //     hour: '2-digit',
+  //     minute: '2-digit'
+  //   });
+  // };
 
-  // Get location label
-  const getLocationLabel = (locationValue: string) => {
-    const location = locations.find(loc => loc.value === locationValue);
-    return location ? location.label : locationValue;
-  };
+  // Get location label - commented out as not currently used
+  // const getLocationLabel = (locationValue: string) => {
+  //   const location = locations.find(loc => loc.value === locationValue);
+  //   return location ? location.label : locationValue;
+  // };
 
   return (
     <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-6">
