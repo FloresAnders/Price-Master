@@ -1,6 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { Lock as LockIcon } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
+import { hasPermission } from '../utils/permissions';
 
 interface IVAOption {
   label: string;
@@ -15,6 +18,9 @@ const IVA_OPTIONS: IVAOption[] = [
 ];
 
 export default function PriceCalculator() {
+  /* Verificar permisos del usuario */
+  const { user } = useAuth();
+
   const [precioSinIVA, setPrecioSinIVA] = useState<string>('');
   const [precioConIVA, setPrecioConIVA] = useState<string>('');
   const [ivaSeleccionado, setIvaSeleccionado] = useState<number>(13);
@@ -224,6 +230,26 @@ export default function PriceCalculator() {
       setActualizandoDesde('conIVA');
     }
   };
+
+  // Verificar si el usuario tiene permiso para usar la calculadora
+  if (!hasPermission(user?.permissions, 'calculator')) {
+    return (
+      <div className="flex items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)]">
+        <div className="text-center">
+          <LockIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-[var(--foreground)] mb-2">
+            Acceso Restringido
+          </h3>
+          <p className="text-[var(--muted-foreground)]">
+            No tienes permisos para acceder a la Calculadora de Precios.
+          </p>
+          <p className="text-sm text-[var(--muted-foreground)] mt-2">
+            Contacta a un administrador para obtener acceso.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-lg shadow-md p-6" style={{ background: 'var(--card-bg)', color: 'var(--foreground)' }}>

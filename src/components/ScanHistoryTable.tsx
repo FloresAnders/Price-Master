@@ -2,12 +2,17 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import { History, Copy, Trash2, Search, Eye, Calendar, MapPin, RefreshCw, Image as ImageIcon, X, Download, ChevronLeft, ChevronRight } from 'lucide-react';
+import { History, Copy, Trash2, Search, Eye, Calendar, MapPin, RefreshCw, Image as ImageIcon, X, Download, ChevronLeft, ChevronRight, Lock as LockIcon } from 'lucide-react';
 import { useScanHistory, useScanImages } from '@/hooks/useScanHistory';
 import { useAuth } from '@/hooks/useAuth';
 import locations from '@/data/locations.json';
+import { hasPermission } from '../utils/permissions';
 
 export default function ScanHistoryTable() {
+  /* Verificar permisos del usuario */
+  // Hook de autenticación para obtener el usuario actual
+  const { user } = useAuth();
+
   // Usar hooks optimizados
   const {
     scanHistory,
@@ -24,9 +29,6 @@ export default function ScanHistoryTable() {
     loadImagesForCode,
     clearImages
   } = useScanImages();
-
-  // Hook de autenticación para obtener el usuario actual
-  const { user } = useAuth();
 
   // Local state
   const [searchTerm, setSearchTerm] = useState('');
@@ -296,6 +298,26 @@ export default function ScanHistoryTable() {
     }
     return user.permissions.scanhistoryLocations.includes(location.value);
   });
+
+  // Verificar si el usuario tiene permiso para ver el historial de escaneos
+  if (!hasPermission(user?.permissions, 'scanhistory')) {
+    return (
+      <div className="flex items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)]">
+        <div className="text-center">
+          <LockIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-[var(--foreground)] mb-2">
+            Acceso Restringido
+          </h3>
+          <p className="text-[var(--muted-foreground)]">
+            No tienes permisos para acceder al Historial de Escaneos.
+          </p>
+          <p className="text-sm text-[var(--muted-foreground)] mt-2">
+            Contacta a un administrador para obtener acceso.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-6">

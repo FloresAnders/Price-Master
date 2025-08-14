@@ -12,6 +12,7 @@ import {
   QrCode as QrCodeIcon,
   Wifi as WifiIcon,
   WifiOff as WifiOffIcon,
+  Lock as LockIcon,
 } from 'lucide-react';
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
 import type { BarcodeScannerProps } from '../types/barcode';
@@ -22,8 +23,13 @@ import { SessionSyncService, type SessionStatus } from '../services/session-sync
 import { LocationsService } from '../services/locations';
 import { ScanningService } from '../services/scanning-optimized';
 import type { Location } from '../types/firestore';
+import { useAuth } from '../hooks/useAuth';
+import { hasPermission } from '../utils/permissions';
 
 export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children }: BarcodeScannerProps & { onRemoveLeadingZero?: (code: string) => void; children?: React.ReactNode }) {
+  /* Verificar permisos del usuario */
+  const { user } = useAuth();
+
   const [activeTab, setActiveTab] = useState<'image' | 'camera' | 'mobile'>('image');
   const [mobileSessionId, setMobileSessionId] = useState<string | null>(null);
   const [showMobileQR, setShowMobileQR] = useState(false);
@@ -746,6 +752,26 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
 
   const fadeIn = { initial: { opacity: 0 }, animate: { opacity: 1 } };
   const slideUp = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 } };
+
+  // Verificar si el usuario tiene permiso para usar el escáner
+  if (!hasPermission(user?.permissions, 'scanner')) {
+    return (
+      <div className="flex items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)]">
+        <div className="text-center">
+          <LockIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-[var(--foreground)] mb-2">
+            Acceso Restringido
+          </h3>
+          <p className="text-[var(--muted-foreground)]">
+            No tienes permisos para acceder al Escáner de Códigos de Barras.
+          </p>
+          <p className="text-sm text-[var(--muted-foreground)] mt-2">
+            Contacta a un administrador para obtener acceso.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

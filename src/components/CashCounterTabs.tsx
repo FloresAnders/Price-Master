@@ -18,7 +18,10 @@ import {
   FolderOpen,
   Save,
   RotateCcw,
+  Lock as LockIcon,
 } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
+import { hasPermission } from '../utils/permissions';
 /*Menu,*/
 // Modal base component to reduce code duplication
 type BaseModalProps = {
@@ -1279,6 +1282,9 @@ function MenuModal({ isOpen, onClose, onExport, onImport, onClear, storageInfo }
 }
 
 export default function CashCounterTabs() {
+  /* Verificar permisos del usuario */
+  const { user } = useAuth();
+
   const [tabsData, setTabsData] = useState<CashCounterData[]>([]);
   const [activeTab, setActiveTab] = useState<number>(0);
   const [isCalcOpen, setIsCalcOpen] = useState<boolean>(false);
@@ -1569,6 +1575,26 @@ export default function CashCounterTabs() {
       ventaActual: 0,
     });
   };
+
+  // Verificar si el usuario tiene permiso para usar el contador de efectivo
+  if (!hasPermission(user?.permissions, 'cashcounter')) {
+    return (
+      <div className="flex items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)]">
+        <div className="text-center">
+          <LockIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-[var(--foreground)] mb-2">
+            Acceso Restringido
+          </h3>
+          <p className="text-[var(--muted-foreground)]">
+            No tienes permisos para acceder al Contador de Efectivo.
+          </p>
+          <p className="text-sm text-[var(--muted-foreground)] mt-2">
+            Contacta a un administrador para obtener acceso.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 bg-[var(--background)] min-h-screen pb-32">

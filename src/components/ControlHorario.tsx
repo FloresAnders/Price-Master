@@ -14,6 +14,8 @@ import type { Location } from '../types/firestore';
 import type { User as FirestoreUser } from '../types/firestore';
 import { ref, deleteObject } from 'firebase/storage';
 import { storage } from '../config/firebase';
+import { useAuth } from '../hooks/useAuth';
+import { hasPermission } from '../utils/permissions';
 
 interface ControlHorarioProps {
   // Usuario opcional para funcionalidades de autorización (admin, etc.)
@@ -202,8 +204,31 @@ function EmployeeTooltipSummary({
 }
 
 export default function ControlHorario({ currentUser: propCurrentUser }: ControlHorarioProps = {}) {
-  // Siempre usar el usuario del prop (puede ser null)
-  const user = propCurrentUser;
+  /* Verificar permisos del usuario */
+  const { user: authUser } = useAuth();
+  
+  // Siempre usar el usuario del prop (puede ser null), si no hay prop usar el del auth
+  const user = propCurrentUser || authUser;
+  
+  // Verificar si el usuario tiene permiso para usar el control horario
+  if (!hasPermission(user?.permissions, 'controlhorario')) {
+    return (
+      <div className="flex items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)]">
+        <div className="text-center">
+          <Lock className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-[var(--foreground)] mb-2">
+            Acceso Restringido
+          </h3>
+          <p className="text-[var(--muted-foreground)]">
+            No tienes permisos para acceder al Control de Horario.
+          </p>
+          <p className="text-sm text-[var(--muted-foreground)] mt-2">
+            Contacta a un administrador para obtener acceso.
+          </p>
+        </div>
+      </div>
+    );
+  }
   
   console.log('🚀 CONTROLHORARIO INICIADO');
   console.log('📋 Props recibidos:', { propCurrentUser });

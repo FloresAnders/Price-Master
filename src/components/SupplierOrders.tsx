@@ -1,7 +1,9 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Trash2, Plus, Package, Calendar, User, FileText, Edit } from 'lucide-react'
+import { Trash2, Plus, Package, Calendar, User, FileText, Edit, Lock as LockIcon } from 'lucide-react'
+import { useAuth } from '../hooks/useAuth';
+import { hasPermission } from '../utils/permissions';
 
 interface Product {
   id: string
@@ -22,6 +24,9 @@ interface SupplierOrder {
 }
 
 export default function SupplierOrders() {
+  /* Verificar permisos del usuario */
+  const { user } = useAuth();
+
   // Form states
   const [supplierName, setSupplierName] = useState('')
   const [orderDate, setOrderDate] = useState('')
@@ -264,6 +269,26 @@ export default function SupplierOrders() {
   const selectProduct = (product: string) => {
     setProductName(product)
     setShowProductDropdown(false)
+  }
+
+  // Verificar si el usuario tiene permiso para usar las órdenes de proveedor
+  if (!hasPermission(user?.permissions, 'supplierorders')) {
+    return (
+      <div className="flex items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)]">
+        <div className="text-center">
+          <LockIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-[var(--foreground)] mb-2">
+            Acceso Restringido
+          </h3>
+          <p className="text-[var(--muted-foreground)]">
+            No tienes permisos para acceder a las Órdenes de Proveedor.
+          </p>
+          <p className="text-sm text-[var(--muted-foreground)] mt-2">
+            Contacta a un administrador para obtener acceso.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (

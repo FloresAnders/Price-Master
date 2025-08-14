@@ -1,7 +1,13 @@
 'use client'; 
 import React, { useState } from 'react';
+import { Lock as LockIcon } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
+import { hasPermission } from '../utils/permissions';
 
 export default function TextConversion() {
+  /* Verificar permisos del usuario */
+  const { user } = useAuth();
+
   const [text, setText] = useState('');
   const [copySuccess, setCopySuccess] = useState(false);
   const copyToClipboard = async (value: string) => {
@@ -53,6 +59,26 @@ export default function TextConversion() {
   const clearInput = () => {
     setText('');
   };
+
+  // Verificar si el usuario tiene permiso para usar el conversor
+  if (!hasPermission(user?.permissions, 'converter')) {
+    return (
+      <div className="flex items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)]">
+        <div className="text-center">
+          <LockIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-[var(--foreground)] mb-2">
+            Acceso Restringido
+          </h3>
+          <p className="text-[var(--muted-foreground)]">
+            No tienes permisos para acceder al Conversor de Texto.
+          </p>
+          <p className="text-sm text-[var(--muted-foreground)] mt-2">
+            Contacta a un administrador para obtener acceso.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

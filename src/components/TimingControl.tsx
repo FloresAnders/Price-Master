@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import { SorteosService } from '../services/sorteos';
-import { Timer, Download, QrCode, Smartphone } from 'lucide-react';
+import { Timer, Download, QrCode, Smartphone, Lock as LockIcon } from 'lucide-react';
 import type { Sorteo } from '../types/firestore';
 import TicketCarousel from './TicketCarousel';
 import HelpTooltip from './HelpTooltip';
@@ -10,6 +10,8 @@ import { ToastProvider, useToast } from './ToastContext';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '../config/firebase';
 import QRCode from 'qrcode';
+import { useAuth } from '../hooks/useAuth';
+import { hasPermission } from '../utils/permissions';
 
 function getNowTime() {
     const now = new Date();
@@ -60,6 +62,9 @@ interface TicketEntry {
 }
 
 export default function TimingControl() {
+    /* Verificar permisos del usuario */
+    const { user } = useAuth();
+
     const [sorteos, setSorteos] = useState<Sorteo[]>([]);
     const [personName, setPersonName] = useState('');
     const [isExporting, setIsExporting] = useState(false); const [showSummary, setShowSummary] = useState(false);
@@ -647,6 +652,27 @@ export default function TimingControl() {
         const { code, ...rest } = t;
         return rest;
     });
+
+    // Verificar si el usuario tiene permiso para usar el control de tiempos
+    if (!hasPermission(user?.permissions, 'timingcontrol')) {
+        return (
+            <div className="flex items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)]">
+                <div className="text-center">
+                    <LockIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-[var(--foreground)] mb-2">
+                        Acceso Restringido
+                    </h3>
+                    <p className="text-[var(--muted-foreground)]">
+                        No tienes permisos para acceder al Control de Tiempos.
+                    </p>
+                    <p className="text-sm text-[var(--muted-foreground)] mt-2">
+                        Contacta a un administrador para obtener acceso.
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <ToastProvider>
             <React.Fragment>
