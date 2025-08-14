@@ -31,6 +31,7 @@ export default function DataEditor() {
     const [savingUser, setSavingUser] = useState<number | null>(null);
     const [savingLocation, setSavingLocation] = useState<number | null>(null);
     const [showPermissions, setShowPermissions] = useState<{ [key: number]: boolean }>({});
+    const [allLocations, setAllLocations] = useState<Location[]>([]);
     
     // Estado para trackear cambios individuales de ubicaciones
     const [originalLocationsByIndex, setOriginalLocationsByIndex] = useState<{ [key: number]: Location }>({});
@@ -55,10 +56,17 @@ export default function DataEditor() {
         const usersChanged = JSON.stringify(usersData) !== JSON.stringify(originalUsersData);
         const ccssChanged = JSON.stringify(ccssData) !== JSON.stringify(originalCcssData);
         setHasChanges(locationsChanged || sorteosChanged || usersChanged || ccssChanged);
-    }, [locationsData, sorteosData, usersData, ccssData, originalLocationsData, originalSorteosData, originalUsersData, originalCcssData]);const loadData = useCallback(async () => {
+    }, [locationsData, sorteosData, usersData, ccssData, originalLocationsData, originalSorteosData, originalUsersData, originalCcssData]);
+
+    const loadData = useCallback(async () => {
         try {
             // Cargar locations desde Firebase
-            const locations = await LocationsService.getAllLocations();            // Migrar datos del array names al array employees si es necesario
+            const locations = await LocationsService.getAllLocations();
+            
+            // Guardar todas las locaciones para el selector de scanhistory
+            setAllLocations(locations);
+            
+            // Migrar datos del array names al array employees si es necesario
             const migratedLocations = locations.map(location => {
                 // Si no tiene employees pero sí tiene names, migrar
                 if ((!location.employees || location.employees.length === 0) && location.names && location.names.length > 0) {
@@ -539,7 +547,16 @@ export default function DataEditor() {
         if (!user.permissions) {
             user.permissions = getDefaultPermissions(user.role || 'user');
         }
-        user.permissions[permission] = value;
+        
+        // Cast to handle scanhistoryLocations type safely
+        if (permission === 'scanhistoryLocations') return;
+        
+        (user.permissions as any)[permission] = value;
+        
+        // Si se está desactivando scanhistory, limpiar las locaciones
+        if (permission === 'scanhistory' && !value) {
+            user.permissions.scanhistoryLocations = [];
+        }
         
         // Actualizar estado local inmediatamente
         setUsersData(updated);
@@ -548,7 +565,14 @@ export default function DataEditor() {
         if (user.id) {
             try {
                 setSavingUser(userIndex);
-                await UsersService.updateUserPermissions(user.id, { [permission]: value });
+                const updateData: any = { [permission]: value };
+                
+                // Incluir limpieza de locaciones en la actualización si es necesario
+                if (permission === 'scanhistory' && !value) {
+                    updateData.scanhistoryLocations = [];
+                }
+                
+                await UsersService.updateUserPermissions(user.id, updateData);
                 
                 // Mostrar notificación de éxito
                 setNotification({ 
@@ -561,11 +585,67 @@ export default function DataEditor() {
                 console.error('Error updating user permission:', error);
                 
                 // Revertir cambio en caso de error
-                updated[userIndex].permissions![permission] = !value;
+                (updated[userIndex].permissions as any)![permission] = !value;
+                if (permission === 'scanhistory' && !value) {
+                    // Restaurar las locaciones si hubo error
+                    delete updated[userIndex].permissions!.scanhistoryLocations;
+                }
                 setUsersData([...updated]);
                 
                 setNotification({ 
                     message: `Error al actualizar el permiso "${getPermissionLabel(permission)}"`, 
+                    type: 'error' 
+                });
+                setTimeout(() => setNotification(null), 5000);
+            } finally {
+                setSavingUser(null);
+            }
+        }
+    };
+
+    // Función para manejar el cambio de locaciones en scanhistory
+    const updateUserScanhistoryLocation = async (userIndex: number, locationValue: string, isSelected: boolean) => {
+        const updated = [...usersData];
+        const user = updated[userIndex];
+        
+        if (!user.permissions) {
+            user.permissions = getDefaultPermissions(user.role || 'user');
+        }
+        
+        const currentLocations = user.permissions.scanhistoryLocations || [];
+        const newLocations = isSelected
+            ? [...currentLocations, locationValue]
+            : currentLocations.filter(loc => loc !== locationValue);
+        
+        user.permissions.scanhistoryLocations = newLocations;
+        
+        // Actualizar estado local inmediatamente
+        setUsersData(updated);
+        
+        // Guardar en base de datos si el usuario tiene ID
+        if (user.id) {
+            try {
+                setSavingUser(userIndex);
+                await UsersService.updateUserPermissions(user.id, { 
+                    scanhistoryLocations: newLocations 
+                });
+                
+                // Mostrar notificación de éxito
+                setNotification({ 
+                    message: `Locaciones actualizadas para ${user.name}`, 
+                    type: 'success' 
+                });
+                setTimeout(() => setNotification(null), 3000);
+                
+            } catch (error) {
+                console.error('Error updating user scanhistory locations:', error);
+                
+                // Revertir cambio en caso de error
+                updated[userIndex].permissions!.scanhistoryLocations = currentLocations;
+                setUsersData([...updated]);
+                
+                setNotification({ 
+                    message: `Error al actualizar las locaciones para ${user.name}`, 
                     type: 'error' 
                 });
                 setTimeout(() => setNotification(null), 5000);
@@ -637,9 +717,15 @@ export default function DataEditor() {
                 
                 const newPermissions: Partial<UserPermissions> = {};
                 permissionKeys.forEach(key => {
-                    updated[userIndex].permissions![key] = value;
-                    newPermissions[key] = value;
+                    (updated[userIndex].permissions as any)![key] = value;
+                    (newPermissions as any)[key] = value;
                 });
+                
+                // Si se están desactivando todos los permisos, limpiar las locaciones
+                if (!value) {
+                    updated[userIndex].permissions!.scanhistoryLocations = [];
+                    newPermissions.scanhistoryLocations = [];
+                }
                 
                 setUsersData(updated);
                 
@@ -758,7 +844,9 @@ export default function DataEditor() {
                 {showPermissions[index] ? (
                     // Vista detallada con checkboxes editables
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {Object.entries(userPermissions).map(([permission, hasAccess]) => (
+                        {Object.entries(userPermissions)
+                            .filter(([permission]) => permission !== 'scanhistoryLocations')
+                            .map(([permission, hasAccess]) => (
                             <div
                                 key={permission}
                                 className={`flex items-center gap-3 p-3 border-2 rounded-lg transition-all ${
@@ -770,7 +858,7 @@ export default function DataEditor() {
                                 <input
                                     type="checkbox"
                                     id={`${index}-${permission}`}
-                                    checked={hasAccess}
+                                    checked={Boolean(hasAccess)}
                                     disabled={isDisabled}
                                     onChange={(e) => updateUserPermission(index, permission as keyof UserPermissions, e.target.checked)}
                                     className="w-5 h-5 text-green-600 border-2 rounded focus:ring-green-500 focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -799,7 +887,9 @@ export default function DataEditor() {
                 ) : (
                     // Vista compacta con indicadores
                     <div className="flex flex-wrap gap-1">
-                        {Object.entries(userPermissions).map(([permission, hasAccess]) => (
+                        {Object.entries(userPermissions)
+                            .filter(([permission]) => permission !== 'scanhistoryLocations')
+                            .map(([permission, hasAccess]) => (
                             <label
                                 key={permission}
                                 className={`flex items-center gap-1 text-xs px-2 py-1 rounded cursor-pointer border transition-colors ${
@@ -810,7 +900,7 @@ export default function DataEditor() {
                             >
                                 <input
                                     type="checkbox"
-                                    checked={hasAccess}
+                                    checked={Boolean(hasAccess)}
                                     disabled={isDisabled}
                                     onChange={(e) => updateUserPermission(index, permission as keyof UserPermissions, e.target.checked)}
                                     className="w-3 h-3 disabled:opacity-50"
@@ -818,6 +908,42 @@ export default function DataEditor() {
                                 <span>{getPermissionLabel(permission)}</span>
                             </label>
                         ))}
+                    </div>
+                )}
+                
+                {/* Selector de locaciones para scanhistory */}
+                {userPermissions.scanhistory && (
+                    <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+                        <h4 className="font-medium mb-2" style={{ color: 'var(--foreground)' }}>
+                            Locaciones para Historial de Escaneos
+                        </h4>
+                        <p className="text-xs mb-3" style={{ color: 'var(--muted-foreground)' }}>
+                            Selecciona las locaciones específicas a las que este usuario tendrá acceso en el historial de escaneos.
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                            {allLocations.map((location) => (
+                                <label
+                                    key={location.value}
+                                    className="flex items-center gap-2 p-2 border border-gray-300 dark:border-gray-600 rounded cursor-pointer text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={userPermissions.scanhistoryLocations?.includes(location.value) || false}
+                                        disabled={isDisabled}
+                                        onChange={(e) => updateUserScanhistoryLocation(index, location.value, e.target.checked)}
+                                        className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50"
+                                    />
+                                    <span style={{ color: 'var(--foreground)' }}>{location.label}</span>
+                                </label>
+                            ))}
+                        </div>
+                        {userPermissions.scanhistoryLocations && userPermissions.scanhistoryLocations.length > 0 && (
+                            <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded">
+                                <p className="text-xs" style={{ color: 'var(--foreground)' }}>
+                                    <strong>Locaciones seleccionadas:</strong> {userPermissions.scanhistoryLocations.join(', ')}
+                                </p>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

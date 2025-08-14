@@ -27,6 +27,7 @@ export interface UserPermissions {
   supplierorders: boolean; // Órdenes Proveedor - Gestión de órdenes de proveedores
   mantenimiento: boolean;  // Mantenimiento - Nueva sección de mantenimiento
   scanhistory: boolean;    // Historial General de Escaneos - Ver historial completo de escaneos
+  scanhistoryLocations?: string[]; // Locaciones específicas para historial de escaneos
 }
 
 export interface User {

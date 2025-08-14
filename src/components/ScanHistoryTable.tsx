@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { History, Copy, Trash2, Search, Eye, Calendar, MapPin, RefreshCw, Image as ImageIcon, X, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useScanHistory, useScanImages } from '@/hooks/useScanHistory';
+import { useAuth } from '@/hooks/useAuth';
 import locations from '@/data/locations.json';
 
 export default function ScanHistoryTable() {
@@ -23,6 +24,9 @@ export default function ScanHistoryTable() {
     loadImagesForCode,
     clearImages
   } = useScanImages();
+
+  // Hook de autenticación para obtener el usuario actual
+  const { user } = useAuth();
 
   // Local state
   const [searchTerm, setSearchTerm] = useState('');
@@ -259,7 +263,7 @@ export default function ScanHistoryTable() {
     }
   }, [showImagesModal, showImageModal, handleCloseImageModal, handlePreviousImage, handleNextImage]);
 
-  // Filter history based on search term and location
+  // Filter history based on search term, location, and user permissions
   const filteredHistory = scanHistory.filter(entry => {
     const matchesSearch = entry.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (entry.productName && entry.productName.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -267,7 +271,30 @@ export default function ScanHistoryTable() {
 
     const matchesLocation = selectedLocation === 'all' || entry.location === selectedLocation;
 
-    return matchesSearch && matchesLocation;
+    // Filtrar por ubicaciones permitidas para el usuario
+    let matchesUserLocations = true;
+    if (user?.permissions?.scanhistory && user.permissions.scanhistoryLocations) {
+      // Si el usuario tiene locaciones específicas configuradas, filtrar por ellas
+      if (user.permissions.scanhistoryLocations.length > 0) {
+        matchesUserLocations = entry.location ? 
+          user.permissions.scanhistoryLocations.includes(entry.location) : false;
+      }
+      // Si no tiene locaciones específicas configuradas pero tiene permiso de scanhistory, puede ver todas
+    } else if (!user?.permissions?.scanhistory) {
+      // Si el usuario no tiene permiso de scanhistory, no puede ver nada
+      matchesUserLocations = false;
+    }
+
+    return matchesSearch && matchesLocation && matchesUserLocations;
+  });
+
+  // Filtrar las ubicaciones disponibles en el selector basado en los permisos del usuario
+  const availableLocations = locations.filter(location => {
+    if (!user?.permissions?.scanhistory) return false;
+    if (!user.permissions.scanhistoryLocations || user.permissions.scanhistoryLocations.length === 0) {
+      return true; // Puede ver todas las ubicaciones
+    }
+    return user.permissions.scanhistoryLocations.includes(location.value);
   });
 
   return (
@@ -282,12 +309,30 @@ export default function ScanHistoryTable() {
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <History className="w-6 h-6 text-blue-600" />
-          <h2 className="text-2xl font-bold text-[var(--foreground)]">Historial de Escaneos</h2>
+      {/* Verificar permisos del usuario */}
+      {!user?.permissions?.scanhistory ? (
+        <div className="text-center py-12">
+          <History className="w-16 h-16 text-[var(--muted-foreground)] mx-auto mb-4 opacity-50" />
+          <h3 className="text-lg font-medium text-[var(--foreground)] mb-2">
+            Sin permisos para ver el historial
+          </h3>
+          <p className="text-[var(--muted-foreground)]">
+            No tienes permisos para acceder al historial de escaneos. Contacta a tu administrador para obtener acceso.
+          </p>
         </div>
+      ) : (
+        <>
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <History className="w-6 h-6 text-blue-600" />
+              <h2 className="text-2xl font-bold text-[var(--foreground)]">Historial de Escaneos</h2>
+              {user.permissions.scanhistoryLocations && user.permissions.scanhistoryLocations.length > 0 && (
+                <span className="text-sm bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded">
+                  Limitado a: {user.permissions.scanhistoryLocations.join(', ')}
+                </span>
+              )}
+            </div>
 
         {scanHistory.length > 0 && (
           <div className="flex gap-2">
@@ -342,8 +387,8 @@ export default function ScanHistoryTable() {
                   onChange={(e) => setSelectedLocation(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] text-[var(--foreground)] focus:outline-none focus:border-blue-500"
                 >
-                  <option value="all">Todas las ubicaciones</option>
-                  {locations
+                  <option value="all">Todas las ubicaciones permitidas</option>
+                  {availableLocations
                     .filter(location => location.value !== 'DELIFOOD_TEST')
                     .map((location) => (
                       <option key={location.value} value={location.value}>
@@ -521,8 +566,10 @@ export default function ScanHistoryTable() {
             <p className="text-sm text-[var(--muted-foreground)] text-center">
               Mostrando escaneos de la base de datos Firebase • Filtrados por ubicación: {
                 selectedLocation === 'all'
-                  ? 'Todas las ubicaciones'
-                  : locations.find(loc => loc.value === selectedLocation)?.label || selectedLocation
+                  ? (user?.permissions?.scanhistoryLocations && user.permissions.scanhistoryLocations.length > 0 
+                     ? `Ubicaciones permitidas (${user.permissions.scanhistoryLocations.join(', ')})` 
+                     : 'Todas las ubicaciones')
+                  : availableLocations.find(loc => loc.value === selectedLocation)?.label || selectedLocation
               }
             </p>
           </div>
@@ -728,6 +775,8 @@ export default function ScanHistoryTable() {
             </button>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

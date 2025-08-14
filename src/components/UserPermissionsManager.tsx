@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { User, UserPermissions } from '../types/firestore';
+import { User, UserPermissions, Location } from '../types/firestore';
 import { UsersService } from '../services/users';
 import { getDefaultPermissions, getAllPermissions, getNoPermissions } from '../utils/permissions';
 
@@ -38,12 +38,14 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
   const [users, setUsers] = useState<User[]>([]);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [permissions, setPermissions] = useState<UserPermissions>(getNoPermissions());
+  const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
   useEffect(() => {
     loadUsers();
+    loadLocations();
   }, []);
 
   useEffect(() => {
@@ -69,16 +71,58 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
     }
   };
 
+  const loadLocations = async () => {
+    try {
+      // Load locations from the data file
+      const response = await fetch('/src/data/locations.json');
+      const locationsData = await response.json();
+      setLocations(locationsData);
+    } catch (error) {
+      console.error('Error loading locations:', error);
+      // Fallback locations if file can't be loaded
+      setLocations([
+        { label: 'PALMARES', value: 'PALMARES', names: [] },
+        { label: 'SINAI', value: 'SINAI', names: [] },
+        { label: 'SAN VITO', value: 'SAN VITO', names: [] },
+        { label: 'COOPABUENA', value: 'COOPABUENA', names: [] },
+        { label: 'DELIFOOD TEST', value: 'DELIFOOD_TEST', names: [] }
+      ]);
+    }
+  };
+
   const handleUserChange = (user: User) => {
     setSelectedUser(user);
     setPermissions(user.permissions || getDefaultPermissions(user.role));
   };
 
   const handlePermissionChange = (permission: keyof UserPermissions, value: boolean) => {
-    setPermissions(prev => ({
-      ...prev,
-      [permission]: value
-    }));
+    setPermissions(prev => {
+      const updated = {
+        ...prev,
+        [permission]: value
+      };
+      
+      // If scanhistory is being disabled, clear the locations
+      if (permission === 'scanhistory' && !value) {
+        updated.scanhistoryLocations = [];
+      }
+      
+      return updated;
+    });
+  };
+
+  const handleLocationChange = (locationValue: string, isSelected: boolean) => {
+    setPermissions(prev => {
+      const currentLocations = prev.scanhistoryLocations || [];
+      const newLocations = isSelected
+        ? [...currentLocations, locationValue]
+        : currentLocations.filter(loc => loc !== locationValue);
+      
+      return {
+        ...prev,
+        scanhistoryLocations: newLocations
+      };
+    });
   };
 
   const handleSave = async () => {
@@ -110,7 +154,10 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
   };
 
   const handleSelectAll = () => {
-    setPermissions(getAllPermissions());
+    const allPermissions = getAllPermissions();
+    // When selecting all, include all available locations for scanhistory
+    allPermissions.scanhistoryLocations = locations.map(loc => loc.value);
+    setPermissions(allPermissions);
   };
 
   const handleSelectNone = () => {
@@ -332,7 +379,7 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
                   <input
                     type="checkbox"
                     id={key}
-                    checked={permissions[key as keyof UserPermissions]}
+                    checked={Boolean(permissions[key as keyof typeof PERMISSION_LABELS])}
                     onChange={(e) => handlePermissionChange(key as keyof UserPermissions, e.target.checked)}
                     className="mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mt-1"
                   />
@@ -346,6 +393,40 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
               ))}
             </div>
           </div>
+
+          {/* Scan History Locations Selection */}
+          {permissions.scanhistory && (
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded">
+              <h3 className="font-semibold mb-4">Locaciones para Historial de Escaneos</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Selecciona las locaciones específicas a las que este usuario tendrá acceso en el historial de escaneos. 
+                Si no se selecciona ninguna, tendrá acceso a todas las locaciones.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {locations.map((location) => (
+                  <div key={location.value} className="flex items-center p-2 border border-gray-300 rounded">
+                    <input
+                      type="checkbox"
+                      id={`location-${location.value}`}
+                      checked={permissions.scanhistoryLocations?.includes(location.value) || false}
+                      onChange={(e) => handleLocationChange(location.value, e.target.checked)}
+                      className="mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor={`location-${location.value}`} className="text-sm cursor-pointer">
+                      {location.label}
+                    </label>
+                  </div>
+                ))}
+              </div>
+              {permissions.scanhistoryLocations && permissions.scanhistoryLocations.length > 0 && (
+                <div className="mt-3 p-2 bg-green-50 border border-green-200 rounded">
+                  <p className="text-sm text-green-700">
+                    <strong>Locaciones seleccionadas:</strong> {permissions.scanhistoryLocations.join(', ')}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Save Button */}
           <div className="flex justify-end">

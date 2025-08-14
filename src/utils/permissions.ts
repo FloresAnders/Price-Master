@@ -14,6 +14,7 @@ export const DEFAULT_PERMISSIONS: Record<string, UserPermissions> = {
     supplierorders: true,
     mantenimiento: true,
     scanhistory: true,
+    scanhistoryLocations: [],
   },
   admin: {
     scanner: true,
@@ -25,6 +26,7 @@ export const DEFAULT_PERMISSIONS: Record<string, UserPermissions> = {
     supplierorders: true,
     mantenimiento: false,
     scanhistory: true,
+    scanhistoryLocations: [],
   },
   user: {
     scanner: true,
@@ -36,6 +38,7 @@ export const DEFAULT_PERMISSIONS: Record<string, UserPermissions> = {
     supplierorders: false,
     mantenimiento: false,
     scanhistory: false,
+    scanhistoryLocations: [],
   },
 };
 
@@ -60,6 +63,7 @@ export function getAllPermissions(): UserPermissions {
     supplierorders: true,
     mantenimiento: true,
     scanhistory: true,
+    scanhistoryLocations: [],
   };
 }
 
@@ -77,6 +81,7 @@ export function getNoPermissions(): UserPermissions {
     supplierorders: false,
     mantenimiento: false,
     scanhistory: false,
+    scanhistoryLocations: [],
   };
 }
 
