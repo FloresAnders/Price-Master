@@ -8,6 +8,7 @@ import { useScanHistory, useScanImages } from '@/hooks/useScanHistory';
 import { useAuth } from '@/hooks/useAuth';
 import locations from '@/data/locations.json';
 import { hasPermission } from '../utils/permissions';
+import { generateShortMobileUrl } from '../utils/shortEncoder';
 
 export default function ScanHistoryTable() {
   /* Verificar permisos del usuario */
@@ -60,7 +61,9 @@ export default function ScanHistoryTable() {
   const generateQRCode = useCallback(async (sessionId: string, requestProductName: boolean) => {
     try {
       const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-      const mobileScanUrl = `${baseUrl}/mobile-scan?session=${sessionId}${requestProductName ? '&rpn=t' : ''}`;
+      
+      // Use short URL format only
+      const mobileScanUrl = generateShortMobileUrl(baseUrl, sessionId, requestProductName);
       
       const qrCodeDataUrl = await QRCode.toDataURL(mobileScanUrl, {
         width: 200,
@@ -281,7 +284,7 @@ export default function ScanHistoryTable() {
     }
   }, [codeImages, selectedImageIndex]);
 
-  // Keyboard navigation for image modal
+  // Keyboard navigation for image modal and mobile scanner modal
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (showImageModal) {
@@ -309,10 +312,17 @@ export default function ScanHistoryTable() {
             setShowImagesModal(false);
             break;
         }
+      } else if (showMobileScannerModal) {
+        switch (event.key) {
+          case 'Escape':
+            event.preventDefault();
+            setShowMobileScannerModal(false);
+            break;
+        }
       }
     };
 
-    if (showImagesModal || showImageModal) {
+    if (showImagesModal || showImageModal || showMobileScannerModal) {
       document.addEventListener('keydown', handleKeyDown);
       return () => {
         // Re-enable body scroll when modal is closed
@@ -322,7 +332,7 @@ export default function ScanHistoryTable() {
         document.removeEventListener('keydown', handleKeyDown);
       };
     }
-  }, [showImagesModal, showImageModal, handleCloseImageModal, handlePreviousImage, handleNextImage]);
+  }, [showImagesModal, showImageModal, showMobileScannerModal, handleCloseImageModal, handlePreviousImage, handleNextImage]);
 
   // Generate QR code when modal opens
   useEffect(() => {
@@ -1066,7 +1076,9 @@ export default function ScanHistoryTable() {
                   {/* Generate Mobile Scanner URL */}
                   {(() => {
                     const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-                    const mobileScanUrl = `${baseUrl}/mobile-scan?session=${currentSessionId}${requestProductNameModal ? '&rpn=t' : ''}`;
+                    
+                    // Use short URL format only
+                    const mobileScanUrl = generateShortMobileUrl(baseUrl, currentSessionId, requestProductNameModal);
                     
                     return (
                       <div className="space-y-4">

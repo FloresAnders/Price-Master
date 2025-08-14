@@ -47,9 +47,12 @@ export function useAuth() {
   const [loading, setLoading] = useState(true);
   const [sessionWarning, setSessionWarning] = useState(false);
 
-  // Función para generar ID de sesión único
+  // Función para generar ID de sesión único (short format)
   const generateSessionId = () => {
-    return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    // Generate a short session ID: timestamp base36 + random string
+    const timestamp = Date.now().toString(36); // Much shorter than decimal
+    const random = Math.random().toString(36).substr(2, 6); // 6 chars instead of 9
+    return `${timestamp}${random}`;
   };
 
   // Función para obtener información del navegador

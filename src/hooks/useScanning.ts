@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { ScanningService } from '../services/scanning';
 import type { ScanResult } from '../types/firestore';
 import { useAuth } from './useAuth';
+import { generateShortMobileUrl } from '../utils/shortEncoder';
 
 interface UseScanningOptions {
   autoMarkProcessed?: boolean;
@@ -132,10 +133,10 @@ export function useScanning(options: UseScanningOptions = {}) {
     }
   }, [markAsProcessed]);
 
-  // Get session URL for mobile scanning
-  const getMobileScanUrl = useCallback(() => {
+  // Get session URL for mobile scanning (short URL only)
+  const getMobileScanUrl = useCallback((requestProductName?: boolean) => {
     const baseUrl = window.location.origin;
-    return `${baseUrl}/mobile-scan?session=${currentSessionId.current}`;
+    return generateShortMobileUrl(baseUrl, currentSessionId.current, requestProductName);
   }, []);
 
   // Setup real-time listener

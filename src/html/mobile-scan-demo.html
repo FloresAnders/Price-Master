@@ -225,7 +225,10 @@
             }
 
             generateSessionId() {
-                return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                // Generate a short session ID: timestamp base36 + random string
+                const timestamp = Date.now().toString(36);
+                const random = Math.random().toString(36).substr(2, 6);
+                return `${timestamp}${random}`;
             }
 
             addScan(scan) {

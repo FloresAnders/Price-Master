@@ -458,9 +458,12 @@ export class ScanningService {
     }
 
     /**
-     * Generate a unique session ID for grouping scans
+     * Generate a unique session ID for grouping scans (short format)
      */
     static generateSessionId(): string {
-        return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        // Generate a short session ID: timestamp base36 + random string
+        const timestamp = Date.now().toString(36); // Much shorter than decimal
+        const random = Math.random().toString(36).substr(2, 6); // 6 chars instead of 9
+        return `${timestamp}${random}`;
     }
 }
