@@ -1,13 +1,12 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, Suspense, useRef } from 'react';
-import { QrCode, Smartphone, Check, AlertCircle, Wifi, WifiOff, Camera, Image as ImageIcon, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { QrCode, Smartphone, Check, AlertCircle, Wifi, WifiOff, Camera, Image as ImageIcon, X, ChevronLeft, ChevronRight, MapPin, FileText } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { ScanningService } from '../../services/scanning';
 import { useBarcodeScanner } from '../../hooks/useBarcodeScanner';
 import CameraScanner from '../../components/CameraScanner';
-import ImageDropArea from '../../components/ImageDropArea';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { SessionSyncService, type SessionStatus } from '../../services/session-sync';
 import { storage } from '../../config/firebase';
@@ -23,7 +22,7 @@ function MobileScanContent() {
   const locationsParam = searchParams.get('locations');
 
   const [code, setCode] = useState('');
-  const [lastScanned, setLastScanned] = useState<{code: string, productName?: string, location?: string, hasImages?: boolean}[]>([]);
+  const [lastScanned, setLastScanned] = useState<{ code: string, productName?: string, location?: string, hasImages?: boolean }[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(true);
@@ -32,7 +31,7 @@ function MobileScanContent() {
   const [showNameModal, setShowNameModal] = useState(false);
   const [pendingCode, setPendingCode] = useState<string>(''); const [productName, setProductName] = useState('');
   const [uploadedImagesCount, setUploadedImagesCount] = useState(0);
-  
+
   // Estado para ubicaciones
   const [availableLocations, setAvailableLocations] = useState<string[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<string>('');
@@ -44,7 +43,7 @@ function MobileScanContent() {
   const [codeImages, setCodeImages] = useState<string[]>([]);
   const [loadingImages, setLoadingImages] = useState(false);
   const [imageLoadError, setImageLoadError] = useState<string | null>(null);
-  
+
   // Estados para modal de imagen individual
   const [showImageModal, setShowImageModal] = useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState<string>('');
@@ -63,10 +62,6 @@ function MobileScanContent() {
     toggleCamera, handleClear: clearScanner,
     handleCopyCode,
     detectionMethod,
-    fileInputRef,
-    handleFileUpload,
-    handleDrop,
-    handleDropAreaClick,
   } = useBarcodeScanner((detectedCode) => {
     submitCode(detectedCode);
   });// Check if we're on the client side
@@ -203,20 +198,20 @@ function MobileScanContent() {
   const loadImagesForCode = useCallback(async (barcodeCode: string) => {
     setLoadingImages(true);
     setImageLoadError(null);
-    
+
     try {
       // Reference to the barcode-images folder
       const storageRef = ref(storage, 'barcode-images/');
-      
+
       // List all files in the barcode-images folder
       const result = await listAll(storageRef);
-      
+
       // Filter files that match the barcode pattern
       const matchingFiles = result.items.filter(item => {
         const fileName = item.name;
         // Match exact code name or code with numbers in parentheses
-        return fileName === `${barcodeCode}.jpg` || 
-               fileName.match(new RegExp(`^${barcodeCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\(\\d+\\)\\.jpg$`));
+        return fileName === `${barcodeCode}.jpg` ||
+          fileName.match(new RegExp(`^${barcodeCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\(\\d+\\)\\.jpg$`));
       });
 
       // Get download URLs for matching files
@@ -233,13 +228,13 @@ function MobileScanContent() {
 
       // Filter out any failed downloads
       const validUrls = imageUrls.filter(url => url !== null) as string[];
-      
+
       setCodeImages(validUrls);
-      
+
       if (validUrls.length === 0) {
         setImageLoadError('No se encontraron imágenes para este código');
       }
-      
+
     } catch (error) {
       console.error('Error loading images:', error);
       setImageLoadError('Error al cargar las imágenes');
@@ -261,13 +256,13 @@ function MobileScanContent() {
     try {
       const storageRef = ref(storage, 'barcode-images/');
       const result = await listAll(storageRef);
-      
+
       const hasImages = result.items.some(item => {
         const fileName = item.name;
-        return fileName === `${barcodeCode}.jpg` || 
-               fileName.match(new RegExp(`^${barcodeCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\(\\d+\\)\\.jpg$`));
+        return fileName === `${barcodeCode}.jpg` ||
+          fileName.match(new RegExp(`^${barcodeCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\(\\d+\\)\\.jpg$`));
       });
-      
+
       return hasImages;
     } catch (error) {
       console.error('Error checking if code has images:', error);
@@ -339,7 +334,7 @@ function MobileScanContent() {
     };
 
     window.addEventListener('keydown', handleKeyPress);
-    
+
     return () => {
       // Re-enable body scroll when modal is closed
       document.body.style.overflow = 'unset';
@@ -385,11 +380,11 @@ function MobileScanContent() {
 
         try {
           setError(null);
-          
+
           // Generate filename with consecutive number
           const baseFileName = codeToUse.trim();
-          const fileName = uploadedImagesCount === 0 
-            ? `${baseFileName}.jpg` 
+          const fileName = uploadedImagesCount === 0
+            ? `${baseFileName}.jpg`
             : `${baseFileName}(${uploadedImagesCount + 1}).jpg`;
 
           // Create Firebase storage reference
@@ -397,14 +392,14 @@ function MobileScanContent() {
 
           // Upload file to Firebase Storage
           await uploadBytes(storageRef, file);
-          
+
           // Get download URL (optional, for verification)
           const downloadURL = await getDownloadURL(storageRef);
           console.log('Imagen subida exitosamente:', downloadURL);
 
           // Update images count
           setUploadedImagesCount(prev => prev + 1);
-          
+
           setSuccess(`Imagen ${uploadedImagesCount + 1} subida correctamente`);
           setTimeout(() => setSuccess(null), 2000);
 
@@ -423,7 +418,7 @@ function MobileScanContent() {
     }
   }, [pendingCode, code, uploadedImagesCount]);
 
-// Submit scanned code
+  // Submit scanned code
   const submitCode = useCallback(async (scannedCode: string, nameForProduct?: string) => {
     if (!scannedCode.trim()) {
       setError('Código vacío');
@@ -483,7 +478,7 @@ function MobileScanContent() {
         });
         localStorage.setItem('mobile-scans', JSON.stringify(mobileScans));
       }
-      
+
       // Create success message including location if present
       let message = `Código ${scannedCode}`;
       if (nameForProduct?.trim()) {
@@ -493,9 +488,9 @@ function MobileScanContent() {
         message += ` [${selectedLocation}]`;
       }
       message += ' enviado correctamente';
-      
+
       setSuccess(message);
-      
+
       // Check if code has images and update lastScanned
       const hasImages = await checkCodeHasImages(scannedCode);
       setLastScanned(prev => [...prev.slice(-4), {
@@ -622,7 +617,7 @@ function MobileScanContent() {
       );
 
       // Only update if there are changes
-      const hasChanges = updatedScans.some((scan, index) => 
+      const hasChanges = updatedScans.some((scan, index) =>
         scan.hasImages !== lastScanned[index]?.hasImages
       );
 
@@ -697,29 +692,30 @@ function MobileScanContent() {
               )}
             </div>
           )}
-        </div></div>      {/* Session Info */}
+        </div></div>      {/* Connection Status */}
       {sessionId && (
-        <div className="bg-blue-100 dark:bg-blue-900/50 rounded-lg p-3 mb-4">
-          <div className="text-sm text-blue-800 dark:text-blue-300">Sesión: {sessionId}</div>
-        </div>
-      )}      {/* Alerta de conexión PC */}
-      {sessionId && connectionStatus === 'disconnected' && (
-        <div className="bg-orange-100 dark:bg-orange-900/50 border border-orange-300 dark:border-orange-600 rounded-lg p-3 mb-4 flex items-center gap-2">
-          <AlertCircle className="w-5 h-5 text-orange-600 dark:text-orange-400" />
-          <div className="text-orange-800 dark:text-orange-200">
-            <div className="font-medium">
-              {connectedDeviceType === 'desktop' && '🖥️ Escritorio'}
-              {connectedDeviceType === 'laptop' && '💻 Laptop'}
-              {connectedDeviceType === 'pc' && '🖥️ PC'}
-              {!connectedDeviceType && '🖥️ Dispositivo'} no está conectado
-            </div>
-            <div className="text-sm text-orange-700 dark:text-orange-300">
-              Asegúrate de que la página del {
-                connectedDeviceType === 'desktop' ? 'escritorio' :
-                  connectedDeviceType === 'laptop' ? 'laptop' :
-                    connectedDeviceType === 'pc' ? 'PC' : 'dispositivo'
-              } esté abierta con esta sesión activa
-            </div>
+        <div className={`rounded-lg p-3 mb-4 flex items-center gap-2 ${connectionStatus === 'connected'
+          ? 'bg-green-100 dark:bg-green-900/50 border border-green-300 dark:border-green-600'
+          : connectionStatus === 'disconnected'
+            ? 'bg-orange-100 dark:bg-orange-900/50 border border-orange-300 dark:border-orange-600'
+            : 'bg-blue-100 dark:bg-blue-900/50 border border-blue-300 dark:border-blue-600'
+          }`}>
+          {connectionStatus === 'connected' ? (
+            <Wifi className="w-5 h-5 text-green-600 dark:text-green-400" />
+          ) : connectionStatus === 'disconnected' ? (
+            <WifiOff className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+          ) : (
+            <AlertCircle className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+          )}
+          <div className={`text-sm font-medium ${connectionStatus === 'connected'
+            ? 'text-green-800 dark:text-green-200'
+            : connectionStatus === 'disconnected'
+              ? 'text-orange-800 dark:text-orange-200'
+              : 'text-blue-800 dark:text-blue-200'
+            }`}>
+            {connectionStatus === 'connected' && '🖥️ ESCRITORIO Conectado'}
+            {connectionStatus === 'disconnected' && '🖥️ ESCRITORIO Desconectado'}
+            {connectionStatus === 'checking' && '🖥️ Verificando conexión...'}
           </div>
         </div>
       )}{/* Status Messages */}
@@ -735,74 +731,55 @@ function MobileScanContent() {
           <Check className="w-5 h-5 text-green-600 dark:text-green-400" />
           <span className="text-green-800 dark:text-green-200">{success}</span>
         </div>
-      )}      {/* Product Name Configuration Status - Set by PC */}
+      )}      {/* Configuration Summary */}
       <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 mb-4 border border-blue-200 dark:border-blue-800">
-        <div className="flex items-center gap-3 mb-2">
-          <div className={`w-4 h-4 rounded-full ${requestProductName ? 'bg-blue-500' : 'bg-gray-400'}`}></div>
-          <h4 className="font-medium text-blue-800 dark:text-blue-200">
-            {requestProductName ? '📝 Solicitar nombres de productos' : '📄 Solo códigos de barras'}
-          </h4>
-        </div>        <p className="text-sm text-blue-600 dark:text-blue-400 ml-7">
-          Esta configuración fue establecida desde la PC donde se generó el QR.
-          {requestProductName
-            ? " Se te pedirá ingresar un nombre REQUERIDO para cada código escaneado."
-            : " Solo se enviarán los códigos de barras sin solicitar nombres."
-          }
-        </p>
-      </div>
-
-      {/* Location Configuration Status - Set by PC */}
-      {availableLocations.length > 0 && (
-        <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4 mb-4 border border-purple-200 dark:border-purple-800">
-          <div className="flex items-center gap-3 mb-2">
-            <div className={`w-4 h-4 rounded-full ${selectedLocation ? 'bg-purple-500' : 'bg-gray-400'}`}></div>
-            <h4 className="font-medium text-purple-800 dark:text-purple-200">
-              📍 Ubicaciones Configuradas
-            </h4>
-          </div>
-
-          <div className="ml-7 space-y-2">
-            <p className="text-sm text-purple-600 dark:text-purple-400">
-              Se configuraron {availableLocations.length} ubicación(es) desde la PC.
-            </p>
-            
-            {availableLocations.length === 1 ? (
-              <p className="text-sm text-purple-600 dark:text-purple-400">
-                <strong>Ubicación seleccionada automáticamente:</strong> {selectedLocation}
-              </p>
-            ) : (
-              <div className="space-y-2">
-                <p className="text-sm text-purple-600 dark:text-purple-400">
-                  <strong>Ubicaciones disponibles:</strong> {availableLocations.join(', ')}
-                </p>
-                {selectedLocation ? (
-                  <p className="text-sm text-purple-600 dark:text-purple-400">
-                    <strong>Ubicación actual:</strong> {selectedLocation}
-                  </p>
-                ) : (
-                  <div className="mt-2">
-                    <label className="block text-sm font-medium text-purple-700 dark:text-purple-300 mb-1">
-                      Selecciona una ubicación:
-                    </label>
-                    <select
-                      value={selectedLocation}
-                      onChange={(e) => setSelectedLocation(e.target.value)}
-                      className="w-full bg-input-bg border border-input-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:border-purple-500 text-sm"
-                    >
-                      <option value="">-- Seleccionar ubicación --</option>
-                      {availableLocations.map((location) => (
-                        <option key={location} value={location}>
-                          {location}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+        <div className="space-y-3">
+          {/* Location Info */}
+          {availableLocations.length > 0 && (
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1">
+                <MapPin className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <span className="text-blue-800 dark:text-blue-200 font-medium">Ubicación:</span>
               </div>
-            )}
-          </div>
+              <span className="text-blue-600 dark:text-blue-400 font-medium">
+                {selectedLocation || 'Sin seleccionar'}
+              </span>
+            </div>
+          )}
+
+          {/* Product Name Request Info */}
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1">
+                <FileText className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <span className="text-blue-800 dark:text-blue-200 font-medium">Nombres:</span>
+              </div>
+              <span className="text-blue-600 dark:text-blue-400 font-medium">
+                {requestProductName ? 'Se solicitan nombres' : 'Solo códigos'}
+              </span>
+            </div>
         </div>
-      )}
+
+        {/* Location Selector for multiple locations */}
+        {availableLocations.length > 1 && !selectedLocation && (
+          <div className="mt-3 pt-3 border-t border-blue-200 dark:border-blue-700">
+            <label className="block text-sm font-medium text-blue-700 dark:text-blue-300 mb-1">
+              Selecciona una ubicación:
+            </label>
+            <select
+              value={selectedLocation}
+              onChange={(e) => setSelectedLocation(e.target.value)}
+              className="w-full bg-input-bg border border-input-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:border-blue-500 text-sm"
+            >
+              <option value="">-- Seleccionar ubicación --</option>
+              {availableLocations.map((location) => (
+                <option key={location} value={location}>
+                  {location}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
 
       {/* Camera Section */}
       <div className="mb-6">
@@ -839,36 +816,36 @@ function MobileScanContent() {
           )}        </div>
       </div>
 
-      {/* Image Upload Section */}
+      {/* Image Upload Section 
       <div className="mb-6">
         <div className="bg-card-bg rounded-lg p-4">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold">Subir Imagen de Código</h2>
           </div>
 
-          {/* Usar ImageDropArea component */}
-          {isClient && (
-            <ImageDropArea
-              onDrop={handleDrop}
-              onFileSelect={handleDropAreaClick}
-              fileInputRef={fileInputRef}
-              onFileUpload={handleFileUpload}
-            />
-          )}
+          {/* Usar ImageDropArea component 
+      {isClient && (
+        <ImageDropArea
+          onDrop={handleDrop}
+          onFileSelect={handleDropAreaClick}
+          fileInputRef={fileInputRef}
+          onFileUpload={handleFileUpload}
+        />
+      )}
 
-          {/* Show loading message on server-side */}
-          {!isClient && (
-            <div className="relative bg-input-bg rounded-lg p-8">
-              <div className="text-center">
-                <div className="w-16 h-16 bg-input-bg rounded-lg mx-auto mb-2 flex items-center justify-center">
-                  <QrCode className="w-8 h-8 text-gray-500 dark:text-gray-400" />
-                </div>
-                <p className="text-gray-600 dark:text-gray-400">Cargando área de carga...</p>
-              </div>
+      {/* Show loading message on server-side 
+      {!isClient && (
+        <div className="relative bg-input-bg rounded-lg p-8">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-input-bg rounded-lg mx-auto mb-2 flex items-center justify-center">
+              <QrCode className="w-8 h-8 text-gray-500 dark:text-gray-400" />
             </div>
-          )}
+            <p className="text-gray-600 dark:text-gray-400">Cargando área de carga...</p>
+          </div>
         </div>
-      </div>
+      )}
+    </div>
+      </div >*/}
 
       {/* Manual Input Section */}
       <div className="bg-card-bg rounded-lg p-4 mb-6">
@@ -893,317 +870,327 @@ function MobileScanContent() {
           </button>
         </form>
       </div>      {/* Recently Scanned */}
-      {lastScanned.length > 0 && (
-        <div className="bg-card-bg rounded-lg p-4">
-          <h2 className="text-lg font-semibold mb-3">Códigos Enviados Recientemente</h2>
-          <div className="space-y-2">
-            {lastScanned.slice().reverse().map((scan, index) => (
-              <div key={index} className="bg-input-bg rounded px-3 py-2 flex items-center gap-2">
-                <Check className="w-4 h-4 text-green-500 dark:text-green-400" />
-                <div className="flex flex-col flex-1 min-w-0">
-                  <span className="font-mono text-sm">{scan.code}</span>
-                  {scan.productName && (
-                    <span className="text-xs text-blue-600 dark:text-blue-400 truncate">
-                      📝 {scan.productName}
-                    </span>
+      {
+        lastScanned.length > 0 && (
+          <div className="bg-card-bg rounded-lg p-4">
+            <h2 className="text-lg font-semibold mb-3">Códigos Enviados Recientemente</h2>
+            <div className="space-y-2">
+              {lastScanned.slice().reverse().map((scan, index) => (
+                <div key={index} className="bg-input-bg rounded px-3 py-2 flex items-center gap-2">
+                  <Check className="w-4 h-4 text-green-500 dark:text-green-400" />
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <span className="font-mono text-sm">{scan.code}</span>
+                    {scan.productName && (
+                      <span className="text-xs text-blue-600 dark:text-blue-400 truncate">
+                        📝 {scan.productName}
+                      </span>
+                    )}
+                  </div>
+                  {/* Image icon - only show if code has images */}
+                  {scan.hasImages && (
+                    <button
+                      onClick={() => handleShowImages(scan.code)}
+                      className="p-1 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+                      title="Ver imágenes"
+                    >
+                      <ImageIcon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    </button>
                   )}
                 </div>
-                {/* Image icon - only show if code has images */}
-                {scan.hasImages && (
-                  <button
-                    onClick={() => handleShowImages(scan.code)}
-                    className="p-1 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
-                    title="Ver imágenes"
-                  >
-                    <ImageIcon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>        </div>
-      )}
+              ))}
+            </div>        </div>
+        )
+      }
 
       {/* Location Selection Modal */}
-      {showLocationModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-card-bg rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4 text-foreground">
-              📍 Seleccionar Ubicación
-            </h3>
-            <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">
-              Código: <span className="font-mono bg-input-bg px-2 py-1 rounded">{pendingCode}</span>
-            </p>
+      {
+        showLocationModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-card-bg rounded-lg p-6 w-full max-w-md">
+              <h3 className="text-lg font-semibold mb-4 text-foreground">
+                📍 Seleccionar Ubicación
+              </h3>
+              <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">
+                Código: <span className="font-mono bg-input-bg px-2 py-1 rounded">{pendingCode}</span>
+              </p>
 
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-foreground mb-2">
-                Selecciona la ubicación para este escaneo:
-              </label>
-              <select
-                value={selectedLocation}
-                onChange={(e) => setSelectedLocation(e.target.value)}
-                className="w-full bg-input-bg border border-input-border rounded-lg px-4 py-3 text-foreground focus:outline-none focus:border-purple-500"
-                autoFocus
-              >
-                <option value="">-- Seleccionar ubicación --</option>
-                {availableLocations.map((location) => (
-                  <option key={location} value={location}>
-                    {location}
-                  </option>
-                ))}
-              </select>
-            </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Selecciona la ubicación para este escaneo:
+                </label>
+                <select
+                  value={selectedLocation}
+                  onChange={(e) => setSelectedLocation(e.target.value)}
+                  className="w-full bg-input-bg border border-input-border rounded-lg px-4 py-3 text-foreground focus:outline-none focus:border-purple-500"
+                  autoFocus
+                >
+                  <option value="">-- Seleccionar ubicación --</option>
+                  {availableLocations.map((location) => (
+                    <option key={location} value={location}>
+                      {location}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            <div className="flex gap-3">
-              <button
-                onClick={handleLocationCancel}
-                className="flex-1 bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 px-4 py-2 rounded-lg text-white font-medium"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleLocationSubmit}
-                disabled={!selectedLocation}
-                className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed px-4 py-2 rounded-lg text-white font-medium"
-              >
-                Enviar
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleLocationCancel}
+                  className="flex-1 bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 px-4 py-2 rounded-lg text-white font-medium"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleLocationSubmit}
+                  disabled={!selectedLocation}
+                  className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed px-4 py-2 rounded-lg text-white font-medium"
+                >
+                  Enviar
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Product Name Modal */}
-      {showNameModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-card-bg rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4 text-foreground">
-              {requestProductName ? 'Nombre del Producto (Requerido)' : 'Nombre del Producto (Opcional)'}
-            </h3>
-            <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">
-              Código: <span className="font-mono bg-input-bg px-2 py-1 rounded">{pendingCode}</span>
-            </p>
-
-            <input
-              type="text"
-              value={productName}
-              onChange={(e) => setProductName(e.target.value)}
-              placeholder={requestProductName ? "Ingresa el nombre del producto (requerido)" : "Ingresa el nombre del producto (opcional)"}
-              className="w-full bg-input-bg border border-input-border rounded-lg px-4 py-3 text-foreground placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500 mb-4"
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && (!requestProductName || productName.trim())) {
-                  handleNameSubmit();
-                } else if (e.key === 'Escape') {
-                  handleNameCancel();
-                }
-              }}
-            />
-
-            {/* Camera Capture Button */}
-            <button
-              type="button"
-              onClick={handleCameraCapture}
-              disabled={!isOnline}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed px-4 py-3 rounded-lg text-white font-semibold flex items-center justify-center gap-2 mb-4"
-            >
-              <Camera className="w-4 h-4" />
-              Agregar Imagen
-            </button>
-
-            {/* Images count display */}
-            {uploadedImagesCount > 0 && (
-              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 border border-blue-200 dark:border-blue-800 mb-4">
-                <div className="flex items-center gap-2">
-                  <Camera className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                  <span className="text-blue-800 dark:text-blue-200 text-sm">
-                    Se {uploadedImagesCount === 1 ? 'agregó' : 'agregaron'} {uploadedImagesCount} imagen{uploadedImagesCount > 1 ? 'es' : ''}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            <div className="flex gap-3">
-              <button
-                onClick={handleNameCancel}
-                className="flex-1 bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 px-4 py-2 rounded-lg text-white font-medium"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleNameSubmit}
-                disabled={requestProductName && !productName.trim()}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed px-4 py-2 rounded-lg text-white font-medium"
-              >
-                Continuar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Images Modal */}
-      {showImagesModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-95 flex items-center justify-center p-4 z-50">
-          <div className="bg-card-bg rounded-lg w-full h-full max-w-none max-h-none overflow-hidden flex flex-col">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-600 flex-shrink-0">
-              <h3 className="text-xl font-semibold text-foreground">
-                📷 Imágenes del Código
+      {
+        showNameModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-card-bg rounded-lg p-6 w-full max-w-md">
+              <h3 className="text-lg font-semibold mb-4 text-foreground">
+                {requestProductName ? 'Nombre del Producto (Requerido)' : 'Nombre del Producto (Opcional)'}
               </h3>
-              <button
-                onClick={handleCloseImagesModal}
-                className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                aria-label="Cerrar modal"
-              >
-                <X className="w-6 h-6 text-gray-500 dark:text-gray-400" />
-              </button>
-            </div>
-
-            {/* Current Code Display */}
-            <div className="px-6 py-3 border-b border-gray-200 dark:border-gray-600 flex-shrink-0">
-              <p className="text-gray-600 dark:text-gray-300 text-sm">
-                Código: <span className="font-mono bg-input-bg px-3 py-1 rounded text-base">{currentImageCode}</span>
+              <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">
+                Código: <span className="font-mono bg-input-bg px-2 py-1 rounded">{pendingCode}</span>
               </p>
-            </div>
 
-            {/* Modal Content */}
-            <div className="flex-1 overflow-auto p-6">
-              {loadingImages ? (
-                <div className="flex items-center justify-center h-full">
-                  <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                    <span className="text-lg text-gray-600 dark:text-gray-300">Cargando imágenes...</span>
-                  </div>
-                </div>
-              ) : imageLoadError ? (
-                <div className="flex items-center justify-center h-full">
-                  <div className="text-center">
-                    <AlertCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <p className="text-lg text-gray-600 dark:text-gray-300">{imageLoadError}</p>
-                  </div>
-                </div>
-              ) : codeImages.length > 0 ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 h-fit">
-                  {codeImages.map((imageUrl, index) => (
-                    <div key={index} className="relative group">
-                      <Image
-                        src={imageUrl}
-                        alt={`Imagen ${index + 1} del código ${currentImageCode}`}
-                        width={400}
-                        height={300}
-                        className="w-full h-auto max-h-96 object-contain rounded-lg border border-gray-200 dark:border-gray-600 shadow-lg transition-transform group-hover:scale-105 cursor-pointer"
-                        onClick={() => handleOpenImageModal(imageUrl, index)}
-                        title="Clic para ver en pantalla completa"
-                        onError={(e) => {
-                          console.error(`Error loading image ${index + 1}:`, e);
-                          (e.target as HTMLImageElement).style.display = 'none';
-                        }}
-                      />
-                      <div className="absolute top-3 left-3 bg-black bg-opacity-80 text-white px-3 py-1 rounded-full text-sm font-medium">
-                        {index + 1}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex items-center justify-center h-full">
-                  <div className="text-center">
-                    <ImageIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <p className="text-lg text-gray-600 dark:text-gray-300">No hay imágenes disponibles</p>
+              <input
+                type="text"
+                value={productName}
+                onChange={(e) => setProductName(e.target.value)}
+                placeholder={requestProductName ? "Ingresa el nombre del producto (requerido)" : "Ingresa el nombre del producto (opcional)"}
+                className="w-full bg-input-bg border border-input-border rounded-lg px-4 py-3 text-foreground placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500 mb-4"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (!requestProductName || productName.trim())) {
+                    handleNameSubmit();
+                  } else if (e.key === 'Escape') {
+                    handleNameCancel();
+                  }
+                }}
+              />
+
+              {/* Camera Capture Button */}
+              <button
+                type="button"
+                onClick={handleCameraCapture}
+                disabled={!isOnline}
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed px-4 py-3 rounded-lg text-white font-semibold flex items-center justify-center gap-2 mb-4"
+              >
+                <Camera className="w-4 h-4" />
+                Agregar Imagen
+              </button>
+
+              {/* Images count display */}
+              {uploadedImagesCount > 0 && (
+                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 border border-blue-200 dark:border-blue-800 mb-4">
+                  <div className="flex items-center gap-2">
+                    <Camera className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    <span className="text-blue-800 dark:text-blue-200 text-sm">
+                      Se {uploadedImagesCount === 1 ? 'agregó' : 'agregaron'} {uploadedImagesCount} imagen{uploadedImagesCount > 1 ? 'es' : ''}
+                    </span>
                   </div>
                 </div>
               )}
-            </div>
 
-            {/* Modal Footer */}
-            <div className="p-6 border-t border-gray-200 dark:border-gray-600 flex-shrink-0">
-              <button
-                onClick={handleCloseImagesModal}
-                className="w-full bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 px-6 py-3 rounded-lg text-white font-medium text-lg transition-colors"
-              >
-                Cerrar
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleNameCancel}
+                  className="flex-1 bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 px-4 py-2 rounded-lg text-white font-medium"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleNameSubmit}
+                  disabled={requestProductName && !productName.trim()}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed px-4 py-2 rounded-lg text-white font-medium"
+                >
+                  Continuar
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
+
+      {/* Images Modal */}
+      {
+        showImagesModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-95 flex items-center justify-center p-4 z-50">
+            <div className="bg-card-bg rounded-lg w-full h-full max-w-none max-h-none overflow-hidden flex flex-col">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-600 flex-shrink-0">
+                <h3 className="text-xl font-semibold text-foreground">
+                  📷 Imágenes del Código
+                </h3>
+                <button
+                  onClick={handleCloseImagesModal}
+                  className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                  aria-label="Cerrar modal"
+                >
+                  <X className="w-6 h-6 text-gray-500 dark:text-gray-400" />
+                </button>
+              </div>
+
+              {/* Current Code Display */}
+              <div className="px-6 py-3 border-b border-gray-200 dark:border-gray-600 flex-shrink-0">
+                <p className="text-gray-600 dark:text-gray-300 text-sm">
+                  Código: <span className="font-mono bg-input-bg px-3 py-1 rounded text-base">{currentImageCode}</span>
+                </p>
+              </div>
+
+              {/* Modal Content */}
+              <div className="flex-1 overflow-auto p-6">
+                {loadingImages ? (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                      <span className="text-lg text-gray-600 dark:text-gray-300">Cargando imágenes...</span>
+                    </div>
+                  </div>
+                ) : imageLoadError ? (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center">
+                      <AlertCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                      <p className="text-lg text-gray-600 dark:text-gray-300">{imageLoadError}</p>
+                    </div>
+                  </div>
+                ) : codeImages.length > 0 ? (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 h-fit">
+                    {codeImages.map((imageUrl, index) => (
+                      <div key={index} className="relative group">
+                        <Image
+                          src={imageUrl}
+                          alt={`Imagen ${index + 1} del código ${currentImageCode}`}
+                          width={400}
+                          height={300}
+                          className="w-full h-auto max-h-96 object-contain rounded-lg border border-gray-200 dark:border-gray-600 shadow-lg transition-transform group-hover:scale-105 cursor-pointer"
+                          onClick={() => handleOpenImageModal(imageUrl, index)}
+                          title="Clic para ver en pantalla completa"
+                          onError={(e) => {
+                            console.error(`Error loading image ${index + 1}:`, e);
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                        <div className="absolute top-3 left-3 bg-black bg-opacity-80 text-white px-3 py-1 rounded-full text-sm font-medium">
+                          {index + 1}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center">
+                      <ImageIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                      <p className="text-lg text-gray-600 dark:text-gray-300">No hay imágenes disponibles</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-6 border-t border-gray-200 dark:border-gray-600 flex-shrink-0">
+                <button
+                  onClick={handleCloseImagesModal}
+                  className="w-full bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 px-6 py-3 rounded-lg text-white font-medium text-lg transition-colors"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      }
 
       {/* Individual Image Modal - 90% Screen */}
-      {showImageModal && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-95 flex items-center justify-center p-4 z-[9999]"
-          style={{ 
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            zIndex: 9999,
-            isolation: 'isolate'
-          }}
-        >
-          <div className="relative w-[90%] h-[90%] flex items-center justify-center">
-            {/* Close Button */}
-            <button
-              onClick={handleCloseImageModal}
-              className="absolute top-4 right-4 z-10 p-3 rounded-full bg-black bg-opacity-70 hover:bg-opacity-90 transition-all duration-200"
-            >
-              <X className="w-6 h-6 text-white" />
-            </button>
+      {
+        showImageModal && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-95 flex items-center justify-center p-4 z-[9999]"
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 9999,
+              isolation: 'isolate'
+            }}
+          >
+            <div className="relative w-[90%] h-[90%] flex items-center justify-center">
+              {/* Close Button */}
+              <button
+                onClick={handleCloseImageModal}
+                className="absolute top-4 right-4 z-10 p-3 rounded-full bg-black bg-opacity-70 hover:bg-opacity-90 transition-all duration-200"
+              >
+                <X className="w-6 h-6 text-white" />
+              </button>
 
-            {/* Image Counter */}
-            {codeImages.length > 1 && (
-              <div className="absolute top-4 left-4 z-10 px-4 py-2 rounded-full bg-black bg-opacity-70 text-white text-sm font-medium">
-                {selectedImageIndex + 1} de {codeImages.length}
+              {/* Image Counter */}
+              {codeImages.length > 1 && (
+                <div className="absolute top-4 left-4 z-10 px-4 py-2 rounded-full bg-black bg-opacity-70 text-white text-sm font-medium">
+                  {selectedImageIndex + 1} de {codeImages.length}
+                </div>
+              )}
+
+              {/* Previous Button */}
+              {codeImages.length > 1 && (
+                <button
+                  onClick={handlePreviousImage}
+                  className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10 p-3 rounded-full bg-black bg-opacity-70 hover:bg-opacity-90 transition-all duration-200"
+                >
+                  <ChevronLeft className="w-6 h-6 text-white" />
+                </button>
+              )}
+
+              {/* Next Button */}
+              {codeImages.length > 1 && (
+                <button
+                  onClick={handleNextImage}
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 z-10 p-3 rounded-full bg-black bg-opacity-70 hover:bg-opacity-90 transition-all duration-200"
+                >
+                  <ChevronRight className="w-6 h-6 text-white" />
+                </button>
+              )}
+
+              {/* Main Image */}
+              <Image
+                src={selectedImageUrl}
+                alt={`Imagen ${selectedImageIndex + 1} del código ${currentImageCode}`}
+                width={1200}
+                height={800}
+                className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                onError={(e) => {
+                  console.error(`Error loading selected image:`, e);
+                }}
+              />
+
+              {/* Image Info */}
+              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10 px-4 py-2 rounded-full bg-black bg-opacity-70 text-white text-sm">
+                Código: {currentImageCode}
               </div>
-            )}
-
-            {/* Previous Button */}
-            {codeImages.length > 1 && (
-              <button
-                onClick={handlePreviousImage}
-                className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10 p-3 rounded-full bg-black bg-opacity-70 hover:bg-opacity-90 transition-all duration-200"
-              >
-                <ChevronLeft className="w-6 h-6 text-white" />
-              </button>
-            )}
-
-            {/* Next Button */}
-            {codeImages.length > 1 && (
-              <button
-                onClick={handleNextImage}
-                className="absolute right-4 top-1/2 transform -translate-y-1/2 z-10 p-3 rounded-full bg-black bg-opacity-70 hover:bg-opacity-90 transition-all duration-200"
-              >
-                <ChevronRight className="w-6 h-6 text-white" />
-              </button>
-            )}
-
-            {/* Main Image */}
-            <Image
-              src={selectedImageUrl}
-              alt={`Imagen ${selectedImageIndex + 1} del código ${currentImageCode}`}
-              width={1200}
-              height={800}
-              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-              onError={(e) => {
-                console.error(`Error loading selected image:`, e);
-              }}
-            />
-
-            {/* Image Info */}
-            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10 px-4 py-2 rounded-full bg-black bg-opacity-70 text-white text-sm">
-              Código: {currentImageCode}
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Instructions */}
       <div className="mt-6 text-center text-gray-500 dark:text-gray-400 text-sm">
         <p>Asegúrate de que tu PC esté conectado a la misma red</p>
         <p>Los códigos aparecerán automáticamente en tu computadora</p>
       </div>
-    </div>
+    </div >
   );
 }
 
