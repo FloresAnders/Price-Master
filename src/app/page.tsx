@@ -34,7 +34,7 @@ type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timin
 export default function HomePage() {
   // Hook para obtener el usuario autenticado
   const { user } = useAuth();
-  
+
   // 2) Estado para la pestaña activa - now managed by URL hash only
   const [activeTab, setActiveTab] = useState<ActiveTab | null>(null);
   const [scanHistory, setScanHistory] = useState<ScanHistoryEntry[]>([])
@@ -241,7 +241,7 @@ export default function HomePage() {
   }, [])
   return (
     <>
-      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="flex-1 max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {notification && (
           <div
             className={`fixed top-6 right-6 z-50 px-6 py-3 rounded-xl shadow-2xl flex items-center gap-2 font-semibold animate-fade-in-down bg-${notification.color}-500 text-white`}
