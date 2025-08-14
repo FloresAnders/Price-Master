@@ -7,12 +7,6 @@ export default function Footer() {
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
   const [isNewsModalOpen, setIsNewsModalOpen] = useState(false);
 
-  // Set client flag after component mounts
-  useEffect(() => {
-    // Component mounted
-  }, []);
-
-
   // Handle ESC key to close modal
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {

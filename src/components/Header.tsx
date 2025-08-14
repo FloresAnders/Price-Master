@@ -1,9 +1,12 @@
 'use client'
 
 import Image from 'next/image';
-import { Settings, Menu, X, Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck, History } from 'lucide-react';
+import { Settings, LogOut, Menu, X, Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck, History, User } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { useAuth } from '../hooks/useAuth';
 import { ThemeToggle } from './ThemeToggle';
+import { getDefaultPermissions } from '../utils/permissions';
+import type { UserPermissions } from '../types/firestore';
 
 type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'supplierorders' | 'histoscans' | 'scanhistory' | 'edit'
 
@@ -13,6 +16,8 @@ interface HeaderProps {
 }
 
 export default function Header({ activeTab, onTabChange }: HeaderProps) {
+  const { logout, user } = useAuth();
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [isClient, setIsClient] = useState(false);
 
@@ -21,26 +26,49 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     setIsClient(true);
   }, []);
 
-  // Navigation tabs - all available without permissions
+  // Navigation tabs with permissions
   const allTabs = [
-    { id: 'scanner' as ActiveTab, name: 'Escáner', icon: Scan, description: 'Escanear códigos de barras' },
-    { id: 'calculator' as ActiveTab, name: 'Calculadora', icon: Calculator, description: 'Calcular precios con descuentos' },
-    { id: 'converter' as ActiveTab, name: 'Conversor', icon: Type, description: 'Convertir y transformar texto' },
+    { id: 'scanner' as ActiveTab, name: 'Escáner', icon: Scan, description: 'Escanear códigos de barras', permission: 'scanner' as keyof UserPermissions },
+    { id: 'calculator' as ActiveTab, name: 'Calculadora', icon: Calculator, description: 'Calcular precios con descuentos', permission: 'calculator' as keyof UserPermissions },
+    { id: 'converter' as ActiveTab, name: 'Conversor', icon: Type, description: 'Convertir y transformar texto', permission: 'converter' as keyof UserPermissions },
     {
       id: 'cashcounter' as ActiveTab,
       name: 'Contador Efectivo',
       icon: Banknote,
-      description: 'Contar billetes y monedas (CRC/USD)'
+      description: 'Contar billetes y monedas (CRC/USD)',
+      permission: 'cashcounter' as keyof UserPermissions
     },
-    { id: 'timingcontrol' as ActiveTab, name: 'Control Tiempos', icon: Smartphone, description: 'Registro de venta de tiempos' },
-    { id: 'controlhorario' as ActiveTab, name: 'Control Horario', icon: Clock, description: 'Registro de horarios de trabajo' },
-    { id: 'supplierorders' as ActiveTab, name: 'Órdenes Proveedor', icon: Truck, description: 'Gestión de órdenes de proveedores' },
-    { id: 'edit' as ActiveTab, name: 'Mantenimiento', icon: Settings, description: 'Gestión y mantenimiento del sistema' },
-    { id: 'histoscans' as ActiveTab, name: 'Historial de Escaneos', icon: History, description: 'Ver historial de escaneos realizados' },
+    { id: 'timingcontrol' as ActiveTab, name: 'Control Tiempos', icon: Smartphone, description: 'Registro de venta de tiempos', permission: 'timingcontrol' as keyof UserPermissions },
+    { id: 'controlhorario' as ActiveTab, name: 'Control Horario', icon: Clock, description: 'Registro de horarios de trabajo', permission: 'controlhorario' as keyof UserPermissions },
+    { id: 'supplierorders' as ActiveTab, name: 'Órdenes Proveedor', icon: Truck, description: 'Gestión de órdenes de proveedores', permission: 'supplierorders' as keyof UserPermissions },
+    { id: 'edit' as ActiveTab, name: 'Mantenimiento', icon: Settings, description: 'Gestión y mantenimiento del sistema', permission: 'mantenimiento' as keyof UserPermissions },
+    { id: 'histoscans' as ActiveTab, name: 'Historial de Escaneos', icon: History, description: 'Ver historial de escaneos realizados', permission: 'scanhistory' as keyof UserPermissions },
   ];
 
-  // Mostrar todas las pestañas sin restricciones de permisos
-  const displayTabs = allTabs;
+  // Filter tabs based on user permissions
+  const getVisibleTabs = () => {
+    if (!user) {
+      return allTabs; // Fallback for safety
+    }
+
+    // Get user permissions or default permissions based on role
+    let userPermissions: UserPermissions;
+    if (user.permissions) {
+      userPermissions = user.permissions;
+    } else {
+      userPermissions = getDefaultPermissions(user.role || 'user');
+    }
+
+    return allTabs.filter(tab => {
+      const hasPermission = userPermissions[tab.permission];
+      return hasPermission === true;
+    });
+  };
+
+  const tabs = getVisibleTabs();
+
+  // Show all tabs
+  const displayTabs = tabs;
 
   const handleLogoClick = () => {
     if (!isClient) return;
@@ -57,6 +85,27 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     const hashId = tabId === 'histoscans' ? 'scanhistory' : tabId;
     window.location.hash = `#${hashId}`;
     setShowMobileMenu(false); // Close mobile menu when tab is selected
+  };
+
+  const handleLogoutClick = () => {
+    if (!isClient) return;
+    
+    // Show confirmation for logout
+    setShowLogoutConfirm(true);
+  };
+
+  const confirmLogout = () => {
+    if (!isClient) return;
+    
+    // Cerrar sesión usando el hook de autenticación
+    logout('Manual logout from edit page');
+    setShowLogoutConfirm(false);
+    // Regresar al inicio después del logout
+    window.location.href = '/';
+  };
+
+  const cancelLogout = () => {
+    setShowLogoutConfirm(false);
   };
 
   return (
@@ -97,6 +146,21 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
           )}
 
           <div className="flex items-center gap-2" suppressHydrationWarning>
+            {/* User info display */}
+            {user && (
+              <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-transparent rounded-lg border border-[var(--input-border)]">
+                <User className="w-4 h-4 text-[var(--muted-foreground)]" />
+                <span className="text-sm font-sans font-bold text-[var(--foreground)]">{user.name}</span>
+                <button
+                  onClick={handleLogoutClick}
+                  className="ml-2 p-1 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                  title="Cerrar Sesión"
+                >
+                  <LogOut className="w-5 h-5 text-red-600 dark:text-red-400" />
+                </button>
+              </div>
+            )}
+
             {/* Mobile hamburger menu button */}
             {activeTab && (
               <button
@@ -117,6 +181,28 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
         {/* Mobile navigation menu */}
         {showMobileMenu && activeTab && (
           <div className="lg:hidden border-t border-[var(--input-border)] bg-[var(--card-bg)]" suppressHydrationWarning>
+            {/* User info in mobile menu */}
+            {user && (
+              <div className="px-4 py-3 border-b border-[var(--input-border)] bg-[var(--hover-bg)]">
+                <div className="flex items-center gap-2">
+                  <User className="w-5 h-5 text-[var(--muted-foreground)]" />
+                  <div className="font-medium text-[var(--foreground)]">{user.name}</div>
+                  <button
+                    onClick={handleLogoutClick}
+                    className="ml-2 p-1 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                    title="Cerrar Sesión"
+                  >
+                    <LogOut className="w-5 h-5 text-red-600 dark:text-red-400" />
+                  </button>
+                </div>
+                {user.location && (
+                  <div className="text-sm text-[var(--muted-foreground)] mt-1">
+                    {user.location}
+                  </div>
+                )}
+              </div>
+            )}
+            
             <nav className="px-4 py-2 space-y-1">
               {displayTabs.map(tab => (
                 <button
@@ -142,6 +228,44 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
           </div>
         )}
       </header>
+
+      {/* Modal de confirmación de logout */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" suppressHydrationWarning>
+          <div className="bg-[var(--card-bg)] rounded-lg p-6 max-w-sm w-full border border-[var(--input-border)]" suppressHydrationWarning>
+            <div className="flex items-center gap-3 mb-4" suppressHydrationWarning>
+              <LogOut className="w-6 h-6 text-red-600" />
+              <h3 className="text-lg font-semibold text-[var(--foreground)]">
+                Cerrar Sesión
+              </h3>
+            </div>
+
+            <p className="text-[var(--tab-text)] mb-6">
+              ¿Está seguro que desea cerrar sesión?
+              {user && (
+                <span className="block mt-2 text-sm text-[var(--muted-foreground)]">
+                  Usuario activo: <strong>{user.name}</strong>
+                </span>
+              )}
+            </p>
+
+            <div className="flex gap-3 justify-end" suppressHydrationWarning>
+              <button
+                onClick={cancelLogout}
+                className="px-4 py-2 rounded-md border border-[var(--input-border)] text-[var(--foreground)] hover:bg-[var(--hover-bg)] transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmLogout}
+                className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 transition-colors"
+              >
+                Cerrar Sesión
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
