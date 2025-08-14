@@ -1,36 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import frasesData from '../data/frases.json';
 
 export default function Footer() {
   const [isGitHubModalOpen, setIsGitHubModalOpen] = useState(false);
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
   const [isNewsModalOpen, setIsNewsModalOpen] = useState(false);
-  const router = useRouter();
-
-  const motivationalPhrases = frasesData;
-
-  const [phraseIndex, setPhraseIndex] = useState(0); // Start with 0 to avoid hydration mismatch
-  const [isClient, setIsClient] = useState(false);
-
-  // Set random index and client flag after component mounts
-  useEffect(() => {
-    const getRandomIndex = () => Math.floor(Math.random() * motivationalPhrases.length);
-    setIsClient(true);
-    setPhraseIndex(getRandomIndex());
-  }, [motivationalPhrases.length]);
-
-  useEffect(() => {
-    if (!isClient) return; // Don't start interval until client-side
-    
-    const interval = setInterval(() => {
-      setPhraseIndex(prev => (prev + 1) % motivationalPhrases.length);
-    }, 1800000); // Cambia cada 30 minutos
-    return () => clearInterval(interval);
-  }, [motivationalPhrases.length, isClient]);
-
 
   // Handle ESC key to close modal
   useEffect(() => {
