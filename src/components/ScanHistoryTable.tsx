@@ -3,21 +3,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { History, Copy, Trash2, Search, Eye, Calendar, MapPin, RefreshCw, Image as ImageIcon, X, Download, ChevronLeft, ChevronRight } from 'lucide-react';
-import type { ScanResult } from '@/types/firestore';
 import { useScanHistory, useScanImages } from '@/hooks/useScanHistory';
 import locations from '@/data/locations.json';
 
 export default function ScanHistoryTable() {
   // Usar hooks optimizados
-  const { 
-    scanHistory, 
-    loading, 
-    error, 
-    refreshHistory, 
-    deleteScan: deleteScanService, 
-    clearHistory: clearHistoryService 
+  const {
+    scanHistory,
+    loading,
+    refreshHistory,
+    deleteScan: deleteScanService,
+    clearHistory: clearHistoryService
   } = useScanHistory();
-  
+
   const {
     codeImages,
     loadingImages,
@@ -30,12 +28,12 @@ export default function ScanHistoryTable() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
   const [notification, setNotification] = useState<{ message: string; color: string } | null>(null);
-  
+
   // Image modal states
   const [showImagesModal, setShowImagesModal] = useState(false);
   const [currentImageCode, setCurrentImageCode] = useState('');
   const [thumbnailLoadingStates, setThumbnailLoadingStates] = useState<{ [key: number]: boolean }>({});
-  
+
   // Individual image modal states
   const [showImageModal, setShowImageModal] = useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState<string>('');
@@ -141,14 +139,14 @@ export default function ScanHistoryTable() {
       link.download = `${currentImageCode}_imagen_${index + 1}.jpg`;
       link.target = '_blank';
       link.rel = 'noopener noreferrer';
-      
+
       // Add crossorigin attribute to handle CORS
       link.setAttribute('crossorigin', 'anonymous');
-      
+
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
       showNotification('Descarga iniciada', 'green');
     } catch (error) {
       console.error('Error downloading image:', error);
@@ -159,29 +157,29 @@ export default function ScanHistoryTable() {
   // Download all images
   const downloadAllImages = async () => {
     if (codeImages.length === 0) return;
-    
+
     try {
       // Download each image with a small delay to avoid overwhelming the browser
       for (let i = 0; i < codeImages.length; i++) {
         const imageUrl = codeImages[i];
-        
+
         const link = document.createElement('a');
         link.href = imageUrl;
         link.download = `${currentImageCode}_imagen_${i + 1}.jpg`;
         link.target = '_blank';
         link.rel = 'noopener noreferrer';
         link.setAttribute('crossorigin', 'anonymous');
-        
+
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        
+
         // Small delay between downloads to avoid overwhelming the browser
         if (i < codeImages.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 500));
         }
       }
-      
+
       showNotification(`${codeImages.length} descargas iniciadas`, 'green');
     } catch (error) {
       console.error('Error downloading images:', error);
@@ -224,7 +222,7 @@ export default function ScanHistoryTable() {
       if (showImageModal) {
         // Disable body scroll when individual image modal is open
         document.body.style.overflow = 'hidden';
-        
+
         switch (event.key) {
           case 'Escape':
             event.preventDefault();
@@ -271,36 +269,6 @@ export default function ScanHistoryTable() {
 
     return matchesSearch && matchesLocation;
   });
-
-  // Format date
-  const formatDate = (timestamp: unknown) => {
-    if (!timestamp) return 'Fecha no disponible';
-    
-    let date: Date;
-    if (timestamp && typeof timestamp === 'object' && 'toDate' in timestamp && typeof timestamp.toDate === 'function') {
-      date = timestamp.toDate();
-    } else if (timestamp instanceof Date) {
-      date = timestamp;
-    } else if (typeof timestamp === 'string' || typeof timestamp === 'number') {
-      date = new Date(timestamp);
-    } else {
-      return 'Fecha no válida';
-    }
-    
-    return date.toLocaleString('es-ES', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  // Get location label
-  const getLocationLabel = (locationValue: string) => {
-    const location = locations.find(loc => loc.value === locationValue);
-    return location ? location.label : locationValue;
-  };
 
   return (
     <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-6">
@@ -500,8 +468,8 @@ export default function ScanHistoryTable() {
                         {entry.timestamp.toLocaleDateString()} {entry.timestamp.toLocaleTimeString()}
                       </span>
                       <span className={`px-2 py-1 rounded text-xs ${entry.processed
-                          ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
-                          : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300'
+                        ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                        : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300'
                         }`}>
                         {entry.processed ? 'Procesado' : 'Pendiente'}
                       </span>
@@ -676,9 +644,9 @@ export default function ScanHistoryTable() {
 
       {/* Individual Image Modal - 90% Screen */}
       {showImageModal && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-95 flex items-center justify-center p-4 z-[9999]"
-          style={{ 
+          style={{
             position: 'fixed',
             top: 0,
             left: 0,

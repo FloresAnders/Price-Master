@@ -334,7 +334,7 @@ export default function HomePage() {
               {/* HISTORIAL DE ESCANEOS */}
               {activeTab === 'scanhistory' && (
                 <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4">
-                  <ScanHistoryTable notify={showNotification} />
+                  <ScanHistoryTable />
                 </div>
               )}
 
