@@ -160,8 +160,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
     const generateQRForExistingSession = async () => {
       if (mobileSessionId && sessionExpiry && sessionExpiry > new Date() && !qrCodeUrl) {
         try {
-          const locationsParam = selectedLocations.length > 0 ? `&locations=${encodeURIComponent(selectedLocations.join(','))}` : '';
-          const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/mobile-scan?session=${mobileSessionId}${requestProductName ? '&requestProductName=true' : ''}${locationsParam}`;
+          const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/mobile-scan?session=${mobileSessionId}${requestProductName ? '&rpn=t' : ''}`;
           const qrDataUrl = await QRCode.toDataURL(url, {
             width: 256,
             margin: 2,
@@ -186,8 +185,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
     const regenerateQRForChanges = async () => {
       if (mobileSessionId && sessionExpiry && sessionExpiry > new Date() && showMobileQR) {
         try {
-          const locationsParam = selectedLocations.length > 0 ? `&locations=${encodeURIComponent(selectedLocations.join(','))}` : '';
-          const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/mobile-scan?session=${mobileSessionId}${requestProductName ? '&requestProductName=true' : ''}${locationsParam}`;
+          const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/mobile-scan?session=${mobileSessionId}${requestProductName ? '&rpn=t' : ''}`;
           const qrDataUrl = await QRCode.toDataURL(url, {
             width: 256,
             margin: 2,
@@ -459,8 +457,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
         }
       );
       sessionSyncUnsubscribeRef.current = sessionUnsubscribe;      // Generar QR code con sesión válida
-      const locationsParam = selectedLocations.length > 0 ? `&locations=${encodeURIComponent(selectedLocations.join(','))}` : '';
-      const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/mobile-scan?session=${sessionId}${requestProductName ? '&requestProductName=true' : ''}${locationsParam}`;
+      const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/mobile-scan?session=${sessionId}${requestProductName ? '&rpn=t' : ''}`;
       const qrDataUrl = await QRCode.toDataURL(url, {
         width: 256,
         margin: 2,
@@ -1174,7 +1171,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                   </p>
                   <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-2">
                     <code className="text-xs text-gray-700 dark:text-gray-300 break-all">
-                    {typeof window !== 'undefined' && `${window.location.origin}/mobile-scan?session=${mobileSessionId}${requestProductName ? '&requestProductName=true' : ''}${selectedLocations.length > 0 ? `&locations=${encodeURIComponent(selectedLocations.join(','))}` : ''}`}
+                    {typeof window !== 'undefined' && `${window.location.origin}/mobile-scan?session=${mobileSessionId}${requestProductName ? '&rpn=t' : ''}`}
                   </code>
                   </div>
                 </div>
@@ -1218,8 +1215,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
 
                   <button onClick={async () => {
                     if (typeof window !== 'undefined' && mobileSessionId) {
-                      const locationsParam = selectedLocations.length > 0 ? `&locations=${encodeURIComponent(selectedLocations.join(','))}` : '';
-                      const url = `${window.location.origin}/mobile-scan?session=${mobileSessionId}${requestProductName ? '&requestProductName=true' : ''}${locationsParam}`;
+                      const url = `${window.location.origin}/mobile-scan?session=${mobileSessionId}${requestProductName ? '&rpn=t' : ''}`;
                       try {
                         // Try modern clipboard API first
                         if (navigator.clipboard && navigator.clipboard.writeText) {

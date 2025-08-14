@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import { History, Copy, Trash2, Search, Eye, Calendar, MapPin, RefreshCw, Image as ImageIcon, X, Download, ChevronLeft, ChevronRight, Lock as LockIcon } from 'lucide-react';
+import QRCode from 'qrcode';
+import { History, Copy, Trash2, Search, Eye, Calendar, MapPin, RefreshCw, Image as ImageIcon, X, Download, ChevronLeft, ChevronRight, Lock as LockIcon, Smartphone, QrCode } from 'lucide-react';
 import { useScanHistory, useScanImages } from '@/hooks/useScanHistory';
 import { useAuth } from '@/hooks/useAuth';
 import locations from '@/data/locations.json';
@@ -48,6 +49,32 @@ export default function ScanHistoryTable() {
   const [showImageModal, setShowImageModal] = useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState<string>('');
   const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0);
+
+  // Mobile scanner modal state
+  const [showMobileScannerModal, setShowMobileScannerModal] = useState(false);
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
+  const [requestProductNameModal, setRequestProductNameModal] = useState<boolean>(true);
+  const [currentSessionId, setCurrentSessionId] = useState<string>('');
+
+  // Function to generate QR Code for mobile scanner
+  const generateQRCode = useCallback(async (sessionId: string, requestProductName: boolean) => {
+    try {
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+      const mobileScanUrl = `${baseUrl}/mobile-scan?session=${sessionId}${requestProductName ? '&rpn=t' : ''}`;
+      
+      const qrCodeDataUrl = await QRCode.toDataURL(mobileScanUrl, {
+        width: 200,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      });
+      setQrCodeDataUrl(qrCodeDataUrl);
+    } catch (error) {
+      console.error('Error generating QR code:', error);
+    }
+  }, []);
 
   // Show notification
   const showNotification = (message: string, color: string = 'green') => {
@@ -297,6 +324,22 @@ export default function ScanHistoryTable() {
     }
   }, [showImagesModal, showImageModal, handleCloseImageModal, handlePreviousImage, handleNextImage]);
 
+  // Generate QR code when modal opens
+  useEffect(() => {
+    if (showMobileScannerModal && typeof window !== 'undefined') {
+      const sessionId = `scan-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      setCurrentSessionId(sessionId);
+      generateQRCode(sessionId, requestProductNameModal);
+    }
+  }, [showMobileScannerModal, generateQRCode]);
+
+  // Regenerate QR code when requestProductNameModal changes
+  useEffect(() => {
+    if (showMobileScannerModal && currentSessionId && typeof window !== 'undefined') {
+      generateQRCode(currentSessionId, requestProductNameModal);
+    }
+  }, [requestProductNameModal, currentSessionId, showMobileScannerModal, generateQRCode]);
+
   // Filter history based on search term, location, dates, and user permissions
   const filteredHistory = scanHistory.filter(entry => {
     const matchesSearch = entry.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -403,26 +446,36 @@ export default function ScanHistoryTable() {
               )}
             </div>
 
-        {scanHistory.length > 0 && (
-          <div className="flex gap-2">
-            <button
-              onClick={handleRefreshHistory}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-              disabled={loading}
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              Actualizar
-            </button>
-            <button
-              onClick={clearHistory}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
-            >
-              <Trash2 className="w-4 h-4" />
-              Limpiar Todo
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowMobileScannerModal(true)}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+                title="Abrir Escáner Móvil"
+              >
+                <Smartphone className="w-4 h-4" />
+                Escáner Móvil
+              </button>
+              {scanHistory.length > 0 && (
+                <>
+                  <button
+                    onClick={handleRefreshHistory}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                    disabled={loading}
+                  >
+                    <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                    Actualizar
+                  </button>
+                  <button
+                    onClick={clearHistory}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Limpiar Todo
+                  </button>
+                </>
+              )}
+            </div>
           </div>
-        )}
-      </div>
 
       {loading && (
         <div className="text-center py-12">
@@ -944,6 +997,167 @@ export default function ScanHistoryTable() {
             >
               <Download className="w-5 h-5 text-white" />
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Scanner Modal */}
+      {showMobileScannerModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-95 flex items-center justify-center p-4 z-50">
+          <div className="bg-[var(--card-bg)] rounded-lg w-full max-w-lg mx-auto max-h-[90vh] overflow-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-600">
+              <div className="flex items-center gap-3">
+                <Smartphone className="w-6 h-6 text-green-600" />
+                <h3 className="text-xl font-semibold text-[var(--foreground)]">
+                  Escáner Móvil
+                </h3>
+              </div>
+              <button
+                onClick={() => {
+                  setShowMobileScannerModal(false);
+                  setQrCodeDataUrl('');
+                  setCurrentSessionId('');
+                  setRequestProductNameModal(true);
+                }}
+                className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              >
+                <X className="w-6 h-6 text-gray-500 dark:text-gray-400" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6">
+              <div className="text-center space-y-4">
+                {/* Configuración desde PC para móvil */}
+                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800 max-w-md mx-auto space-y-4">
+                  <h4 className="text-base font-semibold text-blue-800 dark:text-blue-200 mb-3">
+                    Configuración para Móvil
+                  </h4>
+
+                  {/* Checkbox para nombres de productos */}
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={requestProductNameModal}
+                      onChange={(e) => setRequestProductNameModal(e.target.checked)}
+                      className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600 mt-0.5"
+                    />
+                    <div className="text-left">
+                      <div className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-1">
+                        Solicitar nombres de productos en móvil
+                      </div>
+                      <p className="text-xs text-blue-600 dark:text-blue-400 leading-relaxed">
+                        {requestProductNameModal
+                          ? "El móvil pedirá ingresar nombres opcionales para cada código escaneado"
+                          : "El móvil solo enviará códigos de barras sin solicitar nombres"
+                        }
+                      </p>
+                    </div>
+                  </label>
+                </div>
+
+                {/* QR Code o Link */}
+                <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-6 mb-6">
+                  <p className="text-sm text-[var(--muted-foreground)] mb-4">
+                    Escanea este código QR con tu teléfono o haz clic en el botón para abrir el escáner móvil:
+                  </p>
+                  
+                  {/* Generate Mobile Scanner URL */}
+                  {(() => {
+                    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+                    const mobileScanUrl = `${baseUrl}/mobile-scan?session=${currentSessionId}${requestProductNameModal ? '&rpn=t' : ''}`;
+                    
+                    return (
+                      <div className="space-y-4">
+                        {/* QR Code */}
+                        <div className="w-48 h-48 mx-auto bg-white rounded-lg flex items-center justify-center border">
+                          {qrCodeDataUrl ? (
+                            <Image
+                              src={qrCodeDataUrl}
+                              alt="Código QR del Escáner Móvil"
+                              width={192}
+                              height={192}
+                              className="w-full h-full object-contain"
+                            />
+                          ) : (
+                            <div className="text-center">
+                              <QrCode className="w-12 h-12 text-gray-400 mx-auto mb-2 animate-pulse" />
+                              <p className="text-xs text-gray-500">Generando QR...</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* URL Manual */}
+                        <div className="text-left">
+                          <p className="text-xs text-[var(--muted-foreground)] mb-2">
+                            O ingresa manualmente esta URL en tu móvil:
+                          </p>
+                          <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-2">
+                            <code className="text-xs text-gray-700 dark:text-gray-300 break-all">
+                              {mobileScanUrl}
+                            </code>
+                          </div>
+                        </div>
+
+                        {/* Buttons */}
+                        <div className="space-y-2">
+                          {/* Mobile Link Button */}
+                          <button
+                            onClick={() => {
+                              window.open(mobileScanUrl, '_blank');
+                            }}
+                            className="w-full px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2 font-medium"
+                          >
+                            <Smartphone className="w-5 h-5" />
+                            Abrir Escáner en Nueva Pestaña
+                          </button>
+
+                          {/* Copy Link */}
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(mobileScanUrl);
+                              showNotification('¡Enlace copiado al portapapeles!', 'green');
+                            }}
+                            className="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-[var(--foreground)] rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors flex items-center justify-center gap-2"
+                          >
+                            <Copy className="w-4 h-4" />
+                            Copiar Enlace
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* Instructions */}
+                <div className="text-left space-y-2 text-sm text-[var(--muted-foreground)]">
+                  <h5 className="font-semibold text-[var(--foreground)]">Instrucciones:</h5>
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>Asegúrate de que tu teléfono y computadora estén en la misma red</li>
+                    <li>Abre el enlace en tu teléfono móvil</li>
+                    <li>Permite el acceso a la cámara cuando se solicite</li>
+                    <li>Escanea códigos de barras con la cámara de tu teléfono</li>
+                    <li>Los códigos aparecerán automáticamente en este historial</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 border-t border-gray-200 dark:border-gray-600">
+              <button
+                onClick={() => {
+                  setShowMobileScannerModal(false);
+                  setQrCodeDataUrl('');
+                  setCurrentSessionId('');
+                  setRequestProductNameModal(true);
+                }}
+                className="w-full bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 px-6 py-3 rounded-lg text-white font-medium text-lg transition-colors"
+              >
+                Cerrar
+              </button>
+            </div>
           </div>
         </div>
       )}
