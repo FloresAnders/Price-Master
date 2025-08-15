@@ -341,7 +341,7 @@ export default function ScanHistoryTable() {
       setCurrentSessionId(sessionId);
       generateQRCode(sessionId, requestProductNameModal);
     }
-  }, [showMobileScannerModal, generateQRCode]);
+  }, [showMobileScannerModal, generateQRCode, requestProductNameModal]);
 
   // Regenerate QR code when requestProductNameModal changes
   useEffect(() => {
