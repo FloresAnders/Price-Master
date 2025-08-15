@@ -1,9 +1,12 @@
+  // ...existing code...
+
+'use client'
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import QRCode from 'qrcode';
-import { History, Copy, Trash2, Search, Eye, Calendar, MapPin, RefreshCw, Image as ImageIcon, X, Download, ChevronLeft, ChevronRight, Lock as LockIcon, Smartphone, QrCode } from 'lucide-react';
+import { History, Copy, Search, Eye, Calendar, MapPin, RefreshCw, Image as ImageIcon, X, Download, ChevronLeft, ChevronRight, Lock as LockIcon, Smartphone, QrCode } from 'lucide-react';
 import { useScanHistory, useScanImages } from '@/hooks/useScanHistory';
 import { useAuth } from '@/hooks/useAuth';
 import locations from '@/data/locations.json';
@@ -36,6 +39,9 @@ export default function ScanHistoryTable() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
   const [notification, setNotification] = useState<{ message: string; color: string } | null>(null);
+  const [processingId, setProcessingId] = useState<string | null>(null);
+  const [showProcessModal, setShowProcessModal] = useState<{ code: string; open: boolean } | null>(null);
+  const [confirmProcess, setConfirmProcess] = useState<{ id: string; code: string } | null>(null);
   
   // Date filter states
   const [startDate, setStartDate] = useState<string>('');
@@ -154,15 +160,19 @@ export default function ScanHistoryTable() {
 
   // Delete individual scan
   const deleteScan = async (scanId: string, code: string) => {
-    if (window.confirm(`¿Estás seguro de que deseas eliminar el código ${code}?\n\nEsto también eliminará todas las imágenes asociadas a este código.`)) {
+    setProcessingId(scanId);
+    setTimeout(async () => {
       try {
         await deleteScanService(scanId);
-        showNotification('Código e imágenes eliminados', 'red');
+        setShowProcessModal({ code, open: true });
+        showNotification('Código procesado y eliminado', 'green');
       } catch (error) {
         console.error('Error deleting scan:', error);
         showNotification('Error al eliminar el código', 'red');
+      } finally {
+        setProcessingId(null);
       }
-    }
+    }, 1200); // Simula procesamiento
   };
 
   // Refresh history
@@ -479,7 +489,7 @@ export default function ScanHistoryTable() {
                     onClick={clearHistory}
                     className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    {/* Eliminado Trash2, ya no se usa ícono de eliminar aquí */}
                     Limpiar Todo
                   </button>
                 </>
@@ -769,14 +779,72 @@ export default function ScanHistoryTable() {
                       <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                     </button>
                     {entry.id && (
-                      <button
-                        onClick={() => deleteScan(entry.id!, entry.code)}
-                        className="p-2 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-md transition-colors"
-                        title="Eliminar código"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={false}
+                          disabled={processingId === entry.id}
+                          onChange={() => setConfirmProcess({ id: entry.id!, code: entry.code })}
+                          className="w-5 h-5 text-green-600 bg-gray-100 border-gray-300 rounded focus:ring-green-500 dark:focus:ring-green-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                          title="Procesar y eliminar código"
+                        />
+                        <span className="text-xs text-green-700 dark:text-green-300">Procesar</span>
+                        {processingId === entry.id && (
+                          <span className="ml-2 text-xs text-yellow-600 animate-pulse">Procesando...</span>
+                        )}
+                      </label>
                     )}
+      {/* Modal de confirmación de procesamiento */}
+      {confirmProcess && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
+          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-8 max-w-sm w-full flex flex-col items-center">
+            <div className="mb-4">
+              <span className="inline-block bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 rounded-full px-3 py-1 text-sm font-semibold">Confirmar procesamiento</span>
+            </div>
+            <div className="text-center mb-6">
+              <p className="text-lg font-medium text-gray-800 dark:text-gray-100 mb-2">¿Procesar el código <span className="font-mono text-green-700 dark:text-green-300">{confirmProcess.code}</span>?</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Esta acción eliminará el código y sus imágenes asociadas.</p>
+            </div>
+            <div className="flex gap-4 w-full">
+              <button
+                onClick={() => {
+                  deleteScan(confirmProcess.id, confirmProcess.code);
+                  setConfirmProcess(null);
+                }}
+                className="flex-1 px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+              >
+                Procesar
+              </button>
+              <button
+                onClick={() => setConfirmProcess(null)}
+                className="flex-1 px-6 py-2 bg-gray-400 hover:bg-gray-500 text-white rounded-lg font-medium transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal de procesamiento y eliminación */}
+      {showProcessModal?.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
+          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-8 max-w-sm w-full flex flex-col items-center">
+            <div className="mb-4">
+              <span className="inline-block bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full px-3 py-1 text-sm font-semibold">Código procesado</span>
+            </div>
+            <div className="text-center mb-6">
+              <p className="text-lg font-medium text-gray-800 dark:text-gray-100 mb-2">El código <span className="font-mono text-green-700 dark:text-green-300">{showProcessModal.code}</span> fue procesado.</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Las imágenes asociadas también han sido eliminadas.</p>
+            </div>
+            <button
+              onClick={() => setShowProcessModal(null)}
+              className="mt-2 px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
                   </div>
                 </div>
               ))}
