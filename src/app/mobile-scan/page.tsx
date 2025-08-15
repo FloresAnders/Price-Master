@@ -5,6 +5,7 @@ import { QrCode, Smartphone, Check, AlertCircle, Wifi, WifiOff, Camera, Image as
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { ScanningService } from '../../services/scanning';
+import { useAuth } from '../../hooks/useAuth';
 import { useBarcodeScanner } from '../../hooks/useBarcodeScanner';
 import CameraScanner from '../../components/CameraScanner';
 import { ThemeToggle } from '../../components/ThemeToggle';
@@ -16,9 +17,11 @@ import { ref, uploadBytes, getDownloadURL, listAll } from 'firebase/storage';
 export const dynamic = 'force-dynamic';
 
 function MobileScanContent() {
+  const { user } = useAuth();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('session');
   const requestProductNameParam = searchParams.get('requestProductName');
+  const rpnParam = searchParams.get('rpn');
   const locationsParam = searchParams.get('locations');
 
   const [code, setCode] = useState('');
@@ -69,12 +72,12 @@ function MobileScanContent() {
     setIsClient(true);
   }, []);
 
-  // Set requestProductName from URL parameter
+  // Set requestProductName from URL parameter or rpn=t
   useEffect(() => {
-    if (requestProductNameParam === 'true') {
+    if (requestProductNameParam === 'true' || rpnParam === 't') {
       setRequestProductName(true);
     }
-  }, [requestProductNameParam]);
+  }, [requestProductNameParam, rpnParam]);
 
   // Process locations from URL parameter
   useEffect(() => {
@@ -451,8 +454,17 @@ function MobileScanContent() {
       setPendingCode(scannedCode);
       setShowNameModal(true);
       return;
-    } try {
-      setError(null);      // Create scan object without undefined values
+    }
+
+    // Use user location if no location is selected
+    let locationToSend = selectedLocation;
+    if (!locationToSend && user && user.location) {
+      locationToSend = user.location;
+    }
+
+    try {
+      setError(null);
+      // Create scan object without undefined values
       const scanData = {
         code: scannedCode,
         source: 'mobile' as const,
@@ -460,7 +472,7 @@ function MobileScanContent() {
         processed: false,
         ...(sessionId && { sessionId }),
         ...(nameForProduct?.trim() && { productName: nameForProduct.trim() }),
-        ...(selectedLocation && { location: selectedLocation })
+        ...(locationToSend && { location: locationToSend })
       };
 
       // Enviar al servicio de scanning y también a localStorage para sincronización con PC
@@ -468,13 +480,14 @@ function MobileScanContent() {
 
       // También guardar en localStorage para comunicación con PC
       if (sessionId) {
-        const mobileScans = JSON.parse(localStorage.getItem('mobile-scans') || '[]'); mobileScans.push({
+        const mobileScans = JSON.parse(localStorage.getItem('mobile-scans') || '[]');
+        mobileScans.push({
           code: scannedCode,
           sessionId,
           timestamp: Date.now(),
           processed: false,
           ...(nameForProduct?.trim() && { productName: nameForProduct.trim() }),
-          ...(selectedLocation && { location: selectedLocation })
+          ...(locationToSend && { location: locationToSend })
         });
         localStorage.setItem('mobile-scans', JSON.stringify(mobileScans));
       }
@@ -484,8 +497,8 @@ function MobileScanContent() {
       if (nameForProduct?.trim()) {
         message += ` (${nameForProduct.trim()})`;
       }
-      if (selectedLocation) {
-        message += ` [${selectedLocation}]`;
+      if (locationToSend) {
+        message += ` [${locationToSend}]`;
       }
       message += ' enviado correctamente';
 
@@ -496,7 +509,7 @@ function MobileScanContent() {
       setLastScanned(prev => [...prev.slice(-4), {
         code: scannedCode,
         ...(nameForProduct?.trim() && { productName: nameForProduct.trim() }),
-        ...(selectedLocation && { location: selectedLocation }),
+        ...(locationToSend && { location: locationToSend }),
         hasImages
       }]); // Keep last 5
       setCode('');
@@ -507,7 +520,7 @@ function MobileScanContent() {
       console.error('Error submitting code:', error);
       setError('Error al enviar el código. Inténtalo de nuevo.');
     }
-  }, [lastScanned, sessionId, isOnline, requestProductName, availableLocations, selectedLocation, checkCodeHasImages]);
+  }, [lastScanned, sessionId, isOnline, requestProductName, availableLocations, selectedLocation, user, checkCodeHasImages]);
   // Handler para eliminar primer dígito
   const handleRemoveLeadingZero = useCallback(() => {
     if (detectedCode && detectedCode.length > 1 && detectedCode[0] === '0') {
