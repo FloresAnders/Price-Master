@@ -679,7 +679,7 @@ export default function TimingControl() {
                 {/* Modal de resumen */}
                 {showSummary && (
                     <div className="fixed inset-0 bg-black bg-opacity-60 z-[9999] flex items-center justify-center p-4">
-                        <div className="rounded-2xl shadow-xl p-6 min-w-[320px] max-w-[90vw] relative" style={{ background: 'var(--card-bg)', color: 'var(--foreground)' }}>
+                        <div className="rounded-2xl shadow-xl p-4 sm:p-6 w-[95vw] max-w-lg mx-auto relative" style={{ background: 'var(--card-bg)', color: 'var(--foreground)' }}>
                             <button
                                 className="absolute top-2 right-2 hover:text-gray-500"
                                 style={{ color: 'var(--foreground)' }}
@@ -711,7 +711,7 @@ export default function TimingControl() {
                 )}            {/* Modal de código de barras */}
                 {showCodeModal && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-                        <div className="rounded-2xl shadow-xl p-6 w-[90vw] max-w-[800px] max-h-[90vh] overflow-hidden relative" style={{ background: 'var(--card-bg)', color: 'var(--foreground)' }}>
+                        <div className="rounded-2xl shadow-xl p-4 sm:p-6 w-[95vw] max-w-2xl mx-auto max-h-[90vh] overflow-y-auto relative" style={{ background: 'var(--card-bg)', color: 'var(--foreground)' }}>
                             <button
                                 className="absolute top-2 right-2 hover:text-gray-500"
                                 style={{ color: 'var(--foreground)' }}
@@ -744,7 +744,7 @@ export default function TimingControl() {
                                     <label className="block text-sm font-medium mb-3" style={{ color: 'var(--foreground)' }}>
                                         Seleccionar sorteo:
                                     </label>
-                                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 max-h-[50vh] overflow-y-auto">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 max-h-[50vh] overflow-y-auto">
                                         {getFilteredSorteos().map((sorteo, index) => {
                                             const isSelected = selectedSorteo === sorteo.name;
                                             const isKeyboardFocused = selectedSorteoIndex === index;
@@ -815,7 +815,7 @@ export default function TimingControl() {
 
                                 {selectedSorteo && (
                                     <button
-                                        className="w-full px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-green-600 hover:bg-green-700 text-white font-semibold disabled:opacity-50"
+                                            className="w-full px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-green-600 hover:bg-green-700 text-white font-semibold disabled:opacity-50"
                                         onClick={handleAddTicket}
                                         disabled={!modalAmount || isNaN(Number(modalAmount)) || Number(modalAmount) <= 0}
                                     >
@@ -829,7 +829,7 @@ export default function TimingControl() {
                 {/* Modal de confirmación de eliminación */}
                 {showDeleteModal && ticketToDelete && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-                        <div className="rounded-2xl shadow-xl p-6 min-w-[400px] max-w-[90vw] relative" style={{ background: 'var(--card-bg)', color: 'var(--foreground)' }}>
+                        <div className="rounded-2xl shadow-xl p-4 sm:p-6 w-[95vw] max-w-md mx-auto relative" style={{ background: 'var(--card-bg)', color: 'var(--foreground)' }}>
                             <h2 className="text-lg font-bold mb-4 text-center" style={{ color: 'var(--foreground)' }}>
                                 ¿Estás seguro de que deseas eliminar este ticket?
                             </h2>
@@ -889,7 +889,7 @@ export default function TimingControl() {
                 {/* Modal de QR para descarga móvil */}
                 {showQRModal && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-                        <div className="rounded-2xl shadow-xl p-6 min-w-[400px] max-w-[90vw] relative" style={{ background: 'var(--card-bg)', color: 'var(--foreground)' }}>
+                        <div className="rounded-2xl shadow-xl p-4 sm:p-6 w-[95vw] max-w-md mx-auto relative" style={{ background: 'var(--card-bg)', color: 'var(--foreground)' }}>
                             <button
                                 className="absolute top-2 right-2 hover:text-gray-500"
                                 style={{ color: 'var(--foreground)' }}
@@ -957,17 +957,17 @@ export default function TimingControl() {
                 )}
 
                 <div ref={exportRef}
-                    className="p-6 rounded-lg"
+                    className="p-3 sm:p-6 rounded-lg"
                     style={{
                         background: 'var(--card-bg)',
                         color: 'var(--foreground)',
                         minHeight: '400px',
                         border: '1px solid var(--input-border)'
                     }}>
-                    <div className="flex flex-col lg:flex-row gap-8 w-full">
+                    <div className="flex flex-col gap-4 sm:gap-6 w-full lg:flex-row lg:items-start">
                         {/* Panel principal: controles y tickets */}
-                        <div className="flex-1 min-w-[320px] max-w-[600px] flex flex-col">
-                            <div className="mb-6 flex items-center gap-4">
+                        <div className="flex-1 min-w-0 max-w-full flex flex-col">
+                            <div className="mb-4 sm:mb-6 flex items-center gap-4">
                                 <Timer className="w-6 h-6 text-blue-600" />
                                 <h3 className="text-lg font-semibold" style={{ color: 'var(--foreground)' }}>Control de tiempos</h3>
                                 <HelpTooltip />
@@ -978,7 +978,7 @@ export default function TimingControl() {
                                 </label>
                                 <input
                                     type="text"
-                                    className="w-full max-w-md px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    className="w-full sm:max-w-md px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                     style={{
                                         background: 'var(--input-bg)',
                                         border: '1px solid var(--input-border)',
@@ -997,7 +997,7 @@ export default function TimingControl() {
                                         <Smartphone className="w-4 h-4" />
                                         Código de tiempo (móvil):
                                     </label>
-                                    <div className="flex gap-2 max-w-md">
+                                    <div className="flex flex-col sm:flex-row gap-2 w-full sm:max-w-md">
                                         <input
                                             type="text"
                                             className="flex-1 px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 uppercase"
@@ -1013,7 +1013,7 @@ export default function TimingControl() {
                                             maxLength={3}
                                         />
                                         <button
-                                            className="px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-blue-600 hover:bg-blue-700 text-white font-medium disabled:opacity-50"
+                                            className="w-full sm:w-auto px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-blue-600 hover:bg-blue-700 text-white font-medium disabled:opacity-50"
                                             onClick={handleMobileCodeSubmit}
                                             disabled={!mobileCodeInput.trim()}
                                         >
@@ -1039,18 +1039,18 @@ export default function TimingControl() {
                             )}
 
 
-                            <div className="mb-4 flex flex-col sm:flex-row gap-2 items-center justify-between">
+                            <div className="mb-4 flex flex-col gap-2 sm:flex-row items-stretch sm:items-center justify-between w-full">
                                 <div className="flex flex-col items-start"></div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex flex-col gap-2 w-full">
                                     <button
-                                        className="px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        className="w-full sm:w-auto px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                         style={{ background: 'var(--button-bg)', color: 'var(--button-text)' }}
                                         onClick={() => setShowSummary(true)}
                                     >
                                         Ver resumen
                                     </button>
                                     <button
-                                        className="px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 disabled:opacity-50"
+                                        className="w-full sm:w-auto px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center gap-2 disabled:opacity-50"
                                         onClick={exportToPNG}
                                         disabled={!personName.trim() || isExporting}
                                     >
@@ -1058,7 +1058,7 @@ export default function TimingControl() {
                                         {isExporting ? 'Exportando...' : 'Exportar + QR'}
                                     </button>
                                     <button
-                                        className="px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 bg-red-500 hover:bg-red-600 text-white"
+                                        className="w-full sm:w-auto px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 bg-red-500 hover:bg-red-600 text-white"
                                         onClick={() => {
                                             if (window.confirm('¿Seguro que deseas limpiar todos los tickets y datos guardados?')) {
                                                 clearAllLocalStorage();
@@ -1145,7 +1145,7 @@ export default function TimingControl() {
                             )}
                         </div>
                         {/* Panel de resumen a la derecha */}
-                        <div className="flex flex-col min-w-[260px] max-w-xs border-l border-[var(--input-border)] pl-4">
+                        <div className="flex flex-col w-full lg:w-auto min-w-0 max-w-full lg:min-w-[260px] lg:max-w-xs border-t lg:border-t-0 lg:border-l border-[var(--input-border)] pt-4 lg:pt-0 lg:pl-4 mt-4 lg:mt-0">
                             <h4 className="text-lg font-semibold mb-2" style={{ color: 'var(--foreground)' }}>
                                 Resumen de Ventas por Sorteo
                             </h4>
@@ -1154,28 +1154,28 @@ export default function TimingControl() {
                                 <>
                                     <div className="space-y-2 mb-2">
                                         {Object.entries(resumenSorteos).map(([sorteo, total]) => (
-                                            <div key={sorteo} className="flex justify-between pb-2" style={{ borderBottom: '1px solid var(--input-border)' }}>
-                                                <span className="font-medium" style={{ color: 'var(--foreground)' }}>{sorteo}</span>
-                                                <span className="font-mono font-semibold" style={{ color: 'var(--foreground)' }}>₡ {total.toLocaleString('es-CR')}</span>
+                                            <div key={sorteo} className="flex justify-between items-center pb-2 text-sm" style={{ borderBottom: '1px solid var(--input-border)' }}>
+                                                <span className="font-medium truncate mr-2" style={{ color: 'var(--foreground)' }}>{sorteo}</span>
+                                                <span className="font-mono font-semibold flex-shrink-0" style={{ color: 'var(--foreground)' }}>₡ {total.toLocaleString('es-CR')}</span>
                                             </div>
                                         ))}
                                     </div>
-                                    <div className="text-right font-bold text-xl pt-2" style={{ color: 'var(--foreground)', borderTop: '2px solid var(--input-border)' }}>
-                                        Total General: <span className="font-mono text-green-700">₡ {totalGeneral.toLocaleString('es-CR')}</span>
+                                    <div className="text-right font-bold text-lg pt-2" style={{ color: 'var(--foreground)', borderTop: '2px solid var(--input-border)' }}>
+                                        Total: <span className="font-mono text-green-700">₡ {totalGeneral.toLocaleString('es-CR')}</span>
                                     </div>
                                 </>
                             ) : (
-                                <div className="text-center py-8">
+                                <div className="text-center py-6">
                                     <div className="p-4 rounded-lg" style={{ 
                                         background: 'var(--input-bg)',
                                         border: '1px dashed var(--input-border)'
                                     }}>
-                                        <div className="text-4xl mb-3">📊</div>
-                                        <p className="text-sm font-medium mb-2" style={{ color: 'var(--foreground)' }}>
+                                        <div className="text-3xl mb-2">📊</div>
+                                        <p className="text-sm font-medium mb-1" style={{ color: 'var(--foreground)' }}>
                                             Sin datos aún
                                         </p>
                                         <p className="text-xs" style={{ color: 'var(--foreground)', opacity: 0.7 }}>
-                                            Agrega tickets para ver el resumen aquí
+                                            Agrega tickets para ver el resumen
                                         </p>
                                     </div>
                                 </div>
