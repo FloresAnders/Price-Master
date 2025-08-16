@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useTheme } from 'next-themes';
+import { useAuth } from '@/hooks/useAuth';
 
 const FloatingIcon = () => {
     const [isHovered, setIsHovered] = useState(false);
@@ -9,44 +10,10 @@ const FloatingIcon = () => {
     const [messages, setMessages] = useState<Array<{id: number, text: string, time: string, sender: string}>>([]);
     const [inputMessage, setInputMessage] = useState('');
     const { theme, setTheme } = useTheme();
-
-    // Mensajes simulados
-    const simulatedMessages = [
-        { text: "¡Hola! ¿Necesitas ayuda?", sender: "Soporte" },
-        { text: "Estoy aquí para asistirte", sender: "Soporte" },
-        { text: "¿Tienes alguna pregunta sobre el sistema?", sender: "Soporte" },
-        { text: "Recuerda que puedes escanear códigos de barras", sender: "Sistema" },
-        { text: "Nueva función de backup disponible", sender: "Sistema" },
-        { text: "¿Todo funcionando correctamente?", sender: "Soporte" }
-    ];
+    const { user } = useAuth();
 
     const handleClick = () => {
         setShowMessages(!showMessages);
-        
-        // Si se abre el chat, simular mensajes
-        if (!showMessages) {
-            simulateMessages();
-        }
-    };
-
-    const simulateMessages = () => {
-        setMessages([]); // Limpiar mensajes anteriores
-        
-        simulatedMessages.forEach((msg, index) => {
-            setTimeout(() => {
-                const newMessage = {
-                    id: Date.now() + index,
-                    text: msg.text,
-                    time: new Date().toLocaleTimeString('es-ES', { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                    }),
-                    sender: msg.sender
-                };
-                
-                setMessages(prev => [...prev, newMessage]);
-            }, (index + 1) * 2000); // Cada 2 segundos
-        });
     };
 
     const closeMessages = () => {
@@ -57,6 +24,9 @@ const FloatingIcon = () => {
     const sendMessage = () => {
         if (inputMessage.trim() === '') return;
 
+        // Obtener el nombre del remitente: primero ubicación, luego nombre del usuario, y finalmente "Usuario"
+        const senderName = user?.location || user?.name || 'Usuario';
+
         const newMessage = {
             id: Date.now(),
             text: inputMessage,
@@ -64,36 +34,14 @@ const FloatingIcon = () => {
                 hour: '2-digit', 
                 minute: '2-digit' 
             }),
-            sender: 'Usuario'
+            sender: senderName
         };
 
         setMessages(prev => [...prev, newMessage]);
         setInputMessage('');
 
-        // Simular respuesta automática después de 1.5 segundos
-        setTimeout(() => {
-            const responses = [
-                "Gracias por tu mensaje. Te ayudo en un momento.",
-                "Entiendo tu consulta. Déjame verificar eso.",
-                "Perfecto, estoy revisando tu solicitud.",
-                "Excelente pregunta. Te respondo enseguida.",
-                "Recibido. Trabajando en tu solicitud."
-            ];
-            
-            const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-            
-            const responseMessage = {
-                id: Date.now() + 1,
-                text: randomResponse,
-                time: new Date().toLocaleTimeString('es-ES', { 
-                    hour: '2-digit', 
-                    minute: '2-digit' 
-                }),
-                sender: 'Soporte'
-            };
-
-            setMessages(prev => [...prev, responseMessage]);
-        }, 1500);
+        // TODO: Implementar envío real de mensajes a otros usuarios
+        // sendMessageToUsers(newMessage);
     };
 
     const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -151,7 +99,8 @@ const FloatingIcon = () => {
                                     <svg className="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                                     </svg>
-                                    <p className="text-sm">Cargando mensajes...</p>
+                                    <p className="text-sm">No hay mensajes</p>
+                                    <p className="text-xs mt-1">Envía el primer mensaje</p>
                                 </div>
                             </div>
                         ) : (
@@ -160,17 +109,19 @@ const FloatingIcon = () => {
                                     <div className="flex items-start space-x-2">
                                         <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
                                             <span className="text-white text-xs font-semibold">
-                                                {message.sender === 'Soporte' ? 'S' : message.sender === 'Usuario' ? 'U' : 'Sys'}
+                                                {message.sender === 'Soporte' ? 'S' : 
+                                                 message.sender === 'Sistema' ? 'Sys' : 
+                                                 message.sender.charAt(0).toUpperCase()}
                                             </span>
                                         </div>
                                         <div className="flex-1">
                                             <div className={`rounded-lg p-3 ${
-                                                message.sender === 'Usuario' 
+                                                message.sender !== 'Soporte' && message.sender !== 'Sistema'
                                                     ? 'bg-blue-500 text-white ml-8' 
                                                     : 'bg-gray-100 dark:bg-gray-700'
                                             }`}>
                                                 <p className={`text-sm ${
-                                                    message.sender === 'Usuario' 
+                                                    message.sender !== 'Soporte' && message.sender !== 'Sistema'
                                                         ? 'text-white' 
                                                         : 'text-gray-800 dark:text-gray-200'
                                                 }`}>{message.text}</p>
