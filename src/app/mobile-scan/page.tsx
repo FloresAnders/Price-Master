@@ -33,8 +33,8 @@ function MobileScanContent() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
   // sessionId eliminado
-  const requestProductNameParam = searchParams.get('requestProductName');
-  const rpnParam = searchParams.get('rpn');
+  const requestProductNameParam = searchParams?.get('requestProductName');
+  const rpnParam = searchParams?.get('rpn');
 
   const [code, setCode] = useState('');
   const [lastScanned, setLastScanned] = useState<{ code: string, productName?: string, location?: string, hasImages?: boolean }[]>([]);

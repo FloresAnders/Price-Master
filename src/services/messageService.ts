@@ -15,7 +15,6 @@ export interface MessageNotification {
 }
 
 const MESSAGES_STORAGE_KEY = 'pricemaster_messages';
-const MESSAGE_LISTENERS_KEY = 'pricemaster_message_listeners';
 
 class MessageService {
   private listeners: Set<(messages: Message[]) => void> = new Set();
