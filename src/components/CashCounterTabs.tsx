@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { hasPermission } from '../utils/permissions';
+import CalculadoraPer from './CalculadoraPer';
 /*Menu,*/
 // Modal base component to reduce code duplication
 type BaseModalProps = {
@@ -51,113 +52,6 @@ function BaseModal({ isOpen, onClose, title, children }: BaseModalProps) {
         {children}
       </div>
     </div>
-  );
-}
-
-type CalculatorModalProps = {
-  isOpen: boolean;
-  onClose: () => void;
-};
-
-function CalculatorModal({ isOpen, onClose }: CalculatorModalProps) {
-  const [display, setDisplay] = useState<string>('');
-
-  const handleButtonClick = useCallback((value: string) => {
-    if (value === '=') {
-      try {
-        // Safer evaluation than eval()
-        const result = Function('"use strict"; return (' + display + ')')();
-        setDisplay(String(result));
-      } catch {
-        setDisplay('Error');
-      }
-      return;
-    }
-    if (value === 'C') {
-      setDisplay('');
-      return;
-    }
-    setDisplay((prev) => prev + value);
-  }, [display]);
-
-  // Permitir uso de teclado
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-        return;
-      }
-      if (e.key === 'Enter' || e.key === '=') {
-        handleButtonClick('=');
-        e.preventDefault();
-        return;
-      }
-      if (e.key === 'c' || e.key === 'C') {
-        handleButtonClick('C');
-        e.preventDefault();
-        return;
-      }
-      if (e.key === 'Backspace') {
-        setDisplay((prev) => prev.slice(0, -1));
-        e.preventDefault();
-        return;
-      }
-      if (["+", "-", "*", "/", "."].includes(e.key)) {
-        handleButtonClick(e.key);
-        e.preventDefault();
-        return;
-      }
-      if (/^[0-9]$/.test(e.key)) {
-        handleButtonClick(e.key);
-        e.preventDefault();
-        return;
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, handleButtonClick, onClose]);
-
-  return (
-    <BaseModal isOpen={isOpen} onClose={onClose} title="Calculadora">
-      <div className="border rounded-lg mb-3 h-10 flex items-center justify-end px-2 bg-[var(--input-bg)]">
-        <span className="text-lg text-[var(--foreground)]">{display || '0'}</span>
-      </div>
-      <div className="grid grid-cols-4 gap-1">
-        {[
-          '7',
-          '8',
-          '9',
-          '/',
-          '4',
-          '5',
-          '6',
-          '*',
-          '1',
-          '2',
-          '3',
-          '-',
-          '0',
-          '.',
-          'C',
-          '+',
-        ].map((btn) => (
-          <button
-            key={btn}
-            onClick={() => handleButtonClick(btn)}
-            className="bg-[var(--button-bg)] hover:bg-[var(--button-hover)] rounded py-2 text-sm text-[var(--foreground)] flex items-center justify-center"
-          >
-            {btn}
-          </button>
-        ))}
-        <button
-          onClick={() => handleButtonClick('=')}
-          className="col-span-4 bg-blue-600 hover:bg-blue-700 text-white rounded py-2 mt-1 text-sm"
-        >
-          =
-        </button>
-      </div>
-    </BaseModal>
   );
 }
 
@@ -1821,7 +1715,7 @@ export default function CashCounterTabs() {
       </button>
 
       {/* Modal de calculadora */}
-      <CalculatorModal isOpen={isCalcOpen} onClose={() => setIsCalcOpen(false)} />
+      <CalculadoraPer isOpen={isCalcOpen} onClose={() => setIsCalcOpen(false)} />
 
       {/* Modal de verificador SINPE */}
       <SinpeModal
