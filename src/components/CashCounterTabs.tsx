@@ -19,6 +19,7 @@ import {
   Save,
   RotateCcw,
   Lock as LockIcon,
+  GripVertical,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { hasPermission } from '../utils/permissions';
@@ -1302,6 +1303,10 @@ export default function CashCounterTabs() {
   // Para el menú de gestión de datos
   const [menuModalOpen, setMenuModalOpen] = useState<boolean>(false);
 
+  // Para drag and drop
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
   // Función para guardar en localStorage con manejo de errores
   const saveToLocalStorage = async (data: CashCounterData[], activeTabIndex: number) => {
     setIsSaving(true);
@@ -1445,6 +1450,87 @@ export default function CashCounterTabs() {
     newTabsData[index] = newData;
     setTabsData(newTabsData);
     saveToLocalStorage(newTabsData, activeTab);
+  };
+
+  // Funciones para drag and drop
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', '');
+    
+    // Agregar una imagen fantasma personalizada
+    const dragImage = document.createElement('div');
+    dragImage.textContent = tabsData[index].name;
+    dragImage.style.position = 'absolute';
+    dragImage.style.top = '-1000px';
+    dragImage.style.background = 'var(--card-bg)';
+    dragImage.style.padding = '8px 16px';
+    dragImage.style.borderRadius = '9999px';
+    dragImage.style.fontSize = '14px';
+    dragImage.style.color = 'var(--foreground)';
+    dragImage.style.border = '2px solid #059669';
+    document.body.appendChild(dragImage);
+    e.dataTransfer.setDragImage(dragImage, 50, 20);
+    
+    // Remover el elemento después de un breve delay
+    setTimeout(() => document.body.removeChild(dragImage), 0);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    
+    if (draggedIndex !== index) {
+      setDragOverIndex(index);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    // Solo limpiar si realmente estamos saliendo del contenedor
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setDragOverIndex(null);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    
+    if (draggedIndex === null || draggedIndex === dropIndex) {
+      setDraggedIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+
+    const newTabsData = [...tabsData];
+    const draggedTab = newTabsData[draggedIndex];
+    
+    // Remover el elemento de su posición original
+    newTabsData.splice(draggedIndex, 1);
+    
+    // Insertar en la nueva posición
+    newTabsData.splice(dropIndex, 0, draggedTab);
+
+    // Actualizar el índice de la pestaña activa
+    let newActiveTab = activeTab;
+    if (activeTab === draggedIndex) {
+      newActiveTab = dropIndex;
+    } else if (activeTab > draggedIndex && activeTab <= dropIndex) {
+      newActiveTab = activeTab - 1;
+    } else if (activeTab < draggedIndex && activeTab >= dropIndex) {
+      newActiveTab = activeTab + 1;
+    }
+
+    setTabsData(newTabsData);
+    setActiveTab(newActiveTab);
+    saveToLocalStorage(newTabsData, newActiveTab);
+    
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
   };
 
   // Función para exportar todos los datos a un archivo JSON
@@ -1631,34 +1717,68 @@ export default function CashCounterTabs() {
 
       <div className="flex space-x-2 mb-4 overflow-x-auto">
         {tabsData.map((tab, idx) => (
-          <div key={idx} className="relative">
+          <div 
+            key={idx} 
+            className={`relative transition-all duration-200 ${
+              dragOverIndex === idx && draggedIndex !== idx 
+                ? 'transform scale-105 shadow-lg border-2 border-blue-400 border-dashed rounded-full' 
+                : ''
+            } ${
+              draggedIndex === idx 
+                ? 'opacity-50 transform rotate-2' 
+                : ''
+            }`}
+            draggable={tabsData.length > 1}
+            onDragStart={(e) => handleDragStart(e, idx)}
+            onDragOver={(e) => handleDragOver(e, idx)}
+            onDragLeave={(e) => handleDragLeave(e)}
+            onDrop={(e) => handleDrop(e, idx)}
+            onDragEnd={handleDragEnd}
+          >
+            {/* Icono de grip para arrastrar */}
+            <div 
+              className={`absolute left-1 top-1/2 -translate-y-1/2 z-10 ${
+                tabsData.length > 1 
+                  ? 'cursor-grab active:cursor-grabbing' 
+                  : 'cursor-not-allowed opacity-50'
+              }`}
+              title={tabsData.length > 1 ? "Arrastra para reordenar" : "Necesitas al menos 2 contadores para reordenar"}
+            >
+              <GripVertical className={`w-4 h-4 transition-colors ${
+                tabsData.length > 1 
+                  ? 'text-gray-400 hover:text-gray-600' 
+                  : 'text-gray-300'
+              }`} />
+            </div>
+            
             <button
               onClick={() => {
                 setActiveTab(idx);
                 saveToLocalStorage(tabsData, idx);
               }}
-              className={`px-4 py-2 rounded-full flex-shrink-0 text-sm font-medium flex items-center ${idx === activeTab
+              className={`pl-8 pr-10 py-2 rounded-full flex-shrink-0 text-sm font-medium flex items-center transition-all duration-200 ${idx === activeTab
                 ? 'bg-[var(--card-bg)] text-[var(--foreground)] shadow border-2 border-green-900'
                 : 'bg-[var(--input-bg)] text-[var(--tab-text)] hover:bg-[var(--button-hover)] border-2 border-transparent'
                 }`}
             >
               <span className="truncate w-[8rem] text-center">{tab.name}</span>
             </button>
+            
             <button
               onClick={() => {
                 setRenameIndex(idx);
                 setRenameModalOpen(true);
               }}
-              className="absolute top-1/2 left-[7.5rem] p-1 -translate-y-1/2 bg-transparent"
+              className="absolute top-1/2 right-1 p-1 -translate-y-1/2 bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700 rounded z-10 transition-colors"
               aria-label={`Renombrar contador ${idx + 1}`}
             >
-              <Edit3 className="w-5 h-5" />
+              <Edit3 className="w-4 h-4" />
             </button>
           </div>
         ))}
         <button
           onClick={addNewTab}
-          className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-full flex-shrink-0 text-sm font-semibold flex items-center"
+          className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-full flex-shrink-0 text-sm font-semibold flex items-center transition-colors"
         >
           <PlusCircle className="w-5 h-5 mr-1" />
           Nuevo
