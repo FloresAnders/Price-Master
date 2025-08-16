@@ -4,6 +4,7 @@ import { ThemeProvider } from '../components/ThemeProvider';
 import HeaderWrapper from '../components/HeaderWrapper';
 import Footer from '../components/Footer';
 import AuthWrapper from '../components/AuthWrapper';
+import FloatingIcon from '../components/FloatingIcon';
 
 export const metadata = {
   title: 'Price Master',
@@ -35,12 +36,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <AuthWrapper>
             <HeaderWrapper />
+
+            <FloatingIcon />
             <main className="flex-1 flex flex-col w-full">
               <div className="w-full" suppressHydrationWarning>
                 {children}
               </div>
             </main>
             <Footer />
+
           </AuthWrapper>
         </ThemeProvider>
       </body>
