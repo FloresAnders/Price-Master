@@ -60,26 +60,32 @@ export default function handler(req, res) {
       if (action === 'join') {
         // Usuario se une al chat
         const userId = data.userId || `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Verificar si el usuario ya estaba conectado (solo actualizar lastSeen)
+        const wasAlreadyConnected = connectedUsers.has(userId);
+        
         connectedUsers.set(userId, {
           ...data,
           userId,
           lastSeen: Date.now()
         });
         
-        // Agregar mensaje del sistema
-        const joinMessage = {
-          id: Date.now(),
-          text: `${data.displayName} se unió al chat`,
-          user: "Sistema",
-          userId: "system",
-          timestamp: new Date().toISOString()
-        };
-        messages.push(joinMessage);
+        // Solo agregar mensaje del sistema si es la primera conexión en esta sesión
+        if (!wasAlreadyConnected) {
+          const joinMessage = {
+            id: Date.now(),
+            text: `${data.displayName} se unió al chat`,
+            user: "Sistema",
+            userId: "system",
+            timestamp: new Date().toISOString()
+          };
+          messages.push(joinMessage);
+        }
         
         res.status(200).json({ 
           success: true, 
           userId,
-          message: 'Usuario conectado'
+          message: wasAlreadyConnected ? 'Usuario reconectado' : 'Usuario conectado'
         });
       }
       
@@ -107,9 +113,25 @@ export default function handler(req, res) {
       }
       
       else if (action === 'leave') {
-        // Usuario sale del chat
+        // Usuario sale del chat temporalmente (no mostrar mensaje)
         const user = connectedUsers.get(data.userId);
         if (user) {
+          // Solo actualizar lastSeen, no eliminar ni mostrar mensaje
+          connectedUsers.set(data.userId, {
+            ...user,
+            lastSeen: Date.now()
+          });
+        }
+        
+        res.status(200).json({ success: true });
+      }
+      
+      else if (action === 'logout') {
+        // Usuario sale del chat permanentemente (mostrar mensaje)
+        const user = connectedUsers.get(data.userId);
+        if (user) {
+          console.log(`👋 ${user.displayName} está haciendo logout`);
+          
           connectedUsers.delete(data.userId);
           
           const leaveMessage = {
@@ -120,6 +142,8 @@ export default function handler(req, res) {
             timestamp: new Date().toISOString()
           };
           messages.push(leaveMessage);
+          
+          console.log(`📩 Mensaje de salida agregado para ${user.displayName}`);
         }
         
         res.status(200).json({ success: true });

@@ -23,7 +23,14 @@ const FloatingIcon = () => {
         displayName: user.location || user.name // Lo que se mostrará en el chat
     } : null;
     
-    const { unreadCount, markAsRead, isConnected } = useChatPolling(chatUser);
+    const { unreadCount, markAsRead, isConnected, clearUserData } = useChatPolling(chatUser);
+
+    // Limpiar datos del chat cuando el usuario se desloguea
+    useEffect(() => {
+        if (!isAuthenticated && clearUserData) {
+            clearUserData();
+        }
+    }, [isAuthenticated, clearUserData]);
 
     const handleClick = () => {
         // Solo permitir chat si el usuario está autenticado y estamos en el cliente

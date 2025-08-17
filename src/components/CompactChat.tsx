@@ -99,33 +99,65 @@ export default function CompactChat({ user, onClose }: CompactChatProps) {
       </div>
 
       {/* Lista de mensajes */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-2">
+      <div className="flex-1 overflow-y-auto p-3 space-y-3 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">
         {messages.length === 0 ? (
-          <div className="text-center text-gray-500 dark:text-gray-400 text-xs mt-4">
-            <p>¡Sé el primero en escribir!</p>
+          <div className="text-center text-gray-500 dark:text-gray-400 text-sm mt-8">
+            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mx-4">
+              <p className="mb-2">💬</p>
+              <p>¡Sé el primero en escribir!</p>
+              <p className="text-xs mt-1 opacity-75">Los mensajes aparecerán aquí</p>
+            </div>
           </div>
         ) : (
           messages.map((message) => (
             <div 
               key={message.id} 
-              className={`flex ${message.userId === userId ? 'justify-end' : 'justify-start'}`}
+              className={`flex ${message.userId === userId ? 'justify-end' : 'justify-start'} mb-3 ${
+                message.userId === userId ? 'pr-1' : 'pl-1'
+              }`}
             >
-              <div className={`max-w-[70%] px-2 py-1 rounded-lg text-xs ${
+              {/* Indicador visual para mensajes propios */}
+              {message.userId === userId && (
+                <div className="flex items-end mr-2">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full opacity-60"></div>
+                </div>
+              )}
+              
+              {/* Indicador visual para mensajes de otros */}
+              {message.userId !== userId && message.userId !== "system" && (
+                <div className="flex items-end mr-2">
+                  <div className="w-6 h-6 bg-gray-400 dark:bg-gray-600 rounded-full flex items-center justify-center text-xs text-white font-bold">
+                    {message.user?.charAt(0)?.toUpperCase() || '?'}
+                  </div>
+                </div>
+              )}
+              <div className={`max-w-[75%] px-3 py-2 rounded-lg text-sm shadow-sm ${
                 message.userId === "system" 
-                  ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 text-center italic'
+                  ? 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200 text-center italic mx-auto border border-yellow-200 dark:border-yellow-700'
                   : message.userId === userId 
-                    ? 'bg-blue-500 text-white' 
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
+                    ? 'bg-blue-500 hover:bg-blue-600 text-white rounded-br-sm shadow-md' // Mis mensajes: azul con hover
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-bl-sm border border-gray-300 dark:border-gray-600' // Otros: gris con borde
               }`}>
+                {/* Mostrar nombre del usuario solo para mensajes de otros (no sistema, no míos) */}
                 {message.userId !== "system" && message.userId !== userId && (
-                  <p className="text-xs opacity-75 mb-1">{message.user}</p>
+                  <p className="text-xs opacity-75 mb-1 font-medium text-gray-600 dark:text-gray-300">{message.user}</p>
                 )}
-                <p>{message.text}</p>
-                <p className={`text-xs opacity-75 mt-1 ${
-                  message.userId === userId ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
-                }`}>
-                  {formatTime(message.timestamp)}
-                </p>
+                <p className="break-words leading-relaxed">{message.text}</p>
+                <div className="flex items-center justify-between mt-1">
+                  <p className={`text-xs opacity-75 ${
+                    message.userId === userId 
+                      ? 'text-blue-100' 
+                      : message.userId === "system"
+                        ? 'text-yellow-600 dark:text-yellow-300'
+                        : 'text-gray-500 dark:text-gray-400'
+                  }`}>
+                    {formatTime(message.timestamp)}
+                  </p>
+                  {/* Indicador de mensaje enviado para mensajes propios */}
+                  {message.userId === userId && (
+                    <span className="text-blue-100 text-xs ml-2">✓</span>
+                  )}
+                </div>
               </div>
             </div>
           ))

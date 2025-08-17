@@ -28,6 +28,21 @@ export function useChatPolling(user: ChatUser | null) {
   const pollingInterval = useRef<NodeJS.Timeout | null>(null);
   const isPollingActive = useRef(false);
 
+  // Función para obtener o crear userId persistente
+  const getUserId = useCallback(() => {
+    if (!user) return null;
+    
+    const storageKey = `chat_userId_${user.name}_${user.location}`;
+    let storedUserId = localStorage.getItem(storageKey);
+    
+    if (!storedUserId) {
+      storedUserId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      localStorage.setItem(storageKey, storedUserId);
+    }
+    
+    return storedUserId;
+  }, [user]);
+
   const markAsRead = useCallback(() => {
     setUnreadCount(0);
   }, []);
@@ -46,6 +61,11 @@ export function useChatPolling(user: ChatUser | null) {
             const newMessages = data.messages.filter(
               (msg: Message) => !prev.some(existingMsg => existingMsg.id === msg.id)
             );
+            
+            // DEBUG: Log para verificar identificación de mensajes
+            newMessages.forEach((msg: Message) => {
+              console.log(`🔍 Mensaje ${msg.id}: de userId "${msg.userId}", mi userId "${userId}", es mío: ${msg.userId === userId}`);
+            });
             
             // Incrementar contador de no leídos
             const unreadMessages = newMessages.filter((msg: Message) => msg.userId !== userId);
@@ -114,6 +134,10 @@ export function useChatPolling(user: ChatUser | null) {
   const joinChat = useCallback(async () => {
     if (!user) return;
     
+    // Obtener userId persistente
+    const persistentUserId = getUserId();
+    if (!persistentUserId) return;
+    
     try {
       const response = await fetch('/api/chat-polling', {
         method: 'POST',
@@ -123,6 +147,7 @@ export function useChatPolling(user: ChatUser | null) {
         body: JSON.stringify({
           action: 'join',
           data: {
+            userId: persistentUserId, // Enviar el userId persistente
             name: user.name,
             location: user.location,
             displayName: user.displayName
@@ -131,43 +156,34 @@ export function useChatPolling(user: ChatUser | null) {
       });
       
       if (response.ok) {
-        const data = await response.json();
-        setUserId(data.userId);
+        // Respuesta exitosa, usar el userId persistente
+        setUserId(persistentUserId);
         setIsConnected(true);
-        return data.userId;
+        return persistentUserId;
       }
     } catch (error) {
       console.error('Error uniéndose al chat:', error);
       setIsConnected(false);
     }
-  }, [user]);
+  }, [user, getUserId]);
 
-  // Función para salir del chat
-  const leaveChat = useCallback(async () => {
-    if (!userId) return;
-    
-    try {
-      await fetch('/api/chat-polling', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'leave',
-          data: { userId }
-        })
-      });
-    } catch (error) {
-      console.error('Error saliendo del chat:', error);
+  // Establecer userId persistente cuando hay usuario
+  useEffect(() => {
+    if (user && !userId) {
+      const persistentUserId = getUserId();
+      console.log('🔍 Chat - Estableciendo userId persistente:', persistentUserId);
+      if (persistentUserId) {
+        setUserId(persistentUserId);
+      }
     }
-  }, [userId]);
+  }, [user, userId, getUserId]);
 
   // Inicializar polling cuando hay usuario
   useEffect(() => {
-    if (user && !userId) {
+    if (user && userId && !isConnected) {
       joinChat();
     }
-  }, [user, userId, joinChat]);
+  }, [user, userId, isConnected, joinChat]);
 
   // Configurar polling
   useEffect(() => {
@@ -192,26 +208,76 @@ export function useChatPolling(user: ChatUser | null) {
   // Cleanup al desmontar
   useEffect(() => {
     return () => {
-      leaveChat();
+      // Solo limpiar polling, no enviar mensaje de salida
       isPollingActive.current = false;
       if (pollingInterval.current) {
         clearInterval(pollingInterval.current);
       }
     };
-  }, [leaveChat]);
+  }, []);
 
   const disconnect = useCallback(() => {
-    leaveChat();
+    // Solo desconectar localmente, sin enviar mensaje al servidor
     setIsConnected(false);
     setMessages([]);
     setConnectedUsers([]);
     setUnreadCount(0);
-    setUserId(null);
+    // No limpiar el userId aquí para mantener la persistencia
     isPollingActive.current = false;
     if (pollingInterval.current) {
       clearInterval(pollingInterval.current);
     }
-  }, [leaveChat]);
+  }, []);
+
+  // Función para limpiar completamente el usuario (logout real)
+  const clearUserData = useCallback(async () => {
+    if (user && userId) {
+      console.log('🔍 Iniciando logout para:', user.displayName);
+      
+      // Agregar mensaje de logout inmediatamente al estado local
+      const logoutMessage = {
+        id: Date.now(),
+        text: `${user.displayName} salió del chat`,
+        user: "Sistema",
+        userId: "system",
+        timestamp: new Date().toISOString()
+      };
+      
+      setMessages(prev => [...prev, logoutMessage]);
+      
+      // Enviar mensaje de logout al servidor (para otros usuarios)
+      try {
+        const response = await fetch('/api/chat-polling', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'logout',
+            data: { userId }
+          })
+        });
+        
+        console.log('🔍 Logout enviado, respuesta:', response.ok);
+        
+      } catch (error) {
+        console.error('Error en logout:', error);
+      }
+      
+      // Esperar un poco para que se vea el mensaje antes de limpiar
+      setTimeout(() => {
+        console.log('🔍 Limpiando datos del usuario');
+        // Limpiar localStorage
+        const storageKey = `chat_userId_${user.name}_${user.location}`;
+        localStorage.removeItem(storageKey);
+        setUserId(null);
+        disconnect();
+      }, 2000); // Esperar 2 segundos antes de desconectar
+      
+    } else {
+      disconnect();
+    }
+  }, [user, userId, disconnect]);
 
   return {
     messages,
@@ -221,6 +287,7 @@ export function useChatPolling(user: ChatUser | null) {
     sendMessage,
     markAsRead,
     disconnect,
+    clearUserData,
     userId
   };
 }
