@@ -5,6 +5,14 @@ let messages = [];
 let connectedUsers = new Map();
 let subscribers = []; // Cola de requests esperando respuesta
 
+// Función helper para obtener usuarios conectados con nombres válidos
+function getValidConnectedUsers() {
+  return Array.from(connectedUsers.values()).map(user => ({
+    ...user,
+    displayName: user.displayName || user.name || 'Usuario'
+  }));
+}
+
 export default function handler(req, res) {
   const { method } = req;
   
@@ -48,7 +56,7 @@ export default function handler(req, res) {
       if (newMessages.length > 0) {
         res.status(200).json({
           messages: newMessages,
-          connectedUsers: Array.from(connectedUsers.values()),
+          connectedUsers: getValidConnectedUsers(),
           timestamp: Date.now()
         });
         return;
@@ -62,7 +70,7 @@ export default function handler(req, res) {
         if (!res.headersSent) {
           res.status(200).json({
             messages: [],
-            connectedUsers: Array.from(connectedUsers.values()),
+            connectedUsers: getValidConnectedUsers(),
             timestamp: Date.now()
           });
         }
@@ -74,7 +82,7 @@ export default function handler(req, res) {
         if (!res.headersSent) {
           res.status(200).json({
             messages: [newMsg],
-            connectedUsers: Array.from(connectedUsers.values()),
+            connectedUsers: getValidConnectedUsers(),
             timestamp: Date.now()
           });
         }
@@ -96,18 +104,42 @@ export default function handler(req, res) {
   }
   
   else if (method === 'POST') {
-    const { action, data } = req.body;
+    // Manejar tanto requests normales como sendBeacon
+    let data;
+    
+    try {
+      // Intentar parsear como JSON normal
+      if (req.body && typeof req.body === 'object') {
+        data = req.body;
+      } else if (typeof req.body === 'string') {
+        data = JSON.parse(req.body);
+      } else {
+        throw new Error('No body data');
+      }
+    } catch (error) {
+      console.error('Error parsing request body:', error);
+      res.status(400).json({ error: 'Invalid request body' });
+      return;
+    }
+    
+    const { action, data: actionData } = data;
     
     try {
       if (action === 'join') {
         // Usuario se une al chat
-        const userId = data.userId || `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const userId = actionData.userId || `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         
-        connectedUsers.set(userId, {
-          ...data,
+        // Asegurar que siempre hay un displayName válido
+        const userData = {
+          ...actionData,
           userId,
+          displayName: actionData.displayName || actionData.name || 'Usuario',
           lastSeen: Date.now()
-        });
+        };
+        
+        connectedUsers.set(userId, userData);
+        
+        console.log(`👤 Usuario conectado: ${userData.displayName} (${userId})`);
         
         res.status(200).json({ 
           success: true, 
@@ -120,9 +152,9 @@ export default function handler(req, res) {
         // Nuevo mensaje
         const newMessage = {
           id: Date.now(),
-          text: data.text.trim(),
-          user: data.user,
-          userId: data.userId,
+          text: actionData.text.trim(),
+          user: actionData.user,
+          userId: actionData.userId,
           timestamp: new Date().toISOString()
         };
         
@@ -151,12 +183,13 @@ export default function handler(req, res) {
       
       else if (action === 'leave') {
         // Usuario sale del chat temporalmente (no mostrar mensaje)
-        const user = connectedUsers.get(data.userId);
+        const user = connectedUsers.get(actionData.userId);
         if (user) {
-          // Solo actualizar lastSeen, no eliminar ni mostrar mensaje
-          connectedUsers.set(data.userId, {
+          console.log(`📤 ${user.displayName || 'Usuario'} sale temporalmente`);
+          // Marcar como desconectado pero no eliminar completamente
+          connectedUsers.set(actionData.userId, {
             ...user,
-            lastSeen: Date.now()
+            lastSeen: Date.now() - 120000 // Marcar como inactivo
           });
         }
         
@@ -165,11 +198,11 @@ export default function handler(req, res) {
       
       else if (action === 'logout') {
         // Usuario sale del chat permanentemente (mostrar mensaje)
-        const user = connectedUsers.get(data.userId);
+        const user = connectedUsers.get(actionData.userId);
         if (user) {
           console.log(`👋 ${user.displayName} está haciendo logout`);
           
-          connectedUsers.delete(data.userId);
+          connectedUsers.delete(actionData.userId);
           
           const leaveMessage = {
             id: Date.now(),

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useChatPolling } from "@/hooks/useChatPolling";
 
 interface ChatUser {
@@ -24,12 +24,10 @@ export default function CompactChat({ user, onClose }: CompactChatProps) {
     userId 
   } = useChatPolling(user);
   
-  // DEBUG: Logs temporales
-  console.log("🔍 CompactChat - user:", user);
-  console.log("🔍 CompactChat - isConnected:", isConnected);
-  console.log("🔍 CompactChat - userId:", userId);
-  console.log("🔍 CompactChat - connectedUsers:", connectedUsers);
-  console.log("🔍 CompactChat - messages:", messages);
+  // Estados para el redimensionamiento
+  const [chatSize, setChatSize] = useState({ width: 320, height: 500 }); // Tamaño inicial
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0 });
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = useState("");
@@ -46,6 +44,51 @@ export default function CompactChat({ user, onClose }: CompactChatProps) {
   useEffect(() => {
     markAsRead();
   }, [markAsRead]);
+
+  // Funciones para el redimensionamiento
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+    setResizeStart({
+      x: e.clientX,
+      y: e.clientY,
+      width: chatSize.width,
+      height: chatSize.height
+    });
+  };
+
+  const handleResizeMove = useCallback((e: MouseEvent) => {
+    if (!isResizing) return;
+    
+    const deltaX = resizeStart.x - e.clientX; // Invertido para esquina superior izquierda
+    const deltaY = resizeStart.y - e.clientY; // Invertido para esquina superior izquierda
+    
+    const newWidth = Math.max(280, Math.min(600, resizeStart.width + deltaX)); // Min: 280px, Max: 600px
+    const newHeight = Math.max(400, Math.min(800, resizeStart.height + deltaY)); // Min: 400px, Max: 800px
+    
+    setChatSize({ width: newWidth, height: newHeight });
+  }, [isResizing, resizeStart.x, resizeStart.y, resizeStart.width, resizeStart.height]);
+
+  const handleResizeEnd = useCallback(() => {
+    setIsResizing(false);
+  }, []);
+
+  // Event listeners para el redimensionamiento
+  useEffect(() => {
+    if (isResizing) {
+      document.addEventListener('mousemove', handleResizeMove);
+      document.addEventListener('mouseup', handleResizeEnd);
+      document.body.style.cursor = 'nw-resize';
+      document.body.style.userSelect = 'none';
+      
+      return () => {
+        document.removeEventListener('mousemove', handleResizeMove);
+        document.removeEventListener('mouseup', handleResizeEnd);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      };
+    }
+  }, [isResizing, handleResizeMove, handleResizeEnd]);
 
   const handleSendMessage = () => {
     if (input.trim()) {
@@ -72,7 +115,42 @@ export default function CompactChat({ user, onClose }: CompactChatProps) {
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div 
+      className="flex flex-col h-full relative"
+      style={{ 
+        width: `${chatSize.width}px`, 
+        height: `${chatSize.height}px`,
+        transition: isResizing ? 'none' : 'all 0.2s ease'
+      }}
+    >
+      {/* Control de redimensionamiento */}
+      <div
+        className="absolute top-0 left-0 w-4 h-4 cursor-nw-resize z-10 group"
+        onMouseDown={handleResizeStart}
+      >
+        <div className="absolute top-1 left-1 w-3 h-3 opacity-30 group-hover:opacity-60 transition-opacity">
+          <svg viewBox="0 0 12 12" className="w-full h-full text-gray-600 dark:text-gray-400">
+            <path
+              d="M11 1L11 11L1 11"
+              stroke="currentColor"
+              strokeWidth="1"
+              fill="none"
+            />
+            <path
+              d="M7 1L11 1L11 5"
+              stroke="currentColor"
+              strokeWidth="1"
+              fill="none"
+            />
+            <path
+              d="M3 5L7 5L7 9L3 9Z"
+              stroke="currentColor"
+              strokeWidth="1"
+              fill="none"
+            />
+          </svg>
+        </div>
+      </div>
       {/* Header del chat */}
       <div className="p-3 border-b border-gray-200 dark:border-gray-600">
         <div className="flex items-center justify-between mb-2">
@@ -83,6 +161,30 @@ export default function CompactChat({ user, onClose }: CompactChatProps) {
             </h3>
           </div>
           <div className="flex items-center space-x-1">
+            {/* Botones de redimensionamiento rápido */}
+            <div className="flex items-center space-x-1 mr-2">
+              <button
+                onClick={() => setChatSize({ width: 320, height: 500 })}
+                className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 p-1 text-xs"
+                title="Tamaño pequeño"
+              >
+                S
+              </button>
+              <button
+                onClick={() => setChatSize({ width: 400, height: 600 })}
+                className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 p-1 text-xs"
+                title="Tamaño mediano"
+              >
+                M
+              </button>
+              <button
+                onClick={() => setChatSize({ width: 500, height: 700 })}
+                className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 p-1 text-xs"
+                title="Tamaño grande"
+              >
+                L
+              </button>
+            </div>
             <button
               onClick={onClose}
               className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 p-1"

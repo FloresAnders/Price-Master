@@ -137,7 +137,7 @@ export function useChatPolling(user: ChatUser | null) {
           action: 'message',
           data: {
             text: text.trim(),
-            user: user?.displayName || 'Usuario',
+            user: user?.displayName || user?.name || 'Usuario',
             userId: userId
           }
         })
@@ -175,7 +175,7 @@ export function useChatPolling(user: ChatUser | null) {
             userId: persistentUserId, // Enviar el userId persistente
             name: user.name,
             location: user.location,
-            displayName: user.displayName
+            displayName: user.displayName || user.name // Fallback a user.name si displayName no está definido
           }
         })
       });
@@ -224,6 +224,57 @@ export function useChatPolling(user: ChatUser | null) {
       };
     }
   }, [userId, isConnected, pollMessages]);
+
+  // Detectar cuando el usuario sale de la página o cierra sesión
+  useEffect(() => {
+    if (!userId || !user) return;
+
+    // Función para enviar leave al servidor cuando se sale de la página
+    const handlePageLeave = async () => {
+      if (userId) {
+        try {
+          // Usar sendBeacon para envío confiable durante el unload
+          const data = JSON.stringify({
+            action: 'leave',
+            data: { userId }
+          });
+          
+          navigator.sendBeacon('/api/chat-polling', data);
+        } catch (error) {
+          console.error('Error enviando leave:', error);
+        }
+      }
+    };
+
+    // Detectar cierre de pestaña/ventana
+    const handleBeforeUnload = () => {
+      handlePageLeave();
+    };
+
+    // Detectar cuando la página se oculta (cambio de pestaña, minimizar, etc.)
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        handlePageLeave();
+      }
+    };
+
+    // Detectar cambio de enfoque de la ventana
+    const handleBlur = () => {
+      handlePageLeave();
+    };
+
+    // Agregar event listeners
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleBlur);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleBlur);
+    };
+  }, [userId, user]);
 
   // Cleanup al desmontar
   useEffect(() => {
