@@ -74,42 +74,56 @@ export default function CompactChat({ user, onClose }: CompactChatProps) {
   return (
     <div className="flex flex-col h-full">
       {/* Header del chat */}
-      <div className="flex items-center justify-between p-3 border-b border-gray-200 dark:border-gray-600">
-        <div className="flex items-center">
-          <div className={`w-2 h-2 rounded-full mr-2 ${isConnected ? 'bg-green-400' : 'bg-red-400'}`}></div>
-          <div>
-            <h3 className="font-semibold text-xs text-gray-800 dark:text-gray-200">
-              {user.displayName}
+      <div className="p-3 border-b border-gray-200 dark:border-gray-600">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center">
+            <div className={`w-2 h-2 rounded-full mr-2 ${isConnected ? 'bg-green-400' : 'bg-red-400'}`}></div>
+            <h3 className="font-semibold text-sm text-gray-800 dark:text-gray-200">
+              Sala General
             </h3>
-            <div className="flex items-center space-x-1 text-xs text-gray-500 dark:text-gray-400">
-              <span>En línea:</span>
-              {connectedUsers.length > 0 ? (
-                <div className="flex items-center space-x-1">
-                  {connectedUsers.slice(0, 3).map((connectedUser, index) => (
-                    <span key={index} className="text-green-600 dark:text-green-400 font-medium">
-                      {connectedUser.displayName}
-                      {index < Math.min(connectedUsers.length - 1, 2) && ','}
-                    </span>
-                  ))}
-                  {connectedUsers.length > 3 && (
-                    <span className="text-gray-400">+{connectedUsers.length - 3} más</span>
-                  )}
-                </div>
-              ) : (
-                <span className="italic">Nadie</span>
-              )}
-            </div>
+          </div>
+          <div className="flex items-center space-x-1">
+            <button
+              onClick={onClose}
+              className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 p-1"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
         </div>
-        <div className="flex items-center space-x-1">
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 p-1"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+        
+        {/* Sección expandida de usuarios en línea */}
+        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+              Usuarios conectados ({connectedUsers.length})
+            </span>
+            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+          </div>
+          
+          {connectedUsers.length > 0 ? (
+            <div className="grid grid-cols-1 gap-1 max-h-20 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">
+              {connectedUsers.map((connectedUser, index) => (
+                <div key={index} className="flex items-center space-x-2 text-xs">
+                  <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center text-white font-bold text-xs">
+                    {connectedUser.displayName?.charAt(0)?.toUpperCase() || '?'}
+                  </div>
+                  <span className="text-gray-700 dark:text-gray-300 font-medium flex-1 truncate">
+                    {connectedUser.displayName || 'Usuario'}
+                  </span>
+                  <div className="w-1.5 h-1.5 bg-green-400 rounded-full"></div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-2">
+              <span className="text-xs text-gray-500 dark:text-gray-400 italic">
+                No hay usuarios conectados
+              </span>
+            </div>
+          )}
         </div>
       </div>
 

@@ -6,33 +6,24 @@ export default function handler(req, res) {
   if (!res.socket.server.io) {
     console.log("🚀 Iniciando servidor Socket.IO...");
     
-    // Configuración más permisiva para producción
+    // Configuración más robusta para producción
     const corsOptions = {
       origin: process.env.NODE_ENV === 'production' 
-        ? true // Permitir todos los orígenes en producción
+        ? process.env.NEXTAUTH_URL || false
         : ["http://localhost:3000", "http://127.0.0.1:3000"],
-      methods: ["GET", "POST", "OPTIONS"],
-      credentials: true,
-      allowedHeaders: ["Content-Type", "Authorization"]
+      methods: ["GET", "POST"],
+      credentials: true
     };
-    
-    // Headers adicionales para producción
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     
     io = new Server(res.socket.server, {
       path: "/api/socketio",
       addTrailingSlash: false,
       cors: corsOptions,
-      transports: ['polling', 'websocket'], // Polling primero para mejor compatibilidad
-      pingTimeout: 120000, // Aumentar timeout
+      transports: ['websocket', 'polling'],
+      pingTimeout: 60000,
       pingInterval: 25000,
       upgradeTimeout: 30000,
-      maxHttpBufferSize: 1e6,
-      allowEIO3: true,
-      cookie: false,
-      serveClient: false
+      allowEIO3: true
     });
 
     res.socket.server.io = io;
