@@ -9,7 +9,7 @@ let subscribers = []; // Cola de requests esperando respuesta
 function getValidConnectedUsers() {
   return Array.from(connectedUsers.values()).map(user => ({
     ...user,
-    displayName: user.displayName || user.name || 'Usuario'
+    displayName: user.displayName || user.name || 'Anónimo'
   }));
 }
 
@@ -133,7 +133,7 @@ export default function handler(req, res) {
         const userData = {
           ...actionData,
           userId,
-          displayName: actionData.displayName || actionData.name || 'Usuario',
+          displayName: actionData.displayName || actionData.name || 'Anónimo',
           lastSeen: Date.now()
         };
         
@@ -185,7 +185,7 @@ export default function handler(req, res) {
         // Usuario sale del chat temporalmente (no mostrar mensaje)
         const user = connectedUsers.get(actionData.userId);
         if (user) {
-          console.log(`📤 ${user.displayName || 'Usuario'} sale temporalmente`);
+          console.log(`📤 ${user.displayName || 'Anónimo'} sale temporalmente`);
           // Marcar como desconectado pero no eliminar completamente
           connectedUsers.set(actionData.userId, {
             ...user,

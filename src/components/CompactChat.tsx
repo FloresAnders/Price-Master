@@ -17,7 +17,6 @@ interface CompactChatProps {
 export default function CompactChat({ user, onClose }: CompactChatProps) {
   const { 
     messages, 
-    connectedUsers, 
     isConnected, 
     sendMessage, 
     markAsRead,
@@ -194,38 +193,6 @@ export default function CompactChat({ user, onClose }: CompactChatProps) {
               </svg>
             </button>
           </div>
-        </div>
-        
-        {/* Sección expandida de usuarios en línea */}
-        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
-              Usuarios conectados ({connectedUsers.length})
-            </span>
-            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-          </div>
-          
-          {connectedUsers.length > 0 ? (
-            <div className="grid grid-cols-1 gap-1 max-h-20 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">
-              {connectedUsers.map((connectedUser, index) => (
-                <div key={index} className="flex items-center space-x-2 text-xs">
-                  <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center text-white font-bold text-xs">
-                    {connectedUser.displayName?.charAt(0)?.toUpperCase() || '?'}
-                  </div>
-                  <span className="text-gray-700 dark:text-gray-300 font-medium flex-1 truncate">
-                    {connectedUser.displayName || 'Usuario'}
-                  </span>
-                  <div className="w-1.5 h-1.5 bg-green-400 rounded-full"></div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-2">
-              <span className="text-xs text-gray-500 dark:text-gray-400 italic">
-                No hay usuarios conectados
-              </span>
-            </div>
-          )}
         </div>
       </div>
 

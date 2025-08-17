@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useChatPolling } from '@/hooks/useChatPolling'; // Cambiado a polling
 import CompactChat from '@/components/CompactChat';
@@ -23,7 +23,49 @@ const FloatingIcon = () => {
         displayName: user.name // Siempre usar el nombre del usuario en lugar de location
     } : null;
     
-    const { unreadCount, markAsRead, isConnected, clearUserData } = useChatPolling(chatUser);
+    const { unreadCount, markAsRead, isConnected, clearUserData, messages, userId } = useChatPolling(chatUser);
+    const [lastMessageCount, setLastMessageCount] = useState(0);
+
+    // Función para reproducir sonido de notificación
+    const playNotificationSound = useCallback(() => {
+        try {
+            // Crear un sonido usando Web Audio API
+            const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+            const audioContext = new AudioContextClass();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            // Configurar el sonido (tono suave de notificación)
+            oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+            oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1);
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.3);
+        } catch (error) {
+            console.log('No se pudo reproducir el sonido de notificación:', error);
+        }
+    }, []);
+
+    // Detectar nuevos mensajes y reproducir sonido solo si el chat está cerrado
+    useEffect(() => {
+        if (messages && messages.length > lastMessageCount && lastMessageCount > 0) {
+            // Solo reproducir sonido para mensajes de otros usuarios (no propios ni del sistema)
+            // Y solo si el chat NO está visible (está cerrado)
+            const lastMessage = messages[messages.length - 1];
+            if (lastMessage && lastMessage.userId !== userId && lastMessage.userId !== "system" && !showMessages) {
+                playNotificationSound();
+            }
+        }
+        if (messages) {
+            setLastMessageCount(messages.length);
+        }
+    }, [messages, lastMessageCount, userId, showMessages, playNotificationSound]);
 
     // Limpiar datos del chat cuando el usuario se desloguea
     useEffect(() => {

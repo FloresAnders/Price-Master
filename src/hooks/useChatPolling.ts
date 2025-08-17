@@ -137,7 +137,7 @@ export function useChatPolling(user: ChatUser | null) {
           action: 'message',
           data: {
             text: text.trim(),
-            user: user?.displayName || user?.name || 'Usuario',
+            user: user?.displayName || user?.name || 'Anónimo',
             userId: userId
           }
         })
