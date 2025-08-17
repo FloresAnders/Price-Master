@@ -38,26 +38,40 @@ export function useChatSocket(user: ChatUser | null) {
   }, [isConnected]);
 
   useEffect(() => {
-    console.log("🔍 useChatSocket - user:", user);
-    console.log("🔍 useChatSocket - globalSocket:", globalSocket);
-    
     if (user && !globalSocket) {
       console.log("🔍 useChatSocket - Iniciando conexión...");
+      
+      // Configuración más robusta para producción
+      const socketOptions = {
+        path: "/api/socketio",
+        transports: ['websocket', 'polling'], // Fallback a polling si websocket falla
+        timeout: 20000,
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+        forceNew: true
+      };
+      
       // Primero inicializar el endpoint HTTP
       fetch('/api/socketio')
         .then(() => {
           console.log("🔍 useChatSocket - Fetch exitoso, creando socket...");
           // Ahora conectar con Socket.IO
-          globalSocket = io({
-            path: "/api/socketio",
-          });
+          globalSocket = io(socketOptions);
 
           globalSocket.on("connect", () => {
+            console.log("🔍 useChatSocket - Conectado correctamente");
             setIsConnected(true);
             globalSocket?.emit("join", user);
           });
 
-          globalSocket.on("disconnect", () => {
+          globalSocket.on("disconnect", (reason) => {
+            console.log("🔍 useChatSocket - Desconectado:", reason);
+            setIsConnected(false);
+          });
+
+          globalSocket.on("connect_error", (error) => {
+            console.error("🔍 useChatSocket - Error de conexión:", error);
             setIsConnected(false);
           });
 

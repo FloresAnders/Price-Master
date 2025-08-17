@@ -2,32 +2,32 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { useChatSocket } from '@/hooks/useChatSocket';
+import { useChatPolling } from '@/hooks/useChatPolling'; // Cambiado a polling
 import CompactChat from '@/components/CompactChat';
 
 const FloatingIcon = () => {
     const [isHovered, setIsHovered] = useState(false);
     const [showMessages, setShowMessages] = useState(false);
+    const [isClient, setIsClient] = useState(false);
     const { user, isAuthenticated } = useAuth();
     
-    // DEBUG: Logs temporales
-    console.log("🔍 FloatingIcon - user:", user);
-    console.log("🔍 FloatingIcon - isAuthenticated:", isAuthenticated);
+    // Asegurar que estamos en el cliente
+    useEffect(() => {
+        setIsClient(true);
+    }, []);
     
-    // Usar el hook de chat solo si el usuario está autenticado
-    const chatUser = user ? {
+    // Usar el hook de chat solo si el usuario está autenticado y estamos en el cliente
+    const chatUser = user && isClient ? {
         name: user.name,
         location: user.location || user.name, // Usar ubicación o nombre como fallback
         displayName: user.location || user.name // Lo que se mostrará en el chat
     } : null;
     
-    console.log("🔍 FloatingIcon - chatUser:", chatUser);
-    
-    const { unreadCount, markAsRead } = useChatSocket(chatUser);
+    const { unreadCount, markAsRead, isConnected } = useChatPolling(chatUser);
 
     const handleClick = () => {
-        // Solo permitir chat si el usuario está autenticado
-        if (isAuthenticated && chatUser) {
+        // Solo permitir chat si el usuario está autenticado y estamos en el cliente
+        if (isAuthenticated && chatUser && isClient) {
             setShowMessages(!showMessages);
             // Resetear contador de no leídos al abrir
             if (!showMessages) {
@@ -59,8 +59,8 @@ const FloatingIcon = () => {
 
     return (
         <>
-            {/* Panel de mensajes flotante */}
-            {showMessages && isAuthenticated && chatUser && (
+            {/* Panel de mensajes flotante - Solo renderizar en el cliente */}
+            {showMessages && isAuthenticated && chatUser && isClient && (
                 <div className="fixed bottom-20 right-4 z-40 w-80 h-96 bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col animate-in slide-in-from-bottom-5 duration-300">
                     <CompactChat 
                         user={chatUser} 
@@ -69,13 +69,14 @@ const FloatingIcon = () => {
                 </div>
             )}
 
-            {/* Icono flotante */}
-            <div
-                className="fixed bottom-4 right-4 z-50 cursor-pointer transition-all duration-300 ease-in-out transform hover:scale-110"
-                onMouseEnter={() => setIsHovered(true)}
-                onMouseLeave={() => setIsHovered(false)}
-                onClick={handleClick}
-            >
+            {/* Icono flotante - Solo renderizar en el cliente */}
+            {isClient && (
+                <div
+                    className="fixed bottom-4 right-4 z-50 cursor-pointer transition-all duration-300 ease-in-out transform hover:scale-110"
+                    onMouseEnter={() => setIsHovered(true)}
+                    onMouseLeave={() => setIsHovered(false)}
+                    onClick={handleClick}
+                >
                 <div className={`
             relative w-12 h-12 rounded-full shadow-lg 
             ${showMessages 
@@ -111,9 +112,11 @@ const FloatingIcon = () => {
                         </div>
                     )}
 
-                    {/* Indicador de usuario logueado */}
+                    {/* Indicador de usuario logueado y conexión */}
                     {isAuthenticated && chatUser && (
-                        <div className="absolute -bottom-1 -right-1 bg-green-500 rounded-full w-3 h-3 border-2 border-white dark:border-gray-800"></div>
+                        <div className={`absolute -bottom-1 -right-1 rounded-full w-3 h-3 border-2 border-white dark:border-gray-800 ${
+                            isConnected ? 'bg-green-500' : 'bg-yellow-500'
+                        }`}></div>
                     )}
                    
                 </div>
@@ -121,11 +124,15 @@ const FloatingIcon = () => {
                 {/* Tooltip */}
                 {isHovered && !showMessages && (
                     <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-800 text-xs rounded whitespace-nowrap">
-                        {isAuthenticated && chatUser ? `Chat (${chatUser.displayName})` : 'Chat - Inicia sesión'}
+                        {isAuthenticated && chatUser ? 
+                            `Chat (${chatUser.displayName})${!isConnected ? ' - Desconectado' : ''}` : 
+                            'Chat - Inicia sesión'
+                        }
                         <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800 dark:border-t-gray-200"></div>
                     </div>
                 )}
-            </div>
+                </div>
+            )}
         </>
     );
 };

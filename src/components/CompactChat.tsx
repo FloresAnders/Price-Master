@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useChatSocket } from "@/hooks/useChatSocket";
+import { useChatPolling } from "@/hooks/useChatPolling";
 
 interface ChatUser {
   name: string;
@@ -21,13 +21,13 @@ export default function CompactChat({ user, onClose }: CompactChatProps) {
     isConnected, 
     sendMessage, 
     markAsRead,
-    socketId 
-  } = useChatSocket(user);
+    userId 
+  } = useChatPolling(user);
   
   // DEBUG: Logs temporales
   console.log("🔍 CompactChat - user:", user);
   console.log("🔍 CompactChat - isConnected:", isConnected);
-  console.log("🔍 CompactChat - socketId:", socketId);
+  console.log("🔍 CompactChat - userId:", userId);
   console.log("🔍 CompactChat - connectedUsers:", connectedUsers);
   console.log("🔍 CompactChat - messages:", messages);
   
@@ -48,8 +48,12 @@ export default function CompactChat({ user, onClose }: CompactChatProps) {
   }, [markAsRead]);
 
   const handleSendMessage = () => {
-    if (sendMessage(input)) {
-      setInput("");
+    if (input.trim()) {
+      sendMessage(input).then(success => {
+        if (success) {
+          setInput("");
+        }
+      });
     }
   };
 
@@ -104,21 +108,21 @@ export default function CompactChat({ user, onClose }: CompactChatProps) {
           messages.map((message) => (
             <div 
               key={message.id} 
-              className={`flex ${message.userId === socketId ? 'justify-end' : 'justify-start'}`}
+              className={`flex ${message.userId === userId ? 'justify-end' : 'justify-start'}`}
             >
               <div className={`max-w-[70%] px-2 py-1 rounded-lg text-xs ${
                 message.userId === "system" 
                   ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 text-center italic'
-                  : message.userId === socketId 
+                  : message.userId === userId 
                     ? 'bg-blue-500 text-white' 
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
               }`}>
-                {message.userId !== "system" && message.userId !== socketId && (
+                {message.userId !== "system" && message.userId !== userId && (
                   <p className="text-xs opacity-75 mb-1">{message.user}</p>
                 )}
                 <p>{message.text}</p>
                 <p className={`text-xs opacity-75 mt-1 ${
-                  message.userId === socketId ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
+                  message.userId === userId ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
                 }`}>
                   {formatTime(message.timestamp)}
                 </p>
