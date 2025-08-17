@@ -25,7 +25,6 @@ export function useChatPolling(user: ChatUser | null) {
   const [userId, setUserId] = useState<string | null>(null);
   
   const lastMessageId = useRef<number>(0);
-  const pollingInterval = useRef<NodeJS.Timeout | null>(null);
   const isPollingActive = useRef(false);
 
   // Función para obtener o crear userId persistente
@@ -47,13 +46,18 @@ export function useChatPolling(user: ChatUser | null) {
     setUnreadCount(0);
   }, []);
 
-  // Función para hacer polling
+  // Función para hacer long polling
   const pollMessages = useCallback(async () => {
     if (!userId || !isPollingActive.current) return;
     
     try {
-      const response = await fetch(`/api/chat-polling?lastMessageId=${lastMessageId.current}&userId=${userId}`);
-      if (response.ok) {
+      // Long polling - la request se mantiene abierta hasta recibir datos o timeout
+      const response = await fetch(`/api/chat-polling?lastMessageId=${lastMessageId.current}&userId=${userId}`, {
+        // Timeout de 30 segundos para long polling
+        signal: AbortSignal.timeout(30000)
+      });
+      
+      if (response.ok && isPollingActive.current) {
         const data = await response.json();
         
         if (data.messages && data.messages.length > 0) {
@@ -89,12 +93,33 @@ export function useChatPolling(user: ChatUser | null) {
         }
         
         setIsConnected(true);
+        
+        // Inmediatamente iniciar otra request de long polling
+        if (isPollingActive.current) {
+          setTimeout(pollMessages, 100); // Pequeña pausa antes de la siguiente request
+        }
       } else {
         setIsConnected(false);
+        // Si falla, reintentar después de un tiempo
+        if (isPollingActive.current) {
+          setTimeout(pollMessages, 3000);
+        }
       }
-    } catch (error) {
-      console.error('Error en polling:', error);
+    } catch (error: unknown) {
+      // Si es timeout o error de red, reintentar
+      const errorObj = error as Error;
+      if (errorObj?.name === 'TimeoutError' || errorObj?.name === 'AbortError') {
+        console.log('Long polling timeout, reintentando...');
+      } else {
+        console.error('Error en long polling:', error);
+      }
+      
       setIsConnected(false);
+      
+      // Reintentar después de un tiempo si sigue activo
+      if (isPollingActive.current) {
+        setTimeout(pollMessages, 2000);
+      }
     }
   }, [userId]);
 
@@ -185,22 +210,17 @@ export function useChatPolling(user: ChatUser | null) {
     }
   }, [user, userId, isConnected, joinChat]);
 
-  // Configurar polling
+  // Configurar long polling
   useEffect(() => {
     if (userId && isConnected) {
       isPollingActive.current = true;
       
-      // Polling cada 2 segundos
-      pollingInterval.current = setInterval(pollMessages, 2000);
-      
-      // Polling inicial
+      // Iniciar long polling (sin intervalo, se auto-repite)
       pollMessages();
       
       return () => {
         isPollingActive.current = false;
-        if (pollingInterval.current) {
-          clearInterval(pollingInterval.current);
-        }
+        // No necesitamos clearInterval porque long polling no usa intervalos
       };
     }
   }, [userId, isConnected, pollMessages]);
@@ -210,9 +230,6 @@ export function useChatPolling(user: ChatUser | null) {
     return () => {
       // Solo limpiar polling, no enviar mensaje de salida
       isPollingActive.current = false;
-      if (pollingInterval.current) {
-        clearInterval(pollingInterval.current);
-      }
     };
   }, []);
 
@@ -224,9 +241,6 @@ export function useChatPolling(user: ChatUser | null) {
     setUnreadCount(0);
     // No limpiar el userId aquí para mantener la persistencia
     isPollingActive.current = false;
-    if (pollingInterval.current) {
-      clearInterval(pollingInterval.current);
-    }
   }, []);
 
   // Función para limpiar completamente el usuario (logout real)

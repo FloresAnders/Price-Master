@@ -1,8 +1,9 @@
 // API alternativa para chat que funciona en Vercel
-// Usa polling en lugar de WebSockets
+// Usa long polling para optimizar recursos
 
 let messages = [];
 let connectedUsers = new Map();
+let subscribers = []; // Cola de requests esperando respuesta
 
 export default function handler(req, res) {
   const { method } = req;
@@ -18,13 +19,14 @@ export default function handler(req, res) {
   }
 
   if (method === 'GET') {
-    // Polling - obtener mensajes
+    // Long polling - obtener mensajes
     const { lastMessageId, userId } = req.query;
     
     try {
-      const newMessages = messages.filter(msg => 
-        !lastMessageId || msg.id > parseInt(lastMessageId)
-      );
+      const lastId = parseInt(lastMessageId) || 0;
+      
+      // Buscar mensajes nuevos
+      const newMessages = messages.filter(msg => msg.id > lastId);
       
       // Actualizar última actividad del usuario
       if (userId) {
@@ -42,11 +44,51 @@ export default function handler(req, res) {
         }
       }
       
-      res.status(200).json({
-        messages: newMessages,
-        connectedUsers: Array.from(connectedUsers.values()),
-        timestamp: Date.now()
+      // Si hay mensajes nuevos, responder inmediatamente
+      if (newMessages.length > 0) {
+        res.status(200).json({
+          messages: newMessages,
+          connectedUsers: Array.from(connectedUsers.values()),
+          timestamp: Date.now()
+        });
+        return;
+      }
+      
+      // Si no hay mensajes nuevos, hacer long polling
+      // Timeout de 25 segundos (Vercel tiene límite de 30s)
+      const timer = setTimeout(() => {
+        // Remover de suscriptores y responder vacío
+        subscribers = subscribers.filter(sub => sub.res !== res);
+        if (!res.headersSent) {
+          res.status(200).json({
+            messages: [],
+            connectedUsers: Array.from(connectedUsers.values()),
+            timestamp: Date.now()
+          });
+        }
+      }, 25000);
+      
+      // Función para enviar respuesta cuando llegue un mensaje
+      const sendResponse = (newMsg) => {
+        clearTimeout(timer);
+        if (!res.headersSent) {
+          res.status(200).json({
+            messages: [newMsg],
+            connectedUsers: Array.from(connectedUsers.values()),
+            timestamp: Date.now()
+          });
+        }
+      };
+      
+      // Agregar a la cola de suscriptores
+      subscribers.push({ res, sendResponse, lastId });
+      
+      // Manejar desconexión del cliente
+      req.on('close', () => {
+        clearTimeout(timer);
+        subscribers = subscribers.filter(sub => sub.res !== res);
       });
+      
     } catch (error) {
       console.error('Error en GET:', error);
       res.status(500).json({ error: 'Error interno del servidor' });
@@ -91,6 +133,16 @@ export default function handler(req, res) {
           messages = messages.slice(-100);
         }
         
+        // Notificar a todos los suscriptores esperando (long polling)
+        subscribers.forEach(sub => {
+          if (newMessage.id > sub.lastId && !sub.res.headersSent) {
+            sub.sendResponse(newMessage);
+          }
+        });
+        
+        // Limpiar suscriptores que ya recibieron respuesta
+        subscribers = subscribers.filter(sub => !sub.res.headersSent);
+        
         res.status(200).json({ 
           success: true, 
           message: newMessage 
@@ -127,6 +179,16 @@ export default function handler(req, res) {
             timestamp: new Date().toISOString()
           };
           messages.push(leaveMessage);
+          
+          // Notificar a todos los suscriptores esperando
+          subscribers.forEach(sub => {
+            if (leaveMessage.id > sub.lastId && !sub.res.headersSent) {
+              sub.sendResponse(leaveMessage);
+            }
+          });
+          
+          // Limpiar suscriptores que ya recibieron respuesta
+          subscribers = subscribers.filter(sub => !sub.res.headersSent);
           
           console.log(`📩 Mensaje de salida agregado para ${user.displayName}`);
         }
