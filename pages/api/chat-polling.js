@@ -61,31 +61,16 @@ export default function handler(req, res) {
         // Usuario se une al chat
         const userId = data.userId || `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         
-        // Verificar si el usuario ya estaba conectado (solo actualizar lastSeen)
-        const wasAlreadyConnected = connectedUsers.has(userId);
-        
         connectedUsers.set(userId, {
           ...data,
           userId,
           lastSeen: Date.now()
         });
         
-        // Solo agregar mensaje del sistema si es la primera conexión en esta sesión
-        if (!wasAlreadyConnected) {
-          const joinMessage = {
-            id: Date.now(),
-            text: `${data.displayName} se unió al chat`,
-            user: "Sistema",
-            userId: "system",
-            timestamp: new Date().toISOString()
-          };
-          messages.push(joinMessage);
-        }
-        
         res.status(200).json({ 
           success: true, 
           userId,
-          message: wasAlreadyConnected ? 'Usuario reconectado' : 'Usuario conectado'
+          message: 'Usuario conectado'
         });
       }
       

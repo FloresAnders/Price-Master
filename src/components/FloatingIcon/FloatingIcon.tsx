@@ -68,7 +68,7 @@ const FloatingIcon = () => {
         <>
             {/* Panel de mensajes flotante - Solo renderizar en el cliente */}
             {showMessages && isAuthenticated && chatUser && isClient && (
-                <div className="fixed bottom-20 right-4 z-40 w-80 h-96 bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col animate-in slide-in-from-bottom-5 duration-300">
+                <div className="fixed bottom-20 right-4 z-40 w-80 h-[500px] bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col animate-in slide-in-from-bottom-5 duration-300">
                     <CompactChat 
                         user={chatUser} 
                         onClose={closeMessages}

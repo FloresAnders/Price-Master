@@ -81,9 +81,24 @@ export default function CompactChat({ user, onClose }: CompactChatProps) {
             <h3 className="font-semibold text-xs text-gray-800 dark:text-gray-200">
               {user.displayName}
             </h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              {connectedUsers.length} online
-            </p>
+            <div className="flex items-center space-x-1 text-xs text-gray-500 dark:text-gray-400">
+              <span>En línea:</span>
+              {connectedUsers.length > 0 ? (
+                <div className="flex items-center space-x-1">
+                  {connectedUsers.slice(0, 3).map((connectedUser, index) => (
+                    <span key={index} className="text-green-600 dark:text-green-400 font-medium">
+                      {connectedUser.displayName}
+                      {index < Math.min(connectedUsers.length - 1, 2) && ','}
+                    </span>
+                  ))}
+                  {connectedUsers.length > 3 && (
+                    <span className="text-gray-400">+{connectedUsers.length - 3} más</span>
+                  )}
+                </div>
+              ) : (
+                <span className="italic">Nadie</span>
+              )}
+            </div>
           </div>
         </div>
         <div className="flex items-center space-x-1">
