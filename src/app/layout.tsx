@@ -7,9 +7,30 @@ import AuthWrapper from '../components/AuthWrapper';
 
 export const metadata = {
   title: 'Price Master',
-  description: 'Calcula, cuenta, escanea. Todo en uno.',
+  description: 'Plataforma para gestión de precios, escaneo de códigos de barras, control de inventario y horarios laborales',
   icons: {
-    icon: '/favicon.ico',
+    icon: [
+      { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
+      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/favicon.ico', sizes: 'any' }
+    ],
+    apple: '/apple-touch-icon.png',
+    other: [
+      {
+        rel: 'android-chrome-192x192',
+        url: '/android-chrome-192x192.png',
+      },
+      {
+        rel: 'android-chrome-512x512',
+        url: '/android-chrome-512x512.png',
+      },
+    ],
+  },
+  manifest: '/site.webmanifest',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Price Master',
   },
   verification: {
     google: '9TNvqvQrFhVHvPtQR01Du1GhCiG1yjPPvCgJTGf09w0',
@@ -22,10 +43,19 @@ export const metadata = {
   robots: 'index, follow',
   generator: 'Next.js',
   applicationName: 'Price Master',
-  keywords: ['price master', 'calculadora', 'contador', 'escaner', 'precio', 'codigo barras'],
+  keywords: ['price master', 'calculadora', 'contador', 'escaner', 'precio', 'codigo barras', 'horarios laborales', 'inventario'],
+  category: 'business',
   other: {
-    copyright: '2025 Price Master - AndersFloresM & AlvaroChavesC'
+    copyright: '2025 Price Master - AndersFloresM & AlvaroChavesC',
+    'mobile-web-app-capable': 'yes',
+    'msapplication-TileColor': '#2563eb',
   }
+};
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  themeColor: '#2563eb',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

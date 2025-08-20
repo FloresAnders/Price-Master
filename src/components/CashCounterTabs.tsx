@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   PlusCircle,
   MinusCircle,
@@ -1578,9 +1578,11 @@ export default function CashCounterTabs() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 bg-[var(--background)] min-h-screen pb-32">
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex justify-center items-center mb-4">
         <h1 className="text-2xl font-bold text-[var(--foreground)]">Cash Counter</h1>
+      </div>
 
+      <div className="flex justify-end items-center mb-4">
         <div className="flex items-center space-x-3">
           {/* Indicador de guardado */}
           <div className="flex items-center text-sm">
