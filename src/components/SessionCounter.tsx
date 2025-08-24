@@ -1,8 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Clock, X, Minimize2 } from 'lucide-react';
+import { Clock, X, Minimize2, Shield } from 'lucide-react';
 import { formatSessionTimeLeft, getSessionTimeLeft, isSessionValid } from '@/utils/session';
+import { useAuth } from '../hooks/useAuth';
+import { TokenService } from '../services/tokenService';
 
 interface SessionCounterProps {
   onExpired?: () => void;
@@ -10,6 +12,7 @@ interface SessionCounterProps {
 }
 
 export default function SessionCounter({ onExpired, onHide }: SessionCounterProps) {
+  const { useTokenAuth, getFormattedTimeLeft, getSessionTimeLeft } = useAuth();
   const [timeLeft, setTimeLeft] = useState<string>('');
   const [isMinimized, setIsMinimized] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
@@ -55,7 +58,21 @@ export default function SessionCounter({ onExpired, onHide }: SessionCounterProp
   // Actualizar contador cada segundo
   useEffect(() => {
     const updateTimer = () => {
-      if (!isSessionValid()) {
+      let sessionValid = true;
+      let formattedTime = '';
+
+      if (useTokenAuth) {
+        // Usar información del token
+        const tokenInfo = TokenService.getTokenInfo();
+        sessionValid = tokenInfo.isValid;
+        formattedTime = getFormattedTimeLeft();
+      } else {
+        // Usar sesión tradicional
+        sessionValid = isSessionValid();
+        formattedTime = formatSessionTimeLeft();
+      }
+
+      if (!sessionValid) {
         setIsVisible(false);
         if (onExpired) {
           onExpired();
@@ -63,15 +80,14 @@ export default function SessionCounter({ onExpired, onHide }: SessionCounterProp
         return;
       }
 
-      const formatted = formatSessionTimeLeft();
-      setTimeLeft(formatted);
+      setTimeLeft(formattedTime);
       setIsVisible(true);
 
-      // Cambiar color cuando queda menos de 30 minutos
-      const timeLeftMs = getSessionTimeLeft();
-      const thirtyMinutes = 30 * 60 * 1000;
+      // Cambiar color cuando queda menos de 24 horas (para tokens) o 30 minutos (para sesiones tradicionales)
+      const sessionTimeLeft = getSessionTimeLeft();
+      const warningThreshold = useTokenAuth ? 24 * 60 * 60 * 1000 : 30 * 60 * 1000; // 24 horas vs 30 minutos
       
-      if (timeLeftMs <= thirtyMinutes && timeLeftMs > 0) {
+      if (sessionTimeLeft <= warningThreshold && sessionTimeLeft > 0) {
         // Agregar clase de advertencia si queda poco tiempo
         const element = document.getElementById('session-counter');
         if (element) {
@@ -84,7 +100,7 @@ export default function SessionCounter({ onExpired, onHide }: SessionCounterProp
     const interval = setInterval(updateTimer, 1000);
     
     return () => clearInterval(interval);
-  }, [onExpired]);
+  }, [onExpired, useTokenAuth, getFormattedTimeLeft, getSessionTimeLeft]);
 
   // Manejo de arrastre
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -123,9 +139,14 @@ export default function SessionCounter({ onExpired, onHide }: SessionCounterProp
 
   if (!isVisible) return null;
 
-  const timeLeftMs = getSessionTimeLeft();
-  const isWarning = timeLeftMs <= 30 * 60 * 1000; // Menos de 30 minutos
-  const isCritical = timeLeftMs <= 5 * 60 * 1000; // Menos de 5 minutos
+  const sessionTimeLeft = getSessionTimeLeft();
+  
+  // Ajustar umbrales según el tipo de autenticación
+  const warningThreshold = useTokenAuth ? 24 * 60 * 60 * 1000 : 30 * 60 * 1000; // 24 horas vs 30 minutos
+  const criticalThreshold = useTokenAuth ? 6 * 60 * 60 * 1000 : 5 * 60 * 1000; // 6 horas vs 5 minutos
+  
+  const isWarning = sessionTimeLeft <= warningThreshold && sessionTimeLeft > criticalThreshold;
+  const isCritical = sessionTimeLeft <= criticalThreshold;
 
   return (
     <>
@@ -266,24 +287,36 @@ export default function SessionCounter({ onExpired, onHide }: SessionCounterProp
             className="flex items-center justify-center w-10 h-10"
             onClick={() => setIsMinimized(false)}
           >
-            <Clock className="w-5 h-5" />
+            {useTokenAuth ? <Shield className="w-5 h-5" /> : <Clock className="w-5 h-5" />}
           </div>
         ) : (
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="relative">
-                <Clock className={`w-5 h-5 ${isCritical ? 'animate-bounce' : ''}`} />
+                {useTokenAuth ? (
+                  <Shield className={`w-5 h-5 ${isCritical ? 'animate-bounce' : ''}`} />
+                ) : (
+                  <Clock className={`w-5 h-5 ${isCritical ? 'animate-bounce' : ''}`} />
+                )}
               </div>
               <div>
                 <div className="text-xs opacity-90 font-medium tracking-wide">
-                  {isCritical ? 'SESIÓN CRÍTICA' : isWarning ? 'Sesión terminando' : 'Sesión activa'}
+                  {useTokenAuth ? (
+                    isCritical ? 'TOKEN CRÍTICO' : isWarning ? 'Token expirando' : 'Token activo'
+                  ) : (
+                    isCritical ? 'SESIÓN CRÍTICA' : isWarning ? 'Sesión terminando' : 'Sesión activa'
+                  )}
                 </div>
                 <div className={`time-display text-lg leading-tight ${isCritical ? 'animate-pulse' : ''}`}>
                   {timeLeft}
                 </div>
                 {!isMinimized && (
                   <div className="text-xs opacity-75 mt-1">
-                    {isCritical ? 'Guarda tu trabajo' : isWarning ? 'Considera renovar' : '5h máximo'}
+                    {useTokenAuth ? (
+                      isCritical ? 'Se renovará automáticamente' : isWarning ? 'Renovación próxima' : '7 días de duración'
+                    ) : (
+                      isCritical ? 'Guarda tu trabajo' : isWarning ? 'Considera renovar' : '5h máximo'
+                    )}
                   </div>
                 )}
               </div>

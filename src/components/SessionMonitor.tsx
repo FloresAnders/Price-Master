@@ -2,8 +2,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Shield, Clock, AlertTriangle, Eye, X } from 'lucide-react';
+import { Shield, Clock, AlertTriangle, Eye, X, Key } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import TokenInfo from './TokenInfo';
 
 interface AuditLog {
   timestamp: string;
@@ -18,21 +19,25 @@ interface AuditLog {
 
 interface SessionMonitorProps {
   showAuditLogs?: boolean;
+  inline?: boolean; // Nueva prop para mostrar inline sin posicionamiento fijo
 }
 
-export default function SessionMonitor({ showAuditLogs = false }: SessionMonitorProps) {
+export default function SessionMonitor({ showAuditLogs = false, inline = false }: SessionMonitorProps) {
   const { 
     user, 
     sessionWarning, 
     extendSession, 
     getSessionTimeLeft, 
     getAuditLogs, 
-    isSuperAdmin 
+    isSuperAdmin,
+    useTokenAuth,
+    getFormattedTimeLeft
   } = useAuth();
   
   const [timeLeft, setTimeLeft] = useState(0);
   const [showLogs, setShowLogs] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [showTokenInfo, setShowTokenInfo] = useState(false);
 
   // Actualizar tiempo restante cada minuto
   useEffect(() => {
@@ -84,33 +89,53 @@ export default function SessionMonitor({ showAuditLogs = false }: SessionMonitor
         <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-yellow-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-3 animate-pulse">
           <AlertTriangle className="w-5 h-5" />
           <span className="font-medium">
-            Su sesión expirará pronto. ¿Desea extenderla?
+            {useTokenAuth ? 'Su token expirará pronto. Se renovará automáticamente.' : 'Su sesión expirará pronto. ¿Desea extenderla?'}
           </span>
-          <button
-            onClick={extendSession}
-            className="bg-white text-yellow-500 px-3 py-1 rounded text-sm font-medium hover:bg-gray-100 transition-colors"
-          >
-            Extender
-          </button>
+          {!useTokenAuth && (
+            <button
+              onClick={extendSession}
+              className="bg-white text-yellow-500 px-3 py-1 rounded text-sm font-medium hover:bg-gray-100 transition-colors"
+            >
+              Extender
+            </button>
+          )}
+          {useTokenAuth && (
+            <button
+              onClick={() => setShowTokenInfo(true)}
+              className="bg-white text-yellow-500 px-3 py-1 rounded text-sm font-medium hover:bg-gray-100 transition-colors flex items-center gap-1"
+            >
+              <Key className="w-3 h-3" />
+              Ver Token
+            </button>
+          )}
         </div>
       )}
 
       {/* Monitor de sesión para SuperAdmin */}
-      {isSuperAdmin() && (
+      {isSuperAdmin() && !inline && (
         <div className="fixed bottom-4 right-4 z-40 bg-red-900 text-white p-3 rounded-lg shadow-lg border-2 border-red-600">
           <div className="flex items-center gap-2 mb-2">
             <Shield className="w-4 h-4" />
             <span className="text-xs font-bold">SUPERADMIN MONITOR</span>
+            {useTokenAuth && <Key className="w-3 h-3 text-green-400" />}
           </div>
           <div className="text-xs space-y-1">
             <div className="flex items-center gap-2">
-              <Clock className="w-3 h-3" />
-              <span>Sesión: {formatTimeLeft(timeLeft)}</span>
+              {useTokenAuth ? <Key className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+              <span>{useTokenAuth ? 'Token' : 'Sesión'}: {getFormattedTimeLeft()}</span>
             </div>
             <div className="flex items-center gap-2">
               <span className={`px-2 py-1 rounded text-xs font-medium ${getRoleColor(user.role)}`}>
                 {user.role?.toUpperCase()}
               </span>
+              {useTokenAuth && (
+                <button
+                  onClick={() => setShowTokenInfo(true)}
+                  className="px-2 py-1 bg-green-600 hover:bg-green-700 rounded text-xs font-medium transition-colors"
+                >
+                  Token Info
+                </button>
+              )}
             </div>
             {showAuditLogs && (
               <button
@@ -120,6 +145,38 @@ export default function SessionMonitor({ showAuditLogs = false }: SessionMonitor
                 <Eye className="w-3 h-3" />
                 {showLogs ? 'Ocultar' : 'Ver'} Logs
               </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Versión inline para integrar en modales */}
+      {inline && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <Shield className="w-4 h-4 text-red-600" />
+            <span className="text-sm font-semibold text-red-700 dark:text-red-300">Estado de Sesión</span>
+            {useTokenAuth && <Key className="w-3 h-3 text-green-500" />}
+          </div>
+          <div className="space-y-2 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-gray-600 dark:text-gray-300">
+                {useTokenAuth ? 'Token activo:' : 'Sesión activa:'}
+              </span>
+              <span className="font-medium text-gray-900 dark:text-white">
+                {getFormattedTimeLeft()}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-gray-600 dark:text-gray-300">Rol:</span>
+              <span className={`px-2 py-1 rounded text-xs font-medium ${getRoleColor(user.role)}`}>
+                {user.role?.toUpperCase()}
+              </span>
+            </div>
+            {useTokenAuth && (
+              <div className="text-xs text-blue-600 dark:text-blue-400">
+                🔐 Autenticación con token seguro activa
+              </div>
             )}
           </div>
         </div>
@@ -194,10 +251,22 @@ export default function SessionMonitor({ showAuditLogs = false }: SessionMonitor
         <div className="fixed bottom-4 right-4 z-40 bg-gray-800 text-white p-2 rounded-lg shadow-lg text-xs">
           <div className="flex items-center gap-2">
             <div className={`w-2 h-2 rounded-full ${timeLeft > 1 ? 'bg-green-400' : 'bg-yellow-400'}`}></div>
-            <span>{formatTimeLeft(timeLeft)}</span>
+            <span>{useTokenAuth ? getFormattedTimeLeft() : formatTimeLeft(timeLeft)}</span>
+            {useTokenAuth && (
+              <Key 
+                className="w-3 h-3 text-green-400 cursor-pointer hover:text-green-300" 
+                onClick={() => setShowTokenInfo(true)}
+              />
+            )}
           </div>
         </div>
       )}
+
+      {/* Modal de información del token */}
+      <TokenInfo 
+        isOpen={showTokenInfo} 
+        onClose={() => setShowTokenInfo(false)} 
+      />
     </>
   );
 }

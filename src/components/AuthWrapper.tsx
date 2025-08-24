@@ -38,8 +38,8 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
           <LoginModal
             isOpen={true}
             onClose={() => {}} // No permitir cerrar
-            onLoginSuccess={(userData: User, keepActive?: boolean) => {
-              login(userData, keepActive);
+            onLoginSuccess={(userData: User, keepActive?: boolean, useTokens?: boolean) => {
+              login(userData, keepActive, useTokens);
             }}
             title="Price Master"
             canClose={false} // No mostrar botón cancelar

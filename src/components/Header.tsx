@@ -1,11 +1,15 @@
 'use client'
 
 import Image from 'next/image';
-import { Settings, LogOut, Menu, X, Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck, History, User } from 'lucide-react';
+import { Settings, LogOut, Menu, X, Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck, History, User, ChevronDown, Shield, Key, Clock4, Info } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../hooks/useAuth';
 import { ThemeToggle } from './ThemeToggle';
 import { getDefaultPermissions } from '../utils/permissions';
+import SessionMonitor from './SessionMonitor';
+import SessionCounter from './SessionCounter';
+import TokenInfo from './TokenInfo';
 import type { UserPermissions } from '../types/firestore';
 
 type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'supplierorders' | 'histoscans' | 'scanhistory' | 'edit'
@@ -19,12 +23,50 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const { logout, user } = useAuth();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [showConfigModal, setShowConfigModal] = useState(false);
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [showFloatingCounter, setShowFloatingCounter] = useState(true);
   const [isClient, setIsClient] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, right: 0 });
 
   // Ensure component is mounted on client
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  // Close dropdown on scroll or resize
+  useEffect(() => {
+    if (!showUserDropdown) return;
+
+    const handleScrollOrResize = () => {
+      setShowUserDropdown(false);
+    };
+
+    window.addEventListener('scroll', handleScrollOrResize, true);
+    window.addEventListener('resize', handleScrollOrResize);
+
+    return () => {
+      window.removeEventListener('scroll', handleScrollOrResize, true);
+      window.removeEventListener('resize', handleScrollOrResize);
+    };
+  }, [showUserDropdown]);
+
+  // Close config modal with ESC key
+  useEffect(() => {
+    if (!showConfigModal) return;
+
+    const handleEscKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowConfigModal(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscKey);
+
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+    };
+  }, [showConfigModal]);
 
   // Navigation tabs with permissions
   const allTabs = [
@@ -45,67 +87,37 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     { id: 'histoscans' as ActiveTab, name: 'Historial de Escaneos', icon: History, description: 'Ver historial de escaneos realizados', permission: 'scanhistory' as keyof UserPermissions },
   ];
 
+  // Get user permissions or default if not available
+  const userPermissions = user?.permissions || getDefaultPermissions(user?.role);
+
   // Filter tabs based on user permissions
-  const getVisibleTabs = () => {
-    if (!user) {
-      return allTabs; // Fallback for safety
-    }
-
-    // Get user permissions or default permissions based on role
-    let userPermissions: UserPermissions;
-    if (user.permissions) {
-      userPermissions = user.permissions;
-    } else {
-      userPermissions = getDefaultPermissions(user.role || 'user');
-    }
-
-    return allTabs.filter(tab => {
-      const hasPermission = userPermissions[tab.permission];
-      return hasPermission === true;
-    });
-  };
-
-  const tabs = getVisibleTabs();
-
-  // Show all tabs
-  const displayTabs = tabs;
-
-  const handleLogoClick = () => {
-    if (!isClient) return;
-    
-    // Redirigir a la página principal
-    window.location.href = '/';
-  };
-
-  const handleTabClick = (tabId: ActiveTab) => {
-    if (!isClient) return;
-    
-    // Para todas las páginas, usar hash normal
-    onTabChange?.(tabId);
-    const hashId = tabId === 'histoscans' ? 'scanhistory' : tabId;
-    window.location.hash = `#${hashId}`;
-    setShowMobileMenu(false); // Close mobile menu when tab is selected
-  };
+  const visibleTabs = allTabs.filter(tab => {
+    const hasPermission = userPermissions[tab.permission];
+    return hasPermission;
+  });
 
   const handleLogoutClick = () => {
-    if (!isClient) return;
-    
-    // Show confirmation for logout
     setShowLogoutConfirm(true);
   };
 
-  const confirmLogout = () => {
-    if (!isClient) return;
-    
-    // Cerrar sesión usando el hook de autenticación
-    logout('Manual logout from edit page');
-    setShowLogoutConfirm(false);
-    // Regresar al inicio después del logout
-    window.location.href = '/';
+  const handleUserDropdownClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    if (!showUserDropdown) {
+      const button = event.currentTarget;
+      const rect = button.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + 8, // 8px gap below button
+        right: window.innerWidth - rect.right // Distance from right edge
+      });
+    }
+    setShowUserDropdown(!showUserDropdown);
   };
 
-  const cancelLogout = () => {
-    setShowLogoutConfirm(false);
+  const handleConfirmLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Error during logout:', error);
+    }
   };
 
   return (
@@ -113,50 +125,106 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       <header className="w-full border-b border-[var(--input-border)] bg-transparent backdrop-blur-sm relative overflow-hidden">
         {/* Main header row */}
         <div className="flex items-center justify-between p-4" suppressHydrationWarning>
-          <button
-            onClick={handleLogoClick}
-            className="flex items-center gap-2 text-xl font-bold tracking-tight text-[var(--foreground)] hover:text-[var(--tab-text-active)] transition-colors cursor-pointer bg-transparent border-none p-0"
-          >
-            <Image src="/favicon.ico" alt="Logo" width={28} height={28} className="inline-block align-middle" />
-            Price Master
-          </button>
+          {/* Logo and title */}
+          <div className="flex items-center gap-3">
+            <Image
+              src="/favicon-32x32.png"
+              alt="Price Master Logo"
+              width={32}
+              height={32}
+              className="rounded"
+            />
+            <h1 className="text-xl font-bold text-[var(--foreground)]">Price Master</h1>
+          </div>
 
-          {/* Desktop navigation - centered */}
-          {activeTab && (
-            <nav className="hidden lg:flex items-center gap-1 absolute left-1/2 transform -translate-x-1/2">
-              {displayTabs.map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => handleTabClick(tab.id)}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 relative
-                    ${activeTab === tab.id
-                      ? 'text-[var(--tab-text-active)] font-semibold'
-                      : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
+          {/* Desktop navigation tabs */}
+          {visibleTabs.length > 0 && (
+            <nav className="hidden lg:flex items-center gap-1">
+              {visibleTabs.map((tab) => {
+                const IconComponent = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => onTabChange?.(activeTab === tab.id ? null : tab.id)}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors ${
+                      activeTab === tab.id
+                        ? 'bg-[var(--accent)] text-[var(--accent-foreground)]'
+                        : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]'
                     }`}
-                  title={tab.description}
-                >
-                  <tab.icon className="w-4 h-4" />
-                  <span>{tab.name}</span>
-                  {activeTab === tab.id && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
-                  )}
-                </button>
-              ))}
+                    title={tab.description}
+                  >
+                    <IconComponent className="w-4 h-4" />
+                    <span className="hidden xl:inline">{tab.name}</span>
+                  </button>
+                );
+              })}
             </nav>
           )}
 
           <div className="flex items-center gap-2" suppressHydrationWarning>
-            {/* User info display */}
+            {/* User dropdown menu */}
             {user && (
-              <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-transparent rounded-lg border border-[var(--input-border)]">
-                <User className="w-4 h-4 text-[var(--muted-foreground)]" />
-                <span className="text-sm font-sans font-bold text-[var(--foreground)]">{user.name}</span>
+              <div className="hidden md:flex items-center gap-2">
+                {/* User button with dropdown */}
+                <div className="relative" style={{ zIndex: 'auto' }}>
+                  <button
+                    onClick={handleUserDropdownClick}
+                    className="flex items-center gap-2 px-3 py-1 bg-transparent rounded-lg border border-[var(--input-border)] hover:bg-[var(--hover-bg)] transition-colors"
+                  >
+                    <User className="w-4 h-4 text-[var(--muted-foreground)]" />
+                    <span className="text-sm font-sans font-bold text-[var(--foreground)]">{user.name}</span>
+                    <ChevronDown className={`w-4 h-4 text-[var(--muted-foreground)] transition-transform ${showUserDropdown ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {/* Dropdown menu - rendered in portal */}
+                  {showUserDropdown && isClient && createPortal(
+                    <>
+                      {/* Click outside to close dropdown */}
+                      <div 
+                        className="fixed inset-0"
+                        style={{ zIndex: 2147483646 }} // One less than dropdown
+                        onClick={() => setShowUserDropdown(false)}
+                      />
+                      
+                      {/* Dropdown content */}
+                      <div 
+                        className="w-48 bg-[var(--background)] border border-[var(--input-border)] rounded-lg shadow-xl"
+                        style={{ 
+                          position: 'fixed',
+                          top: dropdownPosition.top,
+                          right: dropdownPosition.right,
+                          zIndex: 2147483647, // Maximum z-index value
+                          isolation: 'isolate',
+                          transform: 'translateZ(0)', // Force hardware acceleration
+                          willChange: 'transform', // Optimize for changes
+                          pointerEvents: 'auto' // Ensure it can be clicked
+                        }}
+                      >
+                        <div className="py-2">
+                          <button
+                            onClick={() => {
+                              setShowConfigModal(true);
+                              setShowUserDropdown(false);
+                            }}
+                            className="flex items-center gap-3 w-full px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--hover-bg)] transition-colors"
+                          >
+                            <Settings className="w-4 h-4 text-[var(--muted-foreground)]" />
+                            Configuración
+                          </button>
+                        </div>
+                      </div>
+                    </>,
+                    document.body
+                  )}
+                </div>
+
+                {/* Logout button - separate from dropdown */}
                 <button
                   onClick={handleLogoutClick}
-                  className="ml-2 p-1 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                  className="p-2 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
                   title="Cerrar Sesión"
                 >
-                  <LogOut className="w-5 h-5 text-red-600 dark:text-red-400" />
+                  <LogOut className="w-4 h-4 text-red-600 dark:text-red-400" />
                 </button>
               </div>
             )}
@@ -172,93 +240,91 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               </button>
             )}
 
-
-
             <ThemeToggle />
           </div>
         </div>
 
         {/* Mobile navigation menu */}
         {showMobileMenu && activeTab && (
-          <div className="lg:hidden border-t border-[var(--input-border)] bg-[var(--card-bg)]" suppressHydrationWarning>
-            {/* User info in mobile menu */}
-            {user && (
-              <div className="px-4 py-3 border-b border-[var(--input-border)] bg-[var(--hover-bg)]">
-                <div className="flex items-center gap-2">
-                  <User className="w-5 h-5 text-[var(--muted-foreground)]" />
-                  <div className="font-medium text-[var(--foreground)]">{user.name}</div>
+          <div className="lg:hidden border-t border-[var(--input-border)] bg-[var(--background)] p-4">
+            <div className="grid grid-cols-2 gap-2">
+              {visibleTabs.map((tab) => {
+                const IconComponent = tab.icon;
+                return (
                   <button
-                    onClick={handleLogoutClick}
-                    className="ml-2 p-1 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
-                    title="Cerrar Sesión"
+                    key={tab.id}
+                    onClick={() => {
+                      onTabChange?.(activeTab === tab.id ? null : tab.id);
+                      setShowMobileMenu(false);
+                    }}
+                    className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${
+                      activeTab === tab.id
+                        ? 'bg-[var(--accent)] text-[var(--accent-foreground)]'
+                        : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]'
+                    }`}
                   >
-                    <LogOut className="w-5 h-5 text-red-600 dark:text-red-400" />
+                    <IconComponent className="w-4 h-4" />
+                    <span>{tab.name}</span>
                   </button>
-                </div>
-                {user.location && (
-                  <div className="text-sm text-[var(--muted-foreground)] mt-1">
-                    {user.location}
+                );
+              })}
+            </div>
+
+            {/* Mobile user section */}
+            {user && (
+              <div className="mt-4 pt-4 border-t border-[var(--input-border)]">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <User className="w-5 h-5 text-[var(--muted-foreground)]" />
+                    <div className="font-medium text-[var(--foreground)]">{user.name}</div>
                   </div>
-                )}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setShowConfigModal(true);
+                        setShowMobileMenu(false);
+                      }}
+                      className="p-2 rounded-md hover:bg-[var(--hover-bg)] transition-colors"
+                      title="Configuración"
+                    >
+                      <Settings className="w-4 h-4 text-[var(--muted-foreground)]" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowMobileMenu(false);
+                        handleLogoutClick();
+                      }}
+                      className="p-2 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                      title="Cerrar Sesión"
+                    >
+                      <LogOut className="w-4 h-4 text-red-600 dark:text-red-400" />
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
-            
-            <nav className="px-4 py-2 space-y-1">
-              {displayTabs.map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => handleTabClick(tab.id)}
-                  className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-3 relative
-                    ${activeTab === tab.id
-                      ? 'text-[var(--tab-text-active)] font-semibold'
-                      : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
-                    }`}
-                >
-                  <tab.icon className="w-4 h-4" />
-                  <div suppressHydrationWarning>
-                    <div>{tab.name}</div>
-                    <div className="text-xs text-[var(--muted-foreground)]">{tab.description}</div>
-                  </div>
-                  {activeTab === tab.id && (
-                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-[var(--tab-text-active)] rounded-r-full"></div>
-                  )}
-                </button>
-              ))}
-            </nav>
           </div>
         )}
       </header>
 
-      {/* Modal de confirmación de logout */}
+      {/* Logout confirmation modal */}
       {showLogoutConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" suppressHydrationWarning>
-          <div className="bg-[var(--card-bg)] rounded-lg p-6 max-w-sm w-full border border-[var(--input-border)]" suppressHydrationWarning>
-            <div className="flex items-center gap-3 mb-4" suppressHydrationWarning>
-              <LogOut className="w-6 h-6 text-red-600" />
-              <h3 className="text-lg font-semibold text-[var(--foreground)]">
-                Cerrar Sesión
-              </h3>
-            </div>
-
-            <p className="text-[var(--tab-text)] mb-6">
-              ¿Está seguro que desea cerrar sesión?
-              {user && (
-                <span className="block mt-2 text-sm text-[var(--muted-foreground)]">
-                  Usuario activo: <strong>{user.name}</strong>
-                </span>
-              )}
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+          <div className="bg-[var(--background)] rounded-lg p-6 w-96 max-w-[90vw]">
+            <h3 className="text-lg font-semibold text-[var(--foreground)] mb-4">Confirmar Cierre de Sesión</h3>
+            <p className="text-[var(--muted-foreground)] mb-6">
+              ¿Estás seguro de que quieres cerrar tu sesión?
             </p>
-
-            <div className="flex gap-3 justify-end" suppressHydrationWarning>
+            <div className="flex gap-3 justify-end">
               <button
-                onClick={cancelLogout}
-                className="px-4 py-2 rounded-md border border-[var(--input-border)] text-[var(--foreground)] hover:bg-[var(--hover-bg)] transition-colors"
+                onClick={() => setShowLogoutConfirm(false)}
+                className="px-4 py-2 text-[var(--foreground)] hover:bg-[var(--hover-bg)] rounded-md transition-colors"
               >
                 Cancelar
               </button>
               <button
-                onClick={confirmLogout}
-                className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 transition-colors"
+                onClick={handleConfirmLogout}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
               >
                 Cerrar Sesión
               </button>
@@ -266,6 +332,127 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
           </div>
         </div>
       )}
+
+      {/* Configuration Modal */}
+      {showConfigModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-[var(--background)] rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-semibold text-[var(--foreground)] flex items-center gap-3">
+                  <Settings className="w-6 h-6 text-blue-600" />
+                  Configuración del Sistema
+                </h2>
+                <button
+                  onClick={() => setShowConfigModal(false)}
+                  className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              {/* User Information */}
+              <div className="mb-6">
+                <h3 className="text-lg font-medium text-[var(--foreground)] mb-4 flex items-center gap-2">
+                  <User className="w-5 h-5 text-blue-500" />
+                  Información del Usuario
+                </h3>
+                <div className="bg-[var(--hover-bg)] rounded-lg p-4">
+                  <div className="flex items-center gap-3 mb-4">
+                    <User className="w-8 h-8 text-[var(--muted-foreground)]" />
+                    <div>
+                      <div className="font-medium text-[var(--foreground)]">{user?.name}</div>
+                      <div className="text-sm text-[var(--muted-foreground)]">
+                        Usuario activo: <strong>{user?.name}</strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Session Management */}
+              <div className="mb-6">
+                <h3 className="text-lg font-medium text-[var(--foreground)] mb-4 flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-green-500" />
+                  Gestión de Sesión
+                </h3>
+                <div className="space-y-4">
+                  <SessionMonitor inline={true} />
+                  <TokenInfo isOpen={true} onClose={() => {}} inline={true} />
+                </div>
+              </div>
+
+              {/* Session Counter Display */}
+              <div>
+                <h3 className="text-lg font-medium text-[var(--foreground)] mb-4 flex items-center gap-2">
+                  <Clock4 className="w-5 h-5 text-orange-500" />
+                  Contador de Tiempo
+                </h3>
+                <div className="bg-[var(--hover-bg)] rounded-lg p-4">
+                  <p className="text-sm text-[var(--muted-foreground)] mb-3">
+                    El contador flotante muestra el tiempo restante de tu sesión/token y se puede arrastrar por la pantalla.
+                  </p>
+                  
+                  {/* Toggle Button */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-sm">
+                      <div className={`w-3 h-3 rounded-full ${showFloatingCounter ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                      <span className="text-[var(--foreground)]">
+                        {showFloatingCounter ? 'Contador activo en pantalla' : 'Contador desactivado'}
+                      </span>
+                    </div>
+                    
+                    <button
+                      onClick={() => setShowFloatingCounter(!showFloatingCounter)}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                        showFloatingCounter ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          showFloatingCounter ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions Section */}
+              <div className="border-t border-[var(--input-border)] pt-6">
+                <h3 className="text-lg font-medium text-[var(--foreground)] mb-4">Acciones</h3>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowConfigModal(false)}
+                    className="px-4 py-2 bg-[var(--hover-bg)] text-[var(--foreground)] rounded-lg hover:bg-[var(--muted)] transition-colors"
+                  >
+                    Cerrar
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowConfigModal(false);
+                      handleLogoutClick();
+                    }}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium flex items-center gap-2"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Cerrar Sesión
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Click outside to close */}
+          <div 
+            className="absolute inset-0 -z-10" 
+            onClick={() => setShowConfigModal(false)}
+          />
+        </div>
+      )}
+
+      {/* Session Counter - floating component */}
+      {showFloatingCounter && <SessionCounter />}
     </>
   );
 }

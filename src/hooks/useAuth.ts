@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { User, UserPermissions } from '../types/firestore';
+import { TokenService } from '../services/tokenService';
 
 interface SessionData {
   id?: string;
@@ -13,6 +14,7 @@ interface SessionData {
   ipAddress?: string;
   userAgent?: string;
   keepActive?: boolean; // Nueva propiedad para sesiones extendidas
+  useTokenAuth?: boolean; // Nueva propiedad para indicar si usar autenticación por tokens
 }
 
 interface AuditLog {
@@ -46,6 +48,7 @@ export function useAuth() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sessionWarning, setSessionWarning] = useState(false);
+  const [useTokenAuth, setUseTokenAuth] = useState(false); // Estado para controlar el tipo de autenticación
 
   // Función para generar ID de sesión único (short format)
   const generateSessionId = () => {
@@ -126,17 +129,66 @@ export function useAuth() {
       logAuditEvent('LOGOUT', reason || 'Manual logout', currentUser.id);
     }
 
-    // Limpiar datos de sesión
-    localStorage.removeItem('pricemaster_session');
-    localStorage.removeItem('pricemaster_session_id');
+    // Limpiar datos de sesión según el tipo de autenticación
+    if (useTokenAuth) {
+      TokenService.revokeToken();
+    } else {
+      localStorage.removeItem('pricemaster_session');
+      localStorage.removeItem('pricemaster_session_id');
+    }
     
     setUser(null);
     setIsAuthenticated(false);
     setSessionWarning(false);
-  }, [user, logAuditEvent]);const checkExistingSession = useCallback(() => {
+    setUseTokenAuth(false);
+  }, [user, logAuditEvent, useTokenAuth]);const checkExistingSession = useCallback(() => {
     try {
+      // Verificar primero si hay una sesión de token
+      const tokenInfo = TokenService.getTokenInfo();
+      if (tokenInfo.isValid && tokenInfo.user) {
+        // Usar autenticación por token
+        setUseTokenAuth(true);
+        
+        const newUserData = {
+          id: tokenInfo.user.id,
+          name: tokenInfo.user.name,
+          location: tokenInfo.user.location,
+          role: tokenInfo.user.role,
+          permissions: tokenInfo.user.permissions
+        };
+
+        // Check if user data has changed to prevent unnecessary re-renders
+        const hasUserChanged = !user || 
+          user.id !== newUserData.id ||
+          user.name !== newUserData.name ||
+          user.location !== newUserData.location ||
+          user.role !== newUserData.role ||
+          JSON.stringify(user.permissions) !== JSON.stringify(newUserData.permissions);
+
+        if (hasUserChanged) {
+          setUser(newUserData);
+        }
+
+        if (!isAuthenticated) {
+          setIsAuthenticated(true);
+        }
+
+        // Advertencia de token (24 horas antes de expirar)
+        const hoursLeft = tokenInfo.timeLeft / (1000 * 60 * 60);
+        const shouldShowWarning = hoursLeft <= 24 && hoursLeft > 0;
+        if (shouldShowWarning !== sessionWarning) {
+          setSessionWarning(shouldShowWarning);
+        }
+
+        logAuditEvent('TOKEN_SESSION_RESUMED', `User ${tokenInfo.user.name} resumed token session`, tokenInfo.user.id);
+        return;
+      }
+
+      // Si no hay token válido, verificar sesión tradicional
       const sessionData = localStorage.getItem('pricemaster_session');
-      if (sessionData) {        const session: SessionData = JSON.parse(sessionData);
+      if (sessionData) {        
+        setUseTokenAuth(false);
+        const session: SessionData = JSON.parse(sessionData);
 
         // Verificar si la sesión no ha expirado según el rol o configuración extendida
         const loginTime = new Date(session.loginTime);
@@ -152,7 +204,9 @@ export function useAuth() {
         }
 
         // Verificar inactividad
-        const isInactive = checkInactivity(session);        if (hoursElapsed < maxHours && !isInactive) {
+        const isInactive = checkInactivity(session);        
+
+        if (hoursElapsed < maxHours && !isInactive) {
           // Only update user if the data has actually changed
           const newUserData = {
             id: session.id,
@@ -231,49 +285,76 @@ export function useAuth() {
       clearInterval(sessionInterval);
     };
   }, [checkExistingSession, updateActivity]);
-  const login = (userData: User, keepActive: boolean = false) => {
-    const sessionId = generateSessionId();
-    const browserInfo = getBrowserInfo();
-    
-    // Crear datos de sesión completos
-    const sessionData: SessionData = {
-      id: userData.id,
-      name: userData.name,
-      location: userData.location,
-      role: userData.role,
-      permissions: userData.permissions, // ¡Importante! Incluir los permisos
-      loginTime: new Date().toISOString(),
-      lastActivity: new Date().toISOString(),
-      sessionId,
-      userAgent: browserInfo.userAgent,
-      keepActive: keepActive // Agregar información del toggle
-    };
+  const login = (userData: User, keepActive: boolean = false, useTokens: boolean = false) => {
+    if (useTokens) {
+      // Usar autenticación por tokens (una semana automáticamente)
+      const tokenSession = TokenService.createTokenSession(userData);
+      setUser(userData);
+      setIsAuthenticated(true);
+      setSessionWarning(false);
+      setUseTokenAuth(true);
 
-    // Guardar sesión
-    localStorage.setItem('pricemaster_session', JSON.stringify(sessionData));
-    localStorage.setItem('pricemaster_session_id', sessionId);
+      // Log de auditoría
+      logAuditEvent('TOKEN_LOGIN_SUCCESS', `User ${userData.name} logged in with token authentication`, userData.id);
+    } else {
+      // Usar autenticación tradicional
+      const sessionId = generateSessionId();
+      const browserInfo = getBrowserInfo();
+      
+      // Crear datos de sesión completos
+      const sessionData: SessionData = {
+        id: userData.id,
+        name: userData.name,
+        location: userData.location,
+        role: userData.role,
+        permissions: userData.permissions, // ¡Importante! Incluir los permisos
+        loginTime: new Date().toISOString(),
+        lastActivity: new Date().toISOString(),
+        sessionId,
+        userAgent: browserInfo.userAgent,
+        keepActive: keepActive, // Agregar información del toggle
+        useTokenAuth: false
+      };
 
-    setUser(userData);
-    setIsAuthenticated(true);
-    setSessionWarning(false);    // Log de auditoría
-    logAuditEvent('LOGIN_SUCCESS', `User ${userData.name} logged in with role ${userData.role}`, userData.id);
+      // Guardar sesión
+      localStorage.setItem('pricemaster_session', JSON.stringify(sessionData));
+      localStorage.setItem('pricemaster_session_id', sessionId);
+
+      setUser(userData);
+      setIsAuthenticated(true);
+      setSessionWarning(false);
+      setUseTokenAuth(false);
+
+      // Log de auditoría
+      logAuditEvent('LOGIN_SUCCESS', `User ${userData.name} logged in with role ${userData.role}`, userData.id);
+    }
   };
 
   // Función para extender sesión
   const extendSession = () => {
     if (user && isAuthenticated) {
-      const sessionData = localStorage.getItem('pricemaster_session');
-      if (sessionData) {
-        try {
-          const session: SessionData = JSON.parse(sessionData);
-          session.loginTime = new Date().toISOString();
-          session.lastActivity = new Date().toISOString();
-          localStorage.setItem('pricemaster_session', JSON.stringify(session));
-          
+      if (useTokenAuth) {
+        // Extender token (regenera un nuevo token)
+        const success = TokenService.extendToken();
+        if (success) {
           setSessionWarning(false);
-          logAuditEvent('SESSION_EXTENDED', 'User extended session', user.id);
-        } catch (error) {
-          console.error('Error extending session:', error);
+          logAuditEvent('TOKEN_EXTENDED', 'User extended token session', user.id);
+        }
+      } else {
+        // Extender sesión tradicional
+        const sessionData = localStorage.getItem('pricemaster_session');
+        if (sessionData) {
+          try {
+            const session: SessionData = JSON.parse(sessionData);
+            session.loginTime = new Date().toISOString();
+            session.lastActivity = new Date().toISOString();
+            localStorage.setItem('pricemaster_session', JSON.stringify(session));
+            
+            setSessionWarning(false);
+            logAuditEvent('SESSION_EXTENDED', 'User extended session', user.id);
+          } catch (error) {
+            console.error('Error extending session:', error);
+          }
         }
       }
     }
@@ -282,28 +363,34 @@ export function useAuth() {
   const getSessionTimeLeft = useCallback(() => {
     if (!user || !isAuthenticated) return 0;
 
-    const sessionData = localStorage.getItem('pricemaster_session');
-    if (!sessionData) return 0;
+    if (useTokenAuth) {
+      // Usar tiempo del token
+      return TokenService.getTokenTimeLeft();
+    } else {
+      // Usar tiempo de sesión tradicional
+      const sessionData = localStorage.getItem('pricemaster_session');
+      if (!sessionData) return 0;
 
-    try {
-      const session: SessionData = JSON.parse(sessionData);
-      const loginTime = new Date(session.loginTime);
-      const now = new Date();
-      const hoursElapsed = (now.getTime() - loginTime.getTime()) / (1000 * 60 * 60);
-      
-      // Usar duración extendida si está activada, sino usar duración por rol
-      let maxHours;
-      if (session.keepActive) {
-        maxHours = SESSION_DURATION_HOURS.extended; // 1 semana
-      } else {
-        maxHours = SESSION_DURATION_HOURS[session.role || 'user'] || SESSION_DURATION_HOURS.user;
+      try {
+        const session: SessionData = JSON.parse(sessionData);
+        const loginTime = new Date(session.loginTime);
+        const now = new Date();
+        const hoursElapsed = (now.getTime() - loginTime.getTime()) / (1000 * 60 * 60);
+        
+        // Usar duración extendida si está activada, sino usar duración por rol
+        let maxHours;
+        if (session.keepActive) {
+          maxHours = SESSION_DURATION_HOURS.extended; // 1 semana
+        } else {
+          maxHours = SESSION_DURATION_HOURS[session.role || 'user'] || SESSION_DURATION_HOURS.user;
+        }
+        
+        return Math.max(0, maxHours - hoursElapsed);
+      } catch {
+        return 0;
       }
-      
-      return Math.max(0, maxHours - hoursElapsed);
-    } catch {
-      return 0;
     }
-  }, [user, isAuthenticated]);
+  }, [user, isAuthenticated, useTokenAuth]);
 
   // Función para obtener logs de auditoría (solo SuperAdmin)
   const getAuditLogs = () => {
@@ -336,11 +423,36 @@ export function useAuth() {
     return user?.role === 'superadmin';
   }, [user?.role]);
 
+  // Función para obtener información del tipo de sesión
+  const getSessionType = useCallback(() => {
+    return useTokenAuth ? 'token' : 'traditional';
+  }, [useTokenAuth]);
+
+  // Función para obtener tiempo formateado
+  const getFormattedTimeLeft = useCallback(() => {
+    if (useTokenAuth) {
+      return TokenService.formatTokenTimeLeft();
+    } else {
+      const timeLeft = getSessionTimeLeft();
+      if (timeLeft <= 0) return 'Sesión expirada';
+      
+      const hours = Math.floor(timeLeft);
+      const minutes = Math.floor((timeLeft - hours) * 60);
+      
+      if (hours > 0) {
+        return `${hours}h ${minutes}m`;
+      } else {
+        return `${minutes}m`;
+      }
+    }
+  }, [useTokenAuth, getSessionTimeLeft]);
+
   return {
     user,
     isAuthenticated,
     loading,
     sessionWarning,
+    useTokenAuth,
     login,
     logout,
     extendSession,
@@ -350,6 +462,8 @@ export function useAuth() {
     requiresTwoFactor,
     getSessionTimeLeft,
     getAuditLogs,
-    updateActivity
+    updateActivity,
+    getSessionType,
+    getFormattedTimeLeft
   };
 }

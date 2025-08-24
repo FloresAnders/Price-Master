@@ -8,7 +8,7 @@ import type { User as UserType } from '../types/firestore';
 
 interface LoginModalProps {
   isOpen: boolean;
-  onLoginSuccess: (user: UserType, keepActive?: boolean) => void; // Agregar parámetro para keepActive
+  onLoginSuccess: (user: UserType, keepActive?: boolean, useTokens?: boolean) => void; // Agregar parámetro para tokens
   onClose: () => void;
   title: string;
   canClose?: boolean; // Nueva prop para controlar si se puede cerrar
@@ -21,6 +21,7 @@ export default function LoginModal({ isOpen, onLoginSuccess, onClose, title, can
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [keepSessionActive, setKeepSessionActive] = useState(false);
+  const [useTokenAuth, setUseTokenAuth] = useState(false); // Nueva opción para tokens
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,11 +39,13 @@ export default function LoginModal({ isOpen, onLoginSuccess, onClose, title, can
       );
 
       if (user) {
-        onLoginSuccess(user, keepSessionActive);
+        onLoginSuccess(user, keepSessionActive, useTokenAuth);
 
         // Limpiar formulario
         setUsername('');
         setPassword('');
+        setKeepSessionActive(false);
+        setUseTokenAuth(false);
       } else {
         setError('Credenciales incorrectas');
       }
@@ -123,23 +126,61 @@ export default function LoginModal({ isOpen, onLoginSuccess, onClose, title, can
                     checked={keepSessionActive}
                     onChange={(e) => setKeepSessionActive(e.target.checked)}
                     className="sr-only"
+                    disabled={loading || useTokenAuth} // Deshabilitar si se usa tokens
+                  />
+                  <div className={`block w-11 h-6 rounded-full transition-colors duration-200 ease-in-out ${
+                    keepSessionActive && !useTokenAuth
+                      ? 'bg-blue-600 shadow-lg' 
+                      : 'bg-gray-300 dark:bg-gray-600'
+                  } ${loading || useTokenAuth ? 'opacity-50' : 'group-hover:shadow-md'}`}>
+                  </div>
+                  <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-200 ease-in-out shadow-sm ${
+                    keepSessionActive && !useTokenAuth ? 'translate-x-5' : 'translate-x-0'
+                  }`}>
+                  </div>
+                </div>
+                <div className="ml-3">
+                  <span className={`text-sm font-medium ${useTokenAuth ? 'text-gray-400' : 'text-[var(--foreground)]'}`}>
+                    Mantener sesión iniciada (1 semana)
+                  </span>
+                </div>
+              </label>
+            </div>
+
+            {/* Toggle para autenticación con tokens */}
+            <div className="flex items-center justify-between">
+              <label className="flex items-center cursor-pointer group">
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    checked={useTokenAuth}
+                    onChange={(e) => {
+                      setUseTokenAuth(e.target.checked);
+                      if (e.target.checked) {
+                        setKeepSessionActive(false); // Desactivar keepSessionActive si se activa tokens
+                      }
+                    }}
+                    className="sr-only"
                     disabled={loading}
                   />
                   <div className={`block w-11 h-6 rounded-full transition-colors duration-200 ease-in-out ${
-                    keepSessionActive 
-                      ? 'bg-blue-600 shadow-lg' 
+                    useTokenAuth 
+                      ? 'bg-green-600 shadow-lg' 
                       : 'bg-gray-300 dark:bg-gray-600'
                   } ${loading ? 'opacity-50' : 'group-hover:shadow-md'}`}>
                   </div>
                   <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-200 ease-in-out shadow-sm ${
-                    keepSessionActive ? 'translate-x-5' : 'translate-x-0'
+                    useTokenAuth ? 'translate-x-5' : 'translate-x-0'
                   }`}>
                   </div>
                 </div>
                 <div className="ml-3">
                   <span className="text-sm font-medium text-[var(--foreground)]">
-                    Mantener sesión iniciada
+                    🔐 Usar tokens seguros (1 semana automática)
                   </span>
+                  <div className="text-xs text-[var(--muted-foreground)] mt-1">
+                    Autenticación más segura con renovación automática
+                  </div>
                 </div>
               </label>
             </div>
