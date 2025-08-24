@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Clock, X, Minimize2, Shield } from 'lucide-react';
-import { formatSessionTimeLeft, getSessionTimeLeft, isSessionValid } from '@/utils/session';
+import { formatSessionTimeLeft, isSessionValid } from '@/utils/session';
 import { useAuth } from '../hooks/useAuth';
 import { TokenService } from '../services/tokenService';
 

@@ -26,7 +26,6 @@ export default function SessionMonitor({ showAuditLogs = false, inline = false }
   const { 
     user, 
     sessionWarning, 
-    extendSession, 
     getSessionTimeLeft, 
     getAuditLogs, 
     isSuperAdmin,
@@ -89,25 +88,15 @@ export default function SessionMonitor({ showAuditLogs = false, inline = false }
         <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-yellow-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-3 animate-pulse">
           <AlertTriangle className="w-5 h-5" />
           <span className="font-medium">
-            {useTokenAuth ? 'Su token expirará pronto. Se renovará automáticamente.' : 'Su sesión expirará pronto. ¿Desea extenderla?'}
+            Su token expirará pronto. Se renovará automáticamente.
           </span>
-          {!useTokenAuth && (
-            <button
-              onClick={extendSession}
-              className="bg-white text-yellow-500 px-3 py-1 rounded text-sm font-medium hover:bg-gray-100 transition-colors"
-            >
-              Extender
-            </button>
-          )}
-          {useTokenAuth && (
-            <button
-              onClick={() => setShowTokenInfo(true)}
-              className="bg-white text-yellow-500 px-3 py-1 rounded text-sm font-medium hover:bg-gray-100 transition-colors flex items-center gap-1"
-            >
+          <button
+            onClick={() => setShowTokenInfo(true)}
+            className="bg-white text-yellow-500 px-3 py-1 rounded text-sm font-medium hover:bg-gray-100 transition-colors flex items-center gap-1"
+          >
               <Key className="w-3 h-3" />
               Ver Token
             </button>
-          )}
         </div>
       )}
 

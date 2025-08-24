@@ -1,14 +1,12 @@
 'use client'
 
 import Image from 'next/image';
-import { Settings, LogOut, Menu, X, Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck, History, User, ChevronDown, Shield, Key, Clock4, Info } from 'lucide-react';
+import { Settings, LogOut, Menu, X, Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck, History, User, ChevronDown, Shield } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../hooks/useAuth';
 import { ThemeToggle } from './ThemeToggle';
 import { getDefaultPermissions } from '../utils/permissions';
-import SessionMonitor from './SessionMonitor';
-import SessionCounter from './SessionCounter';
 import TokenInfo from './TokenInfo';
 import type { UserPermissions } from '../types/firestore';
 
@@ -25,7 +23,6 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
-  const [showFloatingCounter, setShowFloatingCounter] = useState(true);
   const [isClient, setIsClient] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, right: 0 });
 
@@ -377,44 +374,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                   Gestión de Sesión
                 </h3>
                 <div className="space-y-4">
-                  <SessionMonitor inline={true} />
                   <TokenInfo isOpen={true} onClose={() => {}} inline={true} />
-                </div>
-              </div>
-
-              {/* Session Counter Display */}
-              <div>
-                <h3 className="text-lg font-medium text-[var(--foreground)] mb-4 flex items-center gap-2">
-                  <Clock4 className="w-5 h-5 text-orange-500" />
-                  Contador de Tiempo
-                </h3>
-                <div className="bg-[var(--hover-bg)] rounded-lg p-4">
-                  <p className="text-sm text-[var(--muted-foreground)] mb-3">
-                    El contador flotante muestra el tiempo restante de tu sesión/token y se puede arrastrar por la pantalla.
-                  </p>
-                  
-                  {/* Toggle Button */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-sm">
-                      <div className={`w-3 h-3 rounded-full ${showFloatingCounter ? 'bg-green-500' : 'bg-gray-400'}`}></div>
-                      <span className="text-[var(--foreground)]">
-                        {showFloatingCounter ? 'Contador activo en pantalla' : 'Contador desactivado'}
-                      </span>
-                    </div>
-                    
-                    <button
-                      onClick={() => setShowFloatingCounter(!showFloatingCounter)}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                        showFloatingCounter ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                          showFloatingCounter ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
-                  </div>
                 </div>
               </div>
 
@@ -451,8 +411,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
         </div>
       )}
 
-      {/* Session Counter - floating component */}
-      {showFloatingCounter && <SessionCounter />}
+      {/* Session Counter was removed - now only using token system */}
     </>
   );
 }

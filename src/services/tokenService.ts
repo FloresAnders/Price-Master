@@ -256,7 +256,7 @@ export class TokenService {
       if (!sessionData) return false;
 
       // Crear nuevo token con tiempo extendido
-      const newSession = this.createTokenSession(sessionData.user);
+      this.createTokenSession(sessionData.user);
       
       console.log('Token extended for one more week');
       return true;

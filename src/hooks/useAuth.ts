@@ -288,7 +288,7 @@ export function useAuth() {
   const login = (userData: User, keepActive: boolean = false, useTokens: boolean = false) => {
     if (useTokens) {
       // Usar autenticación por tokens (una semana automáticamente)
-      const tokenSession = TokenService.createTokenSession(userData);
+      TokenService.createTokenSession(userData);
       setUser(userData);
       setIsAuthenticated(true);
       setSessionWarning(false);
@@ -330,35 +330,6 @@ export function useAuth() {
     }
   };
 
-  // Función para extender sesión
-  const extendSession = () => {
-    if (user && isAuthenticated) {
-      if (useTokenAuth) {
-        // Extender token (regenera un nuevo token)
-        const success = TokenService.extendToken();
-        if (success) {
-          setSessionWarning(false);
-          logAuditEvent('TOKEN_EXTENDED', 'User extended token session', user.id);
-        }
-      } else {
-        // Extender sesión tradicional
-        const sessionData = localStorage.getItem('pricemaster_session');
-        if (sessionData) {
-          try {
-            const session: SessionData = JSON.parse(sessionData);
-            session.loginTime = new Date().toISOString();
-            session.lastActivity = new Date().toISOString();
-            localStorage.setItem('pricemaster_session', JSON.stringify(session));
-            
-            setSessionWarning(false);
-            logAuditEvent('SESSION_EXTENDED', 'User extended session', user.id);
-          } catch (error) {
-            console.error('Error extending session:', error);
-          }
-        }
-      }
-    }
-  };
   // Función para obtener tiempo restante de sesión
   const getSessionTimeLeft = useCallback(() => {
     if (!user || !isAuthenticated) return 0;
@@ -455,7 +426,6 @@ export function useAuth() {
     useTokenAuth,
     login,
     logout,
-    extendSession,
     isAdmin,
     isSuperAdmin,
     canChangeLocation,

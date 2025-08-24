@@ -117,35 +117,7 @@ export default function LoginModal({ isOpen, onLoginSuccess, onClose, title, can
                 </button>
               </div>
             </div>
-            {/* Toggle para mantener sesión activa */}
-            <div className="flex items-center justify-between">
-              <label className="flex items-center cursor-pointer group">
-                <div className="relative">
-                  <input
-                    type="checkbox"
-                    checked={keepSessionActive}
-                    onChange={(e) => setKeepSessionActive(e.target.checked)}
-                    className="sr-only"
-                    disabled={loading || useTokenAuth} // Deshabilitar si se usa tokens
-                  />
-                  <div className={`block w-11 h-6 rounded-full transition-colors duration-200 ease-in-out ${
-                    keepSessionActive && !useTokenAuth
-                      ? 'bg-blue-600 shadow-lg' 
-                      : 'bg-gray-300 dark:bg-gray-600'
-                  } ${loading || useTokenAuth ? 'opacity-50' : 'group-hover:shadow-md'}`}>
-                  </div>
-                  <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-200 ease-in-out shadow-sm ${
-                    keepSessionActive && !useTokenAuth ? 'translate-x-5' : 'translate-x-0'
-                  }`}>
-                  </div>
-                </div>
-                <div className="ml-3">
-                  <span className={`text-sm font-medium ${useTokenAuth ? 'text-gray-400' : 'text-[var(--foreground)]'}`}>
-                    Mantener sesión iniciada (1 semana)
-                  </span>
-                </div>
-              </label>
-            </div>
+            
 
             {/* Toggle para autenticación con tokens */}
             <div className="flex items-center justify-between">
@@ -176,7 +148,7 @@ export default function LoginModal({ isOpen, onLoginSuccess, onClose, title, can
                 </div>
                 <div className="ml-3">
                   <span className="text-sm font-medium text-[var(--foreground)]">
-                    🔐 Usar tokens seguros (1 semana automática)
+                    🔐 Mantener sesión activa
                   </span>
                   <div className="text-xs text-[var(--muted-foreground)] mt-1">
                     Autenticación más segura con renovación automática

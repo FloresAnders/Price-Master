@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { Shield, RefreshCw, Eye, EyeOff, Clock, CheckCircle2, AlertTriangle, Plus, Calendar, Timer } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { TokenService } from '../services/tokenService';
+import type { User } from '../types/firestore';
 
 interface TokenInfoProps {
   isOpen: boolean;
@@ -12,10 +13,19 @@ interface TokenInfoProps {
   inline?: boolean;
 }
 
+interface TokenInfoData {
+  isValid: boolean;
+  timeLeft: number;
+  user: User | null;
+  sessionId: string | null;
+  expiresAt: Date | null;
+  type?: string;
+}
+
 export default function TokenInfo({ isOpen, onClose, inline = false }: TokenInfoProps) {
-  const { user, useTokenAuth, extendSession, getFormattedTimeLeft } = useAuth();
+  const { user, useTokenAuth, getFormattedTimeLeft } = useAuth();
   const [showDetails, setShowDetails] = useState(false);
-  const [tokenInfo, setTokenInfo] = useState<any>(null);
+  const [tokenInfo, setTokenInfo] = useState<TokenInfoData | null>(null);
   const [extending, setExtending] = useState(false);
   const [showExtensionControls, setShowExtensionControls] = useState(false);
   const [extensionAmount, setExtensionAmount] = useState(1);
@@ -35,7 +45,6 @@ export default function TokenInfo({ isOpen, onClose, inline = false }: TokenInfo
       if (success) {
         const info = TokenService.getTokenInfo();
         setTokenInfo(info);
-        extendSession();
       }
     } catch (error) {
       console.error('Error extending token:', error);
@@ -67,7 +76,6 @@ export default function TokenInfo({ isOpen, onClose, inline = false }: TokenInfo
       if (success) {
         const info = TokenService.getTokenInfo();
         setTokenInfo(info);
-        extendSession();
         setShowExtensionControls(false);
       }
     } catch (error) {
@@ -158,11 +166,11 @@ export default function TokenInfo({ isOpen, onClose, inline = false }: TokenInfo
               </div>
               <div>
                 <span className="text-gray-600 dark:text-gray-400">Expira:</span>
-                <div className="text-gray-900 dark:text-white">{tokenInfo.expiresAt}</div>
+                <div className="text-gray-900 dark:text-white">{tokenInfo.expiresAt?.toLocaleString() || 'N/A'}</div>
               </div>
               <div>
                 <span className="text-gray-600 dark:text-gray-400">Tipo:</span>
-                <div className="text-green-600 dark:text-green-400">{tokenInfo.type}</div>
+                <div className="text-green-600 dark:text-green-400">{tokenInfo.type || 'Token'}</div>
               </div>
             </div>
           </div>
