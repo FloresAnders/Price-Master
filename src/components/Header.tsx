@@ -1,13 +1,14 @@
 'use client'
 
 import Image from 'next/image';
-import { Settings, LogOut, Menu, X, Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck, History, User, ChevronDown, Shield } from 'lucide-react';
+import { Settings, LogOut, Menu, X, Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck, History, User, ChevronDown, Shield, Timer, TimerOff } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../hooks/useAuth';
 import { ThemeToggle } from './ThemeToggle';
 import { getDefaultPermissions } from '../utils/permissions';
 import TokenInfo from './TokenInfo';
+import FloatingSessionTimer from './FloatingSessionTimer';
 import type { UserPermissions } from '../types/firestore';
 
 type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'supplierorders' | 'histoscans' | 'scanhistory' | 'edit'
@@ -25,11 +26,28 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [isClient, setIsClient] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, right: 0 });
+  const [showSessionTimer, setShowSessionTimer] = useState(false);
 
   // Ensure component is mounted on client
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  // Cargar preferencia del FloatingSessionTimer desde localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedPreference = localStorage.getItem('show-session-timer');
+      // Por defecto está desactivado (false)
+      setShowSessionTimer(savedPreference === 'true');
+    }
+  }, []);
+
+  // Guardar preferencia del FloatingSessionTimer cuando cambie
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('show-session-timer', showSessionTimer.toString());
+    }
+  }, [showSessionTimer]);
 
   // Close dropdown on scroll or resize
   useEffect(() => {
@@ -401,6 +419,53 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                 </h3>
                 <div className="space-y-4">
                   <TokenInfo isOpen={true} onClose={() => {}} inline={true} />
+                  
+                  {/* Toggle para FloatingSessionTimer */}
+                  <div className="bg-[var(--hover-bg)] rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {showSessionTimer ? (
+                          <Timer className="w-5 h-5 text-blue-500" />
+                        ) : (
+                          <TimerOff className="w-5 h-5 text-gray-500" />
+                        )}
+                        <div>
+                          <div className="font-medium text-[var(--foreground)]">
+                            Temporizador Flotante
+                          </div>
+                          <div className="text-sm text-[var(--muted-foreground)]">
+                            {showSessionTimer ? 'Visible en pantalla' : 'Oculto'}
+                          </div>
+                        </div>
+                      </div>
+                      <label className="flex items-center cursor-pointer">
+                        <div className="relative">
+                          <input
+                            type="checkbox"
+                            checked={showSessionTimer}
+                            onChange={(e) => setShowSessionTimer(e.target.checked)}
+                            className="sr-only"
+                          />
+                          <div className={`block w-12 h-6 rounded-full transition-colors duration-200 ease-in-out ${
+                            showSessionTimer 
+                              ? 'bg-blue-600 shadow-lg' 
+                              : 'bg-gray-300 dark:bg-gray-600'
+                          }`}>
+                          </div>
+                          <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-200 ease-in-out shadow-sm ${
+                            showSessionTimer ? 'translate-x-6' : 'translate-x-0'
+                          }`}>
+                          </div>
+                        </div>
+                      </label>
+                    </div>
+                    <div className="mt-3 text-xs text-[var(--muted-foreground)]">
+                      {showSessionTimer 
+                        ? 'El temporizador de sesión se muestra en la esquina inferior derecha'
+                        : 'Activa para mostrar el temporizador de sesión flotante'
+                      }
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -437,7 +502,11 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
         </div>
       )}
 
-      {/* Session Counter was removed - now only using token system */}
+      {/* FloatingSessionTimer */}
+      <FloatingSessionTimer
+        visible={showSessionTimer}
+        onToggleVisibility={() => setShowSessionTimer(false)}
+      />
     </>
   );
 }
