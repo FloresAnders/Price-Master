@@ -97,6 +97,22 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     setShowLogoutConfirm(true);
   };
 
+  const handleLogoClick = () => {
+    if (!isClient) return;
+    
+    // Redirigir a la página principal
+    window.location.href = '/';
+  };
+
+  const handleTabClick = (tabId: ActiveTab) => {
+    if (!isClient) return;
+    
+    // Para todas las páginas, usar hash normal
+    onTabChange?.(tabId);
+    const hashId = tabId === 'histoscans' ? 'scanhistory' : tabId;
+    window.location.hash = `#${hashId}`;
+  };
+
   const handleUserDropdownClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     if (!showUserDropdown) {
       const button = event.currentTarget;
@@ -110,8 +126,12 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   };
 
   const handleConfirmLogout = async () => {
+    if (!isClient) return;
+    
     try {
       await logout();
+      // Regresar al inicio después del logout
+      window.location.href = '/';
     } catch (error) {
       console.error('Error during logout:', error);
     }
@@ -123,7 +143,10 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
         {/* Main header row */}
         <div className="flex items-center justify-between p-4" suppressHydrationWarning>
           {/* Logo and title */}
-          <div className="flex items-center gap-3">
+          <button
+            onClick={handleLogoClick}
+            className="flex items-center gap-3 text-xl font-bold tracking-tight text-[var(--foreground)] hover:text-[var(--tab-text-active)] transition-colors cursor-pointer bg-transparent border-none p-0"
+          >
             <Image
               src="/favicon-32x32.png"
               alt="Price Master Logo"
@@ -131,27 +154,30 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               height={32}
               className="rounded"
             />
-            <h1 className="text-xl font-bold text-[var(--foreground)]">Price Master</h1>
-          </div>
+            Price Master
+          </button>
 
-          {/* Desktop navigation tabs */}
-          {visibleTabs.length > 0 && (
+          {/* Desktop navigation tabs - only show when inside a card */}
+          {activeTab && visibleTabs.length > 0 && (
             <nav className="hidden lg:flex items-center gap-1">
               {visibleTabs.map((tab) => {
                 const IconComponent = tab.icon;
                 return (
                   <button
                     key={tab.id}
-                    onClick={() => onTabChange?.(activeTab === tab.id ? null : tab.id)}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors ${
+                    onClick={() => handleTabClick(tab.id)}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${
                       activeTab === tab.id
-                        ? 'bg-[var(--accent)] text-[var(--accent-foreground)]'
-                        : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]'
+                        ? 'text-[var(--tab-text-active)] font-semibold'
+                        : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
                     }`}
                     title={tab.description}
                   >
                     <IconComponent className="w-4 h-4" />
                     <span className="hidden xl:inline">{tab.name}</span>
+                    {activeTab === tab.id && (
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
+                    )}
                   </button>
                 );
               })}
@@ -251,7 +277,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                   <button
                     key={tab.id}
                     onClick={() => {
-                      onTabChange?.(activeTab === tab.id ? null : tab.id);
+                      handleTabClick(tab.id);
                       setShowMobileMenu(false);
                     }}
                     className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${
