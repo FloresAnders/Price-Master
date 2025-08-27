@@ -27,11 +27,11 @@ export default function DataEditor() {
     const [hasChanges, setHasChanges] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
-    const [passwordVisibility, setPasswordVisibility] = useState<{ [key: number]: boolean }>({});
-    const [savingUser, setSavingUser] = useState<number | null>(null);
+    const [passwordVisibility, setPasswordVisibility] = useState<{ [key: string]: boolean }>({});
+    const [savingUserKey, setSavingUserKey] = useState<string | null>(null);
     const [savingLocation, setSavingLocation] = useState<number | null>(null);
-    const [showPermissions, setShowPermissions] = useState<{ [key: number]: boolean }>({});
-    const [permissionsEditable, setPermissionsEditable] = useState<{ [key: number]: boolean }>({});
+    const [showPermissions, setShowPermissions] = useState<{ [key: string]: boolean }>({});
+    const [permissionsEditable, setPermissionsEditable] = useState<{ [key: string]: boolean }>({});
     const [allLocations, setAllLocations] = useState<Location[]>([]);
     
     // Estado para trackear cambios individuales de ubicaciones
@@ -184,23 +184,28 @@ export default function DataEditor() {
     };
 
     // Función para verificar si un usuario específico ha cambiado
+    // Helper: obtener key única para un usuario (id o __localId)
+    const getUserKey = (user: User, index: number) => {
+        return user.id ?? (user as unknown as { __localId?: string }).__localId ?? `tmp-${index}`;
+    };
+
     const hasUserChanged = (index: number): boolean => {
         const currentUser = usersData[index];
         if (!currentUser) return false;
 
-        // Buscar el original por id si existe
-        let originalUser = null as User | null;
+    // const key = getUserKey(currentUser, index);
+
+        // Buscar original por id si existe
+        let originalUser: User | null = null;
         if (currentUser.id) {
             originalUser = originalUsersData.find(u => u.id === currentUser.id) || null;
-        } else {
-            // Si no tiene id, intentar por índice en originalUsersData
-            originalUser = originalUsersData[index] || null;
+            } else {
+            // intentar buscar por __localId si fue asignado previamente
+            originalUser = originalUsersData.find(u => (u as unknown as { __localId?: string }).__localId === (currentUser as unknown as { __localId?: string }).__localId) || null;
         }
 
-        // Si no hay original, considerarlo como cambio (nuevo usuario)
         if (!originalUser) return true;
 
-        // Ignorar campos de timestamps al comparar
         const sanitize = (u: User | null | undefined) => {
             if (!u) return u;
             const copy = { ...u } as Partial<User>;
@@ -520,37 +525,15 @@ export default function DataEditor() {
         // Insertar al inicio
     // Give new user no permissions by default (no privileges)
     newUser.permissions = getNoPermissions();
+    // Assign a temporary local id so per-user keyed state can reference it
+    const localId = `local-${Date.now()}`;
+    (newUser as unknown as { __localId?: string }).__localId = localId;
     setUsersData(prev => [newUser, ...prev]);
 
-        // Desplazar estados indexados por posición para mantener correspondencia
-        setPasswordVisibility(prev => {
-            const shifted: { [key: number]: boolean } = {};
-            Object.keys(prev).forEach(k => {
-                const idx = parseInt(k, 10);
-                shifted[idx + 1] = prev[idx];
-            });
-            return shifted;
-        });
-        setShowPermissions(prev => {
-            const shifted: { [key: number]: boolean } = {};
-            Object.keys(prev).forEach(k => {
-                const idx = parseInt(k, 10);
-                shifted[idx + 1] = prev[idx];
-            });
-            return shifted;
-        });
-        setPermissionsEditable(prev => {
-            const shifted: { [key: number]: boolean } = {};
-            Object.keys(prev).forEach(k => {
-                const idx = parseInt(k, 10);
-                shifted[idx + 1] = prev[idx];
-            });
-            return shifted;
-        });
-        setSavingUser(prev => (prev !== null ? prev + 1 : prev));
-    // Habilitar edición de permisos y vista detallada para el nuevo usuario (índice 0)
-    setPermissionsEditable(prev => ({ 0: true, ...Object.keys(prev).reduce((acc, k) => ({ ...acc, [Number(k) + 1]: prev[Number(k)] }), {}) }));
-    setShowPermissions(prev => ({ 0: true, ...Object.keys(prev).reduce((acc, k) => ({ ...acc, [Number(k) + 1]: prev[Number(k)] }), {}) }));
+    // Initialize per-user keyed UI state for the new user
+    setPasswordVisibility(prev => ({ ...prev, [localId]: false }));
+    setPermissionsEditable(prev => ({ ...prev, [localId]: true }));
+    setShowPermissions(prev => ({ ...prev, [localId]: true }));
     };
 
     const updateUser = (index: number, field: keyof User, value: unknown) => {
@@ -582,7 +565,7 @@ export default function DataEditor() {
                     setUsersData(prev => prev.filter((_, i) => i !== index));
 
                     // Actualizar originalUsersData para eliminarlo también
-                    setOriginalUsersData(prev => prev.filter(u => u.id !== user.id));
+                    setOriginalUsersData(prev => prev.filter(u => u.id !== user.id && (u as unknown as { __localId?: string }).__localId !== (user as unknown as { __localId?: string }).__localId));
 
                     showNotification(`Usuario ${userName} eliminado exitosamente`, 'success');
                 } catch (error) {
@@ -597,20 +580,15 @@ export default function DataEditor() {
     };
 
     // Funciones para manejar visibilidad de contraseñas
-    const togglePasswordVisibility = (index: number) => {
+    const togglePasswordVisibility = (user: User, index: number) => {
+        const key = getUserKey(user, index);
         setPasswordVisibility(prev => ({
             ...prev,
-            [index]: !prev[index]
+            [key]: !prev[key]
         }));
     };
 
-    // Funciones para manejar visibilidad de permisos
-    const togglePermissionsVisibility = (index: number) => {
-        setShowPermissions(prev => ({
-            ...prev,
-            [index]: !prev[index]
-        }));
-    };
+    // showPermissions is toggled inline where needed
 
     // Note: permission-specific auto-save functions were removed because permissions are edited locally
     // and saved when the user presses the 'Guardar' button. Keep UsersService functions available
@@ -652,7 +630,8 @@ export default function DataEditor() {
                 // Guardar en base de datos si el usuario tiene ID
                 if (user.id) {
                     try {
-                        setSavingUser(userIndex);
+                        const key = getUserKey(user, userIndex);
+                        setSavingUserKey(key);
                         await UsersService.updateUserPermissions(user.id, newPermissions);
                         
                         setNotification({ 
@@ -669,7 +648,7 @@ export default function DataEditor() {
                         });
                         setTimeout(() => setNotification(null), 5000);
                     } finally {
-                        setSavingUser(null);
+                        setSavingUserKey(null);
                     }
                 }
             }
@@ -713,14 +692,15 @@ export default function DataEditor() {
         const defaultPermissions = getDefaultPermissions(user.role || 'user');
         const userPermissions = { ...defaultPermissions, ...(user.permissions || {}) };
     // allow editing permissions for new users; only disable while saving
-    const isDisabled = savingUser === index;
+    const key = getUserKey(user, index);
+    const isDisabled = savingUserKey === key;
         
         return (
             <div className="space-y-3">
                 <div className="flex items-center justify-between">
                     <span className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>Permisos de Usuario:</span>
                     <div className="flex gap-2 items-center">
-                        {savingUser === index && (
+                        {savingUserKey === key && (
                             <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
                                 <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600 dark:border-blue-400"></div>
                                 <span>Guardando...</span>
@@ -741,21 +721,21 @@ export default function DataEditor() {
                             Deshabilitar Todo
                         </button>
                         <button
-                            onClick={() => setPermissionsEditable(prev => ({ ...prev, [index]: !prev[index] }))}
+                            onClick={() => setPermissionsEditable(prev => ({ ...prev, [key]: !prev[key] }))}
                             className="text-xs px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700"
                         >
-                            {permissionsEditable[index] ? 'Bloquear Permisos' : 'Editar Permisos'}
+                            {permissionsEditable[key] ? 'Bloquear Permisos' : 'Editar Permisos'}
                         </button>
                         <button
-                            onClick={() => togglePermissionsVisibility(index)}
+                            onClick={() => setShowPermissions(prev => ({ ...prev, [key]: !prev[key] }))}
                             className="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
                         >
-                            {showPermissions[index] ? 'Vista Compacta' : 'Vista Detallada'}
+                            {showPermissions[key] ? 'Vista Compacta' : 'Vista Detallada'}
                         </button>
                     </div>
                 </div>
                 
-                                {showPermissions[index] ? (
+                                {showPermissions[key] ? (
                     // Vista detallada con checkboxes editables
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {Object.entries(userPermissions)
@@ -769,11 +749,11 @@ export default function DataEditor() {
                                         : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800/70'
                                 }`}
                             >
-                                <input
+                                    <input
                                     type="checkbox"
                                     id={`${index}-${permission}`}
                                     checked={Boolean(hasAccess)}
-                                    disabled={!permissionsEditable[index] || isDisabled}
+                                    disabled={!permissionsEditable[key] || isDisabled}
                                     onChange={(e) => {
                                         // Only update in local state; do not auto-save
                                         const updated = [...usersData];
@@ -806,7 +786,7 @@ export default function DataEditor() {
                             </div>
                         ))}
                     </div>
-                ) : (
+                    ) : (
                     // Vista compacta con indicadores
                     <div className="flex flex-wrap gap-1">
                         {Object.entries(userPermissions)
@@ -823,7 +803,7 @@ export default function DataEditor() {
                                 <input
                                     type="checkbox"
                                     checked={Boolean(hasAccess)}
-                                    disabled={!permissionsEditable[index] || isDisabled}
+                                    disabled={!permissionsEditable[key] || isDisabled}
                                     onChange={(e) => {
                                         const updated = [...usersData];
                                         if (!updated[index].permissions) {
@@ -858,7 +838,7 @@ export default function DataEditor() {
                                         <input
                                             type="checkbox"
                                             checked={userPermissions.scanhistoryLocations?.includes(location.value) || false}
-                                            disabled={!permissionsEditable[index] || isDisabled}
+                                            disabled={!permissionsEditable[key] || isDisabled}
                                             onChange={(e) => {
                                                 const updated = [...usersData];
                                                 if (!updated[index].permissions) {
@@ -890,7 +870,8 @@ export default function DataEditor() {
 
     // Función para guardar usuario individual
     const saveIndividualUser = async (index: number) => {
-        setSavingUser(index);
+        const key = getUserKey(usersData[index], index);
+        setSavingUserKey(key);
         try {
             const user = usersData[index];
             if (user.id) {
@@ -918,7 +899,7 @@ export default function DataEditor() {
                 });
 
                 // Bloquear edición de permisos para este usuario después de guardar
-                setPermissionsEditable(prev => ({ ...prev, [index]: false }));
+                setPermissionsEditable(prev => ({ ...prev, [key]: false }));
             } else {
                 // Crear nuevo usuario
                 await UsersService.addUser({
@@ -932,14 +913,14 @@ export default function DataEditor() {
                 // Recargar datos para obtener el ID generado
                 await loadData();
                 // Después de recargar datos, asegurar que el control de edición de permisos está bloqueado
-                setPermissionsEditable(prev => ({ ...prev, [index]: false }));
+                setPermissionsEditable(prev => ({ ...prev, [key]: false }));
             }
             showNotification(`Usuario ${user.name} guardado exitosamente`, 'success');
         } catch (error) {
             showNotification('Error al guardar el usuario', 'error');
             console.error('Error saving user:', error);
         } finally {
-            setSavingUser(null);
+            setSavingUserKey(null);
         }
     };
 
@@ -1403,7 +1384,7 @@ export default function DataEditor() {
                                     <label className="block text-sm font-medium mb-1">Contraseña:</label>
                                     <div className="relative">
                                         <input
-                                            type={passwordVisibility[index] ? 'text' : 'password'}
+                                            type={passwordVisibility[getUserKey(user, index)] ? 'text' : 'password'}
                                             value={user.password || ''}
                                             onChange={(e) => updateUser(index, 'password', e.target.value)}
                                             className="w-full px-3 py-2 pr-10 border border-[var(--input-border)] rounded-md"
@@ -1412,11 +1393,11 @@ export default function DataEditor() {
                                         />
                                         <button
                                             type="button"
-                                            onClick={() => togglePasswordVisibility(index)}
+                                            onClick={() => togglePasswordVisibility(user, index)}
                                             className="absolute inset-y-0 right-0 pr-3 flex items-center text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
-                                            title={passwordVisibility[index] ? "Ocultar contraseña" : "Mostrar contraseña"}
+                                            title={passwordVisibility[getUserKey(user, index)] ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                                         >
-                                            {passwordVisibility[index] ? (
+                                            {passwordVisibility[getUserKey(user, index)] ? (
                                                 <EyeOff className="w-4 h-4" />
                                             ) : (
                                                 <Eye className="w-4 h-4" />
@@ -1474,10 +1455,10 @@ export default function DataEditor() {
                                 <button
                                     onClick={() => saveIndividualUser(index)}
                                     className="px-3 py-2 sm:px-4 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center gap-2 text-sm sm:text-base"
-                                    disabled={savingUser === index}
+                                    disabled={savingUserKey === getUserKey(user, index)}
                                 >
                                     <Save className="w-4 h-4" />
-                                    {savingUser === index ? 'Guardando...' : 'Guardar'}
+                                    {savingUserKey === getUserKey(user, index) ? 'Guardando...' : 'Guardar'}
                                 </button>
                                 <button
                                     onClick={() => removeUser(index)}
