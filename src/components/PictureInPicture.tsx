@@ -1,6 +1,6 @@
 'use client';
 import React, { useRef, useEffect } from 'react';
-import { Maximize as MaximizeIcon, X as XIcon } from 'lucide-react';
+import { Maximize as MaximizeIcon } from 'lucide-react';
 
 interface PictureInPictureProps {
   isOpen: boolean;
@@ -20,6 +20,7 @@ export function PictureInPicture({
   const pipWindowRef = useRef<Window | null>(null);
   const closingRef = useRef<boolean>(false);
   const checkIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  
 
   const openPictureInPicture = async () => {
     closingRef.current = false; // Reset flag cuando se abre
@@ -249,56 +250,36 @@ export function PictureInPicture({
             clearInterval(checkIntervalRef.current);
             checkIntervalRef.current = null;
           }
-          // Solo notificar si no se está cerrando manualmente
-          if (!closingRef.current) {
-            onToggle(); // Notify parent that PiP closed
-          }
-          closingRef.current = false; // Reset flag
+              // Solo notificar si no se está cerrando manualmente
+              if (!closingRef.current) {
+                onToggle(); // Notify parent that PiP closed
+              }
+              closingRef.current = false; // Reset flag
         }
       }, 300); // Check más frecuentemente
 
     } catch (error) {
       console.error('Error opening Picture-in-Picture:', error);
       alert('Error al abrir ventana Picture-in-Picture');
+  // Si hubo error, no hacemos bloqueo aquí (el botón solo se oculta cuando isOpen)
     }
   };
 
-  const closePictureInPicture = () => {
-    closingRef.current = true; // Marcar que se está cerrando manualmente
-    
-    // Limpiar el intervalo
-    if (checkIntervalRef.current) {
-      clearInterval(checkIntervalRef.current);
-      checkIntervalRef.current = null;
-    }
-    
-    if (pipWindowRef.current && !pipWindowRef.current.closed) {
-      pipWindowRef.current.close();
-    }
-    pipWindowRef.current = null;
-    
-    // Inmediatamente notificar al padre que se cerró
-    onToggle();
-    
-    // Reset flag después de un momento
-    setTimeout(() => {
-      closingRef.current = false;
-    }, 100);
-  };
+  // Nota: el cierre de la ventana solo se realizará desde la propia ventana PiP.
+  // Por eso no exportamos/definimos aquí ninguna función para cerrarla desde el UI padre.
 
   const togglePictureInPicture = async () => {
-    if (isOpen) {
-      closePictureInPicture();
-    } else {
-      await openPictureInPicture();
-    }
+  // Si ya está abierta, no hacer nada: solo la ventana PiP puede cerrarla
+  if (isOpen) return;
+
+  await openPictureInPicture();
   };
 
   // Listen for messages from PiP window
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
-      if (event.data.type === 'PIP_CLOSED') {
-        onToggle();
+    if (event.data.type === 'PIP_CLOSED') {
+  onToggle();
       } else if (event.data.type === 'PIP_PROCESS_IMAGE') {
         onProcessImage(event.data.imageData);
       } else if (event.data.type === 'PIP_REMOVE_LEADING_ZERO') {
@@ -329,20 +310,22 @@ export function PictureInPicture({
       if (pipWindowRef.current && !pipWindowRef.current.closed) {
         pipWindowRef.current.close();
       }
+  // No hay bloqueo persistente que limpiar en el desmontaje
     };
   }, []);
+
+  // Mientras la ventana PiP esté activa, ocultamos el botón de activación.
+  if (isOpen) return null;
 
   return (
     <button
       onClick={togglePictureInPicture}
       className={`px-3 py-2 rounded-lg font-bold transition-all duration-200 focus:outline-none focus:ring-2 ${
-        isOpen
-          ? 'bg-red-500 hover:bg-red-600 text-white focus:ring-red-300 dark:focus:ring-red-900'
-          : 'bg-green-500 hover:bg-green-600 text-white focus:ring-green-300 dark:focus:ring-green-900'
+        'bg-green-500 hover:bg-green-600 text-white focus:ring-green-300 dark:focus:ring-green-900'
       } transform hover:scale-105 active:scale-95`}
-      title={isOpen ? "Cerrar ventana PiP" : "Abrir ventana Picture-in-Picture"}
+      title={"Abrir ventana Picture-in-Picture"}
     >
-      {isOpen ? <XIcon className="w-5 h-5" /> : <MaximizeIcon className="w-5 h-5" />}
+      <MaximizeIcon className="w-5 h-5" />
     </button>
   );
 }
