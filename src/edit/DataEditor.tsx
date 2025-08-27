@@ -8,7 +8,7 @@ import { SorteosService } from '../services/sorteos';
 import { UsersService } from '../services/users';
 import { CcssConfigService } from '../services/ccss-config';
 import { Location, Sorteo, User, CcssConfig, UserPermissions } from '../types/firestore';
-import { getDefaultPermissions } from '../utils/permissions';
+import { getDefaultPermissions, getNoPermissions } from '../utils/permissions';
 import ScheduleReportTab from '../components/business/ScheduleReportTab';
 import ConfirmModal from '../components/ui/ConfirmModal';
 
