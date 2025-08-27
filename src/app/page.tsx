@@ -2,12 +2,10 @@
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react'
-import BarcodeScanner from '@/components/BarcodeScanner'
-import PriceCalculator from '@/components/PriceCalculator'
-import TextConversion from '@/components/TextConversion'
-import ScanHistory from '@/components/ScanHistory'
-import CashCounterTabs from '@/components/CashCounterTabs'
-import ControlHorario from '@/components/ControlHorario'
+import { BarcodeScanner } from '@/components/scanner'
+import { PriceCalculator, TextConversion } from '@/components/calculator'
+import { ScanHistory } from '@/components/scanner'
+import { CashCounterTabs, ControlHorario, TimingControl, SupplierOrders } from '@/components/business'
 import { useAuth } from '@/hooks/useAuth'
 import {
   Calculator,
@@ -20,11 +18,9 @@ import {
   History,
 } from 'lucide-react'
 import type { ScanHistoryEntry } from '@/types/barcode'
-import TimingControl from '@/components/TimingControl'
-import ClientOnlyHomeMenu from '@/components/ClientOnlyHomeMenu'
-import SupplierOrders from '@/components/SupplierOrders'
-import Mantenimiento from '@/components/Mantenimiento'
-import ScanHistoryTable from '@/components/ScanHistoryTable'
+import { ClientOnlyHomeMenu } from '@/components/layout'
+import { Mantenimiento } from '@/components/admin'
+import { ScanHistoryTable } from '@/components/scanner'
 import { storage } from '@/config/firebase'
 import { ref, listAll } from 'firebase/storage'
 
