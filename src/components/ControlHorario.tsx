@@ -419,9 +419,13 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
     const isCurrentMonth = today.getFullYear() === currentDate.getFullYear() && today.getMonth() === currentDate.getMonth();
     if (!loading && isCurrentMonth && !autoQuincenaRef.current) {
       if (today.getDate() > 15) {
-        setViewMode('second');
+  setViewMode('second');
+  setSelectedPeriod('16-30');
+  setFullMonthView(false);
       } else {
-        setViewMode('first');
+  setViewMode('first');
+  setSelectedPeriod('1-15');
+  setFullMonthView(false);
       }
       autoQuincenaRef.current = true;
       console.log('🗓️ AUTO-QUINCENA aplicada:', today.getDate() > 15 ? 'Segunda quincena' : 'Primera quincena');
@@ -1545,14 +1549,22 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
                   16-{daysInMonth}
                 </button>
                 <button
-                  className={`px-3 py-1 text-xs rounded transition-colors ${selectedPeriod === 'monthly'
+                  className={`px-3 py-1 text-xs rounded transition-colors ${fullMonthView
                     ? 'bg-blue-500 text-white'
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                     }`}
                   onClick={() => {
-                    if (selectedPeriod === 'monthly') {
-                      setSelectedPeriod('1-15');
-                      setViewMode('first');
+                    if (fullMonthView) {
+                      // Al regresar de vista mensual, seleccionar la quincena correcta
+                      // usando el día del `currentDate` (si es >15, segunda quincena)
+                      const dayOfMonth = currentDate.getDate();
+                      if (dayOfMonth > 15) {
+                        setSelectedPeriod('16-30');
+                        setViewMode('second');
+                      } else {
+                        setSelectedPeriod('1-15');
+                        setViewMode('first');
+                      }
                       setFullMonthView(false);
                     } else {
                       setSelectedPeriod('monthly');
@@ -1560,7 +1572,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
                     }
                   }}
                 >
-                  {selectedPeriod === 'monthly' ? 'Quincenal' : 'Mensual'}
+                  {fullMonthView ? 'Quincenal' : 'Mensual'}
                 </button>
               </div>
             </div>

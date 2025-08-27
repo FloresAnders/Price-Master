@@ -1107,17 +1107,6 @@ export default function DataEditor() {
                             Cambios sin guardar
                         </div>
                     )}
-                    <button
-                        onClick={saveData}
-                        disabled={!hasChanges || isSaving}
-                        className={`px-3 py-2 sm:px-4 rounded-md flex items-center gap-2 transition-colors text-sm sm:text-base ${hasChanges && !isSaving
-                            ? 'bg-green-600 hover:bg-green-700 text-white'
-                            : 'bg-[var(--muted)] text-[var(--muted-foreground)] cursor-not-allowed'
-                            }`}
-                    >
-                        <Save className="w-4 h-4" />
-                        {isSaving ? 'Guardando...' : 'Guardar'}
-                    </button>
 
                     <button
                         onClick={exportData}
