@@ -1,9 +1,7 @@
 // app/layout.tsx 
 import './globals.css';
-import { ThemeProvider } from '../components/ThemeProvider';
-import HeaderWrapper from '../components/HeaderWrapper';
-import Footer from '../components/Footer';
-import AuthWrapper from '../components/AuthWrapper';
+import { ThemeProvider, HeaderWrapper, Footer } from '../components/layout';
+import { AuthWrapper } from '../components/auth';
 
 export const metadata = {
   title: 'Price Master',

@@ -3,7 +3,7 @@
 
 import React from 'react';
 import { History } from 'lucide-react';
-import ScanHistoryTable from '@/components/ScanHistoryTable';
+import { ScanHistoryTable } from '@/components/scanner';
 
 export default function ScanHistoryPage() {
   return (
