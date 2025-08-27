@@ -271,22 +271,20 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
             )}
 
             {/* Mobile hamburger menu button */}
-            {activeTab && (
-              <button
-                onClick={() => setShowMobileMenu(!showMobileMenu)}
-                className="lg:hidden p-2 rounded-md hover:bg-[var(--hover-bg)] transition-colors"
-                title="Menú"
-              >
-                {showMobileMenu ? <X className="w-5 h-5 text-[var(--foreground)]" /> : <Menu className="w-5 h-5 text-[var(--foreground)]" />}
-              </button>
-            )}
+            <button
+              onClick={() => setShowMobileMenu(!showMobileMenu)}
+              className="lg:hidden p-2 rounded-md hover:bg-[var(--hover-bg)] transition-colors"
+              title="Menú"
+            >
+              {showMobileMenu ? <X className="w-5 h-5 text-[var(--foreground)]" /> : <Menu className="w-5 h-5 text-[var(--foreground)]" />}
+            </button>
 
             <ThemeToggle />
           </div>
         </div>
 
         {/* Mobile navigation menu */}
-        {showMobileMenu && activeTab && (
+        {showMobileMenu && (
           <div className="lg:hidden border-t border-[var(--input-border)] bg-[var(--background)] p-4">
             <div className="grid grid-cols-2 gap-2">
               {visibleTabs.map((tab) => {
