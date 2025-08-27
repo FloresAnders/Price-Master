@@ -9,6 +9,7 @@ import { ThemeToggle } from './ThemeToggle';
 import { getDefaultPermissions } from '../../utils/permissions';
 import TokenInfo from '../session/TokenInfo';
 import FloatingSessionTimer from '../session/FloatingSessionTimer';
+import EditProfileModal from '../edicionPerfil/EditProfileModal';
 import type { UserPermissions } from '../../types/firestore';
 
 type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'supplierorders' | 'histoscans' | 'scanhistory' | 'edit'
@@ -23,6 +24,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
+  const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [isClient, setIsClient] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, right: 0 });
@@ -68,11 +70,14 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
 
   // Close config modal with ESC key
   useEffect(() => {
-    if (!showConfigModal) return;
+    // If neither modal is open, nothing to do
+    if (!showConfigModal && !showEditProfileModal) return;
 
     const handleEscKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setShowConfigModal(false);
+        // Close whichever modal(s) are open
+        if (showConfigModal) setShowConfigModal(false);
+        if (showEditProfileModal) setShowEditProfileModal(false);
       }
     };
 
@@ -81,7 +86,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     return () => {
       document.removeEventListener('keydown', handleEscKey);
     };
-  }, [showConfigModal]);
+  }, [showConfigModal, showEditProfileModal]);
 
   // Navigation tabs with permissions
   const allTabs = [
@@ -240,18 +245,29 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                           pointerEvents: 'auto' // Ensure it can be clicked
                         }}
                       >
-                        <div className="py-2">
-                          <button
-                            onClick={() => {
-                              setShowConfigModal(true);
-                              setShowUserDropdown(false);
-                            }}
-                            className="flex items-center gap-3 w-full px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--hover-bg)] transition-colors"
-                          >
-                            <Settings className="w-4 h-4 text-[var(--muted-foreground)]" />
-                            Configuración
-                          </button>
-                        </div>
+                          <div className="py-2">
+                            <button
+                              onClick={() => {
+                                setShowEditProfileModal(true);
+                                setShowUserDropdown(false);
+                              }}
+                              className="flex items-center gap-3 w-full px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--hover-bg)] transition-colors"
+                            >
+                              <User className="w-4 h-4 text-[var(--muted-foreground)]" />
+                              Editar Perfil
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                setShowConfigModal(true);
+                                setShowUserDropdown(false);
+                              }}
+                              className="flex items-center gap-3 w-full px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--hover-bg)] transition-colors"
+                            >
+                              <Settings className="w-4 h-4 text-[var(--muted-foreground)]" />
+                              Configuración de Sesión
+                            </button>
+                          </div>
                       </div>
                     </>,
                     document.body
@@ -318,11 +334,22 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => {
+                        setShowEditProfileModal(true);
+                        setShowMobileMenu(false);
+                      }}
+                      className="p-2 rounded-md hover:bg-[var(--hover-bg)] transition-colors"
+                      title="Editar Perfil"
+                    >
+                      <User className="w-4 h-4 text-[var(--muted-foreground)]" />
+                    </button>
+
+                    <button
+                      onClick={() => {
                         setShowConfigModal(true);
                         setShowMobileMenu(false);
                       }}
                       className="p-2 rounded-md hover:bg-[var(--hover-bg)] transition-colors"
-                      title="Configuración"
+                      title="Configuración de Sesión"
                     >
                       <Settings className="w-4 h-4 text-[var(--muted-foreground)]" />
                     </button>
@@ -495,6 +522,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
           />
         </div>
       )}
+
+  <EditProfileModal isOpen={showEditProfileModal} onClose={() => setShowEditProfileModal(false)} />
 
       {/* FloatingSessionTimer */}
       <FloatingSessionTimer
