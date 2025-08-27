@@ -32,7 +32,7 @@
     "theme_color": "#2563eb",
     "background_color": "#ffffff",
     "display": "standalone",
-    "start_url": "/#calculator",
+    "start_url": "/",
     "scope": "/",
     "orientation": "portrait"
 }
