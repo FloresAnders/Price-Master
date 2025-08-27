@@ -124,8 +124,14 @@ export class TokenService {
     const sessionId = this.generateSessionId();
     const jwtId = this.generateJwtId();
 
-    // Copia segura del usuario sin contraseña
-    const { password, ...safeUser } = userData as any;
+    // Copia segura del usuario sin contraseña (tipada, sin usar `any`)
+    const safeUser: Omit<User, 'password'> = {
+      id: userData.id,
+      name: userData.name,
+      location: userData.location,
+      role: userData.role,
+      permissions: userData.permissions,
+    };
 
     const tokenPayload: TokenPayload = {
       userId: userData.id!,
