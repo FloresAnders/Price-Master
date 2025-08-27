@@ -124,6 +124,9 @@ export class TokenService {
     const sessionId = this.generateSessionId();
     const jwtId = this.generateJwtId();
 
+    // Copia segura del usuario sin contraseña
+    const { password, ...safeUser } = userData as any;
+
     const tokenPayload: TokenPayload = {
       userId: userData.id!,
       name: userData.name,
@@ -142,7 +145,7 @@ export class TokenService {
     const sessionData: TokenSessionData = {
       token,
       refreshToken,
-      user: userData,
+      user: safeUser,
       sessionId,
       loginTime: new Date().toISOString(),
       lastActivity: new Date().toISOString(),
