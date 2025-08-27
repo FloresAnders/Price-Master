@@ -33,10 +33,16 @@ export interface UserPermissions {
 export interface User {
   id?: string;
   name: string;
+  // correo electrónico del usuario
+  email?: string;
+  // nombre completo de la persona encargada (para admins)
+  fullName?: string;
   location?: string;
   password?: string;
   role?: 'admin' | 'user' | 'superadmin';
   isActive?: boolean;
+  // Campo para marcar eliminación lógica; por defecto false
+  eliminate?: boolean;
   permissions?: UserPermissions;
   createdAt?: Date;
   updatedAt?: Date;

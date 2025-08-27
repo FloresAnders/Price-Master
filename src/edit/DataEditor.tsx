@@ -277,7 +277,10 @@ export default function DataEditor() {
                     password: user.password,
                     role: user.role,
                     isActive: user.isActive,
-                    permissions: user.permissions
+                    permissions: user.permissions,
+                    email: user.email,
+                    fullName: user.fullName,
+                    eliminate: user.eliminate ?? false
                 });
             }
 
@@ -529,6 +532,10 @@ export default function DataEditor() {
             role: 'user',
             isActive: true
         };
+    // Añadir campos solicitados: email, fullName y eliminate por defecto false
+    (newUser as Partial<User>).email = '';
+    (newUser as Partial<User>).fullName = '';
+    (newUser as Partial<User>).eliminate = false;
         // Insertar al inicio
         // Give new user no permissions by default (no privileges)
         newUser.permissions = getNoPermissions();
@@ -886,7 +893,10 @@ export default function DataEditor() {
                     password: user.password,
                     role: user.role,
                     isActive: user.isActive,
-                    permissions: user.permissions
+                    permissions: user.permissions,
+                    email: user.email,
+                    fullName: user.fullName,
+                    eliminate: user.eliminate ?? false
                 });
                 // Actualizar originalUsersData para este usuario para reflejar que ya no hay cambios pendientes
                 setOriginalUsersData(prev => {
@@ -912,7 +922,10 @@ export default function DataEditor() {
                     password: user.password,
                     role: user.role,
                     isActive: user.isActive,
-                    permissions: user.permissions
+                    permissions: user.permissions,
+                    email: user.email,
+                    fullName: user.fullName,
+                    eliminate: user.eliminate ?? false
                 });
                 // Recargar datos para obtener el ID generado
                 await loadData();
@@ -1371,6 +1384,34 @@ export default function DataEditor() {
                                     </select>
                                 </div>
                             </div>
+
+                            {/* Email y Nombre Completo — mostrar sólo si el usuario logueado es superadmin y el rol seleccionado es admin/superadmin */}
+                            {currentUser?.role === 'superadmin' && (user.role === 'admin' || user.role === 'superadmin') && (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Correo electrónico:</label>
+                                        <input
+                                            type="email"
+                                            value={user.email || ''}
+                                            onChange={(e) => updateUser(index, 'email', e.target.value)}
+                                            className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
+                                            style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                            placeholder="correo@ejemplo.com"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Nombre completo:</label>
+                                        <input
+                                            type="text"
+                                            value={user.fullName || ''}
+                                            onChange={(e) => updateUser(index, 'fullName', e.target.value)}
+                                            className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
+                                            style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                            placeholder="Nombre completo de la persona encargada"
+                                        />
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                                 <div>

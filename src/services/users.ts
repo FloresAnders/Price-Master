@@ -37,8 +37,10 @@ export class UsersService {
    */
   static async addUser(user: Omit<User, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
     const userWithTimestamps = {
-      ...user,
-      isActive: user.isActive ?? true,
+  ...user,
+  isActive: user.isActive ?? true,
+  // ensure eliminate defaults to false when not provided
+  eliminate: user.eliminate ?? false,
       // Add default permissions based on role if not provided
       permissions: user.permissions || getDefaultPermissions(user.role),
       createdAt: new Date(),
