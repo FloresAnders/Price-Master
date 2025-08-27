@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Smartphone, QrCode, Camera, Wifi, CheckCircle } from 'lucide-react';
-import BarcodeScanner from '../../components/BarcodeScanner';
+import { BarcodeScanner } from '../../components/scanner';
 
 export default function ScanTestPage() {
   const [detectedCodes, setDetectedCodes] = useState<string[]>([]);

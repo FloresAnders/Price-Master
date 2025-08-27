@@ -6,7 +6,7 @@ import EmployeeSummaryCalculator, {
   calculateEmployeeSummaryFromDB, 
   useEmployeeInfo,
   EmployeeSummary 
-} from '../components/EmployeeSummaryCalculator';
+} from '../components/business/EmployeeSummaryCalculator';
 
 /**
  * Ejemplo de uso del EmployeeSummaryCalculator actualizado

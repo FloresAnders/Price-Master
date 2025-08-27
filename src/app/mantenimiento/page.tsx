@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { User } from '../../types/firestore';
-import UserPermissionsManager from '../../components/UserPermissionsManager';
+import { UserPermissionsManager } from '../../components/auth';
 import { Settings, Users, Key, Shield } from 'lucide-react';
 
 export default function MantenimientoPage() {

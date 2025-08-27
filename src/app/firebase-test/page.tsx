@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import BackupRestore from '@/components/BackupRestore';
+import { BackupRestore } from '@/components/backup';
 
 interface Location {
   id: string;
