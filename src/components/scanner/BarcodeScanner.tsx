@@ -56,24 +56,30 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
   // Manejar pegar desde el portapapeles
   useEffect(() => {
     const handlePaste = (event: ClipboardEvent) => {
-      if (!containerRef.current?.contains(document.activeElement)) return;
-      
+      // Evitar interferir con campos de texto activos (inputs/textareas/elementos editables)
+      const active = document.activeElement as (HTMLElement & { isContentEditable?: boolean }) | null;
+      if (active) {
+        const tag = active.tagName;
+        const isEditable = typeof active.isContentEditable === 'boolean' ? active.isContentEditable : active.hasAttribute && active.hasAttribute('contenteditable');
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || isEditable) return;
+      }
+
       const items = event.clipboardData?.items;
-      if (items) {
-        for (let i = 0; i < items.length; i++) {
-          const item = items[i];
-          if (item.type.indexOf('image') === 0) {
-            const blob = item.getAsFile();
-            if (blob) {
-              const reader = new FileReader();
-              reader.onload = (e) => {
-                const dataURL = e.target?.result as string;
-                processImage(dataURL);
-              };
-              reader.readAsDataURL(blob);
-              event.preventDefault();
-              break;
-            }
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.type.indexOf('image') === 0) {
+          const blob = item.getAsFile();
+          if (blob) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              const dataURL = e.target?.result as string;
+              processImage(dataURL);
+            };
+            reader.readAsDataURL(blob);
+            event.preventDefault();
+            break;
           }
         }
       }
