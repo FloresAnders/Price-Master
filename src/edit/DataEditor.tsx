@@ -8,7 +8,7 @@ import { SorteosService } from '../services/sorteos';
 import { UsersService } from '../services/users';
 import { CcssConfigService } from '../services/ccss-config';
 import { Location, Sorteo, User, CcssConfig, UserPermissions } from '../types/firestore';
-import { getDefaultPermissions } from '../utils/permissions';
+import { getDefaultPermissions, getNoPermissions } from '../utils/permissions';
 import ScheduleReportTab from '../components/ScheduleReportTab';
 import ConfirmModal from '../components/ConfirmModal';
 
@@ -31,6 +31,7 @@ export default function DataEditor() {
     const [savingUser, setSavingUser] = useState<number | null>(null);
     const [savingLocation, setSavingLocation] = useState<number | null>(null);
     const [showPermissions, setShowPermissions] = useState<{ [key: number]: boolean }>({});
+    const [permissionsEditable, setPermissionsEditable] = useState<{ [key: number]: boolean }>({});
     const [allLocations, setAllLocations] = useState<Location[]>([]);
     
     // Estado para trackear cambios individuales de ubicaciones
@@ -180,6 +181,35 @@ export default function DataEditor() {
         if (!originalLocation || !currentLocation) return true; // Si no hay original, considerar como cambio
         
         return JSON.stringify(currentLocation) !== JSON.stringify(originalLocation);
+    };
+
+    // Función para verificar si un usuario específico ha cambiado
+    const hasUserChanged = (index: number): boolean => {
+        const currentUser = usersData[index];
+        if (!currentUser) return false;
+
+        // Buscar el original por id si existe
+        let originalUser = null as User | null;
+        if (currentUser.id) {
+            originalUser = originalUsersData.find(u => u.id === currentUser.id) || null;
+        } else {
+            // Si no tiene id, intentar por índice en originalUsersData
+            originalUser = originalUsersData[index] || null;
+        }
+
+        // Si no hay original, considerarlo como cambio (nuevo usuario)
+        if (!originalUser) return true;
+
+        // Ignorar campos de timestamps al comparar
+        const sanitize = (u: User | null | undefined) => {
+            if (!u) return u;
+            const copy = { ...u } as Partial<User>;
+            delete (copy as Partial<User>).createdAt;
+            delete (copy as Partial<User>).updatedAt;
+            return copy;
+        };
+
+        return JSON.stringify(sanitize(currentUser)) !== JSON.stringify(sanitize(originalUser));
     };
 
     const saveData = async () => {
@@ -487,38 +517,81 @@ export default function DataEditor() {
             role: 'user',
             isActive: true
         };
-        setUsersData([...usersData, newUser]);
+        // Insertar al inicio
+    // Give new user no permissions by default (no privileges)
+    newUser.permissions = getNoPermissions();
+    setUsersData(prev => [newUser, ...prev]);
+
+        // Desplazar estados indexados por posición para mantener correspondencia
+        setPasswordVisibility(prev => {
+            const shifted: { [key: number]: boolean } = {};
+            Object.keys(prev).forEach(k => {
+                const idx = parseInt(k, 10);
+                shifted[idx + 1] = prev[idx];
+            });
+            return shifted;
+        });
+        setShowPermissions(prev => {
+            const shifted: { [key: number]: boolean } = {};
+            Object.keys(prev).forEach(k => {
+                const idx = parseInt(k, 10);
+                shifted[idx + 1] = prev[idx];
+            });
+            return shifted;
+        });
+        setPermissionsEditable(prev => {
+            const shifted: { [key: number]: boolean } = {};
+            Object.keys(prev).forEach(k => {
+                const idx = parseInt(k, 10);
+                shifted[idx + 1] = prev[idx];
+            });
+            return shifted;
+        });
+        setSavingUser(prev => (prev !== null ? prev + 1 : prev));
+    // Habilitar edición de permisos y vista detallada para el nuevo usuario (índice 0)
+    setPermissionsEditable(prev => ({ 0: true, ...Object.keys(prev).reduce((acc, k) => ({ ...acc, [Number(k) + 1]: prev[Number(k)] }), {}) }));
+    setShowPermissions(prev => ({ 0: true, ...Object.keys(prev).reduce((acc, k) => ({ ...acc, [Number(k) + 1]: prev[Number(k)] }), {}) }));
     };
 
     const updateUser = (index: number, field: keyof User, value: unknown) => {
         const updated = [...usersData];
         
-        // Si se está cambiando el rol, preguntar si se quieren actualizar los permisos
-        if (field === 'role' && updated[index].role !== value) {
-            const shouldUpdatePermissions = window.confirm(
-                `¿Deseas actualizar los permisos de "${updated[index].name || 'este usuario'}" a los predeterminados del rol "${value}"?\n\n` +
-                `Esto reemplazará los permisos actuales con los permisos estándar del rol seleccionado.`
-            );
-            
-            updated[index] = { ...updated[index], [field]: value as User[typeof field] };
-            
-            if (shouldUpdatePermissions) {
-                updated[index].permissions = getDefaultPermissions(value as 'admin' | 'user' | 'superadmin');
-            }
-        } else {
-            updated[index] = { ...updated[index], [field]: value };
-        }
+    // No cambiar permisos automáticamente al cambiar rol. Solo actualizar campo.
+    updated[index] = { ...updated[index], [field]: value };
         
         setUsersData(updated);
-    }; const removeUser = (index: number) => {
+    };
+
+    const removeUser = (index: number) => {
         const user = usersData[index];
         const userName = user.name || `Usuario ${index + 1}`;
-        
+
         openConfirmModal(
             'Eliminar Usuario',
             `¿Está seguro de que desea eliminar al usuario "${userName}"? Esta acción no se puede deshacer.`,
-            () => {
-                setUsersData(usersData.filter((_, i) => i !== index));
+            async () => {
+                try {
+                    setConfirmModal(prev => ({ ...prev, loading: true }));
+
+                    // Si el usuario tiene id, eliminar en backend primero
+                    if (user.id) {
+                        await UsersService.deleteUser(user.id);
+                    }
+
+                    // Eliminar del estado local
+                    setUsersData(prev => prev.filter((_, i) => i !== index));
+
+                    // Actualizar originalUsersData para eliminarlo también
+                    setOriginalUsersData(prev => prev.filter(u => u.id !== user.id));
+
+                    showNotification(`Usuario ${userName} eliminado exitosamente`, 'success');
+                } catch (error) {
+                    console.error('Error deleting user:', error);
+                    showNotification('Error al eliminar el usuario', 'error');
+                } finally {
+                    // Cerrar modal y quitar loading
+                    closeConfirmModal();
+                }
             }
         );
     };
@@ -539,162 +612,9 @@ export default function DataEditor() {
         }));
     };
 
-    // Función para actualizar permisos de usuario con guardado automático
-    const updateUserPermission = async (userIndex: number, permission: keyof UserPermissions, value: boolean) => {
-        const updated = [...usersData];
-        const user = updated[userIndex];
-        
-        if (!user.permissions) {
-            user.permissions = getDefaultPermissions(user.role || 'user');
-        }
-        
-        // Cast to handle scanhistoryLocations type safely
-        if (permission === 'scanhistoryLocations') return;
-        
-        (user.permissions as unknown as Record<string, unknown>)[permission] = value;
-        
-        // Si se está desactivando scanhistory, limpiar las locaciones
-        if (permission === 'scanhistory' && !value) {
-            user.permissions.scanhistoryLocations = [];
-        }
-        
-        // Actualizar estado local inmediatamente
-        setUsersData(updated);
-        
-        // Guardar en base de datos si el usuario tiene ID
-        if (user.id) {
-            try {
-                setSavingUser(userIndex);
-                const updateData: Record<string, unknown> = { [permission]: value };
-                
-                // Incluir limpieza de locaciones en la actualización si es necesario
-                if (permission === 'scanhistory' && !value) {
-                    updateData.scanhistoryLocations = [];
-                }
-                
-                await UsersService.updateUserPermissions(user.id, updateData);
-                
-                // Mostrar notificación de éxito
-                setNotification({ 
-                    message: `Permiso "${getPermissionLabel(permission)}" ${value ? 'activado' : 'desactivado'} para ${user.name}`, 
-                    type: 'success' 
-                });
-                setTimeout(() => setNotification(null), 3000);
-                
-            } catch (error) {
-                console.error('Error updating user permission:', error);
-                
-                // Revertir cambio en caso de error
-                (updated[userIndex].permissions as unknown as Record<string, unknown>)![permission] = !value;
-                if (permission === 'scanhistory' && !value) {
-                    // Restaurar las locaciones si hubo error
-                    delete updated[userIndex].permissions!.scanhistoryLocations;
-                }
-                setUsersData([...updated]);
-                
-                setNotification({ 
-                    message: `Error al actualizar el permiso "${getPermissionLabel(permission)}"`, 
-                    type: 'error' 
-                });
-                setTimeout(() => setNotification(null), 5000);
-            } finally {
-                setSavingUser(null);
-            }
-        }
-    };
-
-    // Función para manejar el cambio de locaciones en scanhistory
-    const updateUserScanhistoryLocation = async (userIndex: number, locationValue: string, isSelected: boolean) => {
-        const updated = [...usersData];
-        const user = updated[userIndex];
-        
-        if (!user.permissions) {
-            user.permissions = getDefaultPermissions(user.role || 'user');
-        }
-        
-        const currentLocations = user.permissions.scanhistoryLocations || [];
-        const newLocations = isSelected
-            ? [...currentLocations, locationValue]
-            : currentLocations.filter(loc => loc !== locationValue);
-        
-        user.permissions.scanhistoryLocations = newLocations;
-        
-        // Actualizar estado local inmediatamente
-        setUsersData(updated);
-        
-        // Guardar en base de datos si el usuario tiene ID
-        if (user.id) {
-            try {
-                setSavingUser(userIndex);
-                await UsersService.updateUserPermissions(user.id, { 
-                    scanhistoryLocations: newLocations 
-                });
-                
-                // Mostrar notificación de éxito
-                setNotification({ 
-                    message: `Locaciones actualizadas para ${user.name}`, 
-                    type: 'success' 
-                });
-                setTimeout(() => setNotification(null), 3000);
-                
-            } catch (error) {
-                console.error('Error updating user scanhistory locations:', error);
-                
-                // Revertir cambio en caso de error
-                updated[userIndex].permissions!.scanhistoryLocations = currentLocations;
-                setUsersData([...updated]);
-                
-                setNotification({ 
-                    message: `Error al actualizar las locaciones para ${user.name}`, 
-                    type: 'error' 
-                });
-                setTimeout(() => setNotification(null), 5000);
-            } finally {
-                setSavingUser(null);
-            }
-        }
-    };
-
-    // Función para resetear permisos a predeterminados con guardado automático
-    const resetUserPermissionsToDefault = (userIndex: number) => {
-        const user = usersData[userIndex];
-        
-        openConfirmModal(
-            "Restablecer Permisos",
-            `¿Estás seguro de restablecer los permisos de "${user.name}" a los predeterminados del rol "${user.role}"?\n\nEsto reemplazará todos los permisos personalizados.`,
-            async () => {
-                const updated = [...usersData];
-                const defaultPermissions = getDefaultPermissions(user.role || 'user');
-                
-                updated[userIndex].permissions = defaultPermissions;
-                setUsersData(updated);
-                
-                // Guardar en base de datos si el usuario tiene ID
-                if (user.id) {
-                    try {
-                        setSavingUser(userIndex);
-                        await UsersService.updateUserPermissions(user.id, defaultPermissions);
-                        
-                        setNotification({ 
-                            message: `Permisos restablecidos a predeterminados para ${user.name}`, 
-                            type: 'success' 
-                        });
-                        setTimeout(() => setNotification(null), 3000);
-                        
-                    } catch (error) {
-                        console.error('Error resetting user permissions:', error);
-                        setNotification({ 
-                            message: `Error al restablecer permisos para ${user.name}`, 
-                            type: 'error' 
-                        });
-                        setTimeout(() => setNotification(null), 5000);
-                    } finally {
-                        setSavingUser(null);
-                    }
-                }
-            }
-        );
-    };
+    // Note: permission-specific auto-save functions were removed because permissions are edited locally
+    // and saved when the user presses the 'Guardar' button. Keep UsersService functions available
+    // if needed elsewhere.
 
     // Función para habilitar/deshabilitar todos los permisos con guardado automático
     const setAllUserPermissions = (userIndex: number, value: boolean) => {
@@ -792,8 +712,8 @@ export default function DataEditor() {
     const renderUserPermissions = (user: User, index: number) => {
         const defaultPermissions = getDefaultPermissions(user.role || 'user');
         const userPermissions = { ...defaultPermissions, ...(user.permissions || {}) };
-        const isNewUser = !user.id;
-        const isDisabled = savingUser === index || isNewUser;
+    // allow editing permissions for new users; only disable while saving
+    const isDisabled = savingUser === index;
         
         return (
             <div className="space-y-3">
@@ -804,11 +724,6 @@ export default function DataEditor() {
                             <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
                                 <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600 dark:border-blue-400"></div>
                                 <span>Guardando...</span>
-                            </div>
-                        )}
-                        {isNewUser && (
-                            <div className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
-                                <span>⚠️ Guarda el usuario primero</span>
                             </div>
                         )}
                         <button
@@ -826,11 +741,10 @@ export default function DataEditor() {
                             Deshabilitar Todo
                         </button>
                         <button
-                            onClick={() => resetUserPermissionsToDefault(index)}
-                            disabled={isDisabled}
-                            className="text-xs px-2 py-1 bg-gray-600 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            onClick={() => setPermissionsEditable(prev => ({ ...prev, [index]: !prev[index] }))}
+                            className="text-xs px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700"
                         >
-                            Predeterminados
+                            {permissionsEditable[index] ? 'Bloquear Permisos' : 'Editar Permisos'}
                         </button>
                         <button
                             onClick={() => togglePermissionsVisibility(index)}
@@ -841,7 +755,7 @@ export default function DataEditor() {
                     </div>
                 </div>
                 
-                {showPermissions[index] ? (
+                                {showPermissions[index] ? (
                     // Vista detallada con checkboxes editables
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {Object.entries(userPermissions)
@@ -859,8 +773,16 @@ export default function DataEditor() {
                                     type="checkbox"
                                     id={`${index}-${permission}`}
                                     checked={Boolean(hasAccess)}
-                                    disabled={isDisabled}
-                                    onChange={(e) => updateUserPermission(index, permission as keyof UserPermissions, e.target.checked)}
+                                    disabled={!permissionsEditable[index] || isDisabled}
+                                    onChange={(e) => {
+                                        // Only update in local state; do not auto-save
+                                        const updated = [...usersData];
+                                        if (!updated[index].permissions) {
+                                            updated[index].permissions = getDefaultPermissions(updated[index].role || 'user');
+                                        }
+                                        (updated[index].permissions as unknown as Record<string, unknown>)[permission] = e.target.checked;
+                                        setUsersData(updated);
+                                    }}
                                     className="w-5 h-5 text-green-600 border-2 rounded focus:ring-green-500 focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                     style={{ 
                                         backgroundColor: 'var(--input-bg)', 
@@ -901,8 +823,15 @@ export default function DataEditor() {
                                 <input
                                     type="checkbox"
                                     checked={Boolean(hasAccess)}
-                                    disabled={isDisabled}
-                                    onChange={(e) => updateUserPermission(index, permission as keyof UserPermissions, e.target.checked)}
+                                    disabled={!permissionsEditable[index] || isDisabled}
+                                    onChange={(e) => {
+                                        const updated = [...usersData];
+                                        if (!updated[index].permissions) {
+                                            updated[index].permissions = getDefaultPermissions(updated[index].role || 'user');
+                                        }
+                                        (updated[index].permissions as unknown as Record<string, unknown>)[permission] = e.target.checked;
+                                        setUsersData(updated);
+                                    }}
                                     className="w-3 h-3 disabled:opacity-50"
                                 />
                                 <span>{getPermissionLabel(permission)}</span>
@@ -926,13 +855,22 @@ export default function DataEditor() {
                                     key={location.value}
                                     className="flex items-center gap-2 p-2 border border-gray-300 dark:border-gray-600 rounded cursor-pointer text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
                                 >
-                                    <input
-                                        type="checkbox"
-                                        checked={userPermissions.scanhistoryLocations?.includes(location.value) || false}
-                                        disabled={isDisabled}
-                                        onChange={(e) => updateUserScanhistoryLocation(index, location.value, e.target.checked)}
-                                        className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50"
-                                    />
+                                        <input
+                                            type="checkbox"
+                                            checked={userPermissions.scanhistoryLocations?.includes(location.value) || false}
+                                            disabled={!permissionsEditable[index] || isDisabled}
+                                            onChange={(e) => {
+                                                const updated = [...usersData];
+                                                if (!updated[index].permissions) {
+                                                    updated[index].permissions = getDefaultPermissions(updated[index].role || 'user');
+                                                }
+                                                const current = updated[index].permissions!.scanhistoryLocations || [];
+                                                const newLocations = e.target.checked ? [...current, location.value] : current.filter(l => l !== location.value);
+                                                updated[index].permissions!.scanhistoryLocations = newLocations;
+                                                setUsersData(updated);
+                                            }}
+                                            className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50"
+                                        />
                                     <span style={{ color: 'var(--foreground)' }}>{location.label}</span>
                                 </label>
                             ))}
@@ -962,8 +900,25 @@ export default function DataEditor() {
                     location: user.location,
                     password: user.password,
                     role: user.role,
-                    isActive: user.isActive
+                    isActive: user.isActive,
+                    permissions: user.permissions
                 });
+                // Actualizar originalUsersData para este usuario para reflejar que ya no hay cambios pendientes
+                setOriginalUsersData(prev => {
+                    try {
+                        const copy = JSON.parse(JSON.stringify(prev)) as User[];
+                        const idx = copy.findIndex(u => u.id === user.id);
+                        if (idx !== -1) {
+                            copy[idx] = JSON.parse(JSON.stringify(user));
+                        }
+                        return copy;
+                    } catch {
+                        return prev;
+                    }
+                });
+
+                // Bloquear edición de permisos para este usuario después de guardar
+                setPermissionsEditable(prev => ({ ...prev, [index]: false }));
             } else {
                 // Crear nuevo usuario
                 await UsersService.addUser({
@@ -971,10 +926,13 @@ export default function DataEditor() {
                     location: user.location,
                     password: user.password,
                     role: user.role,
-                    isActive: user.isActive
+                    isActive: user.isActive,
+                    permissions: user.permissions
                 });
                 // Recargar datos para obtener el ID generado
                 await loadData();
+                // Después de recargar datos, asegurar que el control de edición de permisos está bloqueado
+                setPermissionsEditable(prev => ({ ...prev, [index]: false }));
             }
             showNotification(`Usuario ${user.name} guardado exitosamente`, 'success');
         } catch (error) {
@@ -1101,12 +1059,6 @@ export default function DataEditor() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto justify-end">
-                    {hasChanges && (
-                        <div className="flex items-center gap-1 px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs sm:text-sm">
-                            <AlertCircle className="w-4 h-4" />
-                            Cambios sin guardar
-                        </div>
-                    )}
 
                     <button
                         onClick={exportData}
@@ -1409,7 +1361,14 @@ export default function DataEditor() {
                     </div>
 
                     {usersData.map((user, index) => (
-                        <div key={user.id || index} className="border border-[var(--input-border)] rounded-lg p-2 sm:p-4">                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                        <div key={user.id || index} className="border border-[var(--input-border)] rounded-lg p-2 sm:p-4 relative">
+                            {hasUserChanged(index) && (
+                                <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
+                                    <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+                                    Cambios pendientes
+                                </div>
+                            )}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                             <div>
                                 <label className="block text-sm font-medium mb-1">Nombre:</label>
                                 <input
@@ -1506,12 +1465,7 @@ export default function DataEditor() {
                                 {renderUserPermissions(user, index)}
                                 <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                                     <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
-                                        � <strong>Guardado Automático:</strong> Los cambios en permisos se guardan automáticamente en la base de datos.
-                                        {!user.id && (
-                                            <span className="text-amber-600 dark:text-amber-400 ml-2">
-                                                ⚠️ Guarda el usuario primero para habilitar el guardado automático de permisos.
-                                            </span>
-                                        )}
+                                        <strong>Nota:</strong> Marca &quot;Editar Permisos&quot; para habilitar los checkboxes, realiza los cambios y luego presiona &quot;Guardar&quot; para aplicar los permisos al usuario.
                                     </p>
                                 </div>
                             </div>
