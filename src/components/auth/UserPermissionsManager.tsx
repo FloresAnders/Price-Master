@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, UserPermissions, Location } from '../../types/firestore';
 import { UsersService } from '../../services/users';
+import { LocationsService } from '../../services/locations';
 import { getDefaultPermissions, getAllPermissions, getNoPermissions } from '../../utils/permissions';
 
 interface UserPermissionsManagerProps {
@@ -73,13 +74,11 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
 
   const loadLocations = async () => {
     try {
-      // Load locations from the data file
-      const response = await fetch('/src/data/locations.json');
-      const locationsData = await response.json();
+      const locationsData = await LocationsService.getAllLocations();
       setLocations(locationsData);
     } catch (error) {
-      console.error('Error loading locations:', error);
-      // Fallback locations if file can't be loaded
+      console.error('Error loading locations from DB, using fallback list:', error);
+      // Fallback locations if service can't be reached
       setLocations([
         { label: 'PALMARES', value: 'PALMARES', names: [] },
         { label: 'SINAI', value: 'SINAI', names: [] },

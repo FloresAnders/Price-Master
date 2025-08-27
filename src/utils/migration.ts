@@ -3,8 +3,8 @@ import { SorteosService } from '../services/sorteos';
 import { UsersService } from '../services/users';
 import { CcssConfigService } from '../services/ccss-config';
 import { Location } from '../types/firestore';
-import locationsData from '../data/locations.json';
-import sorteosData from '../data/sorteos.json';
+import fs from 'fs';
+import path from 'path';
 
 export class MigrationService {
 
@@ -15,6 +15,21 @@ export class MigrationService {
     console.log('Starting locations migration...');
 
     try {
+      // Load locations JSON at runtime if available to avoid build-time module resolution errors
+      const locationsJsonPath = path.resolve(process.cwd(), 'src', 'data', 'locations.json');
+  let locationsData: Location[] = [];
+      if (fs.existsSync(locationsJsonPath)) {
+        try {
+          const raw = fs.readFileSync(locationsJsonPath, 'utf8');
+          locationsData = JSON.parse(raw);
+        } catch (err) {
+          console.warn('Could not read or parse locations.json:', err);
+          locationsData = [];
+        }
+      } else {
+        console.log('locations.json not found, skipping locations migration.');
+        return;
+      }
       // Check if locations already exist
       const existingLocations = await LocationsService.getAllLocations();
       if (existingLocations.length > 0) {
@@ -22,8 +37,8 @@ export class MigrationService {
         return;
       }
 
-      // Migrate each location
-      for (const locationData of locationsData as Location[]) {
+  // Migrate each location
+  for (const locationData of locationsData as Location[]) {
         const locationId = await LocationsService.addLocation({
           label: locationData.label,
           value: locationData.value,
@@ -46,6 +61,22 @@ export class MigrationService {
     console.log('Starting sorteos migration...');
 
     try {
+      // Load sorteos JSON at runtime if available to avoid build-time module resolution errors
+      const sorteosJsonPath = path.resolve(process.cwd(), 'src', 'data', 'sorteos.json');
+  let sorteosData: string[] = [];
+      if (fs.existsSync(sorteosJsonPath)) {
+        try {
+          const raw = fs.readFileSync(sorteosJsonPath, 'utf8');
+          sorteosData = JSON.parse(raw) as string[];
+        } catch (err) {
+          console.warn('Could not read or parse sorteos.json:', err);
+          sorteosData = [];
+        }
+      } else {
+        console.log('sorteos.json not found, skipping sorteos migration.');
+        return;
+      }
+
       // Check if sorteos already exist
       const existingSorteos = await SorteosService.getAllSorteos();
       if (existingSorteos.length > 0) {

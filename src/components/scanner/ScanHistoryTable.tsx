@@ -37,7 +37,7 @@ export default function ScanHistoryTable() {
   } = useScanImages();
 
   // Load locations from DB
-  const { locations, loading: locationsLoading } = useLocations();
+  const { locations } = useLocations();
 
   // Local state
   const [searchTerm, setSearchTerm] = useState('');
