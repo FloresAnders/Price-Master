@@ -206,8 +206,8 @@ function SinpeModal({ isOpen, onClose, currency }: SinpeModalProps) {
             onClick={handleReload}
             disabled={totalEsperado === 0}
             className={`flex-1 flex items-center justify-center px-4 py-3 rounded-lg font-medium ${totalEsperado > 0
-                ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                : 'bg-gray-400 text-gray-600 cursor-not-allowed'
+              ? 'bg-blue-600 hover:bg-blue-700 text-white'
+              : 'bg-gray-400 text-gray-600 cursor-not-allowed'
               }`}
             title="Mover total a monto actual y limpiar monto a recibir"
           >
@@ -992,8 +992,8 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
         })}
       </div>
 
-      {/* Total fijo al fondo de la tarjeta */}
-      <div className="fixed bottom-6 border-2 border-gray-600 left-1/2 transform -translate-x-1/2 w-[90%] bg-[var(--button-bg)] rounded-lg p-4 flex flex-col sm:flex-row justify-between items-center shadow-lg z-10">
+  {/* Total: se mantiene dentro de la tarjeta y se fija al fondo cuando se llega al final */}
+  <div className="sticky bottom-6 border-2 border-gray-600 w-[90%] mx-auto bg-[var(--button-bg)] rounded-lg p-4 flex flex-col sm:flex-row justify-between items-center shadow-lg z-10">
         <span className="text-lg font-semibold text-[var(--foreground)] text-center sm:text-left mb-2 sm:mb-0">
           Total:
         </span>
@@ -1351,7 +1351,7 @@ export default function CashCounterTabs() {
     setDraggedIndex(index);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/html', '');
-    
+
     // Agregar una imagen fantasma personalizada
     const dragImage = document.createElement('div');
     dragImage.textContent = tabsData[index].name;
@@ -1365,7 +1365,7 @@ export default function CashCounterTabs() {
     dragImage.style.border = '2px solid #059669';
     document.body.appendChild(dragImage);
     e.dataTransfer.setDragImage(dragImage, 50, 20);
-    
+
     // Remover el elemento después de un breve delay
     setTimeout(() => document.body.removeChild(dragImage), 0);
   };
@@ -1373,7 +1373,7 @@ export default function CashCounterTabs() {
   const handleDragOver = (e: React.DragEvent, index: number) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-    
+
     if (draggedIndex !== index) {
       setDragOverIndex(index);
     }
@@ -1388,7 +1388,7 @@ export default function CashCounterTabs() {
 
   const handleDrop = (e: React.DragEvent, dropIndex: number) => {
     e.preventDefault();
-    
+
     if (draggedIndex === null || draggedIndex === dropIndex) {
       setDraggedIndex(null);
       setDragOverIndex(null);
@@ -1397,10 +1397,10 @@ export default function CashCounterTabs() {
 
     const newTabsData = [...tabsData];
     const draggedTab = newTabsData[draggedIndex];
-    
+
     // Remover el elemento de su posición original
     newTabsData.splice(draggedIndex, 1);
-    
+
     // Insertar en la nueva posición
     newTabsData.splice(dropIndex, 0, draggedTab);
 
@@ -1417,7 +1417,7 @@ export default function CashCounterTabs() {
     setTabsData(newTabsData);
     setActiveTab(newActiveTab);
     saveToLocalStorage(newTabsData, newActiveTab);
-    
+
     setDraggedIndex(null);
     setDragOverIndex(null);
   };
@@ -1613,17 +1613,15 @@ export default function CashCounterTabs() {
 
       <div className="flex space-x-2 mb-4 overflow-x-auto">
         {tabsData.map((tab, idx) => (
-          <div 
-            key={idx} 
-            className={`relative transition-all duration-200 ${
-              dragOverIndex === idx && draggedIndex !== idx 
-                ? 'transform scale-105 shadow-lg border-2 border-blue-400 border-dashed rounded-full' 
+          <div
+            key={idx}
+            className={`relative transition-all duration-200 ${dragOverIndex === idx && draggedIndex !== idx
+                ? 'transform scale-105 shadow-lg border-2 border-blue-400 border-dashed rounded-full'
                 : ''
-            } ${
-              draggedIndex === idx 
-                ? 'opacity-50 transform rotate-2' 
+              } ${draggedIndex === idx
+                ? 'opacity-50 transform rotate-2'
                 : ''
-            }`}
+              }`}
             draggable={tabsData.length > 1}
             onDragStart={(e) => handleDragStart(e, idx)}
             onDragOver={(e) => handleDragOver(e, idx)}
@@ -1632,21 +1630,19 @@ export default function CashCounterTabs() {
             onDragEnd={handleDragEnd}
           >
             {/* Icono de grip para arrastrar */}
-            <div 
-              className={`absolute left-1 top-1/2 -translate-y-1/2 z-10 ${
-                tabsData.length > 1 
-                  ? 'cursor-grab active:cursor-grabbing' 
+            <div
+              className={`absolute left-1 top-1/2 -translate-y-1/2 z-10 ${tabsData.length > 1
+                  ? 'cursor-grab active:cursor-grabbing'
                   : 'cursor-not-allowed opacity-50'
-              }`}
+                }`}
               title={tabsData.length > 1 ? "Arrastra para reordenar" : "Necesitas al menos 2 contadores para reordenar"}
             >
-              <GripVertical className={`w-4 h-4 transition-colors ${
-                tabsData.length > 1 
-                  ? 'text-gray-400 hover:text-gray-600' 
+              <GripVertical className={`w-4 h-4 transition-colors ${tabsData.length > 1
+                  ? 'text-gray-400 hover:text-gray-600'
                   : 'text-gray-300'
-              }`} />
+                }`} />
             </div>
-            
+
             <button
               onClick={() => {
                 setActiveTab(idx);
@@ -1659,7 +1655,7 @@ export default function CashCounterTabs() {
             >
               <span className="truncate w-[8rem] text-center">{tab.name}</span>
             </button>
-            
+
             <button
               onClick={() => {
                 setRenameIndex(idx);

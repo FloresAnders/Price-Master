@@ -1,4 +1,4 @@
-'use client'; 
+'use client';
 import React, { useState } from 'react';
 import { Lock as LockIcon } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';

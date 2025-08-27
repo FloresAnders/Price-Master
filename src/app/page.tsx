@@ -296,21 +296,17 @@ export default function HomePage() {
 
               {/* CONVERTER */}
               {activeTab === 'converter' && (
-                <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4">
-                  <TextConversion />
-                </div>
+                <TextConversion />
               )}
 
               {/* CASHCOUNTER (Contador Efectivo) */}
               {activeTab === 'cashcounter' && (
-                <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4">
-                  <CashCounterTabs />
-                </div>
+                <CashCounterTabs />
               )}
 
               {/* CONTROL TIEMPOS */}
               {activeTab === 'timingcontrol' && (
-                <div className="max-w-4xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4 min-h-[300px] flex flex-col items-center justify-center">
+                <div className="max-w-7xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-6">
                   <TimingControl />
                 </div>
               )}
@@ -322,16 +318,12 @@ export default function HomePage() {
 
               {/* SUPPLIER ORDERS */}
               {activeTab === 'supplierorders' && (
-                <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4">
-                  <SupplierOrders />
-                </div>
+                <SupplierOrders />
               )}
 
               {/* HISTORIAL DE ESCANEOS */}
               {activeTab === 'scanhistory' && (
-                <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4">
-                  <ScanHistoryTable />
-                </div>
+                <ScanHistoryTable />
               )}
 
               {/* EDIT / MANTENIMIENTO */}

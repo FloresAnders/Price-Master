@@ -33,10 +33,10 @@ export default function DataEditor() {
     const [showPermissions, setShowPermissions] = useState<{ [key: string]: boolean }>({});
     const [permissionsEditable, setPermissionsEditable] = useState<{ [key: string]: boolean }>({});
     const [allLocations, setAllLocations] = useState<Location[]>([]);
-    
+
     // Estado para trackear cambios individuales de ubicaciones
     const [originalLocationsByIndex, setOriginalLocationsByIndex] = useState<{ [key: number]: Location }>({});
-    
+
     // Estado para modal de confirmación   
     const [confirmModal, setConfirmModal] = useState<{
         open: boolean;
@@ -63,16 +63,16 @@ export default function DataEditor() {
         try {
             // Cargar locations desde Firebase
             const locations = await LocationsService.getAllLocations();
-            
+
             // Guardar todas las locaciones para el selector de scanhistory
             setAllLocations(locations);
-            
+
             // Migrar datos del array names al array employees si es necesario
             const migratedLocations = locations.map(location => {
                 // Si no tiene employees pero sí tiene names, migrar
                 if ((!location.employees || location.employees.length === 0) && location.names && location.names.length > 0) {
                     return {
-                        ...location,                        employees: location.names.map(name => ({
+                        ...location, employees: location.names.map(name => ({
                             name,
                             ccssType: 'TC' as const, // Tiempo Completo por defecto
                             extraAmount: 0, // Monto extra inicial
@@ -85,7 +85,8 @@ export default function DataEditor() {
                     return {
                         ...location,
                         employees: []
-                    };                }
+                    };
+                }
                 // Asegurar que los empleados existentes tengan extraAmount y hoursPerShift
                 return {
                     ...location,
@@ -99,7 +100,7 @@ export default function DataEditor() {
 
             setLocationsData(migratedLocations);
             setOriginalLocationsData(JSON.parse(JSON.stringify(migratedLocations)));
-            
+
             // Inicializar tracking de ubicaciones originales por índice
             const locationsByIndex: { [key: number]: Location } = {};
             migratedLocations.forEach((location, index) => {
@@ -112,14 +113,14 @@ export default function DataEditor() {
 
             // Cargar usuarios desde Firebase
             const users = await UsersService.getAllUsers();
-            
+
             // Asegurar que todos los usuarios tengan todos los permisos disponibles
             try {
                 await UsersService.ensureAllPermissions();
             } catch (error) {
                 console.warn('Error ensuring all permissions:', error);
             }
-            
+
             setUsersData(users);
             setOriginalUsersData(JSON.parse(JSON.stringify(users)));
 
@@ -177,9 +178,9 @@ export default function DataEditor() {
     const hasLocationChanged = (index: number): boolean => {
         const currentLocation = locationsData[index];
         const originalLocation = originalLocationsByIndex[index];
-        
+
         if (!originalLocation || !currentLocation) return true; // Si no hay original, considerar como cambio
-        
+
         return JSON.stringify(currentLocation) !== JSON.stringify(originalLocation);
     };
 
@@ -193,13 +194,13 @@ export default function DataEditor() {
         const currentUser = usersData[index];
         if (!currentUser) return false;
 
-    // const key = getUserKey(currentUser, index);
+        // const key = getUserKey(currentUser, index);
 
         // Buscar original por id si existe
         let originalUser: User | null = null;
         if (currentUser.id) {
             originalUser = originalUsersData.find(u => u.id === currentUser.id) || null;
-            } else {
+        } else {
             // intentar buscar por __localId si fue asignado previamente
             originalUser = originalUsersData.find(u => (u as unknown as { __localId?: string }).__localId === (currentUser as unknown as { __localId?: string }).__localId) || null;
         }
@@ -284,7 +285,7 @@ export default function DataEditor() {
 
             // Guardar también en localStorage como respaldo
             localStorage.setItem('editedLocations', JSON.stringify(locationsData));
-            localStorage.setItem('editedSorteos', JSON.stringify(sorteosData));            localStorage.setItem('editedUsers', JSON.stringify(usersData));
+            localStorage.setItem('editedSorteos', JSON.stringify(sorteosData)); localStorage.setItem('editedUsers', JSON.stringify(usersData));
 
             setOriginalLocationsData(JSON.parse(JSON.stringify(locationsData)));
             setOriginalSorteosData(JSON.parse(JSON.stringify(sorteosData)));
@@ -298,7 +299,7 @@ export default function DataEditor() {
         } finally {
             setIsSaving(false);
         }
-    };    const exportData = () => {
+    }; const exportData = () => {
         const dataToExport = {
             locations: locationsData,
             sorteos: sorteosData,
@@ -350,7 +351,7 @@ export default function DataEditor() {
                             setSorteosData(formattedSorteos);
                         }
                     }
-                }                if (importedData.users && Array.isArray(importedData.users)) {
+                } if (importedData.users && Array.isArray(importedData.users)) {
                     setUsersData(importedData.users);
                 }
 
@@ -386,7 +387,7 @@ export default function DataEditor() {
         };
         const newIndex = locationsData.length;
         setLocationsData([...locationsData, newLocation]);
-        
+
         // Agregar al tracking como nueva ubicación (sin original)
         setOriginalLocationsByIndex(prev => ({
             ...prev,
@@ -403,13 +404,13 @@ export default function DataEditor() {
     const removeLocation = (index: number) => {
         const location = locationsData[index];
         const locationName = location.label || location.value || `Ubicación ${index + 1}`;
-        
+
         openConfirmModal(
             'Eliminar Ubicación',
             `¿Está seguro de que desea eliminar la ubicación "${locationName}"? Esta acción no se puede deshacer.`,
             () => {
                 setLocationsData(locationsData.filter((_, i) => i !== index));
-                
+
                 // Actualizar el tracking removiendo la ubicación eliminada y reindexando
                 const newTracking: { [key: number]: Location } = {};
                 const filteredLocations = locationsData.filter((_, i) => i !== index);
@@ -474,7 +475,7 @@ export default function DataEditor() {
         const employee = location.employees?.[employeeIndex];
         const employeeName = employee?.name || `Empleado ${employeeIndex + 1}`;
         const locationName = location.label || location.value || `Ubicación ${locationIndex + 1}`;
-        
+
         openConfirmModal(
             'Eliminar Empleado',
             `¿Está seguro de que desea eliminar al empleado "${employeeName}" de la ubicación "${locationName}"? Esta acción no se puede deshacer.`,
@@ -505,7 +506,7 @@ export default function DataEditor() {
     const removeSorteo = (index: number) => {
         const sorteo = sorteosData[index];
         const sorteoName = sorteo.name || `Sorteo ${index + 1}`;
-        
+
         openConfirmModal(
             'Eliminar Sorteo',
             `¿Está seguro de que desea eliminar el sorteo "${sorteoName}"? Esta acción no se puede deshacer.`,
@@ -523,25 +524,25 @@ export default function DataEditor() {
             isActive: true
         };
         // Insertar al inicio
-    // Give new user no permissions by default (no privileges)
-    newUser.permissions = getNoPermissions();
-    // Assign a temporary local id so per-user keyed state can reference it
-    const localId = `local-${Date.now()}`;
-    (newUser as unknown as { __localId?: string }).__localId = localId;
-    setUsersData(prev => [newUser, ...prev]);
+        // Give new user no permissions by default (no privileges)
+        newUser.permissions = getNoPermissions();
+        // Assign a temporary local id so per-user keyed state can reference it
+        const localId = `local-${Date.now()}`;
+        (newUser as unknown as { __localId?: string }).__localId = localId;
+        setUsersData(prev => [newUser, ...prev]);
 
-    // Initialize per-user keyed UI state for the new user
-    setPasswordVisibility(prev => ({ ...prev, [localId]: false }));
-    setPermissionsEditable(prev => ({ ...prev, [localId]: true }));
-    setShowPermissions(prev => ({ ...prev, [localId]: true }));
+        // Initialize per-user keyed UI state for the new user
+        setPasswordVisibility(prev => ({ ...prev, [localId]: false }));
+        setPermissionsEditable(prev => ({ ...prev, [localId]: true }));
+        setShowPermissions(prev => ({ ...prev, [localId]: true }));
     };
 
     const updateUser = (index: number, field: keyof User, value: unknown) => {
         const updated = [...usersData];
-        
-    // No cambiar permisos automáticamente al cambiar rol. Solo actualizar campo.
-    updated[index] = { ...updated[index], [field]: value };
-        
+
+        // No cambiar permisos automáticamente al cambiar rol. Solo actualizar campo.
+        updated[index] = { ...updated[index], [field]: value };
+
         setUsersData(updated);
     };
 
@@ -598,53 +599,53 @@ export default function DataEditor() {
     const setAllUserPermissions = (userIndex: number, value: boolean) => {
         const user = usersData[userIndex];
         const action = value ? 'habilitar todos' : 'deshabilitar todos';
-        
+
         openConfirmModal(
             `${value ? 'Habilitar' : 'Deshabilitar'} Todos los Permisos`,
             `¿Estás seguro de ${action} los permisos para "${user.name}"?`,
             async () => {
                 const updated = [...usersData];
                 const permissionKeys: (keyof UserPermissions)[] = [
-                    'scanner', 'calculator', 'converter', 'cashcounter', 
+                    'scanner', 'calculator', 'converter', 'cashcounter',
                     'timingcontrol', 'controlhorario', 'supplierorders', 'mantenimiento', 'scanhistory'
                 ];
-                
+
                 if (!updated[userIndex].permissions) {
                     updated[userIndex].permissions = getDefaultPermissions(updated[userIndex].role || 'user');
                 }
-                
+
                 const newPermissions: Partial<UserPermissions> = {};
                 permissionKeys.forEach(key => {
                     (updated[userIndex].permissions as unknown as Record<string, unknown>)![key] = value;
                     (newPermissions as unknown as Record<string, unknown>)[key] = value;
                 });
-                
+
                 // Si se están desactivando todos los permisos, limpiar las locaciones
                 if (!value) {
                     updated[userIndex].permissions!.scanhistoryLocations = [];
                     newPermissions.scanhistoryLocations = [];
                 }
-                
+
                 setUsersData(updated);
-                
+
                 // Guardar en base de datos si el usuario tiene ID
                 if (user.id) {
                     try {
                         const key = getUserKey(user, userIndex);
                         setSavingUserKey(key);
                         await UsersService.updateUserPermissions(user.id, newPermissions);
-                        
-                        setNotification({ 
-                            message: `Todos los permisos ${value ? 'habilitados' : 'deshabilitados'} para ${user.name}`, 
-                            type: 'success' 
+
+                        setNotification({
+                            message: `Todos los permisos ${value ? 'habilitados' : 'deshabilitados'} para ${user.name}`,
+                            type: 'success'
                         });
                         setTimeout(() => setNotification(null), 3000);
-                        
+
                     } catch (error) {
                         console.error('Error updating all user permissions:', error);
-                        setNotification({ 
-                            message: `Error al actualizar permisos para ${user.name}`, 
-                            type: 'error' 
+                        setNotification({
+                            message: `Error al actualizar permisos para ${user.name}`,
+                            type: 'error'
                         });
                         setTimeout(() => setNotification(null), 5000);
                     } finally {
@@ -691,10 +692,10 @@ export default function DataEditor() {
     const renderUserPermissions = (user: User, index: number) => {
         const defaultPermissions = getDefaultPermissions(user.role || 'user');
         const userPermissions = { ...defaultPermissions, ...(user.permissions || {}) };
-    // allow editing permissions for new users; only disable while saving
-    const key = getUserKey(user, index);
-    const isDisabled = savingUserKey === key;
-        
+        // allow editing permissions for new users; only disable while saving
+        const key = getUserKey(user, index);
+        const isDisabled = savingUserKey === key;
+
         return (
             <div className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -734,92 +735,89 @@ export default function DataEditor() {
                         </button>
                     </div>
                 </div>
-                
-                                {showPermissions[key] ? (
+
+                {showPermissions[key] ? (
                     // Vista detallada con checkboxes editables
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {Object.entries(userPermissions)
                             .filter(([permission]) => permission !== 'scanhistoryLocations')
                             .map(([permission, hasAccess]) => (
-                            <div
-                                key={permission}
-                                className={`flex items-center gap-3 p-3 border-2 rounded-lg transition-all ${
-                                    hasAccess 
-                                        ? 'border-green-300 dark:border-green-600 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30' 
+                                <div
+                                    key={permission}
+                                    className={`flex items-center gap-3 p-3 border-2 rounded-lg transition-all ${hasAccess
+                                        ? 'border-green-300 dark:border-green-600 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30'
                                         : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800/70'
-                                }`}
-                            >
-                                    <input
-                                    type="checkbox"
-                                    id={`${index}-${permission}`}
-                                    checked={Boolean(hasAccess)}
-                                    disabled={!permissionsEditable[key] || isDisabled}
-                                    onChange={(e) => {
-                                        // Only update in local state; do not auto-save
-                                        const updated = [...usersData];
-                                        if (!updated[index].permissions) {
-                                            updated[index].permissions = getDefaultPermissions(updated[index].role || 'user');
-                                        }
-                                        (updated[index].permissions as unknown as Record<string, unknown>)[permission] = e.target.checked;
-                                        setUsersData(updated);
-                                    }}
-                                    className="w-5 h-5 text-green-600 border-2 rounded focus:ring-green-500 focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    style={{ 
-                                        backgroundColor: 'var(--input-bg)', 
-                                        borderColor: 'var(--input-border)' 
-                                    }}
-                                />
-                                <label 
-                                    htmlFor={`${index}-${permission}`}
-                                    className="cursor-pointer flex-1"
+                                        }`}
                                 >
-                                    <div className="font-medium" style={{ color: 'var(--foreground)' }}>{getPermissionLabel(permission)}</div>
-                                    <div className="text-sm" style={{ color: 'var(--muted-foreground)' }}>{getPermissionDescription(permission)}</div>
-                                </label>
-                                <div className={`px-2 py-1 rounded text-xs font-medium ${
-                                    hasAccess 
-                                        ? 'bg-green-200 dark:bg-green-900/40 text-green-800 dark:text-green-200' 
+                                    <input
+                                        type="checkbox"
+                                        id={`${index}-${permission}`}
+                                        checked={Boolean(hasAccess)}
+                                        disabled={!permissionsEditable[key] || isDisabled}
+                                        onChange={(e) => {
+                                            // Only update in local state; do not auto-save
+                                            const updated = [...usersData];
+                                            if (!updated[index].permissions) {
+                                                updated[index].permissions = getDefaultPermissions(updated[index].role || 'user');
+                                            }
+                                            (updated[index].permissions as unknown as Record<string, unknown>)[permission] = e.target.checked;
+                                            setUsersData(updated);
+                                        }}
+                                        className="w-5 h-5 text-green-600 border-2 rounded focus:ring-green-500 focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        style={{
+                                            backgroundColor: 'var(--input-bg)',
+                                            borderColor: 'var(--input-border)'
+                                        }}
+                                    />
+                                    <label
+                                        htmlFor={`${index}-${permission}`}
+                                        className="cursor-pointer flex-1"
+                                    >
+                                        <div className="font-medium" style={{ color: 'var(--foreground)' }}>{getPermissionLabel(permission)}</div>
+                                        <div className="text-sm" style={{ color: 'var(--muted-foreground)' }}>{getPermissionDescription(permission)}</div>
+                                    </label>
+                                    <div className={`px-2 py-1 rounded text-xs font-medium ${hasAccess
+                                        ? 'bg-green-200 dark:bg-green-900/40 text-green-800 dark:text-green-200'
                                         : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-                                }`}>
-                                    {hasAccess ? 'Activo' : 'Inactivo'}
+                                        }`}>
+                                        {hasAccess ? 'Activo' : 'Inactivo'}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            ))}
                     </div>
-                    ) : (
+                ) : (
                     // Vista compacta con indicadores
                     <div className="flex flex-wrap gap-1">
                         {Object.entries(userPermissions)
                             .filter(([permission]) => permission !== 'scanhistoryLocations')
                             .map(([permission, hasAccess]) => (
-                            <label
-                                key={permission}
-                                className={`flex items-center gap-1 text-xs px-2 py-1 rounded cursor-pointer border transition-colors ${
-                                    hasAccess 
-                                        ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 border-green-200 dark:border-green-700 hover:bg-green-200 dark:hover:bg-green-900/50' 
+                                <label
+                                    key={permission}
+                                    className={`flex items-center gap-1 text-xs px-2 py-1 rounded cursor-pointer border transition-colors ${hasAccess
+                                        ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 border-green-200 dark:border-green-700 hover:bg-green-200 dark:hover:bg-green-900/50'
                                         : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 border-red-200 dark:border-red-700 hover:bg-red-200 dark:hover:bg-red-900/50'
-                                }`}
-                            >
-                                <input
-                                    type="checkbox"
-                                    checked={Boolean(hasAccess)}
-                                    disabled={!permissionsEditable[key] || isDisabled}
-                                    onChange={(e) => {
-                                        const updated = [...usersData];
-                                        if (!updated[index].permissions) {
-                                            updated[index].permissions = getDefaultPermissions(updated[index].role || 'user');
-                                        }
-                                        (updated[index].permissions as unknown as Record<string, unknown>)[permission] = e.target.checked;
-                                        setUsersData(updated);
-                                    }}
-                                    className="w-3 h-3 disabled:opacity-50"
-                                />
-                                <span>{getPermissionLabel(permission)}</span>
-                            </label>
-                        ))}
+                                        }`}
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={Boolean(hasAccess)}
+                                        disabled={!permissionsEditable[key] || isDisabled}
+                                        onChange={(e) => {
+                                            const updated = [...usersData];
+                                            if (!updated[index].permissions) {
+                                                updated[index].permissions = getDefaultPermissions(updated[index].role || 'user');
+                                            }
+                                            (updated[index].permissions as unknown as Record<string, unknown>)[permission] = e.target.checked;
+                                            setUsersData(updated);
+                                        }}
+                                        className="w-3 h-3 disabled:opacity-50"
+                                    />
+                                    <span>{getPermissionLabel(permission)}</span>
+                                </label>
+                            ))}
                     </div>
                 )}
-                
+
                 {/* Selector de locaciones para scanhistory */}
                 {userPermissions.scanhistory && (
                     <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
@@ -835,22 +833,22 @@ export default function DataEditor() {
                                     key={location.value}
                                     className="flex items-center gap-2 p-2 border border-gray-300 dark:border-gray-600 rounded cursor-pointer text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
                                 >
-                                        <input
-                                            type="checkbox"
-                                            checked={userPermissions.scanhistoryLocations?.includes(location.value) || false}
-                                            disabled={!permissionsEditable[key] || isDisabled}
-                                            onChange={(e) => {
-                                                const updated = [...usersData];
-                                                if (!updated[index].permissions) {
-                                                    updated[index].permissions = getDefaultPermissions(updated[index].role || 'user');
-                                                }
-                                                const current = updated[index].permissions!.scanhistoryLocations || [];
-                                                const newLocations = e.target.checked ? [...current, location.value] : current.filter(l => l !== location.value);
-                                                updated[index].permissions!.scanhistoryLocations = newLocations;
-                                                setUsersData(updated);
-                                            }}
-                                            className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50"
-                                        />
+                                    <input
+                                        type="checkbox"
+                                        checked={userPermissions.scanhistoryLocations?.includes(location.value) || false}
+                                        disabled={!permissionsEditable[key] || isDisabled}
+                                        onChange={(e) => {
+                                            const updated = [...usersData];
+                                            if (!updated[index].permissions) {
+                                                updated[index].permissions = getDefaultPermissions(updated[index].role || 'user');
+                                            }
+                                            const current = updated[index].permissions!.scanhistoryLocations || [];
+                                            const newLocations = e.target.checked ? [...current, location.value] : current.filter(l => l !== location.value);
+                                            updated[index].permissions!.scanhistoryLocations = newLocations;
+                                            setUsersData(updated);
+                                        }}
+                                        className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50"
+                                    />
                                     <span style={{ color: 'var(--foreground)' }}>{location.label}</span>
                                 </label>
                             ))}
@@ -929,7 +927,7 @@ export default function DataEditor() {
         setSavingLocation(index);
         try {
             const location = locationsData[index];
-            
+
             if (location.id) {
                 // Actualizar ubicación existente
                 const namesToSave = location.employees
@@ -957,10 +955,10 @@ export default function DataEditor() {
                 // Recargar datos para obtener el ID generado
                 await loadData();
             }
-            
+
             const locationName = location.label || location.value || `Ubicación ${index + 1}`;
             showNotification(`Ubicación "${locationName}" guardada exitosamente`, 'success');
-            
+
             // Actualizar el tracking de la ubicación original después de guardar
             // Si recargamos datos, el tracking se actualizará en loadData
             if (location.id) {
@@ -1007,7 +1005,7 @@ export default function DataEditor() {
                             Por favor espera mientras se actualizan<br />
                             los datos en Firebase
                         </div>
-                          {/* Progress bar animation */}
+                        {/* Progress bar animation */}
                         <div className="w-full max-w-xs mt-4">
                             <div className="h-1 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                                 <div className="h-full bg-gradient-to-r from-transparent via-blue-600 to-transparent rounded-full animate-shimmer bg-[length:200%_100%]"></div>
@@ -1027,54 +1025,31 @@ export default function DataEditor() {
                 </div>
             )}
 
-            {/* Header */}
-            <div className="mb-6 flex flex-col gap-4 items-center justify-between lg:flex-row lg:gap-4">
-                <div className="flex items-center gap-3 sm:gap-4 w-full lg:w-auto">
-                    <FileText className="w-7 h-7 sm:w-8 sm:h-8 text-blue-600" />
-                    <div>
-                        <h3 className="text-lg sm:text-xl font-semibold">Editor de Datos</h3>
-                        <p className="text-xs sm:text-sm text-[var(--tab-text)]">
-                            Editar archivos de configuración de la aplicación
-                        </p>
-                    </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto justify-end">
-
-                    <button
-                        onClick={exportData}
-                        className="px-3 py-2 sm:px-4 rounded-md bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 transition-colors text-sm sm:text-base"
-                    >
-                        <Download className="w-4 h-4" />
-                        Exportar
-                    </button>
-
-                    <label className="px-3 py-2 sm:px-4 rounded-md bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-2 transition-colors cursor-pointer text-sm sm:text-base">
-                        <Upload className="w-4 h-4" />
-                        Importar
-                        <input
-                            type="file"
-                            accept=".json"
-                            onChange={importData}
-                            className="hidden"
-                        />
-                    </label>
-                </div>
-            </div>
 
             {/* File Tabs */}
             <div className="mb-6 overflow-x-auto">
                 <div className="border-b border-[var(--input-border)]">
-                    <nav className="-mb-px flex flex-nowrap space-x-2 sm:space-x-4 md:space-x-8">                        <button
-                        onClick={() => setActiveFile('locations')}
-                        className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeFile === 'locations'
-                            ? 'border-blue-500 text-blue-600'
-                            : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-[var(--border)]'
-                            }`}
-                    >
-                        <MapPin className="w-4 h-4" />
-                        Ubicaciones ({locationsData.length})
-                    </button>
+                    <nav className="-mb-px flex flex-nowrap space-x-2 sm:space-x-4 md:space-x-8">
+                        <button
+                            onClick={() => setActiveFile('users')}
+                            className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeFile === 'users'
+                                ? 'border-blue-500 text-blue-600'
+                                : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-[var(--border)]'
+                                }`}
+                        >
+                            <Users className="w-4 h-4" />
+                            Usuarios ({usersData.length})
+                        </button>
+                        <button
+                            onClick={() => setActiveFile('locations')}
+                            className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeFile === 'locations'
+                                ? 'border-blue-500 text-blue-600'
+                                : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-[var(--border)]'
+                                }`}
+                        >
+                            <MapPin className="w-4 h-4" />
+                            Ubicaciones ({locationsData.length})
+                        </button>
                         <button
                             onClick={() => setActiveFile('sorteos')}
                             className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeFile === 'sorteos'
@@ -1084,15 +1059,6 @@ export default function DataEditor() {
                         >
                             <FileText className="w-4 h-4" />
                             Sorteos ({sorteosData.length})
-                        </button>                        <button
-                            onClick={() => setActiveFile('users')}
-                            className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeFile === 'users'
-                                ? 'border-blue-500 text-blue-600'
-                                : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-[var(--border)]'
-                                }`}
-                        >
-                            <Users className="w-4 h-4" />
-                            Usuarios ({usersData.length})
                         </button>
                         <button
                             onClick={() => setActiveFile('schedules')}
@@ -1114,9 +1080,31 @@ export default function DataEditor() {
                             <DollarSign className="w-4 h-4" />
                             Pago CCSS
                         </button>
+                        <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto justify-end">
 
+                            <button
+                                onClick={exportData}
+                                className="px-3 py-2 sm:px-4 rounded-md bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 transition-colors text-sm sm:text-base"
+                            >
+                                <Download className="w-4 h-4" />
+                                Exportar
+                            </button>
+
+                            <label className="px-3 py-2 sm:px-4 rounded-md bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-2 transition-colors cursor-pointer text-sm sm:text-base">
+                                <Upload className="w-4 h-4" />
+                                Importar
+                                <input
+                                    type="file"
+                                    accept=".json"
+                                    onChange={importData}
+                                    className="hidden"
+                                />
+                            </label>
+                        </div>
                     </nav>
+
                 </div>
+
             </div>
 
             {/* Content */}
@@ -1264,11 +1252,10 @@ export default function DataEditor() {
                             <div className="flex flex-col sm:flex-row justify-end gap-2 mt-2">
                                 <button
                                     onClick={() => saveIndividualLocation(locationIndex)}
-                                    className={`px-3 py-2 sm:px-4 rounded-md transition-colors flex items-center gap-2 text-sm sm:text-base ${
-                                        hasLocationChanged(locationIndex) && savingLocation !== locationIndex
-                                            ? 'bg-green-600 hover:bg-green-700 text-white'
-                                            : 'bg-gray-400 text-gray-600 cursor-not-allowed'
-                                    }`}
+                                    className={`px-3 py-2 sm:px-4 rounded-md transition-colors flex items-center gap-2 text-sm sm:text-base ${hasLocationChanged(locationIndex) && savingLocation !== locationIndex
+                                        ? 'bg-green-600 hover:bg-green-700 text-white'
+                                        : 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                                        }`}
                                     disabled={!hasLocationChanged(locationIndex) || savingLocation === locationIndex}
                                 >
                                     <Save className="w-4 h-4" />
@@ -1350,34 +1337,34 @@ export default function DataEditor() {
                                 </div>
                             )}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Nombre:</label>
-                                <input
-                                    type="text"
-                                    value={user.name}
-                                    onChange={(e) => updateUser(index, 'name', e.target.value)}
-                                    className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
-                                    style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                    placeholder="Nombre del usuario"
-                                />
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Nombre:</label>
+                                    <input
+                                        type="text"
+                                        value={user.name}
+                                        onChange={(e) => updateUser(index, 'name', e.target.value)}
+                                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
+                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                        placeholder="Nombre del usuario"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Ubicación:</label>
+                                    <select
+                                        value={user.location || ''}
+                                        onChange={(e) => updateUser(index, 'location', e.target.value)}
+                                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
+                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                    >
+                                        <option value="">Seleccionar ubicación</option>
+                                        {locationsData.map((location) => (
+                                            <option key={location.value} value={location.value}>
+                                                {location.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Ubicación:</label>
-                                <select
-                                    value={user.location || ''}
-                                    onChange={(e) => updateUser(index, 'location', e.target.value)}
-                                    className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
-                                    style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                >
-                                    <option value="">Seleccionar ubicación</option>
-                                    {locationsData.map((location) => (
-                                        <option key={location.value} value={location.value}>
-                                            {location.label}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                                 <div>
@@ -1518,7 +1505,7 @@ export default function DataEditor() {
                                     <p className="text-sm text-[var(--muted-foreground)]">Empleados de jornada completa</p>
                                 </div>
                             </div>
-                            
+
                             <div className="space-y-3">
                                 <label className="block text-sm font-medium">Monto CCSS:</label>
                                 <div className="relative">
@@ -1551,7 +1538,7 @@ export default function DataEditor() {
                                     <p className="text-sm text-[var(--muted-foreground)]">Empleados de media jornada</p>
                                 </div>
                             </div>
-                            
+
                             <div className="space-y-3">
                                 <label className="block text-sm font-medium">Monto CCSS:</label>
                                 <div className="relative">
@@ -1584,7 +1571,7 @@ export default function DataEditor() {
                                     <p className="text-sm text-[var(--muted-foreground)]">Tarifa horaria predeterminada</p>
                                 </div>
                             </div>
-                            
+
                             <div className="space-y-3">
                                 <label className="block text-sm font-medium">Monto por Hora:</label>
                                 <div className="relative">
@@ -1617,7 +1604,7 @@ export default function DataEditor() {
                                     <p className="text-sm text-[var(--muted-foreground)]">Tarifa horaria bruta</p>
                                 </div>
                             </div>
-                            
+
                             <div className="space-y-3">
                                 <label className="block text-sm font-medium">Monto Hora Bruta:</label>
                                 <div className="relative">
@@ -1664,7 +1651,7 @@ export default function DataEditor() {
                                 <span className="font-medium">₡{(ccssData.horabruta || 1529.62).toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
                             </div>
                         </div>
-                        
+
                         {ccssData.updatedAt && (
                             <div className="mt-3 pt-3 border-t border-[var(--border)]">
                                 <p className="text-xs text-[var(--muted-foreground)]">
@@ -1689,7 +1676,7 @@ export default function DataEditor() {
                         >
                             Restaurar Valores Por Defecto
                         </button>
-                        
+
                         <button
                             onClick={saveData}
                             disabled={!hasChanges || isSaving}

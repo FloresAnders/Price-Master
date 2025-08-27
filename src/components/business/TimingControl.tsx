@@ -71,7 +71,7 @@ export default function TimingControl() {
     const [showCodeModal, setShowCodeModal] = useState(false);
     const [currentCode, setCurrentCode] = useState(''); const [selectedSorteo, setSelectedSorteo] = useState('');
     const [modalAmount, setModalAmount] = useState('');
-    const [keyBuffer, setKeyBuffer] = useState(''); 
+    const [keyBuffer, setKeyBuffer] = useState('');
     const [selectedSorteoIndex, setSelectedSorteoIndex] = useState(-1);
     const [tickets, setTickets] = useState<TicketEntry[]>([]);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -574,7 +574,7 @@ export default function TimingControl() {
                         return newIndex <= maxIndex ? newIndex : prev;
                     });
                     break;
-                
+
                 case 'ArrowUp':
                     e.preventDefault();
                     // Navegar hacia arriba por filas
@@ -584,23 +584,23 @@ export default function TimingControl() {
                         return newIndex >= 0 ? newIndex : prev;
                     });
                     break;
-                
+
                 case 'ArrowRight':
                     e.preventDefault();
                     // Navegar a la derecha dentro de la misma fila
-                    setSelectedSorteoIndex(prev => 
+                    setSelectedSorteoIndex(prev =>
                         prev === -1 ? 0 : Math.min(prev + 1, maxIndex)
                     );
                     break;
-                
+
                 case 'ArrowLeft':
                     e.preventDefault();
                     // Navegar a la izquierda dentro de la misma fila
-                    setSelectedSorteoIndex(prev => 
+                    setSelectedSorteoIndex(prev =>
                         prev <= 0 ? maxIndex : prev - 1
                     );
                     break;
-                
+
                 case 'Enter':
                     e.preventDefault();
                     if (selectedSorteoIndex >= 0 && selectedSorteoIndex <= maxIndex) {
@@ -612,7 +612,7 @@ export default function TimingControl() {
                         }, 100);
                     }
                     break;
-                
+
                 case 'Escape':
                     e.preventDefault();
                     setShowCodeModal(false);
@@ -625,7 +625,7 @@ export default function TimingControl() {
         };
 
         document.addEventListener('keydown', handleKeyDown);
-        
+
         return () => {
             document.removeEventListener('keydown', handleKeyDown);
         };
@@ -679,7 +679,7 @@ export default function TimingControl() {
                 {/* Modal de resumen */}
                 {showSummary && (
                     <div className="fixed inset-0 bg-black bg-opacity-60 z-[9999] flex items-center justify-center p-4">
-                        <div className="rounded-2xl shadow-xl p-4 sm:p-6 w-[95vw] max-w-lg mx-auto relative" style={{ background: 'var(--card-bg)', color: 'var(--foreground)' }}>
+                        <div className="rounded-2xl shadow-2xl p-6 sm:p-8 w-[96vw] max-w-2xl mx-auto relative" style={{ background: 'var(--card-bg)', color: 'var(--foreground)', boxShadow: '0 8px 30px rgba(2,6,23,0.6)' }}>
                             <button
                                 className="absolute top-2 right-2 hover:text-gray-500"
                                 style={{ color: 'var(--foreground)' }}
@@ -690,15 +690,15 @@ export default function TimingControl() {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                                 </svg>
                             </button>
-                            <h2 className="text-lg font-bold mb-4 text-center" style={{ color: 'var(--foreground)' }}>Resumen de Ventas por Sorteo</h2>
+                            <h2 className="text-xl sm:text-2xl font-bold mb-4 text-center" style={{ color: 'var(--foreground)' }}>Resumen de Ventas por Sorteo</h2>
                             {Object.keys(resumenSorteos).length === 0 ? (
                                 <div className="text-center" style={{ color: 'var(--foreground)' }}>No hay sorteos con monto asignado.</div>
                             ) : (
                                 <div className="space-y-2 mb-4">
-                                    {Object.entries(resumenSorteos).map(([sorteo, total]) => (
-                                        <div key={sorteo} className="flex justify-between pb-1" style={{ borderBottom: '1px solid var(--input-border)' }}>
-                                            <span className="font-medium" style={{ color: 'var(--foreground)' }}>{sorteo}</span>
-                                            <span className="font-mono" style={{ color: 'var(--foreground)' }}>₡ {total.toLocaleString('es-CR')}</span>
+                                        {Object.entries(resumenSorteos).map(([sorteo, total]) => (
+                                        <div key={sorteo} className="flex justify-between items-center py-2" style={{ borderBottom: '1px solid var(--input-border)' }}>
+                                            <span className="font-medium truncate" style={{ color: 'var(--foreground)' }}>{sorteo}</span>
+                                            <span className="font-mono ml-4" style={{ color: 'var(--foreground)' }}>₡ {total.toLocaleString('es-CR')}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -730,16 +730,16 @@ export default function TimingControl() {
                             <h2 className="text-lg font-bold mb-4 text-center" style={{ color: 'var(--foreground)' }}>
                                 Código: {currentCode}
                             </h2>                        <p className="text-sm mb-4 text-center" style={{ color: 'var(--foreground)' }}>
-                            {VALID_CODES[currentCode as keyof typeof VALID_CODES]}
-                        </p>
-                        
-                        <div className="text-xs text-center mb-4 p-2 rounded" style={{ 
-                            background: 'var(--input-bg)', 
-                            color: 'var(--foreground)', 
-                            opacity: 0.8 
-                        }}>
-                            💡 Usa las flechas ↑↓←→ para navegar y Enter para seleccionar
-                        </div><div className="space-y-4">
+                                {VALID_CODES[currentCode as keyof typeof VALID_CODES]}
+                            </p>
+
+                            <div className="text-xs text-center mb-4 p-2 rounded" style={{
+                                background: 'var(--input-bg)',
+                                color: 'var(--foreground)',
+                                opacity: 0.8
+                            }}>
+                                💡 Usa las flechas ↑↓←→ para navegar y Enter para seleccionar
+                            </div><div className="space-y-4">
                                 <div>
                                     <label className="block text-sm font-medium mb-3" style={{ color: 'var(--foreground)' }}>
                                         Seleccionar sorteo:
@@ -748,26 +748,25 @@ export default function TimingControl() {
                                         {getFilteredSorteos().map((sorteo, index) => {
                                             const isSelected = selectedSorteo === sorteo.name;
                                             const isKeyboardFocused = selectedSorteoIndex === index;
-                                            
+
                                             return (
                                                 <button
                                                     key={sorteo.id || sorteo.name}
-                                                    className={`px-3 py-3 rounded-md text-left focus:outline-none transition-colors text-sm ${
-                                                        isSelected 
-                                                        ? 'ring-2 ring-blue-500' 
+                                                    className={`px-3 py-3 rounded-md text-left focus:outline-none transition-colors text-sm ${isSelected
+                                                        ? 'ring-2 ring-blue-500'
                                                         : isKeyboardFocused
-                                                        ? 'ring-2 ring-yellow-400'
-                                                        : 'hover:opacity-80'
-                                                    }`}
+                                                            ? 'ring-2 ring-yellow-400'
+                                                            : 'hover:opacity-80'
+                                                        }`}
                                                     style={{
-                                                        background: isSelected 
-                                                            ? '#3b82f6' 
+                                                        background: isSelected
+                                                            ? '#3b82f6'
                                                             : isKeyboardFocused
-                                                            ? '#fbbf24'
-                                                            : 'var(--input-bg)',
+                                                                ? '#fbbf24'
+                                                                : 'var(--input-bg)',
                                                         border: '1px solid var(--input-border)',
                                                         color: isSelected || isKeyboardFocused
-                                                            ? '#ffffff' 
+                                                            ? '#ffffff'
                                                             : 'var(--foreground)',
                                                     }}
                                                     onClick={() => {
@@ -815,7 +814,7 @@ export default function TimingControl() {
 
                                 {selectedSorteo && (
                                     <button
-                                            className="w-full px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-green-600 hover:bg-green-700 text-white font-semibold disabled:opacity-50"
+                                        className="w-full px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-green-600 hover:bg-green-700 text-white font-semibold disabled:opacity-50"
                                         onClick={handleAddTicket}
                                         disabled={!modalAmount || isNaN(Number(modalAmount)) || Number(modalAmount) <= 0}
                                     >
@@ -889,9 +888,9 @@ export default function TimingControl() {
                 {/* Modal de QR para descarga móvil */}
                 {showQRModal && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-                        <div className="rounded-2xl shadow-xl p-4 sm:p-6 w-[95vw] max-w-md mx-auto relative" style={{ background: 'var(--card-bg)', color: 'var(--foreground)' }}>
+                        <div className="rounded-2xl shadow-2xl p-6 sm:p-8 w-[96vw] max-w-md mx-auto relative" style={{ background: 'var(--card-bg)', color: 'var(--foreground)', boxShadow: '0 10px 40px rgba(2,6,23,0.6)' }}>
                             <button
-                                className="absolute top-2 right-2 hover:text-gray-500"
+                                className="absolute top-3 right-3 hover:text-gray-400 p-1 rounded"
                                 style={{ color: 'var(--foreground)' }}
                                 onClick={handleCloseQRModal}
                                 aria-label="Cerrar modal QR"
@@ -902,19 +901,19 @@ export default function TimingControl() {
                             </button>
 
                             <div className="text-center">
-                                <div className="flex items-center justify-center gap-2 mb-4">
+                                <div className="flex items-center justify-center gap-2 mb-3">
                                     <Smartphone className="w-6 h-6 text-blue-600" />
-                                    <h2 className="text-lg font-bold" style={{ color: 'var(--foreground)' }}>
+                                    <h2 className="text-lg font-semibold" style={{ color: 'var(--foreground)' }}>
                                         Descarga Móvil
                                     </h2>
                                 </div>
 
-                                <p className="text-sm mb-4 text-gray-600" style={{ color: 'var(--foreground)' }}>
+                                <p className="text-sm mb-4" style={{ color: 'var(--foreground)', opacity: 0.95 }}>
                                     Escanea este código QR con tu móvil para descargar la imagen automáticamente
                                 </p>
 
                                 <div className="flex justify-center mb-4">
-                                    <div className="p-4 bg-white rounded-lg">
+                                    <div className="p-4 bg-white rounded-lg shadow-md" style={{ display: 'inline-block' }}>
                                         <Image
                                             src={qrCodeDataURL}
                                             alt="QR Code para descarga"
@@ -928,15 +927,15 @@ export default function TimingControl() {
 
                                 <div className="space-y-3">
                                     <button
-                                        className="w-full px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-blue-600 hover:bg-blue-700 text-white font-semibold flex items-center justify-center gap-2"
+                                        className="w-full px-4 py-3 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-blue-600 hover:bg-blue-700 text-white font-semibold flex items-center justify-center gap-2"
                                         onClick={handleDirectDownload}
                                     >
-                                        <Download className="w-4 h-4" />
+                                        <Download className="w-5 h-5" />
                                         Descargar directamente
                                     </button>
 
                                     <button
-                                        className="w-full px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 hover:opacity-80 transition-opacity"
+                                        className="w-full px-4 py-3 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 hover:opacity-80 transition-opacity"
                                         style={{
                                             background: 'var(--button-bg)',
                                             color: 'var(--button-text)',
@@ -948,7 +947,7 @@ export default function TimingControl() {
                                     </button>
                                 </div>
 
-                                <p className="text-xs mt-3 text-gray-500" style={{ color: 'var(--foreground)', opacity: 0.7 }}>
+                                <p className="text-xs mt-3" style={{ color: 'var(--foreground)', opacity: 0.75 }}>
                                     La imagen permanecerá disponible en el almacenamiento en la nube
                                 </p>
                             </div>
@@ -1039,26 +1038,24 @@ export default function TimingControl() {
                             )}
 
 
-                            <div className="mb-4 flex flex-col gap-2 sm:flex-row items-stretch sm:items-center justify-between w-full">
-                                <div className="flex flex-col items-start"></div>
-                                <div className="flex flex-col gap-2 w-full">
+                            <div className="mb-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                     <button
-                                        className="w-full sm:w-auto px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                        style={{ background: 'var(--button-bg)', color: 'var(--button-text)' }}
+                                        className="w-full px-4 py-3 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-[var(--button-bg)] text-[var(--button-text)] font-medium"
                                         onClick={() => setShowSummary(true)}
                                     >
                                         Ver resumen
                                     </button>
                                     <button
-                                        className="w-full sm:w-auto px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center gap-2 disabled:opacity-50"
+                                        className="w-full px-4 py-3 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center gap-2 font-semibold disabled:opacity-50"
                                         onClick={exportToPNG}
                                         disabled={!personName.trim() || isExporting}
                                     >
-                                        <QrCode className="w-4 h-4" />
+                                        <QrCode className="w-5 h-5" />
                                         {isExporting ? 'Exportando...' : 'Exportar + QR'}
                                     </button>
                                     <button
-                                        className="w-full sm:w-auto px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 bg-red-500 hover:bg-red-600 text-white"
+                                        className="w-full px-4 py-3 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 bg-red-600 hover:bg-red-700 text-white font-semibold"
                                         onClick={() => {
                                             if (window.confirm('¿Seguro que deseas limpiar todos los tickets y datos guardados?')) {
                                                 clearAllLocalStorage();
@@ -1082,8 +1079,8 @@ export default function TimingControl() {
                             {/* Mensaje cuando no hay tickets */}
                             {tickets.length === 0 && !showCodeModal && !showDeleteModal && !showQRModal && (
                                 <div className="mb-6 text-center py-12">
-                                    <div className="p-8 rounded-lg border-2 border-dashed" style={{ 
-                                        borderColor: 'var(--input-border)', 
+                                    <div className="p-8 rounded-lg border-2 border-dashed" style={{
+                                        borderColor: 'var(--input-border)',
                                         background: 'var(--input-bg)',
                                         color: 'var(--foreground)'
                                     }}>
@@ -1096,12 +1093,12 @@ export default function TimingControl() {
                                                 Comienza agregando tickets de tus sorteos para llevar un control de ventas
                                             </p>
                                         </div>
-                                        
+
                                         <div className="space-y-3">
                                             <div className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>
                                                 Para agregar tickets:
                                             </div>
-                                            
+
                                             <div className="space-y-2 text-sm" style={{ color: 'var(--foreground)', opacity: 0.9 }}>
                                                 {!isMobile ? (
                                                     <>
@@ -1145,11 +1142,11 @@ export default function TimingControl() {
                             )}
                         </div>
                         {/* Panel de resumen a la derecha */}
-                        <div className="flex flex-col w-full lg:w-auto min-w-0 max-w-full lg:min-w-[260px] lg:max-w-xs border-t lg:border-t-0 lg:border-l border-[var(--input-border)] pt-4 lg:pt-0 lg:pl-4 mt-4 lg:mt-0">
+                        <div className="flex flex-col w-full lg:w-auto min-w-0 max-w-full lg:min-w-[260px] lg:max-w-xs border-t lg:border-t-0 lg:border-l border-[var(--input-border)] pt-4 lg:pt-0 lg:pl-4 mt-4 lg:mt-0 lg:sticky lg:top-20">
                             <h4 className="text-lg font-semibold mb-2" style={{ color: 'var(--foreground)' }}>
                                 Resumen de Ventas por Sorteo
                             </h4>
-                            
+
                             {Object.keys(resumenSorteos).length > 0 ? (
                                 <>
                                     <div className="space-y-2 mb-2">
@@ -1166,7 +1163,7 @@ export default function TimingControl() {
                                 </>
                             ) : (
                                 <div className="text-center py-6">
-                                    <div className="p-4 rounded-lg" style={{ 
+                                    <div className="p-4 rounded-lg" style={{
                                         background: 'var(--input-bg)',
                                         border: '1px dashed var(--input-border)'
                                     }}>
