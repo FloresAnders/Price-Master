@@ -383,7 +383,7 @@ export default function SupplierOrders() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1 flex items-center gap-1" style={{ color: 'var(--foreground)' }}>
+                <label className="block text-sm font-medium mb-1 items-center gap-1" style={{ color: 'var(--foreground)' }}>
                   <Calendar className="w-4 h-4" />
                   Fecha de Orden
                 </label>
@@ -401,7 +401,7 @@ export default function SupplierOrders() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1 flex items-center gap-1" style={{ color: 'var(--foreground)' }}>
+                <label className="block text-sm font-medium mb-1 items-center gap-1" style={{ color: 'var(--foreground)' }}>
                   <Calendar className="w-4 h-4" />
                   Fecha Esperada de Entrega
                 </label>
@@ -419,7 +419,7 @@ export default function SupplierOrders() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1 flex items-center gap-1" style={{ color: 'var(--foreground)' }}>
+                <label className="block text-sm font-medium mb-1 items-center gap-1" style={{ color: 'var(--foreground)' }}>
                   <FileText className="w-4 h-4" />
                   Notas
                 </label>

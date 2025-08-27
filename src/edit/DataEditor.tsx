@@ -6,6 +6,7 @@ import { Save, Download, Upload, AlertCircle, Check, FileText, MapPin, Users, Cl
 import { LocationsService } from '../services/locations';
 import { SorteosService } from '../services/sorteos';
 import { UsersService } from '../services/users';
+import { useAuth } from '../hooks/useAuth';
 import { CcssConfigService } from '../services/ccss-config';
 import { Location, Sorteo, User, CcssConfig, UserPermissions } from '../types/firestore';
 import { getDefaultPermissions, getNoPermissions } from '../utils/permissions';
@@ -16,6 +17,7 @@ type DataFile = 'locations' | 'sorteos' | 'users' | 'schedules' | 'ccss';
 
 export default function DataEditor() {
     const [activeFile, setActiveFile] = useState<DataFile>('locations');
+    const { user: currentUser } = useAuth();
     const [locationsData, setLocationsData] = useState<Location[]>([]);
     const [sorteosData, setSorteosData] = useState<Sorteo[]>([]);
     const [usersData, setUsersData] = useState<User[]>([]);
@@ -112,7 +114,7 @@ export default function DataEditor() {
             setOriginalSorteosData(JSON.parse(JSON.stringify(sorteos)));
 
             // Cargar usuarios desde Firebase
-            const users = await UsersService.getAllUsers();
+            const users = await UsersService.getAllUsersAs(currentUser);
 
             // Asegurar que todos los usuarios tengan todos los permisos disponibles
             try {
@@ -133,12 +135,15 @@ export default function DataEditor() {
             showNotification('Error al cargar los datos de Firebase', 'error');
             console.error('Error loading data from Firebase:', error);
         }
-    }, []);
+    }, [currentUser]);
 
     // Cargar datos iniciales
     useEffect(() => {
-        loadData();
-    }, [loadData]);
+        // Solo cargar datos si el usuario está disponible
+        if (currentUser) {
+            loadData();
+        }
+    }, [loadData, currentUser]);
 
     const showNotification = (message: string, type: 'success' | 'error' | 'info') => {
         setNotification({ message, type });
@@ -264,14 +269,15 @@ export default function DataEditor() {
                     await UsersService.deleteUser(user.id);
                 }
             }
-            // Agregar los nuevos usuarios
+            // Agregar los nuevos usuarios (usar actor-aware para respetar permisos)
             for (const user of usersData) {
-                await UsersService.addUser({
+                await UsersService.createUserAs(currentUser, {
                     name: user.name,
                     location: user.location,
                     password: user.password,
                     role: user.role,
-                    isActive: user.isActive
+                    isActive: user.isActive,
+                    permissions: user.permissions
                 });
             }
 
@@ -873,8 +879,8 @@ export default function DataEditor() {
         try {
             const user = usersData[index];
             if (user.id) {
-                // Actualizar usuario existente
-                await UsersService.updateUser(user.id, {
+                // Actualizar usuario existente (actor-aware)
+                await UsersService.updateUserAs(currentUser, user.id, {
                     name: user.name,
                     location: user.location,
                     password: user.password,
@@ -899,8 +905,8 @@ export default function DataEditor() {
                 // Bloquear edición de permisos para este usuario después de guardar
                 setPermissionsEditable(prev => ({ ...prev, [key]: false }));
             } else {
-                // Crear nuevo usuario
-                await UsersService.addUser({
+                // Crear nuevo usuario (actor-aware)
+                await UsersService.createUserAs(currentUser, {
                     name: user.name,
                     location: user.location,
                     password: user.password,
@@ -1401,7 +1407,9 @@ export default function DataEditor() {
                                     >
                                         <option value="user">Usuario</option>
                                         <option value="admin">Administrador</option>
-                                        <option value="superadmin">Super Administrador</option>
+                                        {currentUser?.role === 'superadmin' && (
+                                            <option value="superadmin">Super Administrador</option>
+                                        )}
                                     </select>
                                 </div>
                             </div>

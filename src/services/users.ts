@@ -13,6 +13,19 @@ export class UsersService {
   }
 
   /**
+   * Get all users filtered by actor role (admins and users cannot see superadmins)
+   */
+  static async getAllUsersAs(actor: User | { role?: string } | null): Promise<User[]> {
+    const allUsers = await this.getAllUsers();
+    
+    // If actor is admin or user, filter out superadmin users
+    if (actor?.role === 'admin' || actor?.role === 'user') {
+      return allUsers.filter(user => user.role !== 'superadmin');
+    }
+    return allUsers;
+  }
+
+  /**
    * Get user by ID
    */
   static async getUserById(id: string): Promise<User | null> {
@@ -35,6 +48,18 @@ export class UsersService {
   }
 
   /**
+   * Create a user but validate actor permissions: admins and users cannot create superadmins
+   */
+  static async createUserAs(actor: User | { role?: string } | null, user: Omit<User, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+    // If actor is admin or user, they cannot create superadmin users
+    if ((actor?.role === 'admin' || actor?.role === 'user') && user.role === 'superadmin') {
+      throw new Error('Forbidden: non-superadmin users cannot create superadmin users');
+    }
+
+    return await this.addUser(user);
+  }
+
+  /**
    * Update a user
    */
   static async updateUser(id: string, user: Partial<User>): Promise<void> {
@@ -43,6 +68,26 @@ export class UsersService {
       updatedAt: new Date()
     };
     return await FirestoreService.update(this.COLLECTION_NAME, id, updateData);
+  }
+
+  /**
+   * Update user with actor validation: admins and users cannot modify superadmins
+   */
+  static async updateUserAs(actor: User | { role?: string } | null, id: string, user: Partial<User>): Promise<void> {
+    // If actor is admin or user, prevent modifying users that are superadmins
+    const target = await this.getUserById(id);
+    if (!target) throw new Error('User not found');
+
+    if ((actor?.role === 'admin' || actor?.role === 'user') && target.role === 'superadmin') {
+      throw new Error('Forbidden: non-superadmin users cannot modify superadmin users');
+    }
+
+    // Also prevent admins and users from elevating others to superadmin
+    if ((actor?.role === 'admin' || actor?.role === 'user') && user.role === 'superadmin') {
+      throw new Error('Forbidden: non-superadmin users cannot assign superadmin role');
+    }
+
+    return await this.updateUser(id, user);
   }
 
   /**
@@ -77,6 +122,18 @@ export class UsersService {
   }
 
   /**
+   * Get active users with actor role validation
+   */
+  static async getActiveUsersAs(actor: User | { role?: string } | null): Promise<User[]> {
+    const activeUsers = await this.getActiveUsers();
+    // If actor is admin or user, filter out superadmin users
+    if (actor?.role === 'admin' || actor?.role === 'user') {
+      return activeUsers.filter(user => user.role !== 'superadmin');
+    }
+    return activeUsers;
+  }
+
+  /**
    * Get users ordered by name
    */
   static async getUsersOrderedByName(): Promise<User[]> {
@@ -87,6 +144,19 @@ export class UsersService {
    */
   static async searchUsers(searchTerm: string): Promise<User[]> {
     const users = await this.getAllUsers();
+    const searchTermLower = searchTerm.toLowerCase();
+
+    return users.filter(user =>
+      user.name.toLowerCase().includes(searchTermLower) ||
+      (user.location && user.location.toLowerCase().includes(searchTermLower))
+    );
+  }
+
+  /**
+   * Search users by name or location with actor role validation
+   */
+  static async searchUsersAs(actor: User | { role?: string } | null, searchTerm: string): Promise<User[]> {
+    const users = await this.getAllUsersAs(actor);
     const searchTermLower = searchTerm.toLowerCase();
 
     return users.filter(user =>

@@ -4,6 +4,7 @@ import { SorteosService } from '../services/sorteos';
 import { UsersService } from '../services/users';
 import { CcssConfigService } from '../services/ccss-config';
 import { Location, Sorteo, User, CcssConfig } from '../types/firestore';
+import { useAuth } from './useAuth';
 
 // Export the schedules hook
 export { useSchedules } from './useSchedules';
@@ -167,6 +168,7 @@ export function useSorteos() {
 }
 
 export function useUsers() {
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -175,7 +177,7 @@ export function useUsers() {
     try {
       setLoading(true);
       setError(null);
-      const data = await UsersService.getAllUsers();
+      const data = await UsersService.getAllUsersAs(currentUser);
       setUsers(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error loading users');
@@ -183,30 +185,30 @@ export function useUsers() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentUser]);
 
   const addUser = useCallback(async (user: Omit<User, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
       setError(null);
-      const id = await UsersService.addUser(user);
+  const id = await UsersService.createUserAs(currentUser, user);
       await fetchUsers(); // Refresh list
       return id;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error adding user');
       throw err;
     }
-  }, [fetchUsers]);
+  }, [fetchUsers, currentUser]);
 
   const updateUser = useCallback(async (id: string, user: Partial<User>) => {
     try {
       setError(null);
-      await UsersService.updateUser(id, user);
+  await UsersService.updateUserAs(currentUser, id, user);
       await fetchUsers(); // Refresh list
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error updating user');
       throw err;
     }
-  }, [fetchUsers]);
+  }, [fetchUsers, currentUser]);
 
   const deleteUser = useCallback(async (id: string) => {
     try {
@@ -222,12 +224,12 @@ export function useUsers() {
   const searchUsers = useCallback(async (searchTerm: string) => {
     try {
       setError(null);
-      return await UsersService.searchUsers(searchTerm);
+      return await UsersService.searchUsersAs(currentUser, searchTerm);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error searching users');
       throw err;
     }
-  }, []); const getUsersByRole = useCallback(async (role: 'admin' | 'user' | 'superadmin') => {
+  }, [currentUser]); const getUsersByRole = useCallback(async (role: 'admin' | 'user' | 'superadmin') => {
     try {
       setError(null);
       return await UsersService.findUsersByRole(role);
@@ -240,12 +242,12 @@ export function useUsers() {
   const getActiveUsers = useCallback(async () => {
     try {
       setError(null);
-      return await UsersService.getActiveUsers();
+      return await UsersService.getActiveUsersAs(currentUser);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error getting active users');
       throw err;
     }
-  }, []);
+  }, [currentUser]);
 
   useEffect(() => {
     fetchUsers();

@@ -31,7 +31,8 @@ interface AuditLog {
 // Duración de la sesión en horas por tipo de usuario
 const SESSION_DURATION_HOURS = {
   superadmin: 4,    // SuperAdmin: 4 horas por seguridad
-  admin: 24,        // Admin: 24 horas
+  // Admins get the same session duration as SuperAdmins
+  admin: 4,
   user: 720,        // User: 30 días
   extended: 168     // Sesión extendida: 1 semana (7 días * 24 horas)
 };
@@ -39,7 +40,8 @@ const SESSION_DURATION_HOURS = {
 // Tiempo de inactividad máximo antes de logout automático (en minutos)
 const MAX_INACTIVITY_MINUTES = {
   superadmin: 30,   // SuperAdmin: 30 minutos
-  admin: 120,       // Admin: 2 horas
+  // Admins use the same inactivity timeout as SuperAdmins
+  admin: 30,
   user: 480         // User: 8 horas
 };
 
@@ -196,9 +198,10 @@ export function useAuth() {
         const now = new Date();
         const hoursElapsed = (now.getTime() - loginTime.getTime()) / (1000 * 60 * 60);
 
-        // Usar duración extendida si está activada, sino usar duración por rol
+        // Usar duración extendida solo si la sesión fue creada con token (keepActive no otorgará 1 semana a sesiones tradicionales)
         let maxHours;
-        if (session.keepActive) {
+        if (session.keepActive && session.useTokenAuth) {
+          // Solo sesiones basadas en token pueden obtener la duración extendida
           maxHours = SESSION_DURATION_HOURS.extended; // 1 semana
         } else {
           maxHours = SESSION_DURATION_HOURS[session.role || 'user'] || SESSION_DURATION_HOURS.user;
@@ -349,9 +352,9 @@ export function useAuth() {
         const now = new Date();
         const hoursElapsed = (now.getTime() - loginTime.getTime()) / (1000 * 60 * 60);
 
-        // Usar duración extendida si está activada, sino usar duración por rol
+        // Usar duración extendida solo para sesiones creadas como token (no aplicar keepActive de 1 semana a sesiones tradicionales)
         let maxHours;
-        if (session.keepActive) {
+        if (session.keepActive && session.useTokenAuth) {
           maxHours = SESSION_DURATION_HOURS.extended; // 1 semana
         } else {
           maxHours = SESSION_DURATION_HOURS[session.role || 'user'] || SESSION_DURATION_HOURS.user;
@@ -366,8 +369,9 @@ export function useAuth() {
 
   // Función para obtener logs de auditoría (solo SuperAdmin)
   const getAuditLogs = () => {
-    if (user?.role !== 'superadmin') {
-      logAuditEvent('UNAUTHORIZED_ACCESS', 'Attempted to access audit logs without SuperAdmin role');
+    // Allow both superadmins and admins to retrieve audit logs
+    if (user?.role !== 'superadmin' && user?.role !== 'admin') {
+      logAuditEvent('UNAUTHORIZED_ACCESS', 'Attempted to access audit logs without SuperAdmin/Admin role');
       return [];
     }
 
@@ -392,7 +396,8 @@ export function useAuth() {
   }, [user?.role]);
   // Función para verificar si el usuario necesita autenticación de dos factores
   const requiresTwoFactor = useCallback(() => {
-    return user?.role === 'superadmin';
+  // Require two-factor for both SuperAdmins and Admins
+  return user?.role === 'superadmin' || user?.role === 'admin';
   }, [user?.role]);
 
   // Función para obtener información del tipo de sesión

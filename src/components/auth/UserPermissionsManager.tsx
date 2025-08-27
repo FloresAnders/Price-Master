@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../hooks/useAuth';
 import { User, UserPermissions, Location } from '../../types/firestore';
 import { UsersService } from '../../services/users';
 import { LocationsService } from '../../services/locations';
@@ -43,26 +44,12 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const { user: currentUser } = useAuth();
 
-  useEffect(() => {
-    loadUsers();
-    loadLocations();
-  }, []);
-
-  useEffect(() => {
-    if (userId && users.length > 0) {
-      const user = users.find(u => u.id === userId);
-      if (user) {
-        setSelectedUser(user);
-        setPermissions(user.permissions || getDefaultPermissions(user.role));
-      }
-    }
-  }, [userId, users]);
-
-  const loadUsers = async () => {
+  const loadUsers = React.useCallback(async () => {
     setLoading(true);
     try {
-      const allUsers = await UsersService.getAllUsers();
+      const allUsers = await UsersService.getAllUsersAs(currentUser);
       setUsers(allUsers);
     } catch (error) {
       console.error('Error loading users:', error);
@@ -70,9 +57,9 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentUser]);
 
-  const loadLocations = async () => {
+  const loadLocations = React.useCallback(async () => {
     try {
       const locationsData = await LocationsService.getAllLocations();
       setLocations(locationsData);
@@ -87,7 +74,30 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
         { label: 'DELIFOOD TEST', value: 'DELIFOOD_TEST', names: [] }
       ]);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadUsers();
+    loadLocations();
+  }, [loadUsers, loadLocations]);
+
+  useEffect(() => {
+    if (userId && users.length > 0) {
+      const found = users.find(u => u.id === userId);
+      if (found) {
+        setSelectedUser(found);
+        setPermissions(found.permissions || getDefaultPermissions(found.role));
+      } else {
+        // If the provided userId is not in the visible list, likely the current
+        // user doesn't have permission to view that user (e.g. admin attempting
+        // to view a superadmin). Clear selection and show a message.
+        setSelectedUser(null);
+        setMessage({ type: 'error', text: 'No tienes permiso para ver ese usuario o no existe.' });
+      }
+    }
+  }, [userId, users]);
+
+  // ...existing code...
 
   const handleUserChange = (user: User) => {
     setSelectedUser(user);

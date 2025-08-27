@@ -35,19 +35,9 @@ const migrateUsers = async () => {
       const role = userData.role || 'user';
       let permissions;
       
+      // Assign superadmin-level permissions to both superadmin and admin users
       switch (role) {
         case 'superadmin':
-          permissions = {
-            scanner: true,
-            calculator: true,
-            converter: true,
-            cashcounter: true,
-            timingcontrol: true,
-            controlhorario: true,
-            supplierorders: true,
-            mantenimiento: true,
-          };
-          break;
         case 'admin':
           permissions = {
             scanner: true,
@@ -57,7 +47,7 @@ const migrateUsers = async () => {
             timingcontrol: true,
             controlhorario: true,
             supplierorders: true,
-            mantenimiento: false,
+            mantenimiento: true,
           };
           break;
         default: // 'user'
