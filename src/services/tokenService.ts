@@ -43,7 +43,7 @@ export class TokenService {
 
     const encodedHeader = btoa(JSON.stringify(header));
     const encodedPayload = btoa(JSON.stringify(payload));
-    
+
     // Generar una "firma" simple basada en hash
     const signature = btoa(
       this.generateHash(`${encodedHeader}.${encodedPayload}.${this.SECRET_KEY}`)
@@ -61,19 +61,19 @@ export class TokenService {
       if (parts.length !== 3) return null;
 
       const [encodedHeader, encodedPayload, signature] = parts;
-      
+
       // Verificar firma
       const expectedSignature = btoa(
         this.generateHash(`${encodedHeader}.${encodedPayload}.${this.SECRET_KEY}`)
       );
-      
+
       if (signature !== expectedSignature) {
         console.error('Token signature invalid');
         return null;
       }
 
       const payload: TokenPayload = JSON.parse(atob(encodedPayload));
-      
+
       // Verificar expiración
       if (Date.now() > payload.exp) {
         console.error('Token expired');
@@ -196,7 +196,7 @@ export class TokenService {
    */
   private static refreshTokenIfPossible(sessionData: TokenSessionData): TokenSessionData | null {
     const now = Date.now();
-    
+
     // Verificar si el refresh token aún es válido
     if (now > sessionData.refreshExpiresAt) {
       console.log('Refresh token expired');
@@ -206,7 +206,7 @@ export class TokenService {
     try {
       // Crear nuevo token con la misma información del usuario
       const newTokenSession = this.createTokenSession(sessionData.user);
-      
+
       // Mantener el refresh token original si aún es válido
       if (now < sessionData.refreshExpiresAt) {
         newTokenSession.refreshToken = sessionData.refreshToken;
@@ -237,14 +237,14 @@ export class TokenService {
    */
   static formatTokenTimeLeft(): string {
     const timeLeft = this.getTokenTimeLeft();
-    
+
     if (timeLeft <= 0) return 'Token expirado';
-    
+
     const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
     const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
     const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
     const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
-    
+
     if (days > 0) {
       return `${days}d ${hours}h ${minutes}m`;
     } else if (hours > 0) {
@@ -266,7 +266,7 @@ export class TokenService {
 
       // Crear nuevo token con tiempo extendido
       this.createTokenSession(sessionData.user);
-      
+
       console.log('Token extended for one more week');
       return true;
     } catch (error) {
@@ -315,7 +315,7 @@ export class TokenService {
       };
 
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(updatedSession));
-      
+
       console.log(`Token extended by ${extensionMs / (1000 * 60 * 60)} hours`);
       return true;
     } catch (error) {
@@ -367,7 +367,7 @@ export class TokenService {
   /**
    * Obtiene la lista de tokens revocados
    */
-  private static getRevokedTokens(): Array<{jti: string, revokedAt: number, userId: string}> {
+  private static getRevokedTokens(): Array<{ jti: string, revokedAt: number, userId: string }> {
     try {
       const stored = localStorage.getItem('pricemaster_revoked_tokens');
       if (!stored) return [];
@@ -432,7 +432,7 @@ export class TokenService {
     expiresAt: Date | null;
   } {
     const sessionData = this.validateTokenSession();
-    
+
     if (!sessionData) {
       return {
         isValid: false,
@@ -459,10 +459,10 @@ export class TokenService {
     try {
       const revokedTokens = this.getRevokedTokens();
       const oneWeekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
-      
+
       // Mantener solo tokens revocados de la última semana
       const cleanedTokens = revokedTokens.filter(token => token.revokedAt > oneWeekAgo);
-      
+
       localStorage.setItem('pricemaster_revoked_tokens', JSON.stringify(cleanedTokens));
     } catch (error) {
       console.error('Error cleaning up tokens:', error);

@@ -47,7 +47,7 @@ export class CcssConfigService {
     try {
       // Check if config exists
       const exists = await FirestoreService.exists(this.COLLECTION_NAME, this.CONFIG_DOC_ID);
-      
+
       if (exists) {
         await FirestoreService.update(this.COLLECTION_NAME, this.CONFIG_DOC_ID, configWithTimestamp);
       } else {
@@ -66,7 +66,7 @@ export class CcssConfigService {
   static async initializeCcssConfig(): Promise<void> {
     try {
       const exists = await FirestoreService.exists(this.COLLECTION_NAME, this.CONFIG_DOC_ID);
-      
+
       if (!exists) {
         await this.updateCcssConfig({
           mt: 3672.46,

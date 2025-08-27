@@ -11,27 +11,27 @@ const base62 = baseX(BASE62);
  * @returns Short encoded string
  */
 export function encodeData(
-  session: string, 
+  session: string,
   requestProductName?: boolean
 ): string {
   // Build query parameters string
   const params = new URLSearchParams();
   params.set('session', session);
-  
+
   if (requestProductName) {
     params.set('rpn', 't');
   }
-  
+
   const paramsString = params.toString();
-  
+
   try {
     // Compress the parameters string
     const compressed = LZString.compressToBase64(paramsString);
-    
+
     if (!compressed) {
       throw new Error('Compression failed');
     }
-    
+
     // Convert to Base62 for URL-safe encoding
     const buffer = Buffer.from(compressed, 'base64');
     return base62.encode(buffer);
@@ -55,24 +55,24 @@ export function decodeData(encoded: string): {
     // Decode from Base62
     const buffer = base62.decode(encoded);
     const compressed = Buffer.from(buffer).toString('base64');
-    
+
     // Decompress
     const decompressed = LZString.decompressFromBase64(compressed);
-    
+
     if (!decompressed) {
       throw new Error('Decompression failed');
     }
-    
+
     // Parse as URLSearchParams
     const searchParams = new URLSearchParams(decompressed);
-    
+
     return {
       session: searchParams.get("session"),
       requestProductName: searchParams.get("rpn") === 't'
     };
   } catch (error) {
     console.error('Error decoding data:', error);
-    
+
     // Fallback: try to decode as simple base64
     try {
       // Add padding if needed
@@ -80,10 +80,10 @@ export function decodeData(encoded: string): {
       while (padded.length % 4) {
         padded += '=';
       }
-      
+
       const fallbackDecoded = Buffer.from(padded, 'base64').toString();
       const searchParams = new URLSearchParams(fallbackDecoded);
-      
+
       return {
         session: searchParams.get("session"),
         requestProductName: searchParams.get("rpn") === 't'

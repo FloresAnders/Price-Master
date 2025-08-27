@@ -90,20 +90,20 @@ export function useEmployeeData(
     const hoursPerShift = employee?.hoursPerShift || 8;
     const ccssType = employee?.ccssType || 'MT';
     const extraAmount = employee?.extraAmount || 0;
-    
+
     const shifts = daysToShow.map((day: number) => scheduleData[employeeName]?.[day.toString()] || '');
     const workedDays = shifts.filter((s: string) => s === 'N' || s === 'D').length;
     const hours = workedDays * hoursPerShift;
-    
+
     // Calcular tarifa por hora basada en el tipo de CCSS
     const ccssAmount = ccssType === 'TC' ? ccssConfig.tc : ccssConfig.mt;
     const totalColones = ccssAmount + extraAmount;
     const hourlyRate = totalColones / (22 * hoursPerShift); // Asumiendo 22 días laborales promedio
-    
+
     const colones = hours * hourlyRate;
     const ccss = ccssAmount;
     const neto = colones - ccss;
-    
+
     return {
       workedDays,
       hours,
@@ -136,7 +136,7 @@ export function useEmployeeInfo(employeeName: string, locationValue: string) {
         setError(null);
 
         const locations = await LocationsService.findLocationsByValue(locationValue);
-        
+
         if (locations.length > 0) {
           const location = locations[0];
           const foundEmployee = location.employees?.find(emp => emp.name === employeeName);
@@ -173,15 +173,15 @@ export default function EmployeeSummaryCalculator({
 }: EmployeeSummaryCalculatorProps) {
   // Obtener información del empleado desde la ubicación
   const { employee, loading: employeeLoading, error: employeeError } = useEmployeeInfo(employeeName, locationValue);
-  
+
   // Obtener datos de horarios y CCSS
-  const { 
+  const {
     scheduleData, // eslint-disable-line @typescript-eslint/no-unused-vars
     ccssConfig, // eslint-disable-line @typescript-eslint/no-unused-vars
-    loading: dataLoading, 
-    error: dataError, 
+    loading: dataLoading,
+    error: dataError,
     calculateEmployeeSummary,
-    hourlyRate 
+    hourlyRate
   } = useEmployeeData(employeeName, locationValue, year, month, daysToShow, employee || undefined);
 
   const loading = employeeLoading || dataLoading;
@@ -241,7 +241,7 @@ export default function EmployeeSummaryCalculator({
         <TrendingUp className="w-4 h-4 text-blue-600" />
         Resumen - {employeeName}
       </h4>
-      
+
       <div className="grid grid-cols-1 gap-2">
         {/* Días trabajados */}
         <div className="flex items-center justify-between p-2 bg-blue-50 dark:bg-blue-900/20 rounded">
@@ -332,7 +332,7 @@ export async function calculateEmployeeSummaryFromDB(
   try {
     // Obtener configuración de CCSS
     const ccssConfig = await CcssConfigService.getCcssConfig();
-    
+
     // Obtener horarios del empleado
     const schedules = await SchedulesService.getSchedulesByLocationEmployeeMonth(
       locationValue,
@@ -350,20 +350,20 @@ export async function calculateEmployeeSummaryFromDB(
     const hoursPerShift = employee?.hoursPerShift || 8;
     const ccssType = employee?.ccssType || 'MT';
     const extraAmount = employee?.extraAmount || 0;
-    
+
     const shifts = daysToShow.map((day: number) => scheduleData[day.toString()] || '');
     const workedDays = shifts.filter((s: string) => s === 'N' || s === 'D').length;
     const hours = workedDays * hoursPerShift;
-    
+
     // Calcular tarifa por hora basada en el tipo de CCSS
     const ccssAmount = ccssType === 'TC' ? ccssConfig.tc : ccssConfig.mt;
     const totalColones = ccssAmount + extraAmount;
     const hourlyRate = totalColones / (22 * hoursPerShift); // Asumiendo 22 días laborales promedio
-    
+
     const colones = hours * hourlyRate;
     const ccss = ccssAmount;
     const neto = colones - ccss;
-    
+
     return {
       workedDays,
       hours,

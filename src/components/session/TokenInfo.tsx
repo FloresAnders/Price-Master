@@ -72,7 +72,7 @@ export default function TokenInfo({ isOpen, onClose, inline = false }: TokenInfo
 
       // Aquí usamos la nueva función extendTokenCustom
       const success = TokenService.extendTokenCustom(extensionMs);
-        
+
       if (success) {
         const info = TokenService.getTokenInfo();
         setTokenInfo(info);
@@ -90,19 +90,18 @@ export default function TokenInfo({ isOpen, onClose, inline = false }: TokenInfo
   const timeLeft = tokenInfo?.timeLeft || 0;
   const hoursLeft = Math.floor(timeLeft / (1000 * 60 * 60));
   const daysLeft = Math.floor(hoursLeft / 24);
-  
+
   const isWarning = timeLeft <= 24 * 60 * 60 * 1000;
   const isCritical = timeLeft <= 6 * 60 * 60 * 1000;
 
   const TokenContent = () => (
     <>
-      <div className={`p-4 rounded-lg mb-4 ${
-        isCritical 
+      <div className={`p-4 rounded-lg mb-4 ${isCritical
           ? 'bg-red-50 border border-red-200 dark:bg-red-900/20 dark:border-red-800'
-          : isWarning 
+          : isWarning
             ? 'bg-yellow-50 border border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-800'
             : 'bg-green-50 border border-green-200 dark:bg-green-900/20 dark:border-green-800'
-      }`}>
+        }`}>
         <div className="flex items-center gap-3 mb-2">
           {isCritical ? (
             <AlertTriangle className="w-5 h-5 text-red-600" />
@@ -111,15 +110,14 @@ export default function TokenInfo({ isOpen, onClose, inline = false }: TokenInfo
           ) : (
             <CheckCircle2 className="w-5 h-5 text-green-600" />
           )}
-          <span className={`font-medium ${
-            isCritical ? 'text-red-800 dark:text-red-200' : 
-            isWarning ? 'text-yellow-800 dark:text-yellow-200' : 
-            'text-green-800 dark:text-green-200'
-          }`}>
+          <span className={`font-medium ${isCritical ? 'text-red-800 dark:text-red-200' :
+              isWarning ? 'text-yellow-800 dark:text-yellow-200' :
+                'text-green-800 dark:text-green-200'
+            }`}>
             {isCritical ? 'Token por expirar' : isWarning ? 'Token expirando pronto' : 'Token activo'}
           </span>
         </div>
-        
+
         <div className="text-2xl font-mono font-bold mb-1">
           {getFormattedTimeLeft()}
         </div>
@@ -187,68 +185,67 @@ export default function TokenInfo({ isOpen, onClose, inline = false }: TokenInfo
           {showExtensionControls ? 'Ocultar' : 'Mostrar'} extensión personalizada
         </button>
 
-          {showExtensionControls && (
-            <div className="mt-3 bg-green-50 dark:bg-green-900/20 rounded-lg p-4 border border-green-200 dark:border-green-800">
-              <h4 className="text-sm font-medium text-green-800 dark:text-green-200 mb-3 flex items-center gap-2">
-                <Calendar className="w-4 h-4" />
-                Extender Token - Duración Personalizada
-              </h4>
-              
-              <div className="grid grid-cols-2 gap-3 mb-3">
-                <div>
-                  <label className="block text-xs text-green-700 dark:text-green-300 mb-1">
-                    Cantidad
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="52"
-                    value={extensionAmount}
-                    onChange={(e) => setExtensionAmount(parseInt(e.target.value) || 1)}
-                    className="w-full px-3 py-2 text-sm border border-green-300 dark:border-green-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-xs text-green-700 dark:text-green-300 mb-1">
-                    Unidad
-                  </label>
-                  <select
-                    value={extensionUnit}
-                    onChange={(e) => setExtensionUnit(e.target.value as 'hours' | 'days' | 'weeks')}
-                    className="w-full px-3 py-2 text-sm border border-green-300 dark:border-green-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                  >
-                    <option value="hours">Horas</option>
-                    <option value="days">Días</option>
-                    <option value="weeks">Semanas</option>
-                  </select>
-                </div>
+        {showExtensionControls && (
+          <div className="mt-3 bg-green-50 dark:bg-green-900/20 rounded-lg p-4 border border-green-200 dark:border-green-800">
+            <h4 className="text-sm font-medium text-green-800 dark:text-green-200 mb-3 flex items-center gap-2">
+              <Calendar className="w-4 h-4" />
+              Extender Token - Duración Personalizada
+            </h4>
+
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div>
+                <label className="block text-xs text-green-700 dark:text-green-300 mb-1">
+                  Cantidad
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="52"
+                  value={extensionAmount}
+                  onChange={(e) => setExtensionAmount(parseInt(e.target.value) || 1)}
+                  className="w-full px-3 py-2 text-sm border border-green-300 dark:border-green-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                />
               </div>
 
-              <div className="flex items-center gap-2 text-xs text-green-700 dark:text-green-300 mb-3">
-                <Timer className="w-3 h-3" />
-                <span>
-                  Tiempo a agregar: {extensionAmount} {
-                    extensionUnit === 'hours' ? 'hora(s)' : 
+              <div>
+                <label className="block text-xs text-green-700 dark:text-green-300 mb-1">
+                  Unidad
+                </label>
+                <select
+                  value={extensionUnit}
+                  onChange={(e) => setExtensionUnit(e.target.value as 'hours' | 'days' | 'weeks')}
+                  className="w-full px-3 py-2 text-sm border border-green-300 dark:border-green-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                >
+                  <option value="hours">Horas</option>
+                  <option value="days">Días</option>
+                  <option value="weeks">Semanas</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 text-xs text-green-700 dark:text-green-300 mb-3">
+              <Timer className="w-3 h-3" />
+              <span>
+                Tiempo a agregar: {extensionAmount} {
+                  extensionUnit === 'hours' ? 'hora(s)' :
                     extensionUnit === 'days' ? 'día(s)' : 'semana(s)'
-                  }
-                </span>
-              </div>
+                }
+              </span>
+            </div>
 
-              <button
-                onClick={handleCustomExtension}
-                disabled={extending}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
-              >
-                <Plus className={`w-4 h-4 ${extending ? 'animate-spin' : ''}`} />
-                {extending ? 'Extendiendo...' : `Extender ${extensionAmount} ${
-                  extensionUnit === 'hours' ? 'hora(s)' : 
+            <button
+              onClick={handleCustomExtension}
+              disabled={extending}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
+            >
+              <Plus className={`w-4 h-4 ${extending ? 'animate-spin' : ''}`} />
+              {extending ? 'Extendiendo...' : `Extender ${extensionAmount} ${extensionUnit === 'hours' ? 'hora(s)' :
                   extensionUnit === 'days' ? 'día(s)' : 'semana(s)'
                 }`}
-              </button>
-            </div>
-          )}
-        </div>
+            </button>
+          </div>
+        )}
+      </div>
 
       <div className="flex gap-3">
         <button
@@ -306,7 +303,7 @@ export default function TokenInfo({ isOpen, onClose, inline = false }: TokenInfo
             </svg>
           </button>
         </div>
-        
+
         <TokenContent />
       </div>
     </div>

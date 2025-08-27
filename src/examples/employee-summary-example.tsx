@@ -2,10 +2,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import EmployeeSummaryCalculator, { 
-  calculateEmployeeSummaryFromDB, 
+import EmployeeSummaryCalculator, {
+  calculateEmployeeSummaryFromDB,
   useEmployeeInfo,
-  EmployeeSummary 
+  EmployeeSummary
 } from '../components/business/EmployeeSummaryCalculator';
 
 /**
@@ -20,7 +20,7 @@ export default function EmployeeSummaryExample() {
 
   // Ejemplo de uso del hook para obtener información del empleado
   const { employee, loading: employeeLoading, error: employeeError } = useEmployeeInfo(
-    selectedEmployee, 
+    selectedEmployee,
     selectedLocation
   );
 
@@ -40,7 +40,7 @@ export default function EmployeeSummaryExample() {
         daysToShow,
         employee || undefined
       );
-      
+
       setSummary(calculatedSummary);
     } catch (error) {
       console.error('Error calculating summary:', error);
@@ -57,7 +57,7 @@ export default function EmployeeSummaryExample() {
     <div className="max-w-4xl mx-auto p-6 space-y-6">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
         <h1 className="text-2xl font-bold mb-6">Ejemplo: Calculadora de Resumen de Empleado</h1>
-        
+
         {/* Controles de selección */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div>
@@ -70,7 +70,7 @@ export default function EmployeeSummaryExample() {
               placeholder="Nombre del empleado"
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium mb-2">Ubicación:</label>
             <input
@@ -94,7 +94,7 @@ export default function EmployeeSummaryExample() {
                 <span className="font-medium">Nombre:</span> {employee.name}
               </div>
               <div>
-                <span className="font-medium">Tipo CCSS:</span> 
+                <span className="font-medium">Tipo CCSS:</span>
                 <span className={`ml-1 font-medium ${employee.ccssType === 'TC' ? 'text-blue-600' : 'text-green-600'}`}>
                   {employee.ccssType === 'TC' ? 'Tiempo Completo' : 'Medio Tiempo'}
                 </span>
@@ -137,7 +137,7 @@ export default function EmployeeSummaryExample() {
               {loading ? 'Calculando...' : 'Calcular'}
             </button>
           </div>
-          
+
           {summary && (
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
               <div className="text-center">
@@ -168,12 +168,12 @@ export default function EmployeeSummaryExample() {
       {/* Documentación de uso */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
         <h2 className="text-xl font-bold mb-4">Cómo usar el componente actualizado</h2>
-        
+
         <div className="space-y-4 text-sm">
           <div>
             <h4 className="font-semibold mb-2">1. Uso básico del componente:</h4>
             <pre className="bg-gray-100 dark:bg-gray-900 p-3 rounded text-xs overflow-x-auto">
-{`<EmployeeSummaryCalculator
+              {`<EmployeeSummaryCalculator
   employeeName="Juan Pérez"
   locationValue="sucursal-centro"
   year={2024}
@@ -187,14 +187,14 @@ export default function EmployeeSummaryExample() {
           <div>
             <h4 className="font-semibold mb-2">2. Hook para obtener información del empleado:</h4>
             <pre className="bg-gray-100 dark:bg-gray-900 p-3 rounded text-xs overflow-x-auto">
-{`const { employee, loading, error } = useEmployeeInfo("Juan Pérez", "sucursal-centro");`}
+              {`const { employee, loading, error } = useEmployeeInfo("Juan Pérez", "sucursal-centro");`}
             </pre>
           </div>
 
           <div>
             <h4 className="font-semibold mb-2">3. Función utilitaria para cálculo directo:</h4>
             <pre className="bg-gray-100 dark:bg-gray-900 p-3 rounded text-xs overflow-x-auto">
-{`const summary = await calculateEmployeeSummaryFromDB(
+              {`const summary = await calculateEmployeeSummaryFromDB(
   "Juan Pérez",
   "sucursal-centro", 
   2024,

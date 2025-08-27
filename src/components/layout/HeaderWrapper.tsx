@@ -45,7 +45,7 @@ export default function HeaderWrapper() {
     };
 
     updateTabFromHash();
-    
+
     const handleHashChange = () => {
       updateTabFromHash();
     };

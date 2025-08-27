@@ -992,8 +992,8 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
         })}
       </div>
 
-  {/* Total: se mantiene dentro de la tarjeta y se fija al fondo cuando se llega al final */}
-  <div className="sticky bottom-6 border-2 border-gray-600 w-[90%] mx-auto bg-[var(--button-bg)] rounded-lg p-4 flex flex-col sm:flex-row justify-between items-center shadow-lg z-10">
+      {/* Total: se mantiene dentro de la tarjeta y se fija al fondo cuando se llega al final */}
+      <div className="sticky bottom-6 border-2 border-gray-600 w-[90%] mx-auto bg-[var(--button-bg)] rounded-lg p-4 flex flex-col sm:flex-row justify-between items-center shadow-lg z-10">
         <span className="text-lg font-semibold text-[var(--foreground)] text-center sm:text-left mb-2 sm:mb-0">
           Total:
         </span>
@@ -1616,8 +1616,8 @@ export default function CashCounterTabs() {
           <div
             key={idx}
             className={`relative transition-all duration-200 ${dragOverIndex === idx && draggedIndex !== idx
-                ? 'transform scale-105 shadow-lg border-2 border-blue-400 border-dashed rounded-full'
-                : ''
+              ? 'transform scale-105 shadow-lg border-2 border-blue-400 border-dashed rounded-full'
+              : ''
               } ${draggedIndex === idx
                 ? 'opacity-50 transform rotate-2'
                 : ''
@@ -1632,14 +1632,14 @@ export default function CashCounterTabs() {
             {/* Icono de grip para arrastrar */}
             <div
               className={`absolute left-1 top-1/2 -translate-y-1/2 z-10 ${tabsData.length > 1
-                  ? 'cursor-grab active:cursor-grabbing'
-                  : 'cursor-not-allowed opacity-50'
+                ? 'cursor-grab active:cursor-grabbing'
+                : 'cursor-not-allowed opacity-50'
                 }`}
               title={tabsData.length > 1 ? "Arrastra para reordenar" : "Necesitas al menos 2 contadores para reordenar"}
             >
               <GripVertical className={`w-4 h-4 transition-colors ${tabsData.length > 1
-                  ? 'text-gray-400 hover:text-gray-600'
-                  : 'text-gray-300'
+                ? 'text-gray-400 hover:text-gray-600'
+                : 'text-gray-300'
                 }`} />
             </div>
 

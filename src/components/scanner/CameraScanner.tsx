@@ -9,7 +9,7 @@ import {
     Trash as TrashIcon,
     AlertCircle as AlertIcon,
 } from 'lucide-react';
- 
+
 interface CameraScannerProps {
     code: string | null;
     error: string | null;

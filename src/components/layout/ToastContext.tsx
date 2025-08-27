@@ -14,7 +14,7 @@ interface ToastContextProps {
   showToast: (message: string, type?: ToastType) => void;
 }
 
-const ToastContext = createContext<ToastContextProps>({ showToast: () => {} });
+const ToastContext = createContext<ToastContextProps>({ showToast: () => { } });
 
 export function useToast() {
   return useContext(ToastContext);
@@ -38,15 +38,14 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`px-4 py-2 rounded shadow-lg text-white font-semibold animate-fade-in-down ${
-              toast.type === 'success'
+            className={`px-4 py-2 rounded shadow-lg text-white font-semibold animate-fade-in-down ${toast.type === 'success'
                 ? 'bg-green-600'
                 : toast.type === 'error'
-                ? 'bg-red-600'
-                : toast.type === 'warning'
-                ? 'bg-yellow-500 text-black'
-                : 'bg-blue-600'
-            }`}
+                  ? 'bg-red-600'
+                  : toast.type === 'warning'
+                    ? 'bg-yellow-500 text-black'
+                    : 'bg-blue-600'
+              }`}
             style={{ minWidth: 220 }}
           >
             {toast.message}

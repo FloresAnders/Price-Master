@@ -53,7 +53,8 @@ export class FirebaseUtils {
         users: users.length,
         totalNames,
         ccssConfigExists: ccssConfig.tc !== undefined && ccssConfig.mt !== undefined
-      };    } catch (error) {
+      };
+    } catch (error) {
       console.error('Error getting collection stats:', error);
       return { locations: 0, sorteos: 0, users: 0, totalNames: 0, ccssConfigExists: false };
     }

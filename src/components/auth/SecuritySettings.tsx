@@ -111,7 +111,7 @@ export default function SecuritySettings() {
     try {
       // Guardar en localStorage (en producción, enviar al servidor)
       localStorage.setItem('pricemaster_security_config', JSON.stringify(config));
-      
+
       // Log de auditoría
       const auditLog = {
         timestamp: new Date().toISOString(),
@@ -124,7 +124,7 @@ export default function SecuritySettings() {
 
       const existingLogs = JSON.parse(localStorage.getItem('pricemaster_audit_logs') || '[]');
       existingLogs.push(auditLog);
-      localStorage.setItem('pricemaster_audit_logs', JSON.stringify(existingLogs));      setNotification({ message: 'Configuración de seguridad guardada exitosamente', type: 'success' });
+      localStorage.setItem('pricemaster_audit_logs', JSON.stringify(existingLogs)); setNotification({ message: 'Configuración de seguridad guardada exitosamente', type: 'success' });
     } catch {
       setNotification({ message: 'Error al guardar la configuración', type: 'error' });
     } finally {
@@ -148,9 +148,8 @@ export default function SecuritySettings() {
 
       {/* Notification */}
       {notification && (
-        <div className={`p-4 rounded-lg flex items-center gap-3 ${
-          notification.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-        }`}>
+        <div className={`p-4 rounded-lg flex items-center gap-3 ${notification.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+          }`}>
           {notification.type === 'success' ? (
             <Shield className="w-5 h-5" />
           ) : (

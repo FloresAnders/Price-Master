@@ -6,7 +6,8 @@ import { MigrationService } from './migration';
  * This function should be called once when the app starts
  * It will automatically migrate data if collections are empty
  */
-export async function initializeFirebase(): Promise<{  success: boolean;
+export async function initializeFirebase(): Promise<{
+  success: boolean;
   message: string;
   stats?: {
     locations: number;
@@ -63,16 +64,16 @@ export async function firebaseHealthCheck(): Promise<{
 
     return {
       status: 'healthy',
-      message: 'Firebase connection is healthy',        details: {
-          collections: {
-            locations: stats.locations,
-            sorteos: stats.sorteos,
-            users: stats.users,
-            totalNames: stats.totalNames,
-            ccssConfigExists: stats.ccssConfigExists
-          },
-          timestamp: new Date().toISOString()
-        }
+      message: 'Firebase connection is healthy', details: {
+        collections: {
+          locations: stats.locations,
+          sorteos: stats.sorteos,
+          users: stats.users,
+          totalNames: stats.totalNames,
+          ccssConfigExists: stats.ccssConfigExists
+        },
+        timestamp: new Date().toISOString()
+      }
     };
   } catch (error) {
     return {

@@ -23,16 +23,16 @@ interface SessionMonitorProps {
 }
 
 export default function SessionMonitor({ showAuditLogs = false, inline = false }: SessionMonitorProps) {
-  const { 
-    user, 
-    sessionWarning, 
-    getSessionTimeLeft, 
-    getAuditLogs, 
+  const {
+    user,
+    sessionWarning,
+    getSessionTimeLeft,
+    getAuditLogs,
     isSuperAdmin,
     useTokenAuth,
     getFormattedTimeLeft
   } = useAuth();
-  
+
   const [timeLeft, setTimeLeft] = useState(0);
   const [showLogs, setShowLogs] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
@@ -94,9 +94,9 @@ export default function SessionMonitor({ showAuditLogs = false, inline = false }
             onClick={() => setShowTokenInfo(true)}
             className="bg-white text-yellow-500 px-3 py-1 rounded text-sm font-medium hover:bg-gray-100 transition-colors flex items-center gap-1"
           >
-              <Key className="w-3 h-3" />
-              Ver Token
-            </button>
+            <Key className="w-3 h-3" />
+            Ver Token
+          </button>
         </div>
       )}
 
@@ -190,7 +190,7 @@ export default function SessionMonitor({ showAuditLogs = false, inline = false }
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
+
             <div className="p-4 max-h-96 overflow-y-auto">
               <div className="space-y-2">
                 {auditLogs.slice(-50).reverse().map((log, index) => (
@@ -216,7 +216,7 @@ export default function SessionMonitor({ showAuditLogs = false, inline = false }
                     )}
                   </div>
                 ))}
-                
+
                 {auditLogs.length === 0 && (
                   <div className="text-center py-8 text-gray-500">
                     No hay logs de auditoría disponibles
@@ -224,7 +224,7 @@ export default function SessionMonitor({ showAuditLogs = false, inline = false }
                 )}
               </div>
             </div>
-            
+
             <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700">
               <div className="flex justify-between items-center text-xs text-gray-600 dark:text-gray-400">
                 <span>Mostrando los últimos 50 eventos</span>
@@ -242,8 +242,8 @@ export default function SessionMonitor({ showAuditLogs = false, inline = false }
             <div className={`w-2 h-2 rounded-full ${timeLeft > 1 ? 'bg-green-400' : 'bg-yellow-400'}`}></div>
             <span>{useTokenAuth ? getFormattedTimeLeft() : formatTimeLeft(timeLeft)}</span>
             {useTokenAuth && (
-              <Key 
-                className="w-3 h-3 text-green-400 cursor-pointer hover:text-green-300" 
+              <Key
+                className="w-3 h-3 text-green-400 cursor-pointer hover:text-green-300"
                 onClick={() => setShowTokenInfo(true)}
               />
             )}
@@ -252,9 +252,9 @@ export default function SessionMonitor({ showAuditLogs = false, inline = false }
       )}
 
       {/* Modal de información del token */}
-      <TokenInfo 
-        isOpen={showTokenInfo} 
-        onClose={() => setShowTokenInfo(false)} 
+      <TokenInfo
+        isOpen={showTokenInfo}
+        onClose={() => setShowTokenInfo(false)}
       />
     </>
   );

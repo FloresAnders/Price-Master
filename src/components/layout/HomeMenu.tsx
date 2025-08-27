@@ -26,7 +26,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   const [hovered, setHovered] = useState(false);
   const [clickCount, setClickCount] = useState(0);
   const [showStickman, setShowStickman] = useState(false);
-  
+
   // Filter menu items based on user permissions
   const getVisibleMenuItems = () => {
     if (!currentUser) {
@@ -51,7 +51,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   };
 
   const visibleMenuItems = getVisibleMenuItems();
-  
+
   const handleNavigate = (id: string) => {
     if (typeof window !== 'undefined') {
       // Todos los elementos usan hash navigation
@@ -63,7 +63,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     const newCount = clickCount + 1;
     setClickCount(newCount);
     setHovered(h => !h);
-    
+
     if (newCount >= 5) {
       setShowStickman(true);
     }
@@ -92,7 +92,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
         />
       </div>
       <h1 className="text-3xl font-bold mb-8 text-center">Bienvenido a Price Master</h1>
-      
+
       {visibleMenuItems.length === 0 ? (
         <div className="text-center py-12">
           <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl p-8 max-w-md mx-auto">
@@ -124,7 +124,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
           ))}
         </div>
       )}
-      
+
       {/* AnimatedStickman aparece solo después de 5 clicks */}
       {showStickman && (
         <div className="fixed inset-0 pointer-events-none z-50">

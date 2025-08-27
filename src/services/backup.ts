@@ -93,10 +93,10 @@ export class BackupService {
     try {
       // Get CCSS configuration
       const ccssConfig = await CcssConfigService.getCcssConfig();
-      
+
       // Get entire collection for complete backup
       const ccssCollection = await FirestoreService.getAll('ccss-config');
-      
+
       const backupData: BackupData = {
         timestamp: new Date().toISOString(),
         version: this.BACKUP_VERSION,
@@ -124,7 +124,7 @@ export class BackupService {
   static async generateCompleteBackup(exportedBy: string): Promise<CompleteBackupData> {
     try {
       console.log('🔄 Starting complete database backup...');
-      
+
       // Get all essential collections
       const [locations, users, schedules, payrollRecords] = await Promise.all([
         LocationsService.getAllLocations(),
@@ -134,7 +134,7 @@ export class BackupService {
       ]);
 
       const totalRecords = locations.length + users.length + schedules.length + payrollRecords.length;
-      
+
       const backupData: CompleteBackupData = {
         timestamp: new Date().toISOString(),
         version: this.BACKUP_VERSION,
@@ -180,7 +180,7 @@ export class BackupService {
   static async generateIndividualBackups(exportedBy: string): Promise<IndividualBackupFiles> {
     try {
       console.log('🔄 Starting individual backups generation...');
-      
+
       // Get all essential collections
       const [locations, users, schedules, payrollRecords] = await Promise.all([
         LocationsService.getAllLocations(),
@@ -191,7 +191,7 @@ export class BackupService {
 
       const timestamp = new Date().toISOString();
       const systemVersion = 'Price Master v2.0';
-      
+
       const individualBackups: IndividualBackupFiles = {
         locations: {
           timestamp,
@@ -275,12 +275,12 @@ export class BackupService {
 
       const now = new Date();
       let defaultFilename: string;
-      
+
       // Determine backup type and create appropriate filename
       if ('data' in backupData && backupData.metadata.backupType === 'complete-database') {
-        defaultFilename = `backup_complete_${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}_${now.getHours().toString().padStart(2,'0')}${now.getMinutes().toString().padStart(2,'0')}.json`;
+        defaultFilename = `backup_complete_${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}_${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}.json`;
       } else {
-        defaultFilename = `backup_ccss_${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}_${now.getHours().toString().padStart(2,'0')}${now.getMinutes().toString().padStart(2,'0')}.json`;
+        defaultFilename = `backup_ccss_${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}_${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}.json`;
       }
 
       const link = document.createElement('a');
@@ -302,33 +302,33 @@ export class BackupService {
   static downloadIndividualBackups(individualBackups: IndividualBackupFiles): void {
     try {
       const now = new Date();
-      const dateStr = `${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}_${now.getHours().toString().padStart(2,'0')}${now.getMinutes().toString().padStart(2,'0')}`;
-      
+      const dateStr = `${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}_${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}`;
+
       // Download each service as a separate file
       const services = ['locations', 'users', 'schedules', 'payrollRecords'] as const;
-      
+
       services.forEach((serviceName) => {
         const serviceData = individualBackups[serviceName];
         const jsonString = JSON.stringify(serviceData, null, 2);
         const blob = new Blob([jsonString], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
-        
+
         const filename = `${serviceName}_backup_${dateStr}.json`;
-        
+
         const link = document.createElement('a');
         link.href = url;
         link.download = filename;
         link.style.display = 'none';
         document.body.appendChild(link);
         link.click();
-        
+
         // Clean up
         setTimeout(() => {
           document.body.removeChild(link);
           URL.revokeObjectURL(url);
         }, 100);
       });
-      
+
       console.log('✅ Individual backup files downloaded successfully');
     } catch (error) {
       console.error('Error downloading individual backups:', error);
@@ -346,70 +346,70 @@ export class BackupService {
       }
 
       const data = backupData as Record<string, unknown>;
-      
+
       // Check for individual service backup structure
       if (data &&
-          typeof data.timestamp === 'string' &&
-          typeof data.version === 'string' &&
-          typeof data.serviceName === 'string' &&
-          data.data &&
-          typeof data.data === 'object' &&
-          data.data !== null) {
-        
+        typeof data.timestamp === 'string' &&
+        typeof data.version === 'string' &&
+        typeof data.serviceName === 'string' &&
+        data.data &&
+        typeof data.data === 'object' &&
+        data.data !== null) {
+
         const dataObj = data.data as Record<string, unknown>;
         const metadataObj = data.metadata as Record<string, unknown>;
-        
+
         if (Array.isArray(dataObj.collection) &&
-            typeof dataObj.count === 'number' &&
-            data.metadata &&
-            typeof data.metadata === 'object' &&
-            data.metadata !== null &&
-            typeof metadataObj.exportedBy === 'string' &&
-            metadataObj.backupType === 'individual-service') {
+          typeof dataObj.count === 'number' &&
+          data.metadata &&
+          typeof data.metadata === 'object' &&
+          data.metadata !== null &&
+          typeof metadataObj.exportedBy === 'string' &&
+          metadataObj.backupType === 'individual-service') {
           return { isValid: true, type: 'individual' };
         }
       }
-      
+
       // Check for complete backup structure
       if (data &&
-          typeof data.timestamp === 'string' &&
-          typeof data.version === 'string' &&
-          data.data &&
-          typeof data.data === 'object' &&
-          data.data !== null) {
-        
+        typeof data.timestamp === 'string' &&
+        typeof data.version === 'string' &&
+        data.data &&
+        typeof data.data === 'object' &&
+        data.data !== null) {
+
         const dataObj = data.data as Record<string, unknown>;
         const metadataObj = data.metadata as Record<string, unknown>;
-        
+
         if (dataObj.locations &&
-            dataObj.users &&
-            dataObj.schedules &&
-            dataObj.payrollRecords &&
-            data.metadata &&
-            typeof data.metadata === 'object' &&
-            data.metadata !== null &&
-            typeof metadataObj.exportedBy === 'string' &&
-            metadataObj.backupType === 'complete-database') {
+          dataObj.users &&
+          dataObj.schedules &&
+          dataObj.payrollRecords &&
+          data.metadata &&
+          typeof data.metadata === 'object' &&
+          data.metadata !== null &&
+          typeof metadataObj.exportedBy === 'string' &&
+          metadataObj.backupType === 'complete-database') {
           return { isValid: true, type: 'complete' };
         }
       }
-      
+
       // Check for CCSS backup structure (legacy)
       if (data &&
-          typeof data.timestamp === 'string' &&
-          typeof data.version === 'string' &&
-          data.ccssConfig &&
-          data.metadata &&
-          typeof data.metadata === 'object' &&
-          data.metadata !== null) {
-        
+        typeof data.timestamp === 'string' &&
+        typeof data.version === 'string' &&
+        data.ccssConfig &&
+        data.metadata &&
+        typeof data.metadata === 'object' &&
+        data.metadata !== null) {
+
         const metadataObj = data.metadata as Record<string, unknown>;
-        
+
         if (typeof metadataObj.exportedBy === 'string') {
           return { isValid: true, type: 'ccss' };
         }
       }
-      
+
       return { isValid: false, type: 'unknown' };
     } catch {
       return { isValid: false, type: 'unknown' };
@@ -526,7 +526,7 @@ export class BackupService {
   static async restoreIndividualBackup(backupData: IndividualBackupData): Promise<void> {
     try {
       console.log(`🔄 Starting restoration of ${backupData.serviceName} service...`);
-      
+
       const serviceName = backupData.serviceName;
       const records = backupData.data.collection;
       let totalRestored = 0;
@@ -606,7 +606,7 @@ export class BackupService {
     // This method should be called from API routes only
     // Import nodemailer dynamically to avoid client-side issues
     const nodemailer = (await import('nodemailer')).default;
-    
+
     try {
       const now = new Date();
       const base64Data = Buffer.from(JSON.stringify(backupData, null, 2)).toString('base64');
@@ -702,7 +702,7 @@ Este archivo contiene toda la configuración CCSS y puede ser usado para restaur
     // This method should be called from API routes only
     // Import nodemailer dynamically to avoid client-side issues
     const nodemailer = (await import('nodemailer')).default;
-    
+
     try {
       const now = new Date();
       const base64Data = Buffer.from(JSON.stringify(backupData, null, 2)).toString('base64');
@@ -815,7 +815,7 @@ Este archivo contiene un backup completo de la base de datos y puede ser usado p
   static async sendIndividualBackupsByEmail(individualBackups: IndividualBackupFiles, email: string): Promise<void> {
     try {
       const nodemailer = await import('nodemailer');
-      
+
       const transporter = nodemailer.createTransport({
         service: 'gmail',
         auth: {
@@ -825,25 +825,25 @@ Este archivo contiene un backup completo de la base de datos y puede ser usado p
       });
 
       const now = new Date();
-      const dateStr = `${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}_${now.getHours().toString().padStart(2,'0')}${now.getMinutes().toString().padStart(2,'0')}`;
-      
+      const dateStr = `${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}_${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}`;
+
       // Prepare attachments for each service
       const attachments = [];
       const services = ['locations', 'users', 'schedules', 'payrollRecords'] as const;
       let totalRecords = 0;
-      
+
       for (const serviceName of services) {
         const serviceData = individualBackups[serviceName];
         const jsonString = JSON.stringify(serviceData, null, 2);
         const base64Data = Buffer.from(jsonString).toString('base64');
         const filename = `${serviceName}_backup_${dateStr}.json`;
-        
+
         attachments.push({
           filename,
           content: base64Data,
           encoding: 'base64' as const
         });
-        
+
         totalRecords += serviceData.data.count;
       }
 

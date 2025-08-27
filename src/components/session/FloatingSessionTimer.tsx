@@ -18,11 +18,11 @@ interface FloatingSessionTimerProps {
 }
 
 export default function FloatingSessionTimer({ visible, onToggleVisibility }: FloatingSessionTimerProps) {
-  const { 
-    user, 
-    useTokenAuth, 
-    getFormattedTimeLeft, 
-    getSessionTimeLeft 
+  const {
+    user,
+    useTokenAuth,
+    getFormattedTimeLeft,
+    getSessionTimeLeft
   } = useAuth();
 
   const [timeLeft, setTimeLeft] = useState('');
@@ -37,7 +37,7 @@ export default function FloatingSessionTimer({ visible, onToggleVisibility }: Fl
     const updateTimer = () => {
       const formattedTime = getFormattedTimeLeft();
       setTimeLeft(formattedTime);
-      
+
       const sessionTime = getSessionTimeLeft();
       if (useTokenAuth) {
         const info = TokenService.getTokenInfo();
@@ -56,7 +56,7 @@ export default function FloatingSessionTimer({ visible, onToggleVisibility }: Fl
 
   const getTimerColor = () => {
     const hours = timeInMs / (1000 * 60 * 60);
-    
+
     if (hours < 0.5) return 'bg-red-600 border-red-500'; // Menos de 30 minutos
     if (hours < 2) return 'bg-yellow-600 border-yellow-500'; // Menos de 2 horas
     if (hours < 24) return 'bg-orange-600 border-orange-500'; // Menos de 1 día
@@ -81,7 +81,7 @@ export default function FloatingSessionTimer({ visible, onToggleVisibility }: Fl
     const totalMinutes = Math.floor(totalSeconds / 60);
     const totalHours = Math.floor(totalMinutes / 60);
     const days = Math.floor(totalHours / 24);
-    
+
     const hours = totalHours % 24;
     const minutes = totalMinutes % 60;
     const seconds = totalSeconds % 60;

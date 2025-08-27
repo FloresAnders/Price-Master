@@ -244,7 +244,8 @@ export default function ScheduleReportTab() {
       showNotification('Error al cargar los datos de planilla', 'error');
     } finally {
       setLoading(false);
-    }  }, [currentPeriod, selectedLocation, locations]);
+    }
+  }, [currentPeriod, selectedLocation, locations]);
 
   // Cargar datos cuando el período y ubicaciones estén listos
   useEffect(() => {
@@ -386,8 +387,8 @@ export default function ScheduleReportTab() {
           <button
             onClick={() => setActiveTab('schedule')}
             className={`px-4 py-2 rounded-md flex items-center gap-2 transition-colors ${activeTab === 'schedule'
-                ? 'bg-blue-600 text-white'
-                : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+              ? 'bg-blue-600 text-white'
+              : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
               }`}
           >
             <FileText className="w-4 h-4" />
@@ -396,8 +397,8 @@ export default function ScheduleReportTab() {
           <button
             onClick={() => setActiveTab('payroll')}
             className={`px-4 py-2 rounded-md flex items-center gap-2 transition-colors ${activeTab === 'payroll'
-                ? 'bg-green-600 text-white'
-                : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+              ? 'bg-green-600 text-white'
+              : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
               }`}
           >
             <Calculator className="w-4 h-4" />
@@ -406,8 +407,8 @@ export default function ScheduleReportTab() {
           <button
             onClick={() => setActiveTab('records')}
             className={`px-4 py-2 rounded-md flex items-center gap-2 transition-colors ${activeTab === 'records'
-                ? 'bg-purple-600 text-white'
-                : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+              ? 'bg-purple-600 text-white'
+              : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
               }`}
           >
             <Eye className="w-4 h-4" />
@@ -447,8 +448,8 @@ export default function ScheduleReportTab() {
                 <button
                   onClick={() => setIsEditing(!isEditing)}
                   className={`px-4 py-2 rounded-md flex items-center gap-2 transition-colors ${isEditing
-                      ? 'bg-red-600 hover:bg-red-700 text-white'
-                      : 'bg-blue-600 hover:bg-blue-700 text-white'
+                    ? 'bg-red-600 hover:bg-red-700 text-white'
+                    : 'bg-blue-600 hover:bg-blue-700 text-white'
                     }`}
                   title={isEditing ? "Salir del modo edición" : "Activar modo edición"}
                 >
@@ -661,18 +662,18 @@ export default function ScheduleReportTab() {
               </div>
             ))}
           </div>
-        </>      ) : activeTab === 'payroll' ? (
-        /* Tab de Planilla de Pago */
-        <PayrollExporter 
-          currentPeriod={currentPeriod}
-          selectedLocation={selectedLocation}
-          onLocationChange={setSelectedLocation}
-          availablePeriods={availablePeriods}
-          onPeriodChange={setCurrentPeriod}
-        />
-      ) : (
+        </>) : activeTab === 'payroll' ? (
+          /* Tab de Planilla de Pago */
+          <PayrollExporter
+            currentPeriod={currentPeriod}
+            selectedLocation={selectedLocation}
+            onLocationChange={setSelectedLocation}
+            availablePeriods={availablePeriods}
+            onPeriodChange={setCurrentPeriod}
+          />
+        ) : (
         /* Tab de Registros Guardados */
-        <PayrollRecordsViewer 
+        <PayrollRecordsViewer
           selectedLocation={selectedLocation}
         />
       )}

@@ -352,7 +352,7 @@ export function useBarcodeScanner(onDetect?: (code: string, productName?: string
             }
           }
         }, ZBAR_PRIORITY_CONFIG.ZBAR_SCAN_INTERVAL); // Usar configuración de intervalo
-        
+
         // Quagga2 detection SOLO SI ZBar no detecta (con configuración mejorada)
         Quagga.offDetected(); // Elimina cualquier listener anterior para evitar duplicados
         Quagga.onDetected((data: { codeResult?: { code: string | null } }) => {

@@ -21,7 +21,7 @@ export const safeLocalStorage = {
       return null;
     }
   },
-  
+
   setItem: (key: string, value: string): void => {
     if (!isClientSide()) return;
     try {
@@ -30,7 +30,7 @@ export const safeLocalStorage = {
       // Fail silently if localStorage is not available
     }
   },
-  
+
   removeItem: (key: string): void => {
     if (!isClientSide()) return;
     try {
@@ -50,23 +50,23 @@ export const safeWindow = {
       if (!isClientSide()) return;
       window.location.href = url;
     },
-    
+
     hash: (hash: string): void => {
       if (!isClientSide()) return;
       window.location.hash = hash;
     },
-    
+
     getHash: (): string => {
       if (!isClientSide()) return '';
       return window.location.hash;
     }
   },
-  
+
   addEventListener: (event: string, handler: EventListener): void => {
     if (!isClientSide()) return;
     window.addEventListener(event, handler);
   },
-  
+
   removeEventListener: (event: string, handler: EventListener): void => {
     if (!isClientSide()) return;
     window.removeEventListener(event, handler);
@@ -78,10 +78,10 @@ export const safeWindow = {
  */
 export const useClientMounted = (): boolean => {
   const [isMounted, setIsMounted] = React.useState(false);
-  
+
   React.useEffect(() => {
     setIsMounted(true);
   }, []);
-  
+
   return isMounted;
 };

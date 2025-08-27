@@ -32,7 +32,7 @@ export class EmailService {
 
   private static getMailOptions(options: EmailOptions) {
     const { to, subject, text, html, attachments } = options;
-    
+
     return {
       from: {
         name: 'Price Master System',

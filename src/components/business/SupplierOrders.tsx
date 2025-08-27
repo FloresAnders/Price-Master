@@ -32,24 +32,24 @@ export default function SupplierOrders() {
   const [orderDate, setOrderDate] = useState('')
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('')
   const [notes, setNotes] = useState('')
-  
+
   // Product form states
   const [productName, setProductName] = useState('')
   const [quantity, setQuantity] = useState<number>(1)
   const [barcode, setBarcode] = useState<string>('')
   const [price, setPrice] = useState<string>('')
-  
+
   // Current order products
   const [products, setProducts] = useState<Product[]>([])
-  
+
   // Orders history
   const [orders, setOrders] = useState<SupplierOrder[]>([])
   const [showOrdersList, setShowOrdersList] = useState(false)
-  
+
   // Edit functionality
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null)
   const [isEditing, setIsEditing] = useState(false)
-  
+
   // Recurrent data
   const [recurrentSuppliers, setRecurrentSuppliers] = useState<string[]>([])
   const [recurrentProducts, setRecurrentProducts] = useState<string[]>([])
@@ -72,7 +72,7 @@ export default function SupplierOrders() {
         console.error('Error loading orders from localStorage:', error)
       }
     }
-    
+
     // Load recurrent suppliers
     const savedSuppliers = localStorage.getItem('recurrentSuppliers')
     if (savedSuppliers) {
@@ -82,7 +82,7 @@ export default function SupplierOrders() {
         console.error('Error loading suppliers from localStorage:', error)
       }
     }
-    
+
     // Load recurrent products
     const savedProducts = localStorage.getItem('recurrentProducts')
     if (savedProducts) {
@@ -98,12 +98,12 @@ export default function SupplierOrders() {
   useEffect(() => {
     localStorage.setItem('supplierOrders', JSON.stringify(orders))
   }, [orders])
-  
+
   // Save recurrent suppliers to localStorage
   useEffect(() => {
     localStorage.setItem('recurrentSuppliers', JSON.stringify(recurrentSuppliers))
   }, [recurrentSuppliers])
-  
+
   // Save recurrent products to localStorage
   useEffect(() => {
     localStorage.setItem('recurrentProducts', JSON.stringify(recurrentProducts))
@@ -132,13 +132,13 @@ export default function SupplierOrders() {
     }
 
     setProducts(prev => [...prev, newProduct])
-    
+
     // Add to recurrent products if not already there
     const trimmedName = productName.trim()
     if (!recurrentProducts.includes(trimmedName)) {
       setRecurrentProducts(prev => [...prev, trimmedName])
     }
-    
+
     // Clear form
     setProductName('')
     setQuantity(1)
@@ -171,10 +171,10 @@ export default function SupplierOrders() {
         total: calculateTotal()
       }
 
-      setOrders(prev => prev.map(order => 
+      setOrders(prev => prev.map(order =>
         order.id === editingOrderId ? updatedOrder : order
       ))
-      
+
       alert('Orden actualizada exitosamente!')
       cancelEdit()
     } else {
@@ -190,13 +190,13 @@ export default function SupplierOrders() {
       }
 
       setOrders(prev => [newOrder, ...prev])
-      
+
       // Add supplier to recurrent suppliers if not already there
       const trimmedSupplier = supplierName.trim()
       if (!recurrentSuppliers.includes(trimmedSupplier)) {
         setRecurrentSuppliers(prev => [...prev, trimmedSupplier])
       }
-      
+
       clearForm()
       alert('Orden guardada exitosamente!')
     }
@@ -249,22 +249,22 @@ export default function SupplierOrders() {
   }
 
   const currentTotal = calculateTotal()
-  
+
   // Filter suppliers and products based on input
   const filteredSuppliers = recurrentSuppliers.filter(supplier =>
     supplier.toLowerCase().includes(supplierName.toLowerCase())
   ).slice(0, 5) // Limit to 5 suggestions
-  
+
   const filteredProducts = recurrentProducts.filter(product =>
     product.toLowerCase().includes(productName.toLowerCase())
   ).slice(0, 5) // Limit to 5 suggestions
-  
+
   // Handle supplier selection
   const selectSupplier = (supplier: string) => {
     setSupplierName(supplier)
     setShowSupplierDropdown(false)
   }
-  
+
   // Handle product selection
   const selectProduct = (product: string) => {
     setProductName(product)
@@ -302,11 +302,10 @@ export default function SupplierOrders() {
             }
             setShowOrdersList(false)
           }}
-          className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-            !showOrdersList 
-              ? 'bg-blue-500 text-white' 
-              : 'hover:opacity-80'
-          }`}
+          className={`px-6 py-2 rounded-lg font-medium transition-colors ${!showOrdersList
+            ? 'bg-blue-500 text-white'
+            : 'hover:opacity-80'
+            }`}
           style={{
             background: !showOrdersList ? '#3b82f6' : 'var(--button-bg)',
             color: !showOrdersList ? '#ffffff' : 'var(--button-text)',
@@ -321,11 +320,10 @@ export default function SupplierOrders() {
             }
             setShowOrdersList(true)
           }}
-          className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-            showOrdersList 
-              ? 'bg-blue-500 text-white' 
-              : 'hover:opacity-80'
-          }`}
+          className={`px-6 py-2 rounded-lg font-medium transition-colors ${showOrdersList
+            ? 'bg-blue-500 text-white'
+            : 'hover:opacity-80'
+            }`}
           style={{
             background: showOrdersList ? '#3b82f6' : 'var(--button-bg)',
             color: showOrdersList ? '#ffffff' : 'var(--button-text)',
@@ -344,10 +342,10 @@ export default function SupplierOrders() {
               <Package className="w-5 h-5" />
               Información de la Orden
             </h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="relative">
-                <label className="block text-sm font-medium mb-1 flex items-center gap-1" style={{ color: 'var(--foreground)' }}>
+                <label className="text-sm font-medium mb-1 flex items-center gap-1" style={{ color: 'var(--foreground)' }}>
                   <User className="w-4 h-4" />
                   Nombre del Proveedor
                 </label>
@@ -383,7 +381,7 @@ export default function SupplierOrders() {
                   </div>
                 )}
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium mb-1 flex items-center gap-1" style={{ color: 'var(--foreground)' }}>
                   <Calendar className="w-4 h-4" />
@@ -401,7 +399,7 @@ export default function SupplierOrders() {
                   }}
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium mb-1 flex items-center gap-1" style={{ color: 'var(--foreground)' }}>
                   <Calendar className="w-4 h-4" />
@@ -419,7 +417,7 @@ export default function SupplierOrders() {
                   }}
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium mb-1 flex items-center gap-1" style={{ color: 'var(--foreground)' }}>
                   <FileText className="w-4 h-4" />
@@ -447,7 +445,7 @@ export default function SupplierOrders() {
               <Plus className="w-5 h-5" />
               Agregar Productos
             </h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
               <div className="relative">
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--foreground)' }}>
@@ -486,7 +484,7 @@ export default function SupplierOrders() {
                   </div>
                 )}
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--foreground)' }}>
                   Cantidad
@@ -504,7 +502,7 @@ export default function SupplierOrders() {
                   }}
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--foreground)' }}>
                   Código de Barras (opcional)
@@ -522,7 +520,7 @@ export default function SupplierOrders() {
                   placeholder="Código de barras"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--foreground)' }}>
                   Precio Unitario (opcional)
@@ -542,7 +540,7 @@ export default function SupplierOrders() {
                   placeholder="0.00"
                 />
               </div>
-              
+
               <button
                 onClick={addProduct}
                 disabled={!productName.trim()}
@@ -560,7 +558,7 @@ export default function SupplierOrders() {
               <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--foreground)' }}>
                 Productos en la Orden ({products.length})
               </h3>
-              
+
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse">
                   <thead>
@@ -622,7 +620,7 @@ export default function SupplierOrders() {
             >
               {isEditing ? 'Actualizar Orden' : 'Guardar Orden'}
             </button>
-            
+
             {isEditing && (
               <button
                 onClick={cancelEdit}
@@ -631,7 +629,7 @@ export default function SupplierOrders() {
                 Cancelar Edición
               </button>
             )}
-            
+
             <button
               onClick={clearForm}
               className="px-6 py-2 rounded-lg hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-gray-500"
@@ -648,7 +646,7 @@ export default function SupplierOrders() {
         /* Orders List */
         <div className="space-y-4">
           <h3 className="text-xl font-semibold" style={{ color: 'var(--foreground)' }}>Órdenes Guardadas</h3>
-          
+
           {orders.length === 0 ? (
             <div className="text-center py-8" style={{ color: 'var(--muted-foreground)' }}>
               No hay órdenes guardadas todavía.
@@ -683,13 +681,13 @@ export default function SupplierOrders() {
                     </button>
                   </div>
                 </div>
-                
+
                 {order.notes && (
                   <p className="text-sm mb-4" style={{ color: 'var(--muted-foreground)' }}>
                     <strong>Notas:</strong> {order.notes}
                   </p>
                 )}
-                
+
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm border-collapse">
                     <thead>

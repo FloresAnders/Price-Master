@@ -20,11 +20,11 @@ export function PictureInPicture({
   const pipWindowRef = useRef<Window | null>(null);
   const closingRef = useRef<boolean>(false);
   const checkIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  
+
 
   const openPictureInPicture = async () => {
     closingRef.current = false; // Reset flag cuando se abre
-    
+
     // Verificar soporte para Picture-in-Picture
     // @ts-expect-error - documentPictureInPicture is experimental
     if (!window.documentPictureInPicture) {
@@ -43,8 +43,8 @@ export function PictureInPicture({
 
       // Obtener tema actual
       const isDarkMode = document.documentElement.classList.contains('dark') ||
-                        document.body.classList.contains('dark') ||
-                        window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.body.classList.contains('dark') ||
+        window.matchMedia('(prefers-color-scheme: dark)').matches;
 
       // Copiar estilos críticos
       const styles = `
@@ -231,7 +231,7 @@ export function PictureInPicture({
         </body>
         </html>
       `;
-      
+
       pipWindow.document.write(html);
       pipWindow.document.close();
 
@@ -250,18 +250,18 @@ export function PictureInPicture({
             clearInterval(checkIntervalRef.current);
             checkIntervalRef.current = null;
           }
-              // Solo notificar si no se está cerrando manualmente
-              if (!closingRef.current) {
-                onToggle(); // Notify parent that PiP closed
-              }
-              closingRef.current = false; // Reset flag
+          // Solo notificar si no se está cerrando manualmente
+          if (!closingRef.current) {
+            onToggle(); // Notify parent that PiP closed
+          }
+          closingRef.current = false; // Reset flag
         }
       }, 300); // Check más frecuentemente
 
     } catch (error) {
       console.error('Error opening Picture-in-Picture:', error);
       alert('Error al abrir ventana Picture-in-Picture');
-  // Si hubo error, no hacemos bloqueo aquí (el botón solo se oculta cuando isOpen)
+      // Si hubo error, no hacemos bloqueo aquí (el botón solo se oculta cuando isOpen)
     }
   };
 
@@ -269,17 +269,17 @@ export function PictureInPicture({
   // Por eso no exportamos/definimos aquí ninguna función para cerrarla desde el UI padre.
 
   const togglePictureInPicture = async () => {
-  // Si ya está abierta, no hacer nada: solo la ventana PiP puede cerrarla
-  if (isOpen) return;
+    // Si ya está abierta, no hacer nada: solo la ventana PiP puede cerrarla
+    if (isOpen) return;
 
-  await openPictureInPicture();
+    await openPictureInPicture();
   };
 
   // Listen for messages from PiP window
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
-    if (event.data.type === 'PIP_CLOSED') {
-  onToggle();
+      if (event.data.type === 'PIP_CLOSED') {
+        onToggle();
       } else if (event.data.type === 'PIP_PROCESS_IMAGE') {
         onProcessImage(event.data.imageData);
       } else if (event.data.type === 'PIP_REMOVE_LEADING_ZERO') {
@@ -310,7 +310,7 @@ export function PictureInPicture({
       if (pipWindowRef.current && !pipWindowRef.current.closed) {
         pipWindowRef.current.close();
       }
-  // No hay bloqueo persistente que limpiar en el desmontaje
+      // No hay bloqueo persistente que limpiar en el desmontaje
     };
   }, []);
 
@@ -320,9 +320,8 @@ export function PictureInPicture({
   return (
     <button
       onClick={togglePictureInPicture}
-      className={`px-3 py-2 rounded-lg font-bold transition-all duration-200 focus:outline-none focus:ring-2 ${
-        'bg-green-500 hover:bg-green-600 text-white focus:ring-green-300 dark:focus:ring-green-900'
-      } transform hover:scale-105 active:scale-95`}
+      className={`px-3 py-2 rounded-lg font-bold transition-all duration-200 focus:outline-none focus:ring-2 ${'bg-green-500 hover:bg-green-600 text-white focus:ring-green-300 dark:focus:ring-green-900'
+        } transform hover:scale-105 active:scale-95`}
       title={"Abrir ventana Picture-in-Picture"}
     >
       <MaximizeIcon className="w-5 h-5" />

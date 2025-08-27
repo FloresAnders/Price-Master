@@ -89,12 +89,12 @@ export default function SecurityNotifications() {
             actions: [
               {
                 label: 'Revisar Logs',
-                action: () => {/* Abrir logs */},
+                action: () => {/* Abrir logs */ },
                 type: 'secondary'
               },
               {
                 label: 'Cambiar Contraseña',
-                action: () => {/* Abrir cambio de contraseña */},
+                action: () => {/* Abrir cambio de contraseña */ },
                 type: 'primary'
               }
             ],
@@ -116,7 +116,7 @@ export default function SecurityNotifications() {
           actions: [
             {
               label: 'Extender Sesión',
-              action: () => {/* Extender sesión */},
+              action: () => {/* Extender sesión */ },
               type: 'primary'
             }
           ]
@@ -165,7 +165,7 @@ export default function SecurityNotifications() {
   };
 
   // Filtrar notificaciones según el rol del usuario
-  const visibleNotifications = notifications.filter(notification => 
+  const visibleNotifications = notifications.filter(notification =>
     !notification.requiresSuperAdmin || isSuperAdmin()
   );
 
@@ -190,11 +190,10 @@ export default function SecurityNotifications() {
                   <button
                     key={index}
                     onClick={action.action}
-                    className={`px-3 py-1 text-xs rounded font-medium transition-colors ${
-                      action.type === 'primary' ? 'bg-blue-600 text-white hover:bg-blue-700' :
-                      action.type === 'danger' ? 'bg-red-600 text-white hover:bg-red-700' :
-                      'bg-gray-200 text-gray-800 hover:bg-gray-300'
-                    }`}
+                    className={`px-3 py-1 text-xs rounded font-medium transition-colors ${action.type === 'primary' ? 'bg-blue-600 text-white hover:bg-blue-700' :
+                        action.type === 'danger' ? 'bg-red-600 text-white hover:bg-red-700' :
+                          'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                      }`}
                   >
                     {action.label}
                   </button>
@@ -245,7 +244,7 @@ export default function SecurityNotifications() {
               </button>
             </div>
           </div>
-          
+
           <div className="max-h-80 overflow-y-auto">
             {visibleNotifications.length === 0 ? (
               <div className="p-6 text-center text-gray-500">
@@ -274,11 +273,10 @@ export default function SecurityNotifications() {
                               <button
                                 key={index}
                                 onClick={action.action}
-                                className={`px-2 py-1 text-xs rounded transition-colors ${
-                                  action.type === 'primary' ? 'bg-blue-100 text-blue-800 hover:bg-blue-200' :
-                                  action.type === 'danger' ? 'bg-red-100 text-red-800 hover:bg-red-200' :
-                                  'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                                }`}
+                                className={`px-2 py-1 text-xs rounded transition-colors ${action.type === 'primary' ? 'bg-blue-100 text-blue-800 hover:bg-blue-200' :
+                                    action.type === 'danger' ? 'bg-red-100 text-red-800 hover:bg-red-200' :
+                                      'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                                  }`}
                               >
                                 {action.label}
                               </button>

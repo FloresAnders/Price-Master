@@ -61,13 +61,13 @@ export default function PayrollRecordsViewer({ selectedLocation = 'all' }: Payro
       setLoading(true);
       try {
         let recordsData: PayrollRecord[];
-        
+
         if (selectedLocation === 'all') {
           recordsData = await PayrollRecordsService.getAllRecords();
         } else {
           recordsData = await PayrollRecordsService.getRecordsByLocation(selectedLocation);
         }
-        
+
         setRecords(recordsData);
       } catch (error) {
         console.error('Error loading payroll records:', error);
@@ -92,7 +92,7 @@ export default function PayrollRecordsViewer({ selectedLocation = 'all' }: Payro
   ) => {
     const monthName = getMonthName(month);
     const periodLabel = period === 'first' ? 'Primera Quincena' : 'Segunda Quincena';
-    
+
     setConfirmModal({
       open: true,
       periodToDelete: {
@@ -115,7 +115,7 @@ export default function PayrollRecordsViewer({ selectedLocation = 'all' }: Payro
 
     try {
       const { locationValue, employeeName, year, month, period } = confirmModal.periodToDelete;
-      
+
       await PayrollRecordsService.deletePeriodFromRecord(
         locationValue,
         employeeName,
@@ -202,9 +202,8 @@ export default function PayrollRecordsViewer({ selectedLocation = 'all' }: Payro
     <div className="max-w-full mx-auto bg-[var(--card-bg)] rounded-lg shadow p-6">
       {/* Notification */}
       {notification && (
-        <div className={`fixed top-6 right-6 z-50 px-6 py-3 rounded-xl shadow-2xl flex items-center gap-2 font-semibold animate-fade-in-down ${
-          notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'
-        } text-white`}>
+        <div className={`fixed top-6 right-6 z-50 px-6 py-3 rounded-xl shadow-2xl flex items-center gap-2 font-semibold animate-fade-in-down ${notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'
+          } text-white`}>
           <Eye className="w-5 h-5" />
           {notification.message}
         </div>
@@ -238,7 +237,7 @@ export default function PayrollRecordsViewer({ selectedLocation = 'all' }: Payro
                     {getLocationName(record.locationValue)}
                   </p>
                 </div>
-                
+
                 {/* Indicador de días totales del empleado */}
                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg px-3 py-2 text-center">
                   <div className="text-xl font-bold text-blue-600 dark:text-blue-400">
@@ -335,8 +334,8 @@ export default function PayrollRecordsViewer({ selectedLocation = 'all' }: Payro
       <ConfirmModal
         open={confirmModal.open}
         title="Eliminar Quincena"
-        message={confirmModal.periodToDelete ? 
-          `¿Estás seguro de que quieres eliminar la ${confirmModal.periodToDelete.periodLabel} de ${confirmModal.periodToDelete.employeeName}?` : 
+        message={confirmModal.periodToDelete ?
+          `¿Estás seguro de que quieres eliminar la ${confirmModal.periodToDelete.periodLabel} de ${confirmModal.periodToDelete.employeeName}?` :
           ''
         }
         confirmText="Eliminar"

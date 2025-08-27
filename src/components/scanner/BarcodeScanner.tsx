@@ -6,7 +6,7 @@ import {
   Check as CheckIcon,
   Copy as CopyIcon,
   Trash as TrashIcon,
-  AlertCircle as AlertIcon, 
+  AlertCircle as AlertIcon,
   ScanBarcode,
   Lock as LockIcon,
   ArrowLeft as ArrowLeftIcon,
@@ -162,22 +162,20 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
         {/* Tabs Navigation */}
         <div className="flex bg-[var(--muted)] rounded-lg p-1 mb-6">
           <button
-            className={`flex-1 px-4 py-2 rounded-md font-medium transition-all duration-200 flex items-center justify-center gap-2 ${
-              activeTab === 'image'
+            className={`flex-1 px-4 py-2 rounded-md font-medium transition-all duration-200 flex items-center justify-center gap-2 ${activeTab === 'image'
                 ? 'bg-[var(--card-bg)] text-[var(--tab-text-active)] shadow-sm border border-[var(--input-border)]'
                 : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)]'
-            }`}
+              }`}
             onClick={() => setActiveTab('image')}
           >
             <Folder className="w-4 h-4" />
             Imagen / Pegar
           </button>
           <button
-            className={`flex-1 px-4 py-2 rounded-md font-medium transition-all duration-200 flex items-center justify-center gap-2 ${
-              activeTab === 'camera'
+            className={`flex-1 px-4 py-2 rounded-md font-medium transition-all duration-200 flex items-center justify-center gap-2 ${activeTab === 'camera'
                 ? 'bg-[var(--card-bg)] text-[var(--tab-text-active)] shadow-sm border border-[var(--input-border)]'
                 : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)]'
-            }`}
+              }`}
             onClick={() => setActiveTab('camera')}
           >
             <Camera className="w-4 h-4" />
@@ -208,9 +206,9 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
             {/* Resultado del escaneo */}
             <AnimatePresence>
               {(code || error) && (
-                <motion.div 
-                  key="result" 
-                  {...slideUp} 
+                <motion.div
+                  key="result"
+                  {...slideUp}
                   transition={{ duration: 0.4, type: "spring", bounce: 0.2 }}
                   className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl p-6 shadow-sm"
                 >
@@ -225,7 +223,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                       </div>
                     </div>
                   )}
-                  
+
                   {code && !error && (
                     <div className="space-y-4">
                       <div className="text-center">
@@ -233,7 +231,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                           <ScanBarcode className="w-6 h-6 text-white" />
                         </div>
                         <h3 className="text-lg font-semibold text-[var(--foreground)] mb-3">¡Código Detectado!</h3>
-                        
+
                         {/* Código detectado */}
                         <div className="bg-[var(--muted)] border border-[var(--input-border)] rounded-lg p-4 mb-4">
                           <div className="font-mono text-2xl font-bold text-[var(--foreground)] break-all">
@@ -251,9 +249,9 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                         {/* Imagen escaneada preview */}
                         {imagePreview && (
                           <div className="mb-4">
-                            <Image 
-                              src={imagePreview} 
-                              alt="Imagen escaneada" 
+                            <Image
+                              src={imagePreview}
+                              alt="Imagen escaneada"
                               width={300}
                               height={200}
                               className="max-w-sm mx-auto rounded-lg border border-[var(--input-border)] shadow-sm object-contain"
@@ -262,7 +260,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                           </div>
                         )}
                       </div>
-                      
+
                       {/* Botones de acción */}
                       <div className="flex justify-center gap-3">
                         <button
@@ -273,17 +271,17 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                           Copiar
                         </button>
                         {code && code.length > 1 && code[0] === '0' && (
-                            <button
+                          <button
                             onClick={() => {
                               const newCode = code.slice(1);
                               setCode(newCode);
                               onRemoveLeadingZero?.(newCode);
                             }}
                             className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
-                            >
+                          >
                             <ArrowLeftIcon className="w-4 h-4" />
                             Quitar &quot;0&quot;
-                            </button>
+                          </button>
                         )}
                       </div>
                     </div>
@@ -295,10 +293,10 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
             {/* Botón Limpiar Todo */}
             <AnimatePresence>
               {(code || error || imagePreview) && (
-                <motion.div 
-                  key="clear" 
-                  {...slideUp} 
-                  transition={{ duration: 0.4 }} 
+                <motion.div
+                  key="clear"
+                  {...slideUp}
+                  transition={{ duration: 0.4 }}
                   className="flex justify-center"
                 >
                   <button
@@ -334,7 +332,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
               <h3 className="text-lg font-semibold text-[var(--foreground)] mb-2">Escáner con Cámara</h3>
               <p className="text-[var(--muted-foreground)] text-sm">Utiliza la cámara de tu dispositivo para escanear códigos</p>
             </div>
-            
+
             <CameraScanner
               code={code}
               error={error}

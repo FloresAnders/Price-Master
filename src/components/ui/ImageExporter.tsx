@@ -113,36 +113,37 @@ export const useLocationImageExport = (
   onExportComplete?: (message: string) => void
 ) => {
   const exportAllEmployees = async () => {
-    try {      if (employees.length === 0) {
+    try {
+      if (employees.length === 0) {
         // Si no hay empleados, exportar solo la ubicación
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        
+
         if (!ctx) return;
-        
+
         // Configurar tamaño del canvas
         canvas.width = 800;
         canvas.height = 600;
-        
+
         // Fondo blanco
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
+
         // Configurar texto
         ctx.fillStyle = '#333333';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        
+
         // Título principal
         ctx.font = 'bold 48px Arial';
         ctx.fillText('Próximamente', canvas.width / 2, canvas.height / 2 - 50);
-        
+
         // Información adicional
         ctx.font = '24px Arial';
         ctx.fillStyle = '#666666';
         ctx.fillText(`Ubicación: ${locationName}`, canvas.width / 2, canvas.height / 2 + 20);
         ctx.fillText(`Período: ${periodLabel}`, canvas.width / 2, canvas.height / 2 + 50);
-        
+
         // Descargar imagen
         canvas.toBlob((blob) => {
           if (blob) {
@@ -154,13 +155,13 @@ export const useLocationImageExport = (
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-            
+
             if (onExportComplete) {
               onExportComplete('Imagen exportada exitosamente');
             }
           }
         }, 'image/png');
-        
+
         return;
       }
 

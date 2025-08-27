@@ -76,9 +76,9 @@ interface PayrollExporterProps {
   onPeriodChange?: (period: BiweeklyPeriod) => void;
 }
 
-export default function PayrollExporter({ 
-  currentPeriod, 
-  selectedLocation = 'all', 
+export default function PayrollExporter({
+  currentPeriod,
+  selectedLocation = 'all',
   onLocationChange,
   availablePeriods = [],
   onPeriodChange
@@ -86,7 +86,7 @@ export default function PayrollExporter({
   const [locations, setLocations] = useState<Location[]>([]);
   const [payrollData, setPayrollData] = useState<LocationPayrollData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);  const [editableDeductions, setEditableDeductions] = useState<EditableDeductions>({});
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null); const [editableDeductions, setEditableDeductions] = useState<EditableDeductions>({});
   const [tempInputValues, setTempInputValues] = useState<{ [key: string]: string }>({});
   const [debounceTimers, setDebounceTimers] = useState<{ [key: string]: NodeJS.Timeout }>({});
 
@@ -124,7 +124,7 @@ export default function PayrollExporter({
     // Crear nuevo timer para debounce
     const newTimer = setTimeout(() => {
       const numericValue = parseFloat(inputValue) || 0;
-      
+
       setEditableDeductions(prev => ({
         ...prev,
         [employeeKey]: {
@@ -170,20 +170,20 @@ export default function PayrollExporter({
   const getTempInputValue = useCallback((locationValue: string, employeeName: string, type: 'compras' | 'adelanto' | 'otros' | 'extraAmount'): string => {
     const employeeKey = getEmployeeKey(locationValue, employeeName);
     const inputKey = `${employeeKey}-${type}`;
-    
+
     // Si hay un valor temporal, usarlo
     if (tempInputValues[inputKey] !== undefined) {
       return tempInputValues[inputKey];
     }
-    
+
     // Sino, usar el valor guardado directamente del estado
     const defaults = { compras: 0, adelanto: 0, otros: 0, extraAmount: 0 };
     const existing = editableDeductions[employeeKey];
-    
+
     if (!existing) {
       return '';
     }
-    
+
     const value = existing[type] ?? defaults[type];
     return value > 0 ? value.toString() : '';
   }, [tempInputValues, editableDeductions]);
@@ -213,10 +213,10 @@ export default function PayrollExporter({
     const regularTotal = regularSalary * totalHours;
     const overtimeTotal = overtimeSalary * overtimeHours;    // Obtener deducciones editables para usar el valor de "Otros" ingresos
     const deductions = getEmployeeDeductions(locationValue, employeeName);
-    
+
     // Usar el monto extra editable en lugar del valor fijo del empleado
     const editableExtraAmount = deductions.extraAmount > 0 ? deductions.extraAmount : extraAmount;
-    
+
     // Total de ingresos: suma de todos los T/S + monto extra editable
     const totalIncome = regularTotal + overtimeTotal + editableExtraAmount;
 
@@ -227,7 +227,7 @@ export default function PayrollExporter({
     const otrosDeduction = deductions.otros;
 
     const totalDeductions = ccssDeduction + comprasDeduction + adelantoDeduction + otrosDeduction;
-    const netSalary = totalIncome - totalDeductions;    return {
+    const netSalary = totalIncome - totalDeductions; return {
       employeeName,
       ccssType,
       days,
@@ -331,7 +331,7 @@ export default function PayrollExporter({
               if (schedule.shift && schedule.shift.trim() !== '') {
                 days[schedule.day] = schedule.shift;
               }
-            });            if (Object.keys(days).length > 0) {
+            }); if (Object.keys(days).length > 0) {
               // Buscar el empleado para obtener tipo de CCSS y monto extra
               const employee = location.employees?.find(emp => emp.name === employeeName);
               const ccssType = employee?.ccssType || 'TC'; // Por defecto TC
@@ -359,7 +359,7 @@ export default function PayrollExporter({
       } finally {
         setLoading(false);
       }
-    };    if (currentPeriod && locations.length > 0) {
+    }; if (currentPeriod && locations.length > 0) {
       loadPayrollData();
     }
   }, [currentPeriod, selectedLocation, locations, calculatePayrollData]);
@@ -428,17 +428,17 @@ export default function PayrollExporter({
       // Fondo de celda
       ctx.fillStyle = bgColor;
       ctx.fillRect(x, y, width, height);
-      
+
       // Borde
       ctx.strokeStyle = '#6b7280';
       ctx.lineWidth = 1;
       ctx.strokeRect(x, y, width, height);
-      
+
       // Texto
       ctx.fillStyle = textColor;
       ctx.font = bold ? `bold ${fontSize}px Arial` : `${fontSize}px Arial`;
       ctx.textAlign = 'center';
-      
+
       // Centrar texto en la celda
       const textX = x + width / 2;
       const textY = y + height / 2 + fontSize / 3;
@@ -447,7 +447,7 @@ export default function PayrollExporter({
 
     // Encabezado principal (igual que en la tabla HTML)
     let currentX = margin;
-    
+
     // Primera fila de encabezados
     drawCell(currentX, y, colWidths[0], cellHeight, employee.employeeName, '#f3f4f6', '#000000', true, 16);
     currentX += colWidths[0];
@@ -648,11 +648,11 @@ export default function PayrollExporter({
       showNotification('No hay período seleccionado', 'error');
       return;
     }
-    
+
     const periodDates = `${currentPeriod.start.getDate()}-${currentPeriod.end.getDate()}`;
-    
+
     showNotification(`📊 Generando imagen de ${employee.employeeName}...`, 'success');
-    
+
     try {
       await generateEmployeeImage(employee, locationName, periodDates);
       showNotification(`✅ Imagen de ${employee.employeeName} descargada exitosamente`, 'success');
@@ -671,7 +671,7 @@ export default function PayrollExporter({
 
     try {
       showNotification(`💾 Guardando registro de ${employee.employeeName}...`, 'success');
-      
+
       await PayrollRecordsService.saveRecord(
         locationValue,
         employee.employeeName,
@@ -717,7 +717,7 @@ export default function PayrollExporter({
           await generateEmployeeImage(employee, locationData.location.value, periodDates);
           successCount++;
           processedEmployees++;
-          
+
           // Actualizar notificación de progreso
           showNotification(`📊 Procesando... ${processedEmployees}/${totalEmployees} (${successCount} exitosas)`, 'success');
         } catch (error) {
@@ -863,7 +863,7 @@ export default function PayrollExporter({
               <div className="text-center py-8 text-[var(--tab-text)]">
                 <Calculator className="w-8 h-8 mx-auto mb-2 opacity-50" />
                 <p>No hay datos de planilla para este período</p>
-              </div>              ) : (<div className="space-y-6">                {locationData.employees.map((employee, empIndex) => {
+              </div>) : (<div className="space-y-6">                {locationData.employees.map((employee, empIndex) => {
                 // Usar los valores precalculados
                 const {
                   regularTotal,
@@ -1136,16 +1136,16 @@ export default function PayrollExporter({
                   </div>
                 );
               })}
-            </div>
+              </div>
             )}
           </div>
         ))}
       </div>
       {/* Canvas oculto para exportación */}
-      <canvas 
-        ref={canvasRef} 
-        width={900} 
-        height={540} 
+      <canvas
+        ref={canvasRef}
+        width={900}
+        height={540}
         style={{ display: 'none' }}
       />
     </div>

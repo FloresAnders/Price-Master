@@ -695,7 +695,7 @@ export default function TimingControl() {
                                 <div className="text-center" style={{ color: 'var(--foreground)' }}>No hay sorteos con monto asignado.</div>
                             ) : (
                                 <div className="space-y-2 mb-4">
-                                        {Object.entries(resumenSorteos).map(([sorteo, total]) => (
+                                    {Object.entries(resumenSorteos).map(([sorteo, total]) => (
                                         <div key={sorteo} className="flex justify-between items-center py-2" style={{ borderBottom: '1px solid var(--input-border)' }}>
                                             <span className="font-medium truncate" style={{ color: 'var(--foreground)' }}>{sorteo}</span>
                                             <span className="font-mono ml-4" style={{ color: 'var(--foreground)' }}>₡ {total.toLocaleString('es-CR')}</span>

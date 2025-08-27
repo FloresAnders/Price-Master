@@ -27,7 +27,7 @@ export class ClientBackupService {
     try {
       // Get current CCSS configuration
       const ccssConfig = await CcssConfigService.getCcssConfig();
-      
+
       const now = new Date();
       const backup: BackupData = {
         timestamp: now.toISOString(),
@@ -107,7 +107,7 @@ export class ClientBackupService {
     const jsonString = JSON.stringify(backupData, null, 2);
     const blob = new Blob([jsonString], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    
+
     const a = document.createElement('a');
     a.href = url;
     a.download = filename || `backup-ccss-${new Date().toISOString().split('T')[0]}.json`;

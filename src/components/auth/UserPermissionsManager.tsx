@@ -101,12 +101,12 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
         ...prev,
         [permission]: value
       };
-      
+
       // If scanhistory is being disabled, clear the locations
       if (permission === 'scanhistory' && !value) {
         updated.scanhistoryLocations = [];
       }
-      
+
       return updated;
     });
   };
@@ -117,7 +117,7 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
       const newLocations = isSelected
         ? [...currentLocations, locationValue]
         : currentLocations.filter(loc => loc !== locationValue);
-      
+
       return {
         ...prev,
         scanhistoryLocations: newLocations
@@ -132,11 +132,11 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
     try {
       await UsersService.updateUserPermissions(selectedUser.id, permissions);
       setMessage({ type: 'success', text: 'Permisos actualizados correctamente' });
-      
+
       // Update local state
-      setUsers(prev => prev.map(u => 
-        u.id === selectedUser.id 
-          ? { ...u, permissions } 
+      setUsers(prev => prev.map(u =>
+        u.id === selectedUser.id
+          ? { ...u, permissions }
           : u
       ));
     } catch (error) {
@@ -168,9 +168,9 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
     setLoading(true);
     try {
       const result = await UsersService.migrateUsersPermissions();
-      setMessage({ 
-        type: 'success', 
-        text: `Migración completada: ${result.updated} usuarios actualizados, ${result.skipped} omitidos` 
+      setMessage({
+        type: 'success',
+        text: `Migración completada: ${result.updated} usuarios actualizados, ${result.skipped} omitidos`
       });
       await loadUsers(); // Reload users to see changes
     } catch (error) {
@@ -185,9 +185,9 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
     setLoading(true);
     try {
       const result = await UsersService.ensureAllPermissions();
-      setMessage({ 
-        type: 'success', 
-        text: `Permisos actualizados: ${result.updated} usuarios actualizados, ${result.skipped} ya estaban al día` 
+      setMessage({
+        type: 'success',
+        text: `Permisos actualizados: ${result.updated} usuarios actualizados, ${result.skipped} ya estaban al día`
       });
       await loadUsers(); // Reload users to see changes
     } catch (error) {
@@ -225,11 +225,10 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
       </div>
 
       {message && (
-        <div className={`p-3 rounded mb-4 ${
-          message.type === 'success' 
-            ? 'bg-green-100 text-green-700 border border-green-300' 
+        <div className={`p-3 rounded mb-4 ${message.type === 'success'
+            ? 'bg-green-100 text-green-700 border border-green-300'
             : 'bg-red-100 text-red-700 border border-red-300'
-        }`}>
+          }`}>
           {message.text}
         </div>
       )}
@@ -313,8 +312,8 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
                   }
                   {Object.values(selectedUser.permissions || getDefaultPermissions(selectedUser.role))
                     .filter(Boolean).length === 0 && (
-                    <span className="text-xs text-gray-500 italic">Sin permisos activos</span>
-                  )}
+                      <span className="text-xs text-gray-500 italic">Sin permisos activos</span>
+                    )}
                 </div>
               </div>
             </div>
@@ -325,10 +324,10 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
             <div className="flex justify-between items-center mb-3">
               <h3 className="font-semibold">Acciones Rápidas</h3>
               <div className="text-sm text-gray-600">
-                Rol: <strong>{selectedUser.role}</strong> 
+                Rol: <strong>{selectedUser.role}</strong>
                 <span className="ml-2 text-xs bg-gray-100 px-2 py-1 rounded">
-                  {selectedUser.role === 'superadmin' ? 'Acceso total' : 
-                   selectedUser.role === 'admin' ? 'Acceso amplio' : 'Acceso básico'}
+                  {selectedUser.role === 'superadmin' ? 'Acceso total' :
+                    selectedUser.role === 'admin' ? 'Acceso amplio' : 'Acceso básico'}
                 </span>
               </div>
             </div>
@@ -399,7 +398,7 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
             <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded">
               <h3 className="font-semibold mb-4">Locaciones para Historial de Escaneos</h3>
               <p className="text-sm text-gray-600 mb-4">
-                Selecciona las locaciones específicas a las que este usuario tendrá acceso en el historial de escaneos. 
+                Selecciona las locaciones específicas a las que este usuario tendrá acceso en el historial de escaneos.
                 Si no se selecciona ninguna, tendrá acceso a todas las locaciones.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">

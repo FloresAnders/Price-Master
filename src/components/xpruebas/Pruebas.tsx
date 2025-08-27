@@ -1,4 +1,4 @@
-    'use client';
+'use client';
 
 import React, { useState, useRef } from 'react';
 import { TestTube, Beaker, FlaskConical, Zap, Code, Database, Upload, Image, CheckCircle, AlertCircle, Calendar, Mail } from 'lucide-react';
@@ -15,13 +15,13 @@ export default function Pruebas() {
     const [uploadedImageUrl, setUploadedImageUrl] = useState<string>('');
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    
+
     // Hook para funcionalidad de correo
     const { sendEmail, checkEmailConfig, error: emailError } = useEmail();
 
     const handleRunTest = (testId: string, testName: string) => {
         setActiveTest(testId);
-        
+
         // Simular una prueba
         setTimeout(() => {
             const results = [
@@ -31,7 +31,7 @@ export default function Pruebas() {
                 '🔄 Test en progreso...',
                 '📊 Datos de prueba generados'
             ];
-            
+
             const randomResult = results[Math.floor(Math.random() * results.length)];
             setTestResults(prev => ({
                 ...prev,
@@ -111,12 +111,12 @@ export default function Pruebas() {
             const uploadTask = uploadBytesResumable(storageRef, selectedFile);
 
             // Monitorear el progreso de subida
-            uploadTask.on('state_changed', 
+            uploadTask.on('state_changed',
                 (snapshot) => {
                     // Calcular progreso
                     const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
                     setUploadProgress(progress);
-                    
+
                     // Log del progreso
                     setTestResults(prev => ({
                         ...prev,
@@ -127,7 +127,7 @@ export default function Pruebas() {
                     // Manejar errores específicos de Firebase
                     setUploadStatus('error');
                     let errorMessage = 'Error desconocido';
-                    
+
                     switch (error.code) {
                         case 'storage/unauthorized':
                             errorMessage = 'Sin permisos para subir archivos. Verifica la configuración de Firebase Storage.';
@@ -162,7 +162,7 @@ export default function Pruebas() {
                         default:
                             errorMessage = `Error de Firebase: ${error.message}`;
                     }
-                    
+
                     setTestResults(prev => ({
                         ...prev,
                         'firebase-upload': `❌ Error al subir imagen: ${errorMessage}`,
@@ -174,7 +174,7 @@ export default function Pruebas() {
                     // Subida completada exitosamente
                     try {
                         const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                        
+
                         setUploadedImageUrl(downloadURL);
                         setUploadStatus('success');
                         setTestResults(prev => ({
@@ -212,7 +212,7 @@ export default function Pruebas() {
 
     const testFirebaseConnection = async () => {
         setActiveTest('firebase-connection-test');
-        
+
         try {
             // Test 1: Verificar variables de entorno
             const envVars = {
@@ -224,10 +224,10 @@ export default function Pruebas() {
             };
 
             const missingVars = Object.entries(envVars).filter(([, value]) => !value);
-            
+
             setTestResults(prev => ({
                 ...prev,
-                'firebase-env': missingVars.length === 0 
+                'firebase-env': missingVars.length === 0
                     ? `✅ Todas las variables de entorno están configuradas`
                     : `❌ Variables faltantes: ${missingVars.map(([key]) => key).join(', ')}`,
                 'firebase-config': `🔧 Storage Bucket: ${envVars.storageBucket || 'NO CONFIGURADO'}`,
@@ -297,7 +297,7 @@ export default function Pruebas() {
 
     const testExportsFolder = async () => {
         setActiveTest('test-exports-folder');
-        
+
         try {
             setTestResults(prev => ({
                 ...prev,
@@ -307,7 +307,7 @@ export default function Pruebas() {
             // Crear referencia en la carpeta exports que ya tiene permisos
             const timestamp = Date.now();
             const testRef = ref(storage, `exports/test-${timestamp}.txt`);
-            
+
             // Crear datos de prueba
             const testData = new Blob([`Test de exports folder - ${new Date().toISOString()}`], { type: 'text/plain' });
             const uploadTask = uploadBytesResumable(testRef, testData);
@@ -359,7 +359,7 @@ export default function Pruebas() {
     // Función para eliminar horarios masivamente por ubicación y mes
     const deleteSchedulesByLocationAndMonth = async () => {
         setActiveTest('delete-schedules-filter');
-        
+
         try {
             setTestResults(prev => ({
                 ...prev,
@@ -370,11 +370,11 @@ export default function Pruebas() {
             // Importar servicios necesarios
             const { SchedulesService } = await import('@/services/schedules');
             const { LocationsService } = await import('@/services/locations');
-            
+
             // Obtener todos los schedules y locations
             const allSchedules = await SchedulesService.getAllSchedules();
             const allLocations = await LocationsService.getAllLocations();
-            
+
             setTestResults(prev => ({
                 ...prev,
                 'delete-data': `✅ Datos obtenidos: ${allSchedules.length} registros de horarios`,
@@ -388,7 +388,7 @@ export default function Pruebas() {
                 background: rgba(0,0,0,0.8); z-index: 10000; display: flex; 
                 align-items: center; justify-content: center;
             `;
-            
+
             deleteModal.innerHTML = `
                 <div style="background: white; padding: 24px; border-radius: 12px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto;">
                     <h3 style="margin: 0 0 20px 0; color: #dc2626; font-size: 20px; font-weight: bold;">
@@ -477,37 +477,37 @@ export default function Pruebas() {
                     </div>
                 </div>
             `;
-            
+
             document.body.appendChild(deleteModal);
-            
+
             // Event listeners
             document.getElementById('cancelDelete')?.addEventListener('click', () => {
                 document.body.removeChild(deleteModal);
                 setActiveTest(null);
             });
-            
+
             // Vista previa de registros a eliminar
             document.getElementById('previewDelete')?.addEventListener('click', () => {
                 const locationValue = (document.getElementById('locationSelect') as HTMLSelectElement).value;
                 const year = parseInt((document.getElementById('yearSelect') as HTMLSelectElement).value);
                 const month = parseInt((document.getElementById('monthSelect') as HTMLSelectElement).value);
-                
+
                 if (!locationValue || !year || !month) {
                     alert('Por favor selecciona ubicación, año y mes');
                     return;
                 }
-                
+
                 // Filtrar registros que coincidan con los criterios
-                const recordsToDelete = allSchedules.filter(schedule => 
+                const recordsToDelete = allSchedules.filter(schedule =>
                     schedule.locationValue === locationValue &&
                     schedule.year === year &&
                     schedule.month === month
                 );
-                
+
                 const previewSection = document.getElementById('previewSection');
                 const previewContent = document.getElementById('previewContent');
                 const executeButton = document.getElementById('executeDelete');
-                
+
                 if (recordsToDelete.length === 0) {
                     if (previewContent) {
                         previewContent.innerHTML = '<p style="color: #6b7280; margin: 0;">No se encontraron registros con los criterios seleccionados.</p>';
@@ -531,37 +531,37 @@ export default function Pruebas() {
                     }
                     if (executeButton) executeButton.style.display = 'inline-block';
                 }
-                
+
                 if (previewSection) previewSection.style.display = 'block';
             });
-            
+
             // Ejecutar eliminación
             document.getElementById('executeDelete')?.addEventListener('click', async () => {
                 const locationValue = (document.getElementById('locationSelect') as HTMLSelectElement).value;
                 const year = parseInt((document.getElementById('yearSelect') as HTMLSelectElement).value);
                 const month = parseInt((document.getElementById('monthSelect') as HTMLSelectElement).value);
-                
+
                 // Doble confirmación
                 const confirmed = confirm(`¿Estás ABSOLUTAMENTE SEGURO que quieres eliminar todos los horarios de ${locationValue} del mes ${month}/${year}?\n\nEsta acción NO se puede deshacer.`);
                 if (!confirmed) return;
-                
+
                 try {
                     // Obtener registros a eliminar
-                    const recordsToDelete = allSchedules.filter(schedule => 
+                    const recordsToDelete = allSchedules.filter(schedule =>
                         schedule.locationValue === locationValue &&
                         schedule.year === year &&
                         schedule.month === month
                     );
-                    
+
                     setTestResults(prev => ({
                         ...prev,
                         'delete-progress': `🔄 Eliminando ${recordsToDelete.length} registros...`
                     }));
-                    
+
                     // Eliminar uno por uno
                     let deletedCount = 0;
                     let errorCount = 0;
-                    
+
                     for (const record of recordsToDelete) {
                         try {
                             if (record.id) {
@@ -573,17 +573,17 @@ export default function Pruebas() {
                             errorCount++;
                         }
                     }
-                    
+
                     setTestResults(prev => ({
                         ...prev,
                         'delete-success': `✅ Eliminación completada: ${deletedCount} registros eliminados`,
                         'delete-errors': errorCount > 0 ? `⚠️ Errores: ${errorCount} registros no pudieron eliminarse` : '',
                         'delete-summary': `📊 Resumen: ${deletedCount}/${recordsToDelete.length} registros procesados exitosamente`
                     }));
-                    
+
                     document.body.removeChild(deleteModal);
                     setActiveTest(null);
-                    
+
                 } catch (error) {
                     setTestResults(prev => ({
                         ...prev,
@@ -591,7 +591,7 @@ export default function Pruebas() {
                     }));
                 }
             });
-            
+
         } catch (error) {
             setTestResults(prev => ({
                 ...prev,
@@ -604,7 +604,7 @@ export default function Pruebas() {
     // Función para exportar horarios/schedules con filtros
     const exportSchedulesWithFilters = async () => {
         setActiveTest('export-schedules-filters');
-        
+
         try {
             setTestResults(prev => ({
                 ...prev,
@@ -615,11 +615,11 @@ export default function Pruebas() {
             // Importar servicios necesarios
             const { SchedulesService } = await import('@/services/schedules');
             const { LocationsService } = await import('@/services/locations');
-            
+
             // Obtener todos los schedules y locations
             const allSchedules = await SchedulesService.getAllSchedules();
             const allLocations = await LocationsService.getAllLocations();
-            
+
             setTestResults(prev => ({
                 ...prev,
                 'export-data': `✅ Datos obtenidos: ${allSchedules.length} registros de horarios`,
@@ -633,7 +633,7 @@ export default function Pruebas() {
                 background: rgba(0,0,0,0.8); z-index: 10000; display: flex; 
                 align-items: center; justify-content: center;
             `;
-            
+
             exportModal.innerHTML = `
                 <div style="background: white; padding: 24px; border-radius: 12px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto;">
                     <h3 style="margin: 0 0 20px 0; color: #1f2937; font-size: 20px; font-weight: bold;">
@@ -691,65 +691,65 @@ export default function Pruebas() {
                     </div>
                 </div>
             `;
-            
+
             document.body.appendChild(exportModal);
-            
+
             // Configurar fecha por defecto (último mes)
             const today = new Date();
             const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
             const endOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
-            
+
             (document.getElementById('dateFrom') as HTMLInputElement).valueAsDate = lastMonth;
             (document.getElementById('dateTo') as HTMLInputElement).valueAsDate = endOfLastMonth;
-            
+
             // Event listeners
             document.getElementById('selectAllLocations')?.addEventListener('click', () => {
                 document.querySelectorAll('#locationFilters input[type="checkbox"]').forEach((cb) => (cb as HTMLInputElement).checked = true);
             });
-            
+
             document.getElementById('clearAllLocations')?.addEventListener('click', () => {
                 document.querySelectorAll('#locationFilters input[type="checkbox"]').forEach((cb) => (cb as HTMLInputElement).checked = false);
             });
-            
+
             document.getElementById('cancelExport')?.addEventListener('click', () => {
                 document.body.removeChild(exportModal);
                 setActiveTest(null);
             });
-            
+
             document.getElementById('executeExport')?.addEventListener('click', async () => {
                 const dateFrom = (document.getElementById('dateFrom') as HTMLInputElement).value;
                 const dateTo = (document.getElementById('dateTo') as HTMLInputElement).value;
                 const selectedLocations = Array.from(document.querySelectorAll('#locationFilters input[type="checkbox"]:checked'))
                     .map((cb) => (cb as HTMLInputElement).value);
-                
+
                 if (!dateFrom || !dateTo) {
                     alert('Por favor selecciona ambas fechas');
                     return;
                 }
-                
+
                 if (selectedLocations.length === 0) {
                     alert('Por favor selecciona al menos una ubicación');
                     return;
                 }
-                
+
                 // Filtrar datos
                 const fromDate = new Date(dateFrom);
                 const toDate = new Date(dateTo);
-                
+
                 const filteredSchedules = allSchedules.filter(schedule => {
                     const scheduleDate = new Date(schedule.year, schedule.month - 1, schedule.day);
-                    return scheduleDate >= fromDate && 
-                           scheduleDate <= toDate && 
-                           selectedLocations.includes(schedule.locationValue);
+                    return scheduleDate >= fromDate &&
+                        scheduleDate <= toDate &&
+                        selectedLocations.includes(schedule.locationValue);
                 });
-                
+
                 setTestResults(prev => ({
                     ...prev,
                     'export-filtering': `🔍 Filtros aplicados: ${filteredSchedules.length} registros de ${allSchedules.length} totales`,
                     'export-date-range': `📅 Rango: ${dateFrom} hasta ${dateTo}`,
                     'export-locations-selected': `📍 Ubicaciones: ${selectedLocations.join(', ')}`
                 }));
-                
+
                 // Crear estructura de exportación
                 const exportData = {
                     metadata: {
@@ -769,7 +769,7 @@ export default function Pruebas() {
                     })),
                     locations: allLocations.filter(loc => selectedLocations.includes(loc.value))
                 };
-                
+
                 // Generar archivo
                 const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
@@ -780,18 +780,18 @@ export default function Pruebas() {
                 a.click();
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
-                
+
                 setTestResults(prev => ({
                     ...prev,
                     'export-complete': `✅ Exportación completada exitosamente`,
                     'export-filename': `📁 Archivo: schedules_export_${dateFrom}_to_${dateTo}_${selectedLocations.length}loc.json`,
                     'export-records': `📊 ${filteredSchedules.length} registros exportados`
                 }));
-                
+
                 document.body.removeChild(exportModal);
                 setActiveTest(null);
             });
-            
+
         } catch (error) {
             setTestResults(prev => ({
                 ...prev,
@@ -804,7 +804,7 @@ export default function Pruebas() {
     // Función para importar horarios/schedules
     const importSchedulesFromFile = async () => {
         setActiveTest('import-schedules');
-        
+
         try {
             setTestResults(prev => ({
                 ...prev,
@@ -817,34 +817,34 @@ export default function Pruebas() {
             fileInput.type = 'file';
             fileInput.accept = '.json';
             fileInput.style.display = 'none';
-            
+
             fileInput.onchange = async (e) => {
                 const file = (e.target as HTMLInputElement).files?.[0];
                 if (!file) return;
-                
+
                 try {
                     setTestResults(prev => ({
                         ...prev,
                         'import-file': `📄 Archivo seleccionado: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`,
                         'import-reading': '🔍 Leyendo contenido del archivo...'
                     }));
-                    
+
                     const text = await file.text();
                     const importData = JSON.parse(text);
-                    
+
                     // Validar estructura
                     if (!importData.schedules || !Array.isArray(importData.schedules)) {
                         throw new Error('Archivo inválido: falta el array "schedules"');
                     }
-                    
+
                     setTestResults(prev => ({
                         ...prev,
                         'import-validation': `✅ Archivo válido: ${importData.schedules.length} registros encontrados`,
-                        'import-metadata': importData.metadata ? 
+                        'import-metadata': importData.metadata ?
                             `📋 Metadata: Exportado el ${new Date(importData.metadata.exportDate).toLocaleString()}` :
                             '⚠️ Sin metadata (archivo antiguo o externo)'
                     }));
-                    
+
                     // Crear modal de confirmación
                     const confirmModal = document.createElement('div');
                     confirmModal.style.cssText = `
@@ -852,10 +852,10 @@ export default function Pruebas() {
                         background: rgba(0,0,0,0.8); z-index: 10000; display: flex; 
                         align-items: center; justify-content: center;
                     `;
-                    
-                    const duplicateCheck = importData.schedules.length > 0 ? 
+
+                    const duplicateCheck = importData.schedules.length > 0 ?
                         await checkForDuplicates(importData.schedules) : { duplicates: 0, news: 0 };
-                    
+
                     confirmModal.innerHTML = `
                         <div style="background: white; padding: 24px; border-radius: 12px; max-width: 500px; width: 90%;">
                             <h3 style="margin: 0 0 20px 0; color: #1f2937; font-size: 20px; font-weight: bold;">
@@ -889,19 +889,19 @@ export default function Pruebas() {
                             </div>
                         </div>
                     `;
-                    
+
                     document.body.appendChild(confirmModal);
-                    
+
                     document.getElementById('cancelImport')?.addEventListener('click', () => {
                         document.body.removeChild(confirmModal);
                         setActiveTest(null);
                     });
-                    
+
                     document.getElementById('executeImport')?.addEventListener('click', async () => {
                         document.body.removeChild(confirmModal);
                         await performImport(importData.schedules);
                     });
-                    
+
                 } catch (error) {
                     setTestResults(prev => ({
                         ...prev,
@@ -910,11 +910,11 @@ export default function Pruebas() {
                     setActiveTest(null);
                 }
             };
-            
+
             document.body.appendChild(fileInput);
             fileInput.click();
             document.body.removeChild(fileInput);
-            
+
         } catch (error) {
             setTestResults(prev => ({
                 ...prev,
@@ -937,26 +937,26 @@ export default function Pruebas() {
         try {
             const { SchedulesService } = await import('@/services/schedules');
             const existingSchedules = await SchedulesService.getAllSchedules();
-            
+
             let duplicates = 0;
             let news = 0;
-            
+
             schedulesToImport.forEach(newSchedule => {
-                const isDuplicate = existingSchedules.some(existing => 
+                const isDuplicate = existingSchedules.some(existing =>
                     existing.locationValue === newSchedule.locationValue &&
                     existing.employeeName === newSchedule.employeeName &&
                     existing.year === newSchedule.year &&
                     existing.month === newSchedule.month &&
                     existing.day === newSchedule.day
                 );
-                
+
                 if (isDuplicate) {
                     duplicates++;
                 } else {
                     news++;
                 }
             });
-            
+
             return { duplicates, news };
         } catch {
             // Error is intentionally ignored - fallback to treating all as new
@@ -976,16 +976,16 @@ export default function Pruebas() {
     }>) => {
         try {
             const { SchedulesService } = await import('@/services/schedules');
-            
+
             setTestResults(prev => ({
                 ...prev,
                 'import-executing': `🔄 Importando ${schedules.length} registros...`,
                 'import-progress': '📊 Progreso: 0%'
             }));
-            
+
             let imported = 0;
             let errors = 0;
-            
+
             for (const schedule of schedules) {
                 try {
                     // Limpiar datos innecesarios de exportación
@@ -998,10 +998,10 @@ export default function Pruebas() {
                         shift: schedule.shift || '', // Ensure shift is always a string
                         ...(schedule.horasPorDia && { horasPorDia: schedule.horasPorDia })
                     };
-                    
+
                     await SchedulesService.addSchedule(cleanSchedule);
                     imported++;
-                    
+
                     // Actualizar progreso cada 10 registros
                     if (imported % 10 === 0 || imported === schedules.length) {
                         const progress = Math.round((imported / schedules.length) * 100);
@@ -1010,13 +1010,13 @@ export default function Pruebas() {
                             'import-progress': `📊 Progreso: ${progress}% (${imported}/${schedules.length})`
                         }));
                     }
-                    
+
                 } catch (error) {
                     errors++;
                     console.error(`Error importing schedule:`, schedule, error);
                 }
             }
-            
+
             setTestResults(prev => ({
                 ...prev,
                 'import-complete': `✅ Importación completada`,
@@ -1024,9 +1024,9 @@ export default function Pruebas() {
                 'import-errors': errors > 0 ? `❌ Errores: ${errors}` : '✅ Sin errores',
                 'import-summary': `🎉 Proceso finalizado: ${imported} exitosos de ${schedules.length} totales`
             }));
-            
+
             setActiveTest(null);
-            
+
         } catch (error) {
             setTestResults(prev => ({
                 ...prev,
@@ -1039,7 +1039,7 @@ export default function Pruebas() {
     // Funciones de correo electrónico
     const testEmailConfiguration = async () => {
         setActiveTest('email-config-test');
-        
+
         try {
             setTestResults(prev => ({
                 ...prev,
@@ -1047,7 +1047,7 @@ export default function Pruebas() {
             }));
 
             const config = await checkEmailConfig();
-            
+
             if (config) {
                 if (config.configured) {
                     setTestResults(prev => ({
@@ -1064,27 +1064,27 @@ export default function Pruebas() {
                     }));
                 }
             }
-            
+
             if (emailError) {
                 setTestResults(prev => ({
                     ...prev,
                     'email-config-error': `❌ Error: ${emailError}`
                 }));
             }
-            
+
         } catch (error) {
             setTestResults(prev => ({
                 ...prev,
                 'email-config-error': `❌ Error inesperado: ${error instanceof Error ? error.message : 'Error desconocido'}`
             }));
         }
-        
+
         setActiveTest(null);
     };
 
     const sendCustomEmail = async () => {
         setActiveTest('send-custom-email');
-        
+
         try {
             // Crear modal para correo personalizado
             const customEmailModal = document.createElement('div');
@@ -1093,7 +1093,7 @@ export default function Pruebas() {
                 background: rgba(0,0,0,0.8); z-index: 10000; display: flex; 
                 align-items: center; justify-content: center;
             `;
-            
+
             customEmailModal.innerHTML = `
                 <div style="background: white; padding: 24px; border-radius: 12px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto;">
                     <h3 style="margin: 0 0 20px 0; color: #7c3aed; font-size: 20px; font-weight: bold;">
@@ -1164,48 +1164,48 @@ export default function Pruebas() {
                     </div>
                 </div>
             `;
-            
+
             document.body.appendChild(customEmailModal);
-            
+
             const emailToInput = document.getElementById('customEmailTo') as HTMLInputElement;
             const emailSubjectInput = document.getElementById('customEmailSubject') as HTMLInputElement;
             const emailMessageInput = document.getElementById('customEmailMessage') as HTMLTextAreaElement;
             const sendBtn = document.getElementById('sendCustomEmailBtn');
             const cancelBtn = document.getElementById('cancelCustomEmailBtn');
-            
+
             emailToInput.focus();
-            
+
             const handleSend = async () => {
                 const to = emailToInput.value.trim();
                 const subject = emailSubjectInput.value.trim();
                 const message = emailMessageInput.value.trim();
-                
+
                 if (!to || !subject || !message) {
                     alert('Por favor completa todos los campos');
                     return;
                 }
-                
+
                 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                 if (!emailRegex.test(to)) {
                     alert('Por favor ingresa un formato de email válido');
                     return;
                 }
-                
+
                 document.body.removeChild(customEmailModal);
-                
+
                 setTestResults(prev => ({
                     ...prev,
                     'custom-email-start': `📧 Enviando correo personalizado a: ${to}...`,
                     'custom-email-subject': `📋 Asunto: ${subject}`
                 }));
-                
+
                 try {
                     const result = await sendEmail({
                         to,
                         subject,
                         text: message
                     });
-                    
+
                     if (result && result.success) {
                         setTestResults(prev => ({
                             ...prev,
@@ -1220,25 +1220,25 @@ export default function Pruebas() {
                             'custom-email-error': '❌ Error al enviar el correo personalizado'
                         }));
                     }
-                    
+
                 } catch (error) {
                     setTestResults(prev => ({
                         ...prev,
                         'custom-email-error': `❌ Error: ${error instanceof Error ? error.message : 'Error desconocido'}`
                     }));
                 }
-                
+
                 setActiveTest(null);
             };
-            
+
             const handleCancel = () => {
                 document.body.removeChild(customEmailModal);
                 setActiveTest(null);
             };
-            
+
             sendBtn?.addEventListener('click', handleSend);
             cancelBtn?.addEventListener('click', handleCancel);
-            
+
         } catch (error) {
             setTestResults(prev => ({
                 ...prev,
@@ -1410,11 +1410,10 @@ export default function Pruebas() {
                                             }
                                         }}
                                         disabled={activeTest === test.id}
-                                        className={`w-full text-left px-4 py-3 rounded-lg border transition-all duration-200 ${
-                                            activeTest === test.id
+                                        className={`w-full text-left px-4 py-3 rounded-lg border transition-all duration-200 ${activeTest === test.id
                                                 ? `${colors.bg} ${colors.border} cursor-not-allowed`
                                                 : `bg-[var(--background)] border-[var(--border)] hover:${colors.hover} hover:${colors.border}`
-                                        }`}
+                                            }`}
                                     >
                                         <div className="flex items-center justify-between">
                                             <span className="text-sm font-medium text-[var(--foreground)]">
@@ -1447,7 +1446,7 @@ export default function Pruebas() {
                     <Image className="w-5 h-5 mr-2 text-purple-600" />
                     Subir Imagen a Firebase Storage (/exports/images/)
                 </h3>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* File Selection */}
                     <div>
@@ -1478,7 +1477,7 @@ export default function Pruebas() {
                                 </div>
                             </label>
                         </div>
-                        
+
                         {selectedFile && (
                             <div className="mt-3 p-3 bg-[var(--background)] rounded-lg border border-[var(--border)]">
                                 <div className="flex items-center justify-between">
@@ -1499,16 +1498,15 @@ export default function Pruebas() {
                         <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
                             Controles de Subida
                         </label>
-                        
+
                         <div className="space-y-3">
                             <button
                                 onClick={uploadImageToFirebase}
                                 disabled={!selectedFile || uploadStatus === 'uploading'}
-                                className={`w-full px-4 py-3 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center ${
-                                    !selectedFile || uploadStatus === 'uploading'
+                                className={`w-full px-4 py-3 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center ${!selectedFile || uploadStatus === 'uploading'
                                         ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
                                         : 'bg-purple-600 hover:bg-purple-700 text-white'
-                                }`}
+                                    }`}
                             >
                                 {uploadStatus === 'uploading' ? (
                                     <>
@@ -1525,8 +1523,8 @@ export default function Pruebas() {
 
                             {uploadStatus === 'uploading' && (
                                 <div className="w-full bg-gray-200 rounded-full h-2">
-                                    <div 
-                                        className="bg-purple-600 h-2 rounded-full transition-all duration-300" 
+                                    <div
+                                        className="bg-purple-600 h-2 rounded-full transition-all duration-300"
                                         style={{ width: `${uploadProgress}%` }}
                                     ></div>
                                 </div>
@@ -1578,7 +1576,7 @@ export default function Pruebas() {
                     <Calendar className="w-5 h-5 mr-2 text-indigo-600" />
                     Gestión de Horarios - Exportar e Importar
                 </h3>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-4">
                         <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg">
@@ -1591,7 +1589,7 @@ export default function Pruebas() {
                                 <li>✅ Descarga directa del archivo</li>
                             </ul>
                         </div>
-                        
+
                         <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
                             <h4 className="font-semibold text-green-700 dark:text-green-400 mb-2">📤 Funcionalidad Import</h4>
                             <ul className="text-sm text-green-600 dark:text-green-300 space-y-1">
@@ -1603,12 +1601,12 @@ export default function Pruebas() {
                             </ul>
                         </div>
                     </div>
-                    
+
                     <div className="space-y-4">
                         <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
                             <h4 className="font-semibold text-yellow-700 dark:text-yellow-400 mb-2">🔧 Estructura del Archivo Export</h4>
                             <pre className="text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-x-auto">
-{`{
+                                {`{
   "metadata": {
     "exportDate": "2025-01-01T00:00:00Z",
     "version": "1.0",
@@ -1624,7 +1622,7 @@ export default function Pruebas() {
 }`}
                             </pre>
                         </div>
-                        
+
                         <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                             <h4 className="font-semibold text-blue-700 dark:text-blue-400 mb-2">💡 Casos de Uso</h4>
                             <ul className="text-sm text-blue-600 dark:text-blue-300 space-y-1">
@@ -1637,7 +1635,7 @@ export default function Pruebas() {
                         </div>
                     </div>
                 </div>
-                
+
                 <div className="mt-6 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
                     <h4 className="font-semibold text-orange-700 dark:text-orange-400 mb-2">⚠️ Precauciones</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1667,7 +1665,7 @@ export default function Pruebas() {
                     <AlertCircle className="w-5 h-5 mr-2 text-red-600" />
                     Solución de Problemas Firebase Storage
                 </h3>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-4">
                         <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
@@ -1679,11 +1677,11 @@ export default function Pruebas() {
                                 <li>💡 Agregar regla para test-images en Firebase Console</li>
                             </ul>
                         </div>
-                        
+
                         <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
                             <h4 className="font-semibold text-yellow-700 dark:text-yellow-400 mb-2">Reglas Actuales de Storage</h4>
                             <pre className="text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-x-auto">
-{`rules_version = '2';
+                                {`rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     // Acceso completo a exports
@@ -1703,7 +1701,7 @@ service firebase.storage {
                             </pre>
                         </div>
                     </div>
-                    
+
                     <div className="space-y-4">
                         <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                             <h4 className="font-semibold text-blue-700 dark:text-blue-400 mb-2">Variables de Entorno Requeridas</h4>
@@ -1715,7 +1713,7 @@ service firebase.storage {
                                 <li>• NEXT_PUBLIC_FIREBASE_APP_ID</li>
                             </ul>
                         </div>
-                        
+
                         <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
                             <h4 className="font-semibold text-green-700 dark:text-green-400 mb-2">Pasos de Verificación</h4>
                             <ol className="text-sm text-green-600 dark:text-green-300 space-y-1">
@@ -1735,7 +1733,7 @@ service firebase.storage {
                     <Mail className="w-5 h-5 mr-2 text-emerald-600" />
                     Configuración de Gmail para Correo Electrónico
                 </h3>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-4">
                         <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg">
@@ -1748,7 +1746,7 @@ service firebase.storage {
                                 <li>• Headers optimizados para deliverability</li>
                             </ul>
                         </div>
-                        
+
                         <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
                             <h4 className="font-semibold text-yellow-700 dark:text-yellow-400 mb-2">⚠️ Configuración Requerida</h4>
                             <div className="space-y-2">
@@ -1756,7 +1754,7 @@ service firebase.storage {
                                     <strong>Variables de entorno necesarias en .env.local:</strong>
                                 </p>
                                 <pre className="text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded">
-{`GMAIL_USER=tu-email@gmail.com
+                                    {`GMAIL_USER=tu-email@gmail.com
 GMAIL_APP_PASSWORD=abcd-efgh-ijkl-mnop`}
                                 </pre>
                                 <p className="text-xs text-yellow-600 dark:text-yellow-300">
@@ -1765,7 +1763,7 @@ GMAIL_APP_PASSWORD=abcd-efgh-ijkl-mnop`}
                             </div>
                         </div>
                     </div>
-                    
+
                     <div className="space-y-4">
                         <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                             <h4 className="font-semibold text-blue-700 dark:text-blue-400 mb-2">🔧 Pasos de Configuración</h4>
@@ -1777,7 +1775,7 @@ GMAIL_APP_PASSWORD=abcd-efgh-ijkl-mnop`}
                                 <li>5. Ejecutar &quot;Verificar Configuración&quot;</li>
                             </ol>
                         </div>
-                        
+
                         <div className="p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
                             <h4 className="font-semibold text-purple-700 dark:text-purple-400 mb-2">🛡️ Características Anti-Spam</h4>
                             <ul className="text-sm text-purple-600 dark:text-purple-300 space-y-1">
@@ -1791,7 +1789,7 @@ GMAIL_APP_PASSWORD=abcd-efgh-ijkl-mnop`}
                         </div>
                     </div>
                 </div>
-                
+
                 <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-900/20 border border-gray-200 dark:border-gray-800 rounded-lg">
                     <h4 className="font-semibold text-gray-700 dark:text-gray-400 mb-2">📖 Documentación Completa</h4>
                     <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
@@ -1829,7 +1827,7 @@ GMAIL_APP_PASSWORD=abcd-efgh-ijkl-mnop`}
                     <Database className="w-5 h-5 mr-2 text-emerald-600" />
                     Backup Completo de Base de Datos
                 </h3>
-                
+
                 <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg mb-6">
                     <h4 className="font-semibold text-emerald-700 dark:text-emerald-400 mb-2">📋 Servicios Incluidos en el Backup</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1843,7 +1841,7 @@ GMAIL_APP_PASSWORD=abcd-efgh-ijkl-mnop`}
                         </ul>
                     </div>
                 </div>
-                
+
                 <CompleteBackupRestore />
             </div>
 
@@ -1853,7 +1851,7 @@ GMAIL_APP_PASSWORD=abcd-efgh-ijkl-mnop`}
                     <FlaskConical className="w-5 h-5 mr-2 text-orange-600" />
                     Acciones Rápidas
                 </h3>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <button
                         onClick={() => handleRunTest('full-suite', 'Suite Completa')}
@@ -1872,21 +1870,21 @@ GMAIL_APP_PASSWORD=abcd-efgh-ijkl-mnop`}
                             </>
                         )}
                     </button>
-                    
+
                     <button
                         onClick={() => setTestResults({})}
                         className="px-4 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors duration-200"
                     >
                         Limpiar Resultados
                     </button>
-                    
+
                     <button
                         onClick={() => console.log('Exportando resultados...', testResults)}
                         className="px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200"
                     >
                         Exportar Resultados
                     </button>
-                    
+
                     <button
                         onClick={() => window.location.hash = ''}
                         className="px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors duration-200"

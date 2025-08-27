@@ -146,7 +146,7 @@ export default function ScheduleReportTab() {
         setAvailablePeriods([current, ...available]);
       } else {
         setAvailablePeriods(available);
-      }      setLoading(false);
+      } setLoading(false);
     };
     initializePeriods();
   }, []);
@@ -237,7 +237,7 @@ export default function ScheduleReportTab() {
       setLoading(false);
     }
   }, [currentPeriod, selectedLocation, locations]);
-  
+
   // Cargar datos de horarios cuando cambie el período o la ubicación
   useEffect(() => {
     if (currentPeriod) {
@@ -436,9 +436,9 @@ export default function ScheduleReportTab() {
                         {getDaysInPeriod().map(day => (
                           <td key={day} className="text-center p-2">
                             <span className={`w-6 h-6 rounded text-xs font-medium flex items-center justify-center ${employee.days[day] === 'D' ? 'bg-yellow-200 text-yellow-800' :
-                                employee.days[day] === 'N' ? 'bg-blue-200 text-blue-800' :
-                                  employee.days[day] === 'L' ? 'bg-gray-200 text-gray-800' :
-                                    'bg-transparent'
+                              employee.days[day] === 'N' ? 'bg-blue-200 text-blue-800' :
+                                employee.days[day] === 'L' ? 'bg-gray-200 text-gray-800' :
+                                  'bg-transparent'
                               }`}>
                               {employee.days[day] || ''}
                             </span>

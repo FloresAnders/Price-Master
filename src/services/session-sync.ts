@@ -38,29 +38,29 @@ export class SessionSyncService {
         source: 'pc' | 'mobile',
         userId?: string,
         userName?: string): Promise<string> {
-            try {
-                const sessionData: Record<string, unknown> = {
-                    sessionId,
-                    source,
-                    status: 'active' as const,
-                    lastSeen: serverTimestamp(),
-                    userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined
-                };
+        try {
+            const sessionData: Record<string, unknown> = {
+                sessionId,
+                source,
+                status: 'active' as const,
+                lastSeen: serverTimestamp(),
+                userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined
+            };
 
-                // Solo incluir userId y userName si no son undefined
-                if (userId !== undefined) {
-                    sessionData.userId = userId;
-                }
-                if (userName !== undefined) {
-                    sessionData.userName = userName;
-                }
-
-                const docRef = await addDoc(collection(db, this.COLLECTION_NAME), sessionData);
-                return docRef.id;
-            } catch (error) {
-                console.error('Error registering session:', error);
-                throw error;
+            // Solo incluir userId y userName si no son undefined
+            if (userId !== undefined) {
+                sessionData.userId = userId;
             }
+            if (userName !== undefined) {
+                sessionData.userName = userName;
+            }
+
+            const docRef = await addDoc(collection(db, this.COLLECTION_NAME), sessionData);
+            return docRef.id;
+        } catch (error) {
+            console.error('Error registering session:', error);
+            throw error;
+        }
     }
 
     /**

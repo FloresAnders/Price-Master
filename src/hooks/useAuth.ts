@@ -83,12 +83,12 @@ export function useAuth() {
       // Guardar en localStorage (en producción, enviar al servidor)
       const existingLogs = JSON.parse(localStorage.getItem('pricemaster_audit_logs') || '[]');
       existingLogs.push(auditLog);
-      
+
       // Mantener solo los últimos 100 logs
       if (existingLogs.length > 100) {
         existingLogs.shift();
       }
-      
+
       localStorage.setItem('pricemaster_audit_logs', JSON.stringify(existingLogs));
     } catch (error) {
       console.error('Error logging audit event:', error);
@@ -119,7 +119,8 @@ export function useAuth() {
           console.error('Error updating activity:', error);
         }
       }
-    }  }, [isAuthenticated, user]);
+    }
+  }, [isAuthenticated, user]);
 
   const logout = useCallback((reason?: string) => {
     const currentUser = user;
@@ -136,19 +137,19 @@ export function useAuth() {
       localStorage.removeItem('pricemaster_session');
       localStorage.removeItem('pricemaster_session_id');
     }
-    
+
     setUser(null);
     setIsAuthenticated(false);
     setSessionWarning(false);
     setUseTokenAuth(false);
-  }, [user, logAuditEvent, useTokenAuth]);const checkExistingSession = useCallback(() => {
+  }, [user, logAuditEvent, useTokenAuth]); const checkExistingSession = useCallback(() => {
     try {
       // Verificar primero si hay una sesión de token
       const tokenInfo = TokenService.getTokenInfo();
       if (tokenInfo.isValid && tokenInfo.user) {
         // Usar autenticación por token
         setUseTokenAuth(true);
-        
+
         const newUserData = {
           id: tokenInfo.user.id,
           name: tokenInfo.user.name,
@@ -158,7 +159,7 @@ export function useAuth() {
         };
 
         // Check if user data has changed to prevent unnecessary re-renders
-        const hasUserChanged = !user || 
+        const hasUserChanged = !user ||
           user.id !== newUserData.id ||
           user.name !== newUserData.name ||
           user.location !== newUserData.location ||
@@ -186,7 +187,7 @@ export function useAuth() {
 
       // Si no hay token válido, verificar sesión tradicional
       const sessionData = localStorage.getItem('pricemaster_session');
-      if (sessionData) {        
+      if (sessionData) {
         setUseTokenAuth(false);
         const session: SessionData = JSON.parse(sessionData);
 
@@ -194,7 +195,7 @@ export function useAuth() {
         const loginTime = new Date(session.loginTime);
         const now = new Date();
         const hoursElapsed = (now.getTime() - loginTime.getTime()) / (1000 * 60 * 60);
-        
+
         // Usar duración extendida si está activada, sino usar duración por rol
         let maxHours;
         if (session.keepActive) {
@@ -204,7 +205,7 @@ export function useAuth() {
         }
 
         // Verificar inactividad
-        const isInactive = checkInactivity(session);        
+        const isInactive = checkInactivity(session);
 
         if (hoursElapsed < maxHours && !isInactive) {
           // Only update user if the data has actually changed
@@ -217,7 +218,7 @@ export function useAuth() {
           };
 
           // Check if user data has changed to prevent unnecessary re-renders
-          const hasUserChanged = !user || 
+          const hasUserChanged = !user ||
             user.id !== newUserData.id ||
             user.name !== newUserData.name ||
             user.location !== newUserData.location ||
@@ -262,7 +263,7 @@ export function useAuth() {
 
     // Configurar listener para actividad del usuario
     const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
-    
+
     const handleActivity = () => {
       updateActivity();
     };
@@ -300,7 +301,7 @@ export function useAuth() {
       // Usar autenticación tradicional
       const sessionId = generateSessionId();
       const browserInfo = getBrowserInfo();
-      
+
       // Crear datos de sesión completos
       const sessionData: SessionData = {
         id: userData.id,
@@ -347,7 +348,7 @@ export function useAuth() {
         const loginTime = new Date(session.loginTime);
         const now = new Date();
         const hoursElapsed = (now.getTime() - loginTime.getTime()) / (1000 * 60 * 60);
-        
+
         // Usar duración extendida si está activada, sino usar duración por rol
         let maxHours;
         if (session.keepActive) {
@@ -355,7 +356,7 @@ export function useAuth() {
         } else {
           maxHours = SESSION_DURATION_HOURS[session.role || 'user'] || SESSION_DURATION_HOURS.user;
         }
-        
+
         return Math.max(0, maxHours - hoursElapsed);
       } catch {
         return 0;
@@ -378,7 +379,7 @@ export function useAuth() {
       console.error('Error getting audit logs:', error);
       return [];
     }
-  };  const isAdmin = useCallback(() => {
+  }; const isAdmin = useCallback(() => {
     return user?.role === 'admin' || user?.role === 'superadmin';
   }, [user?.role]);
 
@@ -406,10 +407,10 @@ export function useAuth() {
     } else {
       const timeLeft = getSessionTimeLeft();
       if (timeLeft <= 0) return 'Sesión expirada';
-      
+
       const hours = Math.floor(timeLeft);
       const minutes = Math.floor((timeLeft - hours) * 60);
-      
+
       if (hours > 0) {
         return `${hours}h ${minutes}m`;
       } else {

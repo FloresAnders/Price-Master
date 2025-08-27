@@ -30,14 +30,14 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
   if (!isAuthenticated || !user) {
     return (
       <>
-  <div className="flex items-center justify-start">
+        <div className="flex items-center justify-start">
 
         </div>
 
         <div className="mb-32 sm:mb-48">
           <LoginModal
             isOpen={true}
-            onClose={() => {}} // No permitir cerrar
+            onClose={() => { }} // No permitir cerrar
             onLoginSuccess={(userData: User, keepActive?: boolean, useTokens?: boolean) => {
               login(userData, keepActive, useTokens);
             }}

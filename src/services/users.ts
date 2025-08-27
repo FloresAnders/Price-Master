@@ -172,7 +172,7 @@ export class UsersService {
 
       const defaultPermissions = getDefaultPermissions(user.role);
       const currentPermissions = user.permissions || {};
-      
+
       // Check if user is missing any permissions
       let needsUpdate = false;
       const updatedPermissions: import('../types/firestore').UserPermissions = { ...defaultPermissions, ...currentPermissions };

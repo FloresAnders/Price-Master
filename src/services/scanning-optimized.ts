@@ -158,16 +158,16 @@ export class ScanningService {
     try {
       // Reference to the barcode-images folder
       const storageRef = ref(storage, 'barcode-images/');
-      
+
       // List all files in the barcode-images folder
       const result = await listAll(storageRef);
-      
+
       // Filter files that match the barcode pattern
       const matchingFiles = result.items.filter(item => {
         const fileName = item.name;
         // Match exact code name or code with numbers in parentheses
-        return fileName === `${barcodeCode}.jpg` || 
-               fileName.match(new RegExp(`^${barcodeCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\(\\d+\\)\\.jpg$`));
+        return fileName === `${barcodeCode}.jpg` ||
+          fileName.match(new RegExp(`^${barcodeCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\(\\d+\\)\\.jpg$`));
       });
 
       // Delete all matching files
@@ -182,7 +182,7 @@ export class ScanningService {
       });
 
       await Promise.all(deletePromises);
-      
+
       console.log(`Deleted ${matchingFiles.length} images for code: ${barcodeCode}`);
       return matchingFiles.length;
     } catch (error) {
@@ -198,18 +198,18 @@ export class ScanningService {
     try {
       // First, get the scan to obtain the barcode code
       const scanDoc = await getDoc(doc(db, this.COLLECTION_NAME, scanId));
-      
+
       if (!scanDoc.exists()) {
         throw new Error('Scan not found');
       }
-      
+
       const scanData = scanDoc.data() as ScanResult;
       const barcodeCode = scanData.code;
-      
+
       // Delete the scan document from Firestore
       const scanRef = doc(db, this.COLLECTION_NAME, scanId);
       await deleteDoc(scanRef);
-      
+
       // Delete associated images from Firebase Storage
       try {
         const deletedImagesCount = await this.deleteAssociatedImages(barcodeCode);

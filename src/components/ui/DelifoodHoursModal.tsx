@@ -151,11 +151,10 @@ export default function DelifoodHoursModal({
           <button
             onClick={handleSave}
             disabled={saving}
-            className={`flex-1 px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 ${
-              hours === 0 
-                ? 'bg-red-600 hover:bg-red-700 text-white' 
+            className={`flex-1 px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 ${hours === 0
+                ? 'bg-red-600 hover:bg-red-700 text-white'
                 : 'bg-blue-600 hover:bg-blue-700 text-white'
-            }`}
+              }`}
           >
             {saving ? (
               <>

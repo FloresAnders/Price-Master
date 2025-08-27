@@ -117,14 +117,14 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
 
   const handleLogoClick = () => {
     if (!isClient) return;
-    
+
     // Redirigir a la página principal
     window.location.href = '/';
   };
 
   const handleTabClick = (tabId: ActiveTab) => {
     if (!isClient) return;
-    
+
     // Para todas las páginas, usar hash normal
     onTabChange?.(tabId);
     const hashId = tabId === 'histoscans' ? 'scanhistory' : tabId;
@@ -145,7 +145,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
 
   const handleConfirmLogout = async () => {
     if (!isClient) return;
-    
+
     try {
       await logout();
       // Regresar al inicio después del logout
@@ -184,11 +184,10 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                   <button
                     key={tab.id}
                     onClick={() => handleTabClick(tab.id)}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${
-                      activeTab === tab.id
+                    className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${activeTab === tab.id
                         ? 'text-[var(--tab-text-active)] font-semibold'
                         : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
-                    }`}
+                      }`}
                     title={tab.description}
                   >
                     <IconComponent className="w-4 h-4" />
@@ -221,16 +220,16 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                   {showUserDropdown && isClient && createPortal(
                     <>
                       {/* Click outside to close dropdown */}
-                      <div 
+                      <div
                         className="fixed inset-0"
                         style={{ zIndex: 2147483646 }} // One less than dropdown
                         onClick={() => setShowUserDropdown(false)}
                       />
-                      
+
                       {/* Dropdown content */}
-                      <div 
+                      <div
                         className="w-48 bg-[var(--background)] border border-[var(--input-border)] rounded-lg shadow-xl"
-                        style={{ 
+                        style={{
                           position: 'fixed',
                           top: dropdownPosition.top,
                           right: dropdownPosition.right,
@@ -296,11 +295,10 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                       handleTabClick(tab.id);
                       setShowMobileMenu(false);
                     }}
-                    className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${
-                      activeTab === tab.id
+                    className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${activeTab === tab.id
                         ? 'bg-[var(--accent)] text-[var(--accent-foreground)]'
                         : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]'
-                    }`}
+                      }`}
                   >
                     <IconComponent className="w-4 h-4" />
                     <span>{tab.name}</span>
@@ -416,8 +414,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                   Gestión de Sesión
                 </h3>
                 <div className="space-y-4">
-                  <TokenInfo isOpen={true} onClose={() => {}} inline={true} />
-                  
+                  <TokenInfo isOpen={true} onClose={() => { }} inline={true} />
+
                   {/* Toggle para FloatingSessionTimer */}
                   <div className="bg-[var(--hover-bg)] rounded-lg p-4">
                     <div className="flex items-center justify-between">
@@ -444,21 +442,19 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                             onChange={(e) => setShowSessionTimer(e.target.checked)}
                             className="sr-only"
                           />
-                          <div className={`block w-12 h-6 rounded-full transition-colors duration-200 ease-in-out ${
-                            showSessionTimer 
-                              ? 'bg-blue-600 shadow-lg' 
+                          <div className={`block w-12 h-6 rounded-full transition-colors duration-200 ease-in-out ${showSessionTimer
+                              ? 'bg-blue-600 shadow-lg'
                               : 'bg-gray-300 dark:bg-gray-600'
-                          }`}>
+                            }`}>
                           </div>
-                          <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-200 ease-in-out shadow-sm ${
-                            showSessionTimer ? 'translate-x-6' : 'translate-x-0'
-                          }`}>
+                          <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-200 ease-in-out shadow-sm ${showSessionTimer ? 'translate-x-6' : 'translate-x-0'
+                            }`}>
                           </div>
                         </div>
                       </label>
                     </div>
                     <div className="mt-3 text-xs text-[var(--muted-foreground)]">
-                      {showSessionTimer 
+                      {showSessionTimer
                         ? 'El temporizador de sesión se muestra en la esquina inferior derecha'
                         : 'Activa para mostrar el temporizador de sesión flotante'
                       }
@@ -493,8 +489,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
           </div>
 
           {/* Click outside to close */}
-          <div 
-            className="absolute inset-0 -z-10" 
+          <div
+            className="absolute inset-0 -z-10"
             onClick={() => setShowConfigModal(false)}
           />
         </div>

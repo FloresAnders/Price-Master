@@ -45,7 +45,7 @@ export default function PriceCalculator() {
     // Obtener los últimos dos dígitos para determinar el redondeo
     const ultimosDosDigitos = Math.floor(valor) % 100;
     const baseRedondeo = Math.floor(valor / 100) * 100;
-    
+
     if (ultimosDosDigitos <= 12) return baseRedondeo;
     if (ultimosDosDigitos <= 37) return baseRedondeo + 25;
     if (ultimosDosDigitos <= 62) return baseRedondeo + 50;
@@ -88,15 +88,15 @@ export default function PriceCalculator() {
         // Solo establecer como precio original si no hay descuento aplicado actualmente
         // o si es la primera vez que se ingresa un valor
         const descuentoNum = parseFloat(descuento) || 0;
-        
+
         if (descuentoNum === 0 || !precioOriginal) {
           setPrecioOriginal(formatearNumero(sinIVA.toFixed(2)));
         }
-        
+
         // Calcular precio con IVA basado en el precio sin IVA actual
         const conIVA = calcularConIVA(sinIVA, ivaSeleccionado);
         setPrecioConIVA(formatearNumero(conIVA.toFixed(2)));
-        
+
         // Calcular precio final con utilidad
         const utilidadNum = parseFloat(utilidad) || 0;
         const precioFinalCalculado = calcularPrecioConUtilidad(conIVA, utilidadNum);
@@ -110,18 +110,18 @@ export default function PriceCalculator() {
     if (actualizandoDesde === 'descuento' && precioOriginal) {
       const sinIVAOriginal = parseFloat(precioOriginal);
       const descuentoNum = parseFloat(descuento) || 0;
-      
+
       if (!isNaN(sinIVAOriginal)) {
         if (descuentoNum > 0) {
           const sinIVAConDescuento = aplicarDescuento(sinIVAOriginal, descuentoNum);
-          
+
           // Actualizar precio sin IVA con el descuento aplicado
           setPrecioSinIVA(formatearNumero(sinIVAConDescuento.toFixed(2)));
-          
+
           // Calcular precio con IVA
           const conIVAConDescuento = calcularConIVA(sinIVAConDescuento, ivaSeleccionado);
           setPrecioConIVA(formatearNumero(conIVAConDescuento.toFixed(2)));
-          
+
           // Calcular precio final con utilidad
           const utilidadNum = parseFloat(utilidad) || 0;
           const precioFinalCalculado = calcularPrecioConUtilidad(conIVAConDescuento, utilidadNum);
@@ -129,11 +129,11 @@ export default function PriceCalculator() {
         } else {
           // Sin descuento, restaurar precio original
           setPrecioSinIVA(formatearNumero(sinIVAOriginal.toFixed(2)));
-          
+
           // Recalcular todo sin descuento
           const conIVA = calcularConIVA(sinIVAOriginal, ivaSeleccionado);
           setPrecioConIVA(formatearNumero(conIVA.toFixed(2)));
-          
+
           const utilidadNum = parseFloat(utilidad) || 0;
           const precioFinalCalculado = calcularPrecioConUtilidad(conIVA, utilidadNum);
           setPrecioFinal(formatearNumero(precioFinalCalculado.toString()));
@@ -148,7 +148,7 @@ export default function PriceCalculator() {
       if (!isNaN(conIVA)) {
         const sinIVA = calcularSinIVA(conIVA, ivaSeleccionado);
         setPrecioSinIVA(formatearNumero(sinIVA.toFixed(2)));
-        
+
         // NO establecer precio original cuando se calcula desde conIVA
         // Solo calcular precio final con utilidad
         const utilidadNum = parseFloat(utilidad) || 0;
@@ -165,7 +165,7 @@ export default function PriceCalculator() {
       if (!isNaN(pFinal) && !isNaN(sinIVA)) {
         const descuentoNum = parseFloat(descuento) || 0;
         let conIVAParaCalculo;
-        
+
         if (descuentoNum > 0) {
           // Si hay descuento, usar el precio sin IVA actual (ya con descuento)
           conIVAParaCalculo = calcularConIVA(sinIVA, ivaSeleccionado);
@@ -173,7 +173,7 @@ export default function PriceCalculator() {
           // Sin descuento, usar el precio con IVA actual
           conIVAParaCalculo = parseFloat(precioConIVA);
         }
-        
+
         const utilidadCalculada = calcularUtilidadDesdePrecioFinal(pFinal, conIVAParaCalculo);
         setUtilidad(formatearNumero(utilidadCalculada.toFixed(2)));
       }
@@ -254,7 +254,7 @@ export default function PriceCalculator() {
   return (
     <div className="rounded-lg shadow-md p-6" style={{ background: 'var(--card-bg)', color: 'var(--foreground)' }}>
       <h2 className="text-xl font-semibold mb-6">Calculadora de Precios</h2>
-      
+
       {/* Selector de IVA */}
       <div className="mb-6">
         <label className="block text-sm font-medium mb-3">IVA</label>
@@ -263,11 +263,10 @@ export default function PriceCalculator() {
             <button
               key={opcion.value}
               onClick={() => handleIVAChange(opcion.value)}
-              className={`px-4 py-2 rounded-md border transition-colors ${
-                ivaSeleccionado === opcion.value
+              className={`px-4 py-2 rounded-md border transition-colors ${ivaSeleccionado === opcion.value
                   ? 'bg-blue-600 text-white border-blue-600'
                   : 'bg-transparent border-gray-300 hover:border-blue-500'
-              }`}
+                }`}
             >
               {opcion.label}
             </button>
@@ -306,7 +305,7 @@ export default function PriceCalculator() {
             step="0.01"
           />
         </div>
-        
+
         <div>
           <label className="block text-sm font-medium mb-2">Precio con IVA</label>
           <input
@@ -350,7 +349,7 @@ export default function PriceCalculator() {
             min="0"
           />
         </div>
-        
+
         <div>
           <label className="block text-sm font-medium mb-2">Precio Final</label>
           <input

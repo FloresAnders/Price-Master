@@ -51,10 +51,10 @@ export class PayrollRecordsService {
   ): Promise<void> {
     try {
       const docId = this.getEmployeeDocId(locationValue, employeeName);
-      
+
       // Try to get existing record
       const existingRecord = await FirestoreService.getById(this.COLLECTION_NAME, docId);
-      
+
       const periodData = {
         DiasLaborados: diasLaborados,
         hoursPerDay,
@@ -65,15 +65,15 @@ export class PayrollRecordsService {
       if (existingRecord) {
         // Update existing record
         const updatedRecords = { ...existingRecord.records };
-        
+
         if (!updatedRecords[year]) {
           updatedRecords[year] = {};
         }
-        
+
         if (!updatedRecords[year][month]) {
           updatedRecords[year][month] = {};
         }
-        
+
         const quincenaKey = period === 'first' ? 'NumeroQuincena1' : 'NumeroQuincena2';
         updatedRecords[year][month][quincenaKey] = periodData;
 
@@ -170,22 +170,22 @@ export class PayrollRecordsService {
     try {
       const docId = this.getEmployeeDocId(locationValue, employeeName);
       const existingRecord = await FirestoreService.getById(this.COLLECTION_NAME, docId);
-      
+
       if (!existingRecord) {
         throw new Error('Record not found');
       }
 
       const updatedRecords = { ...existingRecord.records };
       const quincenaKey = period === 'first' ? 'NumeroQuincena1' : 'NumeroQuincena2';
-      
+
       // Remove the specific period
       if (updatedRecords[year] && updatedRecords[year][month]) {
         delete updatedRecords[year][month][quincenaKey];
-        
+
         // If the month has no more periods, remove the month
         if (Object.keys(updatedRecords[year][month]).length === 0) {
           delete updatedRecords[year][month];
-          
+
           // If the year has no more months, remove the year
           if (Object.keys(updatedRecords[year]).length === 0) {
             delete updatedRecords[year];

@@ -35,10 +35,10 @@ export function saveSession(sessionData: SessionData): void {
  */
 export function getSession(): SessionData | null {
   if (typeof window === 'undefined') return null;
-  
+
   const storedData = localStorage.getItem(SESSION_STORAGE_KEY);
   if (!storedData) return null;
-  
+
   try {
     return JSON.parse(storedData) as SessionData;
   } catch {
@@ -52,12 +52,12 @@ export function getSession(): SessionData | null {
 export function isSessionValid(): boolean {
   const session = getSession();
   if (!session) return false;
-  
+
   // Verificar si tiene timestamp de expiración y si no ha expirado
   if (session.expiresAt && Date.now() > session.expiresAt) {
     return false;
   }
-  
+
   return true;
 }
 
@@ -67,7 +67,7 @@ export function isSessionValid(): boolean {
 export function getSessionTimeLeft(): number {
   const session = getSession();
   if (!session || !session.expiresAt) return 0;
-  
+
   const timeLeft = session.expiresAt - Date.now();
   return Math.max(0, timeLeft);
 }
@@ -77,14 +77,14 @@ export function getSessionTimeLeft(): number {
  */
 export function formatSessionTimeLeft(): string {
   const timeLeft = getSessionTimeLeft();
-  
+
   if (timeLeft <= 0) return 'Sesión expirada';
-  
+
   const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
   const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
   const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
   const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
-  
+
   if (days > 0) {
     return `${days}d ${hours}h ${minutes}m`;
   } else if (hours > 0) {
@@ -116,12 +116,12 @@ export function useSessionCheck(onExpired?: () => void): {
   const session = getSession();
   const isValid = isSessionValid();
   const timeLeft = formatSessionTimeLeft();
-  
+
   // Si la sesión ha expirado y hay un callback, ejecutarlo
   if (!isValid && session && onExpired) {
     onExpired();
   }
-  
+
   return {
     isValid,
     timeLeft,

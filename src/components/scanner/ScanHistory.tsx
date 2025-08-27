@@ -144,14 +144,14 @@ const ScanHistoryRow = memo(function ScanHistoryRow({
 export default function ScanHistory({ history, onCopy, onDelete, onRemoveLeadingZero, onRename, onShowImages, notify }: ScanHistoryProps) {
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [editValue, setEditValue] = useState('');
-  
+
   // Estados para modal de imágenes
   const [showImagesModal, setShowImagesModal] = useState(false);
   const [currentImageCode, setCurrentImageCode] = useState<string>('');
   const [codeImages, setCodeImages] = useState<string[]>([]);
   const [loadingImages, setLoadingImages] = useState(false);
   const [imageLoadError, setImageLoadError] = useState<string | null>(null);
-  
+
   // Estados para modal de imagen individual
   const [showImageModal, setShowImageModal] = useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState<string>('');
@@ -178,20 +178,20 @@ export default function ScanHistory({ history, onCopy, onDelete, onRemoveLeading
   const loadImagesForCode = useCallback(async (barcodeCode: string) => {
     setLoadingImages(true);
     setImageLoadError(null);
-    
+
     try {
       // Reference to the barcode-images folder
       const storageRef = ref(storage, 'barcode-images/');
-      
+
       // List all files in the barcode-images folder
       const result = await listAll(storageRef);
-      
+
       // Filter files that match the barcode pattern
       const matchingFiles = result.items.filter(item => {
         const fileName = item.name;
         // Match exact code name or code with numbers in parentheses
-        return fileName === `${barcodeCode}.jpg` || 
-               fileName.match(new RegExp(`^${barcodeCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\(\\d+\\)\\.jpg$`));
+        return fileName === `${barcodeCode}.jpg` ||
+          fileName.match(new RegExp(`^${barcodeCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\(\\d+\\)\\.jpg$`));
       });
 
       // Get download URLs for matching files
@@ -208,13 +208,13 @@ export default function ScanHistory({ history, onCopy, onDelete, onRemoveLeading
 
       // Filter out any failed downloads
       const validUrls = imageUrls.filter(url => url !== null) as string[];
-      
+
       setCodeImages(validUrls);
-      
+
       if (validUrls.length === 0) {
         setImageLoadError('No se encontraron imágenes para este código');
       }
-      
+
     } catch (error) {
       console.error('Error loading images:', error);
       setImageLoadError('Error al cargar las imágenes');
@@ -283,7 +283,7 @@ export default function ScanHistory({ history, onCopy, onDelete, onRemoveLeading
     if (numericCodes.length === 0) {
       notify?.('No hay códigos numéricos para exportar', 'orange');
       return;
-    }    const jsonData = JSON.stringify(numericCodes, null, 2);
+    } const jsonData = JSON.stringify(numericCodes, null, 2);
     const blob = new Blob([jsonData], { type: 'application/json;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
@@ -320,7 +320,7 @@ export default function ScanHistory({ history, onCopy, onDelete, onRemoveLeading
     };
 
     window.addEventListener('keydown', handleKeyPress);
-    
+
     return () => {
       // Re-enable body scroll when modal is closed
       document.body.style.overflow = 'unset';
@@ -485,9 +485,9 @@ export default function ScanHistory({ history, onCopy, onDelete, onRemoveLeading
 
     {/* Individual Image Modal - 90% Screen */}
     {showImageModal && typeof window !== 'undefined' && createPortal(
-      <div 
+      <div
         className="fixed inset-0 bg-black bg-opacity-95 flex items-center justify-center p-4 z-[9999]"
-        style={{ 
+        style={{
           position: 'fixed',
           top: 0,
           left: 0,

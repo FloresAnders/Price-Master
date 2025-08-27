@@ -26,7 +26,7 @@ export default function BackupRestore() {
           try {
             const content = e.target?.result as string;
             const backupData = JSON.parse(content);
-            
+
             if (ClientBackupService.validateBackup(backupData)) {
               setBackupInfo(backupData);
               setMessage('✅ Archivo de backup válido detectado');
@@ -154,13 +154,12 @@ export default function BackupRestore() {
 
       {/* Status Message */}
       {message && (
-        <div className={`mb-4 p-4 rounded-lg border ${
-          status === 'success' 
-            ? 'bg-green-50 border-green-200 text-green-800 dark:bg-green-900/20 dark:border-green-800 dark:text-green-200' 
+        <div className={`mb-4 p-4 rounded-lg border ${status === 'success'
+            ? 'bg-green-50 border-green-200 text-green-800 dark:bg-green-900/20 dark:border-green-800 dark:text-green-200'
             : status === 'error'
-            ? 'bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-200'
-            : 'bg-orange-50 border-orange-200 text-orange-800 dark:bg-orange-900/20 dark:border-orange-800 dark:text-orange-200'
-        }`}>
+              ? 'bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-200'
+              : 'bg-orange-50 border-orange-200 text-orange-800 dark:bg-orange-900/20 dark:border-orange-800 dark:text-orange-200'
+          }`}>
           <div className="flex items-center gap-2">
             {status === 'success' && <CheckCircle className="w-5 h-5" />}
             {status === 'error' && <AlertCircle className="w-5 h-5" />}
@@ -201,7 +200,7 @@ export default function BackupRestore() {
           <span className="font-semibold text-yellow-800 dark:text-yellow-300">⚠️ Advertencia Importante</span>
         </div>
         <p className="text-yellow-700 dark:text-yellow-300 text-sm">
-          La restauración del backup reemplazará completamente la configuración CCSS actual. 
+          La restauración del backup reemplazará completamente la configuración CCSS actual.
           Esta acción no se puede deshacer. Asegúrate de que el archivo de backup sea válido y confiable.
         </p>
       </div>

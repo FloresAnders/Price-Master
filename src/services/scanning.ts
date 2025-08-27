@@ -22,48 +22,48 @@ class ScanningCache {
     private static scansCache: ScanResult[] | null = null;
     private static scansCacheTime: number = 0;
     private static readonly CACHE_DURATION = 30000; // 30 segundos
-    
+
     private static imageStatusCache = new Map<string, boolean>();
     private static imageListCache: string[] | null = null;
     private static imageListCacheTime: number = 0;
-    
+
     static getCachedScans(): ScanResult[] | null {
         if (this.scansCache && Date.now() - this.scansCacheTime < this.CACHE_DURATION) {
             return this.scansCache;
         }
         return null;
     }
-    
+
     static setCachedScans(scans: ScanResult[]): void {
         this.scansCache = scans;
         this.scansCacheTime = Date.now();
     }
-    
+
     static invalidateScansCache(): void {
         this.scansCache = null;
         this.scansCacheTime = 0;
     }
-    
+
     static getImageStatus(code: string): boolean | null {
         return this.imageStatusCache.get(code) ?? null;
     }
-    
+
     static setImageStatus(code: string, hasImages: boolean): void {
         this.imageStatusCache.set(code, hasImages);
     }
-    
+
     static getCachedImageList(): string[] | null {
         if (this.imageListCache && Date.now() - this.imageListCacheTime < this.CACHE_DURATION) {
             return this.imageListCache;
         }
         return null;
     }
-    
+
     static setCachedImageList(images: string[]): void {
         this.imageListCache = images;
         this.imageListCacheTime = Date.now();
     }
-    
+
     static invalidateImageCache(): void {
         this.imageListCache = null;
         this.imageListCacheTime = 0;
@@ -86,10 +86,10 @@ export class ScanningService {
             };
 
             const docRef = await addDoc(collection(db, this.COLLECTION_NAME), scanWithTimestamp);
-            
+
             // Invalidar caché para que se recargue con el nuevo scan
             ScanningCache.invalidateScansCache();
-            
+
             return docRef.id;
         } catch (error) {
             console.error('Error adding scan:', error);
@@ -123,7 +123,7 @@ export class ScanningService {
 
             // Guardar en caché
             ScanningCache.setCachedScans(scans);
-            
+
             return scans;
         } catch (error) {
             console.error('Error getting scans:', error);
@@ -194,12 +194,12 @@ export class ScanningService {
             // Si no hay caché, hacer una sola consulta a Storage
             const storageRef = ref(storage, 'barcode-images/');
             const result = await listAll(storageRef);
-            
+
             const filenames = result.items.map(item => item.name);
-            
+
             // Guardar en caché
             ScanningCache.setCachedImageList(filenames);
-            
+
             return filenames;
         } catch (error) {
             console.error('Error getting image filenames:', error);
@@ -213,7 +213,7 @@ export class ScanningService {
     static async checkMultipleCodesHaveImages(codes: string[]): Promise<Map<string, boolean>> {
         try {
             const result = new Map<string, boolean>();
-            
+
             // Primero verificar caché
             const uncachedCodes: string[] = [];
             for (const code of codes) {
@@ -224,26 +224,26 @@ export class ScanningService {
                     uncachedCodes.push(code);
                 }
             }
-            
+
             // Si todos están en caché, retornar inmediatamente
             if (uncachedCodes.length === 0) {
                 return result;
             }
-            
+
             // Una sola consulta para obtener todos los nombres de archivo
             const allFilenames = await this.getAllImageFilenames();
-            
+
             // Verificar cada código no cacheado
             for (const code of uncachedCodes) {
                 const hasImages = allFilenames.some(fileName => {
-                    return fileName === `${code}.jpg` || 
-                           fileName.match(new RegExp(`^${code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\(\\d+\\)\\.jpg$`));
+                    return fileName === `${code}.jpg` ||
+                        fileName.match(new RegExp(`^${code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\(\\d+\\)\\.jpg$`));
                 });
-                
+
                 result.set(code, hasImages);
                 ScanningCache.setImageStatus(code, hasImages);
             }
-            
+
             return result;
         } catch (error) {
             console.error('Error checking multiple codes for images:', error);
@@ -268,11 +268,11 @@ export class ScanningService {
         try {
             // Usar la lista cacheada si está disponible
             const allFilenames = await this.getAllImageFilenames();
-            
+
             // Filtrar archivos que coinciden con el patrón del código
             const matchingFilenames = allFilenames.filter(fileName => {
-                return fileName === `${barcodeCode}.jpg` || 
-                       fileName.match(new RegExp(`^${barcodeCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\(\\d+\\)\\.jpg$`));
+                return fileName === `${barcodeCode}.jpg` ||
+                    fileName.match(new RegExp(`^${barcodeCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\(\\d+\\)\\.jpg$`));
             });
 
             // Eliminar archivos coincidentes
@@ -288,10 +288,10 @@ export class ScanningService {
             });
 
             await Promise.all(deletePromises);
-            
+
             // Invalidar caché después de eliminar
             ScanningCache.invalidateImageCache();
-            
+
             console.log(`Deleted ${matchingFilenames.length} images for code: ${barcodeCode}`);
             return matchingFilenames.length;
         } catch (error) {
@@ -307,20 +307,20 @@ export class ScanningService {
         try {
             // First, get the scan to obtain the barcode code
             const scanDoc = await getDoc(doc(db, this.COLLECTION_NAME, scanId));
-            
+
             if (!scanDoc.exists()) {
                 throw new Error('Scan not found');
             }
-            
+
             const scanData = scanDoc.data() as ScanResult;
             const barcodeCode = scanData.code;
-            
+
             // Delete the scan document from Firestore
             await deleteDoc(doc(db, this.COLLECTION_NAME, scanId));
-            
+
             // Invalidar caché de scans
             ScanningCache.invalidateScansCache();
-            
+
             // Delete associated images from Firebase Storage
             try {
                 const deletedImagesCount = await this.deleteAssociatedImages(barcodeCode);
@@ -422,10 +422,10 @@ export class ScanningService {
         try {
             // Usar la lista cacheada para filtrar
             const allFilenames = await this.getAllImageFilenames();
-            
+
             const matchingFilenames = allFilenames.filter(fileName => {
-                return fileName === `${barcodeCode}.jpg` || 
-                       fileName.match(new RegExp(`^${barcodeCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\(\\d+\\)\\.jpg$`));
+                return fileName === `${barcodeCode}.jpg` ||
+                    fileName.match(new RegExp(`^${barcodeCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\(\\d+\\)\\.jpg$`));
             });
 
             // Convertir a URLs de descarga

@@ -48,11 +48,11 @@ export function useRouteProtection(config: RouteProtectionConfig = {}) {
       try {
         const existingLogs = JSON.parse(localStorage.getItem('pricemaster_audit_logs') || '[]');
         existingLogs.push(auditLog);
-        
+
         if (existingLogs.length > 100) {
           existingLogs.shift();
         }
-        
+
         localStorage.setItem('pricemaster_audit_logs', JSON.stringify(existingLogs));
 
         if (!granted) {

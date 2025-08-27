@@ -70,70 +70,70 @@ export default function CompleteBackupRestore() {
       }
 
       const data = backupData as Record<string, unknown>;
-      
+
       // Check for individual service backup structure
       if (data &&
-          typeof data.timestamp === 'string' &&
-          typeof data.version === 'string' &&
-          typeof data.serviceName === 'string' &&
-          data.data &&
-          typeof data.data === 'object' &&
-          data.data !== null) {
-        
+        typeof data.timestamp === 'string' &&
+        typeof data.version === 'string' &&
+        typeof data.serviceName === 'string' &&
+        data.data &&
+        typeof data.data === 'object' &&
+        data.data !== null) {
+
         const dataObj = data.data as Record<string, unknown>;
         const metadataObj = data.metadata as Record<string, unknown>;
-        
+
         if (Array.isArray(dataObj.collection) &&
-            typeof dataObj.count === 'number' &&
-            data.metadata &&
-            typeof data.metadata === 'object' &&
-            data.metadata !== null &&
-            typeof metadataObj.exportedBy === 'string' &&
-            metadataObj.backupType === 'individual-service') {
+          typeof dataObj.count === 'number' &&
+          data.metadata &&
+          typeof data.metadata === 'object' &&
+          data.metadata !== null &&
+          typeof metadataObj.exportedBy === 'string' &&
+          metadataObj.backupType === 'individual-service') {
           return { isValid: true, type: 'individual' };
         }
       }
-      
+
       // Check for complete backup structure
       if (data &&
-          typeof data.timestamp === 'string' &&
-          typeof data.version === 'string' &&
-          data.data &&
-          typeof data.data === 'object' &&
-          data.data !== null) {
-        
+        typeof data.timestamp === 'string' &&
+        typeof data.version === 'string' &&
+        data.data &&
+        typeof data.data === 'object' &&
+        data.data !== null) {
+
         const dataObj = data.data as Record<string, unknown>;
         const metadataObj = data.metadata as Record<string, unknown>;
-        
+
         if (dataObj.locations &&
-            dataObj.users &&
-            dataObj.schedules &&
-            dataObj.payrollRecords &&
-            data.metadata &&
-            typeof data.metadata === 'object' &&
-            data.metadata !== null &&
-            typeof metadataObj.exportedBy === 'string' &&
-            metadataObj.backupType === 'complete-database') {
+          dataObj.users &&
+          dataObj.schedules &&
+          dataObj.payrollRecords &&
+          data.metadata &&
+          typeof data.metadata === 'object' &&
+          data.metadata !== null &&
+          typeof metadataObj.exportedBy === 'string' &&
+          metadataObj.backupType === 'complete-database') {
           return { isValid: true, type: 'complete' };
         }
       }
-      
+
       // Check for CCSS backup structure (legacy)
       if (data &&
-          typeof data.timestamp === 'string' &&
-          typeof data.version === 'string' &&
-          data.ccssConfig &&
-          data.metadata &&
-          typeof data.metadata === 'object' &&
-          data.metadata !== null) {
-        
+        typeof data.timestamp === 'string' &&
+        typeof data.version === 'string' &&
+        data.ccssConfig &&
+        data.metadata &&
+        typeof data.metadata === 'object' &&
+        data.metadata !== null) {
+
         const metadataObj = data.metadata as Record<string, unknown>;
-        
+
         if (typeof metadataObj.exportedBy === 'string') {
           return { isValid: true, type: 'ccss' };
         }
       }
-      
+
       return { isValid: false, type: 'unknown' };
     } catch {
       return { isValid: false, type: 'unknown' };
@@ -146,12 +146,12 @@ export default function CompleteBackupRestore() {
       try {
         setMessage('Validando archivo...');
         setStatus('idle');
-        
+
         const text = await file.text();
         const backupData = JSON.parse(text);
-        
+
         const validation = validateBackup(backupData);
-        
+
         if (validation.isValid) {
           setSelectedFile(file);
           setBackupInfo(backupData);
@@ -210,39 +210,39 @@ export default function CompleteBackupRestore() {
           if (backupType === 'individual' && result.backups) {
             // Download individual files
             const now = new Date();
-            const dateStr = `${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}_${now.getHours().toString().padStart(2,'0')}${now.getMinutes().toString().padStart(2,'0')}`;
-            
+            const dateStr = `${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}_${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}`;
+
             const services = ['locations', 'users', 'schedules', 'payrollRecords'];
-            
+
             services.forEach((serviceName) => {
               const serviceData = result.backups[serviceName];
               const jsonString = JSON.stringify(serviceData, null, 2);
               const blob = new Blob([jsonString], { type: 'application/json' });
               const url = URL.createObjectURL(blob);
-              
+
               const link = document.createElement('a');
               link.href = url;
               link.download = `${serviceName}_backup_${dateStr}.json`;
               link.style.display = 'none';
               document.body.appendChild(link);
               link.click();
-              
+
               setTimeout(() => {
                 document.body.removeChild(link);
                 URL.revokeObjectURL(url);
               }, 100);
             });
-            
+
             setMessage('✅ Archivos individuales descargados exitosamente');
           } else if (backupType === 'complete' && result.backup) {
             // Download single complete file
             const jsonString = JSON.stringify(result.backup, null, 2);
             const blob = new Blob([jsonString], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
-            
+
             const now = new Date();
-            const filename = `backup_completo_${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}_${now.getHours().toString().padStart(2,'0')}${now.getMinutes().toString().padStart(2,'0')}.json`;
-            
+            const filename = `backup_completo_${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}_${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}.json`;
+
             const link = document.createElement('a');
             link.href = url;
             link.download = filename;
@@ -250,7 +250,7 @@ export default function CompleteBackupRestore() {
             link.click();
             document.body.removeChild(link);
             URL.revokeObjectURL(url);
-            
+
             setMessage('✅ Backup completo descargado exitosamente');
           }
         } else {
@@ -356,7 +356,7 @@ export default function CompleteBackupRestore() {
                   <p className="text-xs text-[var(--muted-foreground)]">Un solo archivo JSON con todos los servicios</p>
                 </div>
               </label>
-              
+
               <label className="flex items-center p-3 border border-[var(--border)] rounded-lg cursor-pointer hover:bg-[var(--input-bg)] transition-colors">
                 <input
                   type="radio"

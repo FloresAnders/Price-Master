@@ -159,7 +159,7 @@ export class SchedulesService {
       } else {
         // Get employee hoursPerShift from location data only for work shifts (D or N)
         let horasPorDia: number | undefined;
-        
+
         if (shift === 'D' || shift === 'N') {
           try {
             const { LocationsService } = await import('./locations');
@@ -234,7 +234,7 @@ export class SchedulesService {
         // If hours > 0, create or update the document
         if (existingEntry && existingEntry.id) {
           // Update existing document with shift 'L' and specific horasPorDia
-          await this.updateSchedule(existingEntry.id, { 
+          await this.updateSchedule(existingEntry.id, {
             shift: 'L',
             horasPorDia: horasPorDia
           });

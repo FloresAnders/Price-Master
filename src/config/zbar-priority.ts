@@ -5,7 +5,7 @@ export const ZBAR_PRIORITY_CONFIG = {
   // Configuración principal - ZBar-WASM SIEMPRE primero
   ZBAR_SCAN_INTERVAL: 300,     // ms - más frecuente para máxima prioridad
   QUAGGA_FALLBACK_DELAY: 600,  // ms - retraso para dar prioridad a ZBar
-  
+
   // Configuración de validación
   MIN_CODE_LENGTH: 8,
   MAX_CODE_LENGTH: 20,

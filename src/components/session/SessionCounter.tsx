@@ -25,7 +25,7 @@ export default function SessionCounter({ onExpired, onHide }: SessionCounterProp
     if (typeof window !== 'undefined') {
       const savedPosition = localStorage.getItem('session-counter-position');
       const savedMinimized = localStorage.getItem('session-counter-minimized');
-      
+
       if (savedPosition) {
         try {
           const pos = JSON.parse(savedPosition);
@@ -34,7 +34,7 @@ export default function SessionCounter({ onExpired, onHide }: SessionCounterProp
           // Si hay error, usar posición por defecto
         }
       }
-      
+
       if (savedMinimized === 'true') {
         setIsMinimized(true);
       }
@@ -86,7 +86,7 @@ export default function SessionCounter({ onExpired, onHide }: SessionCounterProp
       // Cambiar color cuando queda menos de 24 horas (para tokens) o 30 minutos (para sesiones tradicionales)
       const sessionTimeLeft = getSessionTimeLeft();
       const warningThreshold = useTokenAuth ? 24 * 60 * 60 * 1000 : 30 * 60 * 1000; // 24 horas vs 30 minutos
-      
+
       if (sessionTimeLeft <= warningThreshold && sessionTimeLeft > 0) {
         // Agregar clase de advertencia si queda poco tiempo
         const element = document.getElementById('session-counter');
@@ -98,14 +98,14 @@ export default function SessionCounter({ onExpired, onHide }: SessionCounterProp
 
     updateTimer();
     const interval = setInterval(updateTimer, 1000);
-    
+
     return () => clearInterval(interval);
   }, [onExpired, useTokenAuth, getFormattedTimeLeft, getSessionTimeLeft]);
 
   // Manejo de arrastre
   const handleMouseDown = (e: React.MouseEvent) => {
     if (isMinimized) return;
-    
+
     setIsDragging(true);
     const rect = (e.target as HTMLElement).getBoundingClientRect();
     setDragOffset({
@@ -130,7 +130,7 @@ export default function SessionCounter({ onExpired, onHide }: SessionCounterProp
 
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
-    
+
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
@@ -140,11 +140,11 @@ export default function SessionCounter({ onExpired, onHide }: SessionCounterProp
   if (!isVisible) return null;
 
   const sessionTimeLeft = getSessionTimeLeft();
-  
+
   // Ajustar umbrales según el tipo de autenticación
   const warningThreshold = useTokenAuth ? 24 * 60 * 60 * 1000 : 30 * 60 * 1000; // 24 horas vs 30 minutos
   const criticalThreshold = useTokenAuth ? 6 * 60 * 60 * 1000 : 5 * 60 * 1000; // 6 horas vs 5 minutos
-  
+
   const isWarning = sessionTimeLeft <= warningThreshold && sessionTimeLeft > criticalThreshold;
   const isCritical = sessionTimeLeft <= criticalThreshold;
 
@@ -249,9 +249,9 @@ export default function SessionCounter({ onExpired, onHide }: SessionCounterProp
         style={{
           left: `${position.x}px`,
           top: `${position.y}px`,
-          background: isCritical 
+          background: isCritical
             ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.95), rgba(220, 38, 38, 0.95))'
-            : isWarning 
+            : isWarning
               ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.95), rgba(217, 119, 6, 0.95))'
               : 'linear-gradient(135deg, rgba(59, 130, 246, 0.95), rgba(37, 99, 235, 0.95))',
           borderRadius: isMinimized ? '50%' : '16px',
@@ -261,7 +261,7 @@ export default function SessionCounter({ onExpired, onHide }: SessionCounterProp
           fontWeight: '600',
           minWidth: isMinimized ? 'auto' : '240px',
           border: `2px solid ${isCritical ? 'rgba(255, 255, 255, 0.4)' : 'rgba(255, 255, 255, 0.2)'}`,
-          boxShadow: isCritical 
+          boxShadow: isCritical
             ? '0 8px 32px rgba(239, 68, 68, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
             : isWarning
               ? '0 8px 32px rgba(245, 158, 11, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
@@ -271,7 +271,7 @@ export default function SessionCounter({ onExpired, onHide }: SessionCounterProp
       >
         {/* Badge indicador de estado */}
         {!isMinimized && (
-          <div 
+          <div
             className="session-badge"
             style={{
               background: isCritical ? '#ef4444' : isWarning ? '#f59e0b' : '#10b981',
@@ -283,7 +283,7 @@ export default function SessionCounter({ onExpired, onHide }: SessionCounterProp
         )}
 
         {isMinimized ? (
-          <div 
+          <div
             className="flex items-center justify-center w-10 h-10"
             onClick={() => setIsMinimized(false)}
           >
@@ -321,7 +321,7 @@ export default function SessionCounter({ onExpired, onHide }: SessionCounterProp
                 )}
               </div>
             </div>
-            
+
             <div className="flex flex-col gap-1">
               <button
                 onClick={(e) => {
@@ -333,7 +333,7 @@ export default function SessionCounter({ onExpired, onHide }: SessionCounterProp
               >
                 <Minimize2 className="w-3.5 h-3.5" />
               </button>
-              
+
               <button
                 onClick={(e) => {
                   e.stopPropagation();

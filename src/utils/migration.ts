@@ -71,7 +71,8 @@ export class MigrationService {
   /**
    * Run all migrations
    */
-  static async runAllMigrations(): Promise<void> {    console.log('Starting data migration from JSON to Firestore...');
+  static async runAllMigrations(): Promise<void> {
+    console.log('Starting data migration from JSON to Firestore...');
 
     try {
       await this.migrateLocations();

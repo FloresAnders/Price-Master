@@ -9,7 +9,8 @@ import QRCode from 'qrcode';
 import { History, Copy, Search, Eye, Calendar, MapPin, RefreshCw, Image as ImageIcon, X, Download, ChevronLeft, ChevronRight, Lock as LockIcon, Smartphone, QrCode } from 'lucide-react';
 import { useScanHistory, useScanImages } from '@/hooks/useScanHistory';
 import { useAuth } from '@/hooks/useAuth';
-import locations from '@/data/locations.json';
+import { useLocations } from '@/hooks/useFirebase';
+import type { Location } from '@/types/firestore';
 import { hasPermission } from '../../utils/permissions';
 import { generateShortMobileUrl } from '../../utils/shortEncoder';
 
@@ -34,6 +35,9 @@ export default function ScanHistoryTable() {
     loadImagesForCode,
     clearImages
   } = useScanImages();
+
+  // Load locations from DB
+  const { locations, loading: locationsLoading } = useLocations();
 
   // Local state
   const [searchTerm, setSearchTerm] = useState('');
@@ -401,7 +405,7 @@ export default function ScanHistoryTable() {
   });
 
   // Filtrar las ubicaciones disponibles en el selector basado en los permisos del usuario
-  const availableLocations = locations.filter(location => {
+  const availableLocations = locations.filter((location: Location) => {
     if (!user?.permissions?.scanhistory) return false;
     if (!user.permissions.scanhistoryLocations || user.permissions.scanhistoryLocations.length === 0) {
       return true; // Puede ver todas las ubicaciones
@@ -430,7 +434,7 @@ export default function ScanHistoryTable() {
   }
 
   return (
-  <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-6 barcode-mobile">
+    <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-6 barcode-mobile">
       {/* Notification */}
       {notification && (
         <div
@@ -533,8 +537,8 @@ export default function ScanHistoryTable() {
                       >
                         <option value="all">Todas las ubicaciones permitidas</option>
                         {availableLocations
-                          .filter(location => location.value !== 'DELIFOOD_TEST')
-                          .map((location) => (
+                          .filter((location: Location) => location.value !== 'DELIFOOD_TEST')
+                          .map((location: Location) => (
                             <option key={location.value} value={location.value}>
                               {location.label}
                             </option>
@@ -861,7 +865,7 @@ export default function ScanHistoryTable() {
                       ? (user?.permissions?.scanhistoryLocations && user.permissions.scanhistoryLocations.length > 0
                         ? `Ubicaciones permitidas (${user.permissions.scanhistoryLocations.join(', ')})`
                         : 'Todas las ubicaciones')
-                      : availableLocations.find(loc => loc.value === selectedLocation)?.label || selectedLocation
+                      : availableLocations.find((loc: Location) => loc.value === selectedLocation)?.label || selectedLocation
                   }
                   {(startDate || endDate) && (
                     <>

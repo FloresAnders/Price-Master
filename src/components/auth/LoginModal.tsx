@@ -1,4 +1,4 @@
-'use client'; 
+'use client';
 
 import React, { useState } from 'react';
 import { Lock, User, Eye, EyeOff } from 'lucide-react';
@@ -117,7 +117,7 @@ export default function LoginModal({ isOpen, onLoginSuccess, onClose, title, can
                 </button>
               </div>
             </div>
-            
+
 
             {/* Toggle para autenticación con tokens */}
             <div className="flex items-center justify-between">
@@ -135,15 +135,13 @@ export default function LoginModal({ isOpen, onLoginSuccess, onClose, title, can
                     className="sr-only"
                     disabled={loading}
                   />
-                  <div className={`block w-11 h-6 rounded-full transition-colors duration-200 ease-in-out ${
-                    useTokenAuth 
-                      ? 'bg-green-600 shadow-lg' 
+                  <div className={`block w-11 h-6 rounded-full transition-colors duration-200 ease-in-out ${useTokenAuth
+                      ? 'bg-green-600 shadow-lg'
                       : 'bg-gray-300 dark:bg-gray-600'
-                  } ${loading ? 'opacity-50' : 'group-hover:shadow-md'}`}>
+                    } ${loading ? 'opacity-50' : 'group-hover:shadow-md'}`}>
                   </div>
-                  <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-200 ease-in-out shadow-sm ${
-                    useTokenAuth ? 'translate-x-5' : 'translate-x-0'
-                  }`}>
+                  <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-200 ease-in-out shadow-sm ${useTokenAuth ? 'translate-x-5' : 'translate-x-0'
+                    }`}>
                   </div>
                 </div>
                 <div className="ml-3">

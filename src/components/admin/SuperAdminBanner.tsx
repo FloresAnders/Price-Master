@@ -49,12 +49,12 @@ export default function SuperAdminBanner() {
               <Shield className="w-5 h-5 text-red-300" />
               <span className="font-bold text-sm">MODO SUPERADMIN ACTIVO</span>
             </div>
-            
+
             <div className="hidden sm:flex items-center gap-1 text-xs">
               <Eye className="w-4 h-4 text-red-300" />
               <span>Sesión monitoreada</span>
             </div>
-            
+
             <div className="flex items-center gap-1 text-xs">
               <span className="text-red-300">Usuario:</span>
               <span className="font-medium">{user?.name}</span>
@@ -70,7 +70,7 @@ export default function SuperAdminBanner() {
                 <span>¡Sesión por expirar!</span>
               </div>
             )}
-            
+
             {/* Timer de sesión */}
             <div className="flex items-center gap-1 text-xs">
               <Clock className="w-4 h-4 text-red-300" />
@@ -99,14 +99,13 @@ export default function SuperAdminBanner() {
 
         {/* Barra de progreso de tiempo */}
         <div className="mt-1 h-1 bg-red-700 rounded-full overflow-hidden">
-          <div 
-            className={`h-full transition-all duration-1000 ${
-              sessionTime < 0.5 ? 'bg-red-400' : 
-              sessionTime < 1 ? 'bg-yellow-400' : 
-              'bg-green-400'
-            }`}
-            style={{ 
-              width: `${Math.max(0, Math.min(100, (sessionTime / 4) * 100))}%` 
+          <div
+            className={`h-full transition-all duration-1000 ${sessionTime < 0.5 ? 'bg-red-400' :
+                sessionTime < 1 ? 'bg-yellow-400' :
+                  'bg-green-400'
+              }`}
+            style={{
+              width: `${Math.max(0, Math.min(100, (sessionTime / 4) * 100))}%`
             }}
           />
         </div>
@@ -115,8 +114,8 @@ export default function SuperAdminBanner() {
         <div className="hidden lg:block mt-1 text-xs text-red-200">
           <div className="flex items-center justify-between">
             <span>
-              🔒 Todas las acciones son registradas • 
-              📊 Logs de auditoría activos • 
+              🔒 Todas las acciones son registradas •
+              📊 Logs de auditoría activos •
               ⏰ Logout automático por inactividad (30 min)
             </span>
             <span className="font-mono">
