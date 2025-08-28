@@ -71,11 +71,20 @@ export class UsersService {
    * Update a user
    */
   static async updateUser(id: string, user: Partial<User>): Promise<void> {
-    const updateData = {
+    const updateDataRaw: Partial<User & { updatedAt: Date }> = {
       ...user,
       updatedAt: new Date()
     };
-    return await FirestoreService.update(this.COLLECTION_NAME, id, updateData);
+
+    // Firestore update does not accept undefined values — strip them out
+    const updateData: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(updateDataRaw)) {
+      if (value !== undefined) {
+        updateData[key] = value as unknown;
+      }
+    }
+
+    return await FirestoreService.update(this.COLLECTION_NAME, id, updateData as Partial<User>);
   }
 
   /**
