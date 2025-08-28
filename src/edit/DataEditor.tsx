@@ -314,6 +314,9 @@ export default function DataEditor() {
             setOriginalUsersData(JSON.parse(JSON.stringify(usersData)));
             setOriginalCcssData(JSON.parse(JSON.stringify(ccssData)));
 
+            // Clear pending changes indicator after successful save
+            setHasChanges(false);
+
             showNotification('¡Datos actualizados exitosamente en Firebase!', 'success');
         } catch (error) {
             showNotification('Error al guardar los datos en Firebase', 'error');
@@ -538,11 +541,12 @@ export default function DataEditor() {
         );
     };    // Funciones para manejar usuarios
     const addUser = () => {
+        const defaultRole: User['role'] = currentUser?.role === 'superadmin' ? 'admin' : 'user';
         const newUser: User = {
             name: '',
             location: '',
             password: '',
-            role: 'user',
+            role: defaultRole,
             isActive: true
         };
     // Añadir campos solicitados: email, fullName y eliminate por defecto false
@@ -947,6 +951,8 @@ export default function DataEditor() {
                 setPermissionsEditable(prev => ({ ...prev, [key]: false }));
             }
             showNotification(`Usuario ${user.name} guardado exitosamente`, 'success');
+            // Clear global changes flag so UI removes "Cambios pendientes" badges
+            setHasChanges(false);
         } catch (error) {
             showNotification('Error al guardar el usuario', 'error');
             console.error('Error saving user:', error);
@@ -1460,7 +1466,10 @@ export default function DataEditor() {
                                         className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
                                         style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
                                     >
-                                        <option value="user">Usuario</option>
+                                        {/* If currentUser is superadmin and this is a newly created local user (no id), do not show 'user' option */}
+                                        {!(currentUser?.role === 'superadmin' && !user.id) && (
+                                            <option value="user">Usuario</option>
+                                        )}
                                         <option value="admin">Administrador</option>
                                         {currentUser?.role === 'superadmin' && (
                                             <option value="superadmin">Super Administrador</option>

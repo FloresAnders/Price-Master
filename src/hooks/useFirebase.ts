@@ -229,16 +229,17 @@ export function useUsers() {
       setError(err instanceof Error ? err.message : 'Error searching users');
       throw err;
     }
-  }, [currentUser]); const getUsersByRole = useCallback(async (role: 'admin' | 'user' | 'superadmin') => {
+  }, [currentUser]);
+
+  const getUsersByRole = useCallback(async (role: 'admin' | 'user' | 'superadmin') => {
     try {
       setError(null);
-      return await UsersService.findUsersByRole(role);
+      return await UsersService.findUsersByRole(currentUser, role);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error getting users by role');
       throw err;
     }
-  }, []);
-
+  }, [currentUser]);
   const getActiveUsers = useCallback(async () => {
     try {
       setError(null);

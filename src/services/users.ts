@@ -11,10 +11,36 @@ export class UsersService {
   static async getAllUsers(): Promise<User[]> {
     return await FirestoreService.getAll(this.COLLECTION_NAME);
   }
+  // Find users by role with optional actor validation
+  static async findUsersByRole(actorOrRole: User | { role?: string } | null | 'admin' | 'user' | 'superadmin', maybeRole?: 'admin' | 'user' | 'superadmin'): Promise<User[]> {
+    // Support two call styles: (role) or (actor, role)
+    let actor: User | { role?: string } | null = null;
+    let role: 'admin' | 'user' | 'superadmin';
 
-  /**
-   * Get all users filtered by actor role (admins and users cannot see superadmins)
-   */
+    if (typeof actorOrRole === 'string') {
+      role = actorOrRole;
+    } else {
+      actor = actorOrRole as User | { role?: string } | null;
+      role = maybeRole as 'admin' | 'user' | 'superadmin';
+    }
+
+    const users = await FirestoreService.query(this.COLLECTION_NAME, [
+      { field: 'role', operator: '==', value: role }
+    ]);
+
+    // Apply actor-based filters similar to other actor-aware methods
+    if (actor?.role === 'admin' || actor?.role === 'user') {
+      // Admins and regular users should not see superadmins
+      return users.filter(u => u.role !== 'superadmin');
+    }
+
+    if (actor?.role === 'superadmin') {
+      // Superadmins don't need to see plain 'user' accounts
+      return users.filter(u => u.role !== 'user');
+    }
+
+    return users;
+  }
   static async getAllUsersAs(actor: User | { role?: string } | null): Promise<User[]> {
     const allUsers = await this.getAllUsers();
     
@@ -22,6 +48,12 @@ export class UsersService {
     if (actor?.role === 'admin' || actor?.role === 'user') {
       return allUsers.filter(user => user.role !== 'superadmin');
     }
+
+    // If actor is superadmin, they don't need to see plain 'user' accounts
+    if (actor?.role === 'superadmin') {
+      return allUsers.filter(user => user.role !== 'user');
+    }
+
     return allUsers;
   }
 
@@ -147,12 +179,8 @@ export class UsersService {
     ]);
   }
   /**
-   * Find users by role
-   */  static async findUsersByRole(role: 'admin' | 'user' | 'superadmin'): Promise<User[]> {
-    return await FirestoreService.query(this.COLLECTION_NAME, [
-      { field: 'role', operator: '==', value: role }
-    ]);
-  }
+   * Find users by role (actor-aware implementation exists earlier in file)
+   */
 
   /**
    * Get active users only
@@ -172,6 +200,12 @@ export class UsersService {
     if (actor?.role === 'admin' || actor?.role === 'user') {
       return activeUsers.filter(user => user.role !== 'superadmin');
     }
+
+    // If actor is superadmin, filter out plain 'user' accounts
+    if (actor?.role === 'superadmin') {
+      return activeUsers.filter(user => user.role !== 'user');
+    }
+
     return activeUsers;
   }
 
