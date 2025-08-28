@@ -37,6 +37,8 @@ export interface User {
   email?: string;
   // nombre completo de la persona encargada (para admins)
   fullName?: string;
+  // máximo de empresas que un admin puede manejar simultáneamente
+  maxCompanies?: number;
   location?: string;
   password?: string;
   role?: 'admin' | 'user' | 'superadmin';

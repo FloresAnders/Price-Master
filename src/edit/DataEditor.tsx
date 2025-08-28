@@ -291,6 +291,7 @@ export default function DataEditor() {
                     role: user.role,
                     isActive: user.isActive,
                     permissions: user.permissions,
+                    maxCompanies: user.maxCompanies,
                     email: user.email,
                     fullName: user.fullName,
                     eliminate: user.eliminate ?? false
@@ -913,7 +914,8 @@ export default function DataEditor() {
                     isActive: user.isActive,
                     permissions: user.permissions,
                     email: user.email,
-                    fullName: user.fullName,
+                        fullName: user.fullName,
+                        maxCompanies: user.maxCompanies,
                     eliminate: user.eliminate ?? false
                 });
                 // Actualizar originalUsersData para este usuario para reflejar que ya no hay cambios pendientes
@@ -941,6 +943,7 @@ export default function DataEditor() {
                     role: user.role,
                     isActive: user.isActive,
                     permissions: user.permissions,
+                        maxCompanies: user.maxCompanies,
                     email: user.email,
                     fullName: user.fullName,
                     eliminate: user.eliminate ?? false
@@ -1476,6 +1479,21 @@ export default function DataEditor() {
                                         )}
                                     </select>
                                 </div>
+                                {/* If role is admin, show maxCompanies field */}
+                                {user.role === 'admin' && (
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Máx. Empresas:</label>
+                                        <input
+                                            type="number"
+                                            min={0}
+                                            value={user.maxCompanies ?? ''}
+                                            onChange={(e) => updateUser(index, 'maxCompanies', e.target.value === '' ? undefined : Number(e.target.value))}
+                                            className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
+                                            style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                            placeholder="Cantidad máxima de empresas"
+                                        />
+                                    </div>
+                                )}
                             </div>
 
                             <div className="grid grid-cols-1 gap-4 mb-4">
