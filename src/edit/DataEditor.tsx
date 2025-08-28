@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Save, Download, Upload, AlertCircle, Check, FileText, MapPin, Users, Clock, DollarSign, Eye, EyeOff, Settings } from 'lucide-react';
+import { Save, Download, AlertCircle, Check, FileText, MapPin, Users, Clock, DollarSign, Eye, EyeOff, Settings } from 'lucide-react';
 import { LocationsService } from '../services/locations';
 import { SorteosService } from '../services/sorteos';
 import { UsersService } from '../services/users';
@@ -12,6 +12,7 @@ import { Location, Sorteo, User, CcssConfig, UserPermissions } from '../types/fi
 import { getDefaultPermissions, getNoPermissions } from '../utils/permissions';
 import ScheduleReportTab from '../components/business/ScheduleReportTab';
 import ConfirmModal from '../components/ui/ConfirmModal';
+import ExportModal from '../components/export/ExportModal';
 
 type DataFile = 'locations' | 'sorteos' | 'users' | 'schedules' | 'ccss';
 
@@ -29,6 +30,10 @@ export default function DataEditor() {
     const [hasChanges, setHasChanges] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+    const showNotification = (message: string, type: 'success' | 'error' | 'info') => {
+        setNotification({ message, type });
+        setTimeout(() => setNotification(null), 3000);
+    };
     const [passwordVisibility, setPasswordVisibility] = useState<{ [key: string]: boolean }>({});
     const [savingUserKey, setSavingUserKey] = useState<string | null>(null);
     const [savingLocation, setSavingLocation] = useState<number | null>(null);
@@ -53,6 +58,30 @@ export default function DataEditor() {
         onConfirm: null,
         loading: false
     });    // Detectar cambios
+
+    // Helpers para modal de confirmación
+    const openConfirmModal = (title: string, message: string, onConfirm: () => void) => {
+        setConfirmModal({ open: true, title, message, onConfirm, loading: false });
+    };
+
+    const closeConfirmModal = () => {
+        setConfirmModal({ open: false, title: '', message: '', onConfirm: null, loading: false });
+    };
+
+    const handleConfirm = async () => {
+        if (confirmModal.onConfirm) {
+            try {
+                setConfirmModal(prev => ({ ...prev, loading: true }));
+                await Promise.resolve(confirmModal.onConfirm());
+            } catch (error: unknown) {
+                console.error('Error in confirm action:', error);
+                const msg = error instanceof Error ? error.message : String(error || 'Error');
+                showNotification(msg.includes('Forbidden') ? 'No tienes permisos para realizar esta acción' : 'Error al ejecutar la acción', 'error');
+            } finally {
+                closeConfirmModal();
+            }
+        }
+    };
     useEffect(() => {
         const locationsChanged = JSON.stringify(locationsData) !== JSON.stringify(originalLocationsData);
         const sorteosChanged = JSON.stringify(sorteosData) !== JSON.stringify(originalSorteosData);
@@ -108,7 +137,9 @@ export default function DataEditor() {
             migratedLocations.forEach((location, index) => {
                 locationsByIndex[index] = JSON.parse(JSON.stringify(location));
             });
-            setOriginalLocationsByIndex(locationsByIndex);            // Cargar sorteos desde Firebase
+            setOriginalLocationsByIndex(locationsByIndex);
+
+            // Cargar sorteos desde Firebase
             const sorteos = await SorteosService.getAllSorteos();
             setSorteosData(sorteos);
             setOriginalSorteosData(JSON.parse(JSON.stringify(sorteos)));
@@ -136,56 +167,6 @@ export default function DataEditor() {
             console.error('Error loading data from Firebase:', error);
         }
     }, [currentUser]);
-
-    // Cargar datos iniciales
-    useEffect(() => {
-        // Solo cargar datos si el usuario está disponible
-        if (currentUser) {
-            loadData();
-        }
-    }, [loadData, currentUser]);
-
-    const showNotification = (message: string, type: 'success' | 'error' | 'info') => {
-        setNotification({ message, type });
-        setTimeout(() => setNotification(null), 3000);
-    };
-
-    // Funciones para manejar modal de confirmación
-    const openConfirmModal = (title: string, message: string, onConfirm: () => void) => {
-        setConfirmModal({
-            open: true,
-            title,
-            message,
-            onConfirm,
-            loading: false
-        });
-    };
-
-    const closeConfirmModal = () => {
-        setConfirmModal({
-            open: false,
-            title: '',
-            message: '',
-            onConfirm: null,
-            loading: false
-        });
-    };
-
-    const handleConfirm = async () => {
-        if (confirmModal.onConfirm) {
-            try {
-                setConfirmModal(prev => ({ ...prev, loading: true }));
-                // Await the possibly-async onConfirm handler
-                await Promise.resolve(confirmModal.onConfirm());
-            } catch (error: unknown) {
-                console.error('Error in confirm action:', error);
-                const msg = error instanceof Error ? error.message : String(error || 'Error');
-                showNotification(msg.includes('Forbidden') ? 'No tienes permisos para realizar esta acción' : 'Error al ejecutar la acción', 'error');
-            } finally {
-                closeConfirmModal();
-            }
-        }
-    };
 
     // Función para verificar si una ubicación específica ha cambiado
     const hasLocationChanged = (index: number): boolean => {
@@ -325,85 +306,14 @@ export default function DataEditor() {
         } finally {
             setIsSaving(false);
         }
-    }; const exportData = () => {
-        const dataToExport = {
-            locations: locationsData,
-            sorteos: sorteosData,
-            users: usersData,
-            ccssConfig: ccssData,
-            exportDate: new Date().toISOString()
-        };
-
-        const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `data-export-${new Date().toISOString().split('T')[0]}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-
-        showNotification('Datos exportados exitosamente', 'success');
     };
 
-    const importData = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
+    // Estado y handlers para modal de exportación (por ahora muestra "Próximamente")
+    const [showExportModal, setShowExportModal] = useState(false);
+    const openExportModal = () => setShowExportModal(true);
+    const closeExportModal = () => setShowExportModal(false);
 
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                const importedData = JSON.parse(e.target?.result as string);
-
-                if (importedData.locations && Array.isArray(importedData.locations)) {
-                    setLocationsData(importedData.locations);
-                }
-
-                if (importedData.sorteos && Array.isArray(importedData.sorteos)) {
-                    // Manejar formato simplificado de sorteos
-                    if (importedData.sorteos.length > 0) {
-                        if (typeof importedData.sorteos[0] === 'string') {
-                            // Convertir array de strings a formato Sorteo
-                            const formattedSorteos = importedData.sorteos.map((name: string) => ({
-                                name
-                            }));
-                            setSorteosData(formattedSorteos);
-                        } else {
-                            // Ya está en formato de objetos - mantener solo name
-                            const formattedSorteos = importedData.sorteos.map((sorteo: { name?: string }) => ({
-                                name: sorteo.name || ''
-                            }));
-                            setSorteosData(formattedSorteos);
-                        }
-                    }
-                } if (importedData.users && Array.isArray(importedData.users)) {
-                    setUsersData(importedData.users);
-                }
-
-                if (importedData.ccssConfig && typeof importedData.ccssConfig === 'object') {
-                    const ccssConfig = importedData.ccssConfig;
-                    if (typeof ccssConfig.mt === 'number' && typeof ccssConfig.tc === 'number') {
-                        setCcssData({
-                            mt: ccssConfig.mt,
-                            tc: ccssConfig.tc,
-                            valorhora: typeof ccssConfig.valorhora === 'number' ? ccssConfig.valorhora : 1441,
-                            horabruta: typeof ccssConfig.horabruta === 'number' ? ccssConfig.horabruta : 1529.62
-                        });
-                    }
-                }
-
-                showNotification('Datos importados exitosamente', 'success');
-            } catch (error) {
-                showNotification('Error al importar los datos. Formato inválido', 'error');
-                console.error('Import error:', error);
-            }
-        };
-        reader.readAsText(file);
-
-        // Reset input
-        event.target.value = '';
-    };    // Funciones para manejar locations
+    // Funciones para manejar locations
     const addLocation = () => {
         const newLocation: Location = {
             value: '',
@@ -1125,23 +1035,12 @@ export default function DataEditor() {
                         <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto justify-end">
 
                             <button
-                                onClick={exportData}
+                                onClick={openExportModal}
                                 className="px-3 py-2 sm:px-4 rounded-md bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 transition-colors text-sm sm:text-base"
                             >
                                 <Download className="w-4 h-4" />
                                 Exportar
                             </button>
-
-                            <label className="px-3 py-2 sm:px-4 rounded-md bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-2 transition-colors cursor-pointer text-sm sm:text-base">
-                                <Upload className="w-4 h-4" />
-                                Importar
-                                <input
-                                    type="file"
-                                    accept=".json"
-                                    onChange={importData}
-                                    className="hidden"
-                                />
-                            </label>
                         </div>
                     </nav>
 
@@ -1784,6 +1683,8 @@ export default function DataEditor() {
                     </div>
                 </div>
             )}
+
+            <ExportModal open={showExportModal} onClose={closeExportModal} />
 
             {/* Modal de confirmación */}
             <ConfirmModal
