@@ -171,11 +171,19 @@ export default function DataEditor() {
         });
     };
 
-    const handleConfirm = () => {
+    const handleConfirm = async () => {
         if (confirmModal.onConfirm) {
-            setConfirmModal(prev => ({ ...prev, loading: true }));
-            confirmModal.onConfirm();
-            closeConfirmModal();
+            try {
+                setConfirmModal(prev => ({ ...prev, loading: true }));
+                // Await the possibly-async onConfirm handler
+                await Promise.resolve(confirmModal.onConfirm());
+            } catch (error: unknown) {
+                console.error('Error in confirm action:', error);
+                const msg = error instanceof Error ? error.message : String(error || 'Error');
+                showNotification(msg.includes('Forbidden') ? 'No tienes permisos para realizar esta acción' : 'Error al ejecutar la acción', 'error');
+            } finally {
+                closeConfirmModal();
+            }
         }
     };
 
@@ -266,7 +274,12 @@ export default function DataEditor() {
             const existingUsers = await UsersService.getAllUsers();
             for (const user of existingUsers) {
                 if (user.id) {
-                    await UsersService.deleteUser(user.id);
+                    try {
+                        await UsersService.deleteUserAs(currentUser, user.id);
+                    } catch (err) {
+                        // If actor not allowed to delete some users, skip and continue
+                        console.warn('Could not delete user during bulk save:', err);
+                    }
                 }
             }
             // Agregar los nuevos usuarios (usar actor-aware para respetar permisos)
@@ -570,9 +583,9 @@ export default function DataEditor() {
                 try {
                     setConfirmModal(prev => ({ ...prev, loading: true }));
 
-                    // Si el usuario tiene id, eliminar en backend primero
+                    // Si el usuario tiene id, eliminar en backend primero con validación de actor
                     if (user.id) {
-                        await UsersService.deleteUser(user.id);
+                        await UsersService.deleteUserAs(currentUser, user.id);
                     }
 
                     // Eliminar del estado local
@@ -582,9 +595,10 @@ export default function DataEditor() {
                     setOriginalUsersData(prev => prev.filter(u => u.id !== user.id && (u as unknown as { __localId?: string }).__localId !== (user as unknown as { __localId?: string }).__localId));
 
                     showNotification(`Usuario ${userName} eliminado exitosamente`, 'success');
-                } catch (error) {
+                } catch (error: unknown) {
                     console.error('Error deleting user:', error);
-                    showNotification('Error al eliminar el usuario', 'error');
+                    const msg = error instanceof Error ? error.message : String(error || 'Error al eliminar el usuario');
+                    showNotification(msg.includes('Forbidden') ? 'No tienes permisos para eliminar este usuario' : 'Error al eliminar el usuario', 'error');
                 } finally {
                     // Cerrar modal y quitar loading
                     closeConfirmModal();
@@ -1498,7 +1512,10 @@ export default function DataEditor() {
                                 </button>
                                 <button
                                     onClick={() => removeUser(index)}
-                                    className="px-3 py-2 sm:px-4 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm sm:text-base">
+                                    className="px-3 py-2 sm:px-4 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm sm:text-base"
+                                    disabled={savingUserKey === getUserKey(user, index) || (currentUser?.role === 'admin' && (user.eliminate === false || user.eliminate === undefined))}
+                                    title={currentUser?.role === 'admin' && (user.eliminate === false || user.eliminate === undefined) ? 'No puedes eliminar este usuario: marcado como protegido' : 'Eliminar Usuario'}
+                                >
                                     Eliminar Usuario
                                 </button>
                             </div>

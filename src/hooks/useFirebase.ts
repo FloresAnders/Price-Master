@@ -213,13 +213,13 @@ export function useUsers() {
   const deleteUser = useCallback(async (id: string) => {
     try {
       setError(null);
-      await UsersService.deleteUser(id);
+  await UsersService.deleteUserAs(currentUser, id);
       await fetchUsers(); // Refresh list
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error deleting user');
       throw err;
     }
-  }, [fetchUsers]);
+  }, [fetchUsers, currentUser]);
 
   const searchUsers = useCallback(async (searchTerm: string) => {
     try {

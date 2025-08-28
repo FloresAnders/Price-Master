@@ -58,7 +58,13 @@ export class UsersService {
       throw new Error('Forbidden: non-superadmin users cannot create superadmin users');
     }
 
-    return await this.addUser(user);
+    // If the actor is an admin, any user they create must be marked eliminate = true
+    const userToCreate: Omit<User, 'id' | 'createdAt' | 'updatedAt'> = {
+      ...user,
+      eliminate: actor?.role === 'admin' ? true : (user.eliminate ?? false)
+    };
+
+    return await this.addUser(userToCreate);
   }
 
   /**
@@ -97,6 +103,31 @@ export class UsersService {
    */
   static async deleteUser(id: string): Promise<void> {
     return await FirestoreService.delete(this.COLLECTION_NAME, id);
+  }
+
+  /**
+   * Delete a user with actor validation: admins cannot delete users with eliminate === false
+   */
+  static async deleteUserAs(actor: User | { role?: string } | null, id: string): Promise<void> {
+    const target = await this.getUserById(id);
+    if (!target) throw new Error('User not found');
+
+    // Superadmins can delete anyone
+    if (actor?.role === 'superadmin') {
+      return await this.deleteUser(id);
+    }
+
+    // Admins cannot delete users that have eliminate === false
+    if (actor?.role === 'admin') {
+      if (target.eliminate === false || target.eliminate === undefined) {
+        throw new Error('Forbidden: admins cannot delete users with eliminate=false');
+      }
+      // If eliminate is true, allow delete
+      return await this.deleteUser(id);
+    }
+
+    // Regular users cannot delete anyone
+    throw new Error('Forbidden: insufficient permissions to delete user');
   }
   /**
    * Find users by location
