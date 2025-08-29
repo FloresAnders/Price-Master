@@ -13,6 +13,21 @@ export interface Employee {
   hoursPerShift?: number; // Horas por turno, valor predeterminado 8
 }
 
+export interface EmpresaEmpleado {
+  Empleado: string;
+  hoursPerShift: number;
+  extraAmount: number;
+  ccssType: string;
+}
+
+export interface Empresa {
+  id?: string;
+  ownerId: string;
+  name: string;
+  ubicacion: string;
+  empleados: EmpresaEmpleado[];
+}
+
 export interface Sorteo {
   id?: string;
   name: string;

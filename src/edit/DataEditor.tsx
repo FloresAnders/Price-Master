@@ -4,6 +4,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Save, Download, AlertCircle, Check, FileText, MapPin, Users, Clock, DollarSign, Eye, EyeOff, Settings } from 'lucide-react';
 import { LocationsService } from '../services/locations';
+import { EmpresasService } from '../services/empresas';
 import { SorteosService } from '../services/sorteos';
 import { UsersService } from '../services/users';
 import { useAuth } from '../hooks/useAuth';
@@ -14,7 +15,7 @@ import ScheduleReportTab from '../components/business/ScheduleReportTab';
 import ConfirmModal from '../components/ui/ConfirmModal';
 import ExportModal from '../components/export/ExportModal';
 
-type DataFile = 'locations' | 'sorteos' | 'users' | 'schedules' | 'ccss';
+type DataFile = 'locations' | 'sorteos' | 'users' | 'schedules' | 'ccss' | 'empresas';
 
 export default function DataEditor() {
     const [activeFile, setActiveFile] = useState<DataFile>('locations');
@@ -23,6 +24,8 @@ export default function DataEditor() {
     const [sorteosData, setSorteosData] = useState<Sorteo[]>([]);
     const [usersData, setUsersData] = useState<User[]>([]);
     const [ccssData, setCcssData] = useState<CcssConfig>({ mt: 3672.46, tc: 11017.39, valorhora: 1441, horabruta: 1529.62 });
+    const [empresasData, setEmpresasData] = useState<any[]>([]);
+    const [originalEmpresasData, setOriginalEmpresasData] = useState<any[]>([]);
     const [originalLocationsData, setOriginalLocationsData] = useState<Location[]>([]);
     const [originalSorteosData, setOriginalSorteosData] = useState<Sorteo[]>([]);
     const [originalUsersData, setOriginalUsersData] = useState<User[]>([]);
@@ -87,8 +90,9 @@ export default function DataEditor() {
         const sorteosChanged = JSON.stringify(sorteosData) !== JSON.stringify(originalSorteosData);
         const usersChanged = JSON.stringify(usersData) !== JSON.stringify(originalUsersData);
         const ccssChanged = JSON.stringify(ccssData) !== JSON.stringify(originalCcssData);
-        setHasChanges(locationsChanged || sorteosChanged || usersChanged || ccssChanged);
-    }, [locationsData, sorteosData, usersData, ccssData, originalLocationsData, originalSorteosData, originalUsersData, originalCcssData]);
+        const empresasChanged = JSON.stringify(empresasData) !== JSON.stringify(originalEmpresasData);
+        setHasChanges(locationsChanged || sorteosChanged || usersChanged || ccssChanged || empresasChanged);
+    }, [locationsData, sorteosData, usersData, ccssData, empresasData, originalLocationsData, originalSorteosData, originalUsersData, originalCcssData, originalEmpresasData]);
 
     const loadData = useCallback(async () => {
         try {
@@ -143,6 +147,17 @@ export default function DataEditor() {
             const sorteos = await SorteosService.getAllSorteos();
             setSorteosData(sorteos);
             setOriginalSorteosData(JSON.parse(JSON.stringify(sorteos)));
+
+            // Cargar empresas desde Firebase
+            try {
+                const empresas = await EmpresasService.getAllEmpresas();
+                setEmpresasData(empresas);
+                setOriginalEmpresasData(JSON.parse(JSON.stringify(empresas)));
+            } catch (err) {
+                console.warn('No se pudo cargar empresas:', err);
+                setEmpresasData([]);
+                setOriginalEmpresasData([]);
+            }
 
             // Cargar usuarios desde Firebase (solo si hay un usuario actual que actúe)
             if (currentUser) {
@@ -300,6 +315,24 @@ export default function DataEditor() {
                 horabruta: ccssData.horabruta
             });
 
+            // Guardar empresas en Firebase: eliminar existentes y re-crear
+            try {
+                const existingEmpresas = await EmpresasService.getAllEmpresas();
+                for (const e of existingEmpresas) {
+                    if (e.id) {
+                        await EmpresasService.deleteEmpresa(e.id);
+                    }
+                }
+
+                for (const empresa of empresasData) {
+                    const ownerIdToUse = empresa.ownerId || (currentUser && currentUser.eliminate === false ? currentUser.id : '');
+                    const idToUse = empresa.name || undefined; // if name provided, create with that id
+                    await EmpresasService.addEmpresa({ id: idToUse, ownerId: ownerIdToUse, name: empresa.name || '', ubicacion: empresa.ubicacion || '', empleados: empresa.empleados || [] });
+                }
+            } catch (err) {
+                console.warn('Error al guardar empresas:', err);
+            }
+
             // Guardar también en localStorage como respaldo
             localStorage.setItem('editedLocations', JSON.stringify(locationsData));
             localStorage.setItem('editedSorteos', JSON.stringify(sorteosData)); localStorage.setItem('editedUsers', JSON.stringify(usersData));
@@ -308,6 +341,7 @@ export default function DataEditor() {
             setOriginalSorteosData(JSON.parse(JSON.stringify(sorteosData)));
             setOriginalUsersData(JSON.parse(JSON.stringify(usersData)));
             setOriginalCcssData(JSON.parse(JSON.stringify(ccssData)));
+            setOriginalEmpresasData(JSON.parse(JSON.stringify(empresasData)));
 
             // Clear pending changes indicator after successful save
             setHasChanges(false);
@@ -1045,6 +1079,16 @@ export default function DataEditor() {
                             <DollarSign className="w-4 h-4" />
                             Pago CCSS
                         </button>
+                        <button
+                            onClick={() => setActiveFile('empresas')}
+                            className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeFile === 'empresas'
+                                ? 'border-blue-500 text-blue-600'
+                                : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-[var(--border)]'
+                                }`}
+                        >
+                            <Users className="w-4 h-4" />
+                            Empresas ({empresasData.length})
+                        </button>
                         <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto justify-end">
 
                             <button
@@ -1219,6 +1263,202 @@ export default function DataEditor() {
                                     onClick={() => removeLocation(locationIndex)}
                                     className="px-3 py-2 sm:px-4 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm sm:text-base">
                                     Eliminar Ubicación
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {activeFile === 'empresas' && (
+                <div className="space-y-4">
+                    <div className="flex flex-col sm:flex-row justify-between items-center gap-2 sm:gap-0">
+                        <h4 className="text-base sm:text-lg font-semibold">Configuración de Empresas</h4>
+                        <button
+                            onClick={() => setEmpresasData(prev => [...prev, { ownerId: currentUser && currentUser.eliminate === false ? currentUser.id : '', name: '', ubicacion: '', empleados: [{ Empleado: '', hoursPerShift: 8, extraAmount: 0, ccssType: 'TC' }] }])}
+                            className="px-3 py-2 sm:px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm sm:text-base"
+                        >
+                            Agregar Empresa
+                        </button>
+                    </div>
+
+                    {empresasData.map((empresa, idx) => (
+                        <div key={empresa.id || idx} className="border border-[var(--input-border)] rounded-lg p-2 sm:p-4 relative">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Nombre de la empresa:</label>
+                                        <input
+                                            type="text"
+                                            value={empresa.name || ''}
+                                            onChange={(e) => {
+                                                const copy = [...empresasData];
+                                                copy[idx] = { ...copy[idx], name: e.target.value };
+                                                setEmpresasData(copy);
+                                            }}
+                                            className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
+                                            style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Ubicación:</label>
+                                        <input
+                                            type="text"
+                                            value={empresa.ubicacion || ''}
+                                            onChange={(e) => {
+                                                const copy = [...empresasData];
+                                                copy[idx] = { ...copy[idx], ubicacion: e.target.value };
+                                                setEmpresasData(copy);
+                                            }}
+                                            className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
+                                            style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                        />
+                                    </div>
+                                </div>
+
+                            <div>
+                                <div className="flex justify-between items-center mb-2">
+                                    <label className="block text-sm font-medium">Empleados:</label>
+                                    <button
+                                        onClick={() => {
+                                            const copy = [...empresasData];
+                                            if (!copy[idx].empleados) copy[idx].empleados = [];
+                                            copy[idx].empleados.push({ Empleado: '', 'Horas por turno': 8, 'Monto extra': 0, 'Tipo CCSS': '' });
+                                            setEmpresasData(copy);
+                                        }}
+                                        className="text-sm bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700 transition-colors"
+                                    >
+                                        Agregar Empleado
+                                    </button>
+                                </div>
+
+                                <div className="space-y-3">
+                                        {empresa.empleados?.map((emp: any, eIdx: number) => (
+                                        <div key={eIdx} className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 items-center p-2 sm:p-3 border border-[var(--input-border)] rounded-md">
+                                            <div className="col-span-2 sm:flex-1 min-w-[120px]">
+                                                <label className="block text-xs mb-1">Empleado</label>
+                                                <input
+                                                    type="text"
+                                                    value={emp.Empleado}
+                                                    onChange={(ev) => {
+                                                        const copy = [...empresasData];
+                                                        copy[idx].empleados[eIdx].Empleado = ev.target.value;
+                                                        setEmpresasData(copy);
+                                                    }}
+                                                    className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
+                                                    style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                                />
+                                            </div>
+                                            <div className="col-span-1 sm:w-32">
+                                                <label className="block text-xs mb-1">Horas por turno</label>
+                                                <input
+                                                    type="number"
+                                                    value={emp.hoursPerShift ?? 8}
+                                                    onChange={(ev) => {
+                                                        const copy = [...empresasData];
+                                                        copy[idx].empleados[eIdx].hoursPerShift = parseInt(ev.target.value) || 0;
+                                                        setEmpresasData(copy);
+                                                    }}
+                                                    className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md text-sm"
+                                                    style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                                />
+                                            </div>
+                                            <div className="col-span-1 sm:w-32">
+                                                <label className="block text-xs mb-1">Monto extra</label>
+                                                <input
+                                                    type="number"
+                                                    value={emp.extraAmount ?? 0}
+                                                    onChange={(ev) => {
+                                                        const copy = [...empresasData];
+                                                        copy[idx].empleados[eIdx].extraAmount = parseFloat(ev.target.value) || 0;
+                                                        setEmpresasData(copy);
+                                                    }}
+                                                    className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md text-sm"
+                                                    style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                                />
+                                            </div>
+                                            <div className="col-span-1 sm:w-40">
+                                                <label className="block text-xs mb-1">Tipo CCSS</label>
+                                                <select
+                                                    value={emp.ccssType || 'TC'}
+                                                    onChange={(ev) => {
+                                                        const copy = [...empresasData];
+                                                        copy[idx].empleados[eIdx].ccssType = ev.target.value;
+                                                        setEmpresasData(copy);
+                                                    }}
+                                                    className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md text-sm"
+                                                    style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                                >
+                                                    <option value="TC">Tiempo Completo</option>
+                                                    <option value="MT">Medio Tiempo</option>
+                                                </select>
+                                            </div>
+                                            <div className="col-span-2 sm:w-10 flex justify-end">
+                                                <button
+                                                    onClick={() => {
+                                                        openConfirmModal(
+                                                            'Eliminar Empleado',
+                                                            `¿Desea eliminar al empleado ${emp.Empleado || eIdx + 1}?`,
+                                                            () => {
+                                                                const copy = [...empresasData];
+                                                                copy[idx].empleados = copy[idx].empleados.filter((_: any, i: number) => i !== eIdx);
+                                                                setEmpresasData(copy);
+                                                            }
+                                                        );
+                                                    }}
+                                                    className="px-2 sm:px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                                                >
+                                                    X
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col sm:flex-row justify-end gap-2 mt-2">
+                                <button
+                                    onClick={async () => {
+                                        // Save single empresa
+                                        try {
+                                            const e = empresasData[idx];
+                                            if (e.id) {
+                                                await EmpresasService.updateEmpresa(e.id, e);
+                                                showNotification('Empresa actualizada', 'success');
+                                            } else {
+                                                const ownerIdToUse = e.ownerId || (currentUser && currentUser.eliminate === false ? currentUser.id : '');
+                                                const idToUse = e.name && e.name.trim() !== '' ? e.name.trim() : undefined;
+                                                if (!idToUse) {
+                                                    showNotification('El nombre (name) es requerido para crear la empresa con id igual a name', 'error');
+                                                } else {
+                                                    await EmpresasService.addEmpresa({ id: idToUse, ownerId: ownerIdToUse, name: e.name || '', ubicacion: e.ubicacion || '', empleados: e.empleados || [] });
+                                                    await loadData();
+                                                    showNotification('Empresa creada', 'success');
+                                                }
+                                            }
+                                        } catch (err) {
+                                            console.error('Error saving empresa:', err);
+                                            showNotification('Error al guardar empresa', 'error');
+                                        }
+                                    }}
+                                    className="px-3 py-2 sm:px-4 rounded-md bg-green-600 hover:bg-green-700 text-white transition-colors text-sm sm:text-base"
+                                >
+                                    Guardar Empresa
+                                </button>
+                                <button
+                                    onClick={() => openConfirmModal('Eliminar Empresa', '¿Desea eliminar esta empresa?', async () => {
+                                        try {
+                                            const e = empresasData[idx];
+                                            if (e.id) await EmpresasService.deleteEmpresa(e.id);
+                                            setEmpresasData(prev => prev.filter((_, i) => i !== idx));
+                                            showNotification('Empresa eliminada', 'success');
+                                        } catch (err) {
+                                            console.error('Error deleting empresa:', err);
+                                            showNotification('Error al eliminar empresa', 'error');
+                                        }
+                                    })}
+                                    className="px-3 py-2 sm:px-4 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm sm:text-base"
+                                >
+                                    Eliminar Empresa
                                 </button>
                             </div>
                         </div>
