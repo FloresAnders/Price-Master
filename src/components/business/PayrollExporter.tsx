@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useAuth } from '../../hooks/useAuth';
 import { Calculator, DollarSign, Image, Save, Calendar } from 'lucide-react';
 import { EmpresasService } from '../../services/empresas';
 import { SchedulesService, ScheduleEntry } from '../../services/schedules';
@@ -83,6 +84,7 @@ export default function PayrollExporter({
   availablePeriods = [],
   onPeriodChange
 }: PayrollExporterProps) {
+  const { user: currentUser } = useAuth();
   const [locations, setLocations] = useState<Location[]>([]);
   const [payrollData, setPayrollData] = useState<LocationPayrollData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -254,7 +256,23 @@ export default function PayrollExporter({
       try {
         // Cargar empresas y mapear a la forma que espera el componente (location-like)
         const empresas = await EmpresasService.getAllEmpresas();
-        const mapped = (empresas || []).map(e => ({
+
+        // Mostrar solo empresas pertenecientes al actor que visualiza:
+        // - superadmin ve todas
+        // - otherwise sólo empresas cuyo ownerId es currentUser.id o coincide con currentUser.ownerId
+        let owned: typeof empresas = [];
+        if (!currentUser) {
+          owned = [];
+        } else if (currentUser.role === 'superadmin') {
+          owned = empresas || [];
+        } else {
+          owned = (empresas || []).filter((e: any) => e && e.ownerId && (
+            String(e.ownerId) === String(currentUser.id) ||
+            (currentUser.ownerId && String(e.ownerId) === String(currentUser.ownerId))
+          ));
+        }
+
+        const mapped = (owned || []).map(e => ({
           id: e.id,
           label: e.name || e.ubicacion || e.id || 'Empresa',
           value: e.ubicacion || e.name || e.id || '',
