@@ -334,7 +334,8 @@ export default function DataEditor() {
                     email: user.email,
                     fullName: user.fullName,
                     eliminate: user.eliminate ?? false,
-                    ownerId: user.ownerId
+                    ownerId: user.ownerId,
+                    ownercompanie: user.ownercompanie
                 });
             }
 
@@ -921,7 +922,8 @@ export default function DataEditor() {
             fullName: user.fullName,
             maxCompanies: user.maxCompanies,
             eliminate: user.eliminate ?? false,
-            ownerId: user.ownerId
+                    ownerId: user.ownerId,
+                    ownercompanie: user.ownercompanie
                 });
                 // Actualizar originalUsersData para este usuario para reflejar que ya no hay cambios pendientes
                 setOriginalUsersData(prev => {
@@ -952,7 +954,8 @@ export default function DataEditor() {
                     email: user.email,
                     fullName: user.fullName,
                     eliminate: user.eliminate ?? false,
-                    ownerId: user.ownerId
+                    ownerId: user.ownerId,
+                    ownercompanie: user.ownercompanie
                 });
                 // Recargar datos para obtener el ID generado
                 await loadData();
@@ -1600,40 +1603,32 @@ export default function DataEditor() {
                                         style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
                                         placeholder="Nombre del usuario"
                                     />
+                                    {/* Mostrar nombre de la empresa dueña si existe (ownercompanie) */}
+                                    {user.ownercompanie && (
+                                        <div className="mt-2 text-sm text-[var(--muted-foreground)]">
+                                            Empresa Dueña: <span className="font-medium text-[var(--foreground)]">{user.ownercompanie}</span>
+                                        </div>
+                                    )}
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Ubicación:</label>
-                                    <select
-                                        value={user.location || ''}
-                                        onChange={(e) => updateUser(index, 'location', e.target.value)}
-                                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
-                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                    >
-                                        <option value="">Seleccionar ubicación</option>
-                                        {locationsData.map((location) => (
-                                            <option key={location.value} value={location.value}>
-                                                {location.label}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
+                                {/* Ubicación removed visually as requested */}
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Empresa Dueña:</label>
                                     {/* Only show empresas whose ownerId matches the user's ownerId (or resolved owner) */}
                                     {(() => {
+                                        // resolvedOwnerId must not change: use user.ownerId (the tenant) or fallback to currentUser owner
                                         const resolvedOwnerId = user.ownerId || (currentUser?.ownerId ?? (currentUser && currentUser.eliminate === false ? currentUser.id : '')) || '';
                                         const allowedEmpresas = empresasData.filter(e => (e?.ownerId || '') === resolvedOwnerId);
                                         return (
                                             <>
                                                 <select
-                                                    value={user.ownerId || ''}
-                                                    onChange={(e) => updateUser(index, 'ownerId', e.target.value)}
+                                                    value={user.ownercompanie || ''}
+                                                    onChange={(e) => updateUser(index, 'ownercompanie', e.target.value)}
                                                     className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
                                                     style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
                                                 >
                                                     <option value="">Seleccionar empresa</option>
                                                     {allowedEmpresas.map((empresa) => (
-                                                        <option key={empresa.id || empresa.name} value={empresa.id || empresa.name}>
+                                                        <option key={empresa.id || empresa.name} value={empresa.name}>
                                                             {empresa.name}
                                                         </option>
                                                     ))}

@@ -58,6 +58,8 @@ export interface User {
   password?: string;
   // si el usuario pertenece a un owner (para multi-tenant)
   ownerId?: string;
+  // Nombre de la empresa dueña asignada (espacio ownercompanie)
+  ownercompanie?: string;
   role?: 'admin' | 'user' | 'superadmin';
   isActive?: boolean;
   // Campo para marcar eliminación lógica; por defecto false
