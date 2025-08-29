@@ -5,7 +5,7 @@ import type { User, UserPermissions } from '../types/firestore';
 interface TokenPayload {
   userId: string;
   name: string;
-  location?: string;
+  ownercompanie?: string;
   role: 'admin' | 'user' | 'superadmin';
   permissions?: UserPermissions;
   sessionId: string;
@@ -128,7 +128,7 @@ export class TokenService {
     const safeUser: Omit<User, 'password'> = {
       id: userData.id,
       name: userData.name,
-      location: userData.location,
+      ownercompanie: userData.ownercompanie,
       role: userData.role,
       permissions: userData.permissions,
     };
@@ -136,7 +136,7 @@ export class TokenService {
     const tokenPayload: TokenPayload = {
       userId: userData.id!,
       name: userData.name,
-      location: userData.location,
+      ownercompanie: userData.ownercompanie,
       role: userData.role!,
       permissions: userData.permissions,
       sessionId,
@@ -291,7 +291,7 @@ export class TokenService {
       const newPayload: TokenPayload = {
         userId: sessionData.user.id || '',
         name: sessionData.user.name,
-        location: sessionData.user.location,
+        ownercompanie: (sessionData.user as any).ownercompanie,
         role: sessionData.user.role as 'admin' | 'user' | 'superadmin',
         permissions: sessionData.user.permissions,
         sessionId: sessionData.sessionId,

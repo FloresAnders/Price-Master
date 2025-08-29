@@ -5,7 +5,7 @@ import { TokenService } from '../services/tokenService';
 interface SessionData {
   id?: string;
   name: string;
-  location?: string;
+  ownercompanie?: string;
   role?: 'admin' | 'user' | 'superadmin';
   permissions?: UserPermissions;
   loginTime: string;
@@ -155,7 +155,7 @@ export function useAuth() {
         const newUserData = {
           id: tokenInfo.user.id,
           name: tokenInfo.user.name,
-          location: tokenInfo.user.location,
+          ownercompanie: tokenInfo.user.ownercompanie,
           role: tokenInfo.user.role,
           permissions: tokenInfo.user.permissions,
           // Ensure ownerId and eliminate are available for actor-aware logic
@@ -167,7 +167,7 @@ export function useAuth() {
         const hasUserChanged = !user ||
           user.id !== newUserData.id ||
           user.name !== newUserData.name ||
-          user.location !== newUserData.location ||
+          user.ownercompanie !== newUserData.ownercompanie ||
           user.role !== newUserData.role ||
           JSON.stringify(user.permissions) !== JSON.stringify(newUserData.permissions);
 
@@ -218,7 +218,7 @@ export function useAuth() {
           const newUserData = {
             id: session.id,
             name: session.name,
-            location: session.location,
+            ownercompanie: (session as any).ownercompanie || session.ownercompanie,
             role: session.role,
             permissions: session.permissions, // ¡Importante! Incluir los permisos desde la sesión
             // Restore ownerId and eliminate if present in the stored session
@@ -229,9 +229,9 @@ export function useAuth() {
           // Check if user data has changed to prevent unnecessary re-renders
           const hasUserChanged = !user ||
             user.id !== newUserData.id ||
-            user.name !== newUserData.name ||
-            user.location !== newUserData.location ||
-            user.role !== newUserData.role ||
+              user.name !== newUserData.name ||
+              user.ownercompanie !== newUserData.ownercompanie ||
+              user.role !== newUserData.role ||
             JSON.stringify(user.permissions) !== JSON.stringify(newUserData.permissions);
 
           if (hasUserChanged) {
@@ -320,7 +320,7 @@ export function useAuth() {
       const sessionData: SessionData = {
         id: userData.id,
         name: userData.name,
-        location: userData.location,
+        ownercompanie: (userData as any).ownercompanie,
         role: userData.role,
         permissions: userData.permissions, // ¡Importante! Incluir los permisos
         loginTime: new Date().toISOString(),
@@ -412,7 +412,7 @@ export function useAuth() {
     return user?.role === 'superadmin';
   }, [user?.role]);
 
-  const canChangeLocation = useCallback(() => {
+  const canChangeOwnercompanie = useCallback(() => {
     return user?.role === 'admin' || user?.role === 'superadmin';
   }, [user?.role]);
   // Función para verificar si el usuario necesita autenticación de dos factores
@@ -455,7 +455,7 @@ export function useAuth() {
     logout,
     isAdmin,
     isSuperAdmin,
-    canChangeLocation,
+  canChangeOwnercompanie,
     requiresTwoFactor,
     getSessionTimeLeft,
     getAuditLogs,

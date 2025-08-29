@@ -325,7 +325,7 @@ export default function DataEditor() {
             for (const user of usersData) {
                 await UsersService.createUserAs(currentUser, {
                     name: user.name,
-                    location: user.location,
+                    ownercompanie: user.ownercompanie,
                     password: user.password,
                     role: user.role,
                     isActive: user.isActive,
@@ -334,8 +334,7 @@ export default function DataEditor() {
                     email: user.email,
                     fullName: user.fullName,
                     eliminate: user.eliminate ?? false,
-                    ownerId: user.ownerId,
-                    ownercompanie: user.ownercompanie
+                    ownerId: user.ownerId
                 });
             }
 
@@ -548,7 +547,7 @@ export default function DataEditor() {
         const defaultRole: User['role'] = currentUser?.role === 'superadmin' ? 'admin' : 'user';
         const newUser: User = {
             name: '',
-            location: '',
+            ownercompanie: '',
             password: '',
             role: defaultRole,
             isActive: true
@@ -913,7 +912,6 @@ export default function DataEditor() {
                 // Actualizar usuario existente (actor-aware)
                 await UsersService.updateUserAs(currentUser, user.id, {
                     name: user.name,
-                    location: user.location,
                     password: user.password,
                     role: user.role,
                     isActive: user.isActive,
@@ -945,7 +943,6 @@ export default function DataEditor() {
                 // Crear nuevo usuario (actor-aware)
                 await UsersService.createUserAs(currentUser, {
                     name: user.name,
-                    location: user.location,
                     password: user.password,
                     role: user.role,
                     isActive: user.isActive,

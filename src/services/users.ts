@@ -222,8 +222,9 @@ export class UsersService {
    * Find users by location
    */
   static async findUsersByLocation(location: string): Promise<User[]> {
+    // Legacy function kept for compatibility, query by ownercompanie instead
     return await FirestoreService.query(this.COLLECTION_NAME, [
-      { field: 'location', operator: '==', value: location }
+      { field: 'ownercompanie', operator: '==', value: location }
     ]);
   }
   /**
@@ -272,7 +273,7 @@ export class UsersService {
 
     return users.filter(user =>
       user.name.toLowerCase().includes(searchTermLower) ||
-      (user.location && user.location.toLowerCase().includes(searchTermLower))
+  (user.ownercompanie && user.ownercompanie.toLowerCase().includes(searchTermLower))
     );
   }
 
@@ -285,7 +286,7 @@ export class UsersService {
 
     return users.filter(user =>
       user.name.toLowerCase().includes(searchTermLower) ||
-      (user.location && user.location.toLowerCase().includes(searchTermLower))
+  (user.ownercompanie && user.ownercompanie.toLowerCase().includes(searchTermLower))
     );
   }
 

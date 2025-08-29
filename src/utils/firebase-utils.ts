@@ -84,9 +84,10 @@ export class FirebaseUtils {
 
       const matchingSorteos = sorteos.filter(sorteo =>
         sorteo.name.toLowerCase().includes(searchTerm)
-      ); const matchingUsers = users.filter(user =>
+      );
+      const matchingUsers = users.filter(user =>
         user.name.toLowerCase().includes(searchTerm) ||
-        (user.location && user.location.toLowerCase().includes(searchTerm)) ||
+        (user.ownercompanie && user.ownercompanie.toLowerCase().includes(searchTerm)) ||
         (user.role && user.role.toLowerCase().includes(searchTerm))
       );
 

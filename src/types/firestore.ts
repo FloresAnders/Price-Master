@@ -54,7 +54,6 @@ export interface User {
   fullName?: string;
   // máximo de empresas que un admin puede manejar simultáneamente
   maxCompanies?: number;
-  location?: string;
   password?: string;
   // si el usuario pertenece a un owner (para multi-tenant)
   ownerId?: string;

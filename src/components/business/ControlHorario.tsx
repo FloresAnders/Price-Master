@@ -215,11 +215,17 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
 
   // Siempre usar el usuario del prop (puede ser null), si no hay prop usar el del auth
   const user = propCurrentUser || authUser;
+  // Empresa asignada: usar únicamente `ownercompanie` (no usar legacy `location`)
+  // Se creará un mapeo a `empresa.value` (assignedEmpresaValue) cuando se carguen
+  // las empresas para garantizar comparaciones correctas.
+  const assignedEmpresa = user?.ownercompanie;
 
   // Declarar todos los hooks primero, antes de cualquier return condicional
   const [empresas, setEmpresas] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
   const [empresa, setEmpresa] = useState('');
+  // Valor resuelto (value) de la empresa asignada basada en ownercompanie
+  const [assignedEmpresaValue, setAssignedEmpresaValue] = useState<string | null>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [scheduleData, setScheduleData] = useState<ScheduleData>({});
   const [viewMode, setViewMode] = useState<'first' | 'second'>('first');
@@ -308,6 +314,30 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
           }))
         }));
         setEmpresas(mapped);
+        // Resolver el `ownercompanie` del usuario únicamente al `value` de las empresas
+        // mapeadas. No usar legacy `user.location`.
+        try {
+          if (assignedEmpresa && mapped && mapped.length > 0) {
+            const assignedStr = String(assignedEmpresa).toLowerCase();
+            const resolved = mapped.find(m => {
+              const mv = String(m.value || '').toLowerCase();
+              const ml = String(m.label || '').toLowerCase();
+              // coincidencia estricta por label o value o inclusión (para casos como 'DELIKOR PALMARES' vs 'PALMARES')
+              return mv === assignedStr || ml === assignedStr || ml.includes(assignedStr) || assignedStr.includes(mv);
+            });
+            if (resolved) {
+              console.log('🔗 Resolved ownercompanie to empresa value:', { assignedEmpresa, resolvedValue: resolved.value });
+              setAssignedEmpresaValue(String(resolved.value));
+              if (!empresa) setEmpresa(String(resolved.value));
+            } else {
+              // Si no se resolvió, dejar assignedEmpresaValue en null (no hacer fallback)
+              setAssignedEmpresaValue(null);
+            }
+          }
+        } catch (err) {
+          console.warn('Error resolving ownercompanie to empresa value:', err);
+          setAssignedEmpresaValue(null);
+        }
       } catch (error) {
         console.error('Error loading empresas from Firebase:', error);
       } finally {
@@ -318,12 +348,12 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
     loadData();
   }, [user]);
 
-  // Efecto principal para manejar la ubicación del usuario
+  // Efecto principal para manejar la empresa del usuario
   useEffect(() => {
     console.log('🔍 Efecto empresa ejecutándose:', {
       usuario: user?.name,
       rol: user?.role,
-      empresaAsignada: user?.location,
+      empresaAsignada: assignedEmpresa,
       empresaActual: empresa,
       existeUsuario: !!user
     });
@@ -334,42 +364,43 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
       return;
     }
 
-    // Para usuarios con rol "user": FORZAR únicamente la empresa asignada (ownercompanie) o la ubicación si no existe
-    const forcedCompany = user.ownercompanie || user.location;
-    if (user.role === 'user' && forcedCompany) {
-      console.log(`🔒 USUARIO RESTRINGIDO: "${user.name}" (rol: user) DEBE usar empresa: ${forcedCompany}`);
-      setEmpresa(forcedCompany);
+    // Para usuarios con rol "user": FORZAR únicamente la empresa asignada (ownercompanie resuelta al value)
+    const forcedCompanyValue = assignedEmpresaValue;
+    if (user.role === 'user' && forcedCompanyValue) {
+      console.log(`🔒 USUARIO RESTRINGIDO: "${user.name}" (rol: user) DEBE usar empresa (value): ${forcedCompanyValue}`);
+      setEmpresa(forcedCompanyValue);
       return;
     }
 
-    // Para otros roles: si tienen ownercompanie/ubicación asignada y no hay una seleccionada, usarla como default
-    if ((user.ownercompanie || user.location) && !empresa) {
-      const defaultCompany = user.ownercompanie || user.location;
-      console.log(`🏢 CARGA AUTOMÁTICA: Mostrando empresa asignada para usuario "${user.name}" (${user.role}): ${defaultCompany}`);
+  // Para otros roles: si tienen ownercompanie/empresa asignada y no hay una seleccionada, usarla como default
+    if (assignedEmpresaValue && !empresa) {
+      const defaultCompany = assignedEmpresaValue;
+      console.log(`🏢 CARGA AUTOMÁTICA: Mostrando empresa asignada (value) para usuario "${user.name}" (${user.role}): ${defaultCompany}`);
       setEmpresa(String(defaultCompany));
     }
   }, [user, empresa]); // Incluir empresa como dependencia
 
-  // Efecto adicional para bloquear cambios de ubicación en usuarios "user"
+  // Efecto adicional para bloquear cambios de empresa en usuarios "user"
   useEffect(() => {
-    const forcedCompany = user?.ownercompanie || user?.location;
-    if (user?.role === 'user' && forcedCompany && empresa && empresa !== forcedCompany) {
-      console.warn(`🚫 BLOQUEO: Usuario "${user.name}" (rol: user) intentó cambiar a empresa "${empresa}". Forzando regreso a "${forcedCompany}"`);
-      setEmpresa(forcedCompany);
-      showNotification(`Acceso restringido. Solo puedes ver: ${forcedCompany}`, 'error');
+    // Usar el valor resuelto (assignedEmpresaValue) porque `empresa` almacena el `value`
+    const forcedCompanyValue = assignedEmpresaValue;
+    if (user?.role === 'user' && forcedCompanyValue && empresa && empresa !== forcedCompanyValue) {
+      console.warn(`🚫 BLOQUEO: Usuario "${user?.name}" (rol: user) intentó cambiar a empresa "${empresa}". Forzando regreso a "${forcedCompanyValue}"`);
+      setEmpresa(forcedCompanyValue);
+      showNotification(`Acceso restringido. Solo puedes ver: ${forcedCompanyValue}`, 'error');
     }
-  }, [empresa, user]); // Monitorear cambios en empresa para usuarios "user"
+  }, [empresa, user, assignedEmpresaValue]); // Monitorear cambios en empresa y en el valor resuelto para usuarios "user"
 
-  // Cargar horarios de Firebase cuando cambie la ubicación
+  // Cargar horarios de Firebase cuando cambie la empresa
   useEffect(() => {
     const loadScheduleData = async () => {
   if (!empresa || !empresas.find(l => l.value === empresa)?.names?.length) return;
 
-      // Validación de seguridad: usuarios con rol "user" solo pueden acceder a su ubicación asignada
-      if (user?.role === 'user' && user?.location && empresa !== user.location) {
-        console.warn(`🚫 Usuario "${user.name}" (rol: user) intentando acceder a empresa no autorizada: ${empresa}. Ubicación asignada: ${user.location}`);
-        setEmpresa(String(user.location));
-        showNotification('Acceso restringido a tu ubicación asignada', 'error');
+      // Validación de seguridad: usuarios con rol "user" solo pueden acceder a su empresa asignada (resolved value)
+      if (user?.role === 'user' && assignedEmpresaValue && empresa !== assignedEmpresaValue) {
+        console.warn(`🚫 Usuario "${user.name}" (rol: user) intentando acceder a empresa no autorizada: ${empresa}. Empresa asignada (value): ${assignedEmpresaValue}`);
+        setEmpresa(String(assignedEmpresaValue));
+        showNotification('Acceso restringido a tu empresa asignada', 'error');
         return;
       }
 
@@ -535,7 +566,8 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
         console.log('🔍 ControlHorario - Usuario actual:', {
               nombre: user?.name || 'No autenticado',
               rol: user?.role || 'Sin rol',
-              empresaAsignada: user?.location || 'Sin empresa asignada',
+              ownercompanie: user?.ownercompanie || null,
+              empresaAsignadaValue: assignedEmpresaValue || null,
               tienePermisos: !!user?.permissions?.controlhorario,
               objetoCompleto: user
             });
@@ -544,8 +576,9 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
   const handleEmpresaChange = (newEmpresa: string) => {
     // Bloquear cambios para usuarios con rol "user"
     if (user?.role === 'user') {
-      console.warn(`🚫 BLOQUEO: Usuario "${user.name}" (rol: user) intentó cambiar empresa. Manteniendo: ${user?.location}`);
-      showNotification('No tienes permisos para cambiar de ubicación', 'error');
+  const forced = assignedEmpresaValue || assignedEmpresa || 'tu empresa asignada';
+  console.warn(`🚫 BLOQUEO: Usuario "${user?.name}" (rol: user) intentó cambiar empresa a "${newEmpresa}". Manteniendo: ${forced}`);
+  showNotification('No tienes permisos para cambiar de empresa', 'error');
       return;
     }
   console.log(`✅ Cambio de empresa autorizado para usuario "${user?.name}" (rol: ${user?.role}): ${newEmpresa}`);
@@ -691,11 +724,11 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
       try {
         setSaving(true);
 
-  console.log('🔄 SAVING SCHEDULE DATA:');
+        console.log('🔄 SAVING SCHEDULE DATA:');
         console.log('Current Date:', currentDate);
         console.log('JS Month (0-based):', month, '- Month name:', new Date(year, month).toLocaleDateString('es-CR', { month: 'long' }));
         console.log('🧪 TESTING: Sending to DB with JavaScript month:', month);
-  console.log('Full save data:', { empresa, employeeName, year, month: month, day: parseInt(day), newValue });
+        console.log('Full save data:', { empresa, employeeName, year, month: month, day: parseInt(day), newValue });
 
         await SchedulesService.updateScheduleShift(
           empresa,
@@ -705,13 +738,16 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
           parseInt(day),
           newValue
         );
+
+        // Actualizar estado local de forma inmutable
         setScheduleData(prev => ({
           ...prev,
           [employeeName]: {
-            ...prev[employeeName],
+            ...(prev[employeeName] || {}),
             [day]: newValue
           }
         }));
+
         if (newValue === '' || newValue.trim() === '') {
           showNotification('Turno eliminado correctamente (documento borrado)', 'success');
         } else {
@@ -1007,7 +1043,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
       // Filas de empleados
       yPosition = tableStartY + cellHeight;
       names.forEach((employeeName, empIndex) => {
-        // Calcular días trabajados o total de horas según el tipo de ubicación
+  // Calcular días trabajados o total de horas según el tipo de empresa
         let summaryValue = 0;
   if (isDelifoodEmpresa) {
           // Para DELIFOOD, sumar todas las horas del período
@@ -1202,8 +1238,8 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
   // Función para exportar la quincena actual como PNG
   const exportQuincenaToPNG = async () => {
     // Validaciones iniciales
-    if (!location) {
-      showNotification('Error: No hay ubicación seleccionada', 'error');
+    if (!empresa) {
+      showNotification('Error: No hay empresa seleccionada', 'error');
       return;
     }
 
@@ -1246,7 +1282,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
       tableHTML += `</tr></thead><tbody>`;
 
       names.forEach(name => {
-        // Calcular resumen según el tipo de ubicación
+  // Calcular resumen según el tipo de empresa
         let summaryValue = 0;
   if (isDelifoodEmpresa) {
           // Para DELIFOOD, sumar todas las horas
@@ -1320,7 +1356,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
   const filePrefix = isDelifoodEmpresa ? 'horas_delifood_quincena' : 'horario_quincena';
       const filenameSuffix = selectedPeriod === 'monthly' ? 'mensual' :
         selectedPeriod === '1-15' ? 'primera_quincena' : 'segunda_quincena';
-      a.download = `${filePrefix}_${location}_${monthName}_${year}_${filenameSuffix}.png`;
+  a.download = `${filePrefix}_${empresa}_${monthName}_${year}_${filenameSuffix}.png`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -1370,19 +1406,19 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
       </div>
     );
   }
-  // Si no hay ubicación seleccionada, mostrar selector o mensaje apropiado
-  if (!location) {
-    console.log('🚨 SIN UBICACIÓN - Análisis de situación:', {
+  // Si no hay empresa seleccionada, mostrar selector o mensaje apropiado
+  if (!empresa) {
+    console.log('🚨 SIN EMPRESA - Análisis de situación:', {
       tieneUsuario: !!user,
       nombreUsuario: user?.name,
       rolUsuario: user?.role,
-      ubicacionAsignada: user?.location,
-      estadoLocation: location
+  empresaAsignada: assignedEmpresa,
+      estadoEmpresa: empresa
     });
 
-    // Si cualquier usuario tiene ubicación asignada, mostrar loading mientras se establece
-    if (user?.location) {
-      console.log(`⏳ MOSTRANDO LOADING para usuario ${user.name} con ubicación asignada: ${user.location}`);
+    // Si cualquier usuario tiene empresa asignada (legacy ownercompanie/location), mostrar loading mientras se establece
+    if (assignedEmpresa) {
+      console.log(`⏳ MOSTRANDO LOADING para usuario ${user.name} con empresa asignada: ${assignedEmpresa}`);
       return (
         <div className="max-w-4xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4 sm:p-6">
           <div className="flex flex-col items-center justify-center py-12">
@@ -1394,7 +1430,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
               </svg>
             </div>
             <div className="text-sm sm:text-lg flex items-center">
-              Cargando ubicación asignada: {user.location}
+              Cargando empresa asignada: {assignedEmpresa}
               <span className="inline-block w-6 text-left">
                 <span className="loading-dot">.</span>
                 <span className="loading-dot">.</span>
@@ -1406,22 +1442,22 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
       );
     }
 
-    // Si es usuario con rol "user" sin ubicación asignada, mostrar error
-    if (user?.role === 'user' && !user?.location) {
+    // Si es usuario con rol "user" sin empresa asignada, mostrar error
+  if (user?.role === 'user' && !assignedEmpresa) {
       return (
         <div className="max-w-4xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4 sm:p-6">
           <div className="text-center mb-8">
             <Clock className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 text-red-600" />
             <h3 className="text-xl sm:text-2xl font-semibold mb-4">Acceso Restringido</h3>
             <p className="text-sm sm:text-base text-[var(--tab-text)] mb-6">
-              No tienes una ubicación asignada. Contacta al administrador.
+              No tienes una empresa asignada. Contacta al administrador.
             </p>
           </div>
         </div>
       );
     }
 
-    // Solo para admin/superadmin SIN ubicación asignada, mostrar selector manual
+    // Solo para admin/superadmin SIN empresa asignada, mostrar selector manual
     return (
       <div className="max-w-4xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4 sm:p-6">
           <div className="text-center mb-8">
@@ -1448,8 +1484,8 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
               onChange={e => handleEmpresaChange(e.target.value)}
             >
               <option value="">Seleccionar empresa</option>
-              {empresas.map((loc: Location) => (
-                <option key={loc.value} value={loc.value}>{loc.label}</option>
+              {empresas.map((empresaItem: Location) => (
+                <option key={empresaItem.value} value={empresaItem.value}>{empresaItem.label}</option>
               ))}
             </select>
           </div>
@@ -1500,9 +1536,9 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
             </div>
 
             <div className="flex flex-col sm:flex-row items-center gap-4">
-              {/* Selector de ubicación - solo para admin y superadmin
-                  TODOS los usuarios ven predeterminadamente su ubicación asignada
-                  Los usuarios con rol "user" están restringidos solo a su ubicación */}
+        {/* Selector de empresa - solo para admin y superadmin
+          TODOS los usuarios ven predeterminadamente su empresa asignada
+          Los usuarios con rol "user" están restringidos solo a su empresa */}
               {userCanChangeEmpresa() ? (
                 <select
                   className="w-full sm:w-auto px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -1515,8 +1551,8 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
                   onChange={e => handleEmpresaChange(e.target.value)}
                 >
                   <option value="">Seleccionar empresa</option>
-                  {empresas.map((loc: Location) => (
-                    <option key={loc.value} value={loc.value}>{loc.label}</option>
+                  {empresas.map((empresaItem: Location) => (
+                    <option key={empresaItem.value} value={empresaItem.value}>{empresaItem.label}</option>
                   ))}
                 </select>
               ) : (
@@ -1880,7 +1916,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
           </div>
         </div>        {names.length === 0 && (
           <div className="text-center py-8 text-[var(--tab-text)]">
-            No hay empleados registrados para esta ubicación.
+            No hay empleados registrados para esta empresa.
           </div>
         )}        {/* Modal de resumen del empleado para móviles */}
         {showEmployeeSummary && (
@@ -1986,7 +2022,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
                       const url = URL.createObjectURL(imageBlob);
                       const a = document.createElement('a');
                       a.href = url;
-                      a.download = `horario-quincena-${location}-${new Date().toISOString().split('T')[0]}.png`;
+                      a.download = `horario-quincena-${empresa}-${new Date().toISOString().split('T')[0]}.png`;
                       document.body.appendChild(a);
                       a.click();
                       document.body.removeChild(a);

@@ -262,8 +262,8 @@ function MobileScanContent() {
       return;
     }
 
-    // Usar siempre la ubicación del usuario logado
-  const locationToSend = user && user.location ? user.location : undefined;
+    // Usar siempre la empresa asignada del usuario logado
+    const ownercompanieToSend = user && (user as any).ownercompanie ? (user as any).ownercompanie : undefined;
 
     try {
       setError(null);
@@ -275,7 +275,7 @@ function MobileScanContent() {
         processed: false,
         // sessionId eliminado
         ...(nameForProduct?.trim() && { productName: nameForProduct.trim() }),
-        ...(locationToSend && { location: locationToSend })
+  ...(ownercompanieToSend && { location: ownercompanieToSend })
       };
 
       // Enviar al servicio de scanning y también a localStorage para sincronización con PC
@@ -289,8 +289,8 @@ function MobileScanContent() {
       if (nameForProduct?.trim()) {
         message += ` (${nameForProduct.trim()})`;
       }
-      if (locationToSend) {
-        message += ` [${locationToSend}]`;
+      if (ownercompanieToSend) {
+        message += ` [${ownercompanieToSend}]`;
       }
       message += ' enviado correctamente';
 
@@ -301,7 +301,7 @@ function MobileScanContent() {
       setLastScanned(prev => [...prev.slice(-4), {
         code: scannedCode,
         ...(nameForProduct?.trim() && { productName: nameForProduct.trim() }),
-        ...(locationToSend && { location: locationToSend }),
+  ...(ownercompanieToSend && { location: ownercompanieToSend }),
         hasImages
       }]); // Keep last 5
       setCode('');

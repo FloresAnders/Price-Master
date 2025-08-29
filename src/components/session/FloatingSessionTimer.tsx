@@ -148,7 +148,7 @@ export default function FloatingSessionTimer({ visible, onToggleVisibility }: Fl
             <div className="text-xs opacity-80">Usuario:</div>
             <div className="font-semibold text-sm">{user.name}</div>
             <div className="text-xs opacity-80">
-              {user.role?.toUpperCase()} - {user.location}
+              {user.role?.toUpperCase()} - {user.ownercompanie}
             </div>
           </div>
 

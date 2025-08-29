@@ -138,9 +138,9 @@ export default function TokenInfo({ isOpen, onClose, inline = false }: TokenInfo
             <span className="font-medium text-gray-900 dark:text-white">{user?.role}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-600 dark:text-gray-400">Ubicacion:</span>
+            <span className="text-gray-600 dark:text-gray-400">Empresa asignada:</span>
             <span className="font-medium text-gray-900 dark:text-white">
-              {user?.location || 'No especificada'}
+              {user?.ownercompanie || 'No especificada'}
             </span>
           </div>
         </div>

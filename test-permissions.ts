@@ -25,7 +25,7 @@ async function testPermissionsSystem() {
     const testUserId = await UsersService.addUser({
       name: 'test-permissions-user',
       role: 'user',
-      location: 'test-location',
+      ownercompanie: 'test-location',
       password: 'test123',
       isActive: true
     });

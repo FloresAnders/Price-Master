@@ -285,9 +285,9 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
           className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
         >
           <option value="">-- Seleccionar Usuario --</option>
-          {users.map(user => (
+            {users.map(user => (
             <option key={user.id} value={user.id}>
-              {user.name} ({user.role}) - {user.location}
+              {user.name} ({user.role}) - {user.ownercompanie}
             </option>
           ))}
         </select>
@@ -302,7 +302,7 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
               <div>
                 <p><strong>Nombre:</strong> {selectedUser.name}</p>
                 <p><strong>Rol:</strong> {selectedUser.role}</p>
-                <p><strong>Ubicación:</strong> {selectedUser.location}</p>
+                <p><strong>Empresa asignada:</strong> {selectedUser.ownercompanie}</p>
                 <p><strong>Estado:</strong> {selectedUser.isActive ? 'Activo' : 'Inactivo'}</p>
               </div>
               <div>
