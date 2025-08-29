@@ -1,8 +1,10 @@
 "use client";
 import React from 'react';
-import { UsersService } from '../../services/users';
+import { useUsers } from '../../hooks/useFirebase';
 
 export default function ImportUsers() {
+    const { addUser, updateUser } = useUsers();
+
     const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -12,9 +14,9 @@ export default function ImportUsers() {
             if (!confirm('Aplicar users desde archivo? Esto podría crear/actualizar documentos.')) return;
             for (const item of parsed) {
                 if (item.id) {
-                    await UsersService.updateUser(item.id, item);
+                    await updateUser(item.id, item);
                 } else {
-                    await UsersService.addUser(item);
+                    await addUser(item as any);
                 }
             }
             alert('Users importadas');

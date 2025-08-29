@@ -56,6 +56,8 @@ export interface User {
   maxCompanies?: number;
   location?: string;
   password?: string;
+  // si el usuario pertenece a un owner (para multi-tenant)
+  ownerId?: string;
   role?: 'admin' | 'user' | 'superadmin';
   isActive?: boolean;
   // Campo para marcar eliminación lógica; por defecto false

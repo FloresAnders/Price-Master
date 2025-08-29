@@ -157,7 +157,10 @@ export function useAuth() {
           name: tokenInfo.user.name,
           location: tokenInfo.user.location,
           role: tokenInfo.user.role,
-          permissions: tokenInfo.user.permissions
+          permissions: tokenInfo.user.permissions,
+          // Ensure ownerId and eliminate are available for actor-aware logic
+          ownerId: tokenInfo.user.ownerId || '',
+          eliminate: tokenInfo.user.eliminate ?? false
         };
 
         // Check if user data has changed to prevent unnecessary re-renders
@@ -217,7 +220,10 @@ export function useAuth() {
             name: session.name,
             location: session.location,
             role: session.role,
-            permissions: session.permissions // ¡Importante! Incluir los permisos desde la sesión
+            permissions: session.permissions, // ¡Importante! Incluir los permisos desde la sesión
+            // Restore ownerId and eliminate if present in the stored session
+            ownerId: (session as any).ownerId || '',
+            eliminate: (session as any).eliminate ?? false
           };
 
           // Check if user data has changed to prevent unnecessary re-renders
@@ -290,10 +296,15 @@ export function useAuth() {
     };
   }, [checkExistingSession, updateActivity]);
   const login = (userData: User, keepActive: boolean = false, useTokens: boolean = false) => {
-    if (useTokens) {
+      if (useTokens) {
       // Usar autenticación por tokens (una semana automáticamente)
       TokenService.createTokenSession(userData);
-      setUser(userData);
+      const enrichedUser = {
+        ...userData,
+        ownerId: (userData as any).ownerId || '',
+        eliminate: (userData as any).eliminate ?? false
+      };
+      setUser(enrichedUser);
       setIsAuthenticated(true);
       setSessionWarning(false);
       setUseTokenAuth(true);
@@ -317,14 +328,24 @@ export function useAuth() {
         sessionId,
         userAgent: browserInfo.userAgent,
         keepActive: keepActive, // Agregar información del toggle
-        useTokenAuth: false
+        useTokenAuth: false,
+        // Persist ownerId and eliminate so restored session provides full actor info
+        // @ts-ignore allow extra fields in SessionData
+        ownerId: (userData as any).ownerId || '',
+        // @ts-ignore
+        eliminate: (userData as any).eliminate ?? false
       };
 
       // Guardar sesión
       localStorage.setItem('pricemaster_session', JSON.stringify(sessionData));
       localStorage.setItem('pricemaster_session_id', sessionId);
 
-      setUser(userData);
+      const enrichedUser = {
+        ...userData,
+        ownerId: (userData as any).ownerId || '',
+        eliminate: (userData as any).eliminate ?? false
+      };
+      setUser(enrichedUser);
       setIsAuthenticated(true);
       setSessionWarning(false);
       setUseTokenAuth(false);

@@ -14,6 +14,29 @@ import {
 import { db } from '../config/firebase';
 
 export class FirestoreService {
+  // Remove undefined values recursively from an object or array
+  // This prevents Firestore errors when a field value is undefined
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private static sanitizeForFirestore(value: any): any {
+  if (value === null) return null;
+  // Preserve Date objects (and other objects that should not be traversed)
+  if (value instanceof Date) return value;
+  if (Array.isArray(value)) {
+      return value
+        .map(item => this.sanitizeForFirestore(item))
+        .filter(item => item !== undefined);
+    }
+    if (typeof value === 'object') {
+      const out: Record<string, any> = {};
+      for (const [k, v] of Object.entries(value)) {
+        if (v === undefined) continue;
+        const sanitized = this.sanitizeForFirestore(v);
+        if (sanitized !== undefined) out[k] = sanitized;
+      }
+      return out;
+    }
+    return value;
+  }
   /**
  * Get all documents from a collection
  */
@@ -59,7 +82,8 @@ export class FirestoreService {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static async add(collectionName: string, data: any): Promise<string> {
     try {
-      const docRef = await addDoc(collection(db, collectionName), data);
+  const safeData = this.sanitizeForFirestore(data);
+  const docRef = await addDoc(collection(db, collectionName), safeData);
       return docRef.id;
     } catch (error) {
       console.error(`Error adding document to ${collectionName}:`, error);
@@ -73,8 +97,9 @@ export class FirestoreService {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static async addWithId(collectionName: string, id: string, data: any): Promise<void> {
     try {
-      const docRef = doc(db, collectionName, id);
-      await setDoc(docRef, data);
+  const docRef = doc(db, collectionName, id);
+  const safeData = this.sanitizeForFirestore(data);
+  await setDoc(docRef, safeData);
     } catch (error) {
       console.error(`Error adding document ${id} to ${collectionName}:`, error);
       throw error;
@@ -86,8 +111,9 @@ export class FirestoreService {
    */  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static async update(collectionName: string, id: string, data: any): Promise<void> {
     try {
-      const docRef = doc(db, collectionName, id);
-      await updateDoc(docRef, data);
+  const docRef = doc(db, collectionName, id);
+  const safeData = this.sanitizeForFirestore(data);
+  await updateDoc(docRef, safeData);
     } catch (error) {
       console.error(`Error updating document ${id} in ${collectionName}:`, error);
       throw error;

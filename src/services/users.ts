@@ -90,11 +90,59 @@ export class UsersService {
       throw new Error('Forbidden: non-superadmin users cannot create superadmin users');
     }
 
-    // If the actor is an admin, any user they create must be marked eliminate = true
+    // Decide ownerId according to actor rules:
+    // - If actor is an admin and actor.eliminate === false -> new user's ownerId = actor.id
+    // - If actor is an admin and actor.eliminate === true  -> new user's ownerId = actor.ownerId
+    // - Otherwise prefer the provided user.ownerId or fall back to empty string
+    // Start with provided user.ownerId or empty
+    let ownerIdToUse = user.ownerId || '';
+
+    // If actor is missing some fields (happens if currentUser wasn't fully hydrated),
+    // try to enrich from stored session in localStorage (only in browser).
+    let enrichedActor: User | null = null;
+    if (actor && (actor as User).role) enrichedActor = actor as User;
+    if ((typeof window !== 'undefined') && (!enrichedActor || !('id' in enrichedActor) || !('ownerId' in enrichedActor) || !('eliminate' in enrichedActor))) {
+      try {
+        const sessionRaw = localStorage.getItem('pricemaster_session');
+        if (sessionRaw) {
+          const session = JSON.parse(sessionRaw);
+          enrichedActor = {
+            ...(enrichedActor || {}),
+            id: enrichedActor?.id || session.id,
+            ownerId: enrichedActor?.ownerId || session.ownerId,
+            eliminate: enrichedActor?.eliminate ?? session.eliminate ?? false,
+            role: enrichedActor?.role || session.role
+          } as User;
+        }
+      } catch (e) {
+        // ignore parsing errors
+      }
+    }
+
+    if (enrichedActor?.role === 'admin') {
+      if (enrichedActor.eliminate === false) {
+        ownerIdToUse = enrichedActor.id || enrichedActor.ownerId || ownerIdToUse;
+      } else {
+        ownerIdToUse = enrichedActor.ownerId || ownerIdToUse;
+      }
+    } else if (enrichedActor?.role === 'superadmin') {
+      // superadmins creating users: if user.ownerId provided keep it, otherwise use actor id
+      ownerIdToUse = user.ownerId || enrichedActor.id || ownerIdToUse;
+    }
+
+    // Preserve previous behavior for the 'eliminate' field: admins create users with eliminate=true
     const userToCreate: Omit<User, 'id' | 'createdAt' | 'updatedAt'> = {
       ...user,
-      eliminate: actor?.role === 'admin' ? true : (user.eliminate ?? false)
+      ownerId: ownerIdToUse,
+      eliminate: actor?.role === 'admin' ? true : (user.eliminate ?? false),
+      permissions: user.permissions || getDefaultPermissions(user.role)
     };
+
+    if (!userToCreate.ownerId) {
+      // Helpful debug when ownerId is still empty
+      // eslint-disable-next-line no-console
+      console.warn('UsersService.createUserAs: ownerId resolved to empty string for new user', { actor: actor, providedOwnerId: user.ownerId });
+    }
 
     return await this.addUser(userToCreate);
   }
