@@ -37,6 +37,32 @@ export default function DataEditor() {
         setNotification({ message, type });
         setTimeout(() => setNotification(null), 3000);
     };
+    // Resolve ownerId for created entities: prefer explicit provided value, then
+    // currentUser.ownerId (when admin has an assigned owner), then try session
+    // stored in localStorage, then fall back to currentUser.id when actor is
+    // an admin with eliminate === false, otherwise empty string.
+    const resolveOwnerIdForActor = (provided?: string) => {
+        if (provided) return provided;
+        // prefer explicit ownerId on currentUser
+        if (currentUser?.ownerId) return currentUser.ownerId;
+        // fallback to enriched session in browser
+        if (typeof window !== 'undefined') {
+            try {
+                const sessionRaw = localStorage.getItem('pricemaster_session');
+                if (sessionRaw) {
+                    const session = JSON.parse(sessionRaw);
+                    if (session && session.ownerId) return session.ownerId;
+                    // if session indicates actor is not a delegated admin, use session.id
+                    if (session && session.eliminate === false && session.id) return session.id;
+                }
+            } catch (e) {
+                // ignore parsing errors
+            }
+        }
+        // finally, if currentUser is present and not marked as delegated (eliminate === false), use its id
+        if (currentUser && currentUser.eliminate === false && currentUser.id) return currentUser.id;
+        return '';
+    };
     const [passwordVisibility, setPasswordVisibility] = useState<{ [key: string]: boolean }>({});
     const [savingUserKey, setSavingUserKey] = useState<string | null>(null);
     const [savingLocation, setSavingLocation] = useState<number | null>(null);
@@ -325,7 +351,7 @@ export default function DataEditor() {
                 }
 
                 for (const empresa of empresasData) {
-                    const ownerIdToUse = empresa.ownerId || (currentUser && currentUser.eliminate === false ? currentUser.id : '');
+                    const ownerIdToUse = resolveOwnerIdForActor(empresa.ownerId);
                     const idToUse = empresa.name || undefined; // if name provided, create with that id
                     await EmpresasService.addEmpresa({ id: idToUse, ownerId: ownerIdToUse, name: empresa.name || '', ubicacion: empresa.ubicacion || '', empleados: empresa.empleados || [] });
                 }
@@ -1425,7 +1451,7 @@ export default function DataEditor() {
                                                 await EmpresasService.updateEmpresa(e.id, e);
                                                 showNotification('Empresa actualizada', 'success');
                                             } else {
-                                                const ownerIdToUse = e.ownerId || (currentUser && currentUser.eliminate === false ? currentUser.id : '');
+                                                const ownerIdToUse = resolveOwnerIdForActor(e.ownerId);
                                                 const idToUse = e.name && e.name.trim() !== '' ? e.name.trim() : undefined;
                                                 if (!idToUse) {
                                                     showNotification('El nombre (name) es requerido para crear la empresa con id igual a name', 'error');
