@@ -144,18 +144,24 @@ export default function DataEditor() {
             setSorteosData(sorteos);
             setOriginalSorteosData(JSON.parse(JSON.stringify(sorteos)));
 
-            // Cargar usuarios desde Firebase
-            const users = await UsersService.getAllUsersAs(currentUser);
+            // Cargar usuarios desde Firebase (solo si hay un usuario actual que actúe)
+            if (currentUser) {
+                const users = await UsersService.getAllUsersAs(currentUser);
 
-            // Asegurar que todos los usuarios tengan todos los permisos disponibles
-            try {
-                await UsersService.ensureAllPermissions();
-            } catch (error) {
-                console.warn('Error ensuring all permissions:', error);
+                // Asegurar que todos los usuarios tengan todos los permisos disponibles
+                try {
+                    await UsersService.ensureAllPermissions();
+                } catch (error) {
+                    console.warn('Error ensuring all permissions:', error);
+                }
+
+                setUsersData(users);
+                setOriginalUsersData(JSON.parse(JSON.stringify(users)));
+            } else {
+                // Si no hay currentUser (por ejemplo durante SSR/hydration temprana), inicializar vacíos
+                setUsersData([]);
+                setOriginalUsersData([]);
             }
-
-            setUsersData(users);
-            setOriginalUsersData(JSON.parse(JSON.stringify(users)));
 
             // Cargar configuración CCSS desde Firebase
             const ccssConfig = await CcssConfigService.getCcssConfig();
@@ -167,6 +173,13 @@ export default function DataEditor() {
             console.error('Error loading data from Firebase:', error);
         }
     }, [currentUser]);
+
+    // Cargar datos al montar el componente o cuando cambie el usuario autenticado
+    useEffect(() => {
+        // Solo ejecutar la carga (loadData) cuando React haya inicializado el componente.
+        // loadData internamente chequea `currentUser` antes de pedir usuarios.
+        loadData();
+    }, [loadData]);
 
     // Función para verificar si una ubicación específica ha cambiado
     const hasLocationChanged = (index: number): boolean => {
