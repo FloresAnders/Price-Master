@@ -73,28 +73,32 @@ export default function DataEditor() {
     // Estado para trackear cambios individuales de ubicaciones
     const [originalLocationsByIndex, setOriginalLocationsByIndex] = useState<{ [key: number]: Location }>({});
 
-    // Estado para modal de confirmación   
+    // Estado para modal de confirmación
     const [confirmModal, setConfirmModal] = useState<{
         open: boolean;
         title: string;
         message: string;
         onConfirm: (() => void) | null;
         loading: boolean;
+        singleButton?: boolean;
+        singleButtonText?: string;
     }>({
         open: false,
         title: '',
         message: '',
         onConfirm: null,
-        loading: false
+        loading: false,
+        singleButton: false,
+        singleButtonText: undefined
     });    // Detectar cambios
 
     // Helpers para modal de confirmación
-    const openConfirmModal = (title: string, message: string, onConfirm: () => void) => {
-        setConfirmModal({ open: true, title, message, onConfirm, loading: false });
+    const openConfirmModal = (title: string, message: string, onConfirm: () => void, opts?: { singleButton?: boolean; singleButtonText?: string }) => {
+        setConfirmModal({ open: true, title, message, onConfirm, loading: false, singleButton: opts?.singleButton, singleButtonText: opts?.singleButtonText });
     };
 
     const closeConfirmModal = () => {
-        setConfirmModal({ open: false, title: '', message: '', onConfirm: null, loading: false });
+        setConfirmModal({ open: false, title: '', message: '', onConfirm: null, loading: false, singleButton: false, singleButtonText: undefined });
     };
 
     const handleConfirm = async () => {
@@ -342,6 +346,7 @@ export default function DataEditor() {
             });
 
             // Guardar empresas en Firebase: eliminar existentes y re-crear
+            let abortDueToOwnerLimit = false;
             try {
                 const existingEmpresas = await EmpresasService.getAllEmpresas();
                 for (const e of existingEmpresas) {
@@ -353,10 +358,23 @@ export default function DataEditor() {
                 for (const empresa of empresasData) {
                     const ownerIdToUse = resolveOwnerIdForActor(empresa.ownerId);
                     const idToUse = empresa.name || undefined; // if name provided, create with that id
-                    await EmpresasService.addEmpresa({ id: idToUse, ownerId: ownerIdToUse, name: empresa.name || '', ubicacion: empresa.ubicacion || '', empleados: empresa.empleados || [] });
+                    try {
+                        await EmpresasService.addEmpresa({ id: idToUse, ownerId: ownerIdToUse, name: empresa.name || '', ubicacion: empresa.ubicacion || '', empleados: empresa.empleados || [] });
+                    } catch (err) {
+                        // If owner maxCompanies limit is reached, open a modal explaining why and abort further saves
+                        const message = err && (err as Error).message ? (err as Error).message : 'Error al crear empresa';
+                        openConfirmModal('Límite de empresas', message, () => { /* sólo cerrar */ }, { singleButton: true, singleButtonText: 'Cerrar' });
+                        abortDueToOwnerLimit = true;
+                        break; // stop processing further empresas
+                    }
                 }
             } catch (err) {
                 console.warn('Error al guardar empresas:', err);
+            }
+
+            if (abortDueToOwnerLimit) {
+                // Abort the outer save flow without throwing so the UI can show the modal and stop
+                return;
             }
 
             // Guardar también en localStorage como respaldo
@@ -1456,9 +1474,19 @@ export default function DataEditor() {
                                                 if (!idToUse) {
                                                     showNotification('El nombre (name) es requerido para crear la empresa con id igual a name', 'error');
                                                 } else {
-                                                    await EmpresasService.addEmpresa({ id: idToUse, ownerId: ownerIdToUse, name: e.name || '', ubicacion: e.ubicacion || '', empleados: e.empleados || [] });
-                                                    await loadData();
-                                                    showNotification('Empresa creada', 'success');
+                                                    try {
+                                                        await EmpresasService.addEmpresa({ id: idToUse, ownerId: ownerIdToUse, name: e.name || '', ubicacion: e.ubicacion || '', empleados: e.empleados || [] });
+                                                        await loadData();
+                                                        showNotification('Empresa creada', 'success');
+                                                    } catch (err) {
+                                                        const message = err && (err as Error).message ? (err as Error).message : 'Error al guardar empresa';
+                                                        // If it's owner limit, show modal with explanation; otherwise fallback to notification
+                                                        if (message.includes('maximum allowed companies') || message.toLowerCase().includes('max')) {
+                                                            openConfirmModal('Límite de empresas', message, () => { /* sólo cerrar */ }, { singleButton: true, singleButtonText: 'Cerrar' });
+                                                        } else {
+                                                            showNotification('Error al guardar empresa', 'error');
+                                                        }
+                                                    }
                                                 }
                                             }
                                         } catch (err) {
@@ -1972,6 +2000,8 @@ export default function DataEditor() {
                 message={confirmModal.message}
                 confirmText="Eliminar"
                 cancelText="Cancelar"
+                singleButton={confirmModal.singleButton}
+                singleButtonText={confirmModal.singleButtonText}
                 loading={confirmModal.loading}
                 onConfirm={handleConfirm}
                 onCancel={closeConfirmModal}

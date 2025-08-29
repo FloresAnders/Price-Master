@@ -11,6 +11,9 @@ interface ConfirmModalProps {
   onConfirm: () => void;
   onCancel: () => void;
   actionType?: 'assign' | 'delete' | 'change';
+  // If true, render a single button that calls onCancel. Useful for informational modals.
+  singleButton?: boolean;
+  singleButtonText?: string;
 }
 
 const ConfirmModal: React.FC<ConfirmModalProps> = ({
@@ -23,6 +26,8 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   onConfirm,
   onCancel,
   actionType = 'assign',
+  singleButton = false,
+  singleButtonText,
 }) => {
   if (!open) return null;
 
@@ -47,31 +52,46 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
         </div>
         <div className="mb-4 text-base text-center w-full break-words">{message}</div>
         <div className="flex flex-col sm:flex-row justify-center gap-2 mt-4 w-full">
-          <button
-            className="px-4 py-2 rounded bg-[var(--button-bg)] text-[var(--button-text)] hover:bg-[var(--button-hover)] disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 justify-center w-full sm:w-auto"
-            onClick={onCancel}
-            disabled={loading}
-            type="button"
-          >
-            {cancelIcon}
-            {cancelText}
-          </button>
-          <button
-            className={`px-4 py-2 rounded text-white flex items-center gap-2 justify-center w-full sm:w-auto disabled:opacity-60 disabled:cursor-not-allowed ${actionType === 'delete' ? 'bg-red-600 hover:bg-red-700' : actionType === 'change' ? 'bg-yellow-500 hover:bg-yellow-600 text-black' : 'bg-indigo-600 hover:bg-indigo-700'}`}
-            onClick={onConfirm}
-            disabled={loading}
-            type="button"
-          >
-            {loading ? (
-              <svg className="animate-spin h-4 w-4 mr-1 text-white" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-              </svg>
-            ) : (
-              confirmIcon
-            )}
-            {confirmText}
-          </button>
+          {/** Single-button informational modal */}
+          {singleButton ? (
+            <button
+              className="px-4 py-2 rounded bg-[var(--button-bg)] text-[var(--button-text)] hover:bg-[var(--button-hover)] disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 justify-center w-full sm:w-auto"
+              onClick={onCancel}
+              disabled={loading}
+              type="button"
+            >
+              {cancelIcon}
+              {singleButtonText || 'Cerrar'}
+            </button>
+          ) : (
+            <>
+              <button
+                className="px-4 py-2 rounded bg-[var(--button-bg)] text-[var(--button-text)] hover:bg-[var(--button-hover)] disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 justify-center w-full sm:w-auto"
+                onClick={onCancel}
+                disabled={loading}
+                type="button"
+              >
+                {cancelIcon}
+                {cancelText}
+              </button>
+              <button
+                className={`px-4 py-2 rounded text-white flex items-center gap-2 justify-center w-full sm:w-auto disabled:opacity-60 disabled:cursor-not-allowed ${actionType === 'delete' ? 'bg-red-600 hover:bg-red-700' : actionType === 'change' ? 'bg-yellow-500 hover:bg-yellow-600 text-black' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+                onClick={onConfirm}
+                disabled={loading}
+                type="button"
+              >
+                {loading ? (
+                  <svg className="animate-spin h-4 w-4 mr-1 text-white" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                  </svg>
+                ) : (
+                  confirmIcon
+                )}
+                {confirmText}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
