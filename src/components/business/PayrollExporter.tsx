@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Calculator, DollarSign, Image, Save, Calendar } from 'lucide-react';
-import { LocationsService } from '../../services/locations';
+import { EmpresasService } from '../../services/empresas';
 import { SchedulesService, ScheduleEntry } from '../../services/schedules';
 import { PayrollRecordsService } from '../../services/payroll-records';
 import { Location, Employee } from '../../types/firestore';
@@ -252,10 +252,23 @@ export default function PayrollExporter({
   useEffect(() => {
     const loadLocations = async () => {
       try {
-        const locationsData = await LocationsService.getAllLocations();
-        setLocations(locationsData);
+        // Cargar empresas y mapear a la forma que espera el componente (location-like)
+        const empresas = await EmpresasService.getAllEmpresas();
+        const mapped = (empresas || []).map(e => ({
+          id: e.id,
+          label: e.name || e.ubicacion || e.id || 'Empresa',
+          value: e.ubicacion || e.name || e.id || '',
+          names: [],
+          employees: (e.empleados || []).map((emp: any) => ({
+            name: emp.Empleado || '',
+            ccssType: emp.ccssType || 'TC',
+            hoursPerShift: emp.hoursPerShift || 8,
+            extraAmount: emp.extraAmount || 0
+          }))
+        }));
+        setLocations(mapped);
       } catch (error) {
-        console.error('Error loading locations:', error);
+        console.error('Error loading empresas:', error);
       }
     };
     loadLocations();
@@ -779,7 +792,7 @@ export default function PayrollExporter({
               color: 'var(--foreground)',
             }}
           >
-            <option value="all">Todas las ubicaciones</option>
+            <option value="all">Todas las empresas</option>
             {locations.filter(location => location.value !== 'DELIFOOD').map(location => (
               <option key={location.value} value={location.value}>
                 {location.label}

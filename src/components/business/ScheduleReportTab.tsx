@@ -455,7 +455,7 @@ export default function ScheduleReportTab() {
           {/* Controles específicos del tab de horarios */}
           <div className="mb-6 flex flex-col lg:flex-row gap-4 items-center justify-between">
             <div className="flex items-center gap-4">
-                {/* Selector de empresa */}
+                {/* Selector de empresa (usar empresas en lugar de ubicaciones) */}
               <div className="flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-[var(--tab-text)]" />
                 <select
