@@ -17,10 +17,10 @@ export interface EmpresaEmpleado {
   Empleado: string;
   hoursPerShift: number;
   extraAmount: number;
-  ccssType: string;
+  ccssType: 'TC' | 'MT';
 }
 
-export interface Empresa {
+export interface Empresas {
   id?: string;
   ownerId: string;
   name: string;

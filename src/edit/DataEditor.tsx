@@ -551,10 +551,10 @@ export default function DataEditor() {
             role: defaultRole,
             isActive: true
         };
-    // Añadir campos solicitados: email, fullName y eliminate por defecto false
-    (newUser as Partial<User>).email = '';
-    (newUser as Partial<User>).fullName = '';
-    (newUser as Partial<User>).eliminate = false;
+        // Añadir campos solicitados: email, fullName y eliminate por defecto false
+        (newUser as Partial<User>).email = '';
+        (newUser as Partial<User>).fullName = '';
+        (newUser as Partial<User>).eliminate = false;
         // Insertar al inicio
         // Give new user no permissions by default (no privileges)
         newUser.permissions = getNoPermissions();
@@ -915,8 +915,8 @@ export default function DataEditor() {
                     isActive: user.isActive,
                     permissions: user.permissions,
                     email: user.email,
-                        fullName: user.fullName,
-                        maxCompanies: user.maxCompanies,
+                    fullName: user.fullName,
+                    maxCompanies: user.maxCompanies,
                     eliminate: user.eliminate ?? false
                 });
                 // Actualizar originalUsersData para este usuario para reflejar que ya no hay cambios pendientes
@@ -944,7 +944,7 @@ export default function DataEditor() {
                     role: user.role,
                     isActive: user.isActive,
                     permissions: user.permissions,
-                        maxCompanies: user.maxCompanies,
+                    maxCompanies: user.maxCompanies,
                     email: user.email,
                     fullName: user.fullName,
                     eliminate: user.eliminate ?? false
@@ -1329,35 +1329,35 @@ export default function DataEditor() {
                     {empresasData.map((empresa, idx) => (
                         <div key={empresa.id || idx} className="border border-[var(--input-border)] rounded-lg p-2 sm:p-4 relative">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Nombre de la empresa:</label>
-                                        <input
-                                            type="text"
-                                            value={empresa.name || ''}
-                                            onChange={(e) => {
-                                                const copy = [...empresasData];
-                                                copy[idx] = { ...copy[idx], name: e.target.value };
-                                                setEmpresasData(copy);
-                                            }}
-                                            className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
-                                            style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Ubicación:</label>
-                                        <input
-                                            type="text"
-                                            value={empresa.ubicacion || ''}
-                                            onChange={(e) => {
-                                                const copy = [...empresasData];
-                                                copy[idx] = { ...copy[idx], ubicacion: e.target.value };
-                                                setEmpresasData(copy);
-                                            }}
-                                            className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
-                                            style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                        />
-                                    </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Nombre de la empresa:</label>
+                                    <input
+                                        type="text"
+                                        value={empresa.name || ''}
+                                        onChange={(e) => {
+                                            const copy = [...empresasData];
+                                            copy[idx] = { ...copy[idx], name: e.target.value };
+                                            setEmpresasData(copy);
+                                        }}
+                                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
+                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                    />
                                 </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Ubicación:</label>
+                                    <input
+                                        type="text"
+                                        value={empresa.ubicacion || ''}
+                                        onChange={(e) => {
+                                            const copy = [...empresasData];
+                                            copy[idx] = { ...copy[idx], ubicacion: e.target.value };
+                                            setEmpresasData(copy);
+                                        }}
+                                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
+                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                    />
+                                </div>
+                            </div>
 
                             <div>
                                 <div className="flex justify-between items-center mb-2">
@@ -1366,7 +1366,7 @@ export default function DataEditor() {
                                         onClick={() => {
                                             const copy = [...empresasData];
                                             if (!copy[idx].empleados) copy[idx].empleados = [];
-                                            copy[idx].empleados.push({ Empleado: '', 'Horas por turno': 8, 'Monto extra': 0, 'Tipo CCSS': '' });
+                                            copy[idx].empleados.push({ Empleado: '', 'Horas por turno': 8, 'Monto extra': 0, 'ccssType ': '' });
                                             setEmpresasData(copy);
                                         }}
                                         className="text-sm bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700 transition-colors"
@@ -1376,7 +1376,7 @@ export default function DataEditor() {
                                 </div>
 
                                 <div className="space-y-3">
-                                        {empresa.empleados?.map((emp: any, eIdx: number) => (
+                                    {empresa.empleados?.map((emp: any, eIdx: number) => (
                                         <div key={eIdx} className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 items-center p-2 sm:p-3 border border-[var(--input-border)] rounded-md">
                                             <div className="col-span-2 sm:flex-1 min-w-[120px]">
                                                 <label className="block text-xs mb-1">Empleado</label>
