@@ -333,7 +333,8 @@ export default function DataEditor() {
                     maxCompanies: user.maxCompanies,
                     email: user.email,
                     fullName: user.fullName,
-                    eliminate: user.eliminate ?? false
+                    eliminate: user.eliminate ?? false,
+                    ownerId: user.ownerId
                 });
             }
 
@@ -555,6 +556,8 @@ export default function DataEditor() {
         (newUser as Partial<User>).email = '';
         (newUser as Partial<User>).fullName = '';
         (newUser as Partial<User>).eliminate = false;
+    // Preselect ownerId for new users when actor has an owner
+    (newUser as Partial<User>).ownerId = currentUser?.ownerId ?? (currentUser && currentUser.eliminate === false ? currentUser.id : '');
         // Insertar al inicio
         // Give new user no permissions by default (no privileges)
         newUser.permissions = getNoPermissions();
@@ -905,7 +908,7 @@ export default function DataEditor() {
         setSavingUserKey(key);
         try {
             const user = usersData[index];
-            if (user.id) {
+        if (user.id) {
                 // Actualizar usuario existente (actor-aware)
                 await UsersService.updateUserAs(currentUser, user.id, {
                     name: user.name,
@@ -914,10 +917,11 @@ export default function DataEditor() {
                     role: user.role,
                     isActive: user.isActive,
                     permissions: user.permissions,
-                    email: user.email,
-                    fullName: user.fullName,
-                    maxCompanies: user.maxCompanies,
-                    eliminate: user.eliminate ?? false
+            email: user.email,
+            fullName: user.fullName,
+            maxCompanies: user.maxCompanies,
+            eliminate: user.eliminate ?? false,
+            ownerId: user.ownerId
                 });
                 // Actualizar originalUsersData para este usuario para reflejar que ya no hay cambios pendientes
                 setOriginalUsersData(prev => {
@@ -947,7 +951,8 @@ export default function DataEditor() {
                     maxCompanies: user.maxCompanies,
                     email: user.email,
                     fullName: user.fullName,
-                    eliminate: user.eliminate ?? false
+                    eliminate: user.eliminate ?? false,
+                    ownerId: user.ownerId
                 });
                 // Recargar datos para obtener el ID generado
                 await loadData();
@@ -1611,6 +1616,34 @@ export default function DataEditor() {
                                             </option>
                                         ))}
                                     </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Empresa Dueña:</label>
+                                    {/* Only show empresas whose ownerId matches the user's ownerId (or resolved owner) */}
+                                    {(() => {
+                                        const resolvedOwnerId = user.ownerId || (currentUser?.ownerId ?? (currentUser && currentUser.eliminate === false ? currentUser.id : '')) || '';
+                                        const allowedEmpresas = empresasData.filter(e => (e?.ownerId || '') === resolvedOwnerId);
+                                        return (
+                                            <>
+                                                <select
+                                                    value={user.ownerId || ''}
+                                                    onChange={(e) => updateUser(index, 'ownerId', e.target.value)}
+                                                    className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
+                                                    style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                                >
+                                                    <option value="">Seleccionar empresa</option>
+                                                    {allowedEmpresas.map((empresa) => (
+                                                        <option key={empresa.id || empresa.name} value={empresa.id || empresa.name}>
+                                                            {empresa.name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                {allowedEmpresas.length === 0 && (
+                                                    <p className="text-xs mt-1 text-yellow-600">No hay empresas disponibles para el owner asignado.</p>
+                                                )}
+                                            </>
+                                        );
+                                    })()}
                                 </div>
                             </div>
 
