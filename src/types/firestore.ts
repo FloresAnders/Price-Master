@@ -71,7 +71,7 @@ export interface User {
 
 export interface ScheduleEntry {
   id?: string;
-  locationValue: string;
+  companieValue: string;
   employeeName: string;
   year: number;
   month: number;

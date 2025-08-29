@@ -3,7 +3,7 @@ import { FirestoreService } from './firestore';
 
 export interface PayrollRecord {
   employeeName: string;
-  locationValue: string;
+  companieValue: string;
   records: {
     [year: number]: {
       [month: number]: {
@@ -85,7 +85,7 @@ export class PayrollRecordsService {
         // Create new record
         const newRecord: PayrollRecord = {
           employeeName,
-          locationValue,
+          companieValue: locationValue,
           records: {
             [year]: {
               [month]: {
@@ -124,7 +124,7 @@ export class PayrollRecordsService {
   static async getRecordsByLocation(locationValue: string): Promise<PayrollRecord[]> {
     try {
       return await FirestoreService.query(this.COLLECTION_NAME, [
-        { field: 'locationValue', operator: '==', value: locationValue }
+        { field: 'companieValue', operator: '==', value: locationValue }
       ]);
     } catch (error) {
       console.error('Error getting payroll records by location:', error);
@@ -168,7 +168,7 @@ export class PayrollRecordsService {
     period: 'first' | 'second'
   ): Promise<void> {
     try {
-      const docId = this.getEmployeeDocId(locationValue, employeeName);
+    const docId = this.getEmployeeDocId(locationValue, employeeName);
       const existingRecord = await FirestoreService.getById(this.COLLECTION_NAME, docId);
 
       if (!existingRecord) {

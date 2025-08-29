@@ -18,7 +18,7 @@ export function useSchedules(locationValue?: string, year?: number, month?: numb
       const data = await SchedulesService.getAllSchedules();
       // Filter by location, year, and month
       const filtered = data.filter(schedule =>
-        schedule.locationValue === locationValue &&
+        schedule.companieValue === locationValue &&
         schedule.year === year &&
         schedule.month === month
       );

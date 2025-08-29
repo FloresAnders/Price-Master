@@ -2,7 +2,7 @@ import { FirestoreService } from './firestore';
 
 export interface ScheduleEntry {
   id?: string;
-  locationValue: string;
+  companieValue: string;
   employeeName: string;
   year: number;
   month: number;
@@ -69,7 +69,7 @@ export class SchedulesService {
     month: number
   ): Promise<ScheduleEntry[]> {
     return await FirestoreService.query(this.COLLECTION_NAME, [
-      { field: 'locationValue', operator: '==', value: locationValue },
+      { field: 'companieValue', operator: '==', value: locationValue },
       { field: 'employeeName', operator: '==', value: employeeName },
       { field: 'year', operator: '==', value: year },
       { field: 'month', operator: '==', value: month }
@@ -88,7 +88,7 @@ export class SchedulesService {
   ): Promise<ScheduleEntry> {
     // First try to find existing entry
     const existing = await FirestoreService.query(this.COLLECTION_NAME, [
-      { field: 'locationValue', operator: '==', value: locationValue },
+      { field: 'companieValue', operator: '==', value: locationValue },
       { field: 'employeeName', operator: '==', value: employeeName },
       { field: 'year', operator: '==', value: year },
       { field: 'month', operator: '==', value: month },
@@ -101,7 +101,7 @@ export class SchedulesService {
 
     // Create new entry if it doesn't exist
     const newEntry = {
-      locationValue,
+      companieValue: locationValue,
       employeeName,
       year,
       month,
@@ -123,7 +123,7 @@ export class SchedulesService {
     day: number
   ): Promise<ScheduleEntry | null> {
     const existing = await FirestoreService.query(this.COLLECTION_NAME, [
-      { field: 'locationValue', operator: '==', value: locationValue },
+      { field: 'companieValue', operator: '==', value: locationValue },
       { field: 'employeeName', operator: '==', value: employeeName },
       { field: 'year', operator: '==', value: year },
       { field: 'month', operator: '==', value: month },
@@ -147,7 +147,7 @@ export class SchedulesService {
   ): Promise<void> {
     try {
       // Find existing entry first
-      const existingEntry = await this.findScheduleEntry(locationValue, employeeName, year, month, day);
+  const existingEntry = await this.findScheduleEntry(locationValue, employeeName, year, month, day);
 
       if (shift === '' || shift.trim() === '') {
         // If setting to empty and document exists, DELETE it
@@ -188,7 +188,7 @@ export class SchedulesService {
         } else {
           // Create new document with shift and horasPorDia (only if defined)
           const newSchedule: Omit<ScheduleEntry, 'id' | 'createdAt' | 'updatedAt'> = {
-            locationValue,
+            companieValue: locationValue,
             employeeName,
             year,
             month,
@@ -241,7 +241,7 @@ export class SchedulesService {
         } else {
           // Create new document with shift 'L' and specific horasPorDia
           await this.addSchedule({
-            locationValue,
+            companieValue: locationValue,
             employeeName,
             year,
             month,

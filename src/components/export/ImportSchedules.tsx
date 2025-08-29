@@ -11,10 +11,16 @@ export default function ImportSchedules() {
             const parsed = JSON.parse(text);
             if (!confirm('Aplicar schedules desde archivo? Esto podría crear/actualizar documentos.')) return;
             for (const item of parsed) {
+                // Ensure imported object uses the new field name
+                const payload = {
+                    ...item,
+                    ...(item.locationValue && { companieValue: item.locationValue })
+                };
+
                 if (item.id) {
-                    await SchedulesService.updateSchedule(item.id, item);
+                    await SchedulesService.updateSchedule(item.id, payload);
                 } else {
-                    await SchedulesService.addSchedule(item);
+                    await SchedulesService.addSchedule(payload);
                 }
             }
             alert('Schedules importadas');

@@ -3,7 +3,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, Calendar, MapPin, FileText, Download } from 'lucide-react';
-import { LocationsService } from '../services/locations';
+import { EmpresasService } from '../services/empresas';
+import { useAuth } from '../hooks/useAuth';
 import { SchedulesService, ScheduleEntry } from '../services/schedules';
 import { Location } from '../types/firestore';
 
@@ -28,6 +29,7 @@ interface LocationSchedule {
 }
 
 export default function ScheduleReportTab() {
+  const { user: currentUser } = useAuth();
   const [locations, setLocations] = useState<Location[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
   const [currentPeriod, setCurrentPeriod] = useState<BiweeklyPeriod | null>(null);
@@ -113,18 +115,44 @@ export default function ScheduleReportTab() {
     }
   };
 
-  // Cargar ubicaciones
+  // Cargar empresas (mapeadas a la forma esperada por la vista de planilla)
   useEffect(() => {
     const loadLocations = async () => {
       try {
-        const locationsData = await LocationsService.getAllLocations();
-        setLocations(locationsData);
+        const empresas = await EmpresasService.getAllEmpresas();
+
+        let owned: typeof empresas = [];
+
+        if (!currentUser) {
+          owned = [];
+        } else if (currentUser.role === 'superadmin') {
+          owned = empresas || [];
+        } else {
+          owned = (empresas || []).filter(e => e && e.ownerId && (
+            String(e.ownerId) === String(currentUser.id) ||
+            (currentUser.ownerId && String(e.ownerId) === String(currentUser.ownerId))
+          ));
+        }
+
+        const mapped = owned.map(e => ({
+          id: e.id,
+          label: e.name || e.ubicacion || e.id || 'Empresa',
+          value: e.ubicacion || e.name || e.id || '',
+          names: [],
+          employees: (e.empleados || []).map(emp => ({
+            name: emp.Empleado || '',
+            ccssType: emp.ccssType || 'TC',
+            hoursPerShift: emp.hoursPerShift || 8,
+            extraAmount: emp.extraAmount || 0
+          }))
+        }));
+        setLocations(mapped);
       } catch (error) {
-        console.error('Error loading locations:', error);
+        console.error('Error loading empresas:', error);
       }
     };
     loadLocations();
-  }, []);
+  }, [currentUser]);
 
   // Inicializar períodos disponibles
   useEffect(() => {
@@ -176,10 +204,10 @@ export default function ScheduleReportTab() {
       const locationGroups = new Map<string, ScheduleEntry[]>();
 
       periodSchedules.forEach(schedule => {
-        if (!locationGroups.has(schedule.locationValue)) {
-          locationGroups.set(schedule.locationValue, []);
+        if (!locationGroups.has(schedule.companieValue)) {
+          locationGroups.set(schedule.companieValue, []);
         }
-        locationGroups.get(schedule.locationValue)!.push(schedule);
+        locationGroups.get(schedule.companieValue)!.push(schedule);
       });
 
       const scheduleDataArray: LocationSchedule[] = [];
@@ -334,18 +362,18 @@ export default function ScheduleReportTab() {
         </div>
       </div>
 
-      {/* Selector de ubicación */}
+      {/* Selector de empresa */}
       <div className="flex items-center gap-4">
         <label className="flex items-center gap-2 text-sm font-medium">
           <MapPin className="w-4 h-4" />
-          Ubicación:
+          Empresa:
         </label>
         <select
           value={selectedLocation}
           onChange={(e) => setSelectedLocation(e.target.value)}
           className="px-3 py-2 border border-[var(--input-border)] rounded-md bg-[var(--input-bg)] text-[var(--text-color)]"
         >
-          <option value="all">Todas las ubicaciones</option>
+          <option value="all">Todas las empresas</option>
           {locations.filter(location => location.value !== 'DELIFOOD').map(location => (<option key={location.value} value={location.value}>
             {location.label}
           </option>

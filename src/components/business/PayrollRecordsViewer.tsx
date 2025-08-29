@@ -114,7 +114,7 @@ export default function PayrollRecordsViewer({ selectedLocation = 'all' }: Payro
     setConfirmModal(prev => ({ ...prev, loading: true }));
 
     try {
-      const { locationValue, employeeName, year, month, period } = confirmModal.periodToDelete;
+    const { locationValue, employeeName, year, month, period } = confirmModal.periodToDelete;
 
       await PayrollRecordsService.deletePeriodFromRecord(
         locationValue,
@@ -156,10 +156,10 @@ export default function PayrollRecordsViewer({ selectedLocation = 'all' }: Payro
   };
 
   // Obtener nombre de ubicación
-  const getLocationName = (locationValue: string) => {
+    const getLocationName = (locationValue: string) => {
     const location = locations.find(loc => loc.value === locationValue);
     return location ? location.label : locationValue;
-  };
+  }
 
   // Calcular días totales de un empleado específico
   const getEmployeeTotalDays = (employeeRecord: PayrollRecord) => {
@@ -234,7 +234,7 @@ export default function PayrollRecordsViewer({ selectedLocation = 'all' }: Payro
                 <div>
                   <h4 className="font-semibold text-lg">{record.employeeName}</h4>
                   <p className="text-sm text-[var(--tab-text)]">
-                    {getLocationName(record.locationValue)}
+                    {getLocationName(record.companieValue)}
                   </p>
                 </div>
 
@@ -261,7 +261,7 @@ export default function PayrollRecordsViewer({ selectedLocation = 'all' }: Payro
                           <div className="bg-white dark:bg-gray-700 rounded p-2 relative">
                             <button
                               onClick={() => preparePeriodDeletion(
-                                record.locationValue,
+                                record.companieValue,
                                 record.employeeName,
                                 parseInt(year),
                                 parseInt(month),
@@ -290,7 +290,7 @@ export default function PayrollRecordsViewer({ selectedLocation = 'all' }: Payro
                           <div className="bg-white dark:bg-gray-700 rounded p-2 relative">
                             <button
                               onClick={() => preparePeriodDeletion(
-                                record.locationValue,
+                                record.companieValue,
                                 record.employeeName,
                                 parseInt(year),
                                 parseInt(month),

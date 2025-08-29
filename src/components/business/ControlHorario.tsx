@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Clock, ChevronLeft, ChevronRight, Save, User as UserIcon, Lock, Unlock, Info } from 'lucide-react';
-import { LocationsService } from '../../services/locations';
+import { EmpresasService } from '../../services/empresas';
 import { SchedulesService } from '../../services/schedules';
 import type { ScheduleEntry } from '../../services/schedules';
 import { CcssConfigService } from '../../services/ccss-config';
@@ -31,19 +31,19 @@ interface ScheduleData {
 // Componente para el tooltip que muestra resumen con datos reales de la BD
 function EmployeeTooltipSummary({
   employeeName,
-  locationValue,
+  empresaValue,
   year,
   month,
   daysToShow,
-  isDelifoodLocation = false,
+  isDelifoodEmpresa = false,
   delifoodHoursData = {}
 }: {
   employeeName: string;
-  locationValue: string;
+  empresaValue: string;
   year: number;
   month: number;
   daysToShow: number[];
-  isDelifoodLocation?: boolean;
+  isDelifoodEmpresa?: boolean;
   delifoodHoursData?: { [employeeName: string]: { [day: string]: { hours: number } } };
 }) {
   const [summary, setSummary] = React.useState<{
@@ -58,14 +58,20 @@ function EmployeeTooltipSummary({
   React.useEffect(() => {
     const fetchSummary = async () => {
       try {
-        // Obtener información de la ubicación que contiene los empleados
-        const locations = await LocationsService.findLocationsByValue(locationValue);
-        const currentLocation = locations[0]; // Tomar la primera coincidencia
-        const employee = currentLocation?.employees?.find(emp => emp.name === employeeName);
+        // Obtener información de la empresa que contiene los empleados
+      const empresas = await EmpresasService.getAllEmpresas();
+      const currentEmpresa = empresas.find(e => e.ubicacion === empresaValue || e.name === empresaValue || e.id === empresaValue);
+        const rawEmp = currentEmpresa?.empleados?.find((emp: any) => emp.Empleado === employeeName);
+        const employee = rawEmp ? {
+          name: rawEmp.Empleado,
+          ccssType: rawEmp.ccssType || 'TC',
+          extraAmount: rawEmp.extraAmount || 0,
+          hoursPerShift: rawEmp.hoursPerShift || 8
+        } : undefined;
 
         // Obtener horarios del empleado para este mes - usar JavaScript month (0-11)
         const schedules = await SchedulesService.getSchedulesByLocationEmployeeMonth(
-          locationValue,
+          empresaValue,
           employeeName,
           year,
           month // Usar JavaScript month (0-11) para consistencia
@@ -77,7 +83,7 @@ function EmployeeTooltipSummary({
         let workedDaysInPeriod = 0;
         let totalHours = 0;
 
-        if (isDelifoodLocation) {
+  if (isDelifoodEmpresa) {
           // Para DELIFOOD, usar las horas directamente de horasPorDia
           totalHours = daysToShow.reduce((total, day) => {
             const hours = delifoodHoursData[employeeName]?.[day.toString()]?.hours || 0;
@@ -157,7 +163,7 @@ function EmployeeTooltipSummary({
           extraAmount,
           netSalary: netSalary.toFixed(2),
           period: `${daysToShow[0]}-${daysToShow[daysToShow.length - 1]}`,
-          isDelifoodLocation
+          isDelifoodEmpresa
         });
 
         setSummary({
@@ -183,7 +189,7 @@ function EmployeeTooltipSummary({
     };
 
     fetchSummary();
-  }, [employeeName, locationValue, year, month, daysToShow, isDelifoodLocation, delifoodHoursData]);
+  }, [employeeName, empresaValue, year, month, daysToShow, isDelifoodEmpresa, delifoodHoursData]);
 
   if (!summary) {
     return <div>Cargando...</div>;
@@ -191,7 +197,7 @@ function EmployeeTooltipSummary({
 
   return (
     <>
-      <div><b>{isDelifoodLocation ? 'Días con horas:' : 'Días trabajados:'}</b> {summary.workedDays}</div>
+      <div><b>{isDelifoodEmpresa ? 'Días con horas:' : 'Días trabajados:'}</b> {summary.workedDays}</div>
       <div><b>Horas trabajadas:</b> {summary.hours}</div>
       <div><b>Total bruto:</b> ₡{summary.colones.toLocaleString('es-CR')}</div>
       <div><b>CCSS:</b> -₡{summary.ccss.toLocaleString('es-CR', { minimumFractionDigits: 2 })}</div>
@@ -211,9 +217,9 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
   const user = propCurrentUser || authUser;
 
   // Declarar todos los hooks primero, antes de cualquier return condicional
-  const [locations, setLocations] = useState<Location[]>([]);
+  const [empresas, setEmpresas] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
-  const [location, setLocation] = useState('');
+  const [empresa, setEmpresa] = useState('');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [scheduleData, setScheduleData] = useState<ScheduleData>({});
   const [viewMode, setViewMode] = useState<'first' | 'second'>('first');
@@ -258,33 +264,67 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
     setTimeout(() => setNotification(null), 3000);
   };
 
-  // Verificar si la ubicación actual es DELIFOOD
-  const isDelifoodLocation = location.toLowerCase().includes('delifood');
+  // Verificar si la empresa actual es DELIFOOD
+  const isDelifoodEmpresa = empresa.toLowerCase().includes('delifood');
 
   // All useEffect hooks must be declared before any conditional returns
   // Cargar datos desde Firebase
   useEffect(() => {
     const loadData = async () => {
       try {
-        const locationsData = await LocationsService.getAllLocations();
-        setLocations(locationsData);
+        const allEmpresas = await EmpresasService.getAllEmpresas();
+
+        // Filter empresas to those owned by the logged-in user
+        let owned: typeof allEmpresas = [];
+
+        if (!user) {
+          owned = [];
+        } else if (user.role === 'superadmin') {
+          owned = allEmpresas || [];
+        } else {
+          owned = (allEmpresas || []).filter(e => {
+            if (!e) return false;
+            const ownerId = e.ownerId || '';
+            const name = e.name || '';
+            const ubicacion = e.ubicacion || '';
+
+            const ownerIdMatch = ownerId && (String(ownerId) === String(user.id) || (user.ownerId && String(ownerId) === String(user.ownerId)));
+            const ownerCompanieMatch = user.ownercompanie && (String(name) === String(user.ownercompanie) || String(ubicacion) === String(user.ownercompanie));
+
+            return !!ownerIdMatch || !!ownerCompanieMatch;
+          });
+        }
+
+        const mapped = (owned || []).map(e => ({
+          id: e.id,
+          label: e.name || e.ubicacion || e.id || 'Empresa',
+          value: e.ubicacion || e.name || e.id || '',
+          names: (e.empleados || []).map(emp => emp.Empleado || ''),
+          employees: (e.empleados || []).map(emp => ({
+            name: emp.Empleado || '',
+            ccssType: emp.ccssType || 'TC',
+            hoursPerShift: emp.hoursPerShift || 8,
+            extraAmount: emp.extraAmount || 0
+          }))
+        }));
+        setEmpresas(mapped);
       } catch (error) {
-        console.error('Error loading locations from Firebase:', error);
+        console.error('Error loading empresas from Firebase:', error);
       } finally {
         setLoading(false);
       }
     };
 
     loadData();
-  }, []);
+  }, [user]);
 
   // Efecto principal para manejar la ubicación del usuario
   useEffect(() => {
-    console.log('🔍 Efecto ubicación ejecutándose:', {
+    console.log('🔍 Efecto empresa ejecutándose:', {
       usuario: user?.name,
       rol: user?.role,
-      ubicacionAsignada: user?.location,
-      ubicacionActual: location,
+      empresaAsignada: user?.location,
+      empresaActual: empresa,
       existeUsuario: !!user
     });
 
@@ -294,43 +334,46 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
       return;
     }
 
-    // Para usuarios con rol "user": FORZAR únicamente su ubicación asignada
-    if (user.role === 'user' && user.location) {
-      console.log(`🔒 USUARIO RESTRINGIDO: "${user.name}" (rol: user) DEBE usar ubicación: ${user.location}`);
-      setLocation(user.location);
+    // Para usuarios con rol "user": FORZAR únicamente la empresa asignada (ownercompanie) o la ubicación si no existe
+    const forcedCompany = user.ownercompanie || user.location;
+    if (user.role === 'user' && forcedCompany) {
+      console.log(`🔒 USUARIO RESTRINGIDO: "${user.name}" (rol: user) DEBE usar empresa: ${forcedCompany}`);
+      setEmpresa(forcedCompany);
       return;
     }
 
-    // Para otros roles: si tienen ubicación asignada y no hay una seleccionada, usar la asignada como default
-    if (user.location && !location) {
-      console.log(`🏢 CARGA AUTOMÁTICA: Mostrando ubicación asignada para usuario "${user.name}" (${user.role}): ${user.location}`);
-      setLocation(user.location);
+    // Para otros roles: si tienen ownercompanie/ubicación asignada y no hay una seleccionada, usarla como default
+    if ((user.ownercompanie || user.location) && !empresa) {
+      const defaultCompany = user.ownercompanie || user.location;
+      console.log(`🏢 CARGA AUTOMÁTICA: Mostrando empresa asignada para usuario "${user.name}" (${user.role}): ${defaultCompany}`);
+      setEmpresa(String(defaultCompany));
     }
-  }, [user, location]); // Incluir location como dependencia
+  }, [user, empresa]); // Incluir empresa como dependencia
 
   // Efecto adicional para bloquear cambios de ubicación en usuarios "user"
   useEffect(() => {
-    if (user?.role === 'user' && user?.location && location && location !== user.location) {
-      console.warn(`🚫 BLOQUEO: Usuario "${user.name}" (rol: user) intentó cambiar a ubicación "${location}". Forzando regreso a "${user.location}"`);
-      setLocation(user.location);
-      showNotification(`Acceso restringido. Solo puedes ver: ${user.location}`, 'error');
+    const forcedCompany = user?.ownercompanie || user?.location;
+    if (user?.role === 'user' && forcedCompany && empresa && empresa !== forcedCompany) {
+      console.warn(`🚫 BLOQUEO: Usuario "${user.name}" (rol: user) intentó cambiar a empresa "${empresa}". Forzando regreso a "${forcedCompany}"`);
+      setEmpresa(forcedCompany);
+      showNotification(`Acceso restringido. Solo puedes ver: ${forcedCompany}`, 'error');
     }
-  }, [location, user]); // Monitorear cambios en location para usuarios "user"
+  }, [empresa, user]); // Monitorear cambios en empresa para usuarios "user"
 
   // Cargar horarios de Firebase cuando cambie la ubicación
   useEffect(() => {
     const loadScheduleData = async () => {
-      if (!location || !locations.find(l => l.value === location)?.names?.length) return;
+  if (!empresa || !empresas.find(l => l.value === empresa)?.names?.length) return;
 
       // Validación de seguridad: usuarios con rol "user" solo pueden acceder a su ubicación asignada
-      if (user?.role === 'user' && user?.location && location !== user.location) {
-        console.warn(`🚫 Usuario "${user.name}" (rol: user) intentando acceder a ubicación no autorizada: ${location}. Ubicación asignada: ${user.location}`);
-        setLocation(user.location);
+      if (user?.role === 'user' && user?.location && empresa !== user.location) {
+        console.warn(`🚫 Usuario "${user.name}" (rol: user) intentando acceder a empresa no autorizada: ${empresa}. Ubicación asignada: ${user.location}`);
+        setEmpresa(String(user.location));
         showNotification('Acceso restringido a tu ubicación asignada', 'error');
         return;
       }
 
-      const names = locations.find(l => l.value === location)?.names || [];
+  const names = empresas.find(l => l.value === empresa)?.names || [];
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth();
 
@@ -342,14 +385,14 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
         console.log('🧪 TESTING: Querying with JavaScript month (0-11):', dbMonth);
         console.log('Current month displayed:', new Date(year, month).toLocaleDateString('es-CR', { month: 'long' }));
 
-        const scheduleEntries: ScheduleEntry[][] = await Promise.all(
-          names.map(employeeName =>
-            SchedulesService.getSchedulesByLocationEmployeeMonth(location, employeeName, year, dbMonth)
-          )
-        );
+          const scheduleEntries: ScheduleEntry[][] = await Promise.all(
+            names.map((employeeName: string) =>
+              SchedulesService.getSchedulesByLocationEmployeeMonth(empresa, employeeName, year, dbMonth)
+            )
+          );
 
         console.log('=== LOADING SCHEDULE DATA ===');
-        console.log('Location:', location, 'isDelifoodLocation:', isDelifoodLocation);
+  console.log('Empresa:', empresa, 'isDelifoodEmpresa:', isDelifoodEmpresa);
         console.log('Year:', year);
         console.log('Current JavaScript Date:', currentDate);
         console.log('Month (JS 0-based):', month, '- Month name:', new Date(year, month).toLocaleDateString('es-CR', { month: 'long' }));
@@ -368,8 +411,8 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
           })));
         });
 
-        // Si es DELIFOOD, cargar datos de horas
-        if (isDelifoodLocation) {
+  // Si es DELIFOOD, cargar datos de horas
+  if (isDelifoodEmpresa) {
           const newDelifoodData: { [employeeName: string]: { [day: string]: { hours: number } } } = {};
 
           names.forEach((employeeName, index) => {
@@ -377,7 +420,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
 
             // Solo agregar días que realmente tienen datos en Firestore
             scheduleEntries[index].forEach((entry: ScheduleEntry) => {
-              if (entry.horasPorDia !== undefined && entry.horasPorDia !== null && entry.horasPorDia > 0) {
+                  if (entry.horasPorDia !== undefined && entry.horasPorDia !== null && entry.horasPorDia > 0) {
                 const hours = entry.horasPorDia;
                 newDelifoodData[employeeName][entry.day.toString()] = { hours };
                 console.log(`✅ DELIFOOD data loaded: ${employeeName} - day ${entry.day} - hours: ${hours} (raw: ${entry.horasPorDia}) - month: ${entry.month}`);
@@ -411,7 +454,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
     };
 
     loadScheduleData();
-  }, [location, locations, currentDate, isDelifoodLocation, loading, user]); // Agregar user como dependencia
+  }, [empresa, empresas, currentDate, isDelifoodEmpresa, loading, user]); // Agregar user como dependencia
 
   // --- AUTO-QUINCENA: Detectar y mostrar la quincena actual SOLO al cargar el mes actual por PRIMERA VEZ en la sesión ---
   useEffect(() => {
@@ -489,32 +532,31 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
   console.log('👤 Usuario procesado:', user);
 
   // Debug: mostrar información del usuario
-  console.log('🔍 ControlHorario - Usuario actual:', {
-    nombre: user?.name || 'No autenticado',
-    rol: user?.role || 'Sin rol',
-    ubicacionAsignada: user?.location || 'Sin ubicación asignada',
-    tienePermisos: !!user?.permissions?.controlhorario,
-    objetoCompleto: user
-  });
+        console.log('🔍 ControlHorario - Usuario actual:', {
+              nombre: user?.name || 'No autenticado',
+              rol: user?.role || 'Sin rol',
+              empresaAsignada: user?.location || 'Sin empresa asignada',
+              tienePermisos: !!user?.permissions?.controlhorario,
+              objetoCompleto: user
+            });
 
-  // Función para manejar cambios de ubicación con validaciones
-  const handleLocationChange = (newLocation: string) => {
+  // Función para manejar cambios de empresa con validaciones
+  const handleEmpresaChange = (newEmpresa: string) => {
     // Bloquear cambios para usuarios con rol "user"
     if (user?.role === 'user') {
-      console.warn(`🚫 BLOQUEO: Usuario "${user.name}" (rol: user) intentó cambiar ubicación. Manteniendo: ${user?.location}`);
+      console.warn(`🚫 BLOQUEO: Usuario "${user.name}" (rol: user) intentó cambiar empresa. Manteniendo: ${user?.location}`);
       showNotification('No tienes permisos para cambiar de ubicación', 'error');
       return;
     }
-
-    console.log(`✅ Cambio de ubicación autorizado para usuario "${user?.name}" (rol: ${user?.role}): ${newLocation}`);
-    setLocation(newLocation);
+  console.log(`✅ Cambio de empresa autorizado para usuario "${user?.name}" (rol: ${user?.role}): ${newEmpresa}`);
+  setEmpresa(newEmpresa);
   };
 
   // Component helper functions and variables
-  const names = locations.find(l => l.value === location)?.names || [];
+  const names = empresas.find(l => l.value === empresa)?.names || [];
 
   // Funciones de autorización simplificadas
-  const userCanChangeLocation = () => {
+  const userCanChangeEmpresa = () => {
     return user?.role === 'admin' || user?.role === 'superadmin';
   };
 
@@ -649,14 +691,14 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
       try {
         setSaving(true);
 
-        console.log('🔄 SAVING SCHEDULE DATA:');
+  console.log('🔄 SAVING SCHEDULE DATA:');
         console.log('Current Date:', currentDate);
         console.log('JS Month (0-based):', month, '- Month name:', new Date(year, month).toLocaleDateString('es-CR', { month: 'long' }));
         console.log('🧪 TESTING: Sending to DB with JavaScript month:', month);
-        console.log('Full save data:', { location, employeeName, year, month: month, day: parseInt(day), newValue });
+  console.log('Full save data:', { empresa, employeeName, year, month: month, day: parseInt(day), newValue });
 
         await SchedulesService.updateScheduleShift(
-          location,
+          empresa,
           employeeName,
           year,
           month, // Usar JavaScript month (0-11) para consistencia
@@ -761,16 +803,16 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
   const handleDelifoodHoursSave = async (hours: number) => {
     const { employeeName, day } = delifoodModal;
 
-    console.log('🧪 TESTING: Guardando horas con JavaScript month:', { location, employeeName, year, month: month, day, hours });
+  console.log('🧪 TESTING: Guardando horas con JavaScript month:', { empresa, employeeName, year, month: month, day, hours });
 
-    if (!location || !employeeName) return;
+    if (!empresa || !employeeName) return;
 
     try {
       setSaving(true);
 
       // Actualizar en Firebase - usar JavaScript month (0-11) para consistencia
       await SchedulesService.updateScheduleHours(
-        location,
+        empresa,
         employeeName,
         year,
         month, // Usar JavaScript month (0-11) para consistencia
@@ -892,7 +934,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
       const selectedPeriodText = fullMonthView ? 'Mes Completo' :
         viewMode === 'first' ? 'Primera Quincena (1-15)' : 'Segunda Quincena (16-fin)';
 
-      ctx.fillText(`📍 Ubicación: ${locations.find(l => l.value === location)?.label || location}`, canvas.width / 2, yPosition);
+  ctx.fillText(`📍 Empresa: ${empresas.find(l => l.value === empresa)?.label || empresa}`, canvas.width / 2, yPosition);
       yPosition += 35;
       ctx.fillText(`📅 Período: ${monthName} - ${selectedPeriodText}`, canvas.width / 2, yPosition);
       yPosition += 35;
@@ -947,7 +989,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
       ctx.fillRect(workedDaysHeaderX, tableStartY, workedDaysColumnWidth, cellHeight);
       ctx.strokeRect(workedDaysHeaderX, tableStartY, workedDaysColumnWidth, cellHeight);
       ctx.fillStyle = '#1f2937';
-      const headerText = isDelifoodLocation ? 'Total Horas' : 'Días Trab.';
+  const headerText = isDelifoodEmpresa ? 'Total Horas' : 'Días Trab.';
       ctx.fillText(headerText, workedDaysHeaderX + workedDaysColumnWidth / 2, tableStartY + cellHeight / 2 + 6);
       daysToShow.forEach((day, index) => {
         const x = daysStartX + (index * cellWidth);
@@ -967,7 +1009,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
       names.forEach((employeeName, empIndex) => {
         // Calcular días trabajados o total de horas según el tipo de ubicación
         let summaryValue = 0;
-        if (isDelifoodLocation) {
+  if (isDelifoodEmpresa) {
           // Para DELIFOOD, sumar todas las horas del período
           summaryValue = daysToShow.reduce((total, day) => {
             const hours = delifoodHoursData[employeeName]?.[day.toString()]?.hours || 0;
@@ -996,7 +1038,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
         daysToShow.forEach((day, dayIndex) => {
           const x = daysStartX + (dayIndex * cellWidth);
 
-          if (isDelifoodLocation) {
+          if (isDelifoodEmpresa) {
             // Para DELIFOOD, mostrar horas
             const hours = delifoodHoursData[employeeName]?.[day.toString()]?.hours || 0;
 
@@ -1072,7 +1114,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
         ctx.fillStyle = '#1565c0'; // Color azul para resaltar
         ctx.font = 'bold 18px Arial';
         ctx.textAlign = 'center';
-        const displayValue = isDelifoodLocation ? `${summaryValue}h` : summaryValue.toString();
+  const displayValue = isDelifoodEmpresa ? `${summaryValue}h` : summaryValue.toString();
         ctx.fillText(displayValue, summaryCellX + workedDaysColumnWidth / 2, yPosition + cellHeight / 2 + 6);
 
         yPosition += cellHeight;
@@ -1083,11 +1125,11 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
       ctx.font = 'bold 20px Arial';
       ctx.fillStyle = '#1f2937';
       ctx.textAlign = 'center';
-      const legendTitle = isDelifoodLocation ? '📋 Leyenda de Horas' : '📋 Leyenda de Turnos';
+  const legendTitle = isDelifoodEmpresa ? '📋 Leyenda de Horas' : '📋 Leyenda de Turnos';
       ctx.fillText(legendTitle, canvas.width / 2, yPosition);
       yPosition += 40;
 
-      const legendItems = isDelifoodLocation ? [
+  const legendItems = isDelifoodEmpresa ? [
         { label: 'Verde = Con horas registradas', color: '#d1fae5', textColor: '#000' },
         { label: 'Vacío = Sin horas registradas', color: '#f9fafb', textColor: '#000' },
         { label: 'Número = Horas trabajadas', color: '#ffffff', textColor: '#000' }
@@ -1098,7 +1140,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
         { label: 'Vacío = Sin asignar', color: '#f9fafb', textColor: '#000' }
       ];
 
-      const legendItemWidth = isDelifoodLocation ? 250 : 200;
+  const legendItemWidth = isDelifoodEmpresa ? 250 : 200;
       const legendTotalWidth = legendItems.length * legendItemWidth;
       const legendStartX = (canvas.width - legendTotalWidth) / 2;
 
@@ -1125,7 +1167,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
       ctx.fillStyle = '#9ca3af';
       ctx.textAlign = 'center';
       ctx.fillText('Generated by Price Master - Control de Horarios', canvas.width / 2, yPosition);
-      const summaryText = isDelifoodLocation ? 'Horas mostradas' : 'Días mostrados';
+  const summaryText = isDelifoodEmpresa ? 'Horas mostradas' : 'Días mostrados';
       ctx.fillText(`Total de empleados: ${names.length} | ${summaryText}: ${dayCount}`, canvas.width / 2, yPosition + 20);
       ctx.fillText('⚠️ Documento confidencial - Solo para uso autorizado', canvas.width / 2, yPosition + 40);
 
@@ -1135,14 +1177,14 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          const filePrefix = isDelifoodLocation ? 'horas-delifood' : 'horarios';
-          a.download = `${filePrefix}-${location}-${monthName.replace(/\s+/g, '_')}-${selectedPeriodText.replace(/\s+/g, '_')}-${new Date().toISOString().split('T')[0]}.png`;
+      const filePrefix = isDelifoodEmpresa ? 'horas-delifood' : 'horarios';
+      a.download = `${filePrefix}-${empresa}-${monthName.replace(/\s+/g, '_')}-${selectedPeriodText.replace(/\s+/g, '_')}-${new Date().toISOString().split('T')[0]}.png`;
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
           URL.revokeObjectURL(url);
 
-          const successMessage = isDelifoodLocation ? '📸 Horas DELIFOOD exportadas como imagen exitosamente' : '📸 Horarios exportados como imagen exitosamente';
+      const successMessage = isDelifoodEmpresa ? '📸 Horas DELIFOOD exportadas como imagen exitosamente' : '📸 Horarios exportados como imagen exitosamente';
           showNotification(successMessage, 'success');
         } else {
           throw new Error('Error al generar la imagen');
@@ -1191,7 +1233,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
       exportDiv.style.minWidth = '340px';
 
       // Generar HTML plano de la quincena
-      let tableHTML = `<h2 style='font-size:1.2rem;font-weight:bold;text-align:center;margin-bottom:1rem;'>Horario Quincenal - Ubicación: ${location}</h2>`;
+  let tableHTML = `<h2 style='font-size:1.2rem;font-weight:bold;text-align:center;margin-bottom:1rem;'>Horario Quincenal - Empresa: ${empresa}</h2>`;
       tableHTML += `<table style='width:100%;border-collapse:collapse;font-size:1rem;'>`;
       tableHTML += `<thead><tr><th style='border:1px solid #d1d5db;padding:6px 10px;background:#f3f4f6;'>Nombre</th>`;
 
@@ -1199,14 +1241,14 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
         tableHTML += `<th style='border:1px solid #d1d5db;padding:6px 10px;background:#f3f4f6;'>${day}</th>`;
       });
 
-      const summaryHeader = isDelifoodLocation ? 'Total Horas' : 'Días Trab.';
+  const summaryHeader = isDelifoodEmpresa ? 'Total Horas' : 'Días Trab.';
       tableHTML += `<th style='border:1px solid #d1d5db;padding:6px 10px;background:#e0f2fe;color:#1565c0;font-weight:bold;'>${summaryHeader}</th>`;
       tableHTML += `</tr></thead><tbody>`;
 
       names.forEach(name => {
         // Calcular resumen según el tipo de ubicación
         let summaryValue = 0;
-        if (isDelifoodLocation) {
+  if (isDelifoodEmpresa) {
           // Para DELIFOOD, sumar todas las horas
           summaryValue = daysToShow.reduce((total, day) => {
             const hours = delifoodHoursData?.[name]?.[day.toString()]?.hours || 0;
@@ -1222,7 +1264,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
 
         tableHTML += `<tr><td style='border:1px solid #d1d5db;padding:6px 10px;font-weight:bold;background:#f3f4f6;'>${name}</td>`;
         daysToShow.forEach(day => {
-          if (isDelifoodLocation) {
+          if (isDelifoodEmpresa) {
             // Para DELIFOOD, mostrar horas
             const hours = delifoodHoursData?.[name]?.[day.toString()]?.hours || 0;
             const bg = hours > 0 ? '#d1fae5' : '#fff'; // Verde claro si hay horas
@@ -1240,7 +1282,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
             tableHTML += `<td style='border:1px solid #d1d5db;padding:6px 10px;background:${bg};text-align:center;'>${value}</td>`;
           }
         });
-        const displaySummary = isDelifoodLocation ? `${summaryValue}h` : summaryValue.toString();
+  const displaySummary = isDelifoodEmpresa ? `${summaryValue}h` : summaryValue.toString();
         tableHTML += `<td style='border:1px solid #d1d5db;padding:6px 10px;background:#e0f2fe;text-align:center;font-weight:bold;color:#1565c0;'>${displaySummary}</td>`;
         tableHTML += `</tr>`;
       });
@@ -1275,7 +1317,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      const filePrefix = isDelifoodLocation ? 'horas_delifood_quincena' : 'horario_quincena';
+  const filePrefix = isDelifoodEmpresa ? 'horas_delifood_quincena' : 'horario_quincena';
       const filenameSuffix = selectedPeriod === 'monthly' ? 'mensual' :
         selectedPeriod === '1-15' ? 'primera_quincena' : 'segunda_quincena';
       a.download = `${filePrefix}_${location}_${monthName}_${year}_${filenameSuffix}.png`;
@@ -1284,7 +1326,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      const successMessage = isDelifoodLocation ?
+  const successMessage = isDelifoodEmpresa ?
         '📥 Horas DELIFOOD exportadas exitosamente!' :
         '📥 Quincena exportada exitosamente!';
       showNotification(successMessage, 'success');
@@ -1382,18 +1424,18 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
     // Solo para admin/superadmin SIN ubicación asignada, mostrar selector manual
     return (
       <div className="max-w-4xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4 sm:p-6">
-        <div className="text-center mb-8">
+          <div className="text-center mb-8">
           <Clock className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 text-blue-600" />
           <h3 className="text-xl sm:text-2xl font-semibold mb-4">Control de Horarios</h3>
           <p className="text-sm sm:text-base text-[var(--tab-text)] mb-6">
-            Selecciona una ubicación para continuar
+            Selecciona una empresa para continuar
           </p>
         </div>
 
         <div className="max-w-md mx-auto">
           <div className="mb-4">
             <label className="block text-sm font-medium mb-2" style={{ color: 'var(--foreground)' }}>
-              Ubicación:
+              Empresa:
             </label>
             <select
               className="w-full px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -1402,11 +1444,11 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
                 border: '1px solid var(--input-border)',
                 color: 'var(--foreground)',
               }}
-              value={location}
-              onChange={e => handleLocationChange(e.target.value)}
+              value={empresa}
+              onChange={e => handleEmpresaChange(e.target.value)}
             >
-              <option value="">Seleccionar ubicación</option>
-              {locations.map((loc: Location) => (
+              <option value="">Seleccionar empresa</option>
+              {empresas.map((loc: Location) => (
                 <option key={loc.value} value={loc.value}>{loc.label}</option>
               ))}
             </select>
@@ -1452,7 +1494,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
                       <span className="hidden sm:inline"> - </span>
                     </>
                   )}
-                  <span className="block sm:inline">Ubicación: {location}</span>
+                  <span className="block sm:inline">Empresa: {empresa}</span>
                 </p>
               </div>
             </div>
@@ -1461,7 +1503,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
               {/* Selector de ubicación - solo para admin y superadmin
                   TODOS los usuarios ven predeterminadamente su ubicación asignada
                   Los usuarios con rol "user" están restringidos solo a su ubicación */}
-              {userCanChangeLocation() ? (
+              {userCanChangeEmpresa() ? (
                 <select
                   className="w-full sm:w-auto px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   style={{
@@ -1469,11 +1511,11 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
                     border: '1px solid var(--input-border)',
                     color: 'var(--foreground)',
                   }}
-                  value={location}
-                  onChange={e => handleLocationChange(e.target.value)}
+                  value={empresa}
+                  onChange={e => handleEmpresaChange(e.target.value)}
                 >
-                  <option value="">Seleccionar ubicación</option>
-                  {locations.map((loc: Location) => (
+                  <option value="">Seleccionar empresa</option>
+                  {empresas.map((loc: Location) => (
                     <option key={loc.value} value={loc.value}>{loc.label}</option>
                   ))}
                 </select>
@@ -1613,18 +1655,18 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
               <button
                 onClick={exportQuincenaToPNG}
                 className="flex items-center gap-2 px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
-                title={isDelifoodLocation ? "Exportar horas DELIFOOD como imagen" : "Exportar quincena como imagen"}
+                title={isDelifoodEmpresa ? "Exportar horas DELIFOOD como imagen" : "Exportar quincena como imagen"}
                 disabled={isExporting}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 10l5 5 5-5M12 4v12" /></svg>
-                {isDelifoodLocation ? 'Exportar Horas' : 'Exportar Quincena'}
+                {isDelifoodEmpresa ? 'Exportar Horas' : 'Exportar Quincena'}
               </button>
             </div>
           </div>
         </div>
 
         {/* Leyenda de colores */}
-        {isDelifoodLocation ? (
+  {isDelifoodEmpresa ? (
           <div className="mb-6 flex flex-wrap gap-4 justify-center">
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 rounded" style={{ backgroundColor: '#d1fae5' }}></div>
@@ -1726,11 +1768,11 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
                   {/* Tooltip al pasar el mouse - solo en pantallas grandes */}                  <div className="hidden sm:block absolute left-full top-1/2 -translate-y-1/2 ml-2 bg-gray-900 text-white text-xs rounded shadow-lg px-4 py-2 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 min-w-[180px] text-left whitespace-pre-line">
                     <EmployeeTooltipSummary
                       employeeName={name}
-                      locationValue={location}
+                      empresaValue={empresa}
                       year={year}
                       month={month}
                       daysToShow={daysToShow}
-                      isDelifoodLocation={isDelifoodLocation}
+                      isDelifoodEmpresa={isDelifoodEmpresa}
                       delifoodHoursData={delifoodHoursData}
                     />
                   </div>
@@ -1739,7 +1781,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
                   const value = scheduleData[name]?.[day.toString()] || '';
 
                   // Debug logging para ver qué valores se están obteniendo
-                  if (!isDelifoodLocation && value) {
+                  if (!isDelifoodEmpresa && value) {
                     console.log(`📋 Cell value for ${name} day ${day}:`, value, 'from scheduleData:', scheduleData[name]);
                   }
 
@@ -1761,7 +1803,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
                   }
 
                   // Si es DELIFOOD, mostrar celda de horas
-                  if (isDelifoodLocation) {
+                  if (isDelifoodEmpresa) {
                     const hours = delifoodHoursData[name]?.[day.toString()]?.hours || 0;
 
                     return (
@@ -1856,11 +1898,11 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
               <div className="space-y-2 text-sm">
                 <EmployeeTooltipSummary
                   employeeName={showEmployeeSummary}
-                  locationValue={location}
+                  empresaValue={empresa}
                   year={year}
                   month={month}
                   daysToShow={daysToShow}
-                  isDelifoodLocation={isDelifoodLocation}
+                  isDelifoodEmpresa={isDelifoodEmpresa}
                   delifoodHoursData={delifoodHoursData}
                 />
               </div>
@@ -1983,7 +2025,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
       )}
 
       {/* Modal de horas para DELIFOOD */}
-      {isDelifoodLocation && (
+      {isDelifoodEmpresa && (
         <DelifoodHoursModal
           isOpen={delifoodModal.isOpen}
           onClose={() => setDelifoodModal({ isOpen: false, employeeName: '', day: 0, currentHours: 0 })}
@@ -1992,7 +2034,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
           day={delifoodModal.day}
           month={month}
           year={year}
-          locationValue={location}
+          empresaValue={empresa}
           currentHours={delifoodModal.currentHours}
         />
       )}

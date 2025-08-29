@@ -3,7 +3,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, Calendar, MapPin, FileText, Clock, Calculator, Eye } from 'lucide-react';
-import { LocationsService } from '../../services/locations';
+import { EmpresasService } from '../../services/empresas';
+import { useAuth } from '../../hooks/useAuth';
 import { SchedulesService, ScheduleEntry } from '../../services/schedules';
 import { Location } from '../../types/firestore';
 import PayrollExporter from './PayrollExporter';
@@ -30,6 +31,7 @@ interface LocationSchedule {
 }
 
 export default function ScheduleReportTab() {
+  const { user: currentUser } = useAuth();
   const [locations, setLocations] = useState<Location[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
   const [currentPeriod, setCurrentPeriod] = useState<BiweeklyPeriod | null>(null);
@@ -125,18 +127,48 @@ export default function ScheduleReportTab() {
     }
   }, []);
 
-  // Cargar ubicaciones
+  // Cargar empresas (mapeadas a la forma esperada por la vista de planilla)
   useEffect(() => {
     const loadLocations = async () => {
       try {
-        const locationsData = await LocationsService.getAllLocations();
-        setLocations(locationsData);
+        const empresas = await EmpresasService.getAllEmpresas();
+
+        let owned: typeof empresas = [];
+
+        // Si no hay usuario autenticado aún, mostrar vacío
+        if (!currentUser) {
+          owned = [];
+        } else if (currentUser.role === 'superadmin') {
+          // superadmin ve todas las empresas
+          owned = empresas || [];
+        } else {
+          // Mostrar empresas cuyo ownerId coincide con currentUser.id
+          // o con currentUser.ownerId (admins delegados que actúan en nombre de un owner)
+          owned = (empresas || []).filter(e => e && e.ownerId && (
+            String(e.ownerId) === String(currentUser.id) ||
+            (currentUser.ownerId && String(e.ownerId) === String(currentUser.ownerId))
+          ));
+        }
+
+        const mapped = owned.map(e => ({
+          id: e.id,
+          label: e.name || e.ubicacion || e.id || 'Empresa',
+          value: e.ubicacion || e.name || e.id || '',
+          names: [],
+          employees: (e.empleados || []).map(emp => ({
+            name: emp.Empleado || '',
+            ccssType: emp.ccssType || 'TC',
+            hoursPerShift: emp.hoursPerShift || 8,
+            extraAmount: emp.extraAmount || 0
+          }))
+        }));
+        setLocations(mapped);
       } catch (error) {
-        console.error('Error loading locations:', error);
+        console.error('Error loading empresas:', error);
       }
     };
     loadLocations();
-  }, []);
+  }, [currentUser]);
   // Inicializar períodos disponibles
   useEffect(() => {
     const initializePeriods = async () => {
@@ -186,10 +218,10 @@ export default function ScheduleReportTab() {
       const locationGroups = new Map<string, ScheduleEntry[]>();
 
       periodSchedules.forEach(schedule => {
-        if (!locationGroups.has(schedule.locationValue)) {
-          locationGroups.set(schedule.locationValue, []);
+        if (!locationGroups.has(schedule.companieValue)) {
+          locationGroups.set(schedule.companieValue, []);
         }
-        locationGroups.get(schedule.locationValue)!.push(schedule);
+        locationGroups.get(schedule.companieValue)!.push(schedule);
       });
 
       const scheduleDataArray: LocationSchedule[] = [];
@@ -299,14 +331,14 @@ export default function ScheduleReportTab() {
   };
 
   // Función para generar clave única para cada celda editable
-  const getCellKey = (locationValue: string, employeeName: string, day: number): string => {
-    return `${locationValue}-${employeeName}-${day}`;
+  const getCellKey = (companieValue: string, employeeName: string, day: number): string => {
+    return `${companieValue}-${employeeName}-${day}`;
   };
   // Función para actualizar horario
-  const updateSchedule = async (locationValue: string, employeeName: string, day: number, shift: string) => {
+  const updateSchedule = async (companieValue: string, employeeName: string, day: number, shift: string) => {
     try {
       await SchedulesService.updateScheduleShift(
-        locationValue,
+        companieValue,
         employeeName,
         currentPeriod!.year,
         currentPeriod!.month,
@@ -324,8 +356,8 @@ export default function ScheduleReportTab() {
   };
 
   // Función para manejar cambio en celda
-  const handleCellChange = (locationValue: string, employeeName: string, day: number, value: string) => {
-    const cellKey = getCellKey(locationValue, employeeName, day);
+  const handleCellChange = (companieValue: string, employeeName: string, day: number, value: string) => {
+    const cellKey = getCellKey(companieValue, employeeName, day);
     setEditableSchedules(prev => ({
       ...prev,
       [cellKey]: value
@@ -333,12 +365,12 @@ export default function ScheduleReportTab() {
   };
 
   // Función para confirmar cambio y guardar en base de datos
-  const handleCellBlur = (locationValue: string, employeeName: string, day: number) => {
-    const cellKey = getCellKey(locationValue, employeeName, day);
+  const handleCellBlur = (companieValue: string, employeeName: string, day: number) => {
+    const cellKey = getCellKey(companieValue, employeeName, day);
     const newValue = editableSchedules[cellKey];
 
     if (newValue !== undefined) {
-      updateSchedule(locationValue, employeeName, day, newValue);
+  updateSchedule(companieValue, employeeName, day, newValue);
       // Limpiar el estado temporal
       setEditableSchedules(prev => {
         const newState = { ...prev };
@@ -423,7 +455,7 @@ export default function ScheduleReportTab() {
           {/* Controles específicos del tab de horarios */}
           <div className="mb-6 flex flex-col lg:flex-row gap-4 items-center justify-between">
             <div className="flex items-center gap-4">
-              {/* Selector de ubicación */}
+                {/* Selector de empresa */}
               <div className="flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-[var(--tab-text)]" />
                 <select
@@ -436,7 +468,7 @@ export default function ScheduleReportTab() {
                     color: 'var(--foreground)',
                   }}
                 >
-                  <option value="all">Todas las ubicaciones</option>
+                  <option value="all">Todas las empresas</option>
                   {locations.filter(location => location.value !== 'DELIFOOD').map(location => (
                     <option key={location.value} value={location.value}>
                       {location.label}

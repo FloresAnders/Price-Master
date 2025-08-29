@@ -300,10 +300,10 @@ export default function PayrollExporter({
         const locationGroups = new Map<string, ScheduleEntry[]>();
 
         periodSchedules.forEach(schedule => {
-          if (!locationGroups.has(schedule.locationValue)) {
-            locationGroups.set(schedule.locationValue, []);
-          }
-          locationGroups.get(schedule.locationValue)!.push(schedule);
+          if (!locationGroups.has(schedule.companieValue)) {
+              locationGroups.set(schedule.companieValue, []);
+            }
+            locationGroups.get(schedule.companieValue)!.push(schedule);
         });
 
         const payrollDataArray: LocationPayrollData[] = [];

@@ -11,7 +11,9 @@ interface DelifoodHoursModalProps {
   day: number;
   month: number;
   year: number;
-  locationValue: string;
+  // empresaValue preferred; keep locationValue for backward compatibility
+  empresaValue?: string;
+  locationValue?: string;
   currentHours?: number;
   onSave: (hours: number) => void;
 }
@@ -23,6 +25,7 @@ export default function DelifoodHoursModal({
   day,
   month,
   year,
+  empresaValue,
   locationValue,
   currentHours = 0,
   onSave
@@ -51,7 +54,7 @@ export default function DelifoodHoursModal({
 
       // Actualizar en la base de datos
       await SchedulesService.updateScheduleHours(
-        locationValue,
+  empresaValue || locationValue || '',
         employeeName,
         year,
         month,

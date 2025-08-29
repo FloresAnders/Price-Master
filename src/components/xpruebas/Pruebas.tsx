@@ -499,7 +499,7 @@ export default function Pruebas() {
 
                 // Filtrar registros que coincidan con los criterios
                 const recordsToDelete = allSchedules.filter(schedule =>
-                    schedule.locationValue === locationValue &&
+                    schedule.companieValue === locationValue &&
                     schedule.year === year &&
                     schedule.month === month
                 );
@@ -548,7 +548,7 @@ export default function Pruebas() {
                 try {
                     // Obtener registros a eliminar
                     const recordsToDelete = allSchedules.filter(schedule =>
-                        schedule.locationValue === locationValue &&
+                        schedule.companieValue === locationValue &&
                         schedule.year === year &&
                         schedule.month === month
                     );
@@ -740,7 +740,7 @@ export default function Pruebas() {
                     const scheduleDate = new Date(schedule.year, schedule.month - 1, schedule.day);
                     return scheduleDate >= fromDate &&
                         scheduleDate <= toDate &&
-                        selectedLocations.includes(schedule.locationValue);
+                        selectedLocations.includes(schedule.companieValue);
                 });
 
                 setTestResults(prev => ({
@@ -926,7 +926,7 @@ export default function Pruebas() {
 
     // Función auxiliar para verificar duplicados
     const checkForDuplicates = async (schedulesToImport: Array<{
-        locationValue: string;
+        companieValue: string;
         employeeName: string;
         year: number;
         month: number;
@@ -943,7 +943,7 @@ export default function Pruebas() {
 
             schedulesToImport.forEach(newSchedule => {
                 const isDuplicate = existingSchedules.some(existing =>
-                    existing.locationValue === newSchedule.locationValue &&
+                    existing.companieValue === newSchedule.companieValue &&
                     existing.employeeName === newSchedule.employeeName &&
                     existing.year === newSchedule.year &&
                     existing.month === newSchedule.month &&
@@ -966,7 +966,7 @@ export default function Pruebas() {
 
     // Función auxiliar para realizar la importación
     const performImport = async (schedules: Array<{
-        locationValue: string;
+        companieValue: string;
         employeeName: string;
         year: number;
         month: number;
@@ -990,7 +990,7 @@ export default function Pruebas() {
                 try {
                     // Limpiar datos innecesarios de exportación
                     const cleanSchedule = {
-                        locationValue: schedule.locationValue,
+                        companieValue: schedule.companieValue,
                         employeeName: schedule.employeeName,
                         year: schedule.year,
                         month: schedule.month,
