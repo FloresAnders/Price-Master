@@ -32,15 +32,15 @@ export class PayrollRecordsService {
   /**
    * Generate a unique document ID for an employee
    */
-  private static getEmployeeDocId(locationValue: string, employeeName: string): string {
-    return `${locationValue}-${employeeName.replace(/\s+/g, '_')}`;
+  private static getEmployeeDocId(companieValue: string, employeeName: string): string {
+    return `${companieValue}-${employeeName.replace(/\s+/g, '_')}`;
   }
 
   /**
    * Save or update payroll record for an employee
    */
   static async saveRecord(
-    locationValue: string,
+    companieValue: string,
     employeeName: string,
     year: number,
     month: number,
@@ -50,12 +50,12 @@ export class PayrollRecordsService {
     totalHours: number
   ): Promise<void> {
     try {
-      const docId = this.getEmployeeDocId(locationValue, employeeName);
+      const docId = this.getEmployeeDocId(companieValue, employeeName);
 
       // Try to get existing record
       const existingRecord = await FirestoreService.getById(this.COLLECTION_NAME, docId);
 
-      const periodData = {
+  const periodData = {
         DiasLaborados: diasLaborados,
         hoursPerDay,
         totalHours,
@@ -70,12 +70,12 @@ export class PayrollRecordsService {
           updatedRecords[year] = {};
         }
 
-        if (!updatedRecords[year][month]) {
-          updatedRecords[year][month] = {};
-        }
+          if (!updatedRecords[year][month]) {
+            updatedRecords[year][month] = {};
+          }
 
-        const quincenaKey = period === 'first' ? 'NumeroQuincena1' : 'NumeroQuincena2';
-        updatedRecords[year][month][quincenaKey] = periodData;
+          const quincenaKey = period === 'first' ? 'NumeroQuincena1' : 'NumeroQuincena2';
+          updatedRecords[year][month][quincenaKey] = periodData;
 
         await FirestoreService.update(this.COLLECTION_NAME, docId, {
           records: updatedRecords,
@@ -85,7 +85,7 @@ export class PayrollRecordsService {
         // Create new record
         const newRecord: PayrollRecord = {
           employeeName,
-          companieValue: locationValue,
+          companieValue: companieValue,
           records: {
             [year]: {
               [month]: {
@@ -108,9 +108,9 @@ export class PayrollRecordsService {
   /**
    * Get payroll record for an employee
    */
-  static async getRecord(locationValue: string, employeeName: string): Promise<PayrollRecord | null> {
+  static async getRecord(companieValue: string, employeeName: string): Promise<PayrollRecord | null> {
     try {
-      const docId = this.getEmployeeDocId(locationValue, employeeName);
+      const docId = this.getEmployeeDocId(companieValue, employeeName);
       return await FirestoreService.getById(this.COLLECTION_NAME, docId);
     } catch (error) {
       console.error('Error getting payroll record:', error);
@@ -121,10 +121,10 @@ export class PayrollRecordsService {
   /**
    * Get all payroll records for a location
    */
-  static async getRecordsByLocation(locationValue: string): Promise<PayrollRecord[]> {
+  static async getRecordsByLocation(companieValue: string): Promise<PayrollRecord[]> {
     try {
       return await FirestoreService.query(this.COLLECTION_NAME, [
-        { field: 'companieValue', operator: '==', value: locationValue }
+        { field: 'companieValue', operator: '==', value: companieValue }
       ]);
     } catch (error) {
       console.error('Error getting payroll records by location:', error);
@@ -147,9 +147,9 @@ export class PayrollRecordsService {
   /**
    * Delete payroll record for an employee
    */
-  static async deleteRecord(locationValue: string, employeeName: string): Promise<void> {
+  static async deleteRecord(companieValue: string, employeeName: string): Promise<void> {
     try {
-      const docId = this.getEmployeeDocId(locationValue, employeeName);
+      const docId = this.getEmployeeDocId(companieValue, employeeName);
       await FirestoreService.delete(this.COLLECTION_NAME, docId);
     } catch (error) {
       console.error('Error deleting payroll record:', error);
@@ -161,14 +161,14 @@ export class PayrollRecordsService {
    * Delete a specific period (quincena) from payroll record
    */
   static async deletePeriodFromRecord(
-    locationValue: string,
+    companieValue: string,
     employeeName: string,
     year: number,
     month: number,
     period: 'first' | 'second'
   ): Promise<void> {
     try {
-    const docId = this.getEmployeeDocId(locationValue, employeeName);
+    const docId = this.getEmployeeDocId(companieValue, employeeName);
       const existingRecord = await FirestoreService.getById(this.COLLECTION_NAME, docId);
 
       if (!existingRecord) {
@@ -213,14 +213,14 @@ export class PayrollRecordsService {
    * Check if a record exists for a specific period
    */
   static async hasRecordForPeriod(
-    locationValue: string,
+    companieValue: string,
     employeeName: string,
     year: number,
     month: number,
     period: 'first' | 'second'
   ): Promise<boolean> {
     try {
-      const record = await this.getRecord(locationValue, employeeName);
+      const record = await this.getRecord(companieValue, employeeName);
       if (!record) return false;
 
       const quincenaKey = period === 'first' ? 'NumeroQuincena1' : 'NumeroQuincena2';
@@ -231,3 +231,5 @@ export class PayrollRecordsService {
     }
   }
 }
+
+export default PayrollRecordsService;
