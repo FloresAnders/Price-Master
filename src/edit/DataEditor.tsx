@@ -24,9 +24,7 @@ export default function DataEditor() {
     const [sorteosData, setSorteosData] = useState<Sorteo[]>([]);
     const [usersData, setUsersData] = useState<User[]>([]);
     const [ccssData, setCcssData] = useState<CcssConfig>({ mt: 3672.46, tc: 11017.39, valorhora: 1441, horabruta: 1529.62 });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [empresasData, setEmpresasData] = useState<any[]>([]);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [originalEmpresasData, setOriginalEmpresasData] = useState<any[]>([]);
     const [originalLocationsData, setOriginalLocationsData] = useState<Location[]>([]);
     const [originalSorteosData, setOriginalSorteosData] = useState<Sorteo[]>([]);
@@ -981,7 +979,6 @@ export default function DataEditor() {
                                 </div>
 
                                 <div className="space-y-3">
-                                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                                     {empresa.empleados?.map((emp: any, eIdx: number) => (
                                         <div key={eIdx} className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 items-center p-2 sm:p-3 border border-[var(--input-border)] rounded-md">
                                             <div className="col-span-2 sm:flex-1 min-w-[120px]">

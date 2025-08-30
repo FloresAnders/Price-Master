@@ -4,10 +4,8 @@ import { FirestoreService } from './firestore';
 export interface BackupData {
   timestamp: string;
   version: string;
-  ccssConfig: {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ccssConfig: {
     default?: any;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     collection?: any[];
   };
   metadata: {
@@ -80,14 +78,12 @@ export class ClientBackupService {
 
       // Restore default configuration
       if (backupData.ccssConfig.default) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await CcssConfigService.updateCcssConfig(backupData.ccssConfig.default as any);
       }
 
       // If backup contains full collection data, restore additional documents
       if (backupData.ccssConfig.collection && Array.isArray(backupData.ccssConfig.collection)) {
         for (const doc of backupData.ccssConfig.collection) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const docData = doc as any;
           if (docData.id && docData.id !== 'default') {
             await FirestoreService.addWithId('ccss-config', docData.id, docData);

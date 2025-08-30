@@ -56,7 +56,6 @@ export async function initializeFirebase(): Promise<{
 export async function firebaseHealthCheck(): Promise<{
   status: 'healthy' | 'error';
   message: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   details?: any;
 }> {
   try {
