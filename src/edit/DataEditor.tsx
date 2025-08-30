@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Save, Download, AlertCircle, Check, FileText, MapPin, Users, Clock, DollarSign, Eye, EyeOff, Settings } from 'lucide-react';
+import { Save, Download, AlertCircle, Check, FileText, Users, Clock, DollarSign, Eye, EyeOff, Settings } from 'lucide-react';
 import { LocationsService } from '../services/locations';
 import { EmpresasService } from '../services/empresas';
 import { SorteosService } from '../services/sorteos';
@@ -18,7 +18,7 @@ import ExportModal from '../components/export/ExportModal';
 type DataFile = 'locations' | 'sorteos' | 'users' | 'schedules' | 'ccss' | 'empresas';
 
 export default function DataEditor() {
-    const [activeFile, setActiveFile] = useState<DataFile>('locations');
+    const [activeFile, setActiveFile] = useState<DataFile>('empresas');
     const { user: currentUser } = useAuth();
     const [locationsData, setLocationsData] = useState<Location[]>([]);
     const [sorteosData, setSorteosData] = useState<Sorteo[]>([]);
@@ -67,13 +67,11 @@ export default function DataEditor() {
     };
     const [passwordVisibility, setPasswordVisibility] = useState<{ [key: string]: boolean }>({});
     const [savingUserKey, setSavingUserKey] = useState<string | null>(null);
-    const [savingLocation, setSavingLocation] = useState<number | null>(null);
     const [showPermissions, setShowPermissions] = useState<{ [key: string]: boolean }>({});
     const [permissionsEditable, setPermissionsEditable] = useState<{ [key: string]: boolean }>({});
     const [allLocations, setAllLocations] = useState<Location[]>([]);
 
-    // Estado para trackear cambios individuales de ubicaciones
-    const [originalLocationsByIndex, setOriginalLocationsByIndex] = useState<{ [key: number]: Location }>({});
+    // Estado para trackear cambios individuales de ubicaciones (removed)
 
     // Estado para modal de confirmación
     const [confirmModal, setConfirmModal] = useState<{
@@ -168,12 +166,7 @@ export default function DataEditor() {
             setLocationsData(migratedLocations);
             setOriginalLocationsData(JSON.parse(JSON.stringify(migratedLocations)));
 
-            // Inicializar tracking de ubicaciones originales por índice
-            const locationsByIndex: { [key: number]: Location } = {};
-            migratedLocations.forEach((location, index) => {
-                locationsByIndex[index] = JSON.parse(JSON.stringify(location));
-            });
-            setOriginalLocationsByIndex(locationsByIndex);
+            // Nota: tracking por índice de ubicaciones eliminado al suprimir la pestaña de Ubicaciones.
 
             // Cargar sorteos desde Firebase
             const sorteos = await SorteosService.getAllSorteos();
@@ -228,15 +221,7 @@ export default function DataEditor() {
         loadData();
     }, [loadData]);
 
-    // Función para verificar si una ubicación específica ha cambiado
-    const hasLocationChanged = (index: number): boolean => {
-        const currentLocation = locationsData[index];
-        const originalLocation = originalLocationsByIndex[index];
-
-        if (!originalLocation || !currentLocation) return true; // Si no hay original, considerar como cambio
-
-        return JSON.stringify(currentLocation) !== JSON.stringify(originalLocation);
-    };
+    // Función para verificar si una ubicación específica ha cambiado (removed - locations tab deleted)
 
     // Función para verificar si un usuario específico ha cambiado
     // Helper: obtener key única para un usuario (id o __localId)
@@ -276,113 +261,61 @@ export default function DataEditor() {
         setIsSaving(true);
         try {
             // Guardar locations en Firebase
-            // Primero, eliminar los datos existentes y luego agregar los nuevos
             const existingLocations = await LocationsService.getAllLocations();
             for (const location of existingLocations) {
-                if (location.id) {
-                    await LocationsService.deleteLocation(location.id);
-                }
+                if (location.id) await LocationsService.deleteLocation(location.id);
             }
-            // Agregar las nuevas locations
             for (const location of locationsData) {
-                // Asegurar compatibilidad hacia atrás manteniendo names
                 const namesToSave = location.employees
                     ? location.employees.map(emp => emp.name)
                     : location.names || [];
-
-                await LocationsService.addLocation({
-                    label: location.label,
-                    value: location.value,
-                    names: namesToSave, // Mantener compatibilidad hacia atrás
-                    employees: location.employees || [] // Nueva estructura con tipo CCSS
-                });
+                await LocationsService.addLocation({ label: location.label, value: location.value, names: namesToSave, employees: location.employees || [] });
             }
 
-            // Guardar sorteos en Firebase
+            // Guardar sorteos
             const existingSorteos = await SorteosService.getAllSorteos();
-            for (const sorteo of existingSorteos) {
-                if (sorteo.id) {
-                    await SorteosService.deleteSorteo(sorteo.id);
-                }
-            }
+            for (const s of existingSorteos) { if (s.id) await SorteosService.deleteSorteo(s.id); }
+            for (const s of sorteosData) { await SorteosService.addSorteo({ name: s.name }); }
 
-            // Agregar los nuevos sorteos
-            for (const sorteo of sorteosData) {
-                await SorteosService.addSorteo({
-                    name: sorteo.name
-                });
-            }            // Guardar usuarios en Firebase
+            // Guardar usuarios
             const existingUsers = await UsersService.getAllUsers();
-            for (const user of existingUsers) {
-                if (user.id) {
-                    try {
-                        await UsersService.deleteUserAs(currentUser, user.id);
-                    } catch (err) {
-                        // If actor not allowed to delete some users, skip and continue
-                        console.warn('Could not delete user during bulk save:', err);
-                    }
-                }
-            }
-            // Agregar los nuevos usuarios (usar actor-aware para respetar permisos)
-            for (const user of usersData) {
+            for (const u of existingUsers) { if (u.id) { try { await UsersService.deleteUserAs(currentUser, u.id); } catch { } } }
+            for (const u of usersData) {
                 await UsersService.createUserAs(currentUser, {
-                    name: user.name,
-                    ownercompanie: user.ownercompanie,
-                    password: user.password,
-                    role: user.role,
-                    isActive: user.isActive,
-                    permissions: user.permissions,
-                    maxCompanies: user.maxCompanies,
-                    email: user.email,
-                    fullName: user.fullName,
-                    eliminate: user.eliminate ?? false,
-                    ownerId: user.ownerId
+                    name: u.name,
+                    ownercompanie: u.ownercompanie,
+                    password: u.password,
+                    role: u.role,
+                    isActive: u.isActive,
+                    permissions: u.permissions,
+                    maxCompanies: u.maxCompanies,
+                    email: u.email,
+                    fullName: u.fullName,
+                    eliminate: u.eliminate ?? false,
+                    ownerId: u.ownerId
                 });
             }
 
-            // Guardar configuración CCSS en Firebase
-            await CcssConfigService.updateCcssConfig({
-                mt: ccssData.mt,
-                tc: ccssData.tc,
-                valorhora: ccssData.valorhora,
-                horabruta: ccssData.horabruta
-            });
+            // Guardar configuración CCSS
+            await CcssConfigService.updateCcssConfig({ mt: ccssData.mt, tc: ccssData.tc, valorhora: ccssData.valorhora, horabruta: ccssData.horabruta });
 
-            // Guardar empresas en Firebase: eliminar existentes y re-crear
-            let abortDueToOwnerLimit = false;
+            // Guardar empresas
             try {
                 const existingEmpresas = await EmpresasService.getAllEmpresas();
-                for (const e of existingEmpresas) {
-                    if (e.id) {
-                        await EmpresasService.deleteEmpresa(e.id);
-                    }
-                }
-
+                for (const e of existingEmpresas) { if (e.id) await EmpresasService.deleteEmpresa(e.id); }
                 for (const empresa of empresasData) {
                     const ownerIdToUse = resolveOwnerIdForActor(empresa.ownerId);
-                    const idToUse = empresa.name || undefined; // if name provided, create with that id
-                    try {
-                        await EmpresasService.addEmpresa({ id: idToUse, ownerId: ownerIdToUse, name: empresa.name || '', ubicacion: empresa.ubicacion || '', empleados: empresa.empleados || [] });
-                    } catch (err) {
-                        // If owner maxCompanies limit is reached, open a modal explaining why and abort further saves
-                        const message = err && (err as Error).message ? (err as Error).message : 'Error al crear empresa';
-                        openConfirmModal('Límite de empresas', message, () => { /* sólo cerrar */ }, { singleButton: true, singleButtonText: 'Cerrar' });
-                        abortDueToOwnerLimit = true;
-                        break; // stop processing further empresas
-                    }
+                    const idToUse = empresa.name || undefined;
+                    await EmpresasService.addEmpresa({ id: idToUse, ownerId: ownerIdToUse, name: empresa.name || '', ubicacion: empresa.ubicacion || '', empleados: empresa.empleados || [] });
                 }
             } catch (err) {
                 console.warn('Error al guardar empresas:', err);
             }
 
-            if (abortDueToOwnerLimit) {
-                // Abort the outer save flow without throwing so the UI can show the modal and stop
-                return;
-            }
-
-            // Guardar también en localStorage como respaldo
+            // Local backup and update originals
             localStorage.setItem('editedLocations', JSON.stringify(locationsData));
-            localStorage.setItem('editedSorteos', JSON.stringify(sorteosData)); localStorage.setItem('editedUsers', JSON.stringify(usersData));
+            localStorage.setItem('editedSorteos', JSON.stringify(sorteosData));
+            localStorage.setItem('editedUsers', JSON.stringify(usersData));
 
             setOriginalLocationsData(JSON.parse(JSON.stringify(locationsData)));
             setOriginalSorteosData(JSON.parse(JSON.stringify(sorteosData)));
@@ -390,13 +323,11 @@ export default function DataEditor() {
             setOriginalCcssData(JSON.parse(JSON.stringify(ccssData)));
             setOriginalEmpresasData(JSON.parse(JSON.stringify(empresasData)));
 
-            // Clear pending changes indicator after successful save
             setHasChanges(false);
-
             showNotification('¡Datos actualizados exitosamente en Firebase!', 'success');
         } catch (error) {
-            showNotification('Error al guardar los datos en Firebase', 'error');
             console.error('Error saving data to Firebase:', error);
+            showNotification('Error al guardar los datos en Firebase', 'error');
         } finally {
             setIsSaving(false);
         }
@@ -407,117 +338,7 @@ export default function DataEditor() {
     const openExportModal = () => setShowExportModal(true);
     const closeExportModal = () => setShowExportModal(false);
 
-    // Funciones para manejar locations
-    const addLocation = () => {
-        const newLocation: Location = {
-            value: '',
-            label: '',
-            names: [], // Mantener compatibilidad hacia atrás
-            employees: [] // Nueva estructura para empleados con tipo CCSS
-        };
-        const newIndex = locationsData.length;
-        setLocationsData([...locationsData, newLocation]);
-
-        // Agregar al tracking como nueva ubicación (sin original)
-        setOriginalLocationsByIndex(prev => ({
-            ...prev,
-            [newIndex]: JSON.parse(JSON.stringify(newLocation))
-        }));
-    };
-
-    const updateLocation = (index: number, field: keyof Location, value: string | string[]) => {
-        const updated = [...locationsData];
-        updated[index] = { ...updated[index], [field]: value };
-        setLocationsData(updated);
-    };
-
-    const removeLocation = (index: number) => {
-        const location = locationsData[index];
-        const locationName = location.label || location.value || `Ubicación ${index + 1}`;
-
-        openConfirmModal(
-            'Eliminar Ubicación',
-            `¿Está seguro de que desea eliminar la ubicación "${locationName}"? Esta acción no se puede deshacer.`,
-            () => {
-                setLocationsData(locationsData.filter((_, i) => i !== index));
-
-                // Actualizar el tracking removiendo la ubicación eliminada y reindexando
-                const newTracking: { [key: number]: Location } = {};
-                const filteredLocations = locationsData.filter((_, i) => i !== index);
-                filteredLocations.forEach((location, newIndex) => {
-                    const originalIndex = newIndex >= index ? newIndex + 1 : newIndex;
-                    if (originalLocationsByIndex[originalIndex]) {
-                        newTracking[newIndex] = originalLocationsByIndex[originalIndex];
-                    }
-                });
-                setOriginalLocationsByIndex(newTracking);
-            }
-        );
-    }; const addEmployeeName = (locationIndex: number) => {
-        const updated = [...locationsData];
-        // Asegurar que existe el array de employees
-        if (!updated[locationIndex].employees) {
-            updated[locationIndex].employees = [];
-        }        // Agregar nuevo empleado con tipo CCSS por defecto
-        updated[locationIndex].employees!.push({
-            name: '',
-            ccssType: 'TC', // Tiempo Completo por defecto
-            extraAmount: 0, // Monto extra inicial
-            hoursPerShift: 8 // Horas por turno predeterminadas
-        });
-        setLocationsData(updated);
-    };
-
-    const updateEmployeeName = (locationIndex: number, employeeIndex: number, value: string) => {
-        const updated = [...locationsData];
-        if (updated[locationIndex].employees) {
-            updated[locationIndex].employees[employeeIndex].name = value;
-        }
-        setLocationsData(updated);
-    };
-
-    const updateEmployeeCcssType = (locationIndex: number, employeeIndex: number, value: 'TC' | 'MT') => {
-        const updated = [...locationsData];
-        if (updated[locationIndex].employees) {
-            updated[locationIndex].employees[employeeIndex].ccssType = value;
-        }
-        setLocationsData(updated);
-    };
-
-    const updateEmployeeExtraAmount = (locationIndex: number, employeeIndex: number, value: number) => {
-        const updated = [...locationsData];
-        if (updated[locationIndex].employees) {
-            updated[locationIndex].employees[employeeIndex].extraAmount = value;
-        }
-        setLocationsData(updated);
-    };
-
-    const updateEmployeeHoursPerShift = (locationIndex: number, employeeIndex: number, value: number) => {
-        const updated = [...locationsData];
-        if (updated[locationIndex].employees) {
-            updated[locationIndex].employees[employeeIndex].hoursPerShift = value;
-        }
-        setLocationsData(updated);
-    };
-
-    const removeEmployeeName = (locationIndex: number, employeeIndex: number) => {
-        const location = locationsData[locationIndex];
-        const employee = location.employees?.[employeeIndex];
-        const employeeName = employee?.name || `Empleado ${employeeIndex + 1}`;
-        const locationName = location.label || location.value || `Ubicación ${locationIndex + 1}`;
-
-        openConfirmModal(
-            'Eliminar Empleado',
-            `¿Está seguro de que desea eliminar al empleado "${employeeName}" de la ubicación "${locationName}"? Esta acción no se puede deshacer.`,
-            () => {
-                const updated = [...locationsData];
-                if (updated[locationIndex].employees) {
-                    updated[locationIndex].employees = updated[locationIndex].employees.filter((_, i) => i !== employeeIndex);
-                }
-                setLocationsData(updated);
-            }
-        );
-    };
+    // Location helpers removed (locations tab deleted)
 
     // Funciones para manejar sorteos
     const addSorteo = () => {
@@ -558,8 +379,8 @@ export default function DataEditor() {
         (newUser as Partial<User>).email = '';
         (newUser as Partial<User>).fullName = '';
         (newUser as Partial<User>).eliminate = false;
-    // Preselect ownerId for new users when actor has an owner
-    (newUser as Partial<User>).ownerId = currentUser?.ownerId ?? (currentUser && currentUser.eliminate === false ? currentUser.id : '');
+        // Preselect ownerId for new users when actor has an owner
+        (newUser as Partial<User>).ownerId = currentUser?.ownerId ?? (currentUser && currentUser.eliminate === false ? currentUser.id : '');
         // Insertar al inicio
         // Give new user no permissions by default (no privileges)
         newUser.permissions = getNoPermissions();
@@ -910,7 +731,7 @@ export default function DataEditor() {
         setSavingUserKey(key);
         try {
             const user = usersData[index];
-        if (user.id) {
+            if (user.id) {
                 // Actualizar usuario existente (actor-aware)
                 await UsersService.updateUserAs(currentUser, user.id, {
                     name: user.name,
@@ -918,10 +739,10 @@ export default function DataEditor() {
                     role: user.role,
                     isActive: user.isActive,
                     permissions: user.permissions,
-            email: user.email,
-            fullName: user.fullName,
-            maxCompanies: user.maxCompanies,
-            eliminate: user.eliminate ?? false,
+                    email: user.email,
+                    fullName: user.fullName,
+                    maxCompanies: user.maxCompanies,
+                    eliminate: user.eliminate ?? false,
                     ownerId: user.ownerId,
                     ownercompanie: user.ownercompanie
                 });
@@ -972,58 +793,7 @@ export default function DataEditor() {
         }
     };
 
-    // Función para guardar ubicación individual
-    const saveIndividualLocation = async (index: number) => {
-        setSavingLocation(index);
-        try {
-            const location = locationsData[index];
-
-            if (location.id) {
-                // Actualizar ubicación existente
-                const namesToSave = location.employees
-                    ? location.employees.map(emp => emp.name)
-                    : location.names || [];
-
-                await LocationsService.updateLocation(location.id, {
-                    label: location.label,
-                    value: location.value,
-                    names: namesToSave, // Mantener compatibilidad hacia atrás
-                    employees: location.employees || [] // Nueva estructura con tipo CCSS
-                });
-            } else {
-                // Crear nueva ubicación
-                const namesToSave = location.employees
-                    ? location.employees.map(emp => emp.name)
-                    : location.names || [];
-
-                await LocationsService.addLocation({
-                    label: location.label,
-                    value: location.value,
-                    names: namesToSave, // Mantener compatibilidad hacia atrás
-                    employees: location.employees || [] // Nueva estructura con tipo CCSS
-                });
-                // Recargar datos para obtener el ID generado
-                await loadData();
-            }
-
-            const locationName = location.label || location.value || `Ubicación ${index + 1}`;
-            showNotification(`Ubicación "${locationName}" guardada exitosamente`, 'success');
-
-            // Actualizar el tracking de la ubicación original después de guardar
-            // Si recargamos datos, el tracking se actualizará en loadData
-            if (location.id) {
-                setOriginalLocationsByIndex(prev => ({
-                    ...prev,
-                    [index]: JSON.parse(JSON.stringify(locationsData[index]))
-                }));
-            }
-        } catch (error) {
-            showNotification('Error al guardar la ubicación', 'error');
-            console.error('Error saving location:', error);
-        } finally {
-            setSavingLocation(null);
-        }
-    };
+    // (locations individual save removed with locations tab)
 
     // Funciones para manejar configuración CCSS
     const updateCcssConfig = (field: 'mt' | 'tc' | 'valorhora' | 'horabruta', value: number) => {
@@ -1091,16 +861,6 @@ export default function DataEditor() {
                             Usuarios ({usersData.length})
                         </button>
                         <button
-                            onClick={() => setActiveFile('locations')}
-                            className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeFile === 'locations'
-                                ? 'border-blue-500 text-blue-600'
-                                : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-[var(--border)]'
-                                }`}
-                        >
-                            <MapPin className="w-4 h-4" />
-                            Ubicaciones ({locationsData.length})
-                        </button>
-                        <button
                             onClick={() => setActiveFile('sorteos')}
                             className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeFile === 'sorteos'
                                 ? 'border-blue-500 text-blue-600'
@@ -1157,169 +917,7 @@ export default function DataEditor() {
             </div>
 
             {/* Content */}
-            {activeFile === 'locations' && (
-                <div className="space-y-4">
-                    <div className="flex flex-col sm:flex-row justify-between items-center gap-2 sm:gap-0">
-                        <h4 className="text-base sm:text-lg font-semibold">Configuración de Ubicaciones</h4>
-                        <button
-                            onClick={addLocation}
-                            className="px-3 py-2 sm:px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm sm:text-base"
-                        >
-                            Agregar Ubicación
-                        </button>
-                    </div>
 
-                    {locationsData.map((location, locationIndex) => (
-                        <div key={locationIndex} className="border border-[var(--input-border)] rounded-lg p-2 sm:p-4 relative">
-                            {/* Indicador de cambios */}
-                            {hasLocationChanged(locationIndex) && (
-                                <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-1 bg-orange-100 dark:bg-orange-900/20 text-orange-800 dark:text-orange-200 rounded-full text-xs font-medium">
-                                    <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
-                                    Cambios pendientes
-                                </div>
-                            )}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Valor:</label>
-                                    <input
-                                        type="text"
-                                        value={location.value}
-                                        onChange={(e) => updateLocation(locationIndex, 'value', e.target.value)}
-                                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
-                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Etiqueta:</label>
-                                    <input
-                                        type="text"
-                                        value={location.label}
-                                        onChange={(e) => updateLocation(locationIndex, 'label', e.target.value)}
-                                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
-                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                    />
-                                </div>
-                            </div>                            <div className="mb-4">
-                                <div className="flex justify-between items-center mb-2">
-                                    <label className="block text-sm font-medium">Empleados:</label>
-                                    <button
-                                        onClick={() => addEmployeeName(locationIndex)}
-                                        className="text-sm bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700 transition-colors"
-                                    >
-                                        Agregar Empleado
-                                    </button>
-                                </div>                                <div className="space-y-3">
-                                    {/* Migrar empleados del array names si existe */}
-                                    {location.names && location.names.length > 0 && !location.employees?.length && (
-                                        <div className="text-sm text-yellow-600 bg-yellow-50 p-2 rounded">
-                                            ⚠️ Empleados en formato anterior detectados. Se migrarán automáticamente al guardar.
-                                        </div>
-                                    )}
-
-                                    {/* Header para claridad */}
-                                    {/* Eliminamos encabezados generales, cada input tendrá su label siempre visible */}
-
-                                    {/* Mostrar empleados con nueva estructura */}
-                                    {location.employees?.map((employee, employeeIndex) => (
-                                        <div key={employeeIndex} className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 items-center p-2 sm:p-3 border border-[var(--input-border)] rounded-md">
-                                            {/* Nombre */}
-                                            <div className="col-span-2 sm:flex-1 min-w-[120px]">
-                                                <label className="block text-xs mb-1">Nombre</label>
-                                                <input
-                                                    type="text"
-                                                    value={employee.name}
-                                                    onChange={(e) => updateEmployeeName(locationIndex, employeeIndex, e.target.value)}
-                                                    className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
-                                                    style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                                    placeholder="Nombre del empleado"
-                                                />
-                                            </div>
-                                            {/* Tipo CCSS */}
-                                            <div className="col-span-1 sm:w-40">
-                                                <label className="block text-xs mb-1">Tipo CCSS</label>
-                                                <select
-                                                    value={employee.ccssType}
-                                                    onChange={(e) => updateEmployeeCcssType(locationIndex, employeeIndex, e.target.value as 'TC' | 'MT')}
-                                                    className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md text-sm"
-                                                    style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                                >
-                                                    <option value="TC">Tiempo Completo</option>
-                                                    <option value="MT">Medio Tiempo</option>
-                                                </select>
-                                            </div>
-                                            {/* Monto Extra */}
-                                            <div className="col-span-1 sm:w-32">
-                                                <label className="block text-xs mb-1">Monto Extra (₡)</label>
-                                                <input
-                                                    type="number"
-                                                    min=""
-                                                    step="0.01"
-                                                    value={employee.extraAmount || 0}
-                                                    onChange={(e) => updateEmployeeExtraAmount(locationIndex, employeeIndex, parseFloat(e.target.value) || 0)}
-                                                    className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md text-sm"
-                                                    style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                                    placeholder="Monto extra"
-                                                    title="Monto extra en colones"
-                                                />
-                                            </div>
-                                            {/* Horas por Turno */}
-                                            <div className="col-span-1 sm:w-32">
-                                                <label className="block text-xs mb-1">Horas/Turno</label>
-                                                <input
-                                                    type="number"
-                                                    min="1"
-                                                    value={employee.hoursPerShift}
-                                                    onChange={(e) => updateEmployeeHoursPerShift(locationIndex, employeeIndex, parseInt(e.target.value) || 0)}
-                                                    className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md text-sm"
-                                                    style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                                    placeholder="Horas por turno"
-                                                    title="Cantidad de horas por turno"
-                                                />
-                                            </div>
-                                            {/* Botón eliminar */}
-                                            <div className="col-span-2 sm:w-10 flex justify-end">
-                                                <button
-                                                    onClick={() => removeEmployeeName(locationIndex, employeeIndex)}
-                                                    className="px-2 sm:px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-                                                    title="Eliminar empleado"
-                                                >
-                                                    X
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))}
-
-                                    {/* Si no hay empleados en la nueva estructura, mostrar mensaje */}
-                                    {(!location.employees || location.employees.length === 0) && (!location.names || location.names.length === 0) && (
-                                        <div className="text-center py-4 text-[var(--muted-foreground)] border-2 border-dashed border-[var(--border)] rounded-md">
-                                            No hay empleados agregados
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="flex flex-col sm:flex-row justify-end gap-2 mt-2">
-                                <button
-                                    onClick={() => saveIndividualLocation(locationIndex)}
-                                    className={`px-3 py-2 sm:px-4 rounded-md transition-colors flex items-center gap-2 text-sm sm:text-base ${hasLocationChanged(locationIndex) && savingLocation !== locationIndex
-                                        ? 'bg-green-600 hover:bg-green-700 text-white'
-                                        : 'bg-gray-400 text-gray-600 cursor-not-allowed'
-                                        }`}
-                                    disabled={!hasLocationChanged(locationIndex) || savingLocation === locationIndex}
-                                >
-                                    <Save className="w-4 h-4" />
-                                    {savingLocation === locationIndex ? 'Guardando...' : 'Guardar Ubicación'}
-                                </button>
-                                <button
-                                    onClick={() => removeLocation(locationIndex)}
-                                    className="px-3 py-2 sm:px-4 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm sm:text-base">
-                                    Eliminar Ubicación
-                                </button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
 
             {activeFile === 'empresas' && (
                 <div className="space-y-4">
@@ -1451,10 +1049,10 @@ export default function DataEditor() {
                                                             'Eliminar Empleado',
                                                             `¿Desea eliminar al empleado ${emp.Empleado || eIdx + 1}?`,
                                                             () => {
-                                    const copy = [...empresasData];
-                                        copy[idx].empleados = copy[idx].empleados.filter((_: unknown, i: number) => i !== eIdx);
-                                                                    setEmpresasData(copy);
-                                                                }
+                                                                const copy = [...empresasData];
+                                                                copy[idx].empleados = copy[idx].empleados.filter((_: unknown, i: number) => i !== eIdx);
+                                                                setEmpresasData(copy);
+                                                            }
                                                         );
                                                     }}
                                                     className="px-2 sm:px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
