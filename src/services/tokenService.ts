@@ -288,10 +288,11 @@ export class TokenService {
       const newExp = Math.max(currentExp, now) + extensionMs;
 
       // Crear payload actualizado
-      const newPayload: TokenPayload = {
-        userId: sessionData.user.id || '',
-        name: sessionData.user.name,
-        ownercompanie: (sessionData.user as any).ownercompanie,
+  const userRec = sessionData.user as unknown as Record<string, unknown>;
+  const newPayload: TokenPayload = {
+  userId: ((sessionData.user as unknown) as Record<string, unknown>).id as string || '',
+  name: ((sessionData.user as unknown) as Record<string, unknown>).name as string,
+  ownercompanie: (userRec.ownercompanie as string | undefined),
         role: sessionData.user.role as 'admin' | 'user' | 'superadmin',
         permissions: sessionData.user.permissions,
         sessionId: sessionData.sessionId,

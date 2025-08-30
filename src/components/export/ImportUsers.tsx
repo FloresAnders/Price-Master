@@ -1,6 +1,7 @@
 "use client";
 import React from 'react';
 import { useUsers } from '../../hooks/useFirebase';
+import { User } from '../../types/firestore';
 
 export default function ImportUsers() {
     const { addUser, updateUser } = useUsers();
@@ -10,13 +11,16 @@ export default function ImportUsers() {
         if (!file) return;
         try {
             const text = await file.text();
-            const parsed = JSON.parse(text);
+            const parsedRaw = JSON.parse(text) as unknown;
+            if (!Array.isArray(parsedRaw)) throw new Error('Archivo inválido: se esperaba un array');
             if (!confirm('Aplicar users desde archivo? Esto podría crear/actualizar documentos.')) return;
-            for (const item of parsed) {
-                if (item.id) {
-                    await updateUser(item.id, item);
+            for (const itemRaw of parsedRaw) {
+                const item = itemRaw as Record<string, unknown>;
+                if (item.id && typeof item.id === 'string') {
+                    await updateUser(item.id, item as unknown as Partial<User>);
                 } else {
-                    await addUser(item as any);
+                    // addUser expects a partial User-like object; cast safely
+                    await addUser(item as unknown as Parameters<typeof addUser>[0]);
                 }
             }
             alert('Users importadas');

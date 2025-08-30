@@ -266,31 +266,43 @@ export default function PayrollExporter({
         } else if (currentUser.role === 'superadmin') {
           owned = empresas || [];
         } else {
-          owned = (empresas || []).filter((e: any) => e && e.ownerId && (
-            String(e.ownerId) === String(currentUser.id) ||
-            (currentUser.ownerId && String(e.ownerId) === String(currentUser.ownerId))
-          ));
+          owned = (empresas || []).filter((e: unknown) => {
+            const obj = e as Record<string, unknown>;
+            const ownerId = obj?.ownerId;
+            if (ownerId === undefined || ownerId === null) return false;
+            return (
+              String(ownerId) === String(currentUser.id) ||
+              (currentUser.ownerId && String(ownerId) === String(currentUser.ownerId))
+            );
+          });
         }
 
-        const mapped = (owned || []).map(e => ({
-          id: e.id,
-          label: e.name || e.ubicacion || e.id || 'Empresa',
-          value: e.ubicacion || e.name || e.id || '',
-          names: [],
-          employees: (e.empleados || []).map((emp: any) => ({
-            name: emp.Empleado || '',
-            ccssType: emp.ccssType || 'TC',
-            hoursPerShift: emp.hoursPerShift || 8,
-            extraAmount: emp.extraAmount || 0
-          }))
-        }));
+        const mapped = (owned || []).map(e => {
+          const obj = (e as unknown) as Record<string, unknown>;
+          const empleados = (obj.empleados as unknown) || [];
+          return {
+            id: (obj.id as string) || undefined,
+            label: (obj.name as string) || (obj.ubicacion as string) || (obj.id as string) || 'Empresa',
+            value: (obj.ubicacion as string) || (obj.name as string) || (obj.id as string) || '',
+            names: [],
+            employees: (Array.isArray(empleados) ? empleados : []).map(emp => {
+              const empObj = (emp as unknown) as Record<string, unknown>;
+              return {
+                name: (empObj.Empleado as string) || '',
+                ccssType: (empObj.ccssType as 'TC' | 'MT') || 'TC',
+                hoursPerShift: (empObj.hoursPerShift as number) || 8,
+                extraAmount: (empObj.extraAmount as number) || 0
+              };
+            })
+          };
+        });
         setLocations(mapped);
       } catch (error) {
         console.error('Error loading empresas:', error);
       }
     };
     loadLocations();
-  }, []);
+  }, [currentUser]);
 
   // Limpiar timers al desmontar el componente
   useEffect(() => {

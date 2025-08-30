@@ -6,7 +6,8 @@ export default function Footer() {
   const [isGitHubModalOpen, setIsGitHubModalOpen] = useState(false);
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
   const [isNewsModalOpen, setIsNewsModalOpen] = useState(false);
-
+  const VERSION = 'v1.0.0';
+  
   // Handle ESC key to close modal
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -171,7 +172,8 @@ export default function Footer() {
         )}
         {/* Copyright */}
         <div className="w-full text-center text-xs text-[var(--tab-text)] border-t border-[var(--input-border)] pt-2 pb-1">
-          Copyright ©{new Date().getFullYear()}; Designed by <span className="font-semibold tracking-wide">Price Master</span>
+          <div className="mb-1">Copyright ©{new Date().getFullYear()}; Designed by <span className="font-semibold tracking-wide">Price Master</span></div>
+          <div className="text-[var(--tab-text)] opacity-80">{VERSION}</div>
         </div>
       </div>
     </footer>

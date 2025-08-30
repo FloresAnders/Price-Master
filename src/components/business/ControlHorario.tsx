@@ -61,7 +61,7 @@ function EmployeeTooltipSummary({
         // Obtener información de la empresa que contiene los empleados
       const empresas = await EmpresasService.getAllEmpresas();
       const currentEmpresa = empresas.find(e => e.ubicacion === empresaValue || e.name === empresaValue || e.id === empresaValue);
-        const rawEmp = currentEmpresa?.empleados?.find((emp: any) => emp.Empleado === employeeName);
+  const rawEmp = currentEmpresa?.empleados?.find((emp: import('../../types/firestore').EmpresaEmpleado) => emp.Empleado === employeeName);
         const employee = rawEmp ? {
           name: rawEmp.Empleado,
           ccssType: rawEmp.ccssType || 'TC',
@@ -346,7 +346,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
     };
 
     loadData();
-  }, [user]);
+  }, [user, assignedEmpresa, empresa]);
 
   // Efecto principal para manejar la empresa del usuario
   useEffect(() => {
@@ -378,7 +378,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
       console.log(`🏢 CARGA AUTOMÁTICA: Mostrando empresa asignada (value) para usuario "${user.name}" (${user.role}): ${defaultCompany}`);
       setEmpresa(String(defaultCompany));
     }
-  }, [user, empresa]); // Incluir empresa como dependencia
+  }, [user, empresa, assignedEmpresa, assignedEmpresaValue]); // Incluir empresa como dependencia
 
   // Efecto adicional para bloquear cambios de empresa en usuarios "user"
   useEffect(() => {
@@ -389,7 +389,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
       setEmpresa(forcedCompanyValue);
       showNotification(`Acceso restringido. Solo puedes ver: ${forcedCompanyValue}`, 'error');
     }
-  }, [empresa, user, assignedEmpresaValue]); // Monitorear cambios en empresa y en el valor resuelto para usuarios "user"
+  }, [empresa, user, assignedEmpresaValue, assignedEmpresa]); // Monitorear cambios en empresa y en el valor resuelto para usuarios "user"
 
   // Cargar horarios de Firebase cuando cambie la empresa
   useEffect(() => {
@@ -485,7 +485,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
     };
 
     loadScheduleData();
-  }, [empresa, empresas, currentDate, isDelifoodEmpresa, loading, user]); // Agregar user como dependencia
+  }, [empresa, empresas, currentDate, isDelifoodEmpresa, loading, user, assignedEmpresaValue]); // Agregar user como dependencia
 
   // --- AUTO-QUINCENA: Detectar y mostrar la quincena actual SOLO al cargar el mes actual por PRIMERA VEZ en la sesión ---
   useEffect(() => {

@@ -114,7 +114,7 @@ export class UsersService {
             role: enrichedActor?.role || session.role
           } as User;
         }
-      } catch (e) {
+      } catch {
         // ignore parsing errors
       }
     }
@@ -140,7 +140,6 @@ export class UsersService {
 
     if (!userToCreate.ownerId) {
       // Helpful debug when ownerId is still empty
-      // eslint-disable-next-line no-console
       console.warn('UsersService.createUserAs: ownerId resolved to empty string for new user', { actor: actor, providedOwnerId: user.ownerId });
     }
 

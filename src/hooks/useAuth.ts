@@ -215,15 +215,16 @@ export function useAuth() {
 
         if (hoursElapsed < maxHours && !isInactive) {
           // Only update user if the data has actually changed
-          const newUserData = {
+            const sessionObj = session as unknown as Record<string, unknown>;
+            const newUserData = {
             id: session.id,
             name: session.name,
-            ownercompanie: (session as any).ownercompanie || session.ownercompanie,
+            ownercompanie: (sessionObj.ownercompanie as string) || session.ownercompanie,
             role: session.role,
             permissions: session.permissions, // ¡Importante! Incluir los permisos desde la sesión
             // Restore ownerId and eliminate if present in the stored session
-            ownerId: (session as any).ownerId || '',
-            eliminate: (session as any).eliminate ?? false
+            ownerId: (sessionObj.ownerId as string) || '',
+            eliminate: (sessionObj.eliminate as boolean) ?? false
           };
 
           // Check if user data has changed to prevent unnecessary re-renders
@@ -299,10 +300,11 @@ export function useAuth() {
       if (useTokens) {
       // Usar autenticación por tokens (una semana automáticamente)
       TokenService.createTokenSession(userData);
+      const userObj = userData as unknown as Record<string, unknown>;
       const enrichedUser = {
         ...userData,
-        ownerId: (userData as any).ownerId || '',
-        eliminate: (userData as any).eliminate ?? false
+        ownerId: (userObj.ownerId as string) || '',
+        eliminate: (userObj.eliminate as boolean) ?? false
       };
       setUser(enrichedUser);
       setIsAuthenticated(true);
@@ -317,10 +319,10 @@ export function useAuth() {
       const browserInfo = getBrowserInfo();
 
       // Crear datos de sesión completos
-      const sessionData: SessionData = {
+      const sessionDataObj = {
         id: userData.id,
         name: userData.name,
-        ownercompanie: (userData as any).ownercompanie,
+        ownercompanie: (userData as unknown as Record<string, unknown>).ownercompanie as string | undefined,
         role: userData.role,
         permissions: userData.permissions, // ¡Importante! Incluir los permisos
         loginTime: new Date().toISOString(),
@@ -330,20 +332,20 @@ export function useAuth() {
         keepActive: keepActive, // Agregar información del toggle
         useTokenAuth: false,
         // Persist ownerId and eliminate so restored session provides full actor info
-        // @ts-ignore allow extra fields in SessionData
-        ownerId: (userData as any).ownerId || '',
-        // @ts-ignore
-        eliminate: (userData as any).eliminate ?? false
+        ownerId: ((userData as unknown as Record<string, unknown>).ownerId as string) || '',
+        eliminate: ((userData as unknown as Record<string, unknown>).eliminate as boolean) ?? false
       };
+      const sessionData = sessionDataObj as unknown as SessionData;
 
       // Guardar sesión
       localStorage.setItem('pricemaster_session', JSON.stringify(sessionData));
       localStorage.setItem('pricemaster_session_id', sessionId);
 
+      const userObj2 = userData as unknown as Record<string, unknown>;
       const enrichedUser = {
         ...userData,
-        ownerId: (userData as any).ownerId || '',
-        eliminate: (userData as any).eliminate ?? false
+        ownerId: (userObj2.ownerId as string) || '',
+        eliminate: (userObj2.eliminate as boolean) ?? false
       };
       setUser(enrichedUser);
       setIsAuthenticated(true);

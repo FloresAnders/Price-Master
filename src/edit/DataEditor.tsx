@@ -24,7 +24,9 @@ export default function DataEditor() {
     const [sorteosData, setSorteosData] = useState<Sorteo[]>([]);
     const [usersData, setUsersData] = useState<User[]>([]);
     const [ccssData, setCcssData] = useState<CcssConfig>({ mt: 3672.46, tc: 11017.39, valorhora: 1441, horabruta: 1529.62 });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [empresasData, setEmpresasData] = useState<any[]>([]);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [originalEmpresasData, setOriginalEmpresasData] = useState<any[]>([]);
     const [originalLocationsData, setOriginalLocationsData] = useState<Location[]>([]);
     const [originalSorteosData, setOriginalSorteosData] = useState<Sorteo[]>([]);
@@ -55,7 +57,7 @@ export default function DataEditor() {
                     // if session indicates actor is not a delegated admin, use session.id
                     if (session && session.eliminate === false && session.id) return session.id;
                 }
-            } catch (e) {
+            } catch {
                 // ignore parsing errors
             }
         }
@@ -1381,6 +1383,7 @@ export default function DataEditor() {
                                 </div>
 
                                 <div className="space-y-3">
+                                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                                     {empresa.empleados?.map((emp: any, eIdx: number) => (
                                         <div key={eIdx} className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 items-center p-2 sm:p-3 border border-[var(--input-border)] rounded-md">
                                             <div className="col-span-2 sm:flex-1 min-w-[120px]">
@@ -1448,10 +1451,10 @@ export default function DataEditor() {
                                                             'Eliminar Empleado',
                                                             `¿Desea eliminar al empleado ${emp.Empleado || eIdx + 1}?`,
                                                             () => {
-                                                                const copy = [...empresasData];
-                                                                copy[idx].empleados = copy[idx].empleados.filter((_: any, i: number) => i !== eIdx);
-                                                                setEmpresasData(copy);
-                                                            }
+                                    const copy = [...empresasData];
+                                        copy[idx].empleados = copy[idx].empleados.filter((_: unknown, i: number) => i !== eIdx);
+                                                                    setEmpresasData(copy);
+                                                                }
                                                         );
                                                     }}
                                                     className="px-2 sm:px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
