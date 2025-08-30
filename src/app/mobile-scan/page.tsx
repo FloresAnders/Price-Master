@@ -262,8 +262,8 @@ function MobileScanContent() {
       return;
     }
 
-    // Usar siempre la empresa asignada del usuario logado
-    const ownercompanieToSend = user && (user as any).ownercompanie ? (user as any).ownercompanie : undefined;
+  // Usar siempre la empresa asignada del usuario logado
+  const ownercompanieToSend = user?.ownercompanie ?? undefined;
 
     try {
       setError(null);
