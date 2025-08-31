@@ -5,8 +5,14 @@ import React, { useState, useEffect } from 'react';
 import { Clock, DollarSign, CalendarDays, TrendingUp, Minus } from 'lucide-react';
 import { CcssConfigService } from '../../services/ccss-config';
 import { SchedulesService, ScheduleEntry } from '../../services/schedules';
-import { Employee } from '../../types/firestore';
-import { LocationsService } from '../../services/locations';
+import { EmpresasService } from '../../services/empresas';
+
+interface EmployeeData {
+  name: string;
+  hoursPerShift: number;
+  extraAmount: number;
+  ccssType: 'TC' | 'MT';
+}
 
 export interface EmployeeSummary {
   workedDays: number;
@@ -39,7 +45,7 @@ export function useEmployeeData(
   year: number,
   month: number,
   daysToShow: number[],
-  employee?: Employee
+  employee?: EmployeeData
 ) {
   const [scheduleData, setScheduleData] = useState<ScheduleData>({});
   const [ccssConfig, setCcssConfig] = useState({ mt: 3672.46, tc: 11017.39 });
@@ -125,7 +131,7 @@ export function useEmployeeData(
 
 // Hook para obtener información del empleado desde la ubicación
 export function useEmployeeInfo(employeeName: string, locationValue: string) {
-  const [employee, setEmployee] = useState<Employee | null>(null);
+  const [employee, setEmployee] = useState<EmployeeData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -135,12 +141,12 @@ export function useEmployeeInfo(employeeName: string, locationValue: string) {
         setLoading(true);
         setError(null);
 
-        const locations = await LocationsService.findLocationsByValue(locationValue);
+        const empresas = await EmpresasService.getAllEmpresas();
+        const empresa = empresas.find(emp => emp.name.toLowerCase() === locationValue.toLowerCase());
 
-        if (locations.length > 0) {
-          const location = locations[0];
-          const foundEmployee = location.employees?.find(emp => emp.name === employeeName);
-          setEmployee(foundEmployee || null);
+        if (empresa && empresa.empleados) {
+          const foundEmployee = empresa.empleados.find(emp => emp.Empleado === employeeName);
+          setEmployee(foundEmployee ? { name: foundEmployee.Empleado, hoursPerShift: foundEmployee.hoursPerShift, extraAmount: foundEmployee.extraAmount, ccssType: foundEmployee.ccssType } : null);
         } else {
           setEmployee(null);
         }
@@ -327,7 +333,7 @@ export async function calculateEmployeeSummaryFromDB(
   year: number,
   month: number,
   daysToShow: number[],
-  employee?: Employee
+  employee?: EmployeeData
 ): Promise<EmployeeSummary> {
   try {
     // Obtener configuración de CCSS

@@ -3,30 +3,27 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Save, Download, AlertCircle, Check, FileText, Users, Clock, DollarSign, Eye, EyeOff, Settings } from 'lucide-react';
-import { LocationsService } from '../services/locations';
 import { EmpresasService } from '../services/empresas';
 import { SorteosService } from '../services/sorteos';
 import { UsersService } from '../services/users';
 import { useAuth } from '../hooks/useAuth';
 import { CcssConfigService } from '../services/ccss-config';
-import { Location, Sorteo, User, CcssConfig, UserPermissions } from '../types/firestore';
+import { Sorteo, User, CcssConfig, UserPermissions } from '../types/firestore';
 import { getDefaultPermissions, getNoPermissions } from '../utils/permissions';
 import ScheduleReportTab from '../components/business/ScheduleReportTab';
 import ConfirmModal from '../components/ui/ConfirmModal';
 import ExportModal from '../components/export/ExportModal';
 
-type DataFile = 'locations' | 'sorteos' | 'users' | 'schedules' | 'ccss' | 'empresas';
+type DataFile = 'sorteos' | 'users' | 'schedules' | 'ccss' | 'empresas';
 
 export default function DataEditor() {
     const [activeFile, setActiveFile] = useState<DataFile>('empresas');
     const { user: currentUser } = useAuth();
-    const [locationsData, setLocationsData] = useState<Location[]>([]);
     const [sorteosData, setSorteosData] = useState<Sorteo[]>([]);
     const [usersData, setUsersData] = useState<User[]>([]);
     const [ccssData, setCcssData] = useState<CcssConfig>({ mt: 3672.46, tc: 11017.39, valorhora: 1441, horabruta: 1529.62 });
     const [empresasData, setEmpresasData] = useState<any[]>([]);
     const [originalEmpresasData, setOriginalEmpresasData] = useState<any[]>([]);
-    const [originalLocationsData, setOriginalLocationsData] = useState<Location[]>([]);
     const [originalSorteosData, setOriginalSorteosData] = useState<Sorteo[]>([]);
     const [originalUsersData, setOriginalUsersData] = useState<User[]>([]);
     const [originalCcssData, setOriginalCcssData] = useState<CcssConfig>({ mt: 3672.46, tc: 11017.39, valorhora: 1441, horabruta: 1529.62 });
@@ -67,7 +64,6 @@ export default function DataEditor() {
     const [savingUserKey, setSavingUserKey] = useState<string | null>(null);
     const [showPermissions, setShowPermissions] = useState<{ [key: string]: boolean }>({});
     const [permissionsEditable, setPermissionsEditable] = useState<{ [key: string]: boolean }>({});
-    const [allLocations, setAllLocations] = useState<Location[]>([]);
 
     // Estado para trackear cambios individuales de ubicaciones (removed)
 
@@ -114,58 +110,15 @@ export default function DataEditor() {
         }
     };
     useEffect(() => {
-        const locationsChanged = JSON.stringify(locationsData) !== JSON.stringify(originalLocationsData);
         const sorteosChanged = JSON.stringify(sorteosData) !== JSON.stringify(originalSorteosData);
         const usersChanged = JSON.stringify(usersData) !== JSON.stringify(originalUsersData);
         const ccssChanged = JSON.stringify(ccssData) !== JSON.stringify(originalCcssData);
         const empresasChanged = JSON.stringify(empresasData) !== JSON.stringify(originalEmpresasData);
-        setHasChanges(locationsChanged || sorteosChanged || usersChanged || ccssChanged || empresasChanged);
-    }, [locationsData, sorteosData, usersData, ccssData, empresasData, originalLocationsData, originalSorteosData, originalUsersData, originalCcssData, originalEmpresasData]);
+        setHasChanges(sorteosChanged || usersChanged || ccssChanged || empresasChanged);
+    }, [sorteosData, usersData, ccssData, empresasData, originalSorteosData, originalUsersData, originalCcssData, originalEmpresasData]);
 
     const loadData = useCallback(async () => {
         try {
-            // Cargar locations desde Firebase
-            const locations = await LocationsService.getAllLocations();
-
-            // Guardar todas las locaciones para el selector de scanhistory
-            setAllLocations(locations);
-
-            // Migrar datos del array names al array employees si es necesario
-            const migratedLocations = locations.map(location => {
-                // Si no tiene employees pero sí tiene names, migrar
-                if ((!location.employees || location.employees.length === 0) && location.names && location.names.length > 0) {
-                    return {
-                        ...location, employees: location.names.map(name => ({
-                            name,
-                            ccssType: 'TC' as const, // Tiempo Completo por defecto
-                            extraAmount: 0, // Monto extra inicial
-                            hoursPerShift: 8 // Horas por turno predeterminadas
-                        }))
-                    };
-                }
-                // Si no tiene employees, inicializar array vacío
-                if (!location.employees) {
-                    return {
-                        ...location,
-                        employees: []
-                    };
-                }
-                // Asegurar que los empleados existentes tengan extraAmount y hoursPerShift
-                return {
-                    ...location,
-                    employees: location.employees.map(emp => ({
-                        ...emp,
-                        extraAmount: emp.extraAmount !== undefined ? emp.extraAmount : 0,
-                        hoursPerShift: emp.hoursPerShift !== undefined ? emp.hoursPerShift : 8
-                    }))
-                };
-            });
-
-            setLocationsData(migratedLocations);
-            setOriginalLocationsData(JSON.parse(JSON.stringify(migratedLocations)));
-
-            // Nota: tracking por índice de ubicaciones eliminado al suprimir la pestaña de Ubicaciones.
-
             // Cargar sorteos desde Firebase
             const sorteos = await SorteosService.getAllSorteos();
             setSorteosData(sorteos);
@@ -258,18 +211,6 @@ export default function DataEditor() {
     const saveData = async () => {
         setIsSaving(true);
         try {
-            // Guardar locations en Firebase
-            const existingLocations = await LocationsService.getAllLocations();
-            for (const location of existingLocations) {
-                if (location.id) await LocationsService.deleteLocation(location.id);
-            }
-            for (const location of locationsData) {
-                const namesToSave = location.employees
-                    ? location.employees.map(emp => emp.name)
-                    : location.names || [];
-                await LocationsService.addLocation({ label: location.label, value: location.value, names: namesToSave, employees: location.employees || [] });
-            }
-
             // Guardar sorteos
             const existingSorteos = await SorteosService.getAllSorteos();
             for (const s of existingSorteos) { if (s.id) await SorteosService.deleteSorteo(s.id); }
@@ -312,11 +253,9 @@ export default function DataEditor() {
             }
 
             // Local backup and update originals
-            localStorage.setItem('editedLocations', JSON.stringify(locationsData));
             localStorage.setItem('editedSorteos', JSON.stringify(sorteosData));
             localStorage.setItem('editedUsers', JSON.stringify(usersData));
 
-            setOriginalLocationsData(JSON.parse(JSON.stringify(locationsData)));
             setOriginalSorteosData(JSON.parse(JSON.stringify(sorteosData)));
             setOriginalUsersData(JSON.parse(JSON.stringify(usersData)));
             setOriginalCcssData(JSON.parse(JSON.stringify(ccssData)));

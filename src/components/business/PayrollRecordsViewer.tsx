@@ -4,8 +4,8 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Users, Eye, Trash2 } from 'lucide-react';
 import { PayrollRecordsService, PayrollRecord } from '../../services/payroll-records';
-import { LocationsService } from '../../services/locations';
-import { Location } from '../../types/firestore';
+import { EmpresasService } from '../../services/empresas';
+import { Empresas } from '../../types/firestore';
 import ConfirmModal from '../ui/ConfirmModal';
 
 interface PayrollRecordsViewerProps {
@@ -23,7 +23,7 @@ interface PeriodToDelete {
 
 export default function PayrollRecordsViewer({ selectedLocation = 'all' }: PayrollRecordsViewerProps) {
   const [records, setRecords] = useState<PayrollRecord[]>([]);
-  const [locations, setLocations] = useState<Location[]>([]);
+  const [locations, setLocations] = useState<Empresas[]>([]);
   const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [confirmModal, setConfirmModal] = useState<{
@@ -42,14 +42,14 @@ export default function PayrollRecordsViewer({ selectedLocation = 'all' }: Payro
     setTimeout(() => setNotification(null), 3000);
   };
 
-  // Cargar ubicaciones
+  // Cargar empresas
   useEffect(() => {
     const loadLocations = async () => {
       try {
-        const locationsData = await LocationsService.getAllLocations();
-        setLocations(locationsData);
+        const empresasData = await EmpresasService.getAllEmpresas();
+        setLocations(empresasData);
       } catch (error) {
-        console.error('Error loading locations:', error);
+        console.error('Error loading empresas:', error);
       }
     };
     loadLocations();
@@ -155,10 +155,10 @@ export default function PayrollRecordsViewer({ selectedLocation = 'all' }: Payro
     setConfirmModal({ open: false, periodToDelete: null, loading: false });
   };
 
-  // Obtener nombre de ubicación
+  // Obtener nombre de empresa
     const getLocationName = (locationValue: string) => {
-    const location = locations.find(loc => loc.value === locationValue);
-    return location ? location.label : locationValue;
+    const empresa = locations.find(emp => emp.name.toLowerCase() === locationValue.toLowerCase());
+    return empresa ? empresa.name : locationValue;
   }
 
   // Calcular días totales de un empleado específico

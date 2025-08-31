@@ -162,10 +162,10 @@ export class SchedulesService {
 
         if (shift === 'D' || shift === 'N') {
           try {
-            const { LocationsService } = await import('./locations');
-            const locations = await LocationsService.findLocationsByValue(locationValue);
-            const location = locations[0];
-            const employee = location?.employees?.find(emp => emp.name === employeeName);
+            const { EmpresasService } = await import('./empresas');
+            const empresas = await EmpresasService.getAllEmpresas();
+            const empresa = empresas.find(emp => emp.name.toLowerCase() === locationValue.toLowerCase());
+            const employee = empresa?.empleados?.find(emp => emp.Empleado === employeeName);
             horasPorDia = employee?.hoursPerShift || 8; // Default to 8 hours if not specified
             console.log(`🔄 Adding horasPorDia for ${employeeName} (${shift}): ${horasPorDia} hours`);
           } catch (error) {

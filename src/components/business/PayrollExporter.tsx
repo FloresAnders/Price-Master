@@ -7,7 +7,26 @@ import { Calculator, DollarSign, Image, Save, Calendar } from 'lucide-react';
 import { EmpresasService } from '../../services/empresas';
 import { SchedulesService, ScheduleEntry } from '../../services/schedules';
 import { PayrollRecordsService } from '../../services/payroll-records';
-import { Location, Employee } from '../../types/firestore';
+
+interface MappedEmpresa {
+  id?: string;
+  label: string;
+  value: string;
+  names: string[];
+  employees: {
+    name: string;
+    ccssType: 'TC' | 'MT';
+    hoursPerShift: number;
+    extraAmount: number;
+  }[];
+}
+
+interface EmployeeData {
+  name: string;
+  ccssType: 'TC' | 'MT';
+  hoursPerShift: number;
+  extraAmount: number;
+}
 
 interface BiweeklyPeriod {
   start: Date;
@@ -65,7 +84,7 @@ interface EnhancedEmployeePayrollData extends EmployeePayrollData {
 }
 
 interface LocationPayrollData {
-  location: Location;
+  location: MappedEmpresa;
   employees: EmployeePayrollData[];
 }
 
@@ -85,7 +104,7 @@ export default function PayrollExporter({
   onPeriodChange
 }: PayrollExporterProps) {
   const { user: currentUser } = useAuth();
-  const [locations, setLocations] = useState<Location[]>([]);
+  const [locations, setLocations] = useState<MappedEmpresa[]>([]);
   const [payrollData, setPayrollData] = useState<LocationPayrollData[]>([]);
   const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null); const [editableDeductions, setEditableDeductions] = useState<EditableDeductions>({});
@@ -195,7 +214,7 @@ export default function PayrollExporter({
     ccssType: 'TC' | 'MT',
     locationValue: string,
     extraAmount: number = 0,
-    employee?: Employee
+    employee?: EmployeeData
   ): EmployeePayrollData => {
     const workShifts = Object.values(days).filter(shift => shift === 'D' || shift === 'N');
     const totalWorkDays = workShifts.length;

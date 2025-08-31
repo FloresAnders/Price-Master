@@ -2,9 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { User, UserPermissions, Location } from '../../types/firestore';
+import { User, UserPermissions } from '../../types/firestore';
 import { UsersService } from '../../services/users';
-import { LocationsService } from '../../services/locations';
 import { EmpresasService } from '../../services/empresas';
 import { getDefaultPermissions, getAllPermissions, getNoPermissions } from '../../utils/permissions';
 
@@ -42,7 +41,6 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [permissions, setPermissions] = useState<UserPermissions>(getNoPermissions());
   const [empresas, setEmpresas] = useState<any[]>([]);
-  const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -63,17 +61,21 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
 
   const loadLocations = React.useCallback(async () => {
     try {
-      const locationsData = await LocationsService.getAllLocations();
-      setLocations(locationsData);
+      const empresasData = await EmpresasService.getAllEmpresas();
+      setEmpresas(empresasData.map(empresa => ({
+        label: empresa.name,
+        value: empresa.name.toLowerCase(),
+        names: []
+      })));
     } catch (error) {
-      console.error('Error loading locations from DB, using fallback list:', error);
+      console.error('Error loading empresas from DB, using fallback list:', error);
       // Fallback locations if service can't be reached
-      setLocations([
-        { label: 'PALMARES', value: 'PALMARES', names: [] },
-        { label: 'SINAI', value: 'SINAI', names: [] },
-        { label: 'SAN VITO', value: 'SAN VITO', names: [] },
-        { label: 'COOPABUENA', value: 'COOPABUENA', names: [] },
-        { label: 'DELIFOOD TEST', value: 'DELIFOOD_TEST', names: [] }
+      setEmpresas([
+        { label: 'PALMARES', value: 'palmares', names: [] },
+        { label: 'SINAI', value: 'sinai', names: [] },
+        { label: 'SAN VITO', value: 'san vito', names: [] },
+        { label: 'COOPABUENA', value: 'coopabuena', names: [] },
+        { label: 'DELIFOOD TEST', value: 'delifood test', names: [] }
       ]);
     }
   }, []);

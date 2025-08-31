@@ -16,7 +16,7 @@ export default function ExportEmpresas() {
             URL.revokeObjectURL(url);
         } catch (err) {
             console.error(err);
-            alert('Error al exportar locations');
+            alert('Error al exportar empresas');
         }
     };
 

@@ -10,10 +10,8 @@ export async function initializeFirebase(): Promise<{
   success: boolean;
   message: string;
   stats?: {
-    locations: number;
     sorteos: number;
     users: number;
-    totalNames: number;
     ccssConfigExists: boolean;
   };
 }> {
@@ -22,7 +20,7 @@ export async function initializeFirebase(): Promise<{
 
     // Check if collections need initialization
     const stats = await FirebaseUtils.getCollectionStats();
-    if (stats.locations === 0 || stats.sorteos === 0 || !stats.ccssConfigExists) {
+    if (stats.sorteos === 0 || !stats.ccssConfigExists) {
       console.log('Collections are empty or CCSS config missing, running migration...');
       await MigrationService.runAllMigrations();
 
@@ -31,13 +29,13 @@ export async function initializeFirebase(): Promise<{
 
       return {
         success: true,
-        message: `Firebase initialized successfully. Migrated ${updatedStats.locations} locations, ${updatedStats.sorteos} sorteos, ${updatedStats.users} users, and initialized CCSS config.`,
+        message: `Firebase initialized successfully. Migrated ${updatedStats.sorteos} sorteos, ${updatedStats.users} users, and initialized CCSS config.`,
         stats: updatedStats
       };
     } else {
       return {
         success: true,
-        message: `Firebase already initialized. Found ${stats.locations} locations, ${stats.sorteos} sorteos, ${stats.users} users, and CCSS config exists.`,
+        message: `Firebase already initialized. Found ${stats.sorteos} sorteos, ${stats.users} users, and CCSS config exists.`,
         stats
       };
     }
@@ -65,10 +63,8 @@ export async function firebaseHealthCheck(): Promise<{
       status: 'healthy',
       message: 'Firebase connection is healthy', details: {
         collections: {
-          locations: stats.locations,
           sorteos: stats.sorteos,
           users: stats.users,
-          totalNames: stats.totalNames,
           ccssConfigExists: stats.ccssConfigExists
         },
         timestamp: new Date().toISOString()

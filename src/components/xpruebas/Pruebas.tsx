@@ -357,7 +357,7 @@ export default function Pruebas() {
     };
 
     // Función para eliminar horarios masivamente por ubicación y mes
-    const deleteSchedulesByLocationAndMonth = async () => {
+    const deleteSchedulesByempresaAndMonth = async () => {
         setActiveTest('delete-schedules-filter');
 
         try {
@@ -369,16 +369,16 @@ export default function Pruebas() {
 
             // Importar servicios necesarios
             const { SchedulesService } = await import('@/services/schedules');
-            const { LocationsService } = await import('@/services/locations');
+            const { EmpresasService } = await import('@/services/empresas');
 
-            // Obtener todos los schedules y locations
+            // Obtener todos los schedules y empresas
             const allSchedules = await SchedulesService.getAllSchedules();
-            const allLocations = await LocationsService.getAllLocations();
+            const allEmpreas = await EmpresasService.getAllEmpresas();
 
             setTestResults(prev => ({
                 ...prev,
                 'delete-data': `✅ Datos obtenidos: ${allSchedules.length} registros de horarios`,
-                'delete-locations': `📍 Ubicaciones disponibles: ${allLocations.map(l => l.label).join(', ')}`
+                'delete-empresas': `📍 Ubicaciones disponibles: ${allEmpreas.map(l => l.name).join(', ')}`
             }));
 
             // Crear modal de confirmación con filtros
@@ -409,10 +409,10 @@ export default function Pruebas() {
                         <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #374151;">
                             📍 Ubicación:
                         </label>
-                        <select id="locationSelect" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; background: white;">
+                        <select id="empresaSelect" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; background: white;">
                             <option value="">Seleccionar ubicación...</option>
-                            ${allLocations.map(location => `
-                                <option value="${location.value}">${location.label} (${location.value})</option>
+                            ${allEmpreas.map(empresa => `
+                                <option value="${empresa.name}">${empresa.name}</option>
                             `).join('')}
                         </select>
                     </div>
@@ -488,18 +488,18 @@ export default function Pruebas() {
 
             // Vista previa de registros a eliminar
             document.getElementById('previewDelete')?.addEventListener('click', () => {
-                const locationValue = (document.getElementById('locationSelect') as HTMLSelectElement).value;
+                const empresaValue = (document.getElementById('empresaSelect') as HTMLSelectElement).value;
                 const year = parseInt((document.getElementById('yearSelect') as HTMLSelectElement).value);
                 const month = parseInt((document.getElementById('monthSelect') as HTMLSelectElement).value);
 
-                if (!locationValue || !year || !month) {
+                if (!empresaValue || !year || !month) {
                     alert('Por favor selecciona ubicación, año y mes');
                     return;
                 }
 
                 // Filtrar registros que coincidan con los criterios
                 const recordsToDelete = allSchedules.filter(schedule =>
-                    schedule.companieValue === locationValue &&
+                    schedule.companieValue === empresaValue &&
                     schedule.year === year &&
                     schedule.month === month
                 );
@@ -537,18 +537,18 @@ export default function Pruebas() {
 
             // Ejecutar eliminación
             document.getElementById('executeDelete')?.addEventListener('click', async () => {
-                const locationValue = (document.getElementById('locationSelect') as HTMLSelectElement).value;
+                const empresaValue = (document.getElementById('empresaSelect') as HTMLSelectElement).value;
                 const year = parseInt((document.getElementById('yearSelect') as HTMLSelectElement).value);
                 const month = parseInt((document.getElementById('monthSelect') as HTMLSelectElement).value);
 
                 // Doble confirmación
-                const confirmed = confirm(`¿Estás ABSOLUTAMENTE SEGURO que quieres eliminar todos los horarios de ${locationValue} del mes ${month}/${year}?\n\nEsta acción NO se puede deshacer.`);
+                const confirmed = confirm(`¿Estás ABSOLUTAMENTE SEGURO que quieres eliminar todos los horarios de ${empresaValue} del mes ${month}/${year}?\n\nEsta acción NO se puede deshacer.`);
                 if (!confirmed) return;
 
                 try {
                     // Obtener registros a eliminar
                     const recordsToDelete = allSchedules.filter(schedule =>
-                        schedule.companieValue === locationValue &&
+                        schedule.companieValue === empresaValue &&
                         schedule.year === year &&
                         schedule.month === month
                     );
@@ -614,16 +614,16 @@ export default function Pruebas() {
 
             // Importar servicios necesarios
             const { SchedulesService } = await import('@/services/schedules');
-            const { LocationsService } = await import('@/services/locations');
+            const { EmpresasService } = await import('@/services/empresas');
 
-            // Obtener todos los schedules y locations
+            // Obtener todos los schedules y empresas
             const allSchedules = await SchedulesService.getAllSchedules();
-            const allLocations = await LocationsService.getAllLocations();
+            const allEmpreas = await EmpresasService.getAllEmpresas();
 
             setTestResults(prev => ({
                 ...prev,
                 'export-data': `✅ Datos obtenidos: ${allSchedules.length} registros de horarios`,
-                'export-locations': `📍 Ubicaciones disponibles: ${allLocations.map(l => l.label).join(', ')}`
+                'export-empresas': `📍 Ubicaciones disponibles: ${allEmpreas.map(l => l.name).join(', ')}`
             }));
 
             // Crear filtros interactivos
@@ -662,19 +662,19 @@ export default function Pruebas() {
                         <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #374151;">
                             📍 Ubicaciones:
                         </label>
-                        <div id="locationFilters" style="max-height: 200px; overflow-y: auto; border: 1px solid #d1d5db; border-radius: 6px; padding: 12px;">
-                            ${allLocations.map(location => `
+                        <div id="empresaFilters" style="max-height: 200px; overflow-y: auto; border: 1px solid #d1d5db; border-radius: 6px; padding: 12px;">
+                            ${allEmpreas.map(empresa => `
                                 <label style="display: flex; align-items: center; margin-bottom: 8px; cursor: pointer;">
-                                    <input type="checkbox" value="${location.value}" checked style="margin-right: 8px;">
-                                    <span style="color: #374151;">${location.label} (${location.value})</span>
+                                    <input type="checkbox" value="${empresa.name}" checked style="margin-right: 8px;">
+                                    <span style="color: #374151;">${empresa.name}</span>
                                 </label>
                             `).join('')}
                         </div>
                         <div style="margin-top: 8px; display: flex; gap: 8px;">
-                            <button id="selectAllLocations" style="padding: 4px 8px; font-size: 12px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                            <button id="selectallEmpreas" style="padding: 4px 8px; font-size: 12px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer;">
                                 Todas
                             </button>
-                            <button id="clearAllLocations" style="padding: 4px 8px; font-size: 12px; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                            <button id="clearallEmpreas" style="padding: 4px 8px; font-size: 12px; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer;">
                                 Ninguna
                             </button>
                         </div>
@@ -703,12 +703,12 @@ export default function Pruebas() {
             (document.getElementById('dateTo') as HTMLInputElement).valueAsDate = endOfLastMonth;
 
             // Event listeners
-            document.getElementById('selectAllLocations')?.addEventListener('click', () => {
-                document.querySelectorAll('#locationFilters input[type="checkbox"]').forEach((cb) => (cb as HTMLInputElement).checked = true);
+            document.getElementById('selectallEmpreas')?.addEventListener('click', () => {
+                document.querySelectorAll('#empresaFilters input[type="checkbox"]').forEach((cb) => (cb as HTMLInputElement).checked = true);
             });
 
-            document.getElementById('clearAllLocations')?.addEventListener('click', () => {
-                document.querySelectorAll('#locationFilters input[type="checkbox"]').forEach((cb) => (cb as HTMLInputElement).checked = false);
+            document.getElementById('clearallEmpreas')?.addEventListener('click', () => {
+                document.querySelectorAll('#empresaFilters input[type="checkbox"]').forEach((cb) => (cb as HTMLInputElement).checked = false);
             });
 
             document.getElementById('cancelExport')?.addEventListener('click', () => {
@@ -719,7 +719,7 @@ export default function Pruebas() {
             document.getElementById('executeExport')?.addEventListener('click', async () => {
                 const dateFrom = (document.getElementById('dateFrom') as HTMLInputElement).value;
                 const dateTo = (document.getElementById('dateTo') as HTMLInputElement).value;
-                const selectedLocations = Array.from(document.querySelectorAll('#locationFilters input[type="checkbox"]:checked'))
+                const selectedempresas = Array.from(document.querySelectorAll('#empresaFilters input[type="checkbox"]:checked'))
                     .map((cb) => (cb as HTMLInputElement).value);
 
                 if (!dateFrom || !dateTo) {
@@ -727,7 +727,7 @@ export default function Pruebas() {
                     return;
                 }
 
-                if (selectedLocations.length === 0) {
+                if (selectedempresas.length === 0) {
                     alert('Por favor selecciona al menos una ubicación');
                     return;
                 }
@@ -740,14 +740,14 @@ export default function Pruebas() {
                     const scheduleDate = new Date(schedule.year, schedule.month - 1, schedule.day);
                     return scheduleDate >= fromDate &&
                         scheduleDate <= toDate &&
-                        selectedLocations.includes(schedule.companieValue);
+                        selectedempresas.includes(schedule.companieValue);
                 });
 
                 setTestResults(prev => ({
                     ...prev,
                     'export-filtering': `🔍 Filtros aplicados: ${filteredSchedules.length} registros de ${allSchedules.length} totales`,
                     'export-date-range': `📅 Rango: ${dateFrom} hasta ${dateTo}`,
-                    'export-locations-selected': `📍 Ubicaciones: ${selectedLocations.join(', ')}`
+                    'export-empresas-selected': `📍 Ubicaciones: ${selectedempresas.join(', ')}`
                 }));
 
                 // Crear estructura de exportación
@@ -758,7 +758,7 @@ export default function Pruebas() {
                         filters: {
                             dateFrom,
                             dateTo,
-                            locations: selectedLocations
+                            empresas: selectedempresas
                         },
                         totalRecords: filteredSchedules.length,
                         originalTotalRecords: allSchedules.length
@@ -767,7 +767,7 @@ export default function Pruebas() {
                         ...schedule,
                         exportedAt: new Date().toISOString()
                     })),
-                    locations: allLocations.filter(loc => selectedLocations.includes(loc.value))
+                    empresas: allEmpreas.filter(loc => selectedempresas.includes(loc.name))
                 };
 
                 // Generar archivo
@@ -775,7 +775,7 @@ export default function Pruebas() {
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `schedules_export_${dateFrom}_to_${dateTo}_${selectedLocations.length}loc.json`;
+                a.download = `schedules_export_${dateFrom}_to_${dateTo}_${selectedempresas.length}loc.json`;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
@@ -784,7 +784,7 @@ export default function Pruebas() {
                 setTestResults(prev => ({
                     ...prev,
                     'export-complete': `✅ Exportación completada exitosamente`,
-                    'export-filename': `📁 Archivo: schedules_export_${dateFrom}_to_${dateTo}_${selectedLocations.length}loc.json`,
+                    'export-filename': `📁 Archivo: schedules_export_${dateFrom}_to_${dateTo}_${selectedempresas.length}loc.json`,
                     'export-records': `📊 ${filteredSchedules.length} registros exportados`
                 }));
 
@@ -869,7 +869,7 @@ export default function Pruebas() {
                                 <p style="margin: 4px 0; color: #f59e0b;">🔄 Posibles duplicados: ${duplicateCheck.duplicates}</p>
                                 ${importData.metadata ? `
                                     <p style="margin: 4px 0; color: #6b7280;">📅 Rango: ${importData.metadata.filters?.dateFrom} - ${importData.metadata.filters?.dateTo}</p>
-                                    <p style="margin: 4px 0; color: #6b7280;">📍 Ubicaciones: ${importData.metadata.filters?.locations?.join(', ') || 'No especificadas'}</p>
+                                    <p style="margin: 4px 0; color: #6b7280;">📍 Ubicaciones: ${importData.metadata.filters?.empresas?.join(', ') || 'No especificadas'}</p>
                                 ` : ''}
                             </div>
                             
@@ -1309,7 +1309,7 @@ export default function Pruebas() {
             tests: [
                 { id: 'export-schedules-filters', name: 'Exportar con Filtros', action: exportSchedulesWithFilters },
                 { id: 'import-schedules', name: 'Importar Horarios', action: importSchedulesFromFile },
-                { id: 'delete-schedules-filter', name: 'Eliminar por Ubicación/Mes', action: deleteSchedulesByLocationAndMonth },
+                { id: 'delete-schedules-filter', name: 'Eliminar por Ubicación/Mes', action: deleteSchedulesByempresaAndMonth },
                 { id: 'validate-schedules', name: 'Validar Integridad' },
                 { id: 'backup-schedules', name: 'Backup Completo' }
             ]
@@ -1411,8 +1411,8 @@ export default function Pruebas() {
                                         }}
                                         disabled={activeTest === test.id}
                                         className={`w-full text-left px-4 py-3 rounded-lg border transition-all duration-200 ${activeTest === test.id
-                                                ? `${colors.bg} ${colors.border} cursor-not-allowed`
-                                                : `bg-[var(--background)] border-[var(--border)] hover:${colors.hover} hover:${colors.border}`
+                                            ? `${colors.bg} ${colors.border} cursor-not-allowed`
+                                            : `bg-[var(--background)] border-[var(--border)] hover:${colors.hover} hover:${colors.border}`
                                             }`}
                                     >
                                         <div className="flex items-center justify-between">
@@ -1504,8 +1504,8 @@ export default function Pruebas() {
                                 onClick={uploadImageToFirebase}
                                 disabled={!selectedFile || uploadStatus === 'uploading'}
                                 className={`w-full px-4 py-3 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center ${!selectedFile || uploadStatus === 'uploading'
-                                        ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
-                                        : 'bg-purple-600 hover:bg-purple-700 text-white'
+                                    ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                                    : 'bg-purple-600 hover:bg-purple-700 text-white'
                                     }`}
                             >
                                 {uploadStatus === 'uploading' ? (
@@ -1613,12 +1613,12 @@ export default function Pruebas() {
     "filters": {
       "dateFrom": "2024-12-01",
       "dateTo": "2024-12-31",
-      "locations": ["LOCATION1", "LOCATION2"]
+      "empresas": ["empresa1", "empresa2"]
     },
     "totalRecords": 150
   },
   "schedules": [...],
-  "locations": [...]
+  "empresas": [...]
 }`}
                             </pre>
                         </div>
@@ -1832,7 +1832,7 @@ GMAIL_APP_PASSWORD=abcd-efgh-ijkl-mnop`}
                     <h4 className="font-semibold text-emerald-700 dark:text-emerald-400 mb-2">📋 Servicios Incluidos en el Backup</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <ul className="text-sm text-emerald-600 dark:text-emerald-300 space-y-1">
-                            <li>✅ <strong>Locations</strong> - Ubicaciones del sistema</li>
+                            <li>✅ <strong>empresas</strong> - Ubicaciones del sistema</li>
                             <li>✅ <strong>Users</strong> - Usuarios y configuraciones</li>
                         </ul>
                         <ul className="text-sm text-emerald-600 dark:text-emerald-300 space-y-1">

@@ -1,58 +1,10 @@
-import { LocationsService } from '../services/locations';
 import { SorteosService } from '../services/sorteos';
 import { UsersService } from '../services/users';
 import { CcssConfigService } from '../services/ccss-config';
-import { Location } from '../types/firestore';
 import fs from 'fs';
 import path from 'path';
 
 export class MigrationService {
-
-  /**
-   * Migrate locations from JSON to Firestore
-   */
-  static async migrateLocations(): Promise<void> {
-    console.log('Starting locations migration...');
-
-    try {
-      // Load locations JSON at runtime if available to avoid build-time module resolution errors
-      const locationsJsonPath = path.resolve(process.cwd(), 'src', 'data', 'locations.json');
-  let locationsData: Location[] = [];
-      if (fs.existsSync(locationsJsonPath)) {
-        try {
-          const raw = fs.readFileSync(locationsJsonPath, 'utf8');
-          locationsData = JSON.parse(raw);
-        } catch (err) {
-          console.warn('Could not read or parse locations.json:', err);
-          locationsData = [];
-        }
-      } else {
-        console.log('locations.json not found, skipping locations migration.');
-        return;
-      }
-      // Check if locations already exist
-      const existingLocations = await LocationsService.getAllLocations();
-      if (existingLocations.length > 0) {
-        console.log(`Found ${existingLocations.length} existing locations. Skipping migration.`);
-        return;
-      }
-
-  // Migrate each location
-  for (const locationData of locationsData as Location[]) {
-        const locationId = await LocationsService.addLocation({
-          label: locationData.label,
-          value: locationData.value,
-          names: locationData.names
-        });
-        console.log(`Migrated location: ${locationData.label} (ID: ${locationId})`);
-      }
-
-      console.log(`Successfully migrated ${locationsData.length} locations to Firestore.`);
-    } catch (error) {
-      console.error('Error migrating locations:', error);
-      throw error;
-    }
-  }
 
   /**
    * Migrate sorteos from JSON to Firestore
@@ -106,7 +58,6 @@ export class MigrationService {
     console.log('Starting data migration from JSON to Firestore...');
 
     try {
-      await this.migrateLocations();
       await this.migrateSorteos();
       await CcssConfigService.initializeCcssConfig();
       console.log('All migrations completed successfully!');
@@ -122,15 +73,6 @@ export class MigrationService {
     console.log('WARNING: Clearing all Firestore data...');
 
     try {
-      // Clear locations
-      const locations = await LocationsService.getAllLocations();
-      for (const location of locations) {
-        if (location.id) {
-          await LocationsService.deleteLocation(location.id);
-        }
-      }
-      console.log(`Deleted ${locations.length} locations.`);
-
       // Clear sorteos
       const sorteos = await SorteosService.getAllSorteos();
       for (const sorteo of sorteos) {

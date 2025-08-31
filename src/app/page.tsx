@@ -250,7 +250,8 @@ export default function HomePage() {
           <ClientOnlyHomeMenu />
         ) : (
           <>
-            {/* Page title for active tab */}
+            {/*TODO: DESCOMENTAR LO SIGUIENTE SI SE QUIERE LAS DESCRIPCIONES EN LAS PESTAÑAS */}
+            {/* Page title for active tab 
             <div className="mb-6 text-center">
               <h2 className="text-2xl font-bold mb-2">
                 {getTabInfo(activeTab)?.name}
@@ -258,7 +259,7 @@ export default function HomePage() {
               <p className="text-[var(--tab-text)]">
                 {getTabInfo(activeTab)?.description}
               </p>
-            </div>
+            </div>*/}
 
             {/* Contenido de las pestañas */}
             <div className="space-y-8">

@@ -10,12 +10,24 @@ import type { ScheduleEntry } from '../../services/schedules';
 import { CcssConfigService } from '../../services/ccss-config';
 import DelifoodHoursModal from '../ui/DelifoodHoursModal';
 import ConfirmModal from '../ui/ConfirmModal';
-import type { Location } from '../../types/firestore';
 import type { User as FirestoreUser } from '../../types/firestore';
 import { ref, deleteObject } from 'firebase/storage';
 import { storage } from '../../config/firebase';
 import { useAuth } from '../../hooks/useAuth';
 import { hasPermission } from '../../utils/permissions';
+
+interface MappedEmpresa {
+  id?: string;
+  label: string;
+  value: string;
+  names: string[];
+  employees: {
+    name: string;
+    ccssType: 'TC' | 'MT';
+    hoursPerShift: number;
+    extraAmount: number;
+  }[];
+}
 
 interface ControlHorarioProps {
   // Usuario opcional para funcionalidades de autorización (admin, etc.)
@@ -221,7 +233,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
   const assignedEmpresa = user?.ownercompanie;
 
   // Declarar todos los hooks primero, antes de cualquier return condicional
-  const [empresas, setEmpresas] = useState<Location[]>([]);
+  const [empresas, setEmpresas] = useState<MappedEmpresa[]>([]);
   const [loading, setLoading] = useState(true);
   const [empresa, setEmpresa] = useState('');
   // Valor resuelto (value) de la empresa asignada basada en ownercompanie
@@ -1484,7 +1496,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
               onChange={e => handleEmpresaChange(e.target.value)}
             >
               <option value="">Seleccionar empresa</option>
-              {empresas.map((empresaItem: Location) => (
+              {empresas.map((empresaItem: MappedEmpresa) => (
                 <option key={empresaItem.value} value={empresaItem.value}>{empresaItem.label}</option>
               ))}
             </select>
@@ -1551,7 +1563,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
                   onChange={e => handleEmpresaChange(e.target.value)}
                 >
                   <option value="">Seleccionar empresa</option>
-                  {empresas.map((empresaItem: Location) => (
+                  {empresas.map((empresaItem: MappedEmpresa) => (
                     <option key={empresaItem.value} value={empresaItem.value}>{empresaItem.label}</option>
                   ))}
                 </select>

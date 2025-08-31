@@ -1,6 +1,5 @@
 import { CcssConfigService } from './ccss-config';
 import { FirestoreService } from './firestore';
-import { LocationsService } from './locations';
 import { UsersService } from './users';
 import { SchedulesService } from './schedules';
 import { PayrollRecordsService } from './payroll-records';
@@ -25,10 +24,6 @@ export interface CompleteBackupData {
   timestamp: string;
   version: string;
   data: {
-    locations: {
-  collection: any[];
-      count: number;
-    };
     users: {
   collection: any[];
       count: number;
@@ -70,7 +65,6 @@ export interface IndividualBackupData {
 }
 
 export interface IndividualBackupFiles {
-  locations: IndividualBackupData;
   users: IndividualBackupData;
   schedules: IndividualBackupData;
   payrollRecords: IndividualBackupData;
@@ -119,23 +113,18 @@ export class BackupService {
       console.log('🔄 Starting complete database backup...');
 
       // Get all essential collections
-      const [locations, users, schedules, payrollRecords] = await Promise.all([
-        LocationsService.getAllLocations(),
+      const [users, schedules, payrollRecords] = await Promise.all([
         UsersService.getAllUsers(),
         SchedulesService.getAllSchedules(),
         PayrollRecordsService.getAllRecords()
       ]);
 
-      const totalRecords = locations.length + users.length + schedules.length + payrollRecords.length;
+      const totalRecords = users.length + schedules.length + payrollRecords.length;
 
       const backupData: CompleteBackupData = {
         timestamp: new Date().toISOString(),
         version: this.BACKUP_VERSION,
         data: {
-          locations: {
-            collection: locations,
-            count: locations.length
-          },
           users: {
             collection: users,
             count: users.length
@@ -155,7 +144,7 @@ export class BackupService {
           systemVersion: 'Price Master v2.0',
           backupType: 'complete-database',
           totalRecords,
-          collections: ['locations', 'users', 'schedules', 'payrollRecords']
+          collections: ['users', 'schedules', 'payrollRecords']
         }
       };
 
@@ -175,8 +164,7 @@ export class BackupService {
       console.log('🔄 Starting individual backups generation...');
 
       // Get all essential collections
-      const [locations, users, schedules, payrollRecords] = await Promise.all([
-        LocationsService.getAllLocations(),
+      const [users, schedules, payrollRecords] = await Promise.all([
         UsersService.getAllUsers(),
         SchedulesService.getAllSchedules(),
         PayrollRecordsService.getAllRecords()
@@ -186,21 +174,6 @@ export class BackupService {
       const systemVersion = 'Price Master v2.0';
 
       const individualBackups: IndividualBackupFiles = {
-        locations: {
-          timestamp,
-          version: this.BACKUP_VERSION,
-          serviceName: 'locations',
-          data: {
-            collection: locations,
-            count: locations.length
-          },
-          metadata: {
-            exportedBy,
-            exportedAt: timestamp,
-            systemVersion,
-            backupType: 'individual-service'
-          }
-        },
         users: {
           timestamp,
           version: this.BACKUP_VERSION,
@@ -248,8 +221,8 @@ export class BackupService {
         }
       };
 
-      const totalRecords = locations.length + users.length + schedules.length + payrollRecords.length;
-      console.log(`✅ Individual backups generated: ${totalRecords} total records across 4 services`);
+      const totalRecords = users.length + schedules.length + payrollRecords.length;
+      console.log(`✅ Individual backups generated: ${totalRecords} total records across 3 services`);
       return individualBackups;
     } catch (error) {
       console.error('Error generating individual backups:', error);
@@ -298,7 +271,7 @@ export class BackupService {
       const dateStr = `${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}_${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}`;
 
       // Download each service as a separate file
-      const services = ['locations', 'users', 'schedules', 'payrollRecords'] as const;
+      const services = ['users', 'schedules', 'payrollRecords'] as const;
 
       services.forEach((serviceName) => {
         const serviceData = individualBackups[serviceName];
@@ -451,19 +424,6 @@ export class BackupService {
 
       console.log('🔄 Starting complete database restoration...');
       let totalRestored = 0;
-
-      // Restore locations
-      console.log('📍 Restoring locations...');
-      for (const location of backupData.data.locations.collection) {
-        try {
-          if (location.id) {
-            await FirestoreService.addWithId('locations', location.id, location);
-            totalRestored++;
-          }
-        } catch (error) {
-          console.warn(`Warning: Failed to restore location ${location.id}:`, error);
-        }
-      }
 
       // Restore users
       console.log('👥 Restoring users...');
@@ -729,7 +689,6 @@ Este archivo contiene toda la configuración CCSS y puede ser usado para restaur
 • Versión del backup: ${backupData.version}
 
 📊 Resumen del contenido:
-• Ubicaciones: ${backupData.data.locations.count} registros
 • Usuarios: ${backupData.data.users.count} registros  
 • Horarios: ${backupData.data.schedules.count} registros
 • Registros de Planilla: ${backupData.data.payrollRecords.count} registros
@@ -757,7 +716,6 @@ Este archivo contiene un backup completo de la base de datos y puede ser usado p
                 <div style="margin-top: 15px; padding: 15px; background-color: #e3f2fd; border-radius: 6px;">
                   <h4 style="color: #1976d2; margin-bottom: 10px;">📊 Resumen del contenido:</h4>
                   <ul style="color: #424242; margin: 0;">
-                    <li>Ubicaciones: ${backupData.data.locations.count} registros</li>
                     <li>Usuarios: ${backupData.data.users.count} registros</li>
                     <li>Horarios: ${backupData.data.schedules.count} registros</li>
                     <li>Registros de Planilla: ${backupData.data.payrollRecords.count} registros</li>
@@ -820,7 +778,7 @@ Este archivo contiene un backup completo de la base de datos y puede ser usado p
 
       // Prepare attachments for each service
       const attachments = [];
-      const services = ['locations', 'users', 'schedules', 'payrollRecords'] as const;
+      const services = ['users', 'schedules', 'payrollRecords'] as const;
       let totalRecords = 0;
 
       for (const serviceName of services) {
@@ -852,7 +810,6 @@ Este archivo contiene un backup completo de la base de datos y puede ser usado p
                 
                 <h3 style="color: #495057; margin-top: 20px;">📋 Archivos incluidos:</h3>
                 <ul style="color: #6c757d;">
-                  <li><strong>locations_backup_${dateStr}.json</strong> - ${individualBackups.locations.data.count} ubicaciones</li>
                   <li><strong>users_backup_${dateStr}.json</strong> - ${individualBackups.users.data.count} usuarios</li>
                   <li><strong>schedules_backup_${dateStr}.json</strong> - ${individualBackups.schedules.data.count} horarios</li>
                   <li><strong>payrollRecords_backup_${dateStr}.json</strong> - ${individualBackups.payrollRecords.data.count} registros de nómina</li>
@@ -861,9 +818,9 @@ Este archivo contiene un backup completo de la base de datos y puede ser usado p
                 <h3 style="color: #495057; margin-top: 20px;">📊 Resumen del backup:</h3>
                 <ul style="color: #6c757d;">
                   <li><strong>Total de registros:</strong> ${totalRecords}</li>
-                  <li><strong>Exportado por:</strong> ${individualBackups.locations.metadata.exportedBy}</li>
-                  <li><strong>Versión del sistema:</strong> ${individualBackups.locations.metadata.systemVersion}</li>
-                  <li><strong>Fecha y hora:</strong> ${individualBackups.locations.metadata.exportedAt}</li>
+                  <li><strong>Exportado por:</strong> ${individualBackups.users.metadata.exportedBy}</li>
+                  <li><strong>Versión del sistema:</strong> ${individualBackups.users.metadata.systemVersion}</li>
+                  <li><strong>Fecha y hora:</strong> ${individualBackups.users.metadata.exportedAt}</li>
                 </ul>
                 
                 <p style="margin-top: 20px; color: #495057;">

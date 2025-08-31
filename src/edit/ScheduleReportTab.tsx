@@ -6,7 +6,6 @@ import { ChevronLeft, ChevronRight, Calendar, MapPin, FileText, Download } from 
 import { EmpresasService } from '../services/empresas';
 import { useAuth } from '../hooks/useAuth';
 import { SchedulesService, ScheduleEntry } from '../services/schedules';
-import { Location } from '../types/firestore';
 
 interface BiweeklyPeriod {
   start: Date;
@@ -23,14 +22,27 @@ interface EmployeeSchedule {
 }
 
 interface LocationSchedule {
-  location: Location;
+  location: MappedEmpresa;
   employees: EmployeeSchedule[];
   totalWorkDays: number;
 }
 
+interface MappedEmpresa {
+  id?: string;
+  label: string;
+  value: string;
+  names: string[];
+  employees: {
+    name: string;
+    ccssType: 'TC' | 'MT';
+    hoursPerShift: number;
+    extraAmount: number;
+  }[];
+}
+
 export default function ScheduleReportTab() {
   const { user: currentUser } = useAuth();
-  const [locations, setLocations] = useState<Location[]>([]);
+  const [locations, setLocations] = useState<MappedEmpresa[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
   const [currentPeriod, setCurrentPeriod] = useState<BiweeklyPeriod | null>(null);
   const [availablePeriods, setAvailablePeriods] = useState<BiweeklyPeriod[]>([]);

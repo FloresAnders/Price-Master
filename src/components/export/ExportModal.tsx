@@ -5,8 +5,8 @@ import type { ReactElement } from 'react';
 import {
     ExportCcssConfig,
     ImportCcssConfig,
-    ExportLocations,
-    ImportLocations,
+    ExportEmpresas,
+    ImportEmpresas,
     ExportPayrollRecords,
     ImportPayrollRecords,
     ExportScans,
@@ -53,10 +53,10 @@ export default function ExportModal({ open, onClose, title = 'Exportar / Importa
 
                         {/* Row: locations */}
                         <div className="flex items-center justify-between py-3">
-                            <div className="font-medium">Locations</div>
+                            <div className="font-medium">Empresas</div>
                             <div className="flex gap-2">
-                                <ExportLocations />
-                                <ImportLocations />
+                                <ExportEmpresas />
+                                <ImportEmpresas />
                             </div>
                         </div>
 

@@ -1,8 +1,8 @@
 export { default as ExportCcssConfig } from './ExportCcssConfig';
 export { default as ImportCcssConfig } from './ImportCcssConfig';
 
-export { default as ExportLocations } from './ExportLocations';
-export { default as ImportLocations } from './ImportLocations';
+export { default as ExportEmpresas } from './ExportEmpresas';
+export { default as ImportEmpresas } from './ImportEmpresas';
 
 export { default as ExportPayrollRecords } from './ExportPayrollRecords';
 export { default as ImportPayrollRecords } from './ImportPayrollRecords';

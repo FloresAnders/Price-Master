@@ -9,8 +9,7 @@ import QRCode from 'qrcode';
 import { History, Copy, Search, Eye, Calendar, MapPin, RefreshCw, Image as ImageIcon, X, Download, ChevronLeft, ChevronRight, Lock as LockIcon, Smartphone, QrCode } from 'lucide-react';
 import { useScanHistory, useScanImages } from '@/hooks/useScanHistory';
 import { useAuth } from '@/hooks/useAuth';
-import { useLocations } from '@/hooks/useFirebase';
-import type { Location } from '@/types/firestore';
+import { EmpresasService } from '../../services/empresas';
 import { hasPermission } from '../../utils/permissions';
 import { generateShortMobileUrl } from '../../utils/shortEncoder';
 
@@ -37,7 +36,19 @@ export default function ScanHistoryTable() {
   } = useScanImages();
 
   // Load locations from DB
-  const { locations } = useLocations();
+  const [empresas, setEmpresas] = useState<any[]>([]);
+
+  useEffect(() => {
+    const loadEmpresas = async () => {
+      try {
+        const data = await EmpresasService.getAllEmpresas();
+        setEmpresas(data);
+      } catch (error) {
+        console.error('Error loading empresas:', error);
+      }
+    };
+    loadEmpresas();
+  }, []);
 
   // Local state
   const [searchTerm, setSearchTerm] = useState('');
@@ -370,7 +381,7 @@ export default function ScanHistoryTable() {
       (entry.productName && entry.productName.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (entry.userName && entry.userName.toLowerCase().includes(searchTerm.toLowerCase()));
 
-  const matchesLocation = selectedLocation === 'all' || entry.ownercompanie === selectedLocation;
+    const matchesLocation = selectedLocation === 'all' || entry.ownercompanie === selectedLocation;
 
     // Date filtering
     let matchesDateRange = true;
@@ -406,15 +417,20 @@ export default function ScanHistoryTable() {
 
   // Filtrar las ubicaciones disponibles en el selector basado en los permisos del usuario
   // Map companies to availableLocations-like array for selector; filter by user's empresa permissions
-  const availableLocations = locations.filter((location: Location) => {
-    if (!user?.permissions?.scanhistory) return false;
-    // If user has no specific empresas set, allow all locations
-    if (!user.permissions.scanhistoryEmpresas || user.permissions.scanhistoryEmpresas.length === 0) {
-      return true;
-    }
-    // Otherwise allow locations whose value (which corresponds to empresa name/id) is included in scanhistoryEmpresas
-    return user.permissions.scanhistoryEmpresas.includes(location.value);
-  });
+  const availableLocations = empresas
+    .map(empresa => ({
+      value: empresa.name,
+      label: `${empresa.name} - ${empresa.ubicacion}`
+    }))
+    .filter(location => {
+      if (!user?.permissions?.scanhistory) return false;
+      // If user has no specific empresas set, allow all locations
+      if (!user.permissions.scanhistoryEmpresas || user.permissions.scanhistoryEmpresas.length === 0) {
+        return true;
+      }
+      // Otherwise allow locations whose value (which corresponds to empresa name) is included in scanhistoryEmpresas
+      return user.permissions.scanhistoryEmpresas.includes(location.value);
+    });
 
   // Verificar si el usuario tiene permiso para ver el historial de escaneos
   if (!hasPermission(user?.permissions, 'scanhistory')) {
@@ -538,10 +554,10 @@ export default function ScanHistoryTable() {
                         onChange={(e) => setSelectedLocation(e.target.value)}
                         className="w-full pl-10 pr-4 py-2 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] text-[var(--foreground)] focus:outline-none focus:border-blue-500"
                       >
-                        <option value="all">Todas las ubicaciones permitidas</option>
+                        <option value="all">Todas las empresas permitidas</option>
                         {availableLocations
-                          .filter((location: Location) => location.value !== 'DELIFOOD_TEST')
-                          .map((location: Location) => (
+                          .filter(location => location.value !== 'DELIFOOD_TEST')
+                          .map(location => (
                             <option key={location.value} value={location.value}>
                               {location.label}
                             </option>
@@ -863,12 +879,12 @@ export default function ScanHistoryTable() {
               {/* Footer info */}
               <div className="mt-6 pt-4 border-t border-[var(--input-border)]">
                 <p className="text-sm text-[var(--muted-foreground)] text-center">
-                  Mostrando escaneos de la base de datos Firebase • Filtrados por ubicación: {
+                  Mostrando escaneos • Filtrados por ubicación: {
                     selectedLocation === 'all'
                       ? (user?.permissions?.scanhistoryEmpresas && user.permissions.scanhistoryEmpresas.length > 0
                         ? `Empresas permitidas (${user.permissions.scanhistoryEmpresas.join(', ')})`
                         : 'Todas las ubicaciones')
-                      : availableLocations.find((loc: Location) => loc.value === selectedLocation)?.label || selectedLocation
+                      : availableLocations.find(loc => loc.value === selectedLocation)?.label || selectedLocation
                   }
                   {(startDate || endDate) && (
                     <>
