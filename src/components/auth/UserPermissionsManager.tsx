@@ -5,6 +5,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { User, UserPermissions, Location } from '../../types/firestore';
 import { UsersService } from '../../services/users';
 import { LocationsService } from '../../services/locations';
+import { EmpresasService } from '../../services/empresas';
 import { getDefaultPermissions, getAllPermissions, getNoPermissions } from '../../utils/permissions';
 
 interface UserPermissionsManagerProps {
@@ -40,6 +41,7 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
   const [users, setUsers] = useState<User[]>([]);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [permissions, setPermissions] = useState<UserPermissions>(getNoPermissions());
+  const [empresas, setEmpresas] = useState<any[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -76,10 +78,21 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
     }
   }, []);
 
+  const loadEmpresas = React.useCallback(async () => {
+    try {
+      const empresasData = await EmpresasService.getAllEmpresas();
+      setEmpresas(empresasData);
+    } catch (error) {
+      console.error('Error loading empresas, using fallback empty list:', error);
+      setEmpresas([]);
+    }
+  }, []);
+
   useEffect(() => {
     loadUsers();
     loadLocations();
-  }, [loadUsers, loadLocations]);
+    loadEmpresas();
+  }, [loadUsers, loadLocations, loadEmpresas]);
 
   useEffect(() => {
     if (userId && users.length > 0) {
@@ -111,25 +124,22 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
         [permission]: value
       };
 
-      // If scanhistory is being disabled, clear the locations
+      // If scanhistory is being disabled, clear the empresas selection
       if (permission === 'scanhistory' && !value) {
-        updated.scanhistoryLocations = [];
+        updated.scanhistoryEmpresas = [];
       }
 
       return updated;
     });
   };
 
-  const handleLocationChange = (locationValue: string, isSelected: boolean) => {
+  const handleEmpresaChange = (empresaName: string, isSelected: boolean) => {
     setPermissions(prev => {
-      const currentLocations = prev.scanhistoryLocations || [];
-      const newLocations = isSelected
-        ? [...currentLocations, locationValue]
-        : currentLocations.filter(loc => loc !== locationValue);
-
+      const current = prev.scanhistoryEmpresas || [];
+      const newList = isSelected ? [...current, empresaName] : current.filter(e => e !== empresaName);
       return {
         ...prev,
-        scanhistoryLocations: newLocations
+        scanhistoryEmpresas: newList
       };
     });
   };
@@ -164,8 +174,8 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
 
   const handleSelectAll = () => {
     const allPermissions = getAllPermissions();
-    // When selecting all, include all available locations for scanhistory
-    allPermissions.scanhistoryLocations = locations.map(loc => loc.value);
+    // When selecting all, include all available empresas for scanhistory
+    allPermissions.scanhistoryEmpresas = empresas.map(e => e.name);
     setPermissions(allPermissions);
   };
 
@@ -235,8 +245,8 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
 
       {message && (
         <div className={`p-3 rounded mb-4 ${message.type === 'success'
-            ? 'bg-green-100 text-green-700 border border-green-300'
-            : 'bg-red-100 text-red-700 border border-red-300'
+          ? 'bg-green-100 text-green-700 border border-green-300'
+          : 'bg-red-100 text-red-700 border border-red-300'
           }`}>
           {message.text}
         </div>
@@ -285,7 +295,7 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
           className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
         >
           <option value="">-- Seleccionar Usuario --</option>
-            {users.map(user => (
+          {users.map(user => (
             <option key={user.id} value={user.id}>
               {user.name} ({user.role}) - {user.ownercompanie}
             </option>
@@ -411,25 +421,25 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
                 Si no se selecciona ninguna, tendrá acceso a todas las locaciones.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {locations.map((location) => (
-                  <div key={location.value} className="flex items-center p-2 border border-gray-300 rounded">
+                {empresas.map((empresa) => (
+                  <div key={empresa.id || empresa.name} className="flex items-center p-2 border border-gray-300 rounded">
                     <input
                       type="checkbox"
-                      id={`location-${location.value}`}
-                      checked={permissions.scanhistoryLocations?.includes(location.value) || false}
-                      onChange={(e) => handleLocationChange(location.value, e.target.checked)}
+                      id={`empresa-${empresa.name}`}
+                      checked={permissions.scanhistoryEmpresas?.includes(empresa.name) || false}
+                      onChange={(e) => handleEmpresaChange(empresa.name, e.target.checked)}
                       className="mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                     />
-                    <label htmlFor={`location-${location.value}`} className="text-sm cursor-pointer">
-                      {location.label}
+                    <label htmlFor={`empresa-${empresa.name}`} className="text-sm cursor-pointer">
+                      {empresa.name}
                     </label>
                   </div>
                 ))}
               </div>
-              {permissions.scanhistoryLocations && permissions.scanhistoryLocations.length > 0 && (
+              {permissions.scanhistoryEmpresas && permissions.scanhistoryEmpresas.length > 0 && (
                 <div className="mt-3 p-2 bg-green-50 border border-green-200 rounded">
                   <p className="text-sm text-green-700">
-                    <strong>Locaciones seleccionadas:</strong> {permissions.scanhistoryLocations.join(', ')}
+                    <strong>Empresas seleccionadas:</strong> {permissions.scanhistoryEmpresas.join(', ')}
                   </p>
                 </div>
               )}

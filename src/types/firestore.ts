@@ -42,7 +42,7 @@ export interface UserPermissions {
   supplierorders: boolean; // Órdenes Proveedor - Gestión de órdenes de proveedores
   mantenimiento: boolean;  // Mantenimiento - Nueva sección de mantenimiento
   scanhistory: boolean;    // Historial General de Escaneos - Ver historial completo de escaneos
-  scanhistoryLocations?: string[]; // Locaciones específicas para historial de escaneos
+  scanhistoryEmpresas?: string[]; // Empresas específicas para historial de escaneos (almacena company names)
 }
 
 export interface User {

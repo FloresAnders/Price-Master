@@ -387,15 +387,15 @@ export default function ScanHistoryTable() {
       }
     }
 
-    // Filtrar por ubicaciones permitidas para el usuario
+    // Filtrar por empresas permitidas para el usuario
     let matchesUserLocations = true;
-    if (user?.permissions?.scanhistory && user.permissions.scanhistoryLocations) {
-      // Si el usuario tiene locaciones específicas configuradas, filtrar por ellas
-      if (user.permissions.scanhistoryLocations.length > 0) {
+    if (user?.permissions?.scanhistory && user.permissions.scanhistoryEmpresas) {
+      // Si el usuario tiene empresas específicas configuradas, filtrar por ellas
+      if (user.permissions.scanhistoryEmpresas.length > 0) {
         matchesUserLocations = entry.ownercompanie ?
-          user.permissions.scanhistoryLocations.includes(entry.ownercompanie) : false;
+          user.permissions.scanhistoryEmpresas.includes(entry.ownercompanie) : false;
       }
-      // Si no tiene locaciones específicas configuradas pero tiene permiso de scanhistory, puede ver todas
+      // Si no tiene empresas específicas configuradas pero tiene permiso de scanhistory, puede ver todas
     } else if (!user?.permissions?.scanhistory) {
       // Si el usuario no tiene permiso de scanhistory, no puede ver nada
       matchesUserLocations = false;
@@ -405,12 +405,15 @@ export default function ScanHistoryTable() {
   });
 
   // Filtrar las ubicaciones disponibles en el selector basado en los permisos del usuario
+  // Map companies to availableLocations-like array for selector; filter by user's empresa permissions
   const availableLocations = locations.filter((location: Location) => {
     if (!user?.permissions?.scanhistory) return false;
-    if (!user.permissions.scanhistoryLocations || user.permissions.scanhistoryLocations.length === 0) {
-      return true; // Puede ver todas las ubicaciones
+    // If user has no specific empresas set, allow all locations
+    if (!user.permissions.scanhistoryEmpresas || user.permissions.scanhistoryEmpresas.length === 0) {
+      return true;
     }
-    return user.permissions.scanhistoryLocations.includes(location.value);
+    // Otherwise allow locations whose value (which corresponds to empresa name/id) is included in scanhistoryEmpresas
+    return user.permissions.scanhistoryEmpresas.includes(location.value);
   });
 
   // Verificar si el usuario tiene permiso para ver el historial de escaneos
@@ -463,9 +466,9 @@ export default function ScanHistoryTable() {
             <div className="flex items-center gap-3">
               <History className="w-6 h-6 text-blue-600" />
               <h2 className="text-2xl font-bold text-[var(--foreground)]">Historial de Escaneos</h2>
-              {user.permissions.scanhistoryLocations && user.permissions.scanhistoryLocations.length > 0 && (
+              {user.permissions.scanhistoryEmpresas && user.permissions.scanhistoryEmpresas.length > 0 && (
                 <span className="text-sm bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded">
-                  Limitado a: {user.permissions.scanhistoryLocations.join(', ')}
+                  Limitado a: {user.permissions.scanhistoryEmpresas.join(', ')}
                 </span>
               )}
             </div>
@@ -862,8 +865,8 @@ export default function ScanHistoryTable() {
                 <p className="text-sm text-[var(--muted-foreground)] text-center">
                   Mostrando escaneos de la base de datos Firebase • Filtrados por ubicación: {
                     selectedLocation === 'all'
-                      ? (user?.permissions?.scanhistoryLocations && user.permissions.scanhistoryLocations.length > 0
-                        ? `Ubicaciones permitidas (${user.permissions.scanhistoryLocations.join(', ')})`
+                      ? (user?.permissions?.scanhistoryEmpresas && user.permissions.scanhistoryEmpresas.length > 0
+                        ? `Empresas permitidas (${user.permissions.scanhistoryEmpresas.join(', ')})`
                         : 'Todas las ubicaciones')
                       : availableLocations.find((loc: Location) => loc.value === selectedLocation)?.label || selectedLocation
                   }

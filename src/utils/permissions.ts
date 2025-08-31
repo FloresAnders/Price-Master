@@ -13,8 +13,8 @@ export const DEFAULT_PERMISSIONS: Record<string, UserPermissions> = {
     controlhorario: true,
     supplierorders: true,
     mantenimiento: true,
-    scanhistory: true,
-    scanhistoryLocations: [],
+  scanhistory: true,
+  scanhistoryEmpresas: [],
   },
   // Admins now receive the same default configuration as SuperAdmins
   admin: {
@@ -26,8 +26,8 @@ export const DEFAULT_PERMISSIONS: Record<string, UserPermissions> = {
     controlhorario: true,
     supplierorders: true,
     mantenimiento: true,
-    scanhistory: true,
-    scanhistoryLocations: [],
+  scanhistory: true,
+  scanhistoryEmpresas: [],
   },
   user: {
     scanner: false,
@@ -38,8 +38,8 @@ export const DEFAULT_PERMISSIONS: Record<string, UserPermissions> = {
     controlhorario: true,
     supplierorders: false,
     mantenimiento: false,
-    scanhistory: false,
-    scanhistoryLocations: [],
+  scanhistory: false,
+  scanhistoryEmpresas: [],
   },
 };
 
@@ -63,8 +63,8 @@ export function getAllPermissions(): UserPermissions {
     controlhorario: true,
     supplierorders: true,
     mantenimiento: true,
-    scanhistory: true,
-    scanhistoryLocations: [],
+  scanhistory: true,
+  scanhistoryEmpresas: [],
   };
 }
 
@@ -81,8 +81,8 @@ export function getNoPermissions(): UserPermissions {
     controlhorario: false,
     supplierorders: false,
     mantenimiento: false,
-    scanhistory: false,
-    scanhistoryLocations: [],
+  scanhistory: false,
+  scanhistoryEmpresas: [],
   };
 }
 

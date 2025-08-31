@@ -279,13 +279,14 @@ export default function DataEditor() {
             const existingUsers = await UsersService.getAllUsers();
             for (const u of existingUsers) { if (u.id) { try { await UsersService.deleteUserAs(currentUser, u.id); } catch { } } }
             for (const u of usersData) {
+                const perms = { ...(u.permissions || {}) } as Record<string, unknown>;
                 await UsersService.createUserAs(currentUser, {
                     name: u.name,
                     ownercompanie: u.ownercompanie,
                     password: u.password,
                     role: u.role,
                     isActive: u.isActive,
-                    permissions: u.permissions,
+                    permissions: perms as any,
                     maxCompanies: u.maxCompanies,
                     email: u.email,
                     fullName: u.fullName,
@@ -477,10 +478,10 @@ export default function DataEditor() {
                     (newPermissions as unknown as Record<string, unknown>)[key] = value;
                 });
 
-                // Si se están desactivando todos los permisos, limpiar las locaciones
+                // Si se están desactivando todos los permisos, limpiar las empresas seleccionadas
                 if (!value) {
-                    updated[userIndex].permissions!.scanhistoryLocations = [];
-                    newPermissions.scanhistoryLocations = [];
+                    updated[userIndex].permissions!.scanhistoryEmpresas = [];
+                    newPermissions.scanhistoryEmpresas = [];
                 }
 
                 setUsersData(updated);
@@ -597,7 +598,7 @@ export default function DataEditor() {
                     // Vista detallada con checkboxes editables
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {Object.entries(userPermissions)
-                            .filter(([permission]) => permission !== 'scanhistoryLocations')
+                            .filter(([permission]) => permission !== 'scanhistoryEmpresas')
                             .map(([permission, hasAccess]) => (
                                 <div
                                     key={permission}
@@ -646,7 +647,7 @@ export default function DataEditor() {
                     // Vista compacta con indicadores
                     <div className="flex flex-wrap gap-1">
                         {Object.entries(userPermissions)
-                            .filter(([permission]) => permission !== 'scanhistoryLocations')
+                            .filter(([permission]) => permission !== 'scanhistoryEmpresas')
                             .map(([permission, hasAccess]) => (
                                 <label
                                     key={permission}
@@ -675,45 +676,53 @@ export default function DataEditor() {
                     </div>
                 )}
 
-                {/* Selector de locaciones para scanhistory */}
+                {/* Selector de empresas para scanhistory */}
                 {userPermissions.scanhistory && (
                     <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
                         <h4 className="font-medium mb-2" style={{ color: 'var(--foreground)' }}>
-                            Locaciones para Historial de Escaneos
+                            Empresas para Historial de Escaneos
                         </h4>
                         <p className="text-xs mb-3" style={{ color: 'var(--muted-foreground)' }}>
-                            Selecciona las locaciones específicas a las que este usuario tendrá acceso en el historial de escaneos.
+                            Selecciona las empresas específicas a las que este usuario tendrá acceso en el historial de escaneos.
                         </p>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                            {allLocations.map((location) => (
-                                <label
-                                    key={location.value}
-                                    className="flex items-center gap-2 p-2 border border-gray-300 dark:border-gray-600 rounded cursor-pointer text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
-                                >
-                                    <input
-                                        type="checkbox"
-                                        checked={userPermissions.scanhistoryLocations?.includes(location.value) || false}
-                                        disabled={!permissionsEditable[key] || isDisabled}
-                                        onChange={(e) => {
-                                            const updated = [...usersData];
-                                            if (!updated[index].permissions) {
-                                                updated[index].permissions = getDefaultPermissions(updated[index].role || 'user');
-                                            }
-                                            const current = updated[index].permissions!.scanhistoryLocations || [];
-                                            const newLocations = e.target.checked ? [...current, location.value] : current.filter(l => l !== location.value);
-                                            updated[index].permissions!.scanhistoryLocations = newLocations;
-                                            setUsersData(updated);
-                                        }}
-                                        className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50"
-                                    />
-                                    <span style={{ color: 'var(--foreground)' }}>{location.label}</span>
-                                </label>
-                            ))}
+                            {empresasData
+                                .filter((empresa) => {
+                                    // Mostrar solo empresas dentro del alcance del actor (ownerId match)
+                                    const actorOwnerId = resolveOwnerIdForActor();
+                                    if (!actorOwnerId) return true; // si no hay ownerId resuelto, mostrar todas
+                                    return empresa.ownerId === actorOwnerId;
+                                })
+                                .map((empresa) => (
+                                    <label
+                                        key={empresa.id || empresa.name}
+                                        className="flex items-center gap-2 p-2 border border-gray-300 dark:border-gray-600 rounded cursor-pointer text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            // almacenamos por empresa.name para mantener compatibilidad con la estructura actual
+                                            checked={userPermissions.scanhistoryEmpresas?.includes(empresa.name) || false}
+                                            disabled={!permissionsEditable[key] || isDisabled}
+                                            onChange={(e) => {
+                                                const updated = [...usersData];
+                                                if (!updated[index].permissions) {
+                                                    updated[index].permissions = getDefaultPermissions(updated[index].role || 'user');
+                                                }
+                                                const current = updated[index].permissions!.scanhistoryEmpresas || [];
+                                                const newList = e.target.checked ? [...current, empresa.name] : current.filter(l => l !== empresa.name);
+                                                updated[index].permissions!.scanhistoryEmpresas = newList;
+                                                setUsersData(updated);
+                                            }}
+                                            className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50"
+                                        />
+                                        <span style={{ color: 'var(--foreground)' }}>{empresa.name}</span>
+                                    </label>
+                                ))}
                         </div>
-                        {userPermissions.scanhistoryLocations && userPermissions.scanhistoryLocations.length > 0 && (
+                        {userPermissions.scanhistoryEmpresas && userPermissions.scanhistoryEmpresas.length > 0 && (
                             <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded">
                                 <p className="text-xs" style={{ color: 'var(--foreground)' }}>
-                                    <strong>Locaciones seleccionadas:</strong> {userPermissions.scanhistoryLocations.join(', ')}
+                                    <strong>Empresas seleccionadas:</strong> {userPermissions.scanhistoryEmpresas.join(', ')}
                                 </p>
                             </div>
                         )}
@@ -731,12 +740,14 @@ export default function DataEditor() {
             const user = usersData[index];
             if (user.id) {
                 // Actualizar usuario existente (actor-aware)
+                // Clean stale properties before saving
+                const permissionsToSave = { ...(user.permissions || {}) } as Record<string, unknown>;
                 await UsersService.updateUserAs(currentUser, user.id, {
                     name: user.name,
                     password: user.password,
                     role: user.role,
                     isActive: user.isActive,
-                    permissions: user.permissions,
+                    permissions: permissionsToSave as any,
                     email: user.email,
                     fullName: user.fullName,
                     maxCompanies: user.maxCompanies,
@@ -762,12 +773,13 @@ export default function DataEditor() {
                 setPermissionsEditable(prev => ({ ...prev, [key]: false }));
             } else {
                 // Crear nuevo usuario (actor-aware)
+                const permissionsToCreate = { ...(user.permissions || {}) } as Record<string, unknown>;
                 await UsersService.createUserAs(currentUser, {
                     name: user.name,
                     password: user.password,
                     role: user.role,
                     isActive: user.isActive,
-                    permissions: user.permissions,
+                    permissions: permissionsToCreate as any,
                     maxCompanies: user.maxCompanies,
                     email: user.email,
                     fullName: user.fullName,
