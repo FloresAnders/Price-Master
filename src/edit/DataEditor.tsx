@@ -537,7 +537,7 @@ export default function DataEditor() {
                     // Vista detallada con checkboxes editables
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {Object.entries(userPermissions)
-                            .filter(([permission]) => permission !== 'scanhistoryEmpresas')
+                            .filter(([permission]) => permission !== 'scanhistoryEmpresas' && permission !== 'scanhistoryLocations')
                             .map(([permission, hasAccess]) => (
                                 <div
                                     key={permission}
@@ -586,7 +586,7 @@ export default function DataEditor() {
                     // Vista compacta con indicadores
                     <div className="flex flex-wrap gap-1">
                         {Object.entries(userPermissions)
-                            .filter(([permission]) => permission !== 'scanhistoryEmpresas')
+                            .filter(([permission]) => permission !== 'scanhistoryEmpresas' && permission !== 'scanhistoryLocations')
                             .map(([permission, hasAccess]) => (
                                 <label
                                     key={permission}
