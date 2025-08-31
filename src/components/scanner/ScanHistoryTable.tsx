@@ -3,7 +3,7 @@
 'use client'
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import QRCode from 'qrcode';
 import { History, Copy, Search, Eye, Calendar, MapPin, RefreshCw, Image as ImageIcon, X, Download, ChevronLeft, ChevronRight, Lock as LockIcon, Smartphone, QrCode } from 'lucide-react';
@@ -57,6 +57,86 @@ export default function ScanHistoryTable() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [showProcessModal, setShowProcessModal] = useState<{ code: string; open: boolean } | null>(null);
   const [confirmProcess, setConfirmProcess] = useState<{ id: string; code: string } | null>(null);
+
+  // Temporary visual selection: show checkbox checked for 2 seconds when user selects it
+  const [tempSelectedId, setTempSelectedId] = useState<string | null>(null);
+  const tempSelectionTimers = useRef<Record<string, number>>({});
+
+  // Clear any pending timers on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(tempSelectionTimers.current).forEach((t) => window.clearTimeout(t));
+      tempSelectionTimers.current = {};
+    };
+  }, []);
+
+  // Auto-close the "Código procesado" modal 2 seconds after it opens
+  useEffect(() => {
+    if (!showProcessModal?.open) return;
+    const t = window.setTimeout(() => {
+      setShowProcessModal(null);
+    }, 2000);
+    return () => window.clearTimeout(t);
+  }, [showProcessModal?.open]);
+
+  // Ref for the confirm button so we can focus it when modal opens
+  const confirmProcessButtonRef = useRef<HTMLButtonElement | null>(null);
+  // Ref for the "Código procesado" modal close button so Enter can close it
+  const showProcessCloseRef = useRef<HTMLButtonElement | null>(null);
+  // Ref to hold the current deleteScan function so effects can call it before it's declared
+  const deleteScanRef = useRef<((scanId: string, code: string) => Promise<void>) | null>(null);
+
+  // When confirmProcess modal opens, focus the Procesar button
+  useEffect(() => {
+    if (confirmProcess) {
+      // small timeout to ensure element is mounted
+      setTimeout(() => {
+        confirmProcessButtonRef.current?.focus();
+      }, 0);
+    }
+  }, [confirmProcess]);
+
+  // Focus the close button and allow Enter/Escape to close the "Código procesado" modal
+  useEffect(() => {
+    if (!showProcessModal?.open) return;
+
+    // focus the close button after mount
+    setTimeout(() => showProcessCloseRef.current?.focus(), 0);
+
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === 'Escape') {
+        e.preventDefault();
+        setShowProcessModal(null);
+      }
+    };
+
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [showProcessModal?.open]);
+
+  // Keyboard handler: Enter to confirm processing, Escape to cancel
+  useEffect(() => {
+    if (!confirmProcess) return;
+
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        // call the current deleteScan via ref without awaiting to keep UI responsive
+        try {
+          void deleteScanRef.current?.(confirmProcess.id, confirmProcess.code);
+        } catch (err) {
+          console.error('Error processing scan via Enter key:', err);
+        }
+        setConfirmProcess(null);
+      }
+      if (e.key === 'Escape') {
+        setConfirmProcess(null);
+      }
+    };
+
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [confirmProcess]);
 
   // Date filter states
   const [startDate, setStartDate] = useState<string>('');
@@ -173,8 +253,8 @@ export default function ScanHistoryTable() {
     }
   };
 
-  // Delete individual scan
-  const deleteScan = async (scanId: string, code: string) => {
+  // Delete individual scan (stable reference)
+  const deleteScan = useCallback(async (scanId: string, code: string) => {
     setProcessingId(scanId);
     setTimeout(async () => {
       try {
@@ -188,7 +268,15 @@ export default function ScanHistoryTable() {
         setProcessingId(null);
       }
     }, 1200); // Simula procesamiento
-  };
+  }, [deleteScanService]);
+
+  // Keep ref updated with the latest deleteScan so effects can call it safely
+  useEffect(() => {
+    deleteScanRef.current = deleteScan;
+    return () => {
+      deleteScanRef.current = null;
+    };
+  }, [deleteScan]);
 
   // Refresh history
   const handleRefreshHistory = async () => {
@@ -807,9 +895,25 @@ export default function ScanHistoryTable() {
                           <label className="flex items-center gap-2 cursor-pointer select-none">
                             <input
                               type="checkbox"
-                              checked={false}
+                              checked={processingId === entry.id || tempSelectedId === entry.id}
                               disabled={processingId === entry.id}
-                              onChange={() => setConfirmProcess({ id: entry.id!, code: entry.code })}
+                              onChange={() => {
+                                // show temporary selection for 2 seconds
+                                setTempSelectedId(entry.id!);
+                                // clear existing timer for this id
+                                if (tempSelectionTimers.current[entry.id!]) {
+                                  window.clearTimeout(tempSelectionTimers.current[entry.id!]);
+                                }
+                                // start timer to unset after 2s
+                                const t = window.setTimeout(() => {
+                                  if (tempSelectedId === entry.id) setTempSelectedId(null);
+                                  delete tempSelectionTimers.current[entry.id!];
+                                }, 2000);
+                                tempSelectionTimers.current[entry.id!] = t as unknown as number;
+
+                                // open confirm modal
+                                setConfirmProcess({ id: entry.id!, code: entry.code });
+                              }}
                               className="w-5 h-5 text-green-600 bg-gray-100 border-gray-300 rounded focus:ring-green-500 dark:focus:ring-green-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
                               title="Procesar y eliminar código"
                             />
@@ -832,6 +936,8 @@ export default function ScanHistoryTable() {
                               </div>
                               <div className="flex flex-col sm:flex-row gap-2 w-full">
                                 <button
+                                  type="button"
+                                  ref={confirmProcessButtonRef}
                                   onClick={() => {
                                     deleteScan(confirmProcess.id, confirmProcess.code);
                                     setConfirmProcess(null);
@@ -862,6 +968,8 @@ export default function ScanHistoryTable() {
                                 <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Las imágenes asociadas también han sido eliminadas.</p>
                               </div>
                               <button
+                                type="button"
+                                ref={showProcessCloseRef}
                                 onClick={() => setShowProcessModal(null)}
                                 className="w-full sm:w-auto px-4 sm:px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
                               >
