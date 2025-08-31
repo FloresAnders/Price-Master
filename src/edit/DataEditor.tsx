@@ -1259,8 +1259,8 @@ export default function DataEditor() {
                                         )}
                                     </select>
                                 </div>
-                                {/* If role is admin, show maxCompanies field */}
-                                {user.role === 'admin' && (
+                                {/* If role is admin and not delegated (eliminate === false), show maxCompanies field */}
+                                {user.role === 'admin' && user.eliminate === false && (
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Máx. Empresas:</label>
                                         <input
