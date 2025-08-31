@@ -370,7 +370,7 @@ export default function ScanHistoryTable() {
       (entry.productName && entry.productName.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (entry.userName && entry.userName.toLowerCase().includes(searchTerm.toLowerCase()));
 
-    const matchesLocation = selectedLocation === 'all' || entry.location === selectedLocation;
+  const matchesLocation = selectedLocation === 'all' || entry.ownercompanie === selectedLocation;
 
     // Date filtering
     let matchesDateRange = true;
@@ -392,8 +392,8 @@ export default function ScanHistoryTable() {
     if (user?.permissions?.scanhistory && user.permissions.scanhistoryLocations) {
       // Si el usuario tiene locaciones específicas configuradas, filtrar por ellas
       if (user.permissions.scanhistoryLocations.length > 0) {
-        matchesUserLocations = entry.location ?
-          user.permissions.scanhistoryLocations.includes(entry.location) : false;
+        matchesUserLocations = entry.ownercompanie ?
+          user.permissions.scanhistoryLocations.includes(entry.ownercompanie) : false;
       }
       // Si no tiene locaciones específicas configuradas pero tiene permiso de scanhistory, puede ver todas
     } else if (!user?.permissions?.scanhistory) {
@@ -681,7 +681,7 @@ export default function ScanHistoryTable() {
                       <span className="text-sm font-medium text-orange-800 dark:text-orange-300">Con Ubicación</span>
                     </div>
                     <p className="text-2xl font-bold text-orange-600 mt-1">
-                      {scanHistory.filter(entry => entry.location).length}
+                      {scanHistory.filter(entry => entry.ownercompanie).length}
                     </p>
                   </div>
                 </div>
@@ -732,10 +732,10 @@ export default function ScanHistoryTable() {
                                 {entry.productName.toUpperCase()}
                               </button>
                             )}
-                            {entry.location && (
+                            {entry.ownercompanie && (
                               <span className="text-sm text-[var(--muted-foreground)] bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded flex items-center gap-1">
                                 <MapPin className="w-3 h-3" />
-                                {entry.location}
+                                {entry.ownercompanie}
                               </span>
                             )}
                           </div>

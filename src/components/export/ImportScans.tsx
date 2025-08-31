@@ -22,7 +22,7 @@ export default function ImportScans() {
                     userName: typeof obj.userName === 'string' ? obj.userName : undefined,
                     sessionId: typeof obj.sessionId === 'string' ? obj.sessionId : undefined,
                     productName: typeof obj.productName === 'string' ? obj.productName : undefined,
-                    location: typeof obj.location === 'string' ? obj.location : undefined,
+                    ownercompanie: typeof obj.ownercompanie === 'string' ? obj.ownercompanie : (typeof obj.location === 'string' ? obj.location : undefined),
                     hasImages: typeof obj.hasImages === 'boolean' ? obj.hasImages : undefined
                 };
 

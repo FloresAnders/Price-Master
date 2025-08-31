@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, Suspense} from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { QrCode, Smartphone, Check, AlertCircle, Camera, Image as ImageIcon, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
@@ -37,7 +37,7 @@ function MobileScanContent() {
   const rpnParam = searchParams.get('rpn');
 
   const [code, setCode] = useState('');
-  const [lastScanned, setLastScanned] = useState<{ code: string, productName?: string, location?: string, hasImages?: boolean }[]>([]);
+  const [lastScanned, setLastScanned] = useState<{ code: string, productName?: string, ownercompanie?: string, hasImages?: boolean }[]>([]);
   const [error, setError] = useState<string | null>(null);
   // Eliminado: const [isOnline, setIsOnline] = useState(true);
   const [isClient, setIsClient] = useState(false);
@@ -262,8 +262,8 @@ function MobileScanContent() {
       return;
     }
 
-  // Usar siempre la empresa asignada del usuario logado
-  const ownercompanieToSend = user?.ownercompanie ?? undefined;
+    // Usar siempre la empresa asignada del usuario logado
+    const ownercompanieToSend = user?.ownercompanie ?? undefined;
 
     try {
       setError(null);
@@ -274,8 +274,8 @@ function MobileScanContent() {
         userName: 'Móvil',
         processed: false,
         // sessionId eliminado
-        ...(nameForProduct?.trim() && { productName: nameForProduct.trim() }),
-  ...(ownercompanieToSend && { location: ownercompanieToSend })
+  ...(nameForProduct?.trim() && { productName: nameForProduct.trim() }),
+  ...(ownercompanieToSend && { ownercompanie: ownercompanieToSend })
       };
 
       // Enviar al servicio de scanning y también a localStorage para sincronización con PC
@@ -301,7 +301,7 @@ function MobileScanContent() {
       setLastScanned(prev => [...prev.slice(-4), {
         code: scannedCode,
         ...(nameForProduct?.trim() && { productName: nameForProduct.trim() }),
-  ...(ownercompanieToSend && { location: ownercompanieToSend }),
+        ...(ownercompanieToSend && { ownercompanie: ownercompanieToSend }),
         hasImages
       }]); // Keep last 5
       setCode('');
