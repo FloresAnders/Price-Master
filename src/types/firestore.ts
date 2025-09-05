@@ -82,9 +82,14 @@ export interface ScanResult {
 
 export interface CcssConfig {
   id?: string;
+  ownerId: string; // ID del propietario de la configuración
+  companie: companies[]; // Nombre de la empresa propietaria
+  updatedAt?: Date;
+}
+export interface companies {
+  ownerCompanie: string; // Nombre de la empresa propietaria
   mt: number; // Valor para Medio Tiempo
   tc: number; // Valor para Tiempo Completo
   valorhora: number; // Valor por hora predeterminado
   horabruta: number; // Valor por hora bruta
-  updatedAt?: Date;
 }

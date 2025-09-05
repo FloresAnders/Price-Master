@@ -24,22 +24,32 @@ export class FirebaseUtils {
   }  /**
    * Get statistics about the collections
    */
-  static async getCollectionStats(): Promise<{
+  static async getCollectionStats(ownerId?: string): Promise<{
     sorteos: number;
     users: number;
     ccssConfigExists: boolean;
   }> {
     try {
-      const [sorteos, users, ccssConfig] = await Promise.all([
+      const [sorteos, users] = await Promise.all([
         SorteosService.getAllSorteos(),
-        UsersService.getAllUsers(),
-        CcssConfigService.getCcssConfig()
+        UsersService.getAllUsers()
       ]);
+
+      // Solo verificar CCSS config si se proporciona ownerId
+      let ccssConfigExists = false;
+      if (ownerId) {
+        try {
+          const ccssConfig = await CcssConfigService.getCcssConfig(ownerId);
+          ccssConfigExists = ccssConfig !== null && ccssConfig.companie && ccssConfig.companie.length > 0;
+        } catch {
+          ccssConfigExists = false;
+        }
+      }
 
       return {
         sorteos: sorteos.length,
         users: users.length,
-        ccssConfigExists: ccssConfig.tc !== undefined && ccssConfig.mt !== undefined
+        ccssConfigExists
       };
     } catch (error) {
       console.error('Error getting collection stats:', error);
@@ -81,17 +91,17 @@ export class FirebaseUtils {
   }  /**
    * Backup all data to JSON format
    */
-  static async backupToJSON(): Promise<{
+  static async backupToJSON(ownerId: string): Promise<{
     sorteos: Sorteo[];
     users: User[];
-    ccssConfig: CcssConfig;
+    ccssConfig: CcssConfig | null;
     timestamp: string;
   }> {
     try {
       const [sorteos, users, ccssConfig] = await Promise.all([
         SorteosService.getAllSorteos(),
         UsersService.getAllUsers(),
-        CcssConfigService.getCcssConfig()
+        CcssConfigService.getCcssConfig(ownerId)
       ]);
 
       return {

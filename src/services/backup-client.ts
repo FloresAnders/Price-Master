@@ -21,10 +21,10 @@ export class ClientBackupService {
   /**
    * Generate backup of CCSS configuration (client-side)
    */
-  static async generateCcssBackup(exportedBy: string): Promise<BackupData> {
+  static async generateCcssBackup(exportedBy: string, ownerId: string): Promise<BackupData> {
     try {
       // Get current CCSS configuration
-      const ccssConfig = await CcssConfigService.getCcssConfig();
+      const ccssConfig = await CcssConfigService.getCcssConfig(ownerId);
 
       const now = new Date();
       const backup: BackupData = {

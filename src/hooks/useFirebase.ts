@@ -189,7 +189,16 @@ export function useUsers() {
 }
 
 export function useCcssConfig() {
-  const [ccssConfig, setCcssConfig] = useState<CcssConfig>({ mt: 3672.46, tc: 11017.39, valorhora: 1441, horabruta: 1529.62 });
+  const [ccssConfig, setCcssConfig] = useState<CcssConfig>({ 
+    ownerId: '', 
+    companie: [{ 
+      ownerCompanie: '', 
+      mt: 3672.46, 
+      tc: 11017.39, 
+      valorhora: 1441, 
+      horabruta: 1529.62 
+    }] 
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -197,8 +206,12 @@ export function useCcssConfig() {
     try {
       setLoading(true);
       setError(null);
-      const data = await CcssConfigService.getCcssConfig();
-      setCcssConfig(data);
+      // Este hook necesita un ownerId - se debería refactorizar para recibirlo como parámetro
+      // Por ahora usamos un valor por defecto
+      const data = await CcssConfigService.getCcssConfig('default');
+      if (data) {
+        setCcssConfig(data);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error loading CCSS config');
       console.error('Error fetching CCSS config:', err);

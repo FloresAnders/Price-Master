@@ -59,7 +59,6 @@ export class MigrationService {
 
     try {
       await this.migrateSorteos();
-      await CcssConfigService.initializeCcssConfig();
       console.log('All migrations completed successfully!');
     } catch (error) {
       console.error('Migration failed:', error);
@@ -93,10 +92,14 @@ export class MigrationService {
       try {
         // We don't delete the CCSS config, just reset it to default values
         await CcssConfigService.updateCcssConfig({
-          mt: 3672.46,
-          tc: 11017.39,
-          valorhora: 1441,
-          horabruta: 1529.62
+          ownerId: 'default',
+          companie: [{
+            ownerCompanie: 'default',
+            mt: 3672.46,
+            tc: 11017.39,
+            valorhora: 1441,
+            horabruta: 1529.62
+          }]
         });
         console.log('CCSS configuration reset to default values.');
       } catch (error) { // eslint-disable-line @typescript-eslint/no-unused-vars
