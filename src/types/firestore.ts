@@ -82,6 +82,8 @@ export interface ScanResult {
 
 export interface CcssConfig {
   id?: string;
+  ownerId: string; // ID del propietario de la configuración
+  ownerCompanie: string; // Nombre de la empresa propietaria
   mt: number; // Valor para Medio Tiempo
   tc: number; // Valor para Tiempo Completo
   valorhora: number; // Valor por hora predeterminado

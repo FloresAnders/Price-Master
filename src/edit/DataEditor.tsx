@@ -21,12 +21,12 @@ export default function DataEditor() {
     const { user: currentUser } = useAuth();
     const [sorteosData, setSorteosData] = useState<Sorteo[]>([]);
     const [usersData, setUsersData] = useState<User[]>([]);
-    const [ccssData, setCcssData] = useState<CcssConfig>({ mt: 3672.46, tc: 11017.39, valorhora: 1441, horabruta: 1529.62 });
+    const [ccssConfigsData, setCcssConfigsData] = useState<CcssConfig[]>([]);
     const [empresasData, setEmpresasData] = useState<any[]>([]);
     const [originalEmpresasData, setOriginalEmpresasData] = useState<any[]>([]);
     const [originalSorteosData, setOriginalSorteosData] = useState<Sorteo[]>([]);
     const [originalUsersData, setOriginalUsersData] = useState<User[]>([]);
-    const [originalCcssData, setOriginalCcssData] = useState<CcssConfig>({ mt: 3672.46, tc: 11017.39, valorhora: 1441, horabruta: 1529.62 });
+    const [originalCcssConfigsData, setOriginalCcssConfigsData] = useState<CcssConfig[]>([]);
     const [hasChanges, setHasChanges] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
@@ -112,10 +112,10 @@ export default function DataEditor() {
     useEffect(() => {
         const sorteosChanged = JSON.stringify(sorteosData) !== JSON.stringify(originalSorteosData);
         const usersChanged = JSON.stringify(usersData) !== JSON.stringify(originalUsersData);
-        const ccssChanged = JSON.stringify(ccssData) !== JSON.stringify(originalCcssData);
+        const ccssChanged = JSON.stringify(ccssConfigsData) !== JSON.stringify(originalCcssConfigsData);
         const empresasChanged = JSON.stringify(empresasData) !== JSON.stringify(originalEmpresasData);
         setHasChanges(sorteosChanged || usersChanged || ccssChanged || empresasChanged);
-    }, [sorteosData, usersData, ccssData, empresasData, originalSorteosData, originalUsersData, originalCcssData, originalEmpresasData]);
+    }, [sorteosData, usersData, ccssConfigsData, empresasData, originalSorteosData, originalUsersData, originalCcssConfigsData, originalEmpresasData]);
 
     const loadData = useCallback(async () => {
         try {
@@ -155,9 +155,15 @@ export default function DataEditor() {
             }
 
             // Cargar configuración CCSS desde Firebase
-            const ccssConfig = await CcssConfigService.getCcssConfig();
-            setCcssData(ccssConfig);
-            setOriginalCcssData(JSON.parse(JSON.stringify(ccssConfig)));
+            if (currentUser) {
+                const ownerId = resolveOwnerIdForActor();
+                const ccssConfigs = await CcssConfigService.getAllCcssConfigsByOwner(ownerId);
+                setCcssConfigsData(ccssConfigs);
+                setOriginalCcssConfigsData(JSON.parse(JSON.stringify(ccssConfigs)));
+            } else {
+                setCcssConfigsData([]);
+                setOriginalCcssConfigsData([]);
+            }
 
         } catch (error) {
             showNotification('Error al cargar los datos de Firebase', 'error');
@@ -236,8 +242,17 @@ export default function DataEditor() {
                 });
             }
 
-            // Guardar configuración CCSS
-            await CcssConfigService.updateCcssConfig({ mt: ccssData.mt, tc: ccssData.tc, valorhora: ccssData.valorhora, horabruta: ccssData.horabruta });
+            // Guardar configuraciones CCSS
+            for (const ccssConfig of ccssConfigsData) {
+                await CcssConfigService.updateCcssConfig({
+                    ownerId: ccssConfig.ownerId,
+                    ownerCompanie: ccssConfig.ownerCompanie,
+                    mt: ccssConfig.mt,
+                    tc: ccssConfig.tc,
+                    valorhora: ccssConfig.valorhora,
+                    horabruta: ccssConfig.horabruta
+                });
+            }
 
             // Guardar empresas
             try {
@@ -258,7 +273,7 @@ export default function DataEditor() {
 
             setOriginalSorteosData(JSON.parse(JSON.stringify(sorteosData)));
             setOriginalUsersData(JSON.parse(JSON.stringify(usersData)));
-            setOriginalCcssData(JSON.parse(JSON.stringify(ccssData)));
+            setOriginalCcssConfigsData(JSON.parse(JSON.stringify(ccssConfigsData)));
             setOriginalEmpresasData(JSON.parse(JSON.stringify(empresasData)));
 
             setHasChanges(false);
@@ -745,11 +760,47 @@ export default function DataEditor() {
     // (locations individual save removed with locations tab)
 
     // Funciones para manejar configuración CCSS
-    const updateCcssConfig = (field: 'mt' | 'tc' | 'valorhora' | 'horabruta', value: number) => {
-        setCcssData(prev => ({
-            ...prev,
-            [field]: value
-        }));
+    const addCcssConfig = () => {
+        const ownerId = resolveOwnerIdForActor();
+        const newConfig: CcssConfig = {
+            ownerId,
+            ownerCompanie: '',
+            mt: 3672.46,
+            tc: 11017.39,
+            valorhora: 1441,
+            horabruta: 1529.62
+        };
+        setCcssConfigsData([...ccssConfigsData, newConfig]);
+    };
+
+    const updateCcssConfig = (index: number, field: keyof Omit<CcssConfig, 'id' | 'ownerId' | 'updatedAt'>, value: string | number) => {
+        const updated = [...ccssConfigsData];
+        updated[index] = { ...updated[index], [field]: value };
+        setCcssConfigsData(updated);
+    };
+
+    const removeCcssConfig = (index: number) => {
+        const config = ccssConfigsData[index];
+        const configName = config.ownerCompanie || `Configuración ${index + 1}`;
+
+        openConfirmModal(
+            'Eliminar Configuración CCSS',
+            `¿Está seguro de que desea eliminar la configuración para "${configName}"? Esta acción no se puede deshacer.`,
+            async () => {
+                try {
+                    // Si tiene ID, eliminar de la base de datos
+                    if (config.id) {
+                        await CcssConfigService.deleteCcssConfig(config.id);
+                    }
+                    // Eliminar del estado local
+                    setCcssConfigsData(ccssConfigsData.filter((_, i) => i !== index));
+                    showNotification(`Configuración para ${configName} eliminada exitosamente`, 'success');
+                } catch (error) {
+                    console.error('Error deleting CCSS config:', error);
+                    showNotification('Error al eliminar la configuración', 'error');
+                }
+            }
+        );
     };
 
     return (
@@ -837,7 +888,7 @@ export default function DataEditor() {
                                 }`}
                         >
                             <DollarSign className="w-4 h-4" />
-                            Pago CCSS
+                            Pago CCSS ({ccssConfigsData.length})
                         </button>
                         <button
                             onClick={() => setActiveFile('empresas')}
@@ -1341,12 +1392,21 @@ export default function DataEditor() {
                         <div>
                             <h4 className="text-base sm:text-xl font-semibold flex items-center gap-2">
                                 <DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
-                                Configuración de Pago CCSS
+                                Configuración de Pago CCSS por Empresa
                             </h4>
                             <p className="text-xs sm:text-sm text-[var(--muted-foreground)] mt-1">
-                                Configurar los montos de pago a la Caja Costarricense de Seguro Social (CCSS)
+                                Configurar los montos de pago CCSS específicos para cada empresa
                             </p>
                         </div>
+                        <button
+                            onClick={addCcssConfig}
+                            className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl font-semibold flex items-center gap-2"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                            </svg>
+                            Agregar Configuración
+                        </button>
                     </div>
 
                     <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-2 sm:p-4">
@@ -1357,211 +1417,238 @@ export default function DataEditor() {
                                 </svg>
                             </div>
                             <div>
-                                <h5 className="font-medium text-blue-900 dark:text-blue-300">Información importante</h5>
+                                <h5 className="font-medium text-blue-900 dark:text-blue-300">Configuración por Empresa</h5>
                                 <p className="text-sm text-blue-700 dark:text-blue-400 mt-1">
-                                    Estos valores se utilizan para calcular los pagos de planilla según el tipo de empleado (Tiempo Completo o Medio Tiempo).
-                                    Los cambios se reflejarán automáticamente en los cálculos de nómina.
+                                    Cada empresa puede tener configuraciones CCSS específicas. Los valores se aplicarán automáticamente según la empresa seleccionada en los cálculos de nómina.
                                 </p>
                             </div>
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6">
-                        {/* Tiempo Completo */}
-                        <div className="border border-[var(--input-border)] rounded-lg p-3 sm:p-6">
-                            <div className="flex items-center gap-3 mb-4">
-                                <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
-                                    <Clock className="w-6 h-6 text-green-600" />
-                                </div>
-                                <div>
-                                    <h5 className="font-semibold text-lg">Tiempo Completo (TC)</h5>
-                                    <p className="text-sm text-[var(--muted-foreground)]">Empleados de jornada completa</p>
-                                </div>
+                    {ccssConfigsData.length === 0 ? (
+                        <div className="text-center py-16 bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-800 dark:to-blue-900/20 rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-600">
+                            <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full mx-auto mb-6 flex items-center justify-center shadow-lg">
+                                <DollarSign className="w-10 h-10 text-white" />
                             </div>
-
-                            <div className="space-y-3">
-                                <label className="block text-sm font-medium">Monto CCSS:</label>
-                                <div className="relative">
-                                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--muted-foreground)]">₡</span>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        value={ccssData.tc}
-                                        onChange={(e) => updateCcssConfig('tc', parseFloat(e.target.value) || 0)}
-                                        className="w-full pl-8 pr-3 py-3 border border-[var(--input-border)] rounded-md text-lg font-semibold"
-                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                        placeholder="11017.39"
-                                    />
-                                </div>
-                                <p className="text-xs text-[var(--muted-foreground)]">
-                                    Valor por defecto: ₡11,017.39
-                                </p>
-                            </div>
+                            <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+                                No hay configuraciones CCSS
+                            </h3>
+                            <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-md mx-auto leading-relaxed">
+                                Comienza creando tu primera configuración CCSS para gestionar los pagos de tus empresas de manera eficiente
+                            </p>
+                            <button
+                                onClick={addCcssConfig}
+                                className="px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl font-semibold text-lg flex items-center gap-3 mx-auto"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                </svg>
+                                Crear Primera Configuración
+                            </button>
                         </div>
+                    ) : (
+                        <div className="space-y-6">
+                            {ccssConfigsData.map((config, index) => (
+                                <div key={config.id || index} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-lg hover:shadow-xl transition-all duration-200 relative">
+                                    {/* Header con botones */}
+                                    <div className="flex justify-between items-start mb-6">
+                                        <div>
+                                            <h5 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                                                Configuración CCSS #{index + 1}
+                                            </h5>
+                                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                                                Gestiona los valores CCSS para esta empresa
+                                            </p>
+                                        </div>
+                                        <div className="flex gap-3">
+                                            <button
+                                                onClick={async () => {
+                                                    try {
+                                                        await CcssConfigService.updateCcssConfig({
+                                                            ownerId: config.ownerId,
+                                                            ownerCompanie: config.ownerCompanie,
+                                                            mt: config.mt,
+                                                            tc: config.tc,
+                                                            valorhora: config.valorhora,
+                                                            horabruta: config.horabruta
+                                                        });
+                                                        showNotification(`Configuración para ${config.ownerCompanie} guardada exitosamente`, 'success');
+                                                        await loadData();
+                                                    } catch (error) {
+                                                        console.error('Error saving CCSS config:', error);
+                                                        showNotification('Error al guardar la configuración', 'error');
+                                                    }
+                                                }}
+                                                className="px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-200 shadow-md hover:shadow-lg font-medium text-sm flex items-center gap-2"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                                </svg>
+                                                Guardar
+                                            </button>
+                                            <button
+                                                onClick={() => removeCcssConfig(index)}
+                                                className="px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-md hover:shadow-lg font-medium text-sm flex items-center gap-2"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                </svg>
+                                                Eliminar
+                                            </button>
+                                        </div>
+                                    </div>
 
-                        {/* Medio Tiempo */}
-                        <div className="border border-[var(--input-border)] rounded-lg p-3 sm:p-6">
-                            <div className="flex items-center gap-3 mb-4">
-                                <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center">
-                                    <Clock className="w-6 h-6 text-orange-600" />
-                                </div>
-                                <div>
-                                    <h5 className="font-semibold text-lg">Medio Tiempo (MT)</h5>
-                                    <p className="text-sm text-[var(--muted-foreground)]">Empleados de media jornada</p>
-                                </div>
-                            </div>
+                                    {/* Selector de Empresa con mejor diseño */}
+                                    <div className="mb-8">
+                                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-700 rounded-xl p-4">
+                                            <label className="text-sm font-semibold text-blue-900 dark:text-blue-200 mb-3 flex items-center gap-2">
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                                </svg>
+                                                Empresa:
+                                            </label>
+                                            <select
+                                                value={config.ownerCompanie}
+                                                onChange={(e) => updateCcssConfig(index, 'ownerCompanie', e.target.value)}
+                                                className="w-full px-4 py-3 border border-blue-300 dark:border-blue-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm"
+                                            >
+                                                <option value="">Seleccionar empresa...</option>
+                                                {empresasData
+                                                    .filter(empresa => empresa.ownerId === resolveOwnerIdForActor())
+                                                    .map((empresa, idx) => (
+                                                        <option key={empresa.id || idx} value={empresa.name}>
+                                                            {empresa.name}
+                                                        </option>
+                                                    ))
+                                                }
+                                            </select>
+                                            
+                                        </div>
+                                    </div>
 
-                            <div className="space-y-3">
-                                <label className="block text-sm font-medium">Monto CCSS:</label>
-                                <div className="relative">
-                                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--muted-foreground)]">₡</span>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        value={ccssData.mt}
-                                        onChange={(e) => updateCcssConfig('mt', parseFloat(e.target.value) || 0)}
-                                        className="w-full pl-8 pr-3 py-3 border border-[var(--input-border)] rounded-md text-lg font-semibold"
-                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                        placeholder="3672.46"
-                                    />
+                                    {/* Grid de valores CCSS mejorado */}
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+                                        {/* Tiempo Completo */}
+                                        <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200 dark:border-green-700 rounded-xl p-6 hover:shadow-lg transition-all duration-200">
+                                            <div className="flex items-center gap-3 mb-4">
+                                                <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
+                                                    <Clock className="w-6 h-6 text-white" />
+                                                </div>
+                                                <div>
+                                                    <h6 className="font-bold text-green-900 dark:text-green-200">Tiempo Completo</h6>
+                                                    <p className="text-xs text-green-700 dark:text-green-400">(TC)</p>
+                                                </div>
+                                            </div>
+                                            <div className="relative">
+                                                <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-green-600 dark:text-green-400 font-bold text-lg">₡</span>
+                                                <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    min="0"
+                                                    value={config.tc}
+                                                    onChange={(e) => updateCcssConfig(index, 'tc', parseFloat(e.target.value) || 0)}
+                                                    className="w-full pl-10 pr-4 py-3 border-2 border-green-300 dark:border-green-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-bold text-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200"
+                                                    placeholder="11017.39"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Medio Tiempo */}
+                                        <div className="bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 border border-orange-200 dark:border-orange-700 rounded-xl p-6 hover:shadow-lg transition-all duration-200">
+                                            <div className="flex items-center gap-3 mb-4">
+                                                <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-amber-600 rounded-xl flex items-center justify-center shadow-lg">
+                                                    <Clock className="w-6 h-6 text-white" />
+                                                </div>
+                                                <div>
+                                                    <h6 className="font-bold text-orange-900 dark:text-orange-200">Medio Tiempo</h6>
+                                                    <p className="text-xs text-orange-700 dark:text-orange-400">(MT)</p>
+                                                </div>
+                                            </div>
+                                            <div className="relative">
+                                                <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-orange-600 dark:text-orange-400 font-bold text-lg">₡</span>
+                                                <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    min="0"
+                                                    value={config.mt}
+                                                    onChange={(e) => updateCcssConfig(index, 'mt', parseFloat(e.target.value) || 0)}
+                                                    className="w-full pl-10 pr-4 py-3 border-2 border-orange-300 dark:border-orange-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-bold text-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
+                                                    placeholder="3672.46"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Valor por Hora */}
+                                        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-700 rounded-xl p-6 hover:shadow-lg transition-all duration-200">
+                                            <div className="flex items-center gap-3 mb-4">
+                                                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+                                                    <DollarSign className="w-6 h-6 text-white" />
+                                                </div>
+                                                <div>
+                                                    <h6 className="font-bold text-blue-900 dark:text-blue-200">Valor por Hora</h6>
+                                                    <p className="text-xs text-blue-700 dark:text-blue-400">Tarifa horaria</p>
+                                                </div>
+                                            </div>
+                                            <div className="relative">
+                                                <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-blue-600 dark:text-blue-400 font-bold text-lg">₡</span>
+                                                <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    min="0"
+                                                    value={config.valorhora}
+                                                    onChange={(e) => updateCcssConfig(index, 'valorhora', parseFloat(e.target.value) || 0)}
+                                                    className="w-full pl-10 pr-4 py-3 border-2 border-blue-300 dark:border-blue-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-bold text-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                                                    placeholder="1441"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Hora Bruta */}
+                                        <div className="bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 border border-purple-200 dark:border-purple-700 rounded-xl p-6 hover:shadow-lg transition-all duration-200">
+                                            <div className="flex items-center gap-3 mb-4">
+                                                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-violet-600 rounded-xl flex items-center justify-center shadow-lg">
+                                                    <DollarSign className="w-6 h-6 text-white" />
+                                                </div>
+                                                <div>
+                                                    <h6 className="font-bold text-purple-900 dark:text-purple-200">Hora Bruta</h6>
+                                                    <p className="text-xs text-purple-700 dark:text-purple-400">Tarifa bruta</p>
+                                                </div>
+                                            </div>
+                                            <div className="relative">
+                                                <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-purple-600 dark:text-purple-400 font-bold text-lg">₡</span>
+                                                <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    min="0"
+                                                    value={config.horabruta}
+                                                    onChange={(e) => updateCcssConfig(index, 'horabruta', parseFloat(e.target.value) || 0)}
+                                                    className="w-full pl-10 pr-4 py-3 border-2 border-purple-300 dark:border-purple-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-bold text-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
+                                                    placeholder="1529.62"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <p className="text-xs text-[var(--muted-foreground)]">
-                                    Valor por defecto: ₡3,672.46
-                                </p>
-                            </div>
+                            ))}
                         </div>
+                    )}
 
-                        {/* Valor por Hora */}
-                        <div className="border border-[var(--input-border)] rounded-lg p-3 sm:p-6">
-                            <div className="flex items-center gap-3 mb-4">
-                                <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                                    <DollarSign className="w-6 h-6 text-blue-600" />
-                                </div>
-                                <div>
-                                    <h5 className="font-semibold text-lg">Valor por Hora</h5>
-                                    <p className="text-sm text-[var(--muted-foreground)]">Tarifa horaria predeterminada</p>
-                                </div>
-                            </div>
-
-                            <div className="space-y-3">
-                                <label className="block text-sm font-medium">Monto por Hora:</label>
-                                <div className="relative">
-                                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--muted-foreground)]">₡</span>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        value={ccssData.valorhora || 1441}
-                                        onChange={(e) => updateCcssConfig('valorhora', parseFloat(e.target.value) || 0)}
-                                        className="w-full pl-8 pr-3 py-3 border border-[var(--input-border)] rounded-md text-lg font-semibold"
-                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                        placeholder="1441"
-                                    />
-                                </div>
-                                <p className="text-xs text-[var(--muted-foreground)]">
-                                    Valor por defecto: ₡1,441.00
-                                </p>
-                            </div>
+                    {/* Botón global de guardado mejorado */}
+                    {ccssConfigsData.length > 0 && (
+                        <div className="flex justify-center pt-8">
+                            <button
+                                onClick={saveData}
+                                disabled={!hasChanges || isSaving}
+                                className={`px-8 py-4 rounded-xl flex items-center gap-3 transition-all duration-200 shadow-lg hover:shadow-xl font-semibold text-lg ${hasChanges && !isSaving
+                                    ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white'
+                                    : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                                    }`}
+                            >
+                                <Save className="w-6 h-6" />
+                                {isSaving ? 'Guardando...' : 'Guardar Todas las Configuraciones'}
+                            </button>
                         </div>
-
-                        {/* Hora Bruta */}
-                        <div className="border border-[var(--input-border)] rounded-lg p-3 sm:p-6">
-                            <div className="flex items-center gap-3 mb-4">
-                                <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
-                                    <DollarSign className="w-6 h-6 text-purple-600" />
-                                </div>
-                                <div>
-                                    <h5 className="font-semibold text-lg">Hora Bruta</h5>
-                                    <p className="text-sm text-[var(--muted-foreground)]">Tarifa horaria bruta</p>
-                                </div>
-                            </div>
-
-                            <div className="space-y-3">
-                                <label className="block text-sm font-medium">Monto Hora Bruta:</label>
-                                <div className="relative">
-                                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--muted-foreground)]">₡</span>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        value={ccssData.horabruta || 1529.62}
-                                        onChange={(e) => updateCcssConfig('horabruta', parseFloat(e.target.value) || 0)}
-                                        className="w-full pl-8 pr-3 py-3 border border-[var(--input-border)] rounded-md text-lg font-semibold"
-                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                        placeholder="1529.62"
-                                    />
-                                </div>
-                                <p className="text-xs text-[var(--muted-foreground)]">
-                                    Valor por defecto: ₡1,529.62
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Resumen de configuración */}
-                    <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 sm:p-6">
-                        <h5 className="font-semibold mb-3 flex items-center gap-2">
-                            <FileText className="w-5 h-5" />
-                            Resumen de Configuración
-                        </h5>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-4 text-xs sm:text-sm">
-                            <div className="flex justify-between">
-                                <span className="text-[var(--muted-foreground)]">Tiempo Completo (TC):</span>
-                                <span className="font-medium">₡{ccssData.tc.toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-[var(--muted-foreground)]">Medio Tiempo (MT):</span>
-                                <span className="font-medium">₡{ccssData.mt.toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-[var(--muted-foreground)]">Valor por Hora:</span>
-                                <span className="font-medium">₡{(ccssData.valorhora || 1441).toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-[var(--muted-foreground)]">Hora Bruta:</span>
-                                <span className="font-medium">₡{(ccssData.horabruta || 1529.62).toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
-                            </div>
-                        </div>
-
-                        {ccssData.updatedAt && (
-                            <div className="mt-3 pt-3 border-t border-[var(--border)]">
-                                <p className="text-xs text-[var(--muted-foreground)]">
-                                    Última actualización: {new Date(ccssData.updatedAt).toLocaleString('es-CR')}
-                                </p>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Botón para resetear valores por defecto */}
-                    <div className="flex flex-col sm:flex-row justify-between items-center gap-2 mt-2">
-                        <button
-                            onClick={() => {
-                                if (confirm('¿Estás seguro de que quieres restaurar los valores por defecto?')) {
-                                    updateCcssConfig('tc', 11017.39);
-                                    updateCcssConfig('mt', 3672.46);
-                                    updateCcssConfig('valorhora', 1441);
-                                    updateCcssConfig('horabruta', 1529.62);
-                                }
-                            }}
-                            className="px-3 py-2 sm:px-4 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors text-sm sm:text-base w-full sm:w-auto"
-                        >
-                            Restaurar Valores Por Defecto
-                        </button>
-
-                        <button
-                            onClick={saveData}
-                            disabled={!hasChanges || isSaving}
-                            className={`px-3 py-2 sm:px-6 rounded-md flex items-center gap-2 transition-colors text-sm sm:text-base w-full sm:w-auto ${hasChanges && !isSaving
-                                ? 'bg-green-600 hover:bg-green-700 text-white'
-                                : 'bg-[var(--muted)] text-[var(--muted-foreground)] cursor-not-allowed'
-                                }`}
-                        >
-                            <Save className="w-4 h-4" />
-                            {isSaving ? 'Guardando...' : 'Guardar Configuración'}
-                        </button>
-                    </div>
+                    )}
                 </div>
             )}
 
