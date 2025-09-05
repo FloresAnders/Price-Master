@@ -8,7 +8,7 @@ import { SorteosService } from '../services/sorteos';
 import { UsersService } from '../services/users';
 import { useAuth } from '../hooks/useAuth';
 import { CcssConfigService } from '../services/ccss-config';
-import { Sorteo, User, CcssConfig, UserPermissions } from '../types/firestore';
+import { Sorteo, User, CcssConfig, UserPermissions, companies } from '../types/firestore';
 import { getDefaultPermissions, getNoPermissions } from '../utils/permissions';
 import ScheduleReportTab from '../components/business/ScheduleReportTab';
 import ConfirmModal from '../components/ui/ConfirmModal';
@@ -38,7 +38,7 @@ export default function DataEditor() {
     // currentUser.ownerId (when admin has an assigned owner), then try session
     // stored in localStorage, then fall back to currentUser.id when actor is
     // an admin with eliminate === false, otherwise empty string.
-    const resolveOwnerIdForActor = (provided?: string) => {
+    const resolveOwnerIdForActor = useCallback((provided?: string) => {
         if (provided) return provided;
         // prefer explicit ownerId on currentUser
         if (currentUser?.ownerId) return currentUser.ownerId;
@@ -59,7 +59,7 @@ export default function DataEditor() {
         // finally, if currentUser is present and not marked as delegated (eliminate === false), use its id
         if (currentUser && currentUser.eliminate === false && currentUser.id) return currentUser.id;
         return '';
-    };
+    }, [currentUser]);
     const [passwordVisibility, setPasswordVisibility] = useState<{ [key: string]: boolean }>({});
     const [savingUserKey, setSavingUserKey] = useState<string | null>(null);
     const [showPermissions, setShowPermissions] = useState<{ [key: string]: boolean }>({});
@@ -169,7 +169,7 @@ export default function DataEditor() {
             showNotification('Error al cargar los datos de Firebase', 'error');
             console.error('Error loading data from Firebase:', error);
         }
-    }, [currentUser]);
+    }, [currentUser, resolveOwnerIdForActor]);
 
     // Cargar datos al montar el componente o cuando cambie el usuario autenticado
     useEffect(() => {
@@ -244,14 +244,7 @@ export default function DataEditor() {
 
             // Guardar configuraciones CCSS
             for (const ccssConfig of ccssConfigsData) {
-                await CcssConfigService.updateCcssConfig({
-                    ownerId: ccssConfig.ownerId,
-                    ownerCompanie: ccssConfig.ownerCompanie,
-                    mt: ccssConfig.mt,
-                    tc: ccssConfig.tc,
-                    valorhora: ccssConfig.valorhora,
-                    horabruta: ccssConfig.horabruta
-                });
+                await CcssConfigService.updateCcssConfig(ccssConfig);
             }
 
             // Guardar empresas
@@ -762,38 +755,123 @@ export default function DataEditor() {
     // Funciones para manejar configuración CCSS
     const addCcssConfig = () => {
         const ownerId = resolveOwnerIdForActor();
-        const newConfig: CcssConfig = {
-            ownerId,
-            ownerCompanie: '',
-            mt: 3672.46,
-            tc: 11017.39,
-            valorhora: 1441,
-            horabruta: 1529.62
-        };
-        setCcssConfigsData([...ccssConfigsData, newConfig]);
+        
+        // Verificar si ya existe un config para este owner
+        const existingConfigIndex = ccssConfigsData.findIndex(config => config.ownerId === ownerId);
+        
+        if (existingConfigIndex !== -1) {
+            // Si existe, agregar una nueva company al array
+            const updatedConfigs = [...ccssConfigsData];
+            updatedConfigs[existingConfigIndex] = {
+                ...updatedConfigs[existingConfigIndex],
+                companie: [
+                    ...updatedConfigs[existingConfigIndex].companie,
+                    {
+                        ownerCompanie: '',
+                        mt: 3672.46,
+                        tc: 11017.39,
+                        valorhora: 1441,
+                        horabruta: 1529.62
+                    }
+                ]
+            };
+            setCcssConfigsData(updatedConfigs);
+        } else {
+            // Si no existe, crear un nuevo config con una company
+            const newConfig: CcssConfig = {
+                ownerId,
+                companie: [{
+                    ownerCompanie: '',
+                    mt: 3672.46,
+                    tc: 11017.39,
+                    valorhora: 1441,
+                    horabruta: 1529.62
+                }]
+            };
+            setCcssConfigsData([...ccssConfigsData, newConfig]);
+        }
     };
 
-    const updateCcssConfig = (index: number, field: keyof Omit<CcssConfig, 'id' | 'ownerId' | 'updatedAt'>, value: string | number) => {
+    const updateCcssConfig = (configIndex: number, companyIndex: number, field: string, value: string | number) => {
         const updated = [...ccssConfigsData];
-        updated[index] = { ...updated[index], [field]: value };
+        const updatedCompanies = [...updated[configIndex].companie];
+        
+        if (field === 'ownerCompanie') {
+            updatedCompanies[companyIndex] = { 
+                ...updatedCompanies[companyIndex], 
+                ownerCompanie: value as string 
+            };
+        } else if (['mt', 'tc', 'valorhora', 'horabruta'].includes(field)) {
+            updatedCompanies[companyIndex] = { 
+                ...updatedCompanies[companyIndex], 
+                [field]: value as number 
+            };
+        }
+        
+        updated[configIndex] = {
+            ...updated[configIndex],
+            companie: updatedCompanies
+        };
         setCcssConfigsData(updated);
     };
 
-    const removeCcssConfig = (index: number) => {
-        const config = ccssConfigsData[index];
-        const configName = config.ownerCompanie || `Configuración ${index + 1}`;
+    // Función auxiliar para aplanar los datos de CCSS para la UI
+    const getFlattenedCcssData = () => {
+        const flattened: Array<{
+            configIndex: number;
+            companyIndex: number;
+            config: CcssConfig;
+            company: companies;
+        }> = [];
+        
+        ccssConfigsData.forEach((config, configIndex) => {
+            config.companie.forEach((company, companyIndex) => {
+                flattened.push({
+                    configIndex,
+                    companyIndex,
+                    config,
+                    company
+                });
+            });
+        });
+        
+        return flattened;
+    };
+
+    const removeCcssConfig = (configIndex: number, companyIndex: number) => {
+        const config = ccssConfigsData[configIndex];
+        const company = config.companie[companyIndex];
+        const configName = company.ownerCompanie || `Configuración ${configIndex + 1}-${companyIndex + 1}`;
 
         openConfirmModal(
             'Eliminar Configuración CCSS',
             `¿Está seguro de que desea eliminar la configuración para "${configName}"? Esta acción no se puede deshacer.`,
             async () => {
                 try {
-                    // Si tiene ID, eliminar de la base de datos
-                    if (config.id) {
-                        await CcssConfigService.deleteCcssConfig(config.id);
+                    const updatedConfigs = [...ccssConfigsData];
+                    const updatedCompanies = [...updatedConfigs[configIndex].companie];
+                    
+                    // Remover la company específica
+                    updatedCompanies.splice(companyIndex, 1);
+                    
+                    if (updatedCompanies.length === 0) {
+                        // Si no quedan companies, eliminar todo el config
+                        if (config.id) {
+                            await CcssConfigService.deleteCcssConfig(config.id);
+                        }
+                        updatedConfigs.splice(configIndex, 1);
+                    } else {
+                        // Si quedan companies, actualizar el config
+                        updatedConfigs[configIndex] = {
+                            ...updatedConfigs[configIndex],
+                            companie: updatedCompanies
+                        };
+                        if (config.id) {
+                            await CcssConfigService.updateCcssConfig(updatedConfigs[configIndex]);
+                        }
                     }
-                    // Eliminar del estado local
-                    setCcssConfigsData(ccssConfigsData.filter((_, i) => i !== index));
+                    
+                    setCcssConfigsData(updatedConfigs);
                     showNotification(`Configuración para ${configName} eliminada exitosamente`, 'success');
                 } catch (error) {
                     console.error('Error deleting CCSS config:', error);
@@ -1425,7 +1503,7 @@ export default function DataEditor() {
                         </div>
                     </div>
 
-                    {ccssConfigsData.length === 0 ? (
+                    {getFlattenedCcssData().length === 0 ? (
                         <div className="text-center py-16 bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-800 dark:to-blue-900/20 rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-600">
                             <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full mx-auto mb-6 flex items-center justify-center shadow-lg">
                                 <DollarSign className="w-10 h-10 text-white" />
@@ -1448,31 +1526,31 @@ export default function DataEditor() {
                         </div>
                     ) : (
                         <div className="space-y-6">
-                            {ccssConfigsData.map((config, index) => (
-                                <div key={config.id || index} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-lg hover:shadow-xl transition-all duration-200 relative">
+                            {getFlattenedCcssData().map((item, flatIndex) => (
+                                <div key={`${item.config.id || item.configIndex}-${item.companyIndex}`} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-lg hover:shadow-xl transition-all duration-200 relative">
                                     {/* Header con botones */}
                                     <div className="flex justify-between items-start mb-6">
                                         <div>
                                             <h5 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-                                                Configuración CCSS #{index + 1}
+                                                Configuración CCSS #{flatIndex + 1}
                                             </h5>
                                             <p className="text-sm text-gray-600 dark:text-gray-400">
-                                                Gestiona los valores CCSS para esta empresa
+                                                {item.company.ownerCompanie || 'Nueva empresa'}
                                             </p>
                                         </div>
                                         <div className="flex gap-3">
                                             <button
                                                 onClick={async () => {
                                                     try {
-                                                        await CcssConfigService.updateCcssConfig({
-                                                            ownerId: config.ownerId,
-                                                            ownerCompanie: config.ownerCompanie,
-                                                            mt: config.mt,
-                                                            tc: config.tc,
-                                                            valorhora: config.valorhora,
-                                                            horabruta: config.horabruta
-                                                        });
-                                                        showNotification(`Configuración para ${config.ownerCompanie} guardada exitosamente`, 'success');
+                                                        // Crear una nueva copia del config completo con la company actualizada
+                                                        const updatedConfig = {
+                                                            ...item.config,
+                                                            companie: item.config.companie.map((comp, idx) => 
+                                                                idx === item.companyIndex ? item.company : comp
+                                                            )
+                                                        };
+                                                        await CcssConfigService.updateCcssConfig(updatedConfig);
+                                                        showNotification(`Configuración para ${item.company.ownerCompanie || 'empresa'} guardada exitosamente`, 'success');
                                                         await loadData();
                                                     } catch (error) {
                                                         console.error('Error saving CCSS config:', error);
@@ -1487,7 +1565,7 @@ export default function DataEditor() {
                                                 Guardar
                                             </button>
                                             <button
-                                                onClick={() => removeCcssConfig(index)}
+                                                onClick={() => removeCcssConfig(item.configIndex, item.companyIndex)}
                                                 className="px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-md hover:shadow-lg font-medium text-sm flex items-center gap-2"
                                             >
                                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1508,8 +1586,8 @@ export default function DataEditor() {
                                                 Empresa:
                                             </label>
                                             <select
-                                                value={config.ownerCompanie}
-                                                onChange={(e) => updateCcssConfig(index, 'ownerCompanie', e.target.value)}
+                                                value={item.company.ownerCompanie || ''}
+                                                onChange={(e) => updateCcssConfig(item.configIndex, item.companyIndex, 'ownerCompanie', e.target.value)}
                                                 className="w-full px-4 py-3 border border-blue-300 dark:border-blue-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm"
                                             >
                                                 <option value="">Seleccionar empresa...</option>
@@ -1545,8 +1623,8 @@ export default function DataEditor() {
                                                     type="number"
                                                     step="0.01"
                                                     min="0"
-                                                    value={config.tc}
-                                                    onChange={(e) => updateCcssConfig(index, 'tc', parseFloat(e.target.value) || 0)}
+                                                    value={item.company.tc || 0}
+                                                    onChange={(e) => updateCcssConfig(item.configIndex, item.companyIndex, 'tc', parseFloat(e.target.value) || 0)}
                                                     className="w-full pl-10 pr-4 py-3 border-2 border-green-300 dark:border-green-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-bold text-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200"
                                                     placeholder="11017.39"
                                                 />
@@ -1570,8 +1648,8 @@ export default function DataEditor() {
                                                     type="number"
                                                     step="0.01"
                                                     min="0"
-                                                    value={config.mt}
-                                                    onChange={(e) => updateCcssConfig(index, 'mt', parseFloat(e.target.value) || 0)}
+                                                    value={item.company.mt || 0}
+                                                    onChange={(e) => updateCcssConfig(item.configIndex, item.companyIndex, 'mt', parseFloat(e.target.value) || 0)}
                                                     className="w-full pl-10 pr-4 py-3 border-2 border-orange-300 dark:border-orange-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-bold text-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
                                                     placeholder="3672.46"
                                                 />
@@ -1595,8 +1673,8 @@ export default function DataEditor() {
                                                     type="number"
                                                     step="0.01"
                                                     min="0"
-                                                    value={config.valorhora}
-                                                    onChange={(e) => updateCcssConfig(index, 'valorhora', parseFloat(e.target.value) || 0)}
+                                                    value={item.company.valorhora || 0}
+                                                    onChange={(e) => updateCcssConfig(item.configIndex, item.companyIndex, 'valorhora', parseFloat(e.target.value) || 0)}
                                                     className="w-full pl-10 pr-4 py-3 border-2 border-blue-300 dark:border-blue-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-bold text-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                                                     placeholder="1441"
                                                 />
@@ -1620,8 +1698,8 @@ export default function DataEditor() {
                                                     type="number"
                                                     step="0.01"
                                                     min="0"
-                                                    value={config.horabruta}
-                                                    onChange={(e) => updateCcssConfig(index, 'horabruta', parseFloat(e.target.value) || 0)}
+                                                    value={item.company.horabruta || 0}
+                                                    onChange={(e) => updateCcssConfig(item.configIndex, item.companyIndex, 'horabruta', parseFloat(e.target.value) || 0)}
                                                     className="w-full pl-10 pr-4 py-3 border-2 border-purple-300 dark:border-purple-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-bold text-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
                                                     placeholder="1529.62"
                                                 />
