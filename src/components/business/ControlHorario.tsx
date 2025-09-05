@@ -48,7 +48,8 @@ function EmployeeTooltipSummary({
   month,
   daysToShow,
   isDelifoodEmpresa = false,
-  delifoodHoursData = {}
+  delifoodHoursData = {},
+  user
 }: {
   employeeName: string;
   empresaValue: string;
@@ -57,6 +58,7 @@ function EmployeeTooltipSummary({
   daysToShow: number[];
   isDelifoodEmpresa?: boolean;
   delifoodHoursData?: { [employeeName: string]: { [day: string]: { hours: number } } };
+  user?: FirestoreUser | null;
 }) {
   const [summary, setSummary] = React.useState<{
     workedDays: number;
@@ -90,7 +92,18 @@ function EmployeeTooltipSummary({
         );
 
         // Obtener configuración CCSS actualizada
-        const ccssConfig = await CcssConfigService.getCcssConfig();
+        const userOwnerId = user?.ownerId || user?.id || '';
+        const ccssConfig = await CcssConfigService.getCcssConfig(userOwnerId);
+        
+        // Obtener el nombre de la empresa para buscar en la configuración CCSS
+        const empresaName = currentEmpresa?.name || empresaValue;
+
+        console.log('🔍 ControlHorario CCSS Debug:', {
+          empresaValue,
+          currentEmpresa: currentEmpresa ? { name: currentEmpresa.name, ubicacion: currentEmpresa.ubicacion } : null,
+          empresaName,
+          employeeName
+        });
 
         let workedDaysInPeriod = 0;
         let totalHours = 0;
@@ -149,14 +162,24 @@ function EmployeeTooltipSummary({
         let hourlyRate = 0;
 
         if (totalHours > 0) {
+          // Buscar la configuración específica para esta empresa por nombre
+          const companyConfig = ccssConfig?.companie?.find(comp => comp.ownerCompanie === empresaName);
+          
+          console.log('🎯 ControlHorario CCSS Match:', {
+            empresaName,
+            availableConfigs: ccssConfig?.companie?.map(comp => comp.ownerCompanie) || [],
+            companyConfig: companyConfig ? { ownerCompanie: companyConfig.ownerCompanie, tc: companyConfig.tc, mt: companyConfig.mt } : null,
+            matched: !!companyConfig
+          });
+          
           // Usar horabruta de la configuración CCSS obtenida desde la base de datos
-          hourlyRate = ccssConfig.horabruta;
+          hourlyRate = companyConfig?.horabruta || 1529.62; // valor por defecto
 
           // Calcular salario bruto: horas trabajadas × valor por hora
           grossSalary = totalHours * hourlyRate;
 
           // Deducción CCSS según el tipo de empleado
-          const ccssAmount = ccssType === 'TC' ? ccssConfig.tc : ccssConfig.mt;
+          const ccssAmount = ccssType === 'TC' ? (companyConfig?.tc || 11017.39) : (companyConfig?.mt || 3672.46);
           ccssDeduction = ccssAmount;
 
           // Salario neto = bruto - deducción CCSS + monto extra
@@ -201,7 +224,7 @@ function EmployeeTooltipSummary({
     };
 
     fetchSummary();
-  }, [employeeName, empresaValue, year, month, daysToShow, isDelifoodEmpresa, delifoodHoursData]);
+  }, [employeeName, empresaValue, year, month, daysToShow, isDelifoodEmpresa, delifoodHoursData, user?.id, user?.ownerId]);
 
   if (!summary) {
     return <div>Cargando...</div>;
@@ -1822,6 +1845,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
                       daysToShow={daysToShow}
                       isDelifoodEmpresa={isDelifoodEmpresa}
                       delifoodHoursData={delifoodHoursData}
+                      user={user}
                     />
                   </div>
                 </td>
@@ -1952,6 +1976,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
                   daysToShow={daysToShow}
                   isDelifoodEmpresa={isDelifoodEmpresa}
                   delifoodHoursData={delifoodHoursData}
+                  user={user}
                 />
               </div>
             </div>

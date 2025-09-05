@@ -7,6 +7,7 @@ import { Calculator, DollarSign, Image, Save, Calendar } from 'lucide-react';
 import { EmpresasService } from '../../services/empresas';
 import { SchedulesService, ScheduleEntry } from '../../services/schedules';
 import { PayrollRecordsService } from '../../services/payroll-records';
+import { CcssConfigService } from '../../services/ccss-config';
 
 interface MappedEmpresa {
   id?: string;
@@ -110,17 +111,28 @@ export default function PayrollExporter({
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null); const [editableDeductions, setEditableDeductions] = useState<EditableDeductions>({});
   const [tempInputValues, setTempInputValues] = useState<{ [key: string]: string }>({});
   const [debounceTimers, setDebounceTimers] = useState<{ [key: string]: NodeJS.Timeout }>({});
+  const [ccssConfigs, setCcssConfigs] = useState<{ [empresaName: string]: { tc: number; mt: number; horabruta: number } }>({});
 
-  // Constantes de salario
+  // Constantes de salario por defecto (fallback)
   const REGULAR_HOURLY_RATE = 1529.62;
   const OVERTIME_HOURLY_RATE = 2294.43;
-  const CCSS_TC = 11017.39;
-  const CCSS_MT = 3672.46;
+  const DEFAULT_CCSS_TC = 11017.39;
+  const DEFAULT_CCSS_MT = 3672.46;
   // Función para mostrar notificación
   const showNotification = (message: string, type: 'success' | 'error') => {
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 3000);
   };
+
+  // Función para obtener configuración CCSS para una empresa específica
+  const getCcssConfigForEmpresa = useCallback((empresaName: string) => {
+    const config = ccssConfigs[empresaName];
+    return {
+      tc: config?.tc || DEFAULT_CCSS_TC,
+      mt: config?.mt || DEFAULT_CCSS_MT,
+      horabruta: config?.horabruta || REGULAR_HOURLY_RATE
+    };
+  }, [ccssConfigs]);
 
   // Función para crear clave única del empleado
   const getEmployeeKey = (locationValue: string, employeeName: string): string => {
@@ -241,8 +253,13 @@ export default function PayrollExporter({
     // Total de ingresos: suma de todos los T/S + monto extra editable
     const totalIncome = regularTotal + overtimeTotal + editableExtraAmount;
 
+    // Obtener el nombre de la empresa para la configuración CCSS
+    const location = locations.find(loc => loc.value === locationValue);
+    const empresaName = location?.label || locationValue;
+    const ccssConfig = getCcssConfigForEmpresa(empresaName);
+
     // Deducciones
-    const ccssDeduction = ccssType === 'TC' ? CCSS_TC : CCSS_MT;
+    const ccssDeduction = ccssType === 'TC' ? ccssConfig.tc : ccssConfig.mt;
     const comprasDeduction = deductions.compras;
     const adelantoDeduction = deductions.adelanto;
     const otrosDeduction = deductions.otros;
@@ -268,10 +285,10 @@ export default function PayrollExporter({
       totalDeductions,
       netSalary
     };
-  }, [getEmployeeDeductions]);
+  }, [getEmployeeDeductions, getCcssConfigForEmpresa, locations]);
   // Cargar ubicaciones
   useEffect(() => {
-    const loadLocations = async () => {
+    const loadLocationsAndCcssConfigs = async () => {
       try {
         // Cargar empresas y mapear a la forma que espera el componente (location-like)
         const empresas = await EmpresasService.getAllEmpresas();
@@ -316,11 +333,34 @@ export default function PayrollExporter({
           };
         });
         setLocations(mapped);
+
+        // Cargar configuraciones CCSS para cada empresa
+        if (currentUser) {
+          const userOwnerId = currentUser.ownerId || currentUser.id || '';
+          const ccssConfig = await CcssConfigService.getCcssConfig(userOwnerId);
+          
+          if (ccssConfig && ccssConfig.companie) {
+            const configMap: { [empresaName: string]: { tc: number; mt: number; horabruta: number } } = {};
+            
+            ccssConfig.companie.forEach(comp => {
+              if (comp.ownerCompanie) {
+                configMap[comp.ownerCompanie] = {
+                  tc: comp.tc || DEFAULT_CCSS_TC,
+                  mt: comp.mt || DEFAULT_CCSS_MT,
+                  horabruta: comp.horabruta || REGULAR_HOURLY_RATE
+                };
+              }
+            });
+            
+            setCcssConfigs(configMap);
+            console.log('🔧 PayrollExporter CCSS configs loaded:', configMap);
+          }
+        }
       } catch (error) {
-        console.error('Error loading empresas:', error);
+        console.error('Error loading empresas and CCSS configs:', error);
       }
     };
-    loadLocations();
+    loadLocationsAndCcssConfigs();
   }, [currentUser]);
 
   // Limpiar timers al desmontar el componente
@@ -436,7 +476,12 @@ export default function PayrollExporter({
         const overtimeTotal = employee.overtimeSalary * 0;
         const finalExtraAmount = deductions.extraAmount > 0 ? deductions.extraAmount : employee.extraAmount;
         const totalIncome = regularTotal + overtimeTotal + finalExtraAmount;
-        const ccssAmount = employee.ccssType === 'TC' ? CCSS_TC : CCSS_MT;
+        
+        // Obtener configuración CCSS para esta empresa
+        const empresaName = locationData.location.label;
+        const ccssConfig = getCcssConfigForEmpresa(empresaName);
+        const ccssAmount = employee.ccssType === 'TC' ? ccssConfig.tc : ccssConfig.mt;
+        
         const totalDeductions = ccssAmount + deductions.compras + deductions.adelanto + deductions.otros;
         const finalNetSalary = totalIncome - totalDeductions;
 
@@ -453,7 +498,7 @@ export default function PayrollExporter({
         };
       })
     }));
-  }, [payrollData, getEmployeeDeductions]);
+  }, [payrollData, getEmployeeDeductions, getCcssConfigForEmpresa]);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -546,7 +591,13 @@ export default function PayrollExporter({
     const regularTotal = employee.regularSalary * employee.totalHours;
     const finalExtraAmount = deductions.extraAmount > 0 ? deductions.extraAmount : employee.extraAmount;
     const totalIncome = regularTotal + finalExtraAmount;
-    const ccssAmount = employee.ccssType === 'TC' ? CCSS_TC : CCSS_MT;
+    
+    // Obtener configuración CCSS para esta empresa
+    const location = locations.find(loc => loc.value === locationName);
+    const empresaName = location?.label || locationName;
+    const ccssConfig = getCcssConfigForEmpresa(empresaName);
+    const ccssAmount = employee.ccssType === 'TC' ? ccssConfig.tc : ccssConfig.mt;
+    
     const totalDeductions = ccssAmount + deductions.compras + deductions.adelanto + deductions.otros;
     const finalNetSalary = totalIncome - totalDeductions;
 

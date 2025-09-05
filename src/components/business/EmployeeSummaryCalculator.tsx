@@ -6,6 +6,7 @@ import { Clock, DollarSign, CalendarDays, TrendingUp, Minus } from 'lucide-react
 import { CcssConfigService } from '../../services/ccss-config';
 import { SchedulesService, ScheduleEntry } from '../../services/schedules';
 import { EmpresasService } from '../../services/empresas';
+import { useAuth } from '../../hooks/useAuth';
 
 interface EmployeeData {
   name: string;
@@ -45,7 +46,8 @@ export function useEmployeeData(
   year: number,
   month: number,
   daysToShow: number[],
-  employee?: EmployeeData
+  employee?: EmployeeData,
+  user?: any
 ) {
   const [scheduleData, setScheduleData] = useState<ScheduleData>({});
   const [ccssConfig, setCcssConfig] = useState({ mt: 3672.46, tc: 11017.39 });
@@ -58,9 +60,42 @@ export function useEmployeeData(
         setLoading(true);
         setError(null);
 
+        // Obtener información de la empresa
+        const empresas = await EmpresasService.getAllEmpresas();
+        const currentEmpresa = empresas.find(e => 
+          e.ubicacion === locationValue || e.name === locationValue || e.id === locationValue
+        );
+        const empresaName = currentEmpresa?.name || locationValue;
+
+        console.log('🔍 CCSS Matching Debug:', {
+          locationValue,
+          currentEmpresa: currentEmpresa ? { name: currentEmpresa.name, ubicacion: currentEmpresa.ubicacion } : null,
+          empresaName
+        });
+
         // Obtener configuración de CCSS
-        const config = await CcssConfigService.getCcssConfig();
-        setCcssConfig({ mt: config.mt, tc: config.tc });
+        const userOwnerId = user?.ownerId || user?.id || '';
+        const config = await CcssConfigService.getCcssConfig(userOwnerId);
+        
+        console.log('📋 CCSS Config available:', {
+          configExists: !!config,
+          companieCount: config?.companie?.length || 0,
+          companieList: config?.companie?.map(comp => comp.ownerCompanie) || []
+        });
+        
+        // Buscar la configuración específica para esta empresa por nombre
+        const companyConfig = config?.companie?.find(comp => comp.ownerCompanie === empresaName);
+        
+        console.log('✅ CCSS Match Result:', {
+          empresaName,
+          companyConfig: companyConfig ? { ownerCompanie: companyConfig.ownerCompanie, mt: companyConfig.mt, tc: companyConfig.tc } : null,
+          matched: !!companyConfig
+        });
+
+        setCcssConfig({ 
+          mt: companyConfig?.mt || 3672.46, 
+          tc: companyConfig?.tc || 11017.39 
+        });
 
         // Obtener horarios del empleado para el mes específico
         const schedules = await SchedulesService.getSchedulesByLocationEmployeeMonth(
@@ -90,7 +125,7 @@ export function useEmployeeData(
     if (employeeName && locationValue && year && month) {
       fetchData();
     }
-  }, [employeeName, locationValue, year, month]);
+  }, [employeeName, locationValue, year, month, user?.id, user?.ownerId]);
 
   const calculateEmployeeSummary = (): EmployeeSummary => {
     const hoursPerShift = employee?.hoursPerShift || 8;
@@ -101,7 +136,7 @@ export function useEmployeeData(
     const workedDays = shifts.filter((s: string) => s === 'N' || s === 'D').length;
     const hours = workedDays * hoursPerShift;
 
-    // Calcular tarifa por hora basada en el tipo de CCSS
+    // Calcular tarifa por hora basada en el tipo de CCSS - usar valores del estado local
     const ccssAmount = ccssType === 'TC' ? ccssConfig.tc : ccssConfig.mt;
     const totalColones = ccssAmount + extraAmount;
     const hourlyRate = totalColones / (22 * hoursPerShift); // Asumiendo 22 días laborales promedio
@@ -177,6 +212,8 @@ export default function EmployeeSummaryCalculator({
   className = '',
   showFullDetails = true
 }: EmployeeSummaryCalculatorProps) {
+  const { user } = useAuth();
+  
   // Obtener información del empleado desde la ubicación
   const { employee, loading: employeeLoading, error: employeeError } = useEmployeeInfo(employeeName, locationValue);
 
@@ -188,7 +225,7 @@ export default function EmployeeSummaryCalculator({
     error: dataError,
     calculateEmployeeSummary,
     hourlyRate
-  } = useEmployeeData(employeeName, locationValue, year, month, daysToShow, employee || undefined);
+  } = useEmployeeData(employeeName, locationValue, year, month, daysToShow, employee || undefined, user);
 
   const loading = employeeLoading || dataLoading;
   const error = employeeError || dataError;
@@ -333,11 +370,13 @@ export async function calculateEmployeeSummaryFromDB(
   year: number,
   month: number,
   daysToShow: number[],
-  employee?: EmployeeData
+  employee?: EmployeeData,
+  user?: any
 ): Promise<EmployeeSummary> {
   try {
     // Obtener configuración de CCSS
-    const ccssConfig = await CcssConfigService.getCcssConfig();
+    const userOwnerId = user?.ownerId || user?.id || '';
+    const ccssConfig = await CcssConfigService.getCcssConfig(userOwnerId, locationValue);
 
     // Obtener horarios del empleado
     const schedules = await SchedulesService.getSchedulesByLocationEmployeeMonth(
@@ -361,8 +400,11 @@ export async function calculateEmployeeSummaryFromDB(
     const workedDays = shifts.filter((s: string) => s === 'N' || s === 'D').length;
     const hours = workedDays * hoursPerShift;
 
+    // Buscar la configuración específica para esta empresa
+    const companyConfig = ccssConfig?.companie?.find(comp => comp.ownerCompanie === locationValue);
+    
     // Calcular tarifa por hora basada en el tipo de CCSS
-    const ccssAmount = ccssType === 'TC' ? ccssConfig.tc : ccssConfig.mt;
+    const ccssAmount = ccssType === 'TC' ? (companyConfig?.tc || 11017.39) : (companyConfig?.mt || 3672.46);
     const totalColones = ccssAmount + extraAmount;
     const hourlyRate = totalColones / (22 * hoursPerShift); // Asumiendo 22 días laborales promedio
 
