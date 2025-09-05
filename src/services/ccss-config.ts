@@ -1,5 +1,5 @@
 import { FirestoreService } from './firestore';
-import { CcssConfig } from '../types/firestore';
+import { CcssConfig, companies } from '../types/firestore';
 
 export class CcssConfigService {
   private static readonly COLLECTION_NAME = 'ccss-config';
@@ -14,7 +14,8 @@ export class CcssConfigService {
       // Find config by ownerId and optionally by ownerCompanie
       const config = configs.find((config: CcssConfig) => {
         if (ownerCompanie) {
-          return config.ownerId === ownerId && config.ownerCompanie === ownerCompanie;
+          return config.ownerId === ownerId && 
+                 config.companie?.some(company => company.ownerCompanie === ownerCompanie);
         }
         return config.ownerId === ownerId;
       });
@@ -36,10 +37,11 @@ export class CcssConfigService {
     };
 
     try {
-      // Check if config exists for this owner and company
-      const existingConfig = await this.getCcssConfig(config.ownerId, config.ownerCompanie);
+      // Check if config exists for this owner
+      const existingConfig = await this.getCcssConfig(config.ownerId);
 
       if (existingConfig && existingConfig.id) {
+        // Update existing config - merge or replace the companies array
         await FirestoreService.update(this.COLLECTION_NAME, existingConfig.id, configWithTimestamp);
       } else {
         // Create new config document
@@ -81,13 +83,11 @@ export class CcssConfigService {
    */
   static async createCcssConfig(
     ownerId: string,
-    ownerCompanie: string,
-    config: { mt: number; tc: number; valorhora: number; horabruta: number }
+    companieData: companies[]
   ): Promise<void> {
-    const configData = {
+    const configData: Omit<CcssConfig, 'id'> = {
       ownerId,
-      ownerCompanie,
-      ...config,
+      companie: companieData,
       updatedAt: new Date()
     };
 

@@ -76,10 +76,10 @@ export class BackupService {
   /**
    * Generate backup of CCSS configuration
    */
-  static async generateCcssBackup(exportedBy: string): Promise<BackupData> {
+  static async generateCcssBackup(exportedBy: string, ownerId: string): Promise<BackupData> {
     try {
       // Get CCSS configuration
-      const ccssConfig = await CcssConfigService.getCcssConfig();
+      const ccssConfig = await CcssConfigService.getCcssConfig(ownerId);
 
       // Get entire collection for complete backup
       const ccssCollection = await FirestoreService.getAll('ccss-config');
