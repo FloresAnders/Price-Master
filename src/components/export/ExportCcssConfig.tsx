@@ -1,11 +1,15 @@
 "use client";
 import React from 'react';
 import { CcssConfigService } from '../../services/ccss-config';
+import { useAuth } from '../../hooks/useAuth';
 
 export default function ExportCcssConfig() {
+    const { user } = useAuth();
+    
     const handleExport = async () => {
         try {
-            const config = await CcssConfigService.getCcssConfig();
+            const userOwnerId = user?.ownerId || user?.id || '';
+            const config = await CcssConfigService.getCcssConfig(userOwnerId);
             const data = JSON.stringify(config, null, 2);
             const blob = new Blob([data], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
