@@ -24,6 +24,8 @@ export default function PriceCalculator() {
   const [precioSinIVA, setPrecioSinIVA] = useState<string>('');
   const [precioConIVA, setPrecioConIVA] = useState<string>('');
   const [ivaSeleccionado, setIvaSeleccionado] = useState<number>(13);
+  const [ivaPersonalizado, setIvaPersonalizado] = useState<string>('');
+  const [usandoIvaPersonalizado, setUsandoIvaPersonalizado] = useState<boolean>(false);
   const [descuento, setDescuento] = useState<string>('');
   const [utilidad, setUtilidad] = useState<string>('');
   const [precioFinal, setPrecioFinal] = useState<string>('');
@@ -224,10 +226,29 @@ export default function PriceCalculator() {
 
   const handleIVAChange = (nuevoIVA: number) => {
     setIvaSeleccionado(nuevoIVA);
+    setUsandoIvaPersonalizado(false);
+    setIvaPersonalizado('');
     if (precioSinIVA && actualizandoDesde === 'sinIVA') {
       setActualizandoDesde('sinIVA');
     } else if (precioConIVA && actualizandoDesde === 'conIVA') {
       setActualizandoDesde('conIVA');
+    }
+  };
+
+  const handleIvaPersonalizadoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const valor = e.target.value;
+    setIvaPersonalizado(valor);
+    
+    const ivaNum = parseFloat(valor);
+    if (!isNaN(ivaNum) && ivaNum >= 0 && ivaNum <= 100) {
+      setIvaSeleccionado(ivaNum);
+      setUsandoIvaPersonalizado(true);
+      
+      if (precioSinIVA && actualizandoDesde === 'sinIVA') {
+        setActualizandoDesde('sinIVA');
+      } else if (precioConIVA && actualizandoDesde === 'conIVA') {
+        setActualizandoDesde('conIVA');
+      }
     }
   };
 
@@ -258,12 +279,12 @@ export default function PriceCalculator() {
       {/* Selector de IVA */}
       <div className="mb-6">
         <label className="block text-sm font-medium mb-3">IVA</label>
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap mb-3">
           {IVA_OPTIONS.map((opcion) => (
             <button
               key={opcion.value}
               onClick={() => handleIVAChange(opcion.value)}
-              className={`px-4 py-2 rounded-md border transition-colors ${ivaSeleccionado === opcion.value
+              className={`px-4 py-2 rounded-md border transition-colors ${ivaSeleccionado === opcion.value && !usandoIvaPersonalizado
                   ? 'bg-blue-600 text-white border-blue-600'
                   : 'bg-transparent border-gray-300 hover:border-blue-500'
                 }`}
@@ -271,6 +292,28 @@ export default function PriceCalculator() {
               {opcion.label}
             </button>
           ))}
+        </div>
+        
+        {/* Campo para IVA personalizado */}
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium whitespace-nowrap">IVA personalizado (%):</label>
+          <input
+            type="number"
+            value={ivaPersonalizado}
+            onChange={handleIvaPersonalizadoChange}
+            className={`w-24 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black ${
+              usandoIvaPersonalizado ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
+            }`}
+            placeholder="0"
+            step="0.01"
+            min="0"
+            max="100"
+          />
+          {usandoIvaPersonalizado && (
+            <span className="text-sm text-blue-600 font-medium">
+              Usando {ivaSeleccionado}%
+            </span>
+          )}
         </div>
       </div>
 
