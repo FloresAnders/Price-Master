@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { usePathname } from 'next/navigation';
+import { useLocation } from 'react-router-dom';
 import Header from './Header';
 
 type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'supplierorders' | 'histoscans' | 'scanhistory' | 'edit';
@@ -9,7 +9,8 @@ type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timin
 export default function HeaderWrapper() {
   const [activeTab, setActiveTab] = useState<ActiveTab | null>(null);
   const [isClient, setIsClient] = useState(false);
-  const pathname = usePathname();
+  const location = useLocation();
+  const pathname = location.pathname;
 
   // Ensure component is mounted on client
   useEffect(() => {

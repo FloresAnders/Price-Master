@@ -1,8 +1,6 @@
 // src/hooks/useRouteProtection.ts
-'use client';
-
 import { useEffect, useState } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from './useAuth';
 
 interface RouteProtectionConfig {
@@ -25,8 +23,9 @@ export function useRouteProtection(config: RouteProtectionConfig = {}) {
   } = config;
 
   const { user, isAuthenticated, loading, isSuperAdmin, isAdmin } = useAuth();
-  const router = useRouter();
-  const pathname = usePathname();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const pathname = location.pathname;
   const [accessGranted, setAccessGranted] = useState(false);
   const [accessChecked, setAccessChecked] = useState(false);
 
@@ -71,7 +70,7 @@ export function useRouteProtection(config: RouteProtectionConfig = {}) {
       if (onUnauthorized) {
         onUnauthorized();
       } else {
-        router.push(redirectTo);
+        navigate(redirectTo);
       }
       return;
     }
@@ -99,7 +98,7 @@ export function useRouteProtection(config: RouteProtectionConfig = {}) {
         if (onAccessDenied) {
           onAccessDenied();
         } else {
-          router.push(redirectTo);
+          navigate(redirectTo);
         }
         return;
       }
@@ -115,7 +114,7 @@ export function useRouteProtection(config: RouteProtectionConfig = {}) {
         if (onAccessDenied) {
           onAccessDenied();
         } else {
-          router.push(redirectTo);
+          navigate(redirectTo);
         }
         return;
       }
@@ -135,7 +134,7 @@ export function useRouteProtection(config: RouteProtectionConfig = {}) {
     allowedRoles,
     requireAuth,
     pathname,
-    router,
+    navigate,
     redirectTo,
     onUnauthorized,
     onAccessDenied

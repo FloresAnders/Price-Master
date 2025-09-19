@@ -1,6 +1,5 @@
 'use client';
 import React, { useCallback, useRef, useEffect, useState } from 'react';
-import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Check as CheckIcon,
@@ -249,13 +248,11 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                         {/* Imagen escaneada preview */}
                         {imagePreview && (
                           <div className="mb-4">
-                            <Image
+                            <img
                               src={imagePreview}
                               alt="Imagen escaneada"
-                              width={300}
-                              height={200}
                               className="max-w-sm mx-auto rounded-lg border border-[var(--input-border)] shadow-sm object-contain"
-                              unoptimized
+                              style={{ maxWidth: '300px', maxHeight: '200px' }}
                             />
                           </div>
                         )}

@@ -1,6 +1,11 @@
 import { dirname } from "path";
 import { fileURLToPath } from "url";
 import { FlatCompat } from "@eslint/eslintrc";
+import js from '@eslint/js'
+import tseslint from '@typescript-eslint/eslint-plugin'
+import tsparser from '@typescript-eslint/parser'
+import reactPlugin from 'eslint-plugin-react'
+import reactHooksPlugin from 'eslint-plugin-react-hooks'
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -10,9 +15,24 @@ const compat = new FlatCompat({
 });
 
 const eslintConfig = [
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
+  js.configs.recommended,
   {
-    // Project-specific rule overrides to reduce strict build-time failures.
+    files: ['**/*.{js,jsx,ts,tsx}'],
+    languageOptions: {
+      parser: tsparser,
+      parserOptions: {
+        ecmaVersion: 'latest',
+        sourceType: 'module',
+        ecmaFeatures: {
+          jsx: true,
+        },
+      },
+    },
+    plugins: {
+      '@typescript-eslint': tseslint,
+      'react': reactPlugin,
+      'react-hooks': reactHooksPlugin,
+    },
     rules: {
       // Allow `any` in places the codebase currently uses it.
       "@typescript-eslint/no-explicit-any": "off",
@@ -22,6 +42,8 @@ const eslintConfig = [
       "@typescript-eslint/no-unused-vars": "warn",
       // Keep react-hooks warnings as warnings (not errors).
       "react-hooks/exhaustive-deps": "warn",
+      // Allow unused vars that start with underscore
+      "no-unused-vars": "off",
     },
   },
 ];

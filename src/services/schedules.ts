@@ -1,4 +1,5 @@
 import { FirestoreService } from './firestore';
+import { EmpresasService } from './empresas';
 
 export interface ScheduleEntry {
   id?: string;
@@ -162,7 +163,6 @@ export class SchedulesService {
 
         if (shift === 'D' || shift === 'N') {
           try {
-            const { EmpresasService } = await import('./empresas');
             const empresas = await EmpresasService.getAllEmpresas();
             const empresa = empresas.find(emp => emp.name.toLowerCase() === locationValue.toLowerCase());
             const employee = empresa?.empleados?.find(emp => emp.Empleado === employeeName);

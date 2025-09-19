@@ -1,8 +1,8 @@
-// src/components/ControlHorario.tsx
+﻿// src/components/ControlHorario.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import Image from 'next/image';
+
 import { Clock, ChevronLeft, ChevronRight, Save, User as UserIcon, Lock, Unlock, Info } from 'lucide-react';
 import { EmpresasService } from '../../services/empresas';
 import { SchedulesService } from '../../services/schedules';
@@ -30,7 +30,7 @@ interface MappedEmpresa {
 }
 
 interface ControlHorarioProps {
-  // Usuario opcional para funcionalidades de autorización (admin, etc.)
+  // Usuario opcional para funcionalidades de autorizaciÃ³n (admin, etc.)
   currentUser?: FirestoreUser | null;
 }
 
@@ -72,7 +72,7 @@ function EmployeeTooltipSummary({
   React.useEffect(() => {
     const fetchSummary = async () => {
       try {
-        // Obtener información de la empresa que contiene los empleados
+        // Obtener informaciÃ³n de la empresa que contiene los empleados
       const empresas = await EmpresasService.getAllEmpresas();
       const currentEmpresa = empresas.find(e => e.ubicacion === empresaValue || e.name === empresaValue || e.id === empresaValue);
   const rawEmp = currentEmpresa?.empleados?.find((emp: import('../../types/firestore').EmpresaEmpleado) => emp.Empleado === employeeName);
@@ -91,14 +91,14 @@ function EmployeeTooltipSummary({
           month // Usar JavaScript month (0-11) para consistencia
         );
 
-        // Obtener configuración CCSS actualizada
+        // Obtener configuraciÃ³n CCSS actualizada
         const userOwnerId = user?.ownerId || user?.id || '';
         const ccssConfig = await CcssConfigService.getCcssConfig(userOwnerId);
         
-        // Obtener el nombre de la empresa para buscar en la configuración CCSS
+        // Obtener el nombre de la empresa para buscar en la configuraciÃ³n CCSS
         const empresaName = currentEmpresa?.name || empresaValue;
 
-        console.log('🔍 ControlHorario CCSS Debug:', {
+        console.log('ðŸ” ControlHorario CCSS Debug:', {
           empresaValue,
           currentEmpresa: currentEmpresa ? { name: currentEmpresa.name, ubicacion: currentEmpresa.ubicacion } : null,
           empresaName,
@@ -115,7 +115,7 @@ function EmployeeTooltipSummary({
             return total + hours;
           }, 0);
 
-          // Para DELIFOOD, los "días trabajados" son los días que tienen horas > 0
+          // Para DELIFOOD, los "dÃ­as trabajados" son los dÃ­as que tienen horas > 0
           workedDaysInPeriod = daysToShow.filter(day => {
             const hours = delifoodHoursData[employeeName]?.[day.toString()]?.hours || 0;
             return hours > 0;
@@ -124,7 +124,7 @@ function EmployeeTooltipSummary({
           // Para ubicaciones normales, usar datos REALES de la BD
           const scheduleMap = new Map<number, { shift: string; horasPorDia?: number }>();
 
-          // Crear mapa de horarios por día
+          // Crear mapa de horarios por dÃ­a
           schedules.forEach((schedule) => {
             scheduleMap.set(schedule.day, {
               shift: schedule.shift,
@@ -132,14 +132,14 @@ function EmployeeTooltipSummary({
             });
           });
 
-          // Calcular días trabajados y horas totales basado en el período mostrado (daysToShow)
+          // Calcular dÃ­as trabajados y horas totales basado en el perÃ­odo mostrado (daysToShow)
           daysToShow.forEach(day => {
             const daySchedule = scheduleMap.get(day);
 
             if (daySchedule && (daySchedule.shift === 'N' || daySchedule.shift === 'D')) {
               workedDaysInPeriod++;
 
-              // Usar horasPorDia de la BD si está disponible, sino usar hoursPerShift del empleado
+              // Usar horasPorDia de la BD si estÃ¡ disponible, sino usar hoursPerShift del empleado
               if (daySchedule.horasPorDia && daySchedule.horasPorDia > 0) {
                 totalHours += daySchedule.horasPorDia;
               } else {
@@ -151,7 +151,7 @@ function EmployeeTooltipSummary({
           });
         }
 
-        // **CÁLCULOS DE SALARIO BASADOS EN DATOS REALES**
+        // **CÃLCULOS DE SALARIO BASADOS EN DATOS REALES**
         const ccssType = employee?.ccssType || 'MT';
         const extraAmount = employee?.extraAmount || 0;
 
@@ -162,34 +162,34 @@ function EmployeeTooltipSummary({
         let hourlyRate = 0;
 
         if (totalHours > 0) {
-          // Buscar la configuración específica para esta empresa por nombre
+          // Buscar la configuraciÃ³n especÃ­fica para esta empresa por nombre
           const companyConfig = ccssConfig?.companie?.find(comp => comp.ownerCompanie === empresaName);
           
-          console.log('🎯 ControlHorario CCSS Match:', {
+          console.log('ðŸŽ¯ ControlHorario CCSS Match:', {
             empresaName,
             availableConfigs: ccssConfig?.companie?.map(comp => comp.ownerCompanie) || [],
             companyConfig: companyConfig ? { ownerCompanie: companyConfig.ownerCompanie, tc: companyConfig.tc, mt: companyConfig.mt } : null,
             matched: !!companyConfig
           });
           
-          // Usar horabruta de la configuración CCSS obtenida desde la base de datos
+          // Usar horabruta de la configuraciÃ³n CCSS obtenida desde la base de datos
           hourlyRate = companyConfig?.horabruta || 1529.62; // valor por defecto
 
-          // Calcular salario bruto: horas trabajadas × valor por hora
+          // Calcular salario bruto: horas trabajadas Ã— valor por hora
           grossSalary = totalHours * hourlyRate;
 
-          // Deducción CCSS según el tipo de empleado
+          // DeducciÃ³n CCSS segÃºn el tipo de empleado
           const ccssAmount = ccssType === 'TC' ? (companyConfig?.tc || 11017.39) : (companyConfig?.mt || 3672.46);
           ccssDeduction = ccssAmount;
 
-          // Salario neto = bruto - deducción CCSS + monto extra
+          // Salario neto = bruto - deducciÃ³n CCSS + monto extra
           netSalary = grossSalary - ccssDeduction + extraAmount;
         } else {
           // Si no hay horas trabajadas, pero hay extraAmount, solo mostrar el extra
           netSalary = extraAmount;
         }
 
-        console.log(`📊 Tooltip Summary for ${employeeName}:`, {
+        console.log(`ðŸ“Š Tooltip Summary for ${employeeName}:`, {
           workedDaysInPeriod,
           totalHours,
           hourlyRate: hourlyRate.toFixed(2),
@@ -232,14 +232,14 @@ function EmployeeTooltipSummary({
 
   return (
     <>
-      <div><b>{isDelifoodEmpresa ? 'Días con horas:' : 'Días trabajados:'}</b> {summary.workedDays}</div>
+      <div><b>{isDelifoodEmpresa ? 'DÃ­as con horas:' : 'DÃ­as trabajados:'}</b> {summary.workedDays}</div>
       <div><b>Horas trabajadas:</b> {summary.hours}</div>
-      <div><b>Total bruto:</b> ₡{summary.colones.toLocaleString('es-CR')}</div>
-      <div><b>CCSS:</b> -₡{summary.ccss.toLocaleString('es-CR', { minimumFractionDigits: 2 })}</div>
+      <div><b>Total bruto:</b> â‚¡{summary.colones.toLocaleString('es-CR')}</div>
+      <div><b>CCSS:</b> -â‚¡{summary.ccss.toLocaleString('es-CR', { minimumFractionDigits: 2 })}</div>
       {summary.extraAmount > 0 && (
-        <div><b>Monto extra:</b> +₡{summary.extraAmount.toLocaleString('es-CR', { minimumFractionDigits: 2 })}</div>
+        <div><b>Monto extra:</b> +â‚¡{summary.extraAmount.toLocaleString('es-CR', { minimumFractionDigits: 2 })}</div>
       )}
-      <div><b>Salario neto:</b> ₡{summary.neto.toLocaleString('es-CR', { minimumFractionDigits: 2 })}</div>
+      <div><b>Salario neto:</b> â‚¡{summary.neto.toLocaleString('es-CR', { minimumFractionDigits: 2 })}</div>
     </>
   );
 }
@@ -250,8 +250,8 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
 
   // Siempre usar el usuario del prop (puede ser null), si no hay prop usar el del auth
   const user = propCurrentUser || authUser;
-  // Empresa asignada: usar únicamente `ownercompanie` (no usar legacy `location`)
-  // Se creará un mapeo a `empresa.value` (assignedEmpresaValue) cuando se carguen
+  // Empresa asignada: usar Ãºnicamente `ownercompanie` (no usar legacy `location`)
+  // Se crearÃ¡ un mapeo a `empresa.value` (assignedEmpresaValue) cuando se carguen
   // las empresas para garantizar comparaciones correctas.
   const assignedEmpresa = user?.ownercompanie;
 
@@ -279,7 +279,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
   const [modalLoading, setModalLoading] = useState(false);
   const [editPastDaysEnabled, setEditPastDaysEnabled] = useState(false);
   const [unlockPastDaysModal, setUnlockPastDaysModal] = useState(false);
-  // Estado para exportación y QR
+  // Estado para exportaciÃ³n y QR
   const [isExporting, setIsExporting] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   const [qrCodeDataURL, setQRCodeDataURL] = useState('');
@@ -349,7 +349,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
           }))
         }));
         setEmpresas(mapped);
-        // Resolver el `ownercompanie` del usuario únicamente al `value` de las empresas
+        // Resolver el `ownercompanie` del usuario Ãºnicamente al `value` de las empresas
         // mapeadas. No usar legacy `user.location`.
         try {
           if (assignedEmpresa && mapped && mapped.length > 0) {
@@ -357,15 +357,15 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
             const resolved = mapped.find(m => {
               const mv = String(m.value || '').toLowerCase();
               const ml = String(m.label || '').toLowerCase();
-              // coincidencia estricta por label o value o inclusión (para casos como 'DELIKOR PALMARES' vs 'PALMARES')
+              // coincidencia estricta por label o value o inclusiÃ³n (para casos como 'DELIKOR PALMARES' vs 'PALMARES')
               return mv === assignedStr || ml === assignedStr || ml.includes(assignedStr) || assignedStr.includes(mv);
             });
             if (resolved) {
-              console.log('🔗 Resolved ownercompanie to empresa value:', { assignedEmpresa, resolvedValue: resolved.value });
+              console.log('ðŸ”— Resolved ownercompanie to empresa value:', { assignedEmpresa, resolvedValue: resolved.value });
               setAssignedEmpresaValue(String(resolved.value));
               if (!empresa) setEmpresa(String(resolved.value));
             } else {
-              // Si no se resolvió, dejar assignedEmpresaValue en null (no hacer fallback)
+              // Si no se resolviÃ³, dejar assignedEmpresaValue en null (no hacer fallback)
               setAssignedEmpresaValue(null);
             }
           }
@@ -385,7 +385,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
 
   // Efecto principal para manejar la empresa del usuario
   useEffect(() => {
-    console.log('🔍 Efecto empresa ejecutándose:', {
+    console.log('ðŸ” Efecto empresa ejecutÃ¡ndose:', {
       usuario: user?.name,
       rol: user?.role,
       empresaAsignada: assignedEmpresa,
@@ -395,14 +395,14 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
 
     // Si no hay usuario, no hacer nada
     if (!user) {
-      console.log('❌ No hay usuario, saliendo...');
+      console.log('âŒ No hay usuario, saliendo...');
       return;
     }
 
-    // Para usuarios con rol "user": FORZAR únicamente la empresa asignada (ownercompanie resuelta al value)
+    // Para usuarios con rol "user": FORZAR Ãºnicamente la empresa asignada (ownercompanie resuelta al value)
     const forcedCompanyValue = assignedEmpresaValue;
     if (user.role === 'user' && forcedCompanyValue) {
-      console.log(`🔒 USUARIO RESTRINGIDO: "${user.name}" (rol: user) DEBE usar empresa (value): ${forcedCompanyValue}`);
+      console.log(`ðŸ”’ USUARIO RESTRINGIDO: "${user.name}" (rol: user) DEBE usar empresa (value): ${forcedCompanyValue}`);
       setEmpresa(forcedCompanyValue);
       return;
     }
@@ -410,7 +410,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
   // Para otros roles: si tienen ownercompanie/empresa asignada y no hay una seleccionada, usarla como default
     if (assignedEmpresaValue && !empresa) {
       const defaultCompany = assignedEmpresaValue;
-      console.log(`🏢 CARGA AUTOMÁTICA: Mostrando empresa asignada (value) para usuario "${user.name}" (${user.role}): ${defaultCompany}`);
+      console.log(`ðŸ¢ CARGA AUTOMÃTICA: Mostrando empresa asignada (value) para usuario "${user.name}" (${user.role}): ${defaultCompany}`);
       setEmpresa(String(defaultCompany));
     }
   }, [user, empresa, assignedEmpresa, assignedEmpresaValue]); // Incluir empresa como dependencia
@@ -420,7 +420,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
     // Usar el valor resuelto (assignedEmpresaValue) porque `empresa` almacena el `value`
     const forcedCompanyValue = assignedEmpresaValue;
     if (user?.role === 'user' && forcedCompanyValue && empresa && empresa !== forcedCompanyValue) {
-      console.warn(`🚫 BLOQUEO: Usuario "${user?.name}" (rol: user) intentó cambiar a empresa "${empresa}". Forzando regreso a "${forcedCompanyValue}"`);
+      console.warn(`ðŸš« BLOQUEO: Usuario "${user?.name}" (rol: user) intentÃ³ cambiar a empresa "${empresa}". Forzando regreso a "${forcedCompanyValue}"`);
       setEmpresa(forcedCompanyValue);
       showNotification(`Acceso restringido. Solo puedes ver: ${forcedCompanyValue}`, 'error');
     }
@@ -431,9 +431,9 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
     const loadScheduleData = async () => {
   if (!empresa || !empresas.find(l => l.value === empresa)?.names?.length) return;
 
-      // Validación de seguridad: usuarios con rol "user" solo pueden acceder a su empresa asignada (resolved value)
+      // ValidaciÃ³n de seguridad: usuarios con rol "user" solo pueden acceder a su empresa asignada (resolved value)
       if (user?.role === 'user' && assignedEmpresaValue && empresa !== assignedEmpresaValue) {
-        console.warn(`🚫 Usuario "${user.name}" (rol: user) intentando acceder a empresa no autorizada: ${empresa}. Empresa asignada (value): ${assignedEmpresaValue}`);
+        console.warn(`ðŸš« Usuario "${user.name}" (rol: user) intentando acceder a empresa no autorizada: ${empresa}. Empresa asignada (value): ${assignedEmpresaValue}`);
         setEmpresa(String(assignedEmpresaValue));
         showNotification('Acceso restringido a tu empresa asignada', 'error');
         return;
@@ -445,10 +445,10 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
 
       try {
         // Determinar el mes correcto para la consulta
-        // Si los datos históricos están guardados con JavaScript month (0-11), usar month
-        // Si están guardados con calendario month (1-12), usar month + 1
-        const dbMonth = month; // Temporal: usar month directamente para ver datos históricos
-        console.log('🧪 TESTING: Querying with JavaScript month (0-11):', dbMonth);
+        // Si los datos histÃ³ricos estÃ¡n guardados con JavaScript month (0-11), usar month
+        // Si estÃ¡n guardados con calendario month (1-12), usar month + 1
+        const dbMonth = month; // Temporal: usar month directamente para ver datos histÃ³ricos
+        console.log('ðŸ§ª TESTING: Querying with JavaScript month (0-11):', dbMonth);
         console.log('Current month displayed:', new Date(year, month).toLocaleDateString('es-CR', { month: 'long' }));
 
           const scheduleEntries: ScheduleEntry[][] = await Promise.all(
@@ -465,10 +465,10 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
         console.log('Month queried in DB:', dbMonth);
         console.log('Raw Schedule entries from DB:', scheduleEntries);
 
-        // Verificar qué meses están realmente en los datos
+        // Verificar quÃ© meses estÃ¡n realmente en los datos
         scheduleEntries.forEach((employeeEntries, employeeIndex) => {
           const employeeName = names[employeeIndex];
-          console.log(`📋 Employee ${employeeName} entries:`, employeeEntries.map(entry => ({
+          console.log(`ðŸ“‹ Employee ${employeeName} entries:`, employeeEntries.map(entry => ({
             day: entry.day,
             month: entry.month,
             year: entry.year,
@@ -484,12 +484,12 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
           names.forEach((employeeName, index) => {
             newDelifoodData[employeeName] = {};
 
-            // Solo agregar días que realmente tienen datos en Firestore
+            // Solo agregar dÃ­as que realmente tienen datos en Firestore
             scheduleEntries[index].forEach((entry: ScheduleEntry) => {
                   if (entry.horasPorDia !== undefined && entry.horasPorDia !== null && entry.horasPorDia > 0) {
                 const hours = entry.horasPorDia;
                 newDelifoodData[employeeName][entry.day.toString()] = { hours };
-                console.log(`✅ DELIFOOD data loaded: ${employeeName} - day ${entry.day} - hours: ${hours} (raw: ${entry.horasPorDia}) - month: ${entry.month}`);
+                console.log(`âœ… DELIFOOD data loaded: ${employeeName} - day ${entry.day} - hours: ${hours} (raw: ${entry.horasPorDia}) - month: ${entry.month}`);
               }
             });
 
@@ -507,13 +507,13 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
             // Para todas las ubicaciones, incluir en la tabla si hay turno asignado
             if (entry.shift && entry.shift.trim() !== '') {
               newScheduleData[employeeName][entry.day.toString()] = entry.shift;
-              console.log(`📅 Schedule data: ${employeeName} - day ${entry.day} - shift: ${entry.shift} - month: ${entry.month}`);
+              console.log(`ðŸ“… Schedule data: ${employeeName} - day ${entry.day} - shift: ${entry.shift} - month: ${entry.month}`);
             }
           });
         });
 
         setScheduleData(newScheduleData);
-        console.log('🎯 Final schedule data loaded:', newScheduleData);
+        console.log('ðŸŽ¯ Final schedule data loaded:', newScheduleData);
       } catch (error) {
         console.error('Error loading schedule data:', error);
       }
@@ -522,7 +522,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
     loadScheduleData();
   }, [empresa, empresas, currentDate, isDelifoodEmpresa, loading, user, assignedEmpresaValue]); // Agregar user como dependencia
 
-  // --- AUTO-QUINCENA: Detectar y mostrar la quincena actual SOLO al cargar el mes actual por PRIMERA VEZ en la sesión ---
+  // --- AUTO-QUINCENA: Detectar y mostrar la quincena actual SOLO al cargar el mes actual por PRIMERA VEZ en la sesiÃ³n ---
   useEffect(() => {
     const today = new Date();
     const isCurrentMonth = today.getFullYear() === currentDate.getFullYear() && today.getMonth() === currentDate.getMonth();
@@ -537,7 +537,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
         setFullMonthView(false);
       }
       autoQuincenaRef.current = true;
-      console.log('🗓️ AUTO-QUINCENA aplicada:', today.getDate() > 15 ? 'Segunda quincena' : 'Primera quincena');
+      console.log('ðŸ—“ï¸ AUTO-QUINCENA aplicada:', today.getDate() > 15 ? 'Segunda quincena' : 'Primera quincena');
     }
   }, [loading, currentDate]);
 
@@ -593,12 +593,12 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
     );
   }
 
-  console.log('🚀 CONTROLHORARIO INICIADO');
-  console.log('📋 Props recibidos:', { propCurrentUser });
-  console.log('👤 Usuario procesado:', user);
+  console.log('ðŸš€ CONTROLHORARIO INICIADO');
+  console.log('ðŸ“‹ Props recibidos:', { propCurrentUser });
+  console.log('ðŸ‘¤ Usuario procesado:', user);
 
-  // Debug: mostrar información del usuario
-        console.log('🔍 ControlHorario - Usuario actual:', {
+  // Debug: mostrar informaciÃ³n del usuario
+        console.log('ðŸ” ControlHorario - Usuario actual:', {
               nombre: user?.name || 'No autenticado',
               rol: user?.role || 'Sin rol',
               ownercompanie: user?.ownercompanie || null,
@@ -607,23 +607,23 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
               objetoCompleto: user
             });
 
-  // Función para manejar cambios de empresa con validaciones
+  // FunciÃ³n para manejar cambios de empresa con validaciones
   const handleEmpresaChange = (newEmpresa: string) => {
     // Bloquear cambios para usuarios con rol "user"
     if (user?.role === 'user') {
   const forced = assignedEmpresaValue || assignedEmpresa || 'tu empresa asignada';
-  console.warn(`🚫 BLOQUEO: Usuario "${user?.name}" (rol: user) intentó cambiar empresa a "${newEmpresa}". Manteniendo: ${forced}`);
+  console.warn(`ðŸš« BLOQUEO: Usuario "${user?.name}" (rol: user) intentÃ³ cambiar empresa a "${newEmpresa}". Manteniendo: ${forced}`);
   showNotification('No tienes permisos para cambiar de empresa', 'error');
       return;
     }
-  console.log(`✅ Cambio de empresa autorizado para usuario "${user?.name}" (rol: ${user?.role}): ${newEmpresa}`);
+  console.log(`âœ… Cambio de empresa autorizado para usuario "${user?.name}" (rol: ${user?.role}): ${newEmpresa}`);
   setEmpresa(newEmpresa);
   };
 
   // Component helper functions and variables
   const names = empresas.find(l => l.value === empresa)?.names || [];
 
-  // Funciones de autorización simplificadas
+  // Funciones de autorizaciÃ³n simplificadas
   const userCanChangeEmpresa = () => {
     return user?.role === 'admin' || user?.role === 'superadmin';
   };
@@ -632,13 +632,13 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
     return user?.role === 'superadmin';
   };
 
-  // Obtener información del mes actual
+  // Obtener informaciÃ³n del mes actual
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   const monthName = currentDate.toLocaleDateString('es-CR', { month: 'long', year: 'numeric' });
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-  // Determinar qué días mostrar según el modo de vista o vista mensual completa
+  // Determinar quÃ© dÃ­as mostrar segÃºn el modo de vista o vista mensual completa
   const getDaysToShow = () => {
     if (fullMonthView) {
       return Array.from({ length: daysInMonth }, (_, i) => i + 1);
@@ -649,7 +649,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
       return Array.from({ length: daysInMonth - 15 }, (_, i) => i + 16);
     }
   };
-  const daysToShow = getDaysToShow();  // Función para actualizar un horario específico
+  const daysToShow = getDaysToShow();  // FunciÃ³n para actualizar un horario especÃ­fico
   const updateScheduleCell = async (employeeName: string, day: string, newValue: string) => {
     const currentValue = scheduleData[employeeName]?.[day] || '';
 
@@ -660,38 +660,38 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
       return;
     }
 
-    // Validar que solo pueda haber una persona por día con el mismo turno (N, D) - permitir máximo 2 L
+    // Validar que solo pueda haber una persona por dÃ­a con el mismo turno (N, D) - permitir mÃ¡ximo 2 L
     if (newValue && ['N', 'D'].includes(newValue)) {
-      // Verificar si ya hay alguien más con este turno en este día (solo para N y D)
+      // Verificar si ya hay alguien mÃ¡s con este turno en este dÃ­a (solo para N y D)
       const existingEmployee = Object.keys(scheduleData).find(employee =>
         employee !== employeeName && scheduleData[employee]?.[day] === newValue
       );
       if (existingEmployee) {
-        showNotification(`No se puede asignar el turno "${newValue}". ${existingEmployee} ya tiene este turno el día ${day}.`, 'error');
+        showNotification(`No se puede asignar el turno "${newValue}". ${existingEmployee} ya tiene este turno el dÃ­a ${day}.`, 'error');
         return;
       }
     }
 
-    // Validar que solo pueda haber máximo 2 personas con turno "L" por día
+    // Validar que solo pueda haber mÃ¡ximo 2 personas con turno "L" por dÃ­a
     if (newValue === 'L') {
       const employeesWithL = Object.keys(scheduleData).filter(employee =>
         employee !== employeeName && scheduleData[employee]?.[day] === 'L'
       );
       if (employeesWithL.length >= 2) {
-        showNotification(`No se puede asignar más turnos "L".\n Ya hay 2 empleados libres el día ${day}: ${employeesWithL.join(', ')}.`, 'error');
+        showNotification(`No se puede asignar mÃ¡s turnos "L".\n Ya hay 2 empleados libres el dÃ­a ${day}: ${employeesWithL.join(', ')}.`, 'error');
         return;
       }
     }
 
-    // Confirmar asignación de turno nuevo
+    // Confirmar asignaciÃ³n de turno nuevo
     if (!currentValue && ['N', 'D', 'L', 'V', 'I'].includes(newValue)) {
-      let confirmMessage = `¿Está seguro de asignar el turno "${newValue}" a ${employeeName} el día ${day}?`;
+      let confirmMessage = `Â¿EstÃ¡ seguro de asignar el turno "${newValue}" a ${employeeName} el dÃ­a ${day}?`;
 
-      // Mensajes específicos para los nuevos estados
+      // Mensajes especÃ­ficos para los nuevos estados
       if (newValue === 'V') {
-        confirmMessage = `¿Está seguro de marcar a ${employeeName} como "Vacaciones" el día ${day}?`;
+        confirmMessage = `Â¿EstÃ¡ seguro de marcar a ${employeeName} como "Vacaciones" el dÃ­a ${day}?`;
       } else if (newValue === 'I') {
-        confirmMessage = `¿Está seguro de marcar a ${employeeName} como "Incapacidad" el día ${day}?`;
+        confirmMessage = `Â¿EstÃ¡ seguro de marcar a ${employeeName} como "Incapacidad" el dÃ­a ${day}?`;
       }
 
       setConfirmModal({
@@ -708,12 +708,12 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
       return;
     }
 
-    // Confirmar cambio o eliminación de turno
+    // Confirmar cambio o eliminaciÃ³n de turno
     if (currentValue && ['N', 'D', 'L', 'V', 'I'].includes(currentValue) && currentValue !== newValue) {
       let confirmMessage = '';
       let actionType: 'delete' | 'change' = 'change';
       if (newValue === '' || newValue.trim() === '') {
-        // Mensaje específico según el tipo de estado que se está eliminando
+        // Mensaje especÃ­fico segÃºn el tipo de estado que se estÃ¡ eliminando
         let stateDescription = currentValue;
         if (currentValue === 'V') stateDescription = 'Vacaciones';
         else if (currentValue === 'I') stateDescription = 'Incapacidad';
@@ -721,10 +721,10 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
         else if (currentValue === 'N') stateDescription = 'Nocturno';
         else if (currentValue === 'D') stateDescription = 'Diurno';
 
-        confirmMessage = `¿Está seguro de eliminar "${stateDescription}" de ${employeeName} del día ${day}? Esto eliminará el registro de la base de datos.`;
+        confirmMessage = `Â¿EstÃ¡ seguro de eliminar "${stateDescription}" de ${employeeName} del dÃ­a ${day}? Esto eliminarÃ¡ el registro de la base de datos.`;
         actionType = 'delete';
       } else {
-        // Mensajes específicos para cambios
+        // Mensajes especÃ­ficos para cambios
         let fromDescription = currentValue;
         let toDescription = newValue;
 
@@ -736,7 +736,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
         else if (newValue === 'I') toDescription = 'Incapacidad';
         else if (newValue === 'L') toDescription = 'Libre';
 
-        confirmMessage = `¿Está seguro de cambiar a ${employeeName} del día ${day} de "${fromDescription}" a "${toDescription}"?`;
+        confirmMessage = `Â¿EstÃ¡ seguro de cambiar a ${employeeName} del dÃ­a ${day} de "${fromDescription}" a "${toDescription}"?`;
         actionType = 'change';
       }
       setConfirmModal({
@@ -759,10 +759,10 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
       try {
         setSaving(true);
 
-        console.log('🔄 SAVING SCHEDULE DATA:');
+        console.log('ðŸ”„ SAVING SCHEDULE DATA:');
         console.log('Current Date:', currentDate);
         console.log('JS Month (0-based):', month, '- Month name:', new Date(year, month).toLocaleDateString('es-CR', { month: 'long' }));
-        console.log('🧪 TESTING: Sending to DB with JavaScript month:', month);
+        console.log('ðŸ§ª TESTING: Sending to DB with JavaScript month:', month);
         console.log('Full save data:', { empresa, employeeName, year, month: month, day: parseInt(day), newValue });
 
         await SchedulesService.updateScheduleShift(
@@ -797,7 +797,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
     }
   };
 
-  // Función para verificar si el usuario es admin
+  // FunciÃ³n para verificar si el usuario es admin
   const isUserAdmin = () => {
     return user?.role === 'admin' || user?.role === 'superadmin';
   };
@@ -824,7 +824,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
 
   const shiftOptions = getShiftOptions();
 
-  // Opciones completas para visualización (todos los usuarios pueden ver los colores)
+  // Opciones completas para visualizaciÃ³n (todos los usuarios pueden ver los colores)
   const getAllShiftColors = () => [
     { value: '', label: '', color: 'var(--input-bg)', textColor: 'var(--foreground)' },
     { value: 'N', label: 'N', color: '#87CEEB', textColor: '#000' },
@@ -834,7 +834,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
     { value: 'I', label: 'I', color: '#fd7e14', textColor: '#FFF' }  // Naranja para Incapacidad
   ];
 
-  // Función para obtener el color de fondo según la letra (todos los usuarios ven todos los colores)
+  // FunciÃ³n para obtener el color de fondo segÃºn la letra (todos los usuarios ven todos los colores)
   const getCellStyle = (value: string) => {
     const allColors = getAllShiftColors();
     const option = allColors.find(opt => opt.value === value);
@@ -846,7 +846,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
       color: 'var(--foreground)'
     };
   };
-  // Función para manejar cambios en las celdas
+  // FunciÃ³n para manejar cambios en las celdas
   const handleCellChange = (employeeName: string, day: number, value: string) => {
     const currentValue = scheduleData[employeeName]?.[day.toString()] || '';
 
@@ -874,7 +874,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
   const handleDelifoodHoursSave = async (hours: number) => {
     const { employeeName, day } = delifoodModal;
 
-  console.log('🧪 TESTING: Guardando horas con JavaScript month:', { empresa, employeeName, year, month: month, day, hours });
+  console.log('ðŸ§ª TESTING: Guardando horas con JavaScript month:', { empresa, employeeName, year, month: month, day, hours });
 
     if (!empresa || !employeeName) return;
 
@@ -928,11 +928,11 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
     }
   };
 
-  // Función para cambiar mes
+  // FunciÃ³n para cambiar mes
   const changeMonth = (direction: 'prev' | 'next') => {
     setCurrentDate(prev => {
       const newDate = new Date(prev);
-      console.log('📅 CHANGING MONTH:');
+      console.log('ðŸ“… CHANGING MONTH:');
       console.log('Previous date:', prev);
       console.log('Previous month (JS):', prev.getMonth(), '- Month name:', prev.toLocaleDateString('es-CR', { month: 'long' }));
 
@@ -950,7 +950,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
     });
   };
 
-  // Función para exportar horarios como imagen (Solo SuperAdmin) - Descarga directa
+  // FunciÃ³n para exportar horarios como imagen (Solo SuperAdmin) - Descarga directa
   const exportScheduleAsImage = async () => {
     if (!userIsSuperAdmin()) {
       showNotification('Solo SuperAdmin puede exportar como imagen', 'error');
@@ -967,7 +967,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
         throw new Error('No se pudo crear el contexto del canvas');
       }
 
-      // Configurar dimensiones dinámicas basadas en el contenido
+      // Configurar dimensiones dinÃ¡micas basadas en el contenido
       const employeeCount = names.length;
       const dayCount = daysToShow.length;
       const baseWidth = 1400;
@@ -980,11 +980,11 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Configuraciones de diseño
+      // Configuraciones de diseÃ±o
       const marginX = 60;
       const marginY = 80;
       const employeeNameWidth = 200;
-      const workedDaysColumnWidth = 120; // Nueva columna para días trabajados
+      const workedDaysColumnWidth = 120; // Nueva columna para dÃ­as trabajados
       const availableWidth = canvas.width - marginX * 2 - employeeNameWidth - workedDaysColumnWidth;
       const cellWidth = Math.max(50, availableWidth / dayCount);
       const cellHeight = 50;
@@ -992,26 +992,26 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
       let yPosition = marginY;
 
       // --- ENCABEZADO ---
-      // Título principal
+      // TÃ­tulo principal
       ctx.font = 'bold 36px Arial';
       ctx.fillStyle = '#1f2937';
       ctx.textAlign = 'center';
-      ctx.fillText('📅 Control de Horarios - Price Master', canvas.width / 2, yPosition);
+      ctx.fillText('ðŸ“… Control de Horarios - Price Master', canvas.width / 2, yPosition);
       yPosition += 50;
 
-      // Información del reporte
+      // InformaciÃ³n del reporte
       ctx.font = '20px Arial';
       ctx.fillStyle = '#4b5563';
       const selectedPeriodText = fullMonthView ? 'Mes Completo' :
         viewMode === 'first' ? 'Primera Quincena (1-15)' : 'Segunda Quincena (16-fin)';
 
-  ctx.fillText(`📍 Empresa: ${empresas.find(l => l.value === empresa)?.label || empresa}`, canvas.width / 2, yPosition);
+  ctx.fillText(`ðŸ“ Empresa: ${empresas.find(l => l.value === empresa)?.label || empresa}`, canvas.width / 2, yPosition);
       yPosition += 35;
-      ctx.fillText(`📅 Período: ${monthName} - ${selectedPeriodText}`, canvas.width / 2, yPosition);
+      ctx.fillText(`ðŸ“… PerÃ­odo: ${monthName} - ${selectedPeriodText}`, canvas.width / 2, yPosition);
       yPosition += 35;
-      ctx.fillText(`👤 Exportado por: ${user?.name} (SuperAdmin)`, canvas.width / 2, yPosition);
+      ctx.fillText(`ðŸ‘¤ Exportado por: ${user?.name} (SuperAdmin)`, canvas.width / 2, yPosition);
       yPosition += 35;
-      ctx.fillText(`🕒 ${new Date().toLocaleDateString('es-CR', {
+      ctx.fillText(`ðŸ•’ ${new Date().toLocaleDateString('es-CR', {
         weekday: 'long',
         year: 'numeric',
         month: 'long',
@@ -1039,7 +1039,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
       ctx.textAlign = 'center';
       ctx.fillText('Empleado', marginX + employeeNameWidth / 2, tableStartY + cellHeight / 2 + 6);
 
-      // Encabezados de días
+      // Encabezados de dÃ­as
       const daysStartX = marginX + employeeNameWidth;
       daysToShow.forEach((day, index) => {
         const x = daysStartX + (index * cellWidth);
@@ -1049,18 +1049,18 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
         ctx.fillRect(x, tableStartY, cellWidth, cellHeight);
         ctx.strokeRect(x, tableStartY, cellWidth, cellHeight);
 
-        // Texto del día
+        // Texto del dÃ­a
         ctx.fillStyle = '#1f2937';
         ctx.fillText(day.toString(), x + cellWidth / 2, tableStartY + cellHeight / 2 + 6);
       });
 
-      // Encabezado "Días Trabajados" o "Total Horas" al final
+      // Encabezado "DÃ­as Trabajados" o "Total Horas" al final
       const workedDaysHeaderX = daysStartX + (dayCount * cellWidth);
       ctx.fillStyle = '#f8fafc';
       ctx.fillRect(workedDaysHeaderX, tableStartY, workedDaysColumnWidth, cellHeight);
       ctx.strokeRect(workedDaysHeaderX, tableStartY, workedDaysColumnWidth, cellHeight);
       ctx.fillStyle = '#1f2937';
-  const headerText = isDelifoodEmpresa ? 'Total Horas' : 'Días Trab.';
+  const headerText = isDelifoodEmpresa ? 'Total Horas' : 'DÃ­as Trab.';
       ctx.fillText(headerText, workedDaysHeaderX + workedDaysColumnWidth / 2, tableStartY + cellHeight / 2 + 6);
       daysToShow.forEach((day, index) => {
         const x = daysStartX + (index * cellWidth);
@@ -1070,7 +1070,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
         ctx.fillRect(x, tableStartY, cellWidth, cellHeight);
         ctx.strokeRect(x, tableStartY, cellWidth, cellHeight);
 
-        // Texto del día
+        // Texto del dÃ­a
         ctx.fillStyle = '#1f2937';
         ctx.fillText(day.toString(), x + cellWidth / 2, tableStartY + cellHeight / 2 + 6);
       });
@@ -1078,16 +1078,16 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
       // Filas de empleados
       yPosition = tableStartY + cellHeight;
       names.forEach((employeeName, empIndex) => {
-  // Calcular días trabajados o total de horas según el tipo de empresa
+  // Calcular dÃ­as trabajados o total de horas segÃºn el tipo de empresa
         let summaryValue = 0;
   if (isDelifoodEmpresa) {
-          // Para DELIFOOD, sumar todas las horas del período
+          // Para DELIFOOD, sumar todas las horas del perÃ­odo
           summaryValue = daysToShow.reduce((total, day) => {
             const hours = delifoodHoursData[employeeName]?.[day.toString()]?.hours || 0;
             return total + hours;
           }, 0);
         } else {
-          // Para ubicaciones normales, contar días trabajados
+          // Para ubicaciones normales, contar dÃ­as trabajados
           summaryValue = daysToShow.filter(day => {
             const shift = scheduleData[employeeName]?.[day.toString()] || '';
             return shift === 'N' || shift === 'D'; // Solo contar Nocturno y Diurno
@@ -1113,7 +1113,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
             // Para DELIFOOD, mostrar horas
             const hours = delifoodHoursData[employeeName]?.[day.toString()]?.hours || 0;
 
-            // Color de fondo según si hay horas registradas
+            // Color de fondo segÃºn si hay horas registradas
             let bgColor = empIndex % 2 === 0 ? '#f8fafc' : '#ffffff';
             let textColor = '#000000';
 
@@ -1139,7 +1139,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
             // Para ubicaciones normales, mostrar turnos
             const shift = scheduleData[employeeName]?.[day.toString()] || '';
 
-            // Color de fondo según el turno
+            // Color de fondo segÃºn el turno
             let bgColor = empIndex % 2 === 0 ? '#f8fafc' : '#ffffff';
             let textColor = '#000000';
 
@@ -1176,7 +1176,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
           }
         });
 
-        // Celda de resumen al final (días trabajados o total horas)
+        // Celda de resumen al final (dÃ­as trabajados o total horas)
         const summaryCellX = daysStartX + (dayCount * cellWidth);
         ctx.fillStyle = empIndex % 2 === 0 ? '#e0f2fe' : '#f0f8ff'; // Color ligeramente diferente
         ctx.fillRect(summaryCellX, yPosition, workedDaysColumnWidth, cellHeight);
@@ -1196,19 +1196,19 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
       ctx.font = 'bold 20px Arial';
       ctx.fillStyle = '#1f2937';
       ctx.textAlign = 'center';
-  const legendTitle = isDelifoodEmpresa ? '📋 Leyenda de Horas' : '📋 Leyenda de Turnos';
+  const legendTitle = isDelifoodEmpresa ? 'ðŸ“‹ Leyenda de Horas' : 'ðŸ“‹ Leyenda de Turnos';
       ctx.fillText(legendTitle, canvas.width / 2, yPosition);
       yPosition += 40;
 
   const legendItems = isDelifoodEmpresa ? [
         { label: 'Verde = Con horas registradas', color: '#d1fae5', textColor: '#000' },
-        { label: 'Vacío = Sin horas registradas', color: '#f9fafb', textColor: '#000' },
-        { label: 'Número = Horas trabajadas', color: '#ffffff', textColor: '#000' }
+        { label: 'VacÃ­o = Sin horas registradas', color: '#f9fafb', textColor: '#000' },
+        { label: 'NÃºmero = Horas trabajadas', color: '#ffffff', textColor: '#000' }
       ] : [
         { label: 'N = Nocturno', color: '#87CEEB', textColor: '#000' },
         { label: 'D = Diurno', color: '#FFFF00', textColor: '#000' },
         { label: 'L = Libre', color: '#FF00FF', textColor: '#fff' },
-        { label: 'Vacío = Sin asignar', color: '#f9fafb', textColor: '#000' }
+        { label: 'VacÃ­o = Sin asignar', color: '#f9fafb', textColor: '#000' }
       ];
 
   const legendItemWidth = isDelifoodEmpresa ? 250 : 200;
@@ -1232,15 +1232,15 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
         ctx.fillText(item.label, x + 35, yPosition);
       });
 
-      // --- PIE DE PÁGINA ---
+      // --- PIE DE PÃGINA ---
       yPosition = canvas.height - 60;
       ctx.font = '12px Arial';
       ctx.fillStyle = '#9ca3af';
       ctx.textAlign = 'center';
       ctx.fillText('Generated by Price Master - Control de Horarios', canvas.width / 2, yPosition);
-  const summaryText = isDelifoodEmpresa ? 'Horas mostradas' : 'Días mostrados';
+  const summaryText = isDelifoodEmpresa ? 'Horas mostradas' : 'DÃ­as mostrados';
       ctx.fillText(`Total de empleados: ${names.length} | ${summaryText}: ${dayCount}`, canvas.width / 2, yPosition + 20);
-      ctx.fillText('⚠️ Documento confidencial - Solo para uso autorizado', canvas.width / 2, yPosition + 40);
+      ctx.fillText('âš ï¸ Documento confidencial - Solo para uso autorizado', canvas.width / 2, yPosition + 40);
 
       // Convertir a imagen y descargar directamente
       canvas.toBlob((blob) => {
@@ -1255,7 +1255,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
           document.body.removeChild(a);
           URL.revokeObjectURL(url);
 
-      const successMessage = isDelifoodEmpresa ? '📸 Horas DELIFOOD exportadas como imagen exitosamente' : '📸 Horarios exportados como imagen exitosamente';
+      const successMessage = isDelifoodEmpresa ? 'ðŸ“¸ Horas DELIFOOD exportadas como imagen exitosamente' : 'ðŸ“¸ Horarios exportados como imagen exitosamente';
           showNotification(successMessage, 'success');
         } else {
           throw new Error('Error al generar la imagen');
@@ -1270,7 +1270,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
     }
   };
 
-  // Función para exportar la quincena actual como PNG
+  // FunciÃ³n para exportar la quincena actual como PNG
   const exportQuincenaToPNG = async () => {
     // Validaciones iniciales
     if (!empresa) {
@@ -1284,7 +1284,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
     }
 
     if (!daysToShow || daysToShow.length === 0) {
-      showNotification('Error: No hay días para mostrar', 'error');
+      showNotification('Error: No hay dÃ­as para mostrar', 'error');
       return;
     }
 
@@ -1312,12 +1312,12 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
         tableHTML += `<th style='border:1px solid #d1d5db;padding:6px 10px;background:#f3f4f6;'>${day}</th>`;
       });
 
-  const summaryHeader = isDelifoodEmpresa ? 'Total Horas' : 'Días Trab.';
+  const summaryHeader = isDelifoodEmpresa ? 'Total Horas' : 'DÃ­as Trab.';
       tableHTML += `<th style='border:1px solid #d1d5db;padding:6px 10px;background:#e0f2fe;color:#1565c0;font-weight:bold;'>${summaryHeader}</th>`;
       tableHTML += `</tr></thead><tbody>`;
 
       names.forEach(name => {
-  // Calcular resumen según el tipo de empresa
+  // Calcular resumen segÃºn el tipo de empresa
         let summaryValue = 0;
   if (isDelifoodEmpresa) {
           // Para DELIFOOD, sumar todas las horas
@@ -1326,7 +1326,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
             return total + hours;
           }, 0);
         } else {
-          // Para ubicaciones normales, contar días trabajados
+          // Para ubicaciones normales, contar dÃ­as trabajados
           summaryValue = daysToShow.filter(day => {
             const shift = scheduleData?.[name]?.[day.toString()] || '';
             return shift === 'N' || shift === 'D'; // Solo contar Nocturno y Diurno
@@ -1367,7 +1367,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
       // Esperar un poco para que se renderice
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // Importar html2canvas dinámicamente para evitar problemas de SSR
+      // Importar html2canvas dinÃ¡micamente para evitar problemas de SSR
       const html2canvas = (await import('html2canvas')).default;
 
       const canvas = await html2canvas(exportDiv, {
@@ -1398,8 +1398,8 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
       URL.revokeObjectURL(url);
 
   const successMessage = isDelifoodEmpresa ?
-        '📥 Horas DELIFOOD exportadas exitosamente!' :
-        '📥 Quincena exportada exitosamente!';
+        'ðŸ“¥ Horas DELIFOOD exportadas exitosamente!' :
+        'ðŸ“¥ Quincena exportada exitosamente!';
       showNotification(successMessage, 'success');
 
     } catch (error) {
@@ -1416,9 +1416,9 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
     }
   };
 
-  // Si está cargando, mostrar loading
+  // Si estÃ¡ cargando, mostrar loading
   if (loading) {
-    console.log('⏳ COMPONENTE EN ESTADO LOADING - datos de ubicaciones aún no cargados');
+    console.log('â³ COMPONENTE EN ESTADO LOADING - datos de ubicaciones aÃºn no cargados');
     return (
       <div className="max-w-4xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4 sm:p-6">
         <div className="flex flex-col items-center justify-center py-12">
@@ -1443,7 +1443,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
   }
   // Si no hay empresa seleccionada, mostrar selector o mensaje apropiado
   if (!empresa) {
-    console.log('🚨 SIN EMPRESA - Análisis de situación:', {
+    console.log('ðŸš¨ SIN EMPRESA - AnÃ¡lisis de situaciÃ³n:', {
       tieneUsuario: !!user,
       nombreUsuario: user?.name,
       rolUsuario: user?.role,
@@ -1453,7 +1453,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
 
     // Si cualquier usuario tiene empresa asignada (legacy ownercompanie/location), mostrar loading mientras se establece
     if (assignedEmpresa) {
-      console.log(`⏳ MOSTRANDO LOADING para usuario ${user.name} con empresa asignada: ${assignedEmpresa}`);
+      console.log(`â³ MOSTRANDO LOADING para usuario ${user.name} con empresa asignada: ${assignedEmpresa}`);
       return (
         <div className="max-w-4xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4 sm:p-6">
           <div className="flex flex-col items-center justify-center py-12">
@@ -1573,7 +1573,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
             <div className="flex flex-col sm:flex-row items-center gap-4">
         {/* Selector de empresa - solo para admin y superadmin
           TODOS los usuarios ven predeterminadamente su empresa asignada
-          Los usuarios con rol "user" están restringidos solo a su empresa */}
+          Los usuarios con rol "user" estÃ¡n restringidos solo a su empresa */}
               {userCanChangeEmpresa() ? (
                 <select
                   className="w-full sm:w-auto px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -1598,7 +1598,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
           </div>
 
           <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
-            {/* Selector de período */}
+            {/* Selector de perÃ­odo */}
             <div className="flex flex-col sm:flex-row items-center gap-4">
               <div className="flex items-center gap-2">
                 <button
@@ -1609,7 +1609,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
                 </button>
                 <h4 className="text-lg font-semibold capitalize flex items-center gap-2">
                   {monthName}
-                  {/* Mostrar candado si hay al menos un día pasado en la vista, sin importar el estado */}
+                  {/* Mostrar candado si hay al menos un dÃ­a pasado en la vista, sin importar el estado */}
                   {daysToShow.some(day => {
                     const cellDate = new Date(year, month, day);
                     const now = new Date();
@@ -1619,7 +1619,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
                       <button
                         onClick={() => setUnlockPastDaysModal(true)}
                         className="ml-2 p-1 rounded-full border border-gray-400 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                        title={editPastDaysEnabled ? 'Bloquear edición de días pasados' : 'Desbloquear días pasados'}
+                        title={editPastDaysEnabled ? 'Bloquear ediciÃ³n de dÃ­as pasados' : 'Desbloquear dÃ­as pasados'}
                         type="button"
                       >
                         {editPastDaysEnabled ? <Unlock className="w-5 h-5 text-green-600" /> : <Lock className="w-5 h-5 text-gray-500" />}
@@ -1669,7 +1669,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
                   onClick={() => {
                     if (fullMonthView) {
                       // Al regresar de vista mensual, seleccionar la quincena correcta
-                      // usando el día del `currentDate` (si es >15, segunda quincena)
+                      // usando el dÃ­a del `currentDate` (si es >15, segunda quincena)
                       const dayOfMonth = currentDate.getDate();
                       if (dayOfMonth > 15) {
                         setSelectedPeriod('16-30');
@@ -1690,7 +1690,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
               </div>
             </div>
 
-            {/* Controles de filtro y exportación */}
+            {/* Controles de filtro y exportaciÃ³n */}
             <div className="flex flex-col sm:flex-row items-center gap-4">
               {/* Filtro de empleados */}
               <div className="flex items-center gap-2">
@@ -1712,17 +1712,17 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
                 </select>
               </div>
 
-              {/* Botón de exportar - Solo para SuperAdmin */}
+              {/* BotÃ³n de exportar - Solo para SuperAdmin */}
               {userIsSuperAdmin() && (
                 <button
                   onClick={exportScheduleAsImage}
                   className="flex items-center gap-2 px-3 py-1 text-sm bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
                   title="Exportar como imagen"
                 >
-                  📷 Exportar Imagen
+                  ðŸ“· Exportar Imagen
                 </button>
               )}
-              {/* Botón de exportar quincena con icono acorde (Download) */}
+              {/* BotÃ³n de exportar quincena con icono acorde (Download) */}
               <button
                 onClick={exportQuincenaToPNG}
                 className="flex items-center gap-2 px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
@@ -1789,7 +1789,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
                     today.getFullYear() === currentDate.getFullYear() &&
                     today.getMonth() === currentDate.getMonth() &&
                     today.getDate() === day;
-                  // Tooltip: día de la semana, día, mes y año
+                  // Tooltip: dÃ­a de la semana, dÃ­a, mes y aÃ±o
                   const dayDate = new Date(year, month, day);
                   const dayName = dayDate.toLocaleDateString('es-CR', { weekday: 'long' });
                   const monthNameFull = dayDate.toLocaleDateString('es-CR', { month: 'long' });
@@ -1827,7 +1827,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
                 >
                   <div className="flex items-center gap-1">
                     <span className="block truncate flex-1">{name}</span>
-                    {/* Botón de información para móviles */}
+                    {/* BotÃ³n de informaciÃ³n para mÃ³viles */}
                     <button
                       onClick={() => setShowEmployeeSummary(showEmployeeSummary === name ? null : name)}
                       className="sm:hidden flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-800/50 text-blue-600 dark:text-blue-400 transition-colors"
@@ -1852,12 +1852,12 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
                 {daysToShow.map(day => {
                   const value = scheduleData[name]?.[day.toString()] || '';
 
-                  // Debug logging para ver qué valores se están obteniendo
+                  // Debug logging para ver quÃ© valores se estÃ¡n obteniendo
                   if (!isDelifoodEmpresa && value) {
-                    console.log(`📋 Cell value for ${name} day ${day}:`, value, 'from scheduleData:', scheduleData[name]);
+                    console.log(`ðŸ“‹ Cell value for ${name} day ${day}:`, value, 'from scheduleData:', scheduleData[name]);
                   }
 
-                  // Deshabilitar si el día ya pasó en cualquier mes y año, y no está habilitado el modo edición
+                  // Deshabilitar si el dÃ­a ya pasÃ³ en cualquier mes y aÃ±o, y no estÃ¡ habilitado el modo ediciÃ³n
                   let disabled = false;
                   const cellDate = new Date(year, month, day);
                   const now = new Date();
@@ -1892,14 +1892,14 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
                           disabled={disabled}
                           title={hours > 0 ? `${hours}h trabajadas - Clic para editar` : 'Clic para agregar horas'}
                         >
-                          {hours > 0 ? `${hours}h` : '▼'}
+                          {hours > 0 ? `${hours}h` : 'â–¼'}
                         </button>
                       </td>
                     );
                   }
 
                   // Si no es DELIFOOD, mostrar select normal o div readonly para V/I
-                  // Crear título descriptivo para el tooltip
+                  // Crear tÃ­tulo descriptivo para el tooltip
                   let cellTitle = '';
                   if (disabled && ['V', 'I'].includes(value) && !isUserAdmin()) {
                     const stateName = value === 'V' ? 'Vacaciones' : 'Incapacidad';
@@ -1954,7 +1954,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
           <div className="text-center py-8 text-[var(--tab-text)]">
             No hay empleados registrados para esta empresa.
           </div>
-        )}        {/* Modal de resumen del empleado para móviles */}
+        )}        {/* Modal de resumen del empleado para mÃ³viles */}
         {showEmployeeSummary && (
           <div className="sm:hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
             <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-sm w-full">
@@ -1964,7 +1964,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
                   onClick={() => setShowEmployeeSummary(null)}
                   className="text-gray-500 hover:text-gray-700"
                 >
-                  ✕
+                  âœ•
                 </button>
               </div>
               <div className="space-y-2 text-sm">
@@ -1995,10 +1995,10 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
         onCancel={() => setConfirmModal({ open: false, message: '', onConfirm: null, actionType: 'assign' })}
       />
 
-      {/* Modal para desbloquear días pasados */}
+      {/* Modal para desbloquear dÃ­as pasados */}
       <ConfirmModal
         open={unlockPastDaysModal}
-        message={editPastDaysEnabled ? '¿Quieres volver a bloquear la edición de días pasados?' : '¿Quieres desbloquear la edición de días pasados?'}
+        message={editPastDaysEnabled ? 'Â¿Quieres volver a bloquear la ediciÃ³n de dÃ­as pasados?' : 'Â¿Quieres desbloquear la ediciÃ³n de dÃ­as pasados?'}
         loading={false}
         actionType={editPastDaysEnabled ? 'delete' : 'assign'}
         onConfirm={() => {
@@ -2013,18 +2013,18 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-sm w-full flex flex-col items-center">
             <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200 mb-4 text-center">
-              📱 Descargar en tu móvil
+              ðŸ“± Descargar en tu mÃ³vil
             </h3>
-            <Image
+            <img
               src={qrCodeDataURL}
               alt="QR para descargar imagen"
               className="mb-4 rounded-lg border-2 border-gray-200 dark:border-gray-600"
-              width={300}
-              height={300}
-              unoptimized
+              
+              
+              
             />
             <div className="text-xs text-gray-600 dark:text-gray-400 mb-4 text-center">
-              Escanea este QR con tu móvil para descargar la imagen
+              Escanea este QR con tu mÃ³vil para descargar la imagen
             </div>
 
             <div className="flex gap-3 w-full">
@@ -2050,7 +2050,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
                 Cerrar
               </button>
 
-              {/* Botón para descargar imagen del horario */}
+              {/* BotÃ³n para descargar imagen del horario */}
               <button
                 onClick={() => {
                   try {
@@ -2065,19 +2065,19 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
                       document.body.removeChild(a);
                       URL.revokeObjectURL(url);
 
-                      showNotification('📥 Horario descargado exitosamente', 'success');
+                      showNotification('ðŸ“¥ Horario descargado exitosamente', 'success');
                     } else {
                       throw new Error('No hay imagen disponible para descargar');
                     }
                   } catch (error) {
                     console.error('Error downloading schedule image:', error);
-                    showNotification('❌ Error al descargar el horario', 'error');
+                    showNotification('âŒ Error al descargar el horario', 'error');
                   }
                 }}
                 className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
                 title="Descargar imagen del horario"
               >
-                📥 Descargar Horario
+                ðŸ“¥ Descargar Horario
               </button>
             </div>
 

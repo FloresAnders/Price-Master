@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import Image from 'next/image';
+﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
+
 import { SorteosService } from '../../services/sorteos';
 import { Timer, Download, QrCode, Smartphone, Lock as LockIcon } from 'lucide-react';
 import type { Sorteo } from '../../types/firestore';
@@ -18,7 +18,7 @@ function getNowTime() {
     return now.toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
-// Función para obtener los colores del tema actual
+// FunciÃ³n para obtener los colores del tema actual
 function getCurrentThemeColors() {
     const isDarkMode = document.documentElement.classList.contains('dark');
 
@@ -45,7 +45,7 @@ function getCurrentThemeColors() {
     }
 }
 
-// Códigos válidos según la imagen
+// CÃ³digos vÃ¡lidos segÃºn la imagen
 const VALID_CODES = {
     'T11': 'TIEMPOS (COMODIN)',
     'T10': 'TIEMPOS (ANGUILA)',
@@ -142,7 +142,7 @@ export default function TimingControl() {
         localStorage.setItem('timingControlKeyBuffer', keyBuffer);
     }, [keyBuffer]);
 
-    // Función para guardar estado completo en localStorage
+    // FunciÃ³n para guardar estado completo en localStorage
     const saveCompleteState = useCallback(() => {
         const state = {
             tickets,
@@ -153,7 +153,7 @@ export default function TimingControl() {
         localStorage.setItem('timingControlCompleteState', JSON.stringify(state));
     }, [tickets, personName, keyBuffer]);
 
-    // Efecto para guardar estado completo periódicamente
+    // Efecto para guardar estado completo periÃ³dicamente
     useEffect(() => {
         const interval = setInterval(() => {
             saveCompleteState();
@@ -162,7 +162,7 @@ export default function TimingControl() {
         return () => clearInterval(interval);
     }, [saveCompleteState]);
 
-    // Efecto para guardar estado antes de cerrar la página
+    // Efecto para guardar estado antes de cerrar la pÃ¡gina
     useEffect(() => {
         const handleBeforeUnload = () => {
             saveCompleteState();
@@ -170,7 +170,7 @@ export default function TimingControl() {
 
         window.addEventListener('beforeunload', handleBeforeUnload);
         return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-    }, [saveCompleteState]);// Función para limpiar todo el localStorage del componente
+    }, [saveCompleteState]);// FunciÃ³n para limpiar todo el localStorage del componente
     const clearAllLocalStorage = () => {
         localStorage.removeItem('timingControlTickets');
         localStorage.removeItem('timingControlPersonName');
@@ -182,7 +182,7 @@ export default function TimingControl() {
         resetModalStates();
     };
 
-    // Función para resetear estados de modales y formularios
+    // FunciÃ³n para resetear estados de modales y formularios
     const resetModalStates = () => {
         setShowSummary(false);
         setShowCodeModal(false); setShowDeleteModal(false);
@@ -192,7 +192,7 @@ export default function TimingControl() {
         setTicketToDelete(null);
     };
 
-    // Función para cargar estado completo desde localStorage
+    // FunciÃ³n para cargar estado completo desde localStorage
     const loadCompleteState = () => {
         const savedState = localStorage.getItem('timingControlCompleteState');
         if (savedState) {
@@ -339,7 +339,7 @@ export default function TimingControl() {
     // Handle modal form submission
     const handleAddTicket = () => {
         if (!selectedSorteo || !modalAmount || isNaN(Number(modalAmount)) || Number(modalAmount) <= 0) {
-            alert('Por favor selecciona un sorteo y ingresa un monto válido');
+            alert('Por favor selecciona un sorteo y ingresa un monto vÃ¡lido');
             return;
         }
 
@@ -385,7 +385,7 @@ export default function TimingControl() {
         }
     }, [showCodeModal, selectedSorteo]);
 
-    // useEffect para selección automática en móvil
+    // useEffect para selecciÃ³n automÃ¡tica en mÃ³vil
     useEffect(() => {
         if (showCodeModal && isMobile && currentCode && !selectedSorteo) {
             setTimeout(() => {
@@ -393,7 +393,7 @@ export default function TimingControl() {
                 if (filteredSorteos.length > 0) {
                     setSelectedSorteo(filteredSorteos[0].name);
                     setSelectedSorteoIndex(0);
-                    // Enfocar el campo de monto después de seleccionar
+                    // Enfocar el campo de monto despuÃ©s de seleccionar
                     setTimeout(() => {
                         amountInputRef.current?.focus();
                     }, 100);
@@ -433,7 +433,7 @@ export default function TimingControl() {
                 <thead><tr><th style="text-align:left;padding-bottom:8px;">Sorteo</th><th style="text-align:right;padding-bottom:8px;">Monto</th><th style="text-align:right;padding-bottom:8px;padding-left:18px;min-width:110px;">Hora</th></tr></thead>
                 <tbody>
                   ${tickets.map(ticket =>
-                `<tr style='border-bottom:1px solid #d1d5db;'><td style='padding:4px 18px 10px 0;'>${ticket.sorteo}</td><td style='text-align:right;padding:4px 0 10px 0;'>₡ ${ticket.amount.toLocaleString('es-CR')}</td><td style='text-align:right;padding:4px 0 10px 18px;min-width:110px;'>${ticket.time}</td></tr>`
+                `<tr style='border-bottom:1px solid #d1d5db;'><td style='padding:4px 18px 10px 0;'>${ticket.sorteo}</td><td style='text-align:right;padding:4px 0 10px 0;'>â‚¡ ${ticket.amount.toLocaleString('es-CR')}</td><td style='text-align:right;padding:4px 0 10px 18px;min-width:110px;'>${ticket.time}</td></tr>`
             ).join('')}
                 </tbody>
               </table>
@@ -442,11 +442,11 @@ export default function TimingControl() {
                 <thead><tr><th style="text-align:left;padding-bottom:6px;">Sorteo</th><th style="text-align:right;padding-bottom:6px;">Total</th></tr></thead>
                 <tbody>
                   ${Object.entries(resumenSorteos).map(([sorteo, total]) =>
-                `<tr style='border-bottom:1px solid #d1d5db;'><td style='padding:3px 18px 10px 0;'>${sorteo}</td><td style='text-align:right;padding:3px 0 10px 0;'>₡ ${total.toLocaleString('es-CR')}</td></tr>`
+                `<tr style='border-bottom:1px solid #d1d5db;'><td style='padding:3px 18px 10px 0;'>${sorteo}</td><td style='text-align:right;padding:3px 0 10px 0;'>â‚¡ ${total.toLocaleString('es-CR')}</td></tr>`
             ).join('')}
                 </tbody>
               </table>
-              <div style="margin-top:1.2rem;text-align:right;font-weight:bold;font-size:1.15rem;">Total General: <span style='color:#16a34a;'>₡ ${totalGeneral.toLocaleString('es-CR')}</span></div>
+              <div style="margin-top:1.2rem;text-align:right;font-weight:bold;font-size:1.15rem;">Total General: <span style='color:#16a34a;'>â‚¡ ${totalGeneral.toLocaleString('es-CR')}</span></div>
               <div style="margin-top:1.2rem;text-align:right;font-size:0.95rem;opacity:0.7;">Exportado: ${new Date().toLocaleString('es-CR')}</div>
             `;
             document.body.appendChild(resumenDiv);
@@ -492,7 +492,7 @@ export default function TimingControl() {
                 }
             });
 
-            // Descargar automáticamente en PC
+            // Descargar automÃ¡ticamente en PC
             const imgData = canvas.toDataURL('image/png');
             const link = document.createElement('a');
             link.download = fileName;
@@ -501,12 +501,12 @@ export default function TimingControl() {
             link.click();
             document.body.removeChild(link);
 
-            // Mostrar QR para móvil
+            // Mostrar QR para mÃ³vil
             setQRCodeDataURL(qrDataUrl);
             setDownloadURL(downloadUrl);
             setShowQRModal(true);
 
-            toast.showToast(`Imagen exportada exitosamente. QR generado para descarga móvil.`, 'success');
+            toast.showToast(`Imagen exportada exitosamente. QR generado para descarga mÃ³vil.`, 'success');
         } catch (error) {
             console.error('Error al exportar:', error);
             toast.showToast('Error al exportar la imagen. Por favor intenta de nuevo.', 'error');
@@ -517,14 +517,14 @@ export default function TimingControl() {
         setTickets(prev => prev.map(t => t.id === editedTicket.id ? { ...t, ...editedTicket } : t));
     };
 
-    // Función para cerrar el modal de QR sin eliminar la imagen del storage
+    // FunciÃ³n para cerrar el modal de QR sin eliminar la imagen del storage
     const handleCloseQRModal = () => {
         setShowQRModal(false);
         setQRCodeDataURL('');
         setDownloadURL('');
     };
 
-    // Función para descargar directamente desde el QR modal
+    // FunciÃ³n para descargar directamente desde el QR modal
     const handleDirectDownload = () => {
         if (downloadURL) {
             const link = document.createElement('a');
@@ -537,7 +537,7 @@ export default function TimingControl() {
         }
     };
 
-    // Función para manejar el input de código en móvil
+    // FunciÃ³n para manejar el input de cÃ³digo en mÃ³vil
     const handleMobileCodeSubmit = () => {
         const code = mobileCodeInput.trim().toUpperCase();
         if (code === 'T11' || code === 'T10' || code === 'NNN' || code === 'TTT') {
@@ -546,17 +546,17 @@ export default function TimingControl() {
             setShowCodeModal(true);
             setMobileCodeInput('');
         } else {
-            toast.showToast('Código inválido. Usa: T11, T10, NNN, o TTT', 'warning');
+            toast.showToast('CÃ³digo invÃ¡lido. Usa: T11, T10, NNN, o TTT', 'warning');
         }
     };
 
-    // Función para manejar Enter en el input móvil
+    // FunciÃ³n para manejar Enter en el input mÃ³vil
     const handleMobileCodeKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter') {
             handleMobileCodeSubmit();
         }
     };
-    // useEffect para navegación por teclado en el modal de sorteos
+    // useEffect para navegaciÃ³n por teclado en el modal de sorteos
     useEffect(() => {
         if (!showCodeModal) return;
 
@@ -631,7 +631,7 @@ export default function TimingControl() {
         };
     }, [showCodeModal, selectedSorteoIndex, getFilteredSorteos]);
 
-    // Detectar si es dispositivo móvil
+    // Detectar si es dispositivo mÃ³vil
     useEffect(() => {
         const checkIfMobile = () => {
             const userAgent = navigator.userAgent || navigator.vendor || (window as Window & typeof globalThis & { opera?: string }).opera || '';
@@ -698,17 +698,17 @@ export default function TimingControl() {
                                     {Object.entries(resumenSorteos).map(([sorteo, total]) => (
                                         <div key={sorteo} className="flex justify-between items-center py-2" style={{ borderBottom: '1px solid var(--input-border)' }}>
                                             <span className="font-medium truncate" style={{ color: 'var(--foreground)' }}>{sorteo}</span>
-                                            <span className="font-mono ml-4" style={{ color: 'var(--foreground)' }}>₡ {total.toLocaleString('es-CR')}</span>
+                                            <span className="font-mono ml-4" style={{ color: 'var(--foreground)' }}>â‚¡ {total.toLocaleString('es-CR')}</span>
                                         </div>
                                     ))}
                                 </div>
                             )}
                             <div className="mt-4 text-right font-bold text-lg" style={{ color: 'var(--foreground)' }}>
-                                Total: <span className="font-mono text-green-700">₡ {totalGeneral.toLocaleString('es-CR')}</span>
+                                Total: <span className="font-mono text-green-700">â‚¡ {totalGeneral.toLocaleString('es-CR')}</span>
                             </div>
                         </div>
                     </div>
-                )}            {/* Modal de código de barras */}
+                )}            {/* Modal de cÃ³digo de barras */}
                 {showCodeModal && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
                         <div className="rounded-2xl shadow-xl p-4 sm:p-6 w-[95vw] max-w-2xl mx-auto max-h-[90vh] overflow-y-auto relative" style={{ background: 'var(--card-bg)', color: 'var(--foreground)' }}>
@@ -728,7 +728,7 @@ export default function TimingControl() {
                                 </svg>
                             </button>
                             <h2 className="text-lg font-bold mb-4 text-center" style={{ color: 'var(--foreground)' }}>
-                                Código: {currentCode}
+                                CÃ³digo: {currentCode}
                             </h2>                        <p className="text-sm mb-4 text-center" style={{ color: 'var(--foreground)' }}>
                                 {VALID_CODES[currentCode as keyof typeof VALID_CODES]}
                             </p>
@@ -738,7 +738,7 @@ export default function TimingControl() {
                                 color: 'var(--foreground)',
                                 opacity: 0.8
                             }}>
-                                💡 Usa las flechas ↑↓←→ para navegar y Enter para seleccionar
+                                ðŸ’¡ Usa las flechas â†‘â†“â†â†’ para navegar y Enter para seleccionar
                             </div><div className="space-y-4">
                                 <div>
                                     <label className="block text-sm font-medium mb-3" style={{ color: 'var(--foreground)' }}>
@@ -788,7 +788,7 @@ export default function TimingControl() {
                                 {selectedSorteo && (
                                     <div>
                                         <label className="block text-sm font-medium mb-2" style={{ color: 'var(--foreground)' }}>
-                                            Monto (₡):
+                                            Monto (â‚¡):
                                         </label>
                                         <input
                                             ref={amountInputRef}
@@ -825,12 +825,12 @@ export default function TimingControl() {
                     </div>
                 )}
 
-                {/* Modal de confirmación de eliminación */}
+                {/* Modal de confirmaciÃ³n de eliminaciÃ³n */}
                 {showDeleteModal && ticketToDelete && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
                         <div className="rounded-2xl shadow-xl p-4 sm:p-6 w-[95vw] max-w-md mx-auto relative" style={{ background: 'var(--card-bg)', color: 'var(--foreground)' }}>
                             <h2 className="text-lg font-bold mb-4 text-center" style={{ color: 'var(--foreground)' }}>
-                                ¿Estás seguro de que deseas eliminar este ticket?
+                                Â¿EstÃ¡s seguro de que deseas eliminar este ticket?
                             </h2>
 
                             <div className="space-y-3 mb-6 p-4 rounded-lg" style={{ background: 'var(--input-bg)', border: '1px solid var(--input-border)' }}>
@@ -840,7 +840,7 @@ export default function TimingControl() {
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="font-medium">Monto:</span>
-                                    <span className="font-mono font-bold text-green-700">₡{ticketToDelete.amount.toLocaleString('es-CR')}</span>
+                                    <span className="font-mono font-bold text-green-700">â‚¡{ticketToDelete.amount.toLocaleString('es-CR')}</span>
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="font-medium">Hora:</span>
@@ -874,8 +874,8 @@ export default function TimingControl() {
                 {showExportConfirm && (
                     <ConfirmModal
                         open={showExportConfirm}
-                        title="Confirmar exportación"
-                        message="¿Deseas exportar el resumen como imagen PNG?"
+                        title="Confirmar exportaciÃ³n"
+                        message="Â¿Deseas exportar el resumen como imagen PNG?"
                         confirmText="Exportar PNG"
                         cancelText="Cancelar"
                         loading={isExporting}
@@ -885,7 +885,7 @@ export default function TimingControl() {
                     />
                 )}
 
-                {/* Modal de QR para descarga móvil */}
+                {/* Modal de QR para descarga mÃ³vil */}
                 {showQRModal && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
                         <div className="rounded-2xl shadow-2xl p-6 sm:p-8 w-[96vw] max-w-md mx-auto relative" style={{ background: 'var(--card-bg)', color: 'var(--foreground)', boxShadow: '0 10px 40px rgba(2,6,23,0.6)' }}>
@@ -904,23 +904,23 @@ export default function TimingControl() {
                                 <div className="flex items-center justify-center gap-2 mb-3">
                                     <Smartphone className="w-6 h-6 text-blue-600" />
                                     <h2 className="text-lg font-semibold" style={{ color: 'var(--foreground)' }}>
-                                        Descarga Móvil
+                                        Descarga MÃ³vil
                                     </h2>
                                 </div>
 
                                 <p className="text-sm mb-4" style={{ color: 'var(--foreground)', opacity: 0.95 }}>
-                                    Escanea este código QR con tu móvil para descargar la imagen automáticamente
+                                    Escanea este cÃ³digo QR con tu mÃ³vil para descargar la imagen automÃ¡ticamente
                                 </p>
 
                                 <div className="flex justify-center mb-4">
                                     <div className="p-4 bg-white rounded-lg shadow-md" style={{ display: 'inline-block' }}>
-                                        <Image
+                                        <img
                                             src={qrCodeDataURL}
                                             alt="QR Code para descarga"
-                                            width={192}
-                                            height={192}
+                                            
+                                            
                                             className="w-48 h-48"
-                                            unoptimized
+                                            
                                         />
                                     </div>
                                 </div>
@@ -948,7 +948,7 @@ export default function TimingControl() {
                                 </div>
 
                                 <p className="text-xs mt-3" style={{ color: 'var(--foreground)', opacity: 0.75 }}>
-                                    La imagen permanecerá disponible en el almacenamiento en la nube
+                                    La imagen permanecerÃ¡ disponible en el almacenamiento en la nube
                                 </p>
                             </div>
                         </div>
@@ -989,12 +989,12 @@ export default function TimingControl() {
                                 />
                             </div>
 
-                            {/* Input para código en móvil */}
+                            {/* Input para cÃ³digo en mÃ³vil */}
                             {isMobile && (
                                 <div className="mb-4">
                                     <label className="flex items-center gap-2 text-sm font-medium mb-2" style={{ color: 'var(--foreground)' }}>
                                         <Smartphone className="w-4 h-4" />
-                                        Código de tiempo (móvil):
+                                        CÃ³digo de tiempo (mÃ³vil):
                                     </label>
                                     <div className="flex flex-col sm:flex-row gap-2 w-full sm:max-w-md">
                                         <input
@@ -1020,7 +1020,7 @@ export default function TimingControl() {
                                         </button>
                                     </div>
                                     <p className="text-xs mt-1 text-gray-500" style={{ color: 'var(--foreground)', opacity: 0.7 }}>
-                                        Códigos válidos: T11 (COMODIN), T10 (ANGUILA), NNN (NICA), TTT (TICA)
+                                        CÃ³digos vÃ¡lidos: T11 (COMODIN), T10 (ANGUILA), NNN (NICA), TTT (TICA)
                                     </p>
                                 </div>
                             )}
@@ -1057,7 +1057,7 @@ export default function TimingControl() {
                                     <button
                                         className="w-full px-4 py-3 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 bg-red-600 hover:bg-red-700 text-white font-semibold"
                                         onClick={() => {
-                                            if (window.confirm('¿Seguro que deseas limpiar todos los tickets y datos guardados?')) {
+                                            if (window.confirm('Â¿Seguro que deseas limpiar todos los tickets y datos guardados?')) {
                                                 clearAllLocalStorage();
                                             }
                                         }}
@@ -1087,7 +1087,7 @@ export default function TimingControl() {
                                         <div className="mb-4">
                                             <Timer className="w-16 h-16 mx-auto text-gray-400 mb-4" />
                                             <h4 className="text-xl font-semibold mb-2" style={{ color: 'var(--foreground)' }}>
-                                                ¡No hay tickets registrados!
+                                                Â¡No hay tickets registrados!
                                             </h4>
                                             <p className="text-sm mb-4" style={{ color: 'var(--foreground)', opacity: 0.8 }}>
                                                 Comienza agregando tickets de tus sorteos para llevar un control de ventas
@@ -1106,7 +1106,7 @@ export default function TimingControl() {
                                                             <span className="px-2 py-1 rounded text-xs font-mono" style={{ background: 'var(--card-bg)', border: '1px solid var(--input-border)' }}>
                                                                 T11
                                                             </span>
-                                                            <span>para TIEMPOS (COMODÍN)</span>
+                                                            <span>para TIEMPOS (COMODÃN)</span>
                                                         </div>
                                                         <div className="flex items-center justify-center gap-2">
                                                             <span className="px-2 py-1 rounded text-xs font-mono" style={{ background: 'var(--card-bg)', border: '1px solid var(--input-border)' }}>
@@ -1130,7 +1130,7 @@ export default function TimingControl() {
                                                 ) : (
                                                     <div className="text-center">
                                                         <Smartphone className="w-6 h-6 mx-auto mb-2 text-blue-500" />
-                                                        <span>Usa el campo &quot;Código de tiempo (móvil)&quot; arriba</span>
+                                                        <span>Usa el campo &quot;CÃ³digo de tiempo (mÃ³vil)&quot; arriba</span>
                                                         <br />
                                                         <span className="text-xs">Ingresa: T11, T10, NNN o TTT</span>
                                                     </div>
@@ -1153,12 +1153,12 @@ export default function TimingControl() {
                                         {Object.entries(resumenSorteos).map(([sorteo, total]) => (
                                             <div key={sorteo} className="flex justify-between items-center pb-2 text-sm" style={{ borderBottom: '1px solid var(--input-border)' }}>
                                                 <span className="font-medium truncate mr-2" style={{ color: 'var(--foreground)' }}>{sorteo}</span>
-                                                <span className="font-mono font-semibold flex-shrink-0" style={{ color: 'var(--foreground)' }}>₡ {total.toLocaleString('es-CR')}</span>
+                                                <span className="font-mono font-semibold flex-shrink-0" style={{ color: 'var(--foreground)' }}>â‚¡ {total.toLocaleString('es-CR')}</span>
                                             </div>
                                         ))}
                                     </div>
                                     <div className="text-right font-bold text-lg pt-2" style={{ color: 'var(--foreground)', borderTop: '2px solid var(--input-border)' }}>
-                                        Total: <span className="font-mono text-green-700">₡ {totalGeneral.toLocaleString('es-CR')}</span>
+                                        Total: <span className="font-mono text-green-700">â‚¡ {totalGeneral.toLocaleString('es-CR')}</span>
                                     </div>
                                 </>
                             ) : (
@@ -1167,9 +1167,9 @@ export default function TimingControl() {
                                         background: 'var(--input-bg)',
                                         border: '1px dashed var(--input-border)'
                                     }}>
-                                        <div className="text-3xl mb-2">📊</div>
+                                        <div className="text-3xl mb-2">ðŸ“Š</div>
                                         <p className="text-sm font-medium mb-1" style={{ color: 'var(--foreground)' }}>
-                                            Sin datos aún
+                                            Sin datos aÃºn
                                         </p>
                                         <p className="text-xs" style={{ color: 'var(--foreground)', opacity: 0.7 }}>
                                             Agrega tickets para ver el resumen

@@ -1,8 +1,7 @@
-'use client';
+﻿'use client';
 import React, { useState, useCallback, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { Copy, Trash2, Edit3, ArrowLeftCircle, Download, Image as ImageIcon, X, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
-import Image from 'next/image';
 import type { ScanHistoryProps as BaseScanHistoryProps, ScanHistoryEntry } from '../../types/barcode';
 import { storage } from '../../config/firebase';
 import { ref, listAll, getDownloadURL } from 'firebase/storage';
@@ -69,7 +68,7 @@ const ScanHistoryRow = memo(function ScanHistoryRow({
             <button
               onClick={() => {
                 navigator.clipboard.writeText(entry.name || '');
-                notify?.('¡Nombre copiado!', 'indigo');
+                notify?.('Â¡Nombre copiado!', 'indigo');
               }}
               className="text-sm font-semibold text-indigo-600 dark:text-indigo-300 mb-1 truncate max-w-full uppercase hover:bg-indigo-100 dark:hover:bg-indigo-900/30 px-2 py-1 rounded transition-colors cursor-pointer"
               title="Clic para copiar nombre"
@@ -85,10 +84,10 @@ const ScanHistoryRow = memo(function ScanHistoryRow({
       <div className="flex flex-row gap-2 mt-3 w-full justify-end">
         <button
           className="p-2 text-blue-500 hover:text-blue-700 bg-blue-100 dark:bg-blue-900 rounded-full border-none"
-          title="Eliminar primer dígito"
+          title="Eliminar primer dÃ­gito"
           onClick={() => {
             onRemoveLeadingZero?.(entry.code);
-            notify?.('Primer dígito eliminado', 'blue');
+            notify?.('Primer dÃ­gito eliminado', 'blue');
           }}
         >
           <ArrowLeftCircle className="w-6 h-6" />
@@ -105,10 +104,10 @@ const ScanHistoryRow = memo(function ScanHistoryRow({
         </button>
         <button
           className="p-2 text-green-500 hover:text-green-700 bg-green-100 dark:bg-green-900 rounded-full border-none"
-          title="Copiar código"
+          title="Copiar cÃ³digo"
           onClick={() => {
             onCopy?.(entry.code);
-            notify?.('¡Código copiado!', 'green');
+            notify?.('Â¡CÃ³digo copiado!', 'green');
           }}
         >
           <Copy className="w-6 h-6" />
@@ -117,21 +116,21 @@ const ScanHistoryRow = memo(function ScanHistoryRow({
         {entry.hasImages && (
           <button
             className="p-2 text-purple-500 hover:text-purple-700 bg-purple-100 dark:bg-purple-900 rounded-full border-none"
-            title="Ver imágenes"
+            title="Ver imÃ¡genes"
             onClick={() => {
               onShowImages?.(entry.code);
-              notify?.('Abriendo imágenes', 'purple');
+              notify?.('Abriendo imÃ¡genes', 'purple');
             }}
           >
-            <ImageIcon className="w-6 h-6" />
+            <imgIcon className="w-6 h-6" />
           </button>
         )}
         <button
           className="p-2 text-red-500 hover:text-red-700 bg-red-100 dark:bg-red-900 rounded-full border-none"
-          title="Eliminar código"
+          title="Eliminar cÃ³digo"
           onClick={() => {
             onDelete?.(entry.code);
-            notify?.('Código eliminado', 'red');
+            notify?.('CÃ³digo eliminado', 'red');
           }}
         >
           <Trash2 className="w-6 h-6" />
@@ -145,7 +144,7 @@ export default function ScanHistory({ history, onCopy, onDelete, onRemoveLeading
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [editValue, setEditValue] = useState('');
 
-  // Estados para modal de imágenes
+  // Estados para modal de imÃ¡genes
   const [showImagesModal, setShowImagesModal] = useState(false);
   const [currentImageCode, setCurrentImageCode] = useState<string>('');
   const [codeImages, setCodeImages] = useState<string[]>([]);
@@ -164,14 +163,14 @@ export default function ScanHistory({ history, onCopy, onDelete, onRemoveLeading
   }, [onRename, notify]);
   const handleRemoveLeadingZero = useCallback((code: string) => {
     onRemoveLeadingZero?.(code);
-    notify?.('Primer dígito eliminado', 'blue');
+    notify?.('Primer dÃ­gito eliminado', 'blue');
   }, [onRemoveLeadingZero, notify]);
   const handleCopy = useCallback((code: string) => {
     onCopy?.(code);
-    notify?.('¡Código copiado!', 'green');
+    notify?.('Â¡CÃ³digo copiado!', 'green');
   }, [onCopy, notify]); const handleDelete = useCallback((code: string) => {
     onDelete?.(code);
-    notify?.('Código e imágenes eliminados', 'red');
+    notify?.('CÃ³digo e imÃ¡genes eliminados', 'red');
   }, [onDelete, notify]);
 
   // Function to load images for a specific barcode from Firebase Storage
@@ -212,12 +211,12 @@ export default function ScanHistory({ history, onCopy, onDelete, onRemoveLeading
       setCodeImages(validUrls);
 
       if (validUrls.length === 0) {
-        setImageLoadError('No se encontraron imágenes para este código');
+        setImageLoadError('No se encontraron imÃ¡genes para este cÃ³digo');
       }
 
     } catch (error) {
       console.error('Error loading images:', error);
-      setImageLoadError('Error al cargar las imágenes');
+      setImageLoadError('Error al cargar las imÃ¡genes');
       setCodeImages([]);
     } finally {
       setLoadingImages(false);
@@ -271,17 +270,17 @@ export default function ScanHistory({ history, onCopy, onDelete, onRemoveLeading
 
   const handleExport = useCallback(() => {
     if (history.length === 0) {
-      notify?.('No hay códigos para exportar', 'orange');
+      notify?.('No hay cÃ³digos para exportar', 'orange');
       return;
     }
 
-    // Filtrar solo códigos que sean números
+    // Filtrar solo cÃ³digos que sean nÃºmeros
     const numericCodes = history
       .filter(entry => /^\d+$/.test(entry.code))
       .map(entry => entry.code);
 
     if (numericCodes.length === 0) {
-      notify?.('No hay códigos numéricos para exportar', 'orange');
+      notify?.('No hay cÃ³digos numÃ©ricos para exportar', 'orange');
       return;
     } const jsonData = JSON.stringify(numericCodes, null, 2);
     const blob = new Blob([jsonData], { type: 'application/json;charset=utf-8;' });
@@ -293,7 +292,7 @@ export default function ScanHistory({ history, onCopy, onDelete, onRemoveLeading
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    notify?.(`${numericCodes.length} códigos numéricos exportados exitosamente`, 'green');
+    notify?.(`${numericCodes.length} cÃ³digos numÃ©ricos exportados exitosamente`, 'green');
   }, [history, notify]);
 
   // Handle keyboard navigation for image modal
@@ -346,7 +345,7 @@ export default function ScanHistory({ history, onCopy, onDelete, onRemoveLeading
   if (history.length === 0) {
     return (
       <div className="p-4 rounded-lg shadow bg-[var(--card-bg)] text-[var(--tab-text)]">
-        No hay escaneos aún
+        No hay escaneos aÃºn
       </div>
     );
   }
@@ -356,7 +355,7 @@ export default function ScanHistory({ history, onCopy, onDelete, onRemoveLeading
       <div className="flex gap-2 ml-2">
         <button
           className="p-1 rounded-full bg-green-100 hover:bg-green-200 text-green-600 transition-colors w-8 h-8 flex items-center justify-center border border-green-200 dark:border-green-700"
-          title="Exportar códigos"
+          title="Exportar cÃ³digos"
           onClick={handleExport}
         >
           <Download className="w-4 h-4" />
@@ -365,7 +364,7 @@ export default function ScanHistory({ history, onCopy, onDelete, onRemoveLeading
           className="p-1 rounded-full bg-red-100 hover:bg-red-200 text-red-600 transition-colors w-8 h-8 flex items-center justify-center border border-red-200 dark:border-red-700"
           title="Limpiar historial"
           onClick={() => {
-            if (window.confirm('¿Seguro que deseas borrar todo el historial de escaneos?')) {
+            if (window.confirm('Â¿Seguro que deseas borrar todo el historial de escaneos?')) {
               if (typeof onDelete === 'function') {
                 history.forEach(entry => onDelete(entry.code));
               }
@@ -404,7 +403,7 @@ export default function ScanHistory({ history, onCopy, onDelete, onRemoveLeading
           {/* Modal Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-600 flex-shrink-0">
             <h3 className="text-xl font-semibold text-[var(--foreground)]">
-              📷 Imágenes del Código
+              ðŸ“· ImÃ¡genes del CÃ³digo
             </h3>
             <button
               onClick={handleCloseImagesModal}
@@ -417,7 +416,7 @@ export default function ScanHistory({ history, onCopy, onDelete, onRemoveLeading
           {/* Current Code Display */}
           <div className="px-6 py-3 border-b border-gray-200 dark:border-gray-600 flex-shrink-0">
             <p className="text-gray-600 dark:text-gray-300 text-sm">
-              Código: <span className="font-mono bg-[var(--input-bg)] px-3 py-1 rounded text-base">{currentImageCode}</span>
+              CÃ³digo: <span className="font-mono bg-[var(--input-bg)] px-3 py-1 rounded text-base">{currentImageCode}</span>
             </p>
           </div>
 
@@ -427,7 +426,7 @@ export default function ScanHistory({ history, onCopy, onDelete, onRemoveLeading
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                  <span className="text-lg text-gray-600 dark:text-gray-300">Cargando imágenes...</span>
+                  <span className="text-lg text-gray-600 dark:text-gray-300">Cargando imÃ¡genes...</span>
                 </div>
               </div>
             ) : imageLoadError ? (
@@ -441,11 +440,11 @@ export default function ScanHistory({ history, onCopy, onDelete, onRemoveLeading
               <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6 h-fit">
                 {codeImages.map((imageUrl, index) => (
                   <div key={index} className="relative group">
-                    <Image
+                    <img
                       src={imageUrl}
-                      alt={`Imagen ${index + 1} del código ${currentImageCode}`}
-                      width={400}
-                      height={300}
+                      alt={`Imagen ${index + 1} del cÃ³digo ${currentImageCode}`}
+                      
+                      
                       className="w-full h-auto max-h-96 object-contain rounded-lg border border-gray-200 dark:border-gray-600 shadow-lg transition-transform group-hover:scale-105 cursor-pointer"
                       onClick={() => handleOpenImageModal(imageUrl, index)}
                       title="Clic para ver en pantalla completa"
@@ -463,8 +462,8 @@ export default function ScanHistory({ history, onCopy, onDelete, onRemoveLeading
             ) : (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
-                  <ImageIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <p className="text-lg text-gray-600 dark:text-gray-300">No hay imágenes disponibles</p>
+                  <imgIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <p className="text-lg text-gray-600 dark:text-gray-300">No hay imÃ¡genes disponibles</p>
                 </div>
               </div>
             )}
@@ -534,11 +533,11 @@ export default function ScanHistory({ history, onCopy, onDelete, onRemoveLeading
           )}
 
           {/* Main Image */}
-          <Image
+          <img
             src={selectedImageUrl}
-            alt={`Imagen ${selectedImageIndex + 1} del código ${currentImageCode}`}
-            width={1200}
-            height={800}
+            alt={`Imagen ${selectedImageIndex + 1} del cÃ³digo ${currentImageCode}`}
+            
+            
             className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
             onError={(e) => {
               console.error(`Error loading selected image:`, e);
@@ -547,7 +546,7 @@ export default function ScanHistory({ history, onCopy, onDelete, onRemoveLeading
 
           {/* Image Info */}
           <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10 px-4 py-2 rounded-full bg-black bg-opacity-70 text-white text-sm">
-            Código: {currentImageCode} • Imagen {selectedImageIndex + 1} de {codeImages.length}
+            CÃ³digo: {currentImageCode} â€¢ Imagen {selectedImageIndex + 1} de {codeImages.length}
           </div>
         </div>
       </div>,

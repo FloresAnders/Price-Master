@@ -1,10 +1,10 @@
-// ...existing code...
+﻿// ...existing code...
 
 'use client'
 'use client'
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import Image from 'next/image';
+
 import QRCode from 'qrcode';
 import { History, Copy, Search, Eye, Calendar, MapPin, RefreshCw, Image as ImageIcon, X, Download, ChevronLeft, ChevronRight, Lock as LockIcon, Smartphone, QrCode } from 'lucide-react';
 import { useScanHistory, useScanImages } from '@/hooks/useScanHistory';
@@ -15,7 +15,7 @@ import { generateShortMobileUrl } from '../../utils/shortEncoder';
 
 export default function ScanHistoryTable() {
   /* Verificar permisos del usuario */
-  // Hook de autenticación para obtener el usuario actual
+  // Hook de autenticaciÃ³n para obtener el usuario actual
   const { user } = useAuth();
 
   // Usar hooks optimizados
@@ -70,7 +70,7 @@ export default function ScanHistoryTable() {
     };
   }, []);
 
-  // Auto-close the "Código procesado" modal 2 seconds after it opens
+  // Auto-close the "CÃ³digo procesado" modal 2 seconds after it opens
   useEffect(() => {
     if (!showProcessModal?.open) return;
     const t = window.setTimeout(() => {
@@ -81,7 +81,7 @@ export default function ScanHistoryTable() {
 
   // Ref for the confirm button so we can focus it when modal opens
   const confirmProcessButtonRef = useRef<HTMLButtonElement | null>(null);
-  // Ref for the "Código procesado" modal close button so Enter can close it
+  // Ref for the "CÃ³digo procesado" modal close button so Enter can close it
   const showProcessCloseRef = useRef<HTMLButtonElement | null>(null);
   // Ref to hold the current deleteScan function so effects can call it before it's declared
   const deleteScanRef = useRef<((scanId: string, code: string) => Promise<void>) | null>(null);
@@ -96,7 +96,7 @@ export default function ScanHistoryTable() {
     }
   }, [confirmProcess]);
 
-  // Focus the close button and allow Enter/Escape to close the "Código procesado" modal
+  // Focus the close button and allow Enter/Escape to close the "CÃ³digo procesado" modal
   useEffect(() => {
     if (!showProcessModal?.open) return;
 
@@ -233,16 +233,16 @@ export default function ScanHistoryTable() {
         document.execCommand('copy');
         document.body.removeChild(textArea);
       }
-      showNotification('¡Código copiado!', 'green');
+      showNotification('Â¡CÃ³digo copiado!', 'green');
     } catch (error) {
       console.error('Error copying to clipboard:', error);
-      showNotification('Error al copiar código', 'red');
+      showNotification('Error al copiar cÃ³digo', 'red');
     }
   };
 
   // Clear all history
   const clearHistory = async () => {
-    if (window.confirm('¿Estás seguro de que deseas eliminar todo el historial? Esta acción no se puede deshacer.')) {
+    if (window.confirm('Â¿EstÃ¡s seguro de que deseas eliminar todo el historial? Esta acciÃ³n no se puede deshacer.')) {
       try {
         await clearHistoryService();
         showNotification('Historial eliminado', 'red');
@@ -260,10 +260,10 @@ export default function ScanHistoryTable() {
       try {
         await deleteScanService(scanId);
         setShowProcessModal({ code, open: true });
-        showNotification('Código procesado y eliminado', 'green');
+        showNotification('CÃ³digo procesado y eliminado', 'green');
       } catch (error) {
         console.error('Error deleting scan:', error);
-        showNotification('Error al eliminar el código', 'red');
+        showNotification('Error al eliminar el cÃ³digo', 'red');
       } finally {
         setProcessingId(null);
       }
@@ -283,7 +283,7 @@ export default function ScanHistoryTable() {
     try {
       const result = await refreshHistory();
       if (result.newCount > 0) {
-        showNotification(`Historial actualizado - ${result.newCount} código${result.newCount > 1 ? 's' : ''} nuevo${result.newCount > 1 ? 's' : ''}`, 'green');
+        showNotification(`Historial actualizado - ${result.newCount} cÃ³digo${result.newCount > 1 ? 's' : ''} nuevo${result.newCount > 1 ? 's' : ''}`, 'green');
       } else {
         showNotification('Historial actualizado - Sin cambios', 'green');
       }
@@ -364,7 +364,7 @@ export default function ScanHistoryTable() {
       showNotification(`${codeImages.length} descargas iniciadas`, 'green');
     } catch (error) {
       console.error('Error downloading images:', error);
-      showNotification('Error al descargar las imágenes', 'red');
+      showNotification('Error al descargar las imÃ¡genes', 'red');
     }
   };
 
@@ -489,12 +489,12 @@ export default function ScanHistoryTable() {
     // Filtrar por empresas permitidas para el usuario
     let matchesUserLocations = true;
     if (user?.permissions?.scanhistory && user.permissions.scanhistoryEmpresas) {
-      // Si el usuario tiene empresas específicas configuradas, filtrar por ellas
+      // Si el usuario tiene empresas especÃ­ficas configuradas, filtrar por ellas
       if (user.permissions.scanhistoryEmpresas.length > 0) {
         matchesUserLocations = entry.ownercompanie ?
           user.permissions.scanhistoryEmpresas.includes(entry.ownercompanie) : false;
       }
-      // Si no tiene empresas específicas configuradas pero tiene permiso de scanhistory, puede ver todas
+      // Si no tiene empresas especÃ­ficas configuradas pero tiene permiso de scanhistory, puede ver todas
     } else if (!user?.permissions?.scanhistory) {
       // Si el usuario no tiene permiso de scanhistory, no puede ver nada
       matchesUserLocations = false;
@@ -581,10 +581,10 @@ export default function ScanHistoryTable() {
               <button
                 onClick={() => setShowMobileScannerModal(true)}
                 className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
-                title="Abrir Escáner Móvil"
+                title="Abrir EscÃ¡ner MÃ³vil"
               >
                 <Smartphone className="w-4 h-4" />
-                Escáner Móvil
+                EscÃ¡ner MÃ³vil
               </button>
               <button
                 onClick={handleRefreshHistory}
@@ -600,7 +600,7 @@ export default function ScanHistoryTable() {
                     onClick={clearHistory}
                     className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
                   >
-                    {/* Eliminado Trash2, ya no se usa ícono de eliminar aquí */}
+                    {/* Eliminado Trash2, ya no se usa Ã­cono de eliminar aquÃ­ */}
                     Limpiar Todo
                   </button>
                 </>
@@ -683,7 +683,7 @@ export default function ScanHistoryTable() {
                   {/* Quick date filters */}
                   <div className="flex flex-wrap gap-2">
                     <span className="text-sm text-[var(--muted-foreground)] flex items-center">
-                      Filtros rápidos:
+                      Filtros rÃ¡pidos:
                     </span>
                     <button
                       onClick={() => setDateRange(0)}
@@ -701,7 +701,7 @@ export default function ScanHistoryTable() {
                       onClick={() => setDateRange(7)}
                       className="px-3 py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors"
                     >
-                      Últimos 7 días
+                      Ãšltimos 7 dÃ­as
                     </button>
                     <button
                       onClick={() => setThisWeek()}
@@ -713,7 +713,7 @@ export default function ScanHistoryTable() {
                       onClick={() => setDateRange(30)}
                       className="px-3 py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors"
                     >
-                      Últimos 30 días
+                      Ãšltimos 30 dÃ­as
                     </button>
                     <button
                       onClick={() => setThisMonth()}
@@ -766,8 +766,8 @@ export default function ScanHistoryTable() {
 
                   <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 rounded-lg p-4">
                     <div className="flex items-center gap-2">
-                      <ImageIcon className="w-5 h-5 text-purple-600" />
-                      <span className="text-sm font-medium text-purple-800 dark:text-purple-300">Con Imágenes</span>
+                      <imgIcon className="w-5 h-5 text-purple-600" />
+                      <span className="text-sm font-medium text-purple-800 dark:text-purple-300">Con ImÃ¡genes</span>
                     </div>
                     <p className="text-2xl font-bold text-purple-600 mt-1">
                       {scanHistory.filter(entry => entry.hasImages).length}
@@ -785,7 +785,7 @@ export default function ScanHistoryTable() {
                   <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-lg p-4">
                     <div className="flex items-center gap-2">
                       <MapPin className="w-5 h-5 text-orange-600" />
-                      <span className="text-sm font-medium text-orange-800 dark:text-orange-300">Con Ubicación</span>
+                      <span className="text-sm font-medium text-orange-800 dark:text-orange-300">Con UbicaciÃ³n</span>
                     </div>
                     <p className="text-2xl font-bold text-orange-600 mt-1">
                       {scanHistory.filter(entry => entry.ownercompanie).length}
@@ -803,8 +803,8 @@ export default function ScanHistoryTable() {
                   </h3>
                   <p className="text-[var(--muted-foreground)]">
                     {scanHistory.length === 0
-                      ? 'Los códigos escaneados aparecerán aquí automáticamente'
-                      : 'Intenta con un término de búsqueda diferente o selecciona otra ubicación'
+                      ? 'Los cÃ³digos escaneados aparecerÃ¡n aquÃ­ automÃ¡ticamente'
+                      : 'Intenta con un tÃ©rmino de bÃºsqueda diferente o selecciona otra ubicaciÃ³n'
                     }
                   </p>
                 </div>
@@ -823,15 +823,15 @@ export default function ScanHistoryTable() {
                           <div className="flex flex-wrap gap-2 w-full">
                             {entry.hasImages && (
                               <span className="text-xs text-[var(--muted-foreground)] bg-purple-100 dark:bg-purple-900/30 px-2 py-1 rounded flex items-center gap-1">
-                                <ImageIcon className="w-3 h-3" />
-                                Imágenes
+                                <imgIcon className="w-3 h-3" />
+                                ImÃ¡genes
                               </span>
                             )}
                             {entry.productName && (
                               <button
                                 onClick={() => {
                                   navigator.clipboard.writeText((entry.productName || '').toUpperCase());
-                                  showNotification('¡Nombre copiado!', 'blue');
+                                  showNotification('Â¡Nombre copiado!', 'blue');
                                 }}
                                 className="text-sm text-[var(--muted-foreground)] bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors cursor-pointer uppercase"
                                 title="Clic para copiar nombre"
@@ -849,7 +849,7 @@ export default function ScanHistoryTable() {
                         </div>
                         <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-[var(--muted-foreground)] w-full">
                           <span>
-                            Fuente: {entry.source === 'mobile' ? '📱 Móvil' : '💻 Web'}
+                            Fuente: {entry.source === 'mobile' ? 'ðŸ“± MÃ³vil' : 'ðŸ’» Web'}
                           </span>
                           {entry.userName && (
                             <span>Usuario: {entry.userName}</span>
@@ -870,7 +870,7 @@ export default function ScanHistoryTable() {
                         <button
                           onClick={() => handleCopy(entry.code)}
                           className="p-2 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-md transition-colors"
-                          title="Copiar código"
+                          title="Copiar cÃ³digo"
                         >
                           <Copy className="w-4 h-4" />
                         </button>
@@ -878,9 +878,9 @@ export default function ScanHistoryTable() {
                           <button
                             onClick={() => handleShowImages(entry.code)}
                             className="p-2 text-purple-600 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded-md transition-colors"
-                            title="Ver imágenes"
+                            title="Ver imÃ¡genes"
                           >
-                            <ImageIcon className="w-4 h-4" />
+                            <imgIcon className="w-4 h-4" />
                           </button>
                         )}
                         <button
@@ -915,7 +915,7 @@ export default function ScanHistoryTable() {
                                 setConfirmProcess({ id: entry.id!, code: entry.code });
                               }}
                               className="w-5 h-5 text-green-600 bg-gray-100 border-gray-300 rounded focus:ring-green-500 dark:focus:ring-green-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                              title="Procesar y eliminar código"
+                              title="Procesar y eliminar cÃ³digo"
                             />
                             <span className="text-xs text-green-700 dark:text-green-300">Procesar</span>
                             {processingId === entry.id && (
@@ -923,7 +923,7 @@ export default function ScanHistoryTable() {
                             )}
                           </label>
                         )}
-                        {/* Modal de confirmación de procesamiento */}
+                        {/* Modal de confirmaciÃ³n de procesamiento */}
                         {confirmProcess && (
                           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 px-2 sm:px-0">
                             <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg w-full max-w-sm flex flex-col items-center p-4 sm:p-8 gap-4 mx-2 sm:mx-auto">
@@ -931,8 +931,8 @@ export default function ScanHistoryTable() {
                                 <span className="inline-block bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 rounded-full px-3 py-1 text-sm font-semibold">Confirmar procesamiento</span>
                               </div>
                               <div className="text-center mb-4 sm:mb-6 break-words w-full">
-                                <p className="text-base sm:text-lg font-medium text-gray-800 dark:text-gray-100 mb-2">¿Procesar el código <span className="font-mono text-green-700 dark:text-green-300 break-all">{confirmProcess.code}</span>?</p>
-                                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Esta acción eliminará el código y sus imágenes asociadas.</p>
+                                <p className="text-base sm:text-lg font-medium text-gray-800 dark:text-gray-100 mb-2">Â¿Procesar el cÃ³digo <span className="font-mono text-green-700 dark:text-green-300 break-all">{confirmProcess.code}</span>?</p>
+                                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Esta acciÃ³n eliminarÃ¡ el cÃ³digo y sus imÃ¡genes asociadas.</p>
                               </div>
                               <div className="flex flex-col sm:flex-row gap-2 w-full">
                                 <button
@@ -956,16 +956,16 @@ export default function ScanHistoryTable() {
                             </div>
                           </div>
                         )}
-                        {/* Modal de procesamiento y eliminación */}
+                        {/* Modal de procesamiento y eliminaciÃ³n */}
                         {showProcessModal?.open && (
                           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 px-2 sm:px-0">
                             <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg w-full max-w-sm flex flex-col items-center p-4 sm:p-8 gap-4">
                               <div className="mb-2 sm:mb-4 w-full flex justify-center">
-                                <span className="inline-block bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full px-3 py-1 text-sm font-semibold">Código procesado</span>
+                                <span className="inline-block bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full px-3 py-1 text-sm font-semibold">CÃ³digo procesado</span>
                               </div>
                               <div className="text-center mb-4 sm:mb-6 break-words w-full">
-                                <p className="text-base sm:text-lg font-medium text-gray-800 dark:text-gray-100 mb-2">El código <span className="font-mono text-green-700 dark:text-green-300 break-all">{showProcessModal.code}</span> fue procesado.</p>
-                                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Las imágenes asociadas también han sido eliminadas.</p>
+                                <p className="text-base sm:text-lg font-medium text-gray-800 dark:text-gray-100 mb-2">El cÃ³digo <span className="font-mono text-green-700 dark:text-green-300 break-all">{showProcessModal.code}</span> fue procesado.</p>
+                                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Las imÃ¡genes asociadas tambiÃ©n han sido eliminadas.</p>
                               </div>
                               <button
                                 type="button"
@@ -987,7 +987,7 @@ export default function ScanHistoryTable() {
               {/* Footer info */}
               <div className="mt-6 pt-4 border-t border-[var(--input-border)]">
                 <p className="text-sm text-[var(--muted-foreground)] text-center">
-                  Mostrando escaneos • Filtrados por ubicación: {
+                  Mostrando escaneos â€¢ Filtrados por ubicaciÃ³n: {
                     selectedLocation === 'all'
                       ? (user?.permissions?.scanhistoryEmpresas && user.permissions.scanhistoryEmpresas.length > 0
                         ? `Empresas permitidas (${user.permissions.scanhistoryEmpresas.join(', ')})`
@@ -996,7 +996,7 @@ export default function ScanHistoryTable() {
                   }
                   {(startDate || endDate) && (
                     <>
-                      {' • '}
+                      {' â€¢ '}
                       Rango de fechas: {
                         startDate && endDate
                           ? `${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}`
@@ -1018,7 +1018,7 @@ export default function ScanHistoryTable() {
               <div className="bg-black bg-opacity-50 p-4 flex items-center justify-between">
                 <div className="text-white">
                   <h3 className="text-lg font-semibold">
-                    Imágenes del código: {currentImageCode}
+                    ImÃ¡genes del cÃ³digo: {currentImageCode}
                   </h3>
                   {codeImages.length > 0 && (
                     <p className="text-sm text-gray-300 mt-1">
@@ -1040,14 +1040,14 @@ export default function ScanHistoryTable() {
                   <div className="flex items-center justify-center h-full">
                     <div className="text-center text-white">
                       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-                      <p>Cargando imágenes...</p>
+                      <p>Cargando imÃ¡genes...</p>
                     </div>
                   </div>
                 ) : imageLoadError ? (
                   <div className="flex items-center justify-center h-full">
                     <div className="text-center text-white">
-                      <ImageIcon className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                      <h3 className="text-lg font-medium mb-2">No se encontraron imágenes</h3>
+                      <imgIcon className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                      <h3 className="text-lg font-medium mb-2">No se encontraron imÃ¡genes</h3>
                       <p className="text-gray-300">{imageLoadError}</p>
                     </div>
                   </div>
@@ -1061,11 +1061,11 @@ export default function ScanHistoryTable() {
                               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
                             </div>
                           )}
-                          <Image
+                          <img
                             src={imageUrl}
-                            alt={`Imagen ${index + 1} del código ${currentImageCode}`}
-                            width={400}
-                            height={400}
+                            alt={`Imagen ${index + 1} del cÃ³digo ${currentImageCode}`}
+                            
+                            
                             className="w-full h-full object-cover cursor-pointer transition-transform duration-200 group-hover:scale-105"
                             loading="lazy"
                             onLoadStart={() => handleThumbnailLoadStart(index)}
@@ -1098,9 +1098,9 @@ export default function ScanHistoryTable() {
                 ) : (
                   <div className="flex items-center justify-center h-full">
                     <div className="text-center text-white">
-                      <ImageIcon className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                      <h3 className="text-lg font-medium mb-2">No se encontraron imágenes</h3>
-                      <p className="text-gray-300">Este código no tiene imágenes asociadas</p>
+                      <imgIcon className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                      <h3 className="text-lg font-medium mb-2">No se encontraron imÃ¡genes</h3>
+                      <p className="text-gray-300">Este cÃ³digo no tiene imÃ¡genes asociadas</p>
                     </div>
                   </div>
                 )}
@@ -1109,7 +1109,7 @@ export default function ScanHistoryTable() {
               {/* Footer */}
               <div className="bg-black bg-opacity-50 p-4 flex items-center justify-between">
                 <div className="text-white text-sm opacity-70">
-                  Click en imagen para ver completa • ESC para cerrar
+                  Click en imagen para ver completa â€¢ ESC para cerrar
                 </div>
                 {codeImages.length > 0 && (
                   <button
@@ -1175,11 +1175,11 @@ export default function ScanHistoryTable() {
                 )}
 
                 {/* Main Image */}
-                <Image
+                <img
                   src={selectedImageUrl}
-                  alt={`Imagen ${selectedImageIndex + 1} del código ${currentImageCode}`}
-                  width={1200}
-                  height={800}
+                  alt={`Imagen ${selectedImageIndex + 1} del cÃ³digo ${currentImageCode}`}
+                  
+                  
                   className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
                   onError={(e) => {
                     console.error(`Error loading selected image:`, e);
@@ -1188,7 +1188,7 @@ export default function ScanHistoryTable() {
 
                 {/* Image Info */}
                 <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10 px-4 py-2 rounded-full bg-black bg-opacity-70 text-white text-sm">
-                  Código: {currentImageCode} • Imagen {selectedImageIndex + 1} de {codeImages.length}
+                  CÃ³digo: {currentImageCode} â€¢ Imagen {selectedImageIndex + 1} de {codeImages.length}
                 </div>
 
                 {/* Download Button */}
@@ -1221,7 +1221,7 @@ export default function ScanHistoryTable() {
                   <div className="flex items-center gap-3">
                     <Smartphone className="w-6 h-6 text-green-600" />
                     <h3 className="text-xl font-semibold text-[var(--foreground)]">
-                      Escáner Móvil
+                      EscÃ¡ner MÃ³vil
                     </h3>
                   </div>
                   <button
@@ -1240,10 +1240,10 @@ export default function ScanHistoryTable() {
                 {/* Modal Content */}
                 <div className="p-6">
                   <div className="text-center space-y-4">
-                    {/* Configuración desde PC para móvil */}
+                    {/* ConfiguraciÃ³n desde PC para mÃ³vil */}
                     <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800 max-w-md mx-auto space-y-4">
                       <h4 className="text-base font-semibold text-blue-800 dark:text-blue-200 mb-3">
-                        Configuración para Móvil
+                        ConfiguraciÃ³n para MÃ³vil
                       </h4>
 
                       {/* Checkbox para nombres de productos */}
@@ -1256,12 +1256,12 @@ export default function ScanHistoryTable() {
                         />
                         <div className="text-left">
                           <div className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-1">
-                            Solicitar nombres de productos en móvil
+                            Solicitar nombres de productos en mÃ³vil
                           </div>
                           <p className="text-xs text-blue-600 dark:text-blue-400 leading-relaxed">
                             {requestProductNameModal
-                              ? "El móvil pedirá ingresar nombres opcionales para cada código escaneado"
-                              : "El móvil solo enviará códigos de barras sin solicitar nombres"
+                              ? "El mÃ³vil pedirÃ¡ ingresar nombres opcionales para cada cÃ³digo escaneado"
+                              : "El mÃ³vil solo enviarÃ¡ cÃ³digos de barras sin solicitar nombres"
                             }
                           </p>
                         </div>
@@ -1271,7 +1271,7 @@ export default function ScanHistoryTable() {
                     {/* QR Code o Link */}
                     <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-6 mb-6">
                       <p className="text-sm text-[var(--muted-foreground)] mb-4">
-                        Escanea este código QR con tu teléfono o haz clic en el botón para abrir el escáner móvil:
+                        Escanea este cÃ³digo QR con tu telÃ©fono o haz clic en el botÃ³n para abrir el escÃ¡ner mÃ³vil:
                       </p>
 
                       {/* Generate Mobile Scanner URL */}
@@ -1286,11 +1286,11 @@ export default function ScanHistoryTable() {
                             {/* QR Code */}
                             <div className="w-48 h-48 mx-auto bg-white rounded-lg flex items-center justify-center border">
                               {qrCodeDataUrl ? (
-                                <Image
+                                <img
                                   src={qrCodeDataUrl}
-                                  alt="Código QR del Escáner Móvil"
-                                  width={192}
-                                  height={192}
+                                  alt="CÃ³digo QR del EscÃ¡ner MÃ³vil"
+                                  
+                                  
                                   className="w-full h-full object-contain"
                                 />
                               ) : (
@@ -1304,7 +1304,7 @@ export default function ScanHistoryTable() {
                             {/* URL Manual */}
                             <div className="text-left">
                               <p className="text-xs text-[var(--muted-foreground)] mb-2">
-                                O ingresa manualmente esta URL en tu móvil:
+                                O ingresa manualmente esta URL en tu mÃ³vil:
                               </p>
                               <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-2">
                                 <code className="text-xs text-gray-700 dark:text-gray-300 break-all">
@@ -1323,14 +1323,14 @@ export default function ScanHistoryTable() {
                                 className="w-full px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2 font-medium"
                               >
                                 <Smartphone className="w-5 h-5" />
-                                Abrir Escáner en Nueva Pestaña
+                                Abrir EscÃ¡ner en Nueva PestaÃ±a
                               </button>
 
                               {/* Copy Link */}
                               <button
                                 onClick={() => {
                                   navigator.clipboard.writeText(mobileScanUrl);
-                                  showNotification('¡Enlace copiado al portapapeles!', 'green');
+                                  showNotification('Â¡Enlace copiado al portapapeles!', 'green');
                                 }}
                                 className="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-[var(--foreground)] rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors flex items-center justify-center gap-2"
                               >
@@ -1347,11 +1347,11 @@ export default function ScanHistoryTable() {
                     <div className="text-left space-y-2 text-sm text-[var(--muted-foreground)]">
                       <h5 className="font-semibold text-[var(--foreground)]">Instrucciones:</h5>
                       <ul className="list-disc list-inside space-y-1">
-                        <li>Asegúrate de que tu teléfono y computadora estén en la misma red</li>
-                        <li>Abre el enlace en tu teléfono móvil</li>
-                        <li>Permite el acceso a la cámara cuando se solicite</li>
-                        <li>Escanea códigos de barras con la cámara de tu teléfono</li>
-                        <li>Los códigos aparecerán automáticamente en este historial</li>
+                        <li>AsegÃºrate de que tu telÃ©fono y computadora estÃ©n en la misma red</li>
+                        <li>Abre el enlace en tu telÃ©fono mÃ³vil</li>
+                        <li>Permite el acceso a la cÃ¡mara cuando se solicite</li>
+                        <li>Escanea cÃ³digos de barras con la cÃ¡mara de tu telÃ©fono</li>
+                        <li>Los cÃ³digos aparecerÃ¡n automÃ¡ticamente en este historial</li>
                       </ul>
                     </div>
                   </div>

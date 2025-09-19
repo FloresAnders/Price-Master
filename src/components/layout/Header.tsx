@@ -1,6 +1,5 @@
 'use client'
 
-import Image from 'next/image';
 import { Settings, LogOut, Menu, X, Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck, History, User, ChevronDown, Shield, Timer, TimerOff } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
@@ -170,7 +169,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
             onClick={handleLogoClick}
             className="flex items-center gap-3 text-xl font-bold tracking-tight text-[var(--foreground)] hover:text-[var(--tab-text-active)] transition-colors cursor-pointer bg-transparent border-none p-0"
           >
-            <Image
+            <img
               src="/favicon-32x32.png"
               alt="Price Master Logo"
               width={32}
