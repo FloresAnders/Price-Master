@@ -1,15 +1,15 @@
 'use client'
 
 import Image from 'next/image';
-import { Settings, LogOut, Menu, X, Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck, History, User, ChevronDown, Shield, Timer, TimerOff } from 'lucide-react';
+import { Settings, LogOut, Menu, X, Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck, History, User, ChevronDown } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { ThemeToggle } from './ThemeToggle';
 import { getDefaultPermissions } from '../../utils/permissions';
-import TokenInfo from '../session/TokenInfo';
 import FloatingSessionTimer from '../session/FloatingSessionTimer';
 import EditProfileModal from '../edicionPerfil/EditProfileModal';
+import ConfigurationModal from '../modals/ConfigurationModal';
 import type { UserPermissions } from '../../types/firestore';
 
 type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'supplierorders' | 'histoscans' | 'scanhistory' | 'edit'
@@ -190,8 +190,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                     key={tab.id}
                     onClick={() => handleTabClick(tab.id)}
                     className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${activeTab === tab.id
-                        ? 'text-[var(--tab-text-active)] font-semibold'
-                        : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
+                      ? 'text-[var(--tab-text-active)] font-semibold'
+                      : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
                       }`}
                     title={tab.description}
                   >
@@ -245,29 +245,29 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                           pointerEvents: 'auto' // Ensure it can be clicked
                         }}
                       >
-                          <div className="py-2">
-                            <button
-                              onClick={() => {
-                                setShowEditProfileModal(true);
-                                setShowUserDropdown(false);
-                              }}
-                              className="flex items-center gap-3 w-full px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--hover-bg)] transition-colors"
-                            >
-                              <User className="w-4 h-4 text-[var(--muted-foreground)]" />
-                              Editar Perfil
-                            </button>
+                        <div className="py-2">
+                          <button
+                            onClick={() => {
+                              setShowEditProfileModal(true);
+                              setShowUserDropdown(false);
+                            }}
+                            className="flex items-center gap-3 w-full px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--hover-bg)] transition-colors"
+                          >
+                            <User className="w-4 h-4 text-[var(--muted-foreground)]" />
+                            Editar Perfil
+                          </button>
 
-                            <button
-                              onClick={() => {
-                                setShowConfigModal(true);
-                                setShowUserDropdown(false);
-                              }}
-                              className="flex items-center gap-3 w-full px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--hover-bg)] transition-colors"
-                            >
-                              <Settings className="w-4 h-4 text-[var(--muted-foreground)]" />
-                              Configuración de Sesión
-                            </button>
-                          </div>
+                          <button
+                            onClick={() => {
+                              setShowConfigModal(true);
+                              setShowUserDropdown(false);
+                            }}
+                            className="flex items-center gap-3 w-full px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--hover-bg)] transition-colors"
+                          >
+                            <Settings className="w-4 h-4 text-[var(--muted-foreground)]" />
+                            Configuración de Sesión
+                          </button>
+                        </div>
                       </div>
                     </>,
                     document.body
@@ -312,8 +312,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                       setShowMobileMenu(false);
                     }}
                     className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${activeTab === tab.id
-                        ? 'bg-[var(--accent)] text-[var(--accent-foreground)]'
-                        : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]'
+                      ? 'bg-[var(--accent)] text-[var(--accent-foreground)]'
+                      : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]'
                       }`}
                   >
                     <IconComponent className="w-4 h-4" />
@@ -398,132 +398,15 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       )}
 
       {/* Configuration Modal */}
-      {showConfigModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-[var(--background)] rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-semibold text-[var(--foreground)] flex items-center gap-3">
-                  <Settings className="w-6 h-6 text-blue-600" />
-                  Configuración del Sistema
-                </h2>
-                <button
-                  onClick={() => setShowConfigModal(false)}
-                  className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
+      <ConfigurationModal
+        isOpen={showConfigModal}
+        onClose={() => setShowConfigModal(false)}
+        showSessionTimer={showSessionTimer}
+        onToggleSessionTimer={setShowSessionTimer}
+        onLogoutClick={handleLogoutClick}
+      />
 
-              {/* User Information */}
-              <div className="mb-6">
-                <h3 className="text-lg font-medium text-[var(--foreground)] mb-4 flex items-center gap-2">
-                  <User className="w-5 h-5 text-blue-500" />
-                  Información del Usuario
-                </h3>
-                <div className="bg-[var(--hover-bg)] rounded-lg p-4">
-                  <div className="flex items-center gap-3 mb-4">
-                    <User className="w-8 h-8 text-[var(--muted-foreground)]" />
-                    <div>
-                      <div className="font-medium text-[var(--foreground)]">{user?.name}</div>
-                      <div className="text-sm text-[var(--muted-foreground)]">
-                        Usuario activo: <strong>{user?.name}</strong>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Session Management */}
-              <div className="mb-6">
-                <h3 className="text-lg font-medium text-[var(--foreground)] mb-4 flex items-center gap-2">
-                  <Shield className="w-5 h-5 text-green-500" />
-                  Gestión de Sesión
-                </h3>
-                <div className="space-y-4">
-                  <TokenInfo isOpen={true} onClose={() => { }} inline={true} />
-
-                  {/* Toggle para FloatingSessionTimer */}
-                  <div className="bg-[var(--hover-bg)] rounded-lg p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        {showSessionTimer ? (
-                          <Timer className="w-5 h-5 text-blue-500" />
-                        ) : (
-                          <TimerOff className="w-5 h-5 text-gray-500" />
-                        )}
-                        <div>
-                          <div className="font-medium text-[var(--foreground)]">
-                            Temporizador Flotante
-                          </div>
-                          <div className="text-sm text-[var(--muted-foreground)]">
-                            {showSessionTimer ? 'Visible en pantalla' : 'Oculto'}
-                          </div>
-                        </div>
-                      </div>
-                      <label className="flex items-center cursor-pointer">
-                        <div className="relative">
-                          <input
-                            type="checkbox"
-                            checked={showSessionTimer}
-                            onChange={(e) => setShowSessionTimer(e.target.checked)}
-                            className="sr-only"
-                          />
-                          <div className={`block w-12 h-6 rounded-full transition-colors duration-200 ease-in-out ${showSessionTimer
-                              ? 'bg-blue-600 shadow-lg'
-                              : 'bg-gray-300 dark:bg-gray-600'
-                            }`}>
-                          </div>
-                          <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-200 ease-in-out shadow-sm ${showSessionTimer ? 'translate-x-6' : 'translate-x-0'
-                            }`}>
-                          </div>
-                        </div>
-                      </label>
-                    </div>
-                    <div className="mt-3 text-xs text-[var(--muted-foreground)]">
-                      {showSessionTimer
-                        ? 'El temporizador de sesión se muestra en la esquina inferior derecha'
-                        : 'Activa para mostrar el temporizador de sesión flotante'
-                      }
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Actions Section */}
-              <div className="border-t border-[var(--input-border)] pt-6">
-                <h3 className="text-lg font-medium text-[var(--foreground)] mb-4">Acciones</h3>
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setShowConfigModal(false)}
-                    className="px-4 py-2 bg-[var(--hover-bg)] text-[var(--foreground)] rounded-lg hover:bg-[var(--muted)] transition-colors"
-                  >
-                    Cerrar
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowConfigModal(false);
-                      handleLogoutClick();
-                    }}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium flex items-center gap-2"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    Cerrar Sesión
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Click outside to close */}
-          <div
-            className="absolute inset-0 -z-10"
-            onClick={() => setShowConfigModal(false)}
-          />
-        </div>
-      )}
-
-  <EditProfileModal isOpen={showEditProfileModal} onClose={() => setShowEditProfileModal(false)} />
+      <EditProfileModal isOpen={showEditProfileModal} onClose={() => setShowEditProfileModal(false)} />
 
       {/* FloatingSessionTimer */}
       <FloatingSessionTimer
