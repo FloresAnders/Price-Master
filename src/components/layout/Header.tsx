@@ -9,7 +9,7 @@ import { ThemeToggle } from './ThemeToggle';
 import { getDefaultPermissions } from '../../utils/permissions';
 import FloatingSessionTimer from '../session/FloatingSessionTimer';
 import EditProfileModal from '../edicionPerfil/EditProfileModal';
-import ConfigurationModal from '../modals/ConfigurationModal';
+import { ConfigurationModal, CalculatorModal } from '../modals';
 import type { UserPermissions } from '../../types/firestore';
 
 type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'supplierorders' | 'histoscans' | 'scanhistory' | 'edit'
@@ -29,6 +29,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const [isClient, setIsClient] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, right: 0 });
   const [showSessionTimer, setShowSessionTimer] = useState(false);
+  const [showCalculator, setShowCalculator] = useState(false);
+  const [showCalculatorModal, setShowCalculatorModal] = useState(false);
 
   // Ensure component is mounted on client
   useEffect(() => {
@@ -44,12 +46,28 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     }
   }, []);
 
+  // Cargar preferencia de la calculadora desde localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedPreference = localStorage.getItem('show-calculator');
+      // Por defecto está desactivado (false)
+      setShowCalculator(savedPreference === 'true');
+    }
+  }, []);
+
   // Guardar preferencia del FloatingSessionTimer cuando cambie
   useEffect(() => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('show-session-timer', showSessionTimer.toString());
     }
   }, [showSessionTimer]);
+
+  // Guardar preferencia de la calculadora cuando cambie
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('show-calculator', showCalculator.toString());
+    }
+  }, [showCalculator]);
 
   // Close dropdown on scroll or resize
   useEffect(() => {
@@ -403,6 +421,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
         onClose={() => setShowConfigModal(false)}
         showSessionTimer={showSessionTimer}
         onToggleSessionTimer={setShowSessionTimer}
+        showCalculator={showCalculator}
+        onToggleCalculator={setShowCalculator}
         onLogoutClick={handleLogoutClick}
       />
 
@@ -412,6 +432,23 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       <FloatingSessionTimer
         visible={showSessionTimer}
         onToggleVisibility={() => setShowSessionTimer(false)}
+      />
+
+      {/* Global Calculator Button */}
+      {showCalculator && (
+        <button
+          onClick={() => setShowCalculatorModal(true)}
+          className="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 text-white rounded-full w-16 h-16 flex items-center justify-center shadow-xl z-40 transition-colors"
+          aria-label="Abrir calculadora"
+        >
+          <Calculator className="w-6 h-6" />
+        </button>
+      )}
+
+      {/* Global Calculator Modal */}
+      <CalculatorModal 
+        isOpen={showCalculatorModal} 
+        onClose={() => setShowCalculatorModal(false)} 
       />
     </>
   );

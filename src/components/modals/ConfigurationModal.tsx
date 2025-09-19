@@ -1,6 +1,6 @@
 'use client'
 
-import { X, Settings, User, Shield, Timer, TimerOff, LogOut } from 'lucide-react';
+import { X, Settings, User, Shield, Timer, TimerOff, LogOut, Calculator } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import TokenInfo from '../session/TokenInfo';
 
@@ -9,6 +9,8 @@ interface ConfigurationModalProps {
   onClose: () => void;
   showSessionTimer: boolean;
   onToggleSessionTimer: (show: boolean) => void;
+  showCalculator: boolean;
+  onToggleCalculator: (show: boolean) => void;
   onLogoutClick: () => void;
 }
 
@@ -17,6 +19,8 @@ export default function ConfigurationModal({
   onClose,
   showSessionTimer,
   onToggleSessionTimer,
+  showCalculator,
+  onToggleCalculator,
   onLogoutClick
 }: ConfigurationModalProps) {
   const { user } = useAuth();
@@ -109,6 +113,47 @@ export default function ConfigurationModal({
                   {showSessionTimer
                     ? 'El temporizador de sesión se muestra en la esquina inferior derecha'
                     : 'Activa para mostrar el temporizador de sesión flotante'
+                  }
+                </div>
+              </div>
+
+              {/* Toggle para Calculadora Siempre Visible */}
+              <div className="bg-[var(--hover-bg)] rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Calculator className={`w-5 h-5 ${showCalculator ? 'text-green-500' : 'text-gray-500'}`} />
+                    <div>
+                      <div className="font-medium text-[var(--foreground)]">
+                        Mostrar Siempre la Calculadora
+                      </div>
+                      <div className="text-sm text-[var(--muted-foreground)]">
+                        {showCalculator ? 'Calculadora visible en todas las páginas' : 'Calculadora oculta'}
+                      </div>
+                    </div>
+                  </div>
+                  <label className="flex items-center cursor-pointer">
+                    <div className="relative">
+                      <input
+                        type="checkbox"
+                        checked={showCalculator}
+                        onChange={(e) => onToggleCalculator(e.target.checked)}
+                        className="sr-only"
+                      />
+                      <div className={`block w-12 h-6 rounded-full transition-colors duration-200 ease-in-out ${showCalculator
+                          ? 'bg-green-600 shadow-lg'
+                          : 'bg-gray-300 dark:bg-gray-600'
+                        }`}>
+                      </div>
+                      <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-200 ease-in-out shadow-sm ${showCalculator ? 'translate-x-6' : 'translate-x-0'
+                        }`}>
+                      </div>
+                    </div>
+                  </label>
+                </div>
+                <div className="mt-3 text-xs text-[var(--muted-foreground)]">
+                  {showCalculator
+                    ? 'La calculadora estará disponible en todas las páginas como botón flotante'
+                    : 'Activa para mostrar la calculadora flotante en toda la aplicación'
                   }
                 </div>
               </div>

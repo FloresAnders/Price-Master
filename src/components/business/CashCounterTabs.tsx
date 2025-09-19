@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { hasPermission } from '../../utils/permissions';
-import CalculadoraPer from '../calculator/CalculadoraPer';
+import { CalculatorModal } from '../modals';
 /*Menu,*/
 // Modal base component to reduce code duplication
 type BaseModalProps = {
@@ -1713,7 +1713,7 @@ export default function CashCounterTabs() {
       </button>
 
       {/* Modal de calculadora */}
-      <CalculadoraPer isOpen={isCalcOpen} onClose={() => setIsCalcOpen(false)} />
+      <CalculatorModal isOpen={isCalcOpen} onClose={() => setIsCalcOpen(false)} />
 
       {/* Modal de verificador SINPE */}
       <SinpeModal
