@@ -260,7 +260,7 @@ export default function DataEditor() {
                 console.warn('Error al guardar empresas:', err);
             }
 
-            // Local backup and update originals
+            // Local storage and update originals
             localStorage.setItem('editedSorteos', JSON.stringify(sorteosData));
             localStorage.setItem('editedUsers', JSON.stringify(usersData));
 

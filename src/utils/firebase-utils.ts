@@ -1,7 +1,7 @@
 import { SorteosService } from '../services/sorteos';
 import { UsersService } from '../services/users';
 import { CcssConfigService } from '../services/ccss-config';
-import { Sorteo, User, CcssConfig } from '../types/firestore';
+import { Sorteo, User} from '../types/firestore';
 
 /**
  * Firebase helper utilities
@@ -87,32 +87,6 @@ export class FirebaseUtils {
     } catch (error) {
       console.error('Error in global search:', error);
       return { sorteos: [], users: [] };
-    }
-  }  /**
-   * Backup all data to JSON format
-   */
-  static async backupToJSON(ownerId: string): Promise<{
-    sorteos: Sorteo[];
-    users: User[];
-    ccssConfig: CcssConfig | null;
-    timestamp: string;
-  }> {
-    try {
-      const [sorteos, users, ccssConfig] = await Promise.all([
-        SorteosService.getAllSorteos(),
-        UsersService.getAllUsers(),
-        CcssConfigService.getCcssConfig(ownerId)
-      ]);
-
-      return {
-        sorteos,
-        users,
-        ccssConfig,
-        timestamp: new Date().toISOString()
-      };
-    } catch (error) {
-      console.error('Error backing up data:', error);
-      throw error;
     }
   }
 }

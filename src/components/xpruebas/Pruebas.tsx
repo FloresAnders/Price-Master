@@ -5,7 +5,6 @@ import { TestTube, Beaker, FlaskConical, Zap, Code, Database, Upload, Image, Che
 import { storage } from '@/config/firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { useEmail } from '@/hooks/useEmail';
-import CompleteBackupRestore from '@/components/backup/CompleteBackupRestore';
 
 export default function Pruebas() {
     const [activeTest, setActiveTest] = useState<string | null>(null);
@@ -400,7 +399,7 @@ export default function Pruebas() {
                             ⚠️ ADVERTENCIA: Esta acción eliminará permanentemente los registros seleccionados
                         </p>
                         <p style="margin: 8px 0 0 0; color: #7f1d1d; font-size: 14px;">
-                            No se puede deshacer. Asegúrate de hacer backup antes de continuar.
+                            No se puede deshacer. Esta acción es permanente.
                         </p>
                     </div>
                     
@@ -1310,8 +1309,7 @@ export default function Pruebas() {
                 { id: 'export-schedules-filters', name: 'Exportar con Filtros', action: exportSchedulesWithFilters },
                 { id: 'import-schedules', name: 'Importar Horarios', action: importSchedulesFromFile },
                 { id: 'delete-schedules-filter', name: 'Eliminar por Ubicación/Mes', action: deleteSchedulesByempresaAndMonth },
-                { id: 'validate-schedules', name: 'Validar Integridad' },
-                { id: 'backup-schedules', name: 'Backup Completo' }
+                { id: 'validate-schedules', name: 'Validar Integridad' }
             ]
         },
         {
@@ -1626,7 +1624,6 @@ export default function Pruebas() {
                         <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                             <h4 className="font-semibold text-blue-700 dark:text-blue-400 mb-2">💡 Casos de Uso</h4>
                             <ul className="text-sm text-blue-600 dark:text-blue-300 space-y-1">
-                                <li>• Backup de horarios por período</li>
                                 <li>• Migración entre ambientes</li>
                                 <li>• Compartir schedules entre ubicaciones</li>
                                 <li>• Análisis histórico de horarios</li>
@@ -1651,7 +1648,6 @@ export default function Pruebas() {
                             <p className="text-sm text-orange-600 dark:text-orange-300 mb-2"><strong>Al Importar:</strong></p>
                             <ul className="text-xs text-orange-600 dark:text-orange-300 space-y-1">
                                 <li>• Los duplicados pueden sobrescribir</li>
-                                <li>• Siempre hacer backup antes</li>
                                 <li>• Verificar estructura del archivo</li>
                             </ul>
                         </div>
@@ -1819,30 +1815,6 @@ GMAIL_APP_PASSWORD=abcd-efgh-ijkl-mnop`}
                         </div>
                     </div>
                 </div>
-            </div>
-
-            {/* Complete Database Backup Section */}
-            <div className="bg-[var(--input-bg)] rounded-lg border border-[var(--border)] p-6 mb-8">
-                <h3 className="text-lg font-semibold text-[var(--foreground)] mb-4 flex items-center">
-                    <Database className="w-5 h-5 mr-2 text-emerald-600" />
-                    Backup Completo de Base de Datos
-                </h3>
-
-                <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg mb-6">
-                    <h4 className="font-semibold text-emerald-700 dark:text-emerald-400 mb-2">📋 Servicios Incluidos en el Backup</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <ul className="text-sm text-emerald-600 dark:text-emerald-300 space-y-1">
-                            <li>✅ <strong>empresas</strong> - Ubicaciones del sistema</li>
-                            <li>✅ <strong>Users</strong> - Usuarios y configuraciones</li>
-                        </ul>
-                        <ul className="text-sm text-emerald-600 dark:text-emerald-300 space-y-1">
-                            <li>✅ <strong>Schedules</strong> - Horarios y turnos</li>
-                            <li>✅ <strong>PayrollRecords</strong> - Registros de nómina</li>
-                        </ul>
-                    </div>
-                </div>
-
-                <CompleteBackupRestore />
             </div>
 
             {/* Quick Actions */}

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { BackupRestore } from '@/components/backup';
 
 interface Location {
   id: string;
@@ -115,11 +114,6 @@ export default function FirebaseMigration() {
   return (
     <div className="container mx-auto p-6 max-w-4xl">
       <h1 className="text-3xl font-bold mb-6">Migración Firebase - Price Master</h1>
-
-      {/* Sistema de Backup y Restauración */}
-      <div className="mb-8">
-        <BackupRestore />
-      </div>
 
       <div className="space-y-4 mb-8">
         <button

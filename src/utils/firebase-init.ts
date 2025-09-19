@@ -83,18 +83,6 @@ export async function firebaseHealthCheck(): Promise<{
 }
 
 /**
- * Export data for backup purposes
- */
-export async function exportFirebaseData(ownerId: string): Promise<string> {
-  try {
-    const backup = await FirebaseUtils.backupToJSON(ownerId);
-    return JSON.stringify(backup, null, 2);
-  } catch (error) {
-    throw new Error(`Failed to export data: ${error instanceof Error ? error.message : 'Unknown error'}`);
-  }
-}
-
-/**
  * Validate Firebase environment variables
  */
 export function validateFirebaseConfig(): {

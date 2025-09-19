@@ -21,6 +21,3 @@ export * from './ui';
 
 // Gestión de Sesión
 export * from './session';
-
-// Backup y Restauración
-export * from './backup';
