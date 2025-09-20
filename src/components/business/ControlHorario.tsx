@@ -323,16 +323,57 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
         } else if (user.role === 'superadmin') {
           owned = allEmpresas || [];
         } else {
+          // Debug logging for admin filtering
+          console.log('🔍 ControlHorario - Filtering empresas for user:', {
+            userId: user.id,
+            userOwnerId: user.ownerId,
+            userOwnercompanie: user.ownercompanie,
+            userRole: user.role,
+            totalEmpresas: allEmpresas?.length || 0
+          });
+
+          // Use the same logic as DataEditor: filter by ownerId only
+          // This ensures consistency between both components
+          const resolvedOwnerId = user.ownerId || (user.eliminate === false ? user.id : '') || '';
+          
           owned = (allEmpresas || []).filter(e => {
             if (!e) return false;
             const ownerId = e.ownerId || '';
+            
+            // Primary filter: check if empresa.ownerId matches user's ownerId or user.id
+            const ownerIdMatch = ownerId && (
+              String(ownerId) === String(user.id) || 
+              (user.ownerId && String(ownerId) === String(user.ownerId))
+            );
+            
+            // Keep ownercompanie match as fallback for backward compatibility
             const name = e.name || '';
             const ubicacion = e.ubicacion || '';
+            const ownerCompanieMatch = user.ownercompanie && (
+              String(name) === String(user.ownercompanie) || 
+              String(ubicacion) === String(user.ownercompanie)
+            );
 
-            const ownerIdMatch = ownerId && (String(ownerId) === String(user.id) || (user.ownerId && String(ownerId) === String(user.ownerId)));
-            const ownerCompanieMatch = user.ownercompanie && (String(name) === String(user.ownercompanie) || String(ubicacion) === String(user.ownercompanie));
+            const shouldInclude = !!ownerIdMatch || !!ownerCompanieMatch;
+            
+            if (shouldInclude) {
+              console.log('✅ Including empresa:', {
+                empresaName: name,
+                empresaUbicacion: ubicacion,
+                empresaOwnerId: ownerId,
+                ownerIdMatch,
+                ownerCompanieMatch,
+                userOwnerId: user.ownerId,
+                userId: user.id
+              });
+            }
 
-            return !!ownerIdMatch || !!ownerCompanieMatch;
+            return shouldInclude;
+          });
+
+          console.log('📊 ControlHorario - Filtered result:', {
+            ownedCount: owned.length,
+            ownedEmpresas: owned.map(e => ({ name: e.name, ubicacion: e.ubicacion, ownerId: e.ownerId }))
           });
         }
 
