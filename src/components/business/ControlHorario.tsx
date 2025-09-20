@@ -340,11 +340,8 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
             if (!e) return false;
             const ownerId = e.ownerId || '';
             
-            // Primary filter: check if empresa.ownerId matches user's ownerId or user.id
-            const ownerIdMatch = ownerId && (
-              String(ownerId) === String(user.id) || 
-              (user.ownerId && String(ownerId) === String(user.ownerId))
-            );
+            // Primary filter: check if empresa.ownerId matches resolvedOwnerId
+            const ownerIdMatch = ownerId && String(ownerId) === String(resolvedOwnerId);
             
             // Keep ownercompanie match as fallback for backward compatibility
             const name = e.name || '';
@@ -363,6 +360,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
                 empresaOwnerId: ownerId,
                 ownerIdMatch,
                 ownerCompanieMatch,
+                resolvedOwnerId,
                 userOwnerId: user.ownerId,
                 userId: user.id
               });
