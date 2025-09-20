@@ -432,10 +432,15 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       <FloatingSessionTimer
         visible={showSessionTimer}
         onToggleVisibility={() => setShowSessionTimer(false)}
+        // Evitar solape vertical si la calculadora global está activa
+        // y dejar más aire en CashCounter por sus propios FABs
+        avoidOverlap={showCalculator || activeTab === 'cashcounter'}
+        sideOffsetClass={activeTab === 'cashcounter' ? 'right-6' : undefined}
+        bottomOffsetClass={activeTab === 'cashcounter' ? 'bottom-10 md:bottom-12' : undefined}
       />
 
       {/* Global Calculator Button */}
-      {showCalculator && (
+      {showCalculator && activeTab !== 'cashcounter' && (
         <button
           onClick={() => setShowCalculatorModal(true)}
           className="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 text-white rounded-full w-16 h-16 flex items-center justify-center shadow-xl z-40 transition-colors"
@@ -446,9 +451,9 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       )}
 
       {/* Global Calculator Modal */}
-      <CalculatorModal 
-        isOpen={showCalculatorModal} 
-        onClose={() => setShowCalculatorModal(false)} 
+      <CalculatorModal
+        isOpen={showCalculatorModal}
+        onClose={() => setShowCalculatorModal(false)}
       />
     </>
   );

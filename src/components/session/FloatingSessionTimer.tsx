@@ -15,9 +15,18 @@ interface TokenInfo {
 interface FloatingSessionTimerProps {
   visible: boolean;
   onToggleVisibility: () => void;
+  /**
+   * When true, the widget adds extra space from the bottom so it doesn't overlap
+   * with other floating UI (e.g. global calculator FAB).
+   */
+  avoidOverlap?: boolean;
+  /** Optional horizontal offset class when needed (e.g., cashcounter FABs on right) */
+  sideOffsetClass?: string;
+  /** Optional bottom offset override (responsive utility classes) */
+  bottomOffsetClass?: string;
 }
 
-export default function FloatingSessionTimer({ visible, onToggleVisibility }: FloatingSessionTimerProps) {
+export default function FloatingSessionTimer({ visible, onToggleVisibility, avoidOverlap = false, sideOffsetClass, bottomOffsetClass }: FloatingSessionTimerProps) {
   const {
     user,
     useTokenAuth,
@@ -99,8 +108,11 @@ export default function FloatingSessionTimer({ visible, onToggleVisibility }: Fl
 
   if (!visible || !user) return null;
 
+  // Note: The timer is placed above bottom-right FABs. When avoidOverlap is
+  // true (e.g. global calculator is visible), we bump it further up to prevent
+  // visual collision.
   return (
-    <div className="fixed bottom-20 right-4 z-40">
+    <div className={`fixed ${sideOffsetClass || 'right-4'} z-40 ${bottomOffsetClass || (avoidOverlap ? 'bottom-28 md:bottom-24' : 'bottom-20')}`}>
       {/* Timer compacto */}
       {!isExpanded && (
         <div

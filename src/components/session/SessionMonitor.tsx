@@ -37,6 +37,8 @@ export default function SessionMonitor({ showAuditLogs = false, inline = false }
   const [showLogs, setShowLogs] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [showTokenInfo, setShowTokenInfo] = useState(false);
+  const [showSessionTimer, setShowSessionTimer] = useState(false);
+  const [showCalculator, setShowCalculator] = useState(false);
 
   // Actualizar tiempo restante cada minuto
   useEffect(() => {
@@ -56,6 +58,23 @@ export default function SessionMonitor({ showAuditLogs = false, inline = false }
       setAuditLogs(getAuditLogs());
     }
   }, [isSuperAdmin, showAuditLogs, getAuditLogs]);
+
+  // Leer preferencias de UI flotante para evitar superposición con el FAB (calculadora)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const readPrefs = () => {
+      setShowSessionTimer(localStorage.getItem('show-session-timer') === 'true');
+      setShowCalculator(localStorage.getItem('show-calculator') === 'true');
+    };
+    readPrefs();
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'show-session-timer' || e.key === 'show-calculator') {
+        readPrefs();
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
 
   const formatTimeLeft = (hours: number) => {
     if (hours < 1) {
@@ -102,7 +121,8 @@ export default function SessionMonitor({ showAuditLogs = false, inline = false }
 
       {/* Monitor de sesión para SuperAdmin */}
       {isSuperAdmin() && !inline && (
-        <div className="fixed bottom-4 right-4 z-40 bg-red-900 text-white p-3 rounded-lg shadow-lg border-2 border-red-600">
+        <div className={`fixed right-4 z-40 bg-red-900 text-white p-3 rounded-lg shadow-lg border-2 border-red-600 ${showSessionTimer ? 'bottom-28 md:bottom-24' : showCalculator ? 'bottom-24' : 'bottom-4'
+          }`}>
           <div className="flex items-center gap-2 mb-2">
             <Shield className="w-4 h-4" />
             <span className="text-xs font-bold">SUPERADMIN MONITOR</span>
@@ -236,8 +256,8 @@ export default function SessionMonitor({ showAuditLogs = false, inline = false }
       )}
 
       {/* Indicador de estado de sesión para todos los usuarios */}
-      {user && user.role !== 'superadmin' && (
-        <div className="fixed bottom-4 right-4 z-40 bg-gray-800 text-white p-2 rounded-lg shadow-lg text-xs">
+      {user && user.role !== 'superadmin' && !showSessionTimer && (
+        <div className={`fixed right-4 z-40 bg-gray-800 text-white p-2 rounded-lg shadow-lg text-xs ${showCalculator ? 'bottom-24' : 'bottom-4'}`}>
           <div className="flex items-center gap-2">
             <div className={`w-2 h-2 rounded-full ${timeLeft > 1 ? 'bg-green-400' : 'bg-yellow-400'}`}></div>
             <span>{useTokenAuth ? getFormattedTimeLeft() : formatTimeLeft(timeLeft)}</span>
