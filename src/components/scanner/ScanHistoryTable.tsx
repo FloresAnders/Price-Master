@@ -32,7 +32,8 @@ export default function ScanHistoryTable() {
     loadingImages,
     imageLoadError,
     loadImagesForCode,
-    clearImages
+    clearImages,
+    codeBU
   } = useScanImages();
 
   // Load locations from DB
@@ -1111,15 +1112,23 @@ export default function ScanHistoryTable() {
                 <div className="text-white text-sm opacity-70">
                   Click en imagen para ver completa • ESC para cerrar
                 </div>
-                {codeImages.length > 0 && (
-                  <button
-                    onClick={() => downloadAllImages()}
-                    className="flex items-center gap-2 px-4 py-2 bg-white bg-opacity-20 hover:bg-opacity-30 text-white rounded-lg transition-colors"
-                  >
-                    <Download className="w-4 h-4" />
-                    Descargar todas
-                  </button>
-                )}
+                <div className="flex items-center gap-3">
+                  {/* Show detected codeBU if available */}
+                  {codeImages.length > 0 && codeBU && (
+                    <span className="text-xs bg-white bg-opacity-10 text-white px-3 py-1 rounded-full border border-white/20">
+                      codeBU: <span className="font-mono">{codeBU}</span>
+                    </span>
+                  )}
+                  {codeImages.length > 0 && (
+                    <button
+                      onClick={() => downloadAllImages()}
+                      className="flex items-center gap-2 px-4 py-2 bg-white bg-opacity-20 hover:bg-opacity-30 text-white rounded-lg transition-colors"
+                    >
+                      <Download className="w-4 h-4" />
+                      Descargar todas
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           )}

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, Suspense, useRef } from 'react';
 import { QrCode, Smartphone, Check, AlertCircle, Camera, Image as ImageIcon, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
@@ -80,6 +80,10 @@ function MobileScanContent() {
   }, [codeImages]);
 
   // Estados para sincronización real
+  // Flag to temporarily suppress auto-submit from onDetect when we only want to decode a still image
+  const suppressOnDetectRef = useRef(false);
+  const pendingDetectResolveRef = useRef<((code: string | null) => void) | null>(null);
+
   const {
     code: detectedCode,
     error: scannerError,
@@ -88,9 +92,19 @@ function MobileScanContent() {
     toggleCamera, handleClear: clearScanner,
     handleCopyCode,
     detectionMethod,
-  } = useBarcodeScanner((detectedCode) => {
-    submitCode(detectedCode);
-  });// Check if we're on the client side
+    processImage,
+  } = useBarcodeScanner((foundCode) => {
+    // If we're decoding an image just to extract metadata, resolve the promise instead of submitting
+    if (suppressOnDetectRef.current) {
+      const resolver = pendingDetectResolveRef.current;
+      pendingDetectResolveRef.current = null;
+      suppressOnDetectRef.current = false;
+      resolver?.(foundCode);
+      return;
+    }
+    submitCode(foundCode);
+  });
+  // Check if we're on the client side
   useEffect(() => {
     setIsClient(true);
   }, []);
@@ -212,8 +226,34 @@ function MobileScanContent() {
           // Create Firebase storage reference
           const storageRef = ref(storage, `barcode-images/${fileName}`);
 
+          // Try to detect a barcode inside the taken photo using the shared scanner hook
+          const detectedFromPhoto: string | null = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+              suppressOnDetectRef.current = true;
+              pendingDetectResolveRef.current = resolve;
+              // Kick off processing on the data URL (useBarcodeScanner will call onDetect if it finds a code)
+              const dataUrl = ev.target?.result as string;
+              // processImage is returned from useBarcodeScanner
+              processImage(dataUrl);
+              // Fallback timeout in case no detection occurs
+              setTimeout(() => {
+                if (suppressOnDetectRef.current) {
+                  suppressOnDetectRef.current = false;
+                  pendingDetectResolveRef.current = null;
+                  resolve(null);
+                }
+              }, 2000);
+            };
+            reader.onerror = () => resolve(null);
+            reader.readAsDataURL(file);
+          });
+
           // Upload file to Firebase Storage
-          await uploadBytes(storageRef, file);
+          await uploadBytes(storageRef, file, {
+            contentType: file.type,
+            ...(detectedFromPhoto ? { customMetadata: { codeBU: detectedFromPhoto } } : {})
+          });
 
           // Get download URL (optional, for verification)
           const downloadURL = await getDownloadURL(storageRef);
@@ -238,7 +278,7 @@ function MobileScanContent() {
       console.error('Error setting up camera capture:', error);
       setError('Error al acceder a la cámara');
     }
-  }, [pendingCode, code, uploadedImagesCount]);
+  }, [pendingCode, code, uploadedImagesCount, processImage]);
 
   // Submit scanned code
   const submitCode = useCallback(async (scannedCode: string, nameForProduct?: string) => {

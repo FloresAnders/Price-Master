@@ -147,6 +147,7 @@ export function useScanImages() {
   const [codeImages, setCodeImages] = useState<string[]>([]);
   const [loadingImages, setLoadingImages] = useState(false);
   const [imageLoadError, setImageLoadError] = useState<string | null>(null);
+  const [codeBU, setCodeBU] = useState<string | null>(null);
 
   const loadImagesForCode = useCallback(async (barcodeCode: string) => {
     setLoadingImages(true);
@@ -157,6 +158,10 @@ export function useScanImages() {
 
       setCodeImages(imageUrls);
 
+      // Also try to load the codeBU metadata from any matching image
+      const codeBUMetadata = await ScanningService.getCodeBUForCode(barcodeCode);
+      setCodeBU(codeBUMetadata);
+
       if (imageUrls.length === 0) {
         setImageLoadError('No se encontraron imágenes para este código');
       }
@@ -165,6 +170,7 @@ export function useScanImages() {
       console.error('Error loading images:', error);
       setImageLoadError('Error al cargar las imágenes');
       setCodeImages([]);
+      setCodeBU(null);
     } finally {
       setLoadingImages(false);
     }
@@ -174,12 +180,14 @@ export function useScanImages() {
     setCodeImages([]);
     setImageLoadError(null);
     setLoadingImages(false);
+    setCodeBU(null);
   }, []);
 
   return {
     codeImages,
     loadingImages,
     imageLoadError,
+    codeBU,
     loadImagesForCode,
     clearImages
   };

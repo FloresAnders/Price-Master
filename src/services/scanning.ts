@@ -11,7 +11,7 @@ import {
     onSnapshot,
     getDoc
 } from 'firebase/firestore';
-import { ref, listAll, deleteObject, getDownloadURL } from 'firebase/storage';
+import { ref, listAll, deleteObject, getDownloadURL, getMetadata } from 'firebase/storage';
 import { db, storage } from '../config/firebase';
 import type { ScanResult } from '../types/firestore';
 
@@ -446,6 +446,30 @@ export class ScanningService {
         } catch (error) {
             console.error('Error getting images for code:', error);
             return [];
+        }
+    }
+
+    /**
+     * Try to read a `codeBU` from customMetadata of the first matching image for a barcode.
+     * Returns null if not found.
+     */
+    static async getCodeBUForCode(barcodeCode: string): Promise<string | null> {
+        try {
+            // Use cached file list and find the first match
+            const allFilenames = await this.getAllImageFilenames();
+            const match = allFilenames.find(fileName =>
+                fileName === `${barcodeCode}.jpg` ||
+                !!fileName.match(new RegExp(`^${barcodeCode.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}\\(\\d+\\)\\.jpg$`))
+            );
+            if (!match) return null;
+
+            const fileRef = ref(storage, `barcode-images/${match}`);
+            const meta = await getMetadata(fileRef);
+            const codeBU = (meta.customMetadata && (meta.customMetadata as Record<string, string>).codeBU) || null;
+            return codeBU || null;
+        } catch (error) {
+            console.warn('getCodeBUForCode: unable to read metadata', error);
+            return null;
         }
     }
 
