@@ -78,6 +78,7 @@ export interface ScanResult {
   productName?: string; // Optional product name for scanned codes
   ownercompanie?: string; // Owner company name/identifier assigned from mobile scanning
   hasImages?: boolean; // Indicates if the code has associated images
+  codeBU?: string; // Numeric-only code extracted from photo (if available)
 }
 
 export interface CcssConfig {

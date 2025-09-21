@@ -45,6 +45,8 @@ function MobileScanContent() {
   const [showNameModal, setShowNameModal] = useState(false);
   const [pendingCode, setPendingCode] = useState<string>(''); const [productName, setProductName] = useState('');
   const [uploadedImagesCount, setUploadedImagesCount] = useState(0);
+  // Numeric-only code extracted from photo (to be saved in DB as codeBU)
+  const [pendingCodeBU, setPendingCodeBU] = useState<string | null>(null);
 
   // Estados para modal de imágenes
   const [showImagesModal, setShowImagesModal] = useState(false);
@@ -249,10 +251,18 @@ function MobileScanContent() {
             reader.readAsDataURL(file);
           });
 
+          // Only keep numeric-only value for codeBU
+          const numericCodeBU = detectedFromPhoto && /^\d+$/.test(detectedFromPhoto)
+            ? detectedFromPhoto
+            : null;
+          if (numericCodeBU) {
+            setPendingCodeBU(numericCodeBU);
+          }
+
           // Upload file to Firebase Storage
           await uploadBytes(storageRef, file, {
             contentType: file.type,
-            ...(detectedFromPhoto ? { customMetadata: { codeBU: detectedFromPhoto } } : {})
+            ...(numericCodeBU ? { customMetadata: { codeBU: numericCodeBU } } : {})
           });
 
           // Get download URL (optional, for verification)
@@ -314,8 +324,9 @@ function MobileScanContent() {
         userName: 'Móvil',
         processed: false,
         // sessionId eliminado
-  ...(nameForProduct?.trim() && { productName: nameForProduct.trim() }),
-  ...(ownercompanieToSend && { ownercompanie: ownercompanieToSend })
+        ...(nameForProduct?.trim() && { productName: nameForProduct.trim() }),
+        ...(ownercompanieToSend && { ownercompanie: ownercompanieToSend }),
+        ...(pendingCodeBU && /^\d+$/.test(pendingCodeBU) && { codeBU: pendingCodeBU })
       };
 
       // Enviar al servicio de scanning y también a localStorage para sincronización con PC
@@ -346,13 +357,14 @@ function MobileScanContent() {
       }]); // Keep last 5
       setCode('');
       setUploadedImagesCount(0); // Reset images count after successful submission
+      setPendingCodeBU(null); // Reset pending codeBU after submit
       // Clear success message after 2 seconds
       setTimeout(() => setSuccess(null), 2000);
     } catch (error) {
       console.error('Error submitting code:', error);
       setError('Error al enviar el código. Inténtalo de nuevo.');
     }
-  }, [lastScanned, requestProductName, user, checkCodeHasImages]);
+  }, [lastScanned, requestProductName, user, checkCodeHasImages, pendingCodeBU]);
   // Handler para eliminar primer dígito
   const handleRemoveLeadingZero = useCallback(() => {
     if (detectedCode && detectedCode.length > 1 && detectedCode[0] === '0') {
