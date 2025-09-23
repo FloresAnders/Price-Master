@@ -47,6 +47,8 @@ function MobileScanContent() {
   const [uploadedImagesCount, setUploadedImagesCount] = useState(0);
   // Numeric-only code extracted from photo (to be saved in DB as codeBU)
   const [pendingCodeBU, setPendingCodeBU] = useState<string | null>(null);
+  // Flag to avoid showing codes detected from still images in the UI
+  const [isDecodingImage, setIsDecodingImage] = useState(false);
 
   // Estados para modal de imágenes
   const [showImagesModal, setShowImagesModal] = useState(false);
@@ -102,6 +104,9 @@ function MobileScanContent() {
       pendingDetectResolveRef.current = null;
       suppressOnDetectRef.current = false;
       resolver?.(foundCode);
+      // Ensure UI does not show the detected code from image
+      clearScanner();
+      setIsDecodingImage(false);
       return;
     }
     submitCode(foundCode);
@@ -218,6 +223,7 @@ function MobileScanContent() {
 
         try {
           setError(null);
+          setIsDecodingImage(true);
 
           // Generate filename with consecutive number
           const baseFileName = codeToUse.trim();
@@ -243,11 +249,12 @@ function MobileScanContent() {
                 if (suppressOnDetectRef.current) {
                   suppressOnDetectRef.current = false;
                   pendingDetectResolveRef.current = null;
+                  setIsDecodingImage(false);
                   resolve(null);
                 }
               }, 2000);
             };
-            reader.onerror = () => resolve(null);
+            reader.onerror = () => { setIsDecodingImage(false); resolve(null); };
             reader.readAsDataURL(file);
           });
 
@@ -278,6 +285,9 @@ function MobileScanContent() {
         } catch (uploadError) {
           console.error('Error uploading image:', uploadError);
           setError('Error al subir la imagen. Inténtalo de nuevo.');
+        } finally {
+          // In case any branch hasn't reset this yet
+          setIsDecodingImage(false);
         }
       };
 
@@ -472,10 +482,10 @@ function MobileScanContent() {
         <div className="flex items-center gap-4"></div>
       </div>
       {/* Status Messages */}
-      {(error || scannerError) && (
+      {(error || (cameraActive && !isDecodingImage && scannerError)) && (
         <div className="bg-red-100 dark:bg-red-900/50 border border-red-300 dark:border-red-600 rounded-lg p-3 mb-4 flex items-center gap-2">
           <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
-          <span className="text-red-800 dark:text-red-200">{error || scannerError}</span>
+          <span className="text-red-800 dark:text-red-200">{error || (cameraActive && !isDecodingImage ? scannerError : null)}</span>
         </div>
       )}
       {success && (
@@ -492,8 +502,8 @@ function MobileScanContent() {
           {/* Usar CameraScanner component */}
           {isClient && (
             <CameraScanner
-              code={detectedCode}
-              error={scannerError}
+              code={cameraActive && !isDecodingImage ? detectedCode : null}
+              error={cameraActive && !isDecodingImage ? scannerError : null}
               detectionMethod={detectionMethod}
               cameraActive={cameraActive}
               liveStreamRef={liveStreamRef}
@@ -586,7 +596,7 @@ function MobileScanContent() {
                 className="w-full bg-input-bg border border-input-border rounded-lg px-4 py-3 text-foreground placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500 mb-4"
                 autoFocus
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && (!requestProductName || productName.trim())) {
+                  if (e.key === 'Enter' && (!requestProductName || productName.trim()) && !isDecodingImage) {
                     handleNameSubmit();
                   } else if (e.key === 'Escape') {
                     handleNameCancel();
@@ -626,10 +636,10 @@ function MobileScanContent() {
                 </button>
                 <button
                   onClick={handleNameSubmit}
-                  disabled={requestProductName && !productName.trim()}
+                  disabled={(requestProductName && !productName.trim()) || isDecodingImage}
                   className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed px-4 py-2 rounded-lg text-white font-medium"
                 >
-                  Continuar
+                  Enviar
                 </button>
               </div>
             </div>
