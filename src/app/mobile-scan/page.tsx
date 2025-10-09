@@ -258,8 +258,10 @@ function MobileScanContent() {
             reader.readAsDataURL(file);
           });
 
-          // Only keep numeric-only value for codeBU
-          const numericCodeBU = detectedFromPhoto && /^\d+$/.test(detectedFromPhoto)
+          // Only keep numeric-only value for codeBU, but ignore codes starting with "BASIC"
+          const numericCodeBU = detectedFromPhoto && 
+            !detectedFromPhoto.startsWith('BASIC') && 
+            /^\d+$/.test(detectedFromPhoto)
             ? detectedFromPhoto
             : null;
           if (numericCodeBU) {
