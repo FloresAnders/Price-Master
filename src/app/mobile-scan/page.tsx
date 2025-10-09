@@ -266,6 +266,10 @@ function MobileScanContent() {
             setPendingCodeBU(numericCodeBU);
           }
 
+          // Ensure scanner state is properly reset after image processing
+          // Clear any code that might have been set during image processing
+          clearScanner();
+          
           // Upload file to Firebase Storage
           await uploadBytes(storageRef, file, {
             contentType: file.type,
@@ -286,8 +290,10 @@ function MobileScanContent() {
           console.error('Error uploading image:', uploadError);
           setError('Error al subir la imagen. Inténtalo de nuevo.');
         } finally {
-          // In case any branch hasn't reset this yet
+          // Ensure clean state after image processing - both success and error cases
           setIsDecodingImage(false);
+          // Additional cleanup to ensure camera UI state is not affected
+          clearScanner();
         }
       };
 
@@ -298,7 +304,7 @@ function MobileScanContent() {
       console.error('Error setting up camera capture:', error);
       setError('Error al acceder a la cámara');
     }
-  }, [pendingCode, code, uploadedImagesCount, processImage]);
+  }, [pendingCode, code, uploadedImagesCount, processImage, clearScanner]);
 
   // Submit scanned code
   const submitCode = useCallback(async (scannedCode: string, nameForProduct?: string) => {
