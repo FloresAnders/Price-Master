@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, Suspense, useRef } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { QrCode, Smartphone, Check, AlertCircle, Camera, Image as ImageIcon, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
@@ -83,11 +83,6 @@ function MobileScanContent() {
     }
   }, [codeImages]);
 
-  // Estados para sincronización real
-  // Flag to temporarily suppress auto-submit from onDetect when we only want to decode a still image
-  const suppressOnDetectRef = useRef(false);
-  const pendingDetectResolveRef = useRef<((code: string | null) => void) | null>(null);
-
   const {
     code: detectedCode,
     error: scannerError,
@@ -96,19 +91,8 @@ function MobileScanContent() {
     toggleCamera, handleClear: clearScanner,
     handleCopyCode,
     detectionMethod,
-    processImage,
   } = useBarcodeScanner((foundCode) => {
-    // If we're decoding an image just to extract metadata, resolve the promise instead of submitting
-    if (suppressOnDetectRef.current) {
-      const resolver = pendingDetectResolveRef.current;
-      pendingDetectResolveRef.current = null;
-      suppressOnDetectRef.current = false;
-      resolver?.(foundCode);
-      // Ensure UI does not show the detected code from image
-      clearScanner();
-      setIsDecodingImage(false);
-      return;
-    }
+    // Only submit codes detected by the main camera scanner
     submitCode(foundCode);
   });
   // Check if we're on the client side
@@ -234,27 +218,55 @@ function MobileScanContent() {
           // Create Firebase storage reference
           const storageRef = ref(storage, `barcode-images/${fileName}`);
 
-          // Try to detect a barcode inside the taken photo using the shared scanner hook
+          // Try to detect a barcode inside the taken photo using an isolated detection
+          // This function is completely separate from the main scanner to avoid UI interference
           const detectedFromPhoto: string | null = await new Promise((resolve) => {
             const reader = new FileReader();
-            reader.onload = (ev) => {
-              suppressOnDetectRef.current = true;
-              pendingDetectResolveRef.current = resolve;
-              // Kick off processing on the data URL (useBarcodeScanner will call onDetect if it finds a code)
-              const dataUrl = ev.target?.result as string;
-              // processImage is returned from useBarcodeScanner
-              processImage(dataUrl);
-              // Fallback timeout in case no detection occurs
-              setTimeout(() => {
-                if (suppressOnDetectRef.current) {
-                  suppressOnDetectRef.current = false;
-                  pendingDetectResolveRef.current = null;
-                  setIsDecodingImage(false);
-                  resolve(null);
-                }
-              }, 2000);
+            reader.onload = async (ev) => {
+              try {
+                const dataUrl = ev.target?.result as string;
+                
+                // Create isolated image processing without affecting main scanner state
+                const img = new window.Image();
+                img.crossOrigin = 'anonymous';
+                
+                img.onload = async () => {
+                  try {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    if (!ctx) {
+                      resolve(null);
+                      return;
+                    }
+                    
+                    canvas.width = img.naturalWidth;
+                    canvas.height = img.naturalHeight;
+                    ctx.drawImage(img, 0, 0);
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    
+                    // Use ZBar for isolated detection
+                    const { scanImageData } = await import('@undecaf/zbar-wasm');
+                    const symbols = await scanImageData(imageData);
+                    
+                    if (symbols && symbols.length > 0) {
+                      const code = symbols[0].decode();
+                      resolve(code || null);
+                    } else {
+                      resolve(null);
+                    }
+                  } catch {
+                    resolve(null);
+                  }
+                };
+                
+                img.onerror = () => resolve(null);
+                img.src = dataUrl;
+              } catch {
+                resolve(null);
+              }
             };
-            reader.onerror = () => { setIsDecodingImage(false); resolve(null); };
+            
+            reader.onerror = () => resolve(null);
             reader.readAsDataURL(file);
           });
 
@@ -269,10 +281,6 @@ function MobileScanContent() {
             setPendingCodeBU(numericCodeBU);
           }
 
-          // Ensure scanner state is properly reset after image processing
-          // Clear any code that might have been set during image processing
-          clearScanner();
-          
           // Upload file to Firebase Storage
           await uploadBytes(storageRef, file, {
             contentType: file.type,
@@ -293,10 +301,8 @@ function MobileScanContent() {
           console.error('Error uploading image:', uploadError);
           setError('Error al subir la imagen. Inténtalo de nuevo.');
         } finally {
-          // Ensure clean state after image processing - both success and error cases
+          // Clean state after image processing
           setIsDecodingImage(false);
-          // Additional cleanup to ensure camera UI state is not affected
-          clearScanner();
         }
       };
 
@@ -307,7 +313,7 @@ function MobileScanContent() {
       console.error('Error setting up camera capture:', error);
       setError('Error al acceder a la cámara');
     }
-  }, [pendingCode, code, uploadedImagesCount, processImage, clearScanner, pendingCodeBU]);
+  }, [pendingCode, code, uploadedImagesCount, pendingCodeBU]);
 
   // Submit scanned code
   const submitCode = useCallback(async (scannedCode: string, nameForProduct?: string) => {
