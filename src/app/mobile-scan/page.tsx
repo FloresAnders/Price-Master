@@ -259,12 +259,13 @@ function MobileScanContent() {
           });
 
           // Only keep numeric-only value for codeBU, but ignore codes starting with "BASIC"
+          // Only update if there's no previous codeBU (first valid image wins)
           const numericCodeBU = detectedFromPhoto && 
             !detectedFromPhoto.startsWith('BASIC') && 
             /^\d+$/.test(detectedFromPhoto)
             ? detectedFromPhoto
             : null;
-          if (numericCodeBU) {
+          if (numericCodeBU && !pendingCodeBU) {
             setPendingCodeBU(numericCodeBU);
           }
 
@@ -306,7 +307,7 @@ function MobileScanContent() {
       console.error('Error setting up camera capture:', error);
       setError('Error al acceder a la cámara');
     }
-  }, [pendingCode, code, uploadedImagesCount, processImage, clearScanner]);
+  }, [pendingCode, code, uploadedImagesCount, processImage, clearScanner, pendingCodeBU]);
 
   // Submit scanned code
   const submitCode = useCallback(async (scannedCode: string, nameForProduct?: string) => {
