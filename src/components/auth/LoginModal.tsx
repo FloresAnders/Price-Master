@@ -29,6 +29,15 @@ export default function LoginModal({ isOpen, onLoginSuccess, onClose, title, can
     setError('');
 
     try {
+      // Verificar si es el usuario especial SEBASTIAN
+      if (username.toUpperCase() === 'SEBASTIAN' && password === '12345') {
+        // Redirigir a /home para usuario especial
+        if (typeof window !== 'undefined') {
+          window.location.href = '/home';
+        }
+        return;
+      }
+
       // Obtener todos los usuarios activos
       const users = await UsersService.getActiveUsers();
 

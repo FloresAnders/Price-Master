@@ -6,14 +6,27 @@ import React from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import LoginModal from './LoginModal';
 import type { User } from '@/types/firestore';
-
+//delete this line if not needed
+import { usePathname } from 'next/navigation';
+//---------------------------------------------
 interface AuthWrapperProps {
   children: React.ReactNode;
 }
 
 export default function AuthWrapper({ children }: AuthWrapperProps) {
   const { user, isAuthenticated, loading, login } = useAuth();
+  //delete this line if not needed
+  const pathname = usePathname();
 
+  // Rutas públicas que no requieren autenticación
+  const publicRoutes = ['/home'];
+  const isPublicRoute = publicRoutes.includes(pathname);
+
+  // Si es ruta pública, renderizar sin autenticación
+  if (isPublicRoute) {
+    return <>{children}</>;
+  }
+//---------------------------------------------
   // Mostrar loading mientras se verifica la sesión
   if (loading) {
     return (
