@@ -5,6 +5,11 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:capacitor": "node build-capacitor.js && npx cap sync android",
+    "build:apk": "npm run build:capacitor && cd android && gradlew assembleDebug",
+    "build:export": "next build && echo 'Build completed for Capacitor'",
+    "open:android": "npx cap open android",
+    "sync:android": "npx cap sync android",
     "start": "next start",
     "lint": "next lint",
     "migrate": "node scripts/migrate.js",
@@ -14,6 +19,15 @@
     "test:users": "start test-users-functionality.html"
   },
   "dependencies": {
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/app": "^7.1.0",
+    "@capacitor/camera": "^7.0.2",
+    "@capacitor/cli": "^7.4.3",
+    "@capacitor/core": "^7.4.3",
+    "@capacitor/device": "^7.0.2",
+    "@capacitor/filesystem": "^7.1.4",
+    "@capacitor/network": "^7.0.2",
+    "@capacitor/preferences": "^7.0.2",
     "@ericblade/quagga2": "^1.8.4",
     "@heroicons/react": "^2.2.0",
     "@types/nodemailer": "^6.4.17",
