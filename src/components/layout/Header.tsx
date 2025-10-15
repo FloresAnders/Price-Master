@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { Settings, LogOut, Menu, X, Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck, History, User, ChevronDown } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { usePathname } from 'next/navigation';
 import { useAuth } from '../../hooks/useAuth';
 import { ThemeToggle } from './ThemeToggle';
 import { getDefaultPermissions } from '../../utils/permissions';
@@ -21,6 +22,7 @@ interface HeaderProps {
 
 export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const { logout, user } = useAuth();
+  const pathname = usePathname();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
@@ -135,7 +137,15 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   });
 
   const handleLogoutClick = () => {
-    setShowLogoutConfirm(true);
+    // Si estamos en /home, redirigir directamente sin confirmación
+    if (pathname === '/home') {
+      if (typeof window !== 'undefined') {
+        window.location.href = '/';
+      }
+    } else {
+      // Para usuarios autenticados, mostrar modal de confirmación
+      setShowLogoutConfirm(true);
+    }
   };
 
   const handleLogoClick = () => {
@@ -225,72 +235,74 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
           )}
 
           <div className="flex items-center gap-2" suppressHydrationWarning>
-            {/* User dropdown menu */}
-            {user && (
+            {/* User dropdown menu - solo mostrar si hay usuario O si estamos en /home */}
+            {(user || pathname === '/home') && (
               <div className="hidden md:flex items-center gap-2">
-                {/* User button with dropdown */}
-                <div className="relative" style={{ zIndex: 'auto' }}>
-                  <button
-                    onClick={handleUserDropdownClick}
-                    className="flex items-center gap-2 px-3 py-1 bg-transparent rounded-lg border border-[var(--input-border)] hover:bg-[var(--hover-bg)] transition-colors"
-                  >
-                    <User className="w-4 h-4 text-[var(--muted-foreground)]" />
-                    <span className="text-sm font-sans font-bold text-[var(--foreground)]">{user.name}</span>
-                    <ChevronDown className={`w-4 h-4 text-[var(--muted-foreground)] transition-transform ${showUserDropdown ? 'rotate-180' : ''}`} />
-                  </button>
+                {/* User button with dropdown - solo si hay usuario autenticado */}
+                {user && (
+                  <div className="relative" style={{ zIndex: 'auto' }}>
+                    <button
+                      onClick={handleUserDropdownClick}
+                      className="flex items-center gap-2 px-3 py-1 bg-transparent rounded-lg border border-[var(--input-border)] hover:bg-[var(--hover-bg)] transition-colors"
+                    >
+                      <User className="w-4 h-4 text-[var(--muted-foreground)]" />
+                      <span className="text-sm font-sans font-bold text-[var(--foreground)]">{user.name}</span>
+                      <ChevronDown className={`w-4 h-4 text-[var(--muted-foreground)] transition-transform ${showUserDropdown ? 'rotate-180' : ''}`} />
+                    </button>
 
-                  {/* Dropdown menu - rendered in portal */}
-                  {showUserDropdown && isClient && createPortal(
-                    <>
-                      {/* Click outside to close dropdown */}
-                      <div
-                        className="fixed inset-0"
-                        style={{ zIndex: 2147483646 }} // One less than dropdown
-                        onClick={() => setShowUserDropdown(false)}
-                      />
+                    {/* Dropdown menu - rendered in portal */}
+                    {showUserDropdown && isClient && createPortal(
+                      <>
+                        {/* Click outside to close dropdown */}
+                        <div
+                          className="fixed inset-0"
+                          style={{ zIndex: 2147483646 }} // One less than dropdown
+                          onClick={() => setShowUserDropdown(false)}
+                        />
 
-                      {/* Dropdown content */}
-                      <div
-                        className="w-48 bg-[var(--background)] border border-[var(--input-border)] rounded-lg shadow-xl"
-                        style={{
-                          position: 'fixed',
-                          top: dropdownPosition.top,
-                          right: dropdownPosition.right,
-                          zIndex: 2147483647, // Maximum z-index value
-                          isolation: 'isolate',
-                          transform: 'translateZ(0)', // Force hardware acceleration
-                          willChange: 'transform', // Optimize for changes
-                          pointerEvents: 'auto' // Ensure it can be clicked
-                        }}
-                      >
-                        <div className="py-2">
-                          <button
-                            onClick={() => {
-                              setShowEditProfileModal(true);
-                              setShowUserDropdown(false);
-                            }}
-                            className="flex items-center gap-3 w-full px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--hover-bg)] transition-colors"
-                          >
-                            <User className="w-4 h-4 text-[var(--muted-foreground)]" />
-                            Editar Perfil
-                          </button>
+                        {/* Dropdown content */}
+                        <div
+                          className="w-48 bg-[var(--background)] border border-[var(--input-border)] rounded-lg shadow-xl"
+                          style={{
+                            position: 'fixed',
+                            top: dropdownPosition.top,
+                            right: dropdownPosition.right,
+                            zIndex: 2147483647, // Maximum z-index value
+                            isolation: 'isolate',
+                            transform: 'translateZ(0)', // Force hardware acceleration
+                            willChange: 'transform', // Optimize for changes
+                            pointerEvents: 'auto' // Ensure it can be clicked
+                          }}
+                        >
+                          <div className="py-2">
+                            <button
+                              onClick={() => {
+                                setShowEditProfileModal(true);
+                                setShowUserDropdown(false);
+                              }}
+                              className="flex items-center gap-3 w-full px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--hover-bg)] transition-colors"
+                            >
+                              <User className="w-4 h-4 text-[var(--muted-foreground)]" />
+                              Editar Perfil
+                            </button>
 
-                          <button
-                            onClick={() => {
-                              setShowConfigModal(true);
-                              setShowUserDropdown(false);
-                            }}
-                            className="flex items-center gap-3 w-full px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--hover-bg)] transition-colors"
-                          >
-                            <Settings className="w-4 h-4 text-[var(--muted-foreground)]" />
-                            Configuración de Sesión
-                          </button>
+                            <button
+                              onClick={() => {
+                                setShowConfigModal(true);
+                                setShowUserDropdown(false);
+                              }}
+                              className="flex items-center gap-3 w-full px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--hover-bg)] transition-colors"
+                            >
+                              <Settings className="w-4 h-4 text-[var(--muted-foreground)]" />
+                              Configuración de Sesión
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    </>,
-                    document.body
-                  )}
-                </div>
+                      </>,
+                      document.body
+                    )}
+                  </div>
+                )}
 
                 {/* Logout button - separate from dropdown */}
                 <button
