@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.pricemaster.app',
+  appId: 'com.timemaster.app',
   appName: 'Time Master',
   webDir: 'out',
   server: {
@@ -11,8 +11,12 @@ const config: CapacitorConfig = {
     Camera: {
       permissions: ['camera', 'photos', 'mediaLibrary']
     },
+    Clipboard: {
+      // No requiere permisos explícitos, pero se declara para claridad
+      description: 'Permite copiar y pegar texto entre la app y el sistema'
+    },
     LocalStorage: {
-      group: 'PriceMasterGroup'
+      group: 'TimeMasterGroup'
     }
   }
 };

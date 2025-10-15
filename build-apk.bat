@@ -28,6 +28,10 @@ echo Verificando Java...
 java -version
 
 echo.
+echo Configurando Java 21 para Gradle...
+set JAVA_HOME=C:\Program Files\Java\jdk-21
+
+echo.
 echo Construyendo APK de debug...
 gradlew assembleDebug
 if %ERRORLEVEL% equ 0 (
