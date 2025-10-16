@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Camera, CameraPermissionState } from '@capacitor/camera';
+import { Clipboard } from '@capacitor/clipboard';
 import { Capacitor } from '@capacitor/core';
 
 export interface PermissionsState {
@@ -60,6 +61,13 @@ export function usePermissions() {
 
   const copyToClipboard = async (text: string): Promise<boolean> => {
     try {
+      // Usar el plugin de Capacitor en plataformas nativas
+      if (Capacitor.isNativePlatform()) {
+        await Clipboard.write({ string: text });
+        return true;
+      }
+      
+      // Fallback para web
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(text);
         return true;
@@ -91,6 +99,13 @@ export function usePermissions() {
 
   const readFromClipboard = async (): Promise<string | null> => {
     try {
+      // Usar el plugin de Capacitor en plataformas nativas
+      if (Capacitor.isNativePlatform()) {
+        const result = await Clipboard.read();
+        return result.value || null;
+      }
+      
+      // Fallback para web
       if (navigator.clipboard && navigator.clipboard.readText) {
         const text = await navigator.clipboard.readText();
         return text;

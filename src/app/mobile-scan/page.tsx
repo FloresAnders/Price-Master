@@ -123,6 +123,18 @@ function MobileScanContent() {
     }
   }, [requestProductNameParam, rpnParam]);
 
+  // Handle code parameter from URL (for direct barcode codes, not encoded sessions)
+  useEffect(() => {
+    const codeParam = searchParams.get('code');
+    if (codeParam && isClient) {
+      // This is a direct barcode code (not an encoded session URL)
+      // Auto-submit the code as a barcode scan
+      console.log('Direct barcode code from URL:', codeParam);
+      submitCode(codeParam);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, isClient]);
+
   // Eliminado: lógica de estado online
 
   // Efecto para inicializar y mantener la sincronización de sesión

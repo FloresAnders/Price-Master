@@ -20,16 +20,12 @@ async function buildForCapacitor() {
     }
   }
   
-  // 1. Backup dynamic route temporarily
+  // 1. Remove dynamic route if it exists (no longer needed - using not-found.tsx for redirects)
   const dynamicRoutePath = path.join('src', 'app', 'mobile-scan', '[code]');
-  const backupPath = path.join('src', 'app', 'mobile-scan', '_code_backup');
   
   if (fs.existsSync(dynamicRoutePath)) {
-    console.log('Backing up dynamic route...');
-    if (fs.existsSync(backupPath)) {
-      fs.rmSync(backupPath, { recursive: true, force: true });
-    }
-    fs.renameSync(dynamicRoutePath, backupPath);
+    console.log('Removing old dynamic route...');
+    fs.rmSync(dynamicRoutePath, { recursive: true, force: true });
   }
   
   try {
@@ -90,16 +86,8 @@ async function buildForCapacitor() {
   } catch (error) {
     console.error('Build failed:', error.message);
     throw error;
-  } finally {
-    // 5. Restore dynamic route
-    if (fs.existsSync(backupPath)) {
-      console.log('Restoring dynamic route...');
-      if (fs.existsSync(dynamicRoutePath)) {
-        fs.rmSync(dynamicRoutePath, { recursive: true, force: true });
-      }
-      fs.renameSync(backupPath, dynamicRoutePath);
-    }
   }
+  // Note: No longer restoring dynamic route - using not-found.tsx for redirects instead
 }
 
 // Run the build

@@ -54,7 +54,13 @@ export function decodeData(encoded: string): {
   try {
     // Decode from Base62
     const buffer = base62.decode(encoded);
-    const compressed = Buffer.from(buffer).toString('base64');
+    
+    // Convert Uint8Array to base64 string (browser-compatible)
+    let binary = '';
+    for (let i = 0; i < buffer.length; i++) {
+      binary += String.fromCharCode(buffer[i]);
+    }
+    const compressed = btoa(binary);
 
     // Decompress
     const decompressed = LZString.decompressFromBase64(compressed);
@@ -81,7 +87,7 @@ export function decodeData(encoded: string): {
         padded += '=';
       }
 
-      const fallbackDecoded = Buffer.from(padded, 'base64').toString();
+      const fallbackDecoded = atob(padded);
       const searchParams = new URLSearchParams(fallbackDecoded);
 
       return {
