@@ -41,3 +41,31 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 *.md
+
+# mobile setup - Android
+/android/*
+
+# Pero incluir configuración importante y recursos
+!/android/app/
+/android/app/*
+!/android/app/src/
+/android/app/src/*
+!/android/app/src/main/
+/android/app/src/main/*
+!/android/app/src/main/AndroidManifest.xml
+!/android/app/src/main/res/
+/android/app/src/main/res/*
+!/android/app/src/main/res/mipmap-*/
+!/android/app/src/main/res/mipmap-anydpi-v26/
+!/android/app/src/main/res/values/
+!/android/app/src/main/res/drawable*/
+
+# Incluir archivos de configuración de Gradle importantes
+!/android/build.gradle
+!/android/gradle.properties
+!/android/variables.gradle
+!/android/capacitor.settings.gradle
+!/android/settings.gradle
+!/android/capacitor-cordova-android-plugins/
+/android/capacitor-cordova-android-plugins/*
+!/android/capacitor-cordova-android-plugins/build.gradle
