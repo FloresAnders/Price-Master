@@ -1,36 +1,101 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Calculator, Type, Banknote, Smartphone, Clock, Truck, Settings, History, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck, Settings, History, X } from 'lucide-react';
 import AnimatedStickman from '@/components/ui/AnimatedStickman';
+import { User, UserPermissions } from '@/types/firestore';
+import { getDefaultPermissions } from '@/utils/permissions';
 
-// Define the menu items (excluding scanner as requested)
+// Define the menu items with permissions (same as HomeMenu.tsx)
 const menuItems = [
-  { id: 'calculator', name: 'Calculadora', icon: Calculator, description: 'Calcular precios con descuentos' },
-  { id: 'converter', name: 'Conversor', icon: Type, description: 'Convertir y transformar texto' },
-  { id: 'cashcounter', name: 'Contador Efectivo', icon: Banknote, description: 'Contar billetes y monedas (CRC/USD)' },
-  { id: 'timingcontrol', name: 'Control Tiempos', icon: Smartphone, description: 'Registro de venta de tiempos' },
-  { id: 'controlhorario', name: 'Control Horario', icon: Clock, description: 'Registro de horarios de trabajo' },
-  { id: 'supplierorders', name: 'Órdenes Proveedor', icon: Truck, description: 'Gestión de órdenes de proveedores' },
-  { id: 'mantenimiento', name: 'Mantenimiento', icon: Settings, description: 'Gestión y mantenimiento del sistema' },
-  { id: 'scanhistory', name: 'Historial de Escaneos', icon: History, description: 'Ver historial completo de escaneos' },
+  { id: 'scanner', name: 'Escáner', icon: Scan, description: 'Escanear códigos de barras', permission: 'scanner' as keyof UserPermissions },
+  { id: 'calculator', name: 'Calculadora', icon: Calculator, description: 'Calcular precios con descuentos', permission: 'calculator' as keyof UserPermissions },
+  { id: 'converter', name: 'Conversor', icon: Type, description: 'Convertir y transformar texto', permission: 'converter' as keyof UserPermissions },
+  { id: 'cashcounter', name: 'Contador Efectivo', icon: Banknote, description: 'Contar billetes y monedas (CRC/USD)', permission: 'cashcounter' as keyof UserPermissions },
+  { id: 'timingcontrol', name: 'Control Tiempos', icon: Smartphone, description: 'Registro de venta de tiempos', permission: 'timingcontrol' as keyof UserPermissions },
+  { id: 'controlhorario', name: 'Control Horario', icon: Clock, description: 'Registro de horarios de trabajo', permission: 'controlhorario' as keyof UserPermissions },
+  { id: 'supplierorders', name: 'Órdenes Proveedor', icon: Truck, description: 'Gestión de órdenes de proveedores', permission: 'supplierorders' as keyof UserPermissions },
+  { id: 'scanhistory', name: 'Historial de Escaneos', icon: History, description: 'Ver historial completo de escaneos', permission: 'scanhistory' as keyof UserPermissions },
+  { id: 'edit', name: 'Mantenimiento', icon: Settings, description: 'Gestión y mantenimiento del sistema', permission: 'mantenimiento' as keyof UserPermissions },
 ];
 
 export default function HomePage() {
+  const router = useRouter();
   const [hovered, setHovered] = useState(false);
   const [clickCount, setClickCount] = useState(0);
   const [showStickman, setShowStickman] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
-  const [selectedCard, setSelectedCard] = useState('');
+  const [selectedTool, setSelectedTool] = useState<string>('');
 
-  const handleCardClick = (cardName: string) => {
-    setSelectedCard(cardName);
+  // Verificar y cargar la sesión del usuario especial "SEBASTIAN"
+  useEffect(() => {
+    // Verificar si ya existe una sesión
+    const existingSession = localStorage.getItem('pricemaster_session');
+    
+    if (!existingSession) {
+      // Si no hay sesión, algo salió mal - redirigir al login
+      router.push('/');
+      return;
+    }
+
+    try {
+      const session = JSON.parse(existingSession);
+      
+      // Verificar que sea la sesión del usuario especial SEBASTIAN
+      if (session.isSpecialUser && session.id === 'special-user-sebastian') {
+        // Crear el objeto de usuario desde la sesión
+        const specialUser: User = {
+          id: session.id,
+          name: session.name,
+          ownercompanie: session.ownercompanie,
+          role: session.role,
+          permissions: session.permissions,
+          ownerId: session.id,
+          eliminate: false
+        };
+        
+        setCurrentUser(specialUser);
+        setIsLoading(false);
+      } else {
+        // Si es una sesión de usuario normal, redirigir a la página principal
+        router.push('/');
+      }
+    } catch (error) {
+      console.error('Error loading session:', error);
+      router.push('/');
+    }
+  }, [router]);
+
+  // Filter menu items based on user permissions
+  const getVisibleMenuItems = () => {
+    if (!currentUser) {
+      return [];
+    }
+
+    // Get user permissions
+    const userPermissions: UserPermissions = currentUser.permissions || getDefaultPermissions(currentUser.role || 'user');
+
+    // Filter items based on user permissions
+    return menuItems.filter(item => {
+      const hasPermission = userPermissions[item.permission];
+      return hasPermission === true;
+    });
+  };
+
+  const visibleMenuItems = getVisibleMenuItems();
+
+  const handleCardClick = (toolName: string) => {
+    // Mostrar modal de mantenimiento en lugar de navegar
+    setSelectedTool(toolName);
     setShowMaintenanceModal(true);
   };
 
   const handleCloseModal = () => {
     setShowMaintenanceModal(false);
-    setSelectedCard('');
+    setSelectedTool('');
   };
 
   const handleLogoClick = () => {
@@ -54,21 +119,47 @@ export default function HomePage() {
     }
   }, [showStickman]);
 
+  // Mostrar loading mientras se crea la sesión
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] py-8">
+        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+        <p className="text-[var(--muted-foreground)]">Cargando...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] py-8">
-        <div className="mb-2 flex items-center justify-center">
-          <Calculator
-            className={`w-14 h-14 mr-2 transition-transform duration-300 ${hovered ? 'scale-110 rotate-12 text-[var(--foreground)]' : 'scale-100 text-[var(--tab-text-active)]'}`}
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
-            onClick={handleLogoClick}
-            style={{ cursor: 'pointer', filter: hovered ? 'drop-shadow(0 0 8px var(--foreground))' : 'none' }}
-          />
-        </div>
-        <h1 className="text-3xl font-bold mb-8 text-center">Bienvenido a Price Master</h1>
+      <div className="mb-2 flex items-center justify-center">
+        <Calculator
+          className={`w-14 h-14 mr-2 transition-transform duration-300 ${hovered ? 'scale-110 rotate-12 text-[var(--foreground)]' : 'scale-100 text-[var(--tab-text-active)]'}`}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+          onClick={handleLogoClick}
+          style={{ cursor: 'pointer', filter: hovered ? 'drop-shadow(0 0 8px var(--foreground))' : 'none' }}
+        />
+      </div>
+      <h1 className="text-3xl font-bold mb-8 text-center">Bienvenido a Price Master</h1>
 
+      {visibleMenuItems.length === 0 ? (
+        <div className="text-center py-12">
+          <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl p-8 max-w-md mx-auto">
+            <Settings className="w-16 h-16 mx-auto mb-4 text-[var(--muted-foreground)]" />
+            <h3 className="text-xl font-semibold mb-2 text-[var(--foreground)]">
+              Sin herramientas disponibles
+            </h3>
+            <p className="text-[var(--muted-foreground)] mb-4">
+              No tienes permisos para acceder a ninguna herramienta en este momento.
+            </p>
+            <p className="text-sm text-[var(--muted-foreground)]">
+              Contacta a tu administrador para obtener acceso a las funcionalidades que necesitas.
+            </p>
+          </div>
+        </div>
+      ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 w-full max-w-4xl">
-          {menuItems.map(item => (
+          {visibleMenuItems.map(item => (
             <button
               key={item.id}
               onClick={() => handleCardClick(item.name)}
@@ -81,6 +172,7 @@ export default function HomePage() {
             </button>
           ))}
         </div>
+      )}
 
       {/* AnimatedStickman aparece solo después de 5 clicks */}
       {showStickman && (
@@ -89,7 +181,7 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Maintenance Modal */}
+      {/* Modal de Mantenimiento */}
       {showMaintenanceModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl shadow-2xl p-8 max-w-md w-full relative animate-in fade-in zoom-in duration-200">
@@ -110,7 +202,7 @@ export default function HomePage() {
               </h2>
 
               <p className="text-[var(--muted-foreground)] mb-4">
-                La función <span className="font-semibold text-[var(--foreground)]">{selectedCard}</span> está actualmente en mantenimiento.
+                La función <span className="font-semibold text-[var(--foreground)]">{selectedTool}</span> está actualmente en mantenimiento.
               </p>
 
               <p className="text-sm text-[var(--muted-foreground)] mb-6">

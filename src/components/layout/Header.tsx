@@ -137,9 +137,12 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   });
 
   const handleLogoutClick = () => {
-    // Si estamos en /home, redirigir directamente sin confirmación
+    // Si estamos en /home, limpiar sesión especial y redirigir
     if (pathname === '/home') {
       if (typeof window !== 'undefined') {
+        // Limpiar la sesión especial del usuario SEBASTIAN
+        localStorage.removeItem('pricemaster_session');
+        localStorage.removeItem('pricemaster_session_id');
         window.location.href = '/';
       }
     } else {
