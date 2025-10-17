@@ -255,29 +255,29 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
       )}
 
       {/* Migration Buttons */}
-      <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded">
+      <div className="mb-6 p-4 bg-[var(--muted)] border border-[var(--border)] rounded">
         <h3 className="font-semibold mb-2">Gestión de Permisos</h3>
         <div className="space-y-3">
           <div>
-            <p className="text-sm text-gray-600 mb-2">
+            <p className="text-sm text-[var(--muted-foreground)] mb-2">
               Agrega permisos predeterminados a usuarios que no los tienen configurados.
             </p>
             <button
               onClick={migrateAllUsers}
               disabled={loading}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+              className="px-4 py-2 bg-[var(--primary)] text-white rounded hover:bg-[var(--button-hover)] disabled:opacity-50"
             >
               Migrar Usuarios Nuevos
             </button>
           </div>
           <div>
-            <p className="text-sm text-gray-600 mb-2">
+            <p className="text-sm text-[var(--muted-foreground)] mb-2">
               Actualiza todos los usuarios para asegurar que tengan todos los permisos disponibles (útil cuando se agregan nuevos permisos).
             </p>
             <button
               onClick={ensureAllPermissions}
               disabled={loading}
-              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+              className="px-4 py-2 bg-[var(--success)] text-white rounded hover:bg-[var(--button-hover)] disabled:opacity-50"
             >
               Actualizar Permisos Existentes
             </button>
@@ -294,7 +294,7 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
             const user = users.find(u => u.id === e.target.value);
             if (user) handleUserChange(user);
           }}
-          className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          className="w-full p-2 border border-[var(--border)] rounded focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)] bg-[var(--input-bg)]"
         >
           <option value="">-- Seleccionar Usuario --</option>
           {users.map(user => (
@@ -325,7 +325,7 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
                     .map(([permission]) => (
                       <span
                         key={permission}
-                        className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded border border-blue-200"
+                        className="text-xs bg-[var(--badge-bg)] text-[var(--badge-text)] px-2 py-1 rounded border border-[var(--border)]"
                       >
                         {PERMISSION_LABELS[permission as keyof typeof PERMISSION_LABELS]}
                       </span>
@@ -333,7 +333,7 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
                   }
                   {Object.values(selectedUser.permissions || getDefaultPermissions(selectedUser.role))
                     .filter(Boolean).length === 0 && (
-                      <span className="text-xs text-gray-500 italic">Sin permisos activos</span>
+                      <span className="text-xs text-[var(--muted-foreground)] italic">Sin permisos activos</span>
                     )}
                 </div>
               </div>
@@ -395,17 +395,17 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
             <h3 className="font-semibold mb-4">Permisos de Secciones</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {Object.entries(PERMISSION_LABELS).map(([key, label]) => (
-                <div key={key} className="flex items-start p-3 border border-gray-200 rounded">
+                <div key={key} className="flex items-start p-3 border border-[var(--border)] rounded">
                   <input
                     type="checkbox"
                     id={key}
                     checked={Boolean(permissions[key as keyof typeof PERMISSION_LABELS])}
                     onChange={(e) => handlePermissionChange(key as keyof UserPermissions, e.target.checked)}
-                    className="mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mt-1"
+                    className="mr-3 h-4 w-4 text-[var(--primary)] focus:ring-[var(--primary)] border-[var(--border)] rounded mt-1"
                   />
                   <label htmlFor={key} className="flex-1 text-sm cursor-pointer">
                     <div className="font-medium">{label}</div>
-                    <div className="text-xs text-gray-500 mt-1">
+                    <div className="text-xs text-[var(--muted-foreground)] mt-1">
                       {PERMISSION_DESCRIPTIONS[key as keyof typeof PERMISSION_DESCRIPTIONS]}
                     </div>
                   </label>
@@ -416,21 +416,21 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
 
           {/* Scan History Locations Selection */}
           {permissions.scanhistory && (
-            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded">
+            <div className="mb-6 p-4 bg-[var(--muted)] border border-[var(--border)] rounded">
               <h3 className="font-semibold mb-4">Locaciones para Historial de Escaneos</h3>
-              <p className="text-sm text-gray-600 mb-4">
+              <p className="text-sm text-[var(--muted-foreground)] mb-4">
                 Selecciona las locaciones específicas a las que este usuario tendrá acceso en el historial de escaneos.
                 Si no se selecciona ninguna, tendrá acceso a todas las locaciones.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {empresas.map((empresa) => (
-                  <div key={empresa.id || empresa.name} className="flex items-center p-2 border border-gray-300 rounded">
+                  <div key={empresa.id || empresa.name} className="flex items-center p-2 border border-[var(--border)] rounded">
                     <input
                       type="checkbox"
                       id={`empresa-${empresa.name}`}
                       checked={permissions.scanhistoryEmpresas?.includes(empresa.name) || false}
                       onChange={(e) => handleEmpresaChange(empresa.name, e.target.checked)}
-                      className="mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      className="mr-3 h-4 w-4 text-[var(--primary)] focus:ring-[var(--primary)] border-[var(--border)] rounded"
                     />
                     <label htmlFor={`empresa-${empresa.name}`} className="text-sm cursor-pointer">
                       {empresa.name}
@@ -453,7 +453,7 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
             <button
               onClick={handleSave}
               disabled={saving}
-              className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-6 py-2 bg-[var(--primary)] text-white rounded hover:bg-[var(--button-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {saving ? 'Guardando...' : 'Guardar Permisos'}
             </button>

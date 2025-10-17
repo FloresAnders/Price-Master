@@ -14,11 +14,11 @@ export default function ImageDropArea({ onDrop, onFileSelect, fileInputRef, onFi
 
     const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
         e.preventDefault();
-        e.currentTarget.classList.add('bg-indigo-50', 'dark:bg-indigo-900');
+        e.currentTarget.style.backgroundColor = 'var(--muted)';
     };
 
     const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
-        e.currentTarget.classList.remove('bg-indigo-50', 'dark:bg-indigo-900');
+        e.currentTarget.style.backgroundColor = '';
     };
 
     // Escuchar eventos de pegado para mostrar indicador visual
@@ -42,13 +42,13 @@ export default function ImageDropArea({ onDrop, onFileSelect, fileInputRef, onFi
 
     return (
         <div>
-            <label className="block text-base font-semibold mx-auto text-center w-fit mb-2 text-indigo-700 dark:text-indigo-200 tracking-wide">
+            <label className="block text-base font-semibold mx-auto text-center w-fit mb-2 text-[var(--primary)] tracking-wide">
                 Seleccionar imagen
             </label>
             <div
-                className={`relative border-4 border-dashed rounded-3xl p-10 transition-all duration-300 cursor-pointer hover:border-indigo-500 bg-white dark:bg-zinc-900/70 shadow-xl group ${recentPaste
-                    ? 'border-green-400 bg-green-50 dark:bg-green-900/20 ring-2 ring-green-400/50'
-                    : 'border-indigo-200 dark:border-indigo-800'
+                className={`relative border-4 border-dashed rounded-3xl p-10 transition-all duration-300 cursor-pointer hover:border-[var(--primary)] bg-[var(--background)] dark:bg-zinc-900/70 shadow-xl group ${recentPaste
+                    ? 'border-[var(--success)] bg-[var(--muted)] ring-2 ring-[var(--success)]/50'
+                    : 'border-[var(--border)]'
                     }`}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
@@ -57,13 +57,13 @@ export default function ImageDropArea({ onDrop, onFileSelect, fileInputRef, onFi
                 tabIndex={0}
             >
                 {recentPaste && (
-                    <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 bg-green-500 text-white text-xs rounded-full animate-pulse">
+                    <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 bg-[var(--success)] text-white text-xs rounded-full animate-pulse">
                         <Clipboard className="w-3 h-3" />
                         <span>¡Pegado!</span>
                     </div>
                 )}
 
-                <div className="flex flex-col items-center gap-5 text-indigo-400 dark:text-indigo-300 pointer-events-none">
+                <div className="flex flex-col items-center gap-5 text-[var(--primary)] pointer-events-none">
                     <ImagePlusIcon className="w-20 h-20 group-hover:scale-110 transition-transform duration-300" />
                     <p className="text-xl font-bold">Arrastra una imagen aquí</p>
                     <p className="text-base">o haz clic para seleccionar archivo</p>

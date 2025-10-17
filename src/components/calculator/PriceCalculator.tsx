@@ -285,8 +285,8 @@ export default function PriceCalculator() {
               key={opcion.value}
               onClick={() => handleIVAChange(opcion.value)}
               className={`px-4 py-2 rounded-md border transition-colors ${ivaSeleccionado === opcion.value && !usandoIvaPersonalizado
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-transparent border-gray-300 hover:border-blue-500'
+                  ? 'bg-[var(--primary)] text-white border-[var(--primary)]'
+                  : 'bg-transparent border-[var(--border)] hover:border-[var(--primary)]'
                 }`}
             >
               {opcion.label}
@@ -301,8 +301,8 @@ export default function PriceCalculator() {
             type="number"
             value={ivaPersonalizado}
             onChange={handleIvaPersonalizadoChange}
-            className={`w-24 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black ${
-              usandoIvaPersonalizado ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
+            className={`w-24 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--primary)] text-black ${
+              usandoIvaPersonalizado ? 'border-[var(--primary)] bg-[var(--muted)]' : 'border-[var(--border)]'
             }`}
             placeholder="0"
             step="0.01"
@@ -310,7 +310,7 @@ export default function PriceCalculator() {
             max="100"
           />
           {usandoIvaPersonalizado && (
-            <span className="text-sm text-blue-600 font-medium">
+            <span className="text-sm text-[var(--primary)] font-medium">
               Usando {ivaSeleccionado}%
             </span>
           )}
@@ -331,7 +331,7 @@ export default function PriceCalculator() {
               {precioOriginal && precioSinIVA !== precioOriginal && (
                 <button
                   onClick={establecerNuevoPrecioOriginal}
-                  className="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600 transition-colors"
+                  className="text-xs bg-[var(--secondary)] text-white px-2 py-1 rounded hover:opacity-90 transition-colors"
                   title="Establecer precio actual como nuevo precio original"
                 >
                   Nuevo Original
