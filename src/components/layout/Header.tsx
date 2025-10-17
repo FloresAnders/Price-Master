@@ -203,12 +203,12 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
           >
             <Image
               src="/favicon-32x32.png"
-              alt="Price Master Logo"
+              alt="Time Master Logo"
               width={32}
               height={32}
               className="rounded"
             />
-            Price Master
+            Time Master
           </button>
 
           {/* Desktop navigation tabs - only show when inside a card */}

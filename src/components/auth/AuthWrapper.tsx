@@ -54,7 +54,7 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
             onLoginSuccess={(userData: User, keepActive?: boolean, useTokens?: boolean) => {
               login(userData, keepActive, useTokens);
             }}
-            title="Price Master"
+            title="Time Master"
             canClose={false} // No mostrar botón cancelar
           />
         </div>
