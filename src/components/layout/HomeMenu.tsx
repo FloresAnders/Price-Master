@@ -96,7 +96,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
       {visibleMenuItems.length === 0 ? (
         <div className="text-center py-12">
           <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl p-8 max-w-md mx-auto">
-            <Settings className="w-16 h-16 mx-auto mb-4 text-[var(--muted-foreground)]" />
+            <Settings className="w-16 h-16 mx-auto mb-4 text-[var(--primary)]" />
             <h3 className="text-xl font-semibold mb-2 text-[var(--foreground)]">
               Sin herramientas disponibles
             </h3>
@@ -114,12 +114,12 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
             <button
               key={item.id}
               onClick={() => handleNavigate(item.id)}
-              className="bg-[var(--card-bg)] dark:bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl shadow-md p-6 flex flex-col items-center transition hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 group"
+              className="bg-[var(--card-bg)] dark:bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl shadow-md p-6 flex flex-col items-center transition hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-[var(--primary)] group"
               style={{ minHeight: 160 }}
             >
-              <item.icon className="w-10 h-10 mb-3 text-[var(--foreground)] group-hover:scale-110 transition-transform" />
+              <item.icon className="w-10 h-10 mb-3 text-[var(--primary)] group-hover:scale-110 group-hover:text-[var(--button-hover)] transition-all" />
               <span className="text-lg font-semibold mb-1 text-[var(--foreground)] dark:text-[var(--foreground)]">{item.name}</span>
-              <span className="text-sm text-[var(--tab-text)] text-center">{item.description}</span>
+              <span className="text-sm text-[var(--muted-foreground)] text-center">{item.description}</span>
             </button>
           ))}
         </div>

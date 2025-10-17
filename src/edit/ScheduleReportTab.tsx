@@ -366,7 +366,7 @@ export default function ScheduleReportTab() {
           <button
             onClick={exportData}
             disabled={scheduleData.length === 0}
-            className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-md flex items-center gap-2 transition-colors"
+            className="px-4 py-2 bg-[var(--success)] hover:bg-[var(--button-hover)] disabled:opacity-50 text-white rounded-md flex items-center gap-2 transition-colors"
           >
             <Download className="w-4 h-4" />
             Exportar
@@ -475,9 +475,9 @@ export default function ScheduleReportTab() {
                         <td className="p-2 font-medium">{employee.employeeName}</td>
                         {getDaysInPeriod().map(day => (
                           <td key={day} className="text-center p-2">
-                            <span className={`w-6 h-6 rounded text-xs font-medium flex items-center justify-center ${employee.days[day] === 'D' ? 'bg-yellow-200 text-yellow-800' :
-                              employee.days[day] === 'N' ? 'bg-blue-200 text-blue-800' :
-                                employee.days[day] === 'L' ? 'bg-gray-200 text-gray-800' :
+                            <span className={`w-6 h-6 rounded text-xs font-medium flex items-center justify-center ${employee.days[day] === 'D' ? 'bg-[var(--shift-diurno-bg)] text-[var(--shift-diurno-text)]' :
+                              employee.days[day] === 'N' ? 'bg-[var(--shift-nocturno-bg)] text-[var(--shift-nocturno-text)]' :
+                                employee.days[day] === 'L' ? 'bg-[var(--shift-libre-bg)] text-[var(--shift-libre-text)]' :
                                   'bg-transparent'
                               }`}>
                               {employee.days[day] || ''}
@@ -496,15 +496,15 @@ export default function ScheduleReportTab() {
               {/* Leyenda */}
               <div className="flex gap-4 mt-4 text-xs">
                 <div className="flex items-center gap-1">
-                  <span className="inline-block w-4 h-4 rounded bg-yellow-200"></span>
+                  <span className="inline-block w-4 h-4 rounded bg-[var(--shift-diurno-bg)] border border-[var(--shift-diurno-text)]"></span>
                   <span>D = Día</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <span className="inline-block w-4 h-4 rounded bg-blue-200"></span>
+                  <span className="inline-block w-4 h-4 rounded bg-[var(--shift-nocturno-bg)] border border-[var(--shift-nocturno-text)]"></span>
                   <span>N = Noche</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <span className="inline-block w-4 h-4 rounded bg-gray-200"></span>
+                  <span className="inline-block w-4 h-4 rounded bg-[var(--shift-libre-bg)] border border-[var(--shift-libre-text)]"></span>
                   <span>L = Libre</span>
                 </div>
               </div>

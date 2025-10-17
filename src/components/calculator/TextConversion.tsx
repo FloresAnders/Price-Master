@@ -88,7 +88,7 @@ export default function TextConversion() {
       {/* Notificación animada de copiado */}
       {copySuccess && (
         <div
-          className="fixed top-6 right-6 z-50 px-6 py-3 rounded-xl shadow-2xl flex items-center gap-2 bg-green-500 text-white font-semibold animate-bounce"
+          className="fixed top-6 right-6 z-50 px-6 py-3 rounded-xl shadow-2xl flex items-center gap-2 bg-[var(--success)] text-white font-semibold animate-bounce"
           style={{ pointerEvents: 'none' }}
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">

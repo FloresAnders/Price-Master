@@ -515,26 +515,26 @@ export default function DataEditor() {
                         <button
                             onClick={() => setAllUserPermissions(index, true)}
                             disabled={isDisabled}
-                            className="text-xs px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="text-xs px-2 py-1 bg-[var(--success)] text-white rounded hover:bg-[var(--button-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             Habilitar Todo
                         </button>
                         <button
                             onClick={() => setAllUserPermissions(index, false)}
                             disabled={isDisabled}
-                            className="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="text-xs px-2 py-1 bg-[var(--error)] text-white rounded hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             Deshabilitar Todo
                         </button>
                         <button
                             onClick={() => setPermissionsEditable(prev => ({ ...prev, [key]: !prev[key] }))}
-                            className="text-xs px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+                            className="text-xs px-2 py-1 bg-[var(--secondary)] text-white rounded hover:opacity-90"
                         >
                             {permissionsEditable[key] ? 'Bloquear Permisos' : 'Editar Permisos'}
                         </button>
                         <button
                             onClick={() => setShowPermissions(prev => ({ ...prev, [key]: !prev[key] }))}
-                            className="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+                            className="text-xs px-2 py-1 bg-[var(--primary)] text-white rounded hover:bg-[var(--button-hover)]"
                         >
                             {showPermissions[key] ? 'Vista Compacta' : 'Vista Detallada'}
                         </button>
@@ -550,8 +550,8 @@ export default function DataEditor() {
                                 <div
                                     key={permission}
                                     className={`flex items-center gap-3 p-3 border-2 rounded-lg transition-all ${hasAccess
-                                        ? 'border-green-300 dark:border-green-600 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30'
-                                        : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800/70'
+                                        ? 'border-[var(--success)] bg-[var(--muted)] hover:opacity-90'
+                                        : 'border-[var(--border)] bg-[var(--card-bg)] hover:opacity-90'
                                         }`}
                                 >
                                     <input
@@ -568,7 +568,7 @@ export default function DataEditor() {
                                             (updated[index].permissions as unknown as Record<string, unknown>)[permission] = e.target.checked;
                                             setUsersData(updated);
                                         }}
-                                        className="w-5 h-5 text-green-600 border-2 rounded focus:ring-green-500 focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="w-5 h-5 text-[var(--success)] border-2 rounded focus:ring-[var(--success)] focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                         style={{
                                             backgroundColor: 'var(--input-bg)',
                                             borderColor: 'var(--input-border)'
@@ -582,8 +582,8 @@ export default function DataEditor() {
                                         <div className="text-sm" style={{ color: 'var(--muted-foreground)' }}>{getPermissionDescription(permission)}</div>
                                     </label>
                                     <div className={`px-2 py-1 rounded text-xs font-medium ${hasAccess
-                                        ? 'bg-green-200 dark:bg-green-900/40 text-green-800 dark:text-green-200'
-                                        : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                                        ? 'bg-[var(--success)] text-white'
+                                        : 'bg-[var(--muted)] text-[var(--muted-foreground)]'
                                         }`}>
                                         {hasAccess ? 'Activo' : 'Inactivo'}
                                     </div>
@@ -599,8 +599,8 @@ export default function DataEditor() {
                                 <label
                                     key={permission}
                                     className={`flex items-center gap-1 text-xs px-2 py-1 rounded cursor-pointer border transition-colors ${hasAccess
-                                        ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 border-green-200 dark:border-green-700 hover:bg-green-200 dark:hover:bg-green-900/50'
-                                        : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 border-red-200 dark:border-red-700 hover:bg-red-200 dark:hover:bg-red-900/50'
+                                        ? 'bg-[var(--success)] text-white border-[var(--success)] hover:opacity-90'
+                                        : 'bg-[var(--error)] text-white border-[var(--error)] hover:opacity-90'
                                         }`}
                                 >
                                     <input
