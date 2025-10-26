@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image';
-import { Settings, LogOut, Menu, X, Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck, History, User, ChevronDown } from 'lucide-react';
+import { Settings, LogOut, Menu, X, Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck, History, User, ChevronDown, Bell } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { usePathname } from 'next/navigation';
@@ -28,6 +28,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [showNotifModal, setShowNotifModal] = useState(false);
   const [isClient, setIsClient] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, right: 0 });
   const [showSessionTimer, setShowSessionTimer] = useState(false);
@@ -318,6 +319,15 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               </div>
             )}
 
+            {/* Notification icon for small screens (left of hamburger) */}
+            <button
+              onClick={() => setShowNotifModal(true)}
+              className="lg:hidden p-2 rounded-md hover:bg-[var(--hover-bg)] transition-colors"
+              title="Notificaciones"
+            >
+              <Bell className="w-5 h-5 text-[var(--foreground)]" />
+            </button>
+
             {/* Mobile hamburger menu button */}
             <button
               onClick={() => setShowMobileMenu(!showMobileMenu)}
@@ -424,6 +434,24 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                 className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
               >
                 Cerrar Sesión
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Notification modal (small screens) */}
+      {showNotifModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+          <div className="bg-[var(--background)] rounded-lg p-6 w-80 max-w-[90vw]">
+            <h3 className="text-lg font-semibold text-[var(--foreground)] mb-4">Próximamente</h3>
+            <p className="text-[var(--muted-foreground)] mb-6">Estamos trabajando en esta funcionalidad. ¡Próximamente!</p>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowNotifModal(false)}
+                className="px-4 py-2 text-[var(--foreground)] hover:bg-[var(--hover-bg)] rounded-md transition-colors"
+              >
+                Cerrar
               </button>
             </div>
           </div>
