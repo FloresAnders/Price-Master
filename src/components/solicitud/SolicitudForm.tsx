@@ -1,0 +1,192 @@
+"use client";
+
+import React, { useEffect, useState } from 'react';
+import { EmpresasService } from '@/services/empresas';
+import { SolicitudesService } from '@/services/solicitudes';
+import type { Empresas } from '@/types/firestore';
+
+export default function SolicitudForm() {
+  const [productName, setProductName] = useState('');
+  const [empresas, setEmpresas] = useState<Empresas[]>([]);
+  const [empresaSelected, setEmpresaSelected] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Lista de solicitudes
+  const [solicitudes, setSolicitudes] = useState<any[]>([]);
+  const [loadingList, setLoadingList] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [toDelete, setToDelete] = useState<{ id: string; productName?: string } | null>(null);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const list = await EmpresasService.getAllEmpresas();
+        setEmpresas(list || []);
+        if (list && list.length > 0) setEmpresaSelected(list[0].name || '');
+      } catch (err) {
+        console.error('Error loading empresas for solicitud:', err);
+        setEmpresas([]);
+      }
+    };
+    load();
+    loadSolicitudes();
+  }, []);
+
+  const loadSolicitudes = async () => {
+    setLoadingList(true);
+    try {
+      const rows = await SolicitudesService.getAllSolicitudes();
+      setSolicitudes(rows || []);
+    } catch (err) {
+      console.error('Error loading solicitudes:', err);
+      setSolicitudes([]);
+    } finally {
+      setLoadingList(false);
+    }
+  };
+
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!productName.trim() || !empresaSelected) {
+      setMessage({ type: 'error', text: 'Completa el nombre del producto y selecciona la empresa.' });
+      return;
+    }
+
+    setSaving(true);
+    setMessage(null);
+    try {
+      await SolicitudesService.addSolicitud({ productName: productName.trim(), empresa: empresaSelected });
+      setMessage({ type: 'success', text: 'Solicitud enviada correctamente.' });
+      setProductName('');
+      await loadSolicitudes();
+    } catch (err) {
+      console.error('Error saving solicitud:', err);
+      setMessage({ type: 'error', text: 'Error al enviar la solicitud.' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteClick = (id: string, productName?: string) => {
+    setToDelete({ id, productName });
+    setConfirmOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!toDelete) return;
+    try {
+      await SolicitudesService.deleteSolicitud(toDelete.id);
+      setMessage({ type: 'success', text: 'Solicitud eliminada correctamente.' });
+      setConfirmOpen(false);
+      setToDelete(null);
+      await loadSolicitudes();
+    } catch (err) {
+      console.error('Error deleting solicitud:', err);
+      setMessage({ type: 'error', text: 'Error al eliminar la solicitud.' });
+    }
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto p-6">
+      <h1 className="text-2xl font-bold mb-4">Nueva Solicitud</h1>
+
+      {message && (
+        <div className={`p-3 mb-4 rounded ${message.type === 'success' ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-red-50 border border-red-200 text-red-800'}`}>
+          {message.text}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-4 bg-[var(--card-bg)] border border-[var(--input-border)] rounded p-4">
+        <div>
+          <label className="block text-sm font-medium mb-1">Nombre de producto</label>
+          <input
+            value={productName}
+            onChange={(e) => setProductName(e.target.value)}
+            className="w-full p-2 border border-[var(--border)] rounded bg-[var(--input-bg)]"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">Empresa</label>
+          <select
+            value={empresaSelected}
+            onChange={(e) => setEmpresaSelected(e.target.value)}
+            className="w-full p-2 border border-[var(--border)] rounded bg-[var(--input-bg)]"
+          >
+            <option value="">-- Seleccionar Empresa --</option>
+            {empresas.map((emp) => (
+              <option key={emp.id || emp.name} value={emp.name}>{emp.name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="text-sm text-[var(--muted-foreground)]">
+          La fecha se genera automáticamente al enviar la solicitud.
+        </div>
+
+        <div className="flex justify-end">
+          <button
+            type="submit"
+            disabled={saving}
+            className="px-4 py-2 bg-[var(--primary)] text-white rounded hover:bg-[var(--button-hover)] disabled:opacity-50"
+          >
+            {saving ? 'Enviando...' : 'Guardar'}
+          </button>
+        </div>
+      </form>
+      
+      {/* Lista de solicitudes guardadas */}
+      <div className="mt-6">
+        <h2 className="text-lg font-semibold mb-3">Solicitudes guardadas</h2>
+        {loadingList ? (
+          <div className="p-4 bg-[var(--card-bg)] border border-[var(--input-border)] rounded">Cargando...</div>
+        ) : solicitudes.length === 0 ? (
+          <div className="p-4 bg-[var(--card-bg)] border border-[var(--input-border)] rounded">No hay solicitudes</div>
+        ) : (
+          <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-[var(--muted)] text-left">
+                <tr>
+                  <th className="px-4 py-2">Fecha</th>
+                  <th className="px-4 py-2">Producto</th>
+                  <th className="px-4 py-2">Empresa</th>
+                  <th className="px-4 py-2">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {solicitudes.map((s) => (
+                  <tr key={s.id} className="border-t border-[var(--input-border)]">
+                    <td className="px-4 py-2 align-top">{s.createdAt ? new Date(s.createdAt.seconds ? s.createdAt.seconds * 1000 : s.createdAt).toLocaleString() : '-'}</td>
+                    <td className="px-4 py-2 align-top">{s.productName}</td>
+                    <td className="px-4 py-2 align-top">{s.empresa}</td>
+                    <td className="px-4 py-2 align-top">
+                      <button
+                        onClick={() => handleDeleteClick(s.id, s.productName)}
+                        className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+                      >Eliminar</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Modal de confirmación de borrado */}
+      {confirmOpen && toDelete && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded p-6 max-w-sm w-full">
+            <h3 className="text-lg font-semibold mb-2">Confirmar eliminación</h3>
+            <p className="text-sm text-[var(--muted-foreground)] mb-4">¿Deseas eliminar la solicitud "{toDelete.productName || ''}"?</p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => { setConfirmOpen(false); setToDelete(null); }} className="px-3 py-1 bg-gray-200 rounded">Cancelar</button>
+              <button onClick={confirmDelete} className="px-3 py-1 bg-red-600 text-white rounded">Eliminar</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

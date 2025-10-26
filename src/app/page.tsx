@@ -15,8 +15,9 @@ import { ScanHistoryTable } from '@/components/scanner'
 import { storage } from '@/config/firebase'
 import { ref, listAll } from 'firebase/storage'
 
-// 1) Ampliamos ActiveTab para incluir "cashcounter", "controlhorario", "supplierorders", "edit", "scanhistory"
-type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'supplierorders' | 'scanhistory' | 'edit'
+// 1) Ampliamos ActiveTab para incluir "cashcounter", "controlhorario", "supplierorders", "edit", "scanhistory", "solicitud"
+type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'supplierorders' | 'scanhistory' | 'edit' | 'solicitud'
+import SolicitudForm from '@/components/solicitud/SolicitudForm'
 
 export default function HomePage() {
   // Hook para obtener el usuario autenticado
@@ -191,7 +192,7 @@ export default function HomePage() {
       if (typeof window !== 'undefined') {
         const hash = window.location.hash.replace('#', '') as ActiveTab;
         const validTabs = [
-          'scanner', 'calculator', 'converter', 'cashcounter', 'timingcontrol', 'controlhorario', 'supplierorders', 'scanhistory'
+          'scanner', 'calculator', 'converter', 'cashcounter', 'timingcontrol', 'controlhorario', 'supplierorders', 'scanhistory', 'solicitud'
         ];
         if (validTabs.includes(hash)) {
           setActiveTab(hash);
@@ -214,7 +215,7 @@ export default function HomePage() {
       const handleHashChange = () => {
         const hash = window.location.hash.replace('#', '') as ActiveTab;
         const validTabs = [
-          'scanner', 'calculator', 'converter', 'cashcounter', 'timingcontrol', 'controlhorario', 'supplierorders', 'scanhistory', 'edit'
+          'scanner', 'calculator', 'converter', 'cashcounter', 'timingcontrol', 'controlhorario', 'supplierorders', 'scanhistory', 'edit', 'solicitud'
         ];
         if (validTabs.includes(hash)) {
           setActiveTab(hash);
@@ -318,6 +319,11 @@ export default function HomePage() {
               {/* HISTORIAL DE ESCANEOS */}
               {activeTab === 'scanhistory' && (
                 <ScanHistoryTable />
+              )}
+
+              {/* SOLICITUD */}
+              {activeTab === 'solicitud' && (
+                <SolicitudForm />
               )}
 
               {/* EDIT / MANTENIMIENTO */}

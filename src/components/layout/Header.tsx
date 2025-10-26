@@ -13,7 +13,7 @@ import EditProfileModal from '../edicionPerfil/EditProfileModal';
 import { ConfigurationModal, CalculatorModal } from '../modals';
 import type { UserPermissions } from '../../types/firestore';
 
-type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'supplierorders' | 'histoscans' | 'scanhistory' | 'edit'
+type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'supplierorders' | 'histoscans' | 'scanhistory' | 'edit' | 'solicitud'
 
 interface HeaderProps {
   activeTab?: ActiveTab | null;
@@ -126,6 +126,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     { id: 'supplierorders' as ActiveTab, name: 'Órdenes Proveedor', icon: Truck, description: 'Gestión de órdenes de proveedores', permission: 'supplierorders' as keyof UserPermissions },
     { id: 'edit' as ActiveTab, name: 'Mantenimiento', icon: Settings, description: 'Gestión y mantenimiento del sistema', permission: 'mantenimiento' as keyof UserPermissions },
     { id: 'histoscans' as ActiveTab, name: 'Historial de Escaneos', icon: History, description: 'Ver historial de escaneos realizados', permission: 'scanhistory' as keyof UserPermissions },
+    { id: 'solicitud' as ActiveTab, name: 'Solicitud', icon: Type, description: 'Solicitudes y trámites', permission: 'solicitud' as keyof UserPermissions },
   ];
 
   // Get user permissions or default if not available

@@ -55,15 +55,8 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
 
   const handleNavigate = (id: string) => {
     if (typeof window !== 'undefined') {
-      // Si la tarjeta es 'solicitud' mostramos un mensaje de desarrollo
-      if (id === 'solicitud') {
-        // Usamos alert simple para indicar 'desarrollo'
-        // (se puede cambiar por un toast/modal más adelante)
-        window.alert('desarrollo');
-        return;
-      }
-
-      // Todos los demás elementos usan hash navigation
+      // Redirigir a la ruta específica para la herramienta. La tarjeta 'solicitud' abre la página /solicitud
+      // Usar hash navigation para todas las tarjetas (incluida 'solicitud')
       window.location.hash = `#${id}`;
     }
   };
