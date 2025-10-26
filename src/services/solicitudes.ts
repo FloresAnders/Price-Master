@@ -6,12 +6,11 @@ export class SolicitudesService {
   /**
    * Create a new solicitud document. The service will add the creation date automatically.
    */
-  static async addSolicitud(payload: { productName: string; empresa: string; createdBy?: string }): Promise<string> {
+  static async addSolicitud(payload: { productName: string; empresa: string }): Promise<string> {
     const doc = {
       productName: payload.productName,
       empresa: payload.empresa,
       createdAt: new Date(),
-      createdBy: payload.createdBy || ''
     };
 
     return await FirestoreService.add(this.COLLECTION_NAME, doc);
