@@ -21,6 +21,7 @@ const PERMISSION_LABELS = {
   controlhorario: 'Control Horario',
   supplierorders: 'Órdenes Proveedor',
   mantenimiento: 'Mantenimiento',
+  solicitud: 'Solicitud',
   scanhistory: 'Historial de Escaneos',
 };
 
@@ -33,6 +34,7 @@ const PERMISSION_DESCRIPTIONS = {
   controlhorario: 'Registro de horarios de trabajo',
   supplierorders: 'Gestión de órdenes de proveedores',
   mantenimiento: 'Acceso al panel de administración',
+  solicitud: 'Permite gestionar solicitudes dentro del módulo de mantenimiento',
   scanhistory: 'Ver historial completo de escaneos realizados',
 };
 

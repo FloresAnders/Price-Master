@@ -16,6 +16,7 @@ const menuItems = [
   { id: 'supplierorders', name: 'Órdenes Proveedor', icon: Truck, description: 'Gestión de órdenes de proveedores', permission: 'supplierorders' as keyof UserPermissions },
   { id: 'scanhistory', name: 'Historial de Escaneos', icon: History, description: 'Ver historial completo de escaneos', permission: 'scanhistory' as keyof UserPermissions },
   { id: 'edit', name: 'Mantenimiento', icon: Settings, description: 'Gestión y mantenimiento del sistema', permission: 'mantenimiento' as keyof UserPermissions },
+  { id: 'solicitud', name: 'Solicitud', icon: Type, description: 'Solicitudes y trámites', permission: 'solicitud' as keyof UserPermissions },
 ];
 
 interface HomeMenuProps {
@@ -54,7 +55,15 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
 
   const handleNavigate = (id: string) => {
     if (typeof window !== 'undefined') {
-      // Todos los elementos usan hash navigation
+      // Si la tarjeta es 'solicitud' mostramos un mensaje de desarrollo
+      if (id === 'solicitud') {
+        // Usamos alert simple para indicar 'desarrollo'
+        // (se puede cambiar por un toast/modal más adelante)
+        window.alert('desarrollo');
+        return;
+      }
+
+      // Todos los demás elementos usan hash navigation
       window.location.hash = `#${id}`;
     }
   };
