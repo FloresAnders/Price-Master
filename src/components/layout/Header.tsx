@@ -10,7 +10,7 @@ import { ThemeToggle } from './ThemeToggle';
 import { getDefaultPermissions } from '../../utils/permissions';
 import FloatingSessionTimer from '../session/FloatingSessionTimer';
 import EditProfileModal from '../edicionPerfil/EditProfileModal';
-import { ConfigurationModal, CalculatorModal } from '../modals';
+import { ConfigurationModal, CalculatorModal, NotificationModal } from '../modals';
 import type { UserPermissions } from '../../types/firestore';
 
 type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'supplierorders' | 'histoscans' | 'scanhistory' | 'edit' | 'solicitud'
@@ -441,23 +441,15 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
         </div>
       )}
 
-      {/* Notification modal (small screens) */}
-      {showNotifModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-          <div className="bg-[var(--background)] rounded-lg p-6 w-80 max-w-[90vw]">
-            <h3 className="text-lg font-semibold text-[var(--foreground)] mb-4">Próximamente</h3>
-            <p className="text-[var(--muted-foreground)] mb-6">Estamos trabajando en esta funcionalidad. ¡Próximamente!</p>
-            <div className="flex justify-end">
-              <button
-                onClick={() => setShowNotifModal(false)}
-                className="px-4 py-2 text-[var(--foreground)] hover:bg-[var(--hover-bg)] rounded-md transition-colors"
-              >
-                Cerrar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Notification modal (small screens) - now uses NotificationModal from modals folder */}
+      <NotificationModal
+        isOpen={showNotifModal}
+        onClose={() => setShowNotifModal(false)}
+        onSave={async (payload) => {
+          // Default behaviour for now: just log the payload. You can replace with any action.
+          console.log('NotificationModal saved:', payload)
+        }}
+      />
 
       {/* Configuration Modal */}
       <ConfigurationModal
