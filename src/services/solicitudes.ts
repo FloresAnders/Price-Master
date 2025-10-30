@@ -11,9 +11,29 @@ export class SolicitudesService {
       productName: payload.productName,
       empresa: payload.empresa,
       createdAt: new Date(),
+      listo: false,
     };
 
     return await FirestoreService.add(this.COLLECTION_NAME, doc);
+  }
+
+  /**
+   * Update a solicitud document by id with partial data
+   */
+  static async updateSolicitud(id: string, data: Partial<Record<string, any>>): Promise<void> {
+    try {
+      await FirestoreService.update(this.COLLECTION_NAME, id, data);
+    } catch (err) {
+      console.error('Error updating solicitud', id, err);
+      throw err;
+    }
+  }
+
+  /**
+   * Convenience to set the 'listo' flag
+   */
+  static async setListo(id: string, listo: boolean): Promise<void> {
+    return await this.updateSolicitud(id, { listo });
   }
 
   /**
