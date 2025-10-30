@@ -3,9 +3,12 @@
 import Image from 'next/image';
 import { Settings, LogOut, Menu, X, Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck, History, User, ChevronDown, Bell } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { collection, query as fbQuery, where as fbWhere, orderBy as fbOrderBy, onSnapshot } from 'firebase/firestore';
+import { db } from '../../config/firebase';
 import { createPortal } from 'react-dom';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '../../hooks/useAuth';
+import { SolicitudesService } from '@/services/solicitudes';
 import { ThemeToggle } from './ThemeToggle';
 import { getDefaultPermissions } from '../../utils/permissions';
 import FloatingSessionTimer from '../session/FloatingSessionTimer';
@@ -29,6 +32,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showNotifModal, setShowNotifModal] = useState(false);
+  const [hasNewSolicitudes, setHasNewSolicitudes] = useState(false);
   const [isClient, setIsClient] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, right: 0 });
   const [showSessionTimer, setShowSessionTimer] = useState(false);
@@ -108,6 +112,64 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       document.removeEventListener('keydown', handleEscKey);
     };
   }, [showConfigModal, showEditProfileModal]);
+
+  // Real-time listener for solicitudes for the user's company (onSnapshot)
+  useEffect(() => {
+    if (!isClient || !user) return;
+
+    const company = (user as any)?.ownercompanie || (user as any)?.ownerCompanie || '';
+    if (!company) {
+      setHasNewSolicitudes(false);
+      return;
+    }
+
+    try {
+      const q = fbQuery(
+        collection(db, 'solicitudes'),
+        fbWhere('empresa', '==', company),
+        fbOrderBy('createdAt', 'desc')
+      );
+
+      const unsubscribe = onSnapshot(q, async (snapshot) => {
+        try {
+          if (!snapshot || snapshot.empty) {
+            // fallback to service (handles normalization)
+            const rows = await SolicitudesService.getSolicitudesByEmpresa(company);
+            if (!rows || rows.length === 0) {
+              setHasNewSolicitudes(false);
+              return;
+            }
+            const newest = rows[0];
+            const createdAt = (newest as any)?.createdAt ? ((newest as any).createdAt.seconds ? new Date((newest as any).createdAt.seconds * 1000) : new Date((newest as any).createdAt)) : null;
+            const key = `pricemaster_last_seen_solicitudes_${user.id || user.ownercompanie || 'anon'}`;
+            const lastSeenRaw = localStorage.getItem(key);
+            const lastSeen = lastSeenRaw ? new Date(lastSeenRaw) : null;
+            if (!lastSeen || (createdAt && createdAt.getTime() > lastSeen.getTime())) setHasNewSolicitudes(true);
+            else setHasNewSolicitudes(false);
+            return;
+          }
+
+          const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+          const newest = docs[0];
+          const createdAt = (newest as any)?.createdAt ? ((newest as any).createdAt.seconds ? new Date((newest as any).createdAt.seconds * 1000) : new Date((newest as any).createdAt)) : null;
+          const key = `pricemaster_last_seen_solicitudes_${user.id || user.ownercompanie || 'anon'}`;
+          const lastSeenRaw = localStorage.getItem(key);
+          const lastSeen = lastSeenRaw ? new Date(lastSeenRaw) : null;
+          if (!lastSeen || (createdAt && createdAt.getTime() > lastSeen.getTime())) setHasNewSolicitudes(true);
+          else setHasNewSolicitudes(false);
+        } catch (err) {
+          console.error('Error in solicitudes onSnapshot handler:', err);
+        }
+      }, (err) => {
+        console.error('onSnapshot error for solicitudes:', err);
+      });
+
+      return () => unsubscribe();
+    } catch (err) {
+      console.error('Error setting up solicitudes listener:', err);
+      return;
+    }
+  }, [isClient, user]);
 
   // Navigation tabs with permissions
   const allTabs = [
@@ -322,11 +384,25 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
 
             {/* Notification icon for small screens (left of hamburger) */}
             <button
-              onClick={() => setShowNotifModal(true)}
-              className="lg:hidden p-2 rounded-md hover:bg-[var(--hover-bg)] transition-colors"
+              onClick={() => {
+                try {
+                  if (user) {
+                    const key = `pricemaster_last_seen_solicitudes_${user.id || user.ownercompanie || 'anon'}`;
+                    localStorage.setItem(key, new Date().toISOString());
+                    setHasNewSolicitudes(false);
+                  }
+                } catch (e) {
+                  // ignore storage errors
+                }
+                setShowNotifModal(true);
+              }}
+              className="relative p-2 rounded-md hover:bg-[var(--hover-bg)] transition-colors"
               title="Notificaciones"
             >
               <Bell className="w-5 h-5 text-[var(--foreground)]" />
+              {hasNewSolicitudes && (
+                <span className="absolute top-0 right-0 inline-flex w-2 h-2 bg-red-500 rounded-full transform translate-x-1 -translate-y-1" />
+              )}
             </button>
 
             {/* Mobile hamburger menu button */}
