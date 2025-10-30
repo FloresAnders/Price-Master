@@ -391,7 +391,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                     localStorage.setItem(key, new Date().toISOString());
                     setHasNewSolicitudes(false);
                   }
-                } catch (e) {
+                } catch {
                   // ignore storage errors
                 }
                 setShowNotifModal(true);

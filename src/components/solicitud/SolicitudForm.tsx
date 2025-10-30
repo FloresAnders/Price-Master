@@ -216,7 +216,7 @@ export default function SolicitudForm() {
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
                     <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded p-6 max-w-sm w-full">
                         <h3 className="text-lg font-semibold mb-2">Confirmar eliminación</h3>
-                        <p className="text-sm text-[var(--muted-foreground)] mb-4">¿Deseas eliminar la solicitud "{toDelete.productName || ''}"?</p>
+                        <p className="text-sm text-[var(--muted-foreground)] mb-4">¿Deseas eliminar la solicitud &quot;{toDelete.productName || ''}&quot;?</p>
                         <div className="flex justify-end gap-2">
                             <button onClick={() => { setConfirmOpen(false); setToDelete(null); }} className="px-3 py-1 bg-gray-200 rounded">Cancelar</button>
                             <button onClick={confirmDelete} className="px-3 py-1 bg-red-600 text-white rounded">Eliminar</button>
