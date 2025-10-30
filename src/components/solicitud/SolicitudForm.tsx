@@ -108,6 +108,20 @@ export default function SolicitudForm() {
         }
     };
 
+    const toggleListo = async (id: string, checked: boolean) => {
+        // Optimistic update
+        setSolicitudes(prev => prev.map(s => s.id === id ? { ...s, listo: checked } : s));
+        try {
+            await SolicitudesService.setListo(id, checked);
+            showTempMessage({ type: 'success', text: checked ? 'Marcado como listo.' : 'Marcado como no listo.' });
+        } catch (err) {
+            console.error('Error updating listo flag:', err);
+            // revert optimistic
+            setSolicitudes(prev => prev.map(s => s.id === id ? { ...s, listo: !checked } : s));
+            setMessage({ type: 'error', text: 'Error al actualizar el estado.' });
+        }
+    };
+
     return (
         <div className="max-w-2xl mx-auto p-6">
             <h1 className="text-2xl font-bold mb-4">Nueva Solicitud</h1>
@@ -180,10 +194,14 @@ export default function SolicitudForm() {
                                         <td className="px-4 py-2 align-top">{s.productName}</td>
                                         <td className="px-4 py-2 align-top">{s.empresa}</td>
                                         <td className="px-4 py-2 align-top">
-                                            <button
-                                                onClick={() => handleDeleteClick(s.id, s.productName)}
-                                                className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
-                                            >Eliminar</button>
+                                                <label className="inline-flex items-center gap-2 mr-2">
+                                                    <input type="checkbox" className="form-checkbox h-4 w-4" checked={Boolean(s.listo)} onChange={(e) => toggleListo(s.id, e.target.checked)} />
+                                                    <span className="text-sm text-[var(--muted-foreground)]">Listo</span>
+                                                </label>
+                                                <button
+                                                    onClick={() => handleDeleteClick(s.id, s.productName)}
+                                                    className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+                                                >Eliminar</button>
                                         </td>
                                     </tr>
                                 ))}
