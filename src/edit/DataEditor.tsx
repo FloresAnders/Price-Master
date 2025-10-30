@@ -2,7 +2,8 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Save, Download, AlertCircle, Check, FileText, Users, Clock, DollarSign, Eye, EyeOff, Settings } from 'lucide-react';
+import useToast from '../hooks/useToast';
+import { Save, Download, FileText, Users, Clock, DollarSign, Eye, EyeOff, Settings } from 'lucide-react';
 import { EmpresasService } from '../services/empresas';
 import { SorteosService } from '../services/sorteos';
 import { UsersService } from '../services/users';
@@ -29,11 +30,7 @@ export default function DataEditor() {
     const [originalCcssConfigsData, setOriginalCcssConfigsData] = useState<CcssConfig[]>([]);
     const [hasChanges, setHasChanges] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
-    const showNotification = (message: string, type: 'success' | 'error' | 'info') => {
-        setNotification({ message, type });
-        setTimeout(() => setNotification(null), 3000);
-    };
+    const { showToast } = useToast();
     // Resolve ownerId for created entities: prefer explicit provided value, then
     // currentUser.ownerId (when admin has an assigned owner), then try session
     // stored in localStorage, then fall back to currentUser.id when actor is
@@ -103,7 +100,7 @@ export default function DataEditor() {
             } catch (error: unknown) {
                 console.error('Error in confirm action:', error);
                 const msg = error instanceof Error ? error.message : String(error || 'Error');
-                showNotification(msg.includes('Forbidden') ? 'No tienes permisos para realizar esta acción' : 'Error al ejecutar la acción', 'error');
+                showToast(msg.includes('Forbidden') ? 'No tienes permisos para realizar esta acción' : 'Error al ejecutar la acción', 'error');
             } finally {
                 closeConfirmModal();
             }
@@ -166,10 +163,10 @@ export default function DataEditor() {
             }
 
         } catch (error) {
-            showNotification('Error al cargar los datos de Firebase', 'error');
+            showToast('Error al cargar los datos de Firebase', 'error');
             console.error('Error loading data from Firebase:', error);
         }
-    }, [currentUser, resolveOwnerIdForActor]);
+    }, [currentUser, resolveOwnerIdForActor, showToast]);
 
     // Cargar datos al montar el componente o cuando cambie el usuario autenticado
     useEffect(() => {
@@ -270,10 +267,10 @@ export default function DataEditor() {
             setOriginalEmpresasData(JSON.parse(JSON.stringify(empresasData)));
 
             setHasChanges(false);
-            showNotification('¡Datos actualizados exitosamente en Firebase!', 'success');
+            showToast('¡Datos actualizados exitosamente en Firebase!', 'success');
         } catch (error) {
             console.error('Error saving data to Firebase:', error);
-            showNotification('Error al guardar los datos en Firebase', 'error');
+            showToast('Error al guardar los datos en Firebase', 'error');
         } finally {
             setIsSaving(false);
         }
@@ -372,11 +369,11 @@ export default function DataEditor() {
                     // Actualizar originalUsersData para eliminarlo también
                     setOriginalUsersData(prev => prev.filter(u => u.id !== user.id && (u as unknown as { __localId?: string }).__localId !== (user as unknown as { __localId?: string }).__localId));
 
-                    showNotification(`Usuario ${userName} eliminado exitosamente`, 'success');
+                    showToast(`Usuario ${userName} eliminado exitosamente`, 'success');
                 } catch (error: unknown) {
                     console.error('Error deleting user:', error);
                     const msg = error instanceof Error ? error.message : String(error || 'Error al eliminar el usuario');
-                    showNotification(msg.includes('Forbidden') ? 'No tienes permisos para eliminar este usuario' : 'Error al eliminar el usuario', 'error');
+                    showToast(msg.includes('Forbidden') ? 'No tienes permisos para eliminar este usuario' : 'Error al eliminar el usuario', 'error');
                 } finally {
                     // Cerrar modal y quitar loading
                     closeConfirmModal();
@@ -440,19 +437,11 @@ export default function DataEditor() {
                         setSavingUserKey(key);
                         await UsersService.updateUserPermissions(user.id, newPermissions);
 
-                        setNotification({
-                            message: `Todos los permisos ${value ? 'habilitados' : 'deshabilitados'} para ${user.name}`,
-                            type: 'success'
-                        });
-                        setTimeout(() => setNotification(null), 3000);
+                        showToast(`Todos los permisos ${value ? 'habilitados' : 'deshabilitados'} para ${user.name}`, 'success', 3000);
 
                     } catch (error) {
                         console.error('Error updating all user permissions:', error);
-                        setNotification({
-                            message: `Error al actualizar permisos para ${user.name}`,
-                            type: 'error'
-                        });
-                        setTimeout(() => setNotification(null), 5000);
+                        showToast(`Error al actualizar permisos para ${user.name}`, 'error', 5000);
                     } finally {
                         setSavingUserKey(null);
                     }
@@ -741,11 +730,11 @@ export default function DataEditor() {
                 // Después de recargar datos, asegurar que el control de edición de permisos está bloqueado
                 setPermissionsEditable(prev => ({ ...prev, [key]: false }));
             }
-            showNotification(`Usuario ${user.name} guardado exitosamente`, 'success');
+            showToast(`Usuario ${user.name} guardado exitosamente`, 'success');
             // Clear global changes flag so UI removes "Cambios pendientes" badges
             setHasChanges(false);
         } catch (error) {
-            showNotification('Error al guardar el usuario', 'error');
+            showToast('Error al guardar el usuario', 'error');
             console.error('Error saving user:', error);
         } finally {
             setSavingUserKey(null);
@@ -874,10 +863,10 @@ export default function DataEditor() {
                     }
                     
                     setCcssConfigsData(updatedConfigs);
-                    showNotification(`Configuración para ${configName} eliminada exitosamente`, 'success');
+                    showToast(`Configuración para ${configName} eliminada exitosamente`, 'success');
                 } catch (error) {
                     console.error('Error deleting CCSS config:', error);
-                    showNotification('Error al eliminar la configuración', 'error');
+                    showToast('Error al eliminar la configuración', 'error');
                 }
             }
         );
@@ -914,16 +903,7 @@ export default function DataEditor() {
                     </div>
                 </div>
             )}
-            {/* Notification */}
-            {notification && (
-                <div className={`fixed top-6 right-6 z-50 px-6 py-3 rounded-xl shadow-2xl flex items-center gap-2 font-semibold animate-fade-in ${notification.type === 'success' ? 'bg-green-500' :
-                    notification.type === 'error' ? 'bg-red-500' : 'bg-blue-500'
-                    } text-white`}>
-                    {notification.type === 'success' && <Check className="w-5 h-5" />}
-                    {notification.type === 'error' && <AlertCircle className="w-5 h-5" />}
-                    {notification.message}
-                </div>
-            )}
+            {/* notifications now use global ToastProvider */}
 
 
             {/* File Tabs */}
@@ -1152,32 +1132,32 @@ export default function DataEditor() {
                                             const e = empresasData[idx];
                                             if (e.id) {
                                                 await EmpresasService.updateEmpresa(e.id, e);
-                                                showNotification('Empresa actualizada', 'success');
+                                                showToast('Empresa actualizada', 'success');
                                             } else {
                                                 const ownerIdToUse = resolveOwnerIdForActor(e.ownerId);
                                                 const idToUse = e.name && e.name.trim() !== '' ? e.name.trim() : undefined;
                                                 if (!idToUse) {
-                                                    showNotification('El nombre (name) es requerido para crear la empresa con id igual a name', 'error');
+                                                    showToast('El nombre (name) es requerido para crear la empresa con id igual a name', 'error');
                                                 } else {
                                                     try {
                                                         await EmpresasService.addEmpresa({ id: idToUse, ownerId: ownerIdToUse, name: e.name || '', ubicacion: e.ubicacion || '', empleados: e.empleados || [] });
                                                         await loadData();
-                                                        showNotification('Empresa creada', 'success');
+                                                        showToast('Empresa creada', 'success');
                                                     } catch (err) {
                                                         const message = err && (err as Error).message ? (err as Error).message : 'Error al guardar empresa';
                                                         // If it's owner limit, show modal with explanation; otherwise fallback to notification
                                                         if (message.includes('maximum allowed companies') || message.toLowerCase().includes('max')) {
                                                             openConfirmModal('Límite de empresas', message, () => { /* sólo cerrar */ }, { singleButton: true, singleButtonText: 'Cerrar' });
                                                         } else {
-                                                            showNotification('Error al guardar empresa', 'error');
+                                                            showToast('Error al guardar empresa', 'error');
                                                         }
                                                     }
                                                 }
                                             }
                                         } catch (err) {
-                                            console.error('Error saving empresa:', err);
-                                            showNotification('Error al guardar empresa', 'error');
-                                        }
+                                                console.error('Error saving empresa:', err);
+                                                showToast('Error al guardar empresa', 'error');
+                                            }
                                     }}
                                     className="px-3 py-2 sm:px-4 rounded-md bg-green-600 hover:bg-green-700 text-white transition-colors text-sm sm:text-base"
                                 >
@@ -1189,10 +1169,10 @@ export default function DataEditor() {
                                             const e = empresasData[idx];
                                             if (e.id) await EmpresasService.deleteEmpresa(e.id);
                                             setEmpresasData(prev => prev.filter((_, i) => i !== idx));
-                                            showNotification('Empresa eliminada', 'success');
+                                            showToast('Empresa eliminada', 'success');
                                         } catch (err) {
                                             console.error('Error deleting empresa:', err);
-                                            showNotification('Error al eliminar empresa', 'error');
+                                            showToast('Error al eliminar empresa', 'error');
                                         }
                                     })}
                                     className="px-3 py-2 sm:px-4 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm sm:text-base"
@@ -1552,11 +1532,11 @@ export default function DataEditor() {
                                                             )
                                                         };
                                                         await CcssConfigService.updateCcssConfig(updatedConfig);
-                                                        showNotification(`Configuración para ${item.company.ownerCompanie || 'empresa'} guardada exitosamente`, 'success');
+                                                        showToast(`Configuración para ${item.company.ownerCompanie || 'empresa'} guardada exitosamente`, 'success');
                                                         await loadData();
                                                     } catch (error) {
                                                         console.error('Error saving CCSS config:', error);
-                                                        showNotification('Error al guardar la configuración', 'error');
+                                                        showToast('Error al guardar la configuración', 'error');
                                                     }
                                                 }}
                                                 className="px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-200 shadow-md hover:shadow-lg font-medium text-sm flex items-center gap-2"

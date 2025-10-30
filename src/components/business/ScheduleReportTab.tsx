@@ -4,6 +4,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, Calendar, MapPin, FileText, Clock, Calculator, Eye } from 'lucide-react';
 import { EmpresasService } from '../../services/empresas';
+import useToast from '../../hooks/useToast';
 import { useAuth } from '../../hooks/useAuth';
 import { SchedulesService, ScheduleEntry } from '../../services/schedules';
 import PayrollExporter from './PayrollExporter';
@@ -50,18 +51,14 @@ export default function ScheduleReportTab() {
   const [availablePeriods, setAvailablePeriods] = useState<BiweeklyPeriod[]>([]);
   const [scheduleData, setScheduleData] = useState<LocationSchedule[]>([]);
   const [loading, setLoading] = useState(true);
-  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<'schedule' | 'payroll' | 'records'>('schedule');
 
   // Estado para manejar horarios editables
   const [editableSchedules, setEditableSchedules] = useState<{ [key: string]: string }>({});
   const [isEditing, setIsEditing] = useState(false);
 
-  // Función para mostrar notificación
-  const showNotification = (message: string, type: 'success' | 'error') => {
-    setNotification({ message, type });
-    setTimeout(() => setNotification(null), 3000);
-  };
+  // notifications handled by ToastProvider via showToast()
   // Función para obtener el período de quincena actual
   const getCurrentBiweeklyPeriod = useCallback((): BiweeklyPeriod => {
     const now = new Date();
@@ -285,11 +282,11 @@ export default function ScheduleReportTab() {
       setScheduleData(scheduleDataArray);
     } catch (error) {
       console.error('Error loading schedule data:', error);
-      showNotification('Error al cargar los datos de planilla', 'error');
+  showToast('Error al cargar los datos de planilla', 'error');
     } finally {
       setLoading(false);
     }
-  }, [currentPeriod, selectedLocation, locations]);
+  }, [currentPeriod, selectedLocation, locations, showToast]);
 
   // Cargar datos cuando el período y ubicaciones estén listos
   useEffect(() => {
@@ -358,12 +355,12 @@ export default function ScheduleReportTab() {
         shift
       );
 
-      // Recargar datos
-      await loadScheduleData();
-      showNotification('Horario actualizado exitosamente', 'success');
+  // Recargar datos
+  await loadScheduleData();
+  showToast('Horario actualizado exitosamente', 'success');
     } catch (error) {
       console.error('Error updating schedule:', error);
-      showNotification('Error al actualizar el horario', 'error');
+      showToast('Error al actualizar el horario', 'error');
     }
   };
 
@@ -405,14 +402,7 @@ export default function ScheduleReportTab() {
 
   return (
     <div className="max-w-full mx-auto bg-[var(--card-bg)] rounded-lg shadow p-6">
-      {/* Notification */}
-      {notification && (
-        <div className={`fixed top-6 right-6 z-50 px-6 py-3 rounded-xl shadow-2xl flex items-center gap-2 font-semibold animate-fade-in-down ${notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'
-          } text-white`}>
-          <Clock className="w-5 h-5" />
-          {notification.message}
-        </div>
-      )}
+      {/* notifications are rendered globally by ToastProvider */}
 
       {/* Header con controles */}
       <div className="mb-6 flex flex-col lg:flex-row gap-4 items-center justify-between">

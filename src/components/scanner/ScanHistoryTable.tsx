@@ -9,6 +9,7 @@ import QRCode from 'qrcode';
 import { History, Copy, Search, Eye, Calendar, MapPin, RefreshCw, Image as ImageIcon, X, Download, ChevronLeft, ChevronRight, Lock as LockIcon, Smartphone, QrCode } from 'lucide-react';
 import { useScanHistory, useScanImages } from '@/hooks/useScanHistory';
 import { useAuth } from '@/hooks/useAuth';
+import useToast from '@/hooks/useToast';
 import { EmpresasService } from '../../services/empresas';
 import { hasPermission } from '../../utils/permissions';
 import { generateShortMobileUrl } from '../../utils/shortEncoder';
@@ -54,7 +55,11 @@ export default function ScanHistoryTable() {
   // Local state
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
-  const [notification, setNotification] = useState<{ message: string; color: string } | null>(null);
+  const { showToast } = useToast();
+  const notify = useCallback((message: string, color: string = 'green') => {
+    const type = color === 'green' ? 'success' : color === 'red' ? 'error' : 'info';
+    showToast(message, type);
+  }, [showToast]);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [showProcessModal, setShowProcessModal] = useState<{ code: string; open: boolean } | null>(null);
   const [confirmProcess, setConfirmProcess] = useState<{ id: string; code: string } | null>(null);
@@ -181,11 +186,7 @@ export default function ScanHistoryTable() {
     }
   }, []);
 
-  // Show notification
-  const showNotification = (message: string, color: string = 'green') => {
-    setNotification({ message, color });
-    setTimeout(() => setNotification(null), 2000);
-  };
+  // notifications handled by ToastProvider via notify()
 
   // Quick date filter functions
   const setDateRange = (days: number) => {
@@ -234,10 +235,10 @@ export default function ScanHistoryTable() {
         document.execCommand('copy');
         document.body.removeChild(textArea);
       }
-      showNotification('¡Código copiado!', 'green');
+  notify('¡Código copiado!', 'green');
     } catch (error) {
       console.error('Error copying to clipboard:', error);
-      showNotification('Error al copiar código', 'red');
+  notify('Error al copiar código', 'red');
     }
   };
 
@@ -246,10 +247,10 @@ export default function ScanHistoryTable() {
     if (window.confirm('¿Estás seguro de que deseas eliminar todo el historial? Esta acción no se puede deshacer.')) {
       try {
         await clearHistoryService();
-        showNotification('Historial eliminado', 'red');
+  notify('Historial eliminado', 'red');
       } catch (error) {
         console.error('Error clearing history:', error);
-        showNotification('Error al eliminar el historial', 'red');
+  notify('Error al eliminar el historial', 'red');
       }
     }
   };
@@ -261,15 +262,15 @@ export default function ScanHistoryTable() {
       try {
         await deleteScanService(scanId);
         setShowProcessModal({ code, open: true });
-        showNotification('Código procesado y eliminado', 'green');
+  notify('Código procesado y eliminado', 'green');
       } catch (error) {
         console.error('Error deleting scan:', error);
-        showNotification('Error al eliminar el código', 'red');
+  notify('Error al eliminar el código', 'red');
       } finally {
         setProcessingId(null);
       }
     }, 1200); // Simula procesamiento
-  }, [deleteScanService]);
+  }, [deleteScanService, notify]);
 
   // Keep ref updated with the latest deleteScan so effects can call it safely
   useEffect(() => {
@@ -284,13 +285,13 @@ export default function ScanHistoryTable() {
     try {
       const result = await refreshHistory();
       if (result.newCount > 0) {
-        showNotification(`Historial actualizado - ${result.newCount} código${result.newCount > 1 ? 's' : ''} nuevo${result.newCount > 1 ? 's' : ''}`, 'green');
+  notify(`Historial actualizado - ${result.newCount} código${result.newCount > 1 ? 's' : ''} nuevo${result.newCount > 1 ? 's' : ''}`, 'green');
       } else {
-        showNotification('Historial actualizado - Sin cambios', 'green');
+  notify('Historial actualizado - Sin cambios', 'green');
       }
     } catch (error) {
       console.error('Error refreshing history:', error);
-      showNotification('Error al actualizar el historial', 'red');
+  notify('Error al actualizar el historial', 'red');
     }
   };
 
@@ -329,10 +330,10 @@ export default function ScanHistoryTable() {
       link.click();
       document.body.removeChild(link);
 
-      showNotification('Descarga iniciada', 'green');
+  notify('Descarga iniciada', 'green');
     } catch (error) {
       console.error('Error downloading image:', error);
-      showNotification('Error al descargar la imagen', 'red');
+  notify('Error al descargar la imagen', 'red');
     }
   };
 
@@ -362,10 +363,10 @@ export default function ScanHistoryTable() {
         }
       }
 
-      showNotification(`${codeImages.length} descargas iniciadas`, 'green');
+  notify(`${codeImages.length} descargas iniciadas`, 'green');
     } catch (error) {
       console.error('Error downloading images:', error);
-      showNotification('Error al descargar las imágenes', 'red');
+  notify('Error al descargar las imágenes', 'red');
     }
   };
 
@@ -543,15 +544,7 @@ export default function ScanHistoryTable() {
 
   return (
     <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-6 barcode-mobile">
-      {/* Notification */}
-      {notification && (
-        <div
-          className={`fixed top-6 right-6 z-50 px-6 py-3 rounded-xl shadow-2xl flex items-center gap-2 font-semibold animate-fade-in-down bg-${notification.color}-500 text-white`}
-          style={{ minWidth: 180, textAlign: 'center' }}
-        >
-          {notification.message}
-        </div>
-      )}
+      {/* notifications are rendered globally by ToastProvider */}
 
       {/* Verificar permisos del usuario */}
       {!user?.permissions?.scanhistory ? (
@@ -832,7 +825,7 @@ export default function ScanHistoryTable() {
                               <button
                                 onClick={() => {
                                   navigator.clipboard.writeText((entry.productName || '').toUpperCase());
-                                  showNotification('¡Nombre copiado!', 'blue');
+                                  notify('¡Nombre copiado!', 'blue');
                                 }}
                                 className="text-sm text-[var(--muted-foreground)] bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors cursor-pointer uppercase"
                                 title="Clic para copiar nombre"
@@ -1339,7 +1332,7 @@ export default function ScanHistoryTable() {
                               <button
                                 onClick={() => {
                                   navigator.clipboard.writeText(mobileScanUrl);
-                                  showNotification('¡Enlace copiado al portapapeles!', 'green');
+                                  notify('¡Enlace copiado al portapapeles!', 'green');
                                 }}
                                 className="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-[var(--foreground)] rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors flex items-center justify-center gap-2"
                               >

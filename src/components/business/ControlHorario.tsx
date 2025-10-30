@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { Clock, ChevronLeft, ChevronRight, Save, User as UserIcon, Lock, Unlock, Info } from 'lucide-react';
+import { Clock, ChevronLeft, ChevronRight, User as UserIcon, Lock, Unlock, Info } from 'lucide-react';
 import { EmpresasService } from '../../services/empresas';
 import { SchedulesService } from '../../services/schedules';
 import type { ScheduleEntry } from '../../services/schedules';
@@ -14,6 +14,7 @@ import type { User as FirestoreUser } from '../../types/firestore';
 import { ref, deleteObject } from 'firebase/storage';
 import { storage } from '../../config/firebase';
 import { useAuth } from '../../hooks/useAuth';
+import useToast from '../../hooks/useToast';
 import { hasPermission } from '../../utils/permissions';
 
 interface MappedEmpresa {
@@ -265,7 +266,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
   const [scheduleData, setScheduleData] = useState<ScheduleData>({});
   const [viewMode, setViewMode] = useState<'first' | 'second'>('first');
   const [saving, setSaving] = useState(false);
-  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const { showToast } = useToast();
   const [selectedEmployee, setSelectedEmployee] = useState<string>('Todos');
   const [selectedPeriod, setSelectedPeriod] = useState<'1-15' | '16-30' | 'monthly'>('1-15');
   const [fullMonthView, setFullMonthView] = useState(false);
@@ -299,11 +300,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
   // useRef hooks
   const autoQuincenaRef = React.useRef<boolean>(false);
 
-  // Helper functions that will be used in useEffect hooks
-  const showNotification = (message: string, type: 'success' | 'error') => {
-    setNotification({ message, type });
-    setTimeout(() => setNotification(null), 3000);
-  };
+  // notifications handled globally via ToastProvider (showToast)
 
   // Verificar si la empresa actual es DELIFOOD
   const isDelifoodEmpresa = empresa.toLowerCase().includes('delifood');
@@ -460,10 +457,10 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
     const forcedCompanyValue = assignedEmpresaValue;
     if (user?.role === 'user' && forcedCompanyValue && empresa && empresa !== forcedCompanyValue) {
       console.warn(`🚫 BLOQUEO: Usuario "${user?.name}" (rol: user) intentó cambiar a empresa "${empresa}". Forzando regreso a "${forcedCompanyValue}"`);
-      setEmpresa(forcedCompanyValue);
-      showNotification(`Acceso restringido. Solo puedes ver: ${forcedCompanyValue}`, 'error');
+  setEmpresa(forcedCompanyValue);
+  showToast(`Acceso restringido. Solo puedes ver: ${forcedCompanyValue}`, 'error');
     }
-  }, [empresa, user, assignedEmpresaValue, assignedEmpresa]); // Monitorear cambios en empresa y en el valor resuelto para usuarios "user"
+  }, [empresa, user, assignedEmpresaValue, assignedEmpresa, showToast]); // Monitorear cambios en empresa y en el valor resuelto para usuarios "user"
 
   // Cargar horarios de Firebase cuando cambie la empresa
   useEffect(() => {
@@ -473,8 +470,8 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
       // Validación de seguridad: usuarios con rol "user" solo pueden acceder a su empresa asignada (resolved value)
       if (user?.role === 'user' && assignedEmpresaValue && empresa !== assignedEmpresaValue) {
         console.warn(`🚫 Usuario "${user.name}" (rol: user) intentando acceder a empresa no autorizada: ${empresa}. Empresa asignada (value): ${assignedEmpresaValue}`);
-        setEmpresa(String(assignedEmpresaValue));
-        showNotification('Acceso restringido a tu empresa asignada', 'error');
+  setEmpresa(String(assignedEmpresaValue));
+  showToast('Acceso restringido a tu empresa asignada', 'error');
         return;
       }
 
@@ -559,7 +556,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
     };
 
     loadScheduleData();
-  }, [empresa, empresas, currentDate, isDelifoodEmpresa, loading, user, assignedEmpresaValue]); // Agregar user como dependencia
+  }, [empresa, empresas, currentDate, isDelifoodEmpresa, loading, user, assignedEmpresaValue, showToast]); // Agregar user como dependencia
 
   // --- AUTO-QUINCENA: Detectar y mostrar la quincena actual SOLO al cargar el mes actual por PRIMERA VEZ en la sesión ---
   useEffect(() => {
@@ -652,7 +649,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
     if (user?.role === 'user') {
   const forced = assignedEmpresaValue || assignedEmpresa || 'tu empresa asignada';
   console.warn(`🚫 BLOQUEO: Usuario "${user?.name}" (rol: user) intentó cambiar empresa a "${newEmpresa}". Manteniendo: ${forced}`);
-  showNotification('No tienes permisos para cambiar de empresa', 'error');
+  showToast('No tienes permisos para cambiar de empresa', 'error');
       return;
     }
   console.log(`✅ Cambio de empresa autorizado para usuario "${user?.name}" (rol: ${user?.role}): ${newEmpresa}`);
@@ -694,8 +691,8 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
 
     // Validar que solo usuarios ADMIN puedan asignar turnos V (Vacaciones) e I (Incapacidad)
     if (newValue && ['V', 'I'].includes(newValue) && !isUserAdmin()) {
-      const stateName = newValue === 'V' ? 'Vacaciones' : 'Incapacidad';
-      showNotification(`Solo usuarios ADMIN pueden asignar "${stateName}".`, 'error');
+  const stateName = newValue === 'V' ? 'Vacaciones' : 'Incapacidad';
+  showToast(`Solo usuarios ADMIN pueden asignar "${stateName}".`, 'error');
       return;
     }
 
@@ -706,7 +703,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
         employee !== employeeName && scheduleData[employee]?.[day] === newValue
       );
       if (existingEmployee) {
-        showNotification(`No se puede asignar el turno "${newValue}". ${existingEmployee} ya tiene este turno el día ${day}.`, 'error');
+  showToast(`No se puede asignar el turno "${newValue}". ${existingEmployee} ya tiene este turno el día ${day}.`, 'error');
         return;
       }
     }
@@ -717,7 +714,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
         employee !== employeeName && scheduleData[employee]?.[day] === 'L'
       );
       if (employeesWithL.length >= 2) {
-        showNotification(`No se puede asignar más turnos "L".\n Ya hay 2 empleados libres el día ${day}: ${employeesWithL.join(', ')}.`, 'error');
+        showToast(`No se puede asignar más turnos "L".\n Ya hay 2 empleados libres el día ${day}: ${employeesWithL.join(', ')}.`, 'error');
         return;
       }
     }
@@ -823,13 +820,13 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
         }));
 
         if (newValue === '' || newValue.trim() === '') {
-          showNotification('Turno eliminado correctamente (documento borrado)', 'success');
+          showToast('Turno eliminado correctamente (documento borrado)', 'success');
         } else {
-          showNotification('Horario actualizado correctamente', 'success');
+          showToast('Horario actualizado correctamente', 'success');
         }
       } catch (error) {
         console.error('Error updating schedule:', error);
-        showNotification('Error al actualizar el horario', 'error');
+        showToast('Error al actualizar el horario', 'error');
       } finally {
         setSaving(false);
       }
@@ -891,8 +888,8 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
 
     // Prevenir cambios en celdas V/I por usuarios regulares
     if (!isUserAdmin() && ['V', 'I'].includes(currentValue)) {
-      const stateName = currentValue === 'V' ? 'Vacaciones' : 'Incapacidad';
-      showNotification(`Solo usuarios ADMIN pueden modificar estados de "${stateName}".`, 'error');
+  const stateName = currentValue === 'V' ? 'Vacaciones' : 'Incapacidad';
+  showToast(`Solo usuarios ADMIN pueden modificar estados de "${stateName}".`, 'error');
       return;
     }
 
@@ -954,13 +951,13 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
       });
 
       if (hours <= 0) {
-        setNotification({ message: 'Registro eliminado (0 horas)', type: 'success' });
+  showToast('Registro eliminado (0 horas)', 'success');
       } else {
-        setNotification({ message: 'Horas guardadas correctamente', type: 'success' });
+  showToast('Horas guardadas correctamente', 'success');
       }
     } catch (error) {
       console.error('Error al guardar horas:', error);
-      setNotification({ message: 'Error al guardar las horas', type: 'error' });
+  showToast('Error al guardar las horas', 'error');
     } finally {
       setSaving(false);
       setDelifoodModal({ isOpen: false, employeeName: '', day: 0, currentHours: 0 });
@@ -992,7 +989,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
   // Función para exportar horarios como imagen (Solo SuperAdmin) - Descarga directa
   const exportScheduleAsImage = async () => {
     if (!userIsSuperAdmin()) {
-      showNotification('Solo SuperAdmin puede exportar como imagen', 'error');
+      showToast('Solo SuperAdmin puede exportar como imagen', 'error');
       return;
     }
 
@@ -1295,14 +1292,14 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
           URL.revokeObjectURL(url);
 
       const successMessage = isDelifoodEmpresa ? '📸 Horas DELIFOOD exportadas como imagen exitosamente' : '📸 Horarios exportados como imagen exitosamente';
-          showNotification(successMessage, 'success');
+          showToast(successMessage, 'success');
         } else {
           throw new Error('Error al generar la imagen');
         }
       }, 'image/png');
 
     } catch (error) {
-      showNotification('Error al exportar horarios como imagen', 'error');
+  showToast('Error al exportar horarios como imagen', 'error');
       console.error('Export schedule as image error:', error);
     } finally {
       setIsExporting(false);
@@ -1313,17 +1310,17 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
   const exportQuincenaToPNG = async () => {
     // Validaciones iniciales
     if (!empresa) {
-      showNotification('Error: No hay empresa seleccionada', 'error');
+  showToast('Error: No hay empresa seleccionada', 'error');
       return;
     }
 
     if (!names || names.length === 0) {
-      showNotification('Error: No hay empleados para exportar', 'error');
+  showToast('Error: No hay empleados para exportar', 'error');
       return;
     }
 
     if (!daysToShow || daysToShow.length === 0) {
-      showNotification('Error: No hay días para mostrar', 'error');
+  showToast('Error: No hay días para mostrar', 'error');
       return;
     }
 
@@ -1436,10 +1433,10 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-  const successMessage = isDelifoodEmpresa ?
+      const successMessage = isDelifoodEmpresa ?
         '📥 Horas DELIFOOD exportadas exitosamente!' :
         '📥 Quincena exportada exitosamente!';
-      showNotification(successMessage, 'success');
+      showToast(successMessage, 'success');
 
     } catch (error) {
       console.error('Error al exportar la quincena:', error);
@@ -1449,7 +1446,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
         errorMessage = error.message;
       }
 
-      showNotification(`Error al exportar la quincena: ${errorMessage}`, 'error');
+  showToast(`Error al exportar la quincena: ${errorMessage}`, 'error');
     } finally {
       setIsExporting(false);
     }
@@ -1569,18 +1566,8 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
 
   return (
     <>
-      <div className="max-w-full mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4 sm:p-6">        {/* Notification */}
-        {notification && (
-          <div className={`fixed top-4 sm:top-6 right-4 sm:right-6 z-50 px-4 sm:px-6 py-2 sm:py-3 rounded-xl shadow-2xl flex items-center gap-2 font-semibold animate-fade-in-down max-w-xs sm:max-w-sm text-sm sm:text-base ${notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'
-            } text-white`}>
-            {notification.type === 'success' ? (
-              <Save className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
-            ) : (
-              <Clock className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
-            )}
-            <span className="truncate">{notification.message}</span>
-          </div>
-        )}
+      <div className="max-w-full mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4 sm:p-6">
+        {/* notifications are rendered globally by ToastProvider */}
 
         {/* Loading indicator */}
         {saving && (
@@ -2104,13 +2091,13 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
                       document.body.removeChild(a);
                       URL.revokeObjectURL(url);
 
-                      showNotification('📥 Horario descargado exitosamente', 'success');
+                      showToast('📥 Horario descargado exitosamente', 'success');
                     } else {
                       throw new Error('No hay imagen disponible para descargar');
                     }
                   } catch (error) {
                     console.error('Error downloading schedule image:', error);
-                    showNotification('❌ Error al descargar el horario', 'error');
+                    showToast('❌ Error al descargar el horario', 'error');
                   }
                 }}
                 className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"

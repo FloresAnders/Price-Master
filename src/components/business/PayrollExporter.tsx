@@ -5,6 +5,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useAuth } from '../../hooks/useAuth';
 import { Calculator, DollarSign, Image, Save, Calendar } from 'lucide-react';
 import { EmpresasService } from '../../services/empresas';
+import useToast from '../../hooks/useToast';
 import { SchedulesService, ScheduleEntry } from '../../services/schedules';
 import { PayrollRecordsService } from '../../services/payroll-records';
 import { CcssConfigService } from '../../services/ccss-config';
@@ -108,7 +109,8 @@ export default function PayrollExporter({
   const [locations, setLocations] = useState<MappedEmpresa[]>([]);
   const [payrollData, setPayrollData] = useState<LocationPayrollData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null); const [editableDeductions, setEditableDeductions] = useState<EditableDeductions>({});
+  const { showToast } = useToast();
+  const [editableDeductions, setEditableDeductions] = useState<EditableDeductions>({});
   const [tempInputValues, setTempInputValues] = useState<{ [key: string]: string }>({});
   const [debounceTimers, setDebounceTimers] = useState<{ [key: string]: NodeJS.Timeout }>({});
   const [ccssConfigs, setCcssConfigs] = useState<{ [empresaName: string]: { tc: number; mt: number; horabruta: number } }>({});
@@ -118,11 +120,7 @@ export default function PayrollExporter({
   const OVERTIME_HOURLY_RATE = 2294.43;
   const DEFAULT_CCSS_TC = 11017.39;
   const DEFAULT_CCSS_MT = 3672.46;
-  // Función para mostrar notificación
-  const showNotification = (message: string, type: 'success' | 'error') => {
-    setNotification({ message, type });
-    setTimeout(() => setNotification(null), 3000);
-  };
+  // notifications handled by ToastProvider via showToast()
 
   // Función para obtener configuración CCSS para una empresa específica
   const getCcssConfigForEmpresa = useCallback((empresaName: string) => {
@@ -456,15 +454,15 @@ export default function PayrollExporter({
           }
         }); setPayrollData(payrollDataArray);
       } catch (error) {
-        console.error('Error loading payroll data:', error);
-        showNotification('Error al cargar los datos de planilla', 'error');
+  console.error('Error loading payroll data:', error);
+  showToast('Error al cargar los datos de planilla', 'error');
       } finally {
         setLoading(false);
       }
     }; if (currentPeriod && locations.length > 0) {
       loadPayrollData();
     }
-  }, [currentPeriod, selectedLocation, locations, calculatePayrollData]);
+  }, [currentPeriod, selectedLocation, locations, calculatePayrollData, showToast]);
 
   // Memorizar cálculos de planilla para evitar recálculos innecesarios
   const memoizedPayrollCalculations = useMemo(() => {
@@ -758,32 +756,32 @@ export default function PayrollExporter({
   // Función para exportar un empleado individual
   const exportIndividualEmployee = async (employee: EnhancedEmployeePayrollData, locationName: string) => {
     if (!currentPeriod) {
-      showNotification('No hay período seleccionado', 'error');
+  showToast('No hay período seleccionado', 'error');
       return;
     }
 
     const periodDates = `${currentPeriod.start.getDate()}-${currentPeriod.end.getDate()}`;
 
-    showNotification(`📊 Generando imagen de ${employee.employeeName}...`, 'success');
+  showToast(`📊 Generando imagen de ${employee.employeeName}...`, 'success');
 
     try {
       await generateEmployeeImage(employee, locationName, periodDates);
-      showNotification(`✅ Imagen de ${employee.employeeName} descargada exitosamente`, 'success');
+  showToast(`✅ Imagen de ${employee.employeeName} descargada exitosamente`, 'success');
     } catch (error) {
       console.error('Error generating individual employee image:', error);
-      showNotification(`❌ Error generando imagen de ${employee.employeeName}`, 'error');
+  showToast(`❌ Error generando imagen de ${employee.employeeName}`, 'error');
     }
   };
 
   // Función para guardar registro de planilla
   const savePayrollRecord = async (employee: EnhancedEmployeePayrollData, locationValue: string) => {
     if (!currentPeriod) {
-      showNotification('No hay período seleccionado', 'error');
+  showToast('No hay período seleccionado', 'error');
       return;
     }
 
     try {
-      showNotification(`💾 Guardando registro de ${employee.employeeName}...`, 'success');
+  showToast(`💾 Guardando registro de ${employee.employeeName}...`, 'success');
 
       await PayrollRecordsService.saveRecord(
         locationValue,
@@ -796,16 +794,16 @@ export default function PayrollExporter({
         employee.totalHours
       );
 
-      showNotification(`✅ Registro de ${employee.employeeName} guardado exitosamente`, 'success');
+  showToast(`✅ Registro de ${employee.employeeName} guardado exitosamente`, 'success');
     } catch (error) {
       console.error('Error saving payroll record:', error);
-      showNotification(`❌ Error guardando registro de ${employee.employeeName}`, 'error');
+  showToast(`❌ Error guardando registro de ${employee.employeeName}`, 'error');
     }
   };
 
   const exportPayroll = async () => {
     if (!currentPeriod || memoizedPayrollCalculations.length === 0) {
-      showNotification('No hay datos para exportar', 'error');
+  showToast('No hay datos para exportar', 'error');
       return;
     }
 
@@ -821,7 +819,7 @@ export default function PayrollExporter({
     let successCount = 0;
     let errorCount = 0;
 
-    showNotification(`📊 Iniciando exportación de ${totalEmployees} planillas...`, 'success');
+  showToast(`📊 Iniciando exportación de ${totalEmployees} planillas...`, 'success');
 
     for (const locationData of memoizedPayrollCalculations) {
       for (const employee of locationData.employees) {
@@ -832,7 +830,7 @@ export default function PayrollExporter({
           processedEmployees++;
 
           // Actualizar notificación de progreso
-          showNotification(`📊 Procesando... ${processedEmployees}/${totalEmployees} (${successCount} exitosas)`, 'success');
+          showToast(`📊 Procesando... ${processedEmployees}/${totalEmployees} (${successCount} exitosas)`, 'success');
         } catch (error) {
           console.error(`Error exporting ${employee.employeeName}:`, error);
           errorCount++;
@@ -842,9 +840,9 @@ export default function PayrollExporter({
     }
 
     if (errorCount === 0) {
-      showNotification(`✅ ${successCount} imágenes descargadas exitosamente`, 'success');
+  showToast(`✅ ${successCount} imágenes descargadas exitosamente`, 'success');
     } else {
-      showNotification(`⚠️ ${successCount} exitosas, ${errorCount} errores`, 'error');
+  showToast(`⚠️ ${successCount} exitosas, ${errorCount} errores`, 'error');
     }
   };
 
@@ -861,14 +859,7 @@ export default function PayrollExporter({
 
   return (
     <div className="max-w-full mx-auto bg-[var(--card-bg)] rounded-lg shadow p-6">
-      {/* Notification */}
-      {notification && (
-        <div className={`fixed top-6 right-6 z-50 px-6 py-3 rounded-xl shadow-2xl flex items-center gap-2 font-semibold animate-fade-in-down ${notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'
-          } text-white`}>
-          <DollarSign className="w-5 h-5" />
-          {notification.message}
-        </div>
-      )}
+      {/* notifications are rendered globally by ToastProvider */}
 
       {/* Header con controles */}
       <div className="mb-6 flex flex-col lg:flex-row gap-4 items-center justify-between">

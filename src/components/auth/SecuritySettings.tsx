@@ -2,8 +2,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Shield, Clock, Users, Key, Eye, EyeOff, Save, AlertTriangle } from 'lucide-react';
+import { Shield, Clock, Users, Key, Eye, EyeOff, Save } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import useToast from '../../hooks/useToast';
 
 interface SecurityConfig {
   sessionDuration: {
@@ -69,7 +70,7 @@ export default function SecuritySettings() {
 
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const { showToast } = useToast();
 
   // Cargar configuración guardada
   useEffect(() => {
@@ -124,12 +125,13 @@ export default function SecuritySettings() {
 
       const existingLogs = JSON.parse(localStorage.getItem('pricemaster_audit_logs') || '[]');
       existingLogs.push(auditLog);
-      localStorage.setItem('pricemaster_audit_logs', JSON.stringify(existingLogs)); setNotification({ message: 'Configuración de seguridad guardada exitosamente', type: 'success' });
+      localStorage.setItem('pricemaster_audit_logs', JSON.stringify(existingLogs));
+      showToast('Configuración de seguridad guardada exitosamente', 'success');
     } catch {
-      setNotification({ message: 'Error al guardar la configuración', type: 'error' });
+      showToast('Error al guardar la configuración', 'error');
     } finally {
       setSaving(false);
-      setTimeout(() => setNotification(null), 3000);
+      // toast auto-dismiss handled by ToastProvider
     }
   };
 
@@ -146,18 +148,7 @@ export default function SecuritySettings() {
         </div>
       </div>
 
-      {/* Notification */}
-      {notification && (
-        <div className={`p-4 rounded-lg flex items-center gap-3 ${notification.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-          }`}>
-          {notification.type === 'success' ? (
-            <Shield className="w-5 h-5" />
-          ) : (
-            <AlertTriangle className="w-5 h-5" />
-          )}
-          {notification.message}
-        </div>
-      )}
+      {/* notifications are rendered globally by ToastProvider */}
 
       {/* Duración de Sesiones */}
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">

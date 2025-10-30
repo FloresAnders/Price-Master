@@ -2,9 +2,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Calendar, Users, Eye, Trash2 } from 'lucide-react';
+import { Calendar, Users, Trash2 } from 'lucide-react';
 import { PayrollRecordsService, PayrollRecord } from '../../services/payroll-records';
 import { EmpresasService } from '../../services/empresas';
+import useToast from '../../hooks/useToast';
 import { Empresas } from '../../types/firestore';
 import ConfirmModal from '../ui/ConfirmModal';
 
@@ -25,7 +26,7 @@ export default function PayrollRecordsViewer({ selectedLocation = 'all' }: Payro
   const [records, setRecords] = useState<PayrollRecord[]>([]);
   const [locations, setLocations] = useState<Empresas[]>([]);
   const [loading, setLoading] = useState(true);
-  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const { showToast } = useToast();
   const [confirmModal, setConfirmModal] = useState<{
     open: boolean;
     periodToDelete: PeriodToDelete | null;
@@ -36,11 +37,7 @@ export default function PayrollRecordsViewer({ selectedLocation = 'all' }: Payro
     loading: false
   });
 
-  // Función para mostrar notificación
-  const showNotification = (message: string, type: 'success' | 'error') => {
-    setNotification({ message, type });
-    setTimeout(() => setNotification(null), 3000);
-  };
+  // notifications handled by ToastProvider via showToast()
 
   // Cargar empresas
   useEffect(() => {
@@ -71,7 +68,7 @@ export default function PayrollRecordsViewer({ selectedLocation = 'all' }: Payro
         setRecords(recordsData);
       } catch (error) {
         console.error('Error loading payroll records:', error);
-        showNotification('Error al cargar los registros de planilla', 'error');
+  showToast('Error al cargar los registros de planilla', 'error');
       } finally {
         setLoading(false);
       }
@@ -80,7 +77,7 @@ export default function PayrollRecordsViewer({ selectedLocation = 'all' }: Payro
     if (locations.length > 0) {
       loadRecords();
     }
-  }, [selectedLocation, locations]);
+  }, [selectedLocation, locations, showToast]);
 
   // Preparar eliminación de período específico
   const preparePeriodDeletion = (
@@ -124,10 +121,7 @@ export default function PayrollRecordsViewer({ selectedLocation = 'all' }: Payro
         period
       );
 
-      showNotification(
-        `${confirmModal.periodToDelete.periodLabel} de ${employeeName} eliminada exitosamente`,
-        'success'
-      );
+      showToast(`${confirmModal.periodToDelete.periodLabel} de ${employeeName} eliminada exitosamente`, 'success');
 
       // Recargar registros
       let recordsData: PayrollRecord[];
@@ -142,10 +136,7 @@ export default function PayrollRecordsViewer({ selectedLocation = 'all' }: Payro
       setConfirmModal({ open: false, periodToDelete: null, loading: false });
     } catch (error) {
       console.error('Error deleting period:', error);
-      showNotification(
-        `Error eliminando ${confirmModal.periodToDelete.periodLabel} de ${confirmModal.periodToDelete.employeeName}`,
-        'error'
-      );
+      showToast(`Error eliminando ${confirmModal.periodToDelete.periodLabel} de ${confirmModal.periodToDelete.employeeName}`, 'error');
       setConfirmModal(prev => ({ ...prev, loading: false }));
     }
   };
@@ -200,14 +191,7 @@ export default function PayrollRecordsViewer({ selectedLocation = 'all' }: Payro
 
   return (
     <div className="max-w-full mx-auto bg-[var(--card-bg)] rounded-lg shadow p-6">
-      {/* Notification */}
-      {notification && (
-        <div className={`fixed top-6 right-6 z-50 px-6 py-3 rounded-xl shadow-2xl flex items-center gap-2 font-semibold animate-fade-in-down ${notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'
-          } text-white`}>
-          <Eye className="w-5 h-5" />
-          {notification.message}
-        </div>
-      )}
+      {/* notifications are rendered globally by ToastProvider */}
 
       {/* Header */}
       <div className="mb-6 flex items-center gap-4">
