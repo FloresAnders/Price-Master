@@ -265,7 +265,7 @@ export default function SolicitudForm() {
                                                     checked={Boolean(s.listo)} 
                                                     onChange={(e) => toggleListo(s.id, e.target.checked)} 
                                                 />
-                                                <span className="text-sm text-[var(--muted-foreground)]">Listo</span>
+                                                <span className="text-sm text-[var(--muted-foreground)]">Marcar como listo</span>
                                             </label>
                                             <button
                                                 onClick={() => handleDeleteClick(s.id, s.productName)}
