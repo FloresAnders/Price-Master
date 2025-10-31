@@ -9,6 +9,8 @@ export default function SolicitudForm() {
     const [productName, setProductName] = useState('');
     const [empresas, setEmpresas] = useState<Empresas[]>([]);
     const [empresaSelected, setEmpresaSelected] = useState('');
+    // filtro para la lista de solicitudes ('' = todas)
+    const [empresaFilter, setEmpresaFilter] = useState('');
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
     const messageTimer = useRef<number | null>(null);
@@ -44,6 +46,7 @@ export default function SolicitudForm() {
             try {
                 const list = await EmpresasService.getAllEmpresas();
                 setEmpresas(list || []);
+                // default de empresa para envío (no para el filtro)
                 if (list && list.length > 0) setEmpresaSelected(list[0].name || '');
             } catch (err) {
                 console.error('Error loading empresas for solicitud:', err);
@@ -51,13 +54,20 @@ export default function SolicitudForm() {
             }
         };
         load();
+        // cargar lista inicial (todas)
         loadSolicitudes();
     }, []);
 
-    const loadSolicitudes = async () => {
+    const loadSolicitudes = async (empresa?: string) => {
         setLoadingList(true);
         try {
-            const rows = await SolicitudesService.getAllSolicitudes();
+            let rows: any[] = [];
+            const useEmpresa = empresa !== undefined ? empresa : empresaFilter;
+            if (useEmpresa) {
+                rows = await SolicitudesService.getSolicitudesByEmpresa(useEmpresa);
+            } else {
+                rows = await SolicitudesService.getAllSolicitudes();
+            }
             setSolicitudes(rows || []);
         } catch (err) {
             console.error('Error loading solicitudes:', err);
@@ -66,6 +76,12 @@ export default function SolicitudForm() {
             setLoadingList(false);
         }
     };
+
+    // recargar cuando cambie el filtro
+    useEffect(() => {
+        // cuando empresaFilter cambia, recargamos la lista (vacío = todas)
+        loadSolicitudes();
+    }, [empresaFilter]);
 
     const handleSubmit = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
@@ -114,6 +130,8 @@ export default function SolicitudForm() {
         try {
             await SolicitudesService.setListo(id, checked);
             showTempMessage({ type: 'success', text: checked ? 'Marcado como listo.' : 'Marcado como no listo.' });
+            // recargar lista para asegurarnos de la consistencia y respetar el filtro
+            await loadSolicitudes();
         } catch (err) {
             console.error('Error updating listo flag:', err);
             // revert optimistic
@@ -171,6 +189,19 @@ export default function SolicitudForm() {
 
             {/* Lista de solicitudes guardadas */}
             <div className="mt-6">
+                <div className="mb-3 flex items-center gap-4">
+                    <label className="text-sm font-medium">Filtrar por empresa:</label>
+                    <select
+                        value={empresaFilter}
+                        onChange={(e) => setEmpresaFilter(e.target.value)}
+                        className="p-2 border border-[var(--border)] rounded bg-[var(--input-bg)]"
+                    >
+                        <option value="">-- Todas las empresas --</option>
+                        {empresas.map((emp) => (
+                            <option key={emp.id || emp.name} value={emp.name}>{emp.name}</option>
+                        ))}
+                    </select>
+                </div>
                 <h2 className="text-lg font-semibold mb-3">Solicitudes guardadas</h2>
                 {loadingList ? (
                     <div className="p-4 bg-[var(--card-bg)] border border-[var(--input-border)] rounded">Cargando...</div>
