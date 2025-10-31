@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { EmpresasService } from '@/services/empresas';
 import { SolicitudesService } from '@/services/solicitudes';
 import type { Empresas } from '@/types/firestore';
@@ -54,11 +54,9 @@ export default function SolicitudForm() {
             }
         };
         load();
-        // cargar lista inicial (todas)
-        loadSolicitudes();
     }, []);
 
-    const loadSolicitudes = async (empresa?: string) => {
+    const loadSolicitudes = useCallback(async (empresa?: string) => {
         setLoadingList(true);
         try {
             let rows: any[] = [];
@@ -75,13 +73,12 @@ export default function SolicitudForm() {
         } finally {
             setLoadingList(false);
         }
-    };
-
-    // recargar cuando cambie el filtro
-    useEffect(() => {
-        // cuando empresaFilter cambia, recargamos la lista (vacío = todas)
-        loadSolicitudes();
     }, [empresaFilter]);
+
+    // recargar inicialmente y cuando cambie la referencia de loadSolicitudes
+    useEffect(() => {
+        loadSolicitudes();
+    }, [loadSolicitudes]);
 
     const handleSubmit = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
