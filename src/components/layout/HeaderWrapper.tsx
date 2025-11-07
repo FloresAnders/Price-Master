@@ -27,6 +27,8 @@ export default function HeaderWrapper() {
         return;
       }
 
+      // (No special handling for /fondogeneral — it's intentionally not shown in header)
+
       // Otherwise, check hash for hash-based navigation
       const hash = window.location.hash.replace('#', '') as ActiveTab;
       const validTabs = [

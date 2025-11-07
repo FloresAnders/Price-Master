@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck, Settings, History } from 'lucide-react';
 import AnimatedStickman from '../ui/AnimatedStickman';
+import { useRouter } from 'next/navigation';
 import { User, UserPermissions } from '../../types/firestore';
 import { getDefaultPermissions } from '../../utils/permissions';
 
@@ -11,6 +12,7 @@ const menuItems = [
   { id: 'calculator', name: 'Calculadora', icon: Calculator, description: 'Calcular precios con descuentos', permission: 'calculator' as keyof UserPermissions },
   { id: 'converter', name: 'Conversor', icon: Type, description: 'Convertir y transformar texto', permission: 'converter' as keyof UserPermissions },
   { id: 'cashcounter', name: 'Contador Efectivo', icon: Banknote, description: 'Contar billetes y monedas (CRC/USD)', permission: 'cashcounter' as keyof UserPermissions },
+  { id: 'fondogeneral', name: 'Fondo General', icon: Banknote, description: 'Administrar el fondo general', permission: 'fondogeneral' as keyof UserPermissions },
   { id: 'timingcontrol', name: 'Control Tiempos', icon: Smartphone, description: 'Registro de venta de tiempos', permission: 'timingcontrol' as keyof UserPermissions },
   { id: 'controlhorario', name: 'Control Horario', icon: Clock, description: 'Registro de horarios de trabajo', permission: 'controlhorario' as keyof UserPermissions },
   { id: 'supplierorders', name: 'Órdenes Proveedor', icon: Truck, description: 'Gestión de órdenes de proveedores', permission: 'supplierorders' as keyof UserPermissions },
@@ -27,6 +29,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   const [hovered, setHovered] = useState(false);
   const [clickCount, setClickCount] = useState(0);
   const [showStickman, setShowStickman] = useState(false);
+  const router = useRouter();
 
   // Filter menu items based on user permissions
   const getVisibleMenuItems = () => {
@@ -54,9 +57,14 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   const visibleMenuItems = getVisibleMenuItems();
 
   const handleNavigate = (id: string) => {
+    if (id === 'fondogeneral') {
+      // Navegar a la página del Fondo General
+      router.push('/fondogeneral');
+      return;
+    }
+
     if (typeof window !== 'undefined') {
-      // Redirigir a la ruta específica para la herramienta. La tarjeta 'solicitud' abre la página /solicitud
-      // Usar hash navigation para todas las tarjetas (incluida 'solicitud')
+      // Redirigir a la ruta específica para la herramienta usando hash navigation
       window.location.hash = `#${id}`;
     }
   };
@@ -122,6 +130,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
               <item.icon className="w-10 h-10 mb-3 text-[var(--primary)] group-hover:scale-110 group-hover:text-[var(--button-hover)] transition-all" />
               <span className="text-lg font-semibold mb-1 text-[var(--foreground)] dark:text-[var(--foreground)]">{item.name}</span>
               <span className="text-sm text-[var(--muted-foreground)] text-center">{item.description}</span>
+              {/* No badge shown here; navigation goes to the Fondo General page */}
             </button>
           ))}
         </div>

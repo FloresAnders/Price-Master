@@ -17,7 +17,8 @@ import { storage } from '@/config/firebase'
 import { ref, listAll } from 'firebase/storage'
 
 // 1) Ampliamos ActiveTab para incluir "cashcounter", "controlhorario", "supplierorders", "edit", "scanhistory", "solicitud"
-type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'supplierorders' | 'scanhistory' | 'edit' | 'solicitud'
+type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'supplierorders' | 'scanhistory' | 'edit' | 'solicitud' | 'fondogeneral'
+import FondoGeneralPage from '@/app/fondogeneral/page';
 import SolicitudForm from '@/components/solicitud/SolicitudForm'
 
 export default function HomePage() {
@@ -195,7 +196,7 @@ export default function HomePage() {
       if (typeof window !== 'undefined') {
         const hash = window.location.hash.replace('#', '') as ActiveTab;
         const validTabs = [
-          'scanner', 'calculator', 'converter', 'cashcounter', 'timingcontrol', 'controlhorario', 'supplierorders', 'scanhistory', 'solicitud'
+          'scanner', 'calculator', 'converter', 'cashcounter', 'timingcontrol', 'controlhorario', 'supplierorders', 'scanhistory', 'solicitud', 'fondogeneral'
         ];
         if (validTabs.includes(hash)) {
           setActiveTab(hash);
@@ -218,7 +219,7 @@ export default function HomePage() {
       const handleHashChange = () => {
         const hash = window.location.hash.replace('#', '') as ActiveTab;
         const validTabs = [
-          'scanner', 'calculator', 'converter', 'cashcounter', 'timingcontrol', 'controlhorario', 'supplierorders', 'scanhistory', 'edit', 'solicitud'
+          'scanner', 'calculator', 'converter', 'cashcounter', 'timingcontrol', 'controlhorario', 'supplierorders', 'scanhistory', 'edit', 'solicitud', 'fondogeneral'
         ];
         if (validTabs.includes(hash)) {
           setActiveTab(hash);
@@ -315,6 +316,11 @@ export default function HomePage() {
               {/* HISTORIAL DE ESCANEOS */}
               {activeTab === 'scanhistory' && (
                 <ScanHistoryTable />
+              )}
+
+              {/* FONDO GENERAL */}
+              {activeTab === 'fondogeneral' && (
+                <FondoGeneralPage />
               )}
 
               {/* SOLICITUD */}
