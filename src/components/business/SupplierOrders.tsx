@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Trash2, Plus, Package, Calendar, User, FileText, Edit, Download, Lock as LockIcon } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth';
+import useToast from '../../hooks/useToast';
 import { hasPermission } from '../../utils/permissions';
 import { SupplierOrdersService, SupplierOrderEntry, SupplierOrderProduct } from '../../services/supplier-orders';
 
@@ -15,6 +16,7 @@ interface SupplierOrderView extends SupplierOrderEntry {
 export default function SupplierOrders() {
   /* Verificar permisos del usuario */
   const { user } = useAuth();
+  const { showToast } = useToast();
 
   // Form states
   const [supplierName, setSupplierName] = useState('')
@@ -169,12 +171,12 @@ export default function SupplierOrders() {
   // Save current order
   const saveOrder = async () => {
     if (!supplierName.trim() || products.length === 0) {
-      alert('Por favor completa el nombre del proveedor y agrega al menos un producto.')
+      showToast('Por favor completa el nombre del proveedor y agrega al menos un producto.', 'error')
       return
     }
 
     if (!ownerCompany) {
-      alert('No se encontró una empresa asociada al usuario. Contacta al administrador.')
+      showToast('No se encontró una empresa asociada al usuario. Contacta al administrador.', 'error')
       return
     }
 
@@ -217,15 +219,15 @@ export default function SupplierOrders() {
       }
 
       if (isEditing) {
-        alert('Orden actualizada exitosamente!')
+        showToast('Orden actualizada exitosamente!', 'success')
         cancelEdit()
       } else {
         clearForm()
-        alert('Orden guardada exitosamente!')
+        showToast('Orden guardada exitosamente!', 'success')
       }
     } catch (err) {
       console.error('Error saving supplier order:', err)
-      alert('No se pudo guardar la orden. Intenta nuevamente.')
+      showToast('No se pudo guardar la orden. Intenta nuevamente.', 'error')
     } finally {
       setIsSaving(false)
     }
@@ -276,7 +278,7 @@ export default function SupplierOrders() {
   // Delete saved order
   const deleteOrder = async (orderId: string, documentId?: string | null) => {
     if (!documentId) {
-      alert('No se pudo identificar la orden a eliminar.')
+      showToast('No se pudo identificar la orden a eliminar.', 'error')
       return
     }
 
@@ -290,10 +292,10 @@ export default function SupplierOrders() {
         cancelEdit()
       }
       await loadOrders()
-      alert('Orden eliminada exitosamente!')
+      showToast('Orden eliminada exitosamente!', 'success')
     } catch (err) {
       console.error('Error deleting supplier order:', err)
-      alert('No se pudo eliminar la orden. Intenta nuevamente.')
+      showToast('No se pudo eliminar la orden. Intenta nuevamente.', 'error')
     }
   }
 
@@ -324,7 +326,7 @@ export default function SupplierOrders() {
 
   const exportOrder = useCallback((order: SupplierOrderView, format: 'json' | 'txt') => {
     if (!order.products || order.products.length === 0) {
-      alert('Esta orden no contiene productos para exportar.')
+      showToast('Esta orden no contiene productos para exportar.', 'info')
       return
     }
 
@@ -345,9 +347,14 @@ export default function SupplierOrders() {
       content = JSON.stringify(payload, null, 2)
       mimeType = 'application/json'
     } else {
-      const header = `Proveedor: ${order.supplierName}\nFecha de Orden: ${order.orderDate || 'N/A'}\n`
-      const body = productData.map(item => `Nombre: ${item.nombre} | Cantidad: ${item.cantidad}`).join('\n')
-      content = `${header}\n${body}`.trim()
+      const headerLines = [
+        `Proveedor: ${order.supplierName}`,
+        'Nombre — Cantidad'
+      ]
+      const body = productData
+        .map(item => `${item.nombre} — ${item.cantidad}`)
+        .join('\n')
+      content = `${headerLines.join('\n')}\n${body}`.trim()
       mimeType = 'text/plain'
     }
 
@@ -363,9 +370,9 @@ export default function SupplierOrders() {
       URL.revokeObjectURL(url)
     } catch (err) {
       console.error('Error exporting supplier order:', err)
-      alert('No se pudo exportar la orden. Intenta nuevamente.')
+      showToast('No se pudo exportar la orden. Intenta nuevamente.', 'error')
     }
-  }, [buildSafeFileName])
+  }, [buildSafeFileName, showToast])
 
   const closeExportModal = useCallback(() => {
     setExportTarget(null)
@@ -668,6 +675,12 @@ export default function SupplierOrders() {
                   min="1"
                   value={quantity}
                   onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      addProduct()
+                    }
+                  }}
                   className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   style={{
                     background: 'var(--input-bg)',
