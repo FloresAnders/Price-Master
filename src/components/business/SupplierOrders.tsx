@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react'
-import { Trash2, Plus, Package, Calendar, User, FileText, Edit, Lock as LockIcon } from 'lucide-react'
+import { Trash2, Plus, Package, Calendar, User, FileText, Edit, Download, Lock as LockIcon } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth';
 import { hasPermission } from '../../utils/permissions';
 import { SupplierOrdersService, SupplierOrderEntry, SupplierOrderProduct } from '../../services/supplier-orders';
@@ -53,6 +53,7 @@ export default function SupplierOrders() {
   const [recurrentProducts, setRecurrentProducts] = useState<string[]>([])
   const [showSupplierDropdown, setShowSupplierDropdown] = useState(false)
   const [showProductDropdown, setShowProductDropdown] = useState(false)
+  const [exportTarget, setExportTarget] = useState<SupplierOrderView | null>(null)
 
   // Auto-complete order date on component mount
   useEffect(() => {
@@ -307,6 +308,79 @@ export default function SupplierOrders() {
     product.toLowerCase().includes(productName.toLowerCase())
   ).slice(0, 5) // Limit to 5 suggestions
 
+  const buildSafeFileName = useCallback((supplier: string, extension: 'json' | 'txt') => {
+    const cleaned = (supplier || 'orden')
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9-_]+/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_|_$/g, '')
+
+    const baseName = cleaned || 'orden'
+    return `${baseName}.${extension}`
+  }, [])
+
+  const exportOrder = useCallback((order: SupplierOrderView, format: 'json' | 'txt') => {
+    if (!order.products || order.products.length === 0) {
+      alert('Esta orden no contiene productos para exportar.')
+      return
+    }
+
+    const productData = order.products.map(product => ({
+      nombre: product.name,
+      cantidad: product.quantity
+    }))
+
+    let content: string
+    let mimeType: string
+
+    if (format === 'json') {
+      const payload = {
+        proveedor: order.supplierName,
+        fechaOrden: order.orderDate,
+        productos: productData
+      }
+      content = JSON.stringify(payload, null, 2)
+      mimeType = 'application/json'
+    } else {
+      const header = `Proveedor: ${order.supplierName}\nFecha de Orden: ${order.orderDate || 'N/A'}\n`
+      const body = productData.map(item => `Nombre: ${item.nombre} | Cantidad: ${item.cantidad}`).join('\n')
+      content = `${header}\n${body}`.trim()
+      mimeType = 'text/plain'
+    }
+
+    try {
+      const blob = new Blob([content], { type: `${mimeType};charset=utf-8` })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = buildSafeFileName(order.supplierName, format)
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('Error exporting supplier order:', err)
+      alert('No se pudo exportar la orden. Intenta nuevamente.')
+    }
+  }, [buildSafeFileName])
+
+  const closeExportModal = useCallback(() => {
+    setExportTarget(null)
+  }, [])
+
+  const handleExportSelection = useCallback((format: 'json' | 'txt') => {
+    if (!exportTarget) return
+    exportOrder(exportTarget, format)
+    setExportTarget(null)
+  }, [exportOrder, exportTarget])
+
+  const openExportModal = useCallback((order: SupplierOrderView) => {
+    setExportTarget(order)
+  }, [])
+
   // Handle supplier selection
   const selectSupplier = (supplier: string) => {
     setSupplierName(supplier)
@@ -341,6 +415,52 @@ export default function SupplierOrders() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
+      {exportTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+          onClick={closeExportModal}
+        >
+          <div
+            className="w-full max-w-sm rounded-lg border p-6 shadow-lg"
+            style={{
+              background: 'var(--card-bg)',
+              borderColor: 'var(--border)',
+              color: 'var(--foreground)'
+            }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold mb-2">Exportar orden</h3>
+            <p className="text-sm mb-4" style={{ color: 'var(--muted-foreground)' }}>
+              Selecciona el formato para descargar la orden de {exportTarget.supplierName}.
+            </p>
+            <div className="space-y-2">
+              <button
+                onClick={() => handleExportSelection('json')}
+                className="w-full rounded-md bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                Descargar JSON
+              </button>
+              <button
+                onClick={() => handleExportSelection('txt')}
+                className="w-full rounded-md bg-emerald-500 px-4 py-2 text-white hover:bg-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              >
+                Descargar TXT
+              </button>
+              <button
+                onClick={closeExportModal}
+                className="w-full rounded-md px-4 py-2 hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                style={{
+                  background: 'var(--button-bg)',
+                  color: 'var(--button-text)'
+                }}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
@@ -738,6 +858,13 @@ export default function SupplierOrders() {
                         title="Editar orden"
                       >
                         <Edit className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => openExportModal(order)}
+                        className="text-green-500 hover:text-green-600 p-2"
+                        title="Exportar orden"
+                      >
+                        <Download className="w-5 h-5" />
                       </button>
                       <button
                         onClick={() => deleteOrder(order.id, order.documentId)}
