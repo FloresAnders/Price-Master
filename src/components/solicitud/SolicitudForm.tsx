@@ -138,8 +138,8 @@ export default function SolicitudForm() {
     };
 
     return (
-        <div className="max-w-2xl mx-auto p-6">
-            <h1 className="text-2xl font-bold mb-4">Nueva Solicitud</h1>
+        <div className="max-w-2xl mx-auto p-4 sm:p-6">
+            <h1 className="text-xl sm:text-2xl font-bold mb-4">Nueva Solicitud</h1>
 
             {message && (
                 <div className={`p-3 mb-4 rounded ${message.type === 'success' ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-red-50 border border-red-200 text-red-800'}`}>
@@ -147,13 +147,13 @@ export default function SolicitudForm() {
                 </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-4 bg-[var(--card-bg)] border border-[var(--input-border)] rounded p-4">
+            <form onSubmit={handleSubmit} className="space-y-4 bg-[var(--card-bg)] border border-[var(--input-border)] rounded p-3 sm:p-4">
                 <div>
                     <label className="block text-sm font-medium mb-1">Nombre de producto</label>
                     <input
                         value={productName}
                         onChange={(e) => setProductName(e.target.value)}
-                        className="w-full p-2 border border-[var(--border)] rounded bg-[var(--input-bg)]"
+                        className="w-full p-2 sm:p-2 text-sm sm:text-base border border-[var(--border)] rounded bg-[var(--input-bg)]"
                     />
                 </div>
 
@@ -162,7 +162,7 @@ export default function SolicitudForm() {
                     <select
                         value={empresaSelected}
                         onChange={(e) => setEmpresaSelected(e.target.value)}
-                        className="w-full p-2 border border-[var(--border)] rounded bg-[var(--input-bg)]"
+                        className="w-full p-2 sm:p-2 text-sm sm:text-base border border-[var(--border)] rounded bg-[var(--input-bg)]"
                     >
                         <option value="">-- Seleccionar Empresa --</option>
                         {empresas.map((emp) => (
@@ -177,7 +177,7 @@ export default function SolicitudForm() {
                     <button
                         type="submit"
                         disabled={saving}
-                        className="px-4 py-2 bg-[var(--primary)] text-white rounded hover:bg-[var(--button-hover)] disabled:opacity-50"
+                        className="w-full sm:w-auto px-4 py-2 bg-[var(--primary)] text-white rounded hover:bg-[var(--button-hover)] disabled:opacity-50"
                     >
                         {saving ? 'Enviando...' : 'Guardar'}
                     </button>
@@ -186,12 +186,12 @@ export default function SolicitudForm() {
 
             {/* Lista de solicitudes guardadas */}
             <div className="mt-6">
-                <div className="mb-3 flex items-center gap-4">
-                    <label className="text-sm font-medium">Filtrar por empresa:</label>
+                <div className="mb-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                    <label className="text-sm font-medium whitespace-nowrap">Filtrar por empresa:</label>
                     <select
                         value={empresaFilter}
                         onChange={(e) => setEmpresaFilter(e.target.value)}
-                        className="p-2 border border-[var(--border)] rounded bg-[var(--input-bg)]"
+                        className="w-full sm:w-auto p-2 text-sm sm:text-base border border-[var(--border)] rounded bg-[var(--input-bg)]"
                     >
                         <option value="">-- Todas las empresas --</option>
                         {empresas.map((emp) => (
@@ -199,29 +199,31 @@ export default function SolicitudForm() {
                         ))}
                     </select>
                 </div>
-                <h2 className="text-lg font-semibold mb-3">Solicitudes guardadas</h2>
+                <h2 className="text-base sm:text-lg font-semibold mb-3">Solicitudes guardadas</h2>
                 {loadingList ? (
                     <div className="p-4 bg-[var(--card-bg)] border border-[var(--input-border)] rounded">Cargando...</div>
                 ) : solicitudes.length === 0 ? (
                     <div className="p-4 bg-[var(--card-bg)] border border-[var(--input-border)] rounded">No hay solicitudes</div>
                 ) : (
-                    <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded overflow-hidden">
-                        <table className="w-full text-sm">
-                            <thead className="bg-[var(--muted)] text-left">
-                                <tr>
-                                    <th className="px-4 py-2">Fecha</th>
-                                    <th className="px-4 py-2">Producto</th>
-                                    <th className="px-4 py-2">Empresa</th>
-                                    <th className="px-4 py-2">Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {solicitudes.map((s) => (
-                                    <tr key={s.id} className="border-t border-[var(--input-border)]">
-                                        <td className="px-4 py-2 align-top">{s.createdAt ? new Date(s.createdAt.seconds ? s.createdAt.seconds * 1000 : s.createdAt).toLocaleString() : '-'}</td>
-                                        <td className="px-4 py-2 align-top">{s.productName}</td>
-                                        <td className="px-4 py-2 align-top">{s.empresa}</td>
-                                        <td className="px-4 py-2 align-top">
+                    <>
+                        {/* Desktop table view */}
+                        <div className="hidden sm:block bg-[var(--card-bg)] border border-[var(--input-border)] rounded overflow-hidden">
+                            <table className="w-full text-sm">
+                                <thead className="bg-[var(--muted)] text-left">
+                                    <tr>
+                                        <th className="px-4 py-2">Fecha</th>
+                                        <th className="px-4 py-2">Producto</th>
+                                        <th className="px-4 py-2">Empresa</th>
+                                        <th className="px-4 py-2">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {solicitudes.map((s) => (
+                                        <tr key={s.id} className="border-t border-[var(--input-border)]">
+                                            <td className="px-4 py-2 align-top">{s.createdAt ? new Date(s.createdAt.seconds ? s.createdAt.seconds * 1000 : s.createdAt).toLocaleString() : '-'}</td>
+                                            <td className="px-4 py-2 align-top">{s.productName}</td>
+                                            <td className="px-4 py-2 align-top">{s.empresa}</td>
+                                            <td className="px-4 py-2 align-top">
                                                 <label className="inline-flex items-center gap-2 mr-2">
                                                     <input type="checkbox" className="form-checkbox h-4 w-4" checked={Boolean(s.listo)} onChange={(e) => toggleListo(s.id, e.target.checked)} />
                                                     <span className="text-sm text-[var(--muted-foreground)]">Listo</span>
@@ -230,24 +232,63 @@ export default function SolicitudForm() {
                                                     onClick={() => handleDeleteClick(s.id, s.productName)}
                                                     className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
                                                 >Eliminar</button>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Mobile card view */}
+                        <div className="sm:hidden space-y-3">
+                            {solicitudes.map((s) => (
+                                <div key={s.id} className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded p-3">
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-start">
+                                            <span className="text-xs text-[var(--muted-foreground)]">
+                                                {s.createdAt ? new Date(s.createdAt.seconds ? s.createdAt.seconds * 1000 : s.createdAt).toLocaleString() : '-'}
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <div className="text-xs text-[var(--muted-foreground)] mb-1">Producto</div>
+                                            <div className="font-medium">{s.productName}</div>
+                                        </div>
+                                        <div>
+                                            <div className="text-xs text-[var(--muted-foreground)] mb-1">Empresa</div>
+                                            <div className="text-sm">{s.empresa}</div>
+                                        </div>
+                                        <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-[var(--input-border)]">
+                                            <label className="flex items-center gap-2 flex-1">
+                                                <input 
+                                                    type="checkbox" 
+                                                    className="form-checkbox h-4 w-4" 
+                                                    checked={Boolean(s.listo)} 
+                                                    onChange={(e) => toggleListo(s.id, e.target.checked)} 
+                                                />
+                                                <span className="text-sm text-[var(--muted-foreground)]">Marcar como listo</span>
+                                            </label>
+                                            <button
+                                                onClick={() => handleDeleteClick(s.id, s.productName)}
+                                                className="px-3 py-2 bg-red-600 text-white rounded text-sm hover:bg-red-700 w-full sm:w-auto"
+                                            >Eliminar</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </>
                 )}
             </div>
 
             {/* Modal de confirmación de borrado */}
             {confirmOpen && toDelete && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded p-6 max-w-sm w-full">
-                        <h3 className="text-lg font-semibold mb-2">Confirmar eliminación</h3>
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded p-4 sm:p-6 max-w-sm w-full mx-4">
+                        <h3 className="text-base sm:text-lg font-semibold mb-2">Confirmar eliminación</h3>
                         <p className="text-sm text-[var(--muted-foreground)] mb-4">¿Deseas eliminar la solicitud &quot;{toDelete.productName || ''}&quot;?</p>
-                        <div className="flex justify-end gap-2">
-                            <button onClick={() => { setConfirmOpen(false); setToDelete(null); }} className="px-3 py-1 bg-gray-200 rounded">Cancelar</button>
-                            <button onClick={confirmDelete} className="px-3 py-1 bg-red-600 text-white rounded">Eliminar</button>
+                        <div className="flex flex-col sm:flex-row justify-end gap-2">
+                            <button onClick={() => { setConfirmOpen(false); setToDelete(null); }} className="px-3 py-2 bg-gray-200 rounded w-full sm:w-auto order-2 sm:order-1">Cancelar</button>
+                            <button onClick={confirmDelete} className="px-3 py-2 bg-red-600 text-white rounded w-full sm:w-auto order-1 sm:order-2">Eliminar</button>
                         </div>
                     </div>
                 </div>
