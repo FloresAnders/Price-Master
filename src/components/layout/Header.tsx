@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { Settings, LogOut, Menu, X, Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck, History, User, ChevronDown, Bell } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { collection, query as fbQuery, where as fbWhere, orderBy as fbOrderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { createPortal } from 'react-dom';
@@ -15,6 +15,27 @@ import FloatingSessionTimer from '../session/FloatingSessionTimer';
 import EditProfileModal from '../edicionPerfil/EditProfileModal';
 import { ConfigurationModal, CalculatorModal, NotificationModal } from '../modals';
 import type { UserPermissions } from '../../types/firestore';
+
+const getCreatedAtDate = (value: any): Date | null => {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (typeof value.toDate === 'function') {
+    try {
+      const asDate = value.toDate();
+      if (asDate instanceof Date && !Number.isNaN(asDate.getTime())) return asDate;
+      const fallback = new Date(asDate);
+      if (!Number.isNaN(fallback.getTime())) return fallback;
+    } catch {
+      // ignore conversion errors
+    }
+  }
+  if (typeof value === 'object' && typeof value.seconds === 'number') {
+    return new Date(value.seconds * 1000);
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+};
 
 type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'supplierorders' | 'histoscans' | 'scanhistory' | 'edit' | 'solicitud'
 
@@ -38,11 +59,23 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const [showSessionTimer, setShowSessionTimer] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
   const [showCalculatorModal, setShowCalculatorModal] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const initializedSolicitudesRef = useRef(false);
+  const knownSolicitudesRef = useRef<Set<string>>(new Set());
 
   // Ensure component is mounted on client
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  useEffect(() => {
+    if (!isClient) return;
+    if (!audioRef.current) {
+      const audio = new Audio('/arrival-sound.mp3');
+      audio.preload = 'auto';
+      audioRef.current = audio;
+    }
+  }, [isClient]);
 
   // Cargar preferencia del FloatingSessionTimer desde localStorage
   useEffect(() => {
@@ -119,9 +152,14 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
 
     const company = (user as any)?.ownercompanie || (user as any)?.ownerCompanie || '';
     if (!company) {
+      knownSolicitudesRef.current = new Set();
+      initializedSolicitudesRef.current = false;
       setHasNewSolicitudes(false);
       return;
     }
+
+    knownSolicitudesRef.current = new Set();
+    initializedSolicitudesRef.current = false;
 
     try {
       const q = fbQuery(
@@ -130,33 +168,76 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
         fbOrderBy('createdAt', 'desc')
       );
 
+      const handleSolicitudesUpdate = (docs: any[]) => {
+        const safeDocs = Array.isArray(docs) ? docs : [];
+        const pendingDocs = safeDocs.filter((doc) => !doc?.listo);
+
+        if (initializedSolicitudesRef.current) {
+          const previousIds = knownSolicitudesRef.current;
+          const hasNewPending = pendingDocs.some((doc) => {
+            const id = doc?.id;
+            return typeof id === 'string' && !previousIds.has(id);
+          });
+
+          if (hasNewPending) {
+            const player = audioRef.current ?? (typeof Audio !== 'undefined' ? new Audio('/arrival-sound.mp3') : null);
+            if (player) {
+              audioRef.current = player;
+              try {
+                player.currentTime = 0;
+                const playPromise = player.play();
+                if (playPromise && typeof playPromise.catch === 'function') {
+                  playPromise.catch((err) => {
+                    console.warn('Unable to play notification sound:', err);
+                  });
+                }
+              } catch (err) {
+                console.warn('Unable to play notification sound:', err);
+              }
+            }
+          }
+        }
+
+        knownSolicitudesRef.current = new Set(
+          pendingDocs
+            .map((doc) => doc?.id)
+            .filter((id): id is string => typeof id === 'string')
+        );
+        initializedSolicitudesRef.current = true;
+
+        const candidate = pendingDocs[0] ?? safeDocs[0];
+        if (!candidate) {
+          setHasNewSolicitudes(false);
+          return;
+        }
+
+        const createdAt = getCreatedAtDate(candidate?.createdAt);
+        const key = `pricemaster_last_seen_solicitudes_${user.id || user.ownercompanie || 'anon'}`;
+        const lastSeenRaw = localStorage.getItem(key);
+        const lastSeen = lastSeenRaw ? new Date(lastSeenRaw) : null;
+
+        if (!lastSeen || (createdAt && createdAt.getTime() > lastSeen.getTime())) {
+          setHasNewSolicitudes(true);
+        } else {
+          setHasNewSolicitudes(false);
+        }
+      };
+
       const unsubscribe = onSnapshot(q, async (snapshot) => {
         try {
           if (!snapshot || snapshot.empty) {
             // fallback to service (handles normalization)
             const rows = await SolicitudesService.getSolicitudesByEmpresa(company);
             if (!rows || rows.length === 0) {
-              setHasNewSolicitudes(false);
+              handleSolicitudesUpdate([]);
               return;
             }
-            const newest = rows[0];
-            const createdAt = (newest as any)?.createdAt ? ((newest as any).createdAt.seconds ? new Date((newest as any).createdAt.seconds * 1000) : new Date((newest as any).createdAt)) : null;
-            const key = `pricemaster_last_seen_solicitudes_${user.id || user.ownercompanie || 'anon'}`;
-            const lastSeenRaw = localStorage.getItem(key);
-            const lastSeen = lastSeenRaw ? new Date(lastSeenRaw) : null;
-            if (!lastSeen || (createdAt && createdAt.getTime() > lastSeen.getTime())) setHasNewSolicitudes(true);
-            else setHasNewSolicitudes(false);
+            handleSolicitudesUpdate(rows);
             return;
           }
 
           const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-          const newest = docs[0];
-          const createdAt = (newest as any)?.createdAt ? ((newest as any).createdAt.seconds ? new Date((newest as any).createdAt.seconds * 1000) : new Date((newest as any).createdAt)) : null;
-          const key = `pricemaster_last_seen_solicitudes_${user.id || user.ownercompanie || 'anon'}`;
-          const lastSeenRaw = localStorage.getItem(key);
-          const lastSeen = lastSeenRaw ? new Date(lastSeenRaw) : null;
-          if (!lastSeen || (createdAt && createdAt.getTime() > lastSeen.getTime())) setHasNewSolicitudes(true);
-          else setHasNewSolicitudes(false);
+          handleSolicitudesUpdate(docs);
         } catch (err) {
           console.error('Error in solicitudes onSnapshot handler:', err);
         }
