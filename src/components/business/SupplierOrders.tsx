@@ -1,26 +1,15 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Trash2, Plus, Package, Calendar, User, FileText, Edit, Lock as LockIcon } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth';
 import { hasPermission } from '../../utils/permissions';
+import { SupplierOrdersService, SupplierOrderEntry, SupplierOrderProduct } from '../../services/supplier-orders';
 
-interface Product {
-  id: string
-  name: string
-  quantity: number
-  price?: number
-  barcode?: string
-}
+type Product = SupplierOrderProduct
 
-interface SupplierOrder {
-  id: string
-  supplierName: string
-  orderDate: string
-  expectedDeliveryDate: string
-  notes: string
-  products: Product[]
-  total?: number
+interface SupplierOrderView extends SupplierOrderEntry {
+  documentId?: string
 }
 
 export default function SupplierOrders() {
@@ -39,16 +28,25 @@ export default function SupplierOrders() {
   const [barcode, setBarcode] = useState<string>('')
   const [price, setPrice] = useState<string>('')
 
+  const ownerCompany = user?.ownercompanie?.trim() || ''
+  const userLoaded = Boolean(user)
+
   // Current order products
   const [products, setProducts] = useState<Product[]>([])
 
   // Orders history
-  const [orders, setOrders] = useState<SupplierOrder[]>([])
+  const [orders, setOrders] = useState<SupplierOrderView[]>([])
   const [showOrdersList, setShowOrdersList] = useState(false)
 
   // Edit functionality
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null)
+  const [editingDocId, setEditingDocId] = useState<string | null>(null)
   const [isEditing, setIsEditing] = useState(false)
+
+  // Async state
+  const [loadingOrders, setLoadingOrders] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   // Recurrent data
   const [recurrentSuppliers, setRecurrentSuppliers] = useState<string[]>([])
@@ -62,57 +60,72 @@ export default function SupplierOrders() {
     setOrderDate(today)
   }, [])
 
-  // Load orders from localStorage
-  useEffect(() => {
-    const savedOrders = localStorage.getItem('supplierOrders')
-    if (savedOrders) {
-      try {
-        setOrders(JSON.parse(savedOrders))
-      } catch (error) {
-        console.error('Error loading orders from localStorage:', error)
-      }
+  const loadOrders = useCallback(async () => {
+    if (!ownerCompany) {
+      setOrders([])
+      setRecurrentSuppliers([])
+      setRecurrentProducts([])
+      setError(userLoaded ? 'No se encontró una empresa asociada al usuario. Contacta al administrador.' : null)
+      return
     }
 
-    // Load recurrent suppliers
-    const savedSuppliers = localStorage.getItem('recurrentSuppliers')
-    if (savedSuppliers) {
-      try {
-        setRecurrentSuppliers(JSON.parse(savedSuppliers))
-      } catch (error) {
-        console.error('Error loading suppliers from localStorage:', error)
-      }
+    setLoadingOrders(true)
+    setError(null)
+
+    try {
+      const documents = await SupplierOrdersService.fetchOrdersForCompany(ownerCompany)
+      const flattened: SupplierOrderView[] = []
+      const supplierSet = new Set<string>()
+      const productSet = new Set<string>()
+
+      documents.forEach(doc => {
+        const docSupplier = doc.supplierName || ''
+        doc.orders.forEach(order => {
+          const supplier = order.supplierName || docSupplier
+          flattened.push({
+            ...order,
+            supplierName: supplier,
+            companyName: order.companyName || doc.companyName || ownerCompany,
+            documentId: doc.id
+          })
+
+          if (supplier) {
+            supplierSet.add(supplier)
+          }
+
+          order.products.forEach(product => {
+            if (product.name) {
+              productSet.add(product.name)
+            }
+          })
+        })
+      })
+
+      flattened.sort((a, b) => {
+        const aDate = a.orderDate ? new Date(a.orderDate).getTime() : 0
+        const bDate = b.orderDate ? new Date(b.orderDate).getTime() : 0
+        return bDate - aDate
+      })
+
+      setOrders(flattened)
+      setRecurrentSuppliers(Array.from(supplierSet))
+      setRecurrentProducts(Array.from(productSet))
+    } catch (err) {
+      console.error('Error loading supplier orders:', err)
+      setError('No se pudieron cargar las órdenes. Intenta nuevamente.')
+    } finally {
+      setLoadingOrders(false)
     }
+  }, [ownerCompany, userLoaded])
 
-    // Load recurrent products
-    const savedProducts = localStorage.getItem('recurrentProducts')
-    if (savedProducts) {
-      try {
-        setRecurrentProducts(JSON.parse(savedProducts))
-      } catch (error) {
-        console.error('Error loading products from localStorage:', error)
-      }
-    }
-  }, [])
-
-  // Save orders to localStorage
   useEffect(() => {
-    localStorage.setItem('supplierOrders', JSON.stringify(orders))
-  }, [orders])
-
-  // Save recurrent suppliers to localStorage
-  useEffect(() => {
-    localStorage.setItem('recurrentSuppliers', JSON.stringify(recurrentSuppliers))
-  }, [recurrentSuppliers])
-
-  // Save recurrent products to localStorage
-  useEffect(() => {
-    localStorage.setItem('recurrentProducts', JSON.stringify(recurrentProducts))
-  }, [recurrentProducts])
+    loadOrders()
+  }, [loadOrders])
 
   // Calculate total for current products
   const calculateTotal = (): number => {
     return products.reduce((total, product) => {
-      if (product.price) {
+      if (typeof product.price === 'number') {
         return total + (product.quantity * product.price)
       }
       return total
@@ -153,63 +166,79 @@ export default function SupplierOrders() {
   }
 
   // Save current order
-  const saveOrder = () => {
+  const saveOrder = async () => {
     if (!supplierName.trim() || products.length === 0) {
       alert('Por favor completa el nombre del proveedor y agrega al menos un producto.')
       return
     }
 
-    if (isEditing && editingOrderId) {
-      // Update existing order
-      const updatedOrder: SupplierOrder = {
-        id: editingOrderId,
-        supplierName: supplierName.trim(),
-        orderDate,
-        expectedDeliveryDate,
-        notes: notes.trim(),
-        products: [...products],
-        total: calculateTotal()
-      }
+    if (!ownerCompany) {
+      alert('No se encontró una empresa asociada al usuario. Contacta al administrador.')
+      return
+    }
 
-      setOrders(prev => prev.map(order =>
-        order.id === editingOrderId ? updatedOrder : order
-      ))
+    const trimmedSupplier = supplierName.trim()
+    const total = calculateTotal()
+    const existingOrder = editingOrderId ? orders.find(order => order.id === editingOrderId) : undefined
+    const now = new Date().toISOString()
 
-      alert('Orden actualizada exitosamente!')
-      cancelEdit()
-    } else {
-      // Create new order
-      const newOrder: SupplierOrder = {
-        id: Date.now().toString(),
-        supplierName: supplierName.trim(),
-        orderDate,
-        expectedDeliveryDate,
-        notes: notes.trim(),
-        products: [...products],
-        total: calculateTotal()
-      }
+    const orderPayload: SupplierOrderEntry = {
+      id: editingOrderId || Date.now().toString(),
+      supplierName: trimmedSupplier,
+      companyName: ownerCompany,
+      orderDate,
+      expectedDeliveryDate,
+      notes: notes.trim(),
+      products: [...products],
+      total: total > 0 ? total : undefined,
+      createdAt: existingOrder?.createdAt || now,
+      updatedAt: now,
+      createdBy: existingOrder?.createdBy || user?.id,
+      updatedBy: user?.id
+    }
 
-      setOrders(prev => [newOrder, ...prev])
+    setIsSaving(true)
 
-      // Add supplier to recurrent suppliers if not already there
-      const trimmedSupplier = supplierName.trim()
+    try {
+      const previousDocId = isEditing ? editingDocId : null
+      await SupplierOrdersService.saveOrder({
+        companyName: ownerCompany,
+        supplierName: trimmedSupplier,
+        order: orderPayload,
+        userId: user?.id,
+        previousDocumentId: previousDocId
+      })
+
+      await loadOrders()
+
       if (!recurrentSuppliers.includes(trimmedSupplier)) {
         setRecurrentSuppliers(prev => [...prev, trimmedSupplier])
       }
 
-      clearForm()
-      alert('Orden guardada exitosamente!')
+      if (isEditing) {
+        alert('Orden actualizada exitosamente!')
+        cancelEdit()
+      } else {
+        clearForm()
+        alert('Orden guardada exitosamente!')
+      }
+    } catch (err) {
+      console.error('Error saving supplier order:', err)
+      alert('No se pudo guardar la orden. Intenta nuevamente.')
+    } finally {
+      setIsSaving(false)
     }
   }
 
   // Start editing an existing order
-  const startEdit = (order: SupplierOrder) => {
+  const startEdit = (order: SupplierOrderView) => {
     setSupplierName(order.supplierName)
     setOrderDate(order.orderDate)
-    setExpectedDeliveryDate(order.expectedDeliveryDate)
-    setNotes(order.notes)
+    setExpectedDeliveryDate(order.expectedDeliveryDate || '')
+    setNotes(order.notes || '')
     setProducts([...order.products])
     setEditingOrderId(order.id)
+    setEditingDocId(order.documentId || null)
     setIsEditing(true)
     setShowOrdersList(false) // Switch to form view
   }
@@ -218,6 +247,7 @@ export default function SupplierOrders() {
   const cancelEdit = () => {
     setIsEditing(false)
     setEditingOrderId(null)
+    setEditingDocId(null)
     clearForm()
   }
 
@@ -239,12 +269,30 @@ export default function SupplierOrders() {
     setShowProductDropdown(false)
     setIsEditing(false)
     setEditingOrderId(null)
+    setEditingDocId(null)
   }
 
   // Delete saved order
-  const deleteOrder = (orderId: string) => {
-    if (confirm('¿Estás seguro de que quieres eliminar esta orden?')) {
-      setOrders(prev => prev.filter(o => o.id !== orderId))
+  const deleteOrder = async (orderId: string, documentId?: string | null) => {
+    if (!documentId) {
+      alert('No se pudo identificar la orden a eliminar.')
+      return
+    }
+
+    if (!confirm('¿Estás seguro de que quieres eliminar esta orden?')) {
+      return
+    }
+
+    try {
+      await SupplierOrdersService.removeOrder({ documentId, orderId })
+      if (editingOrderId === orderId) {
+        cancelEdit()
+      }
+      await loadOrders()
+      alert('Orden eliminada exitosamente!')
+    } catch (err) {
+      console.error('Error deleting supplier order:', err)
+      alert('No se pudo eliminar la orden. Intenta nuevamente.')
     }
   }
 
@@ -293,6 +341,12 @@ export default function SupplierOrders() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
       {/* Toggle between new order and orders list */}
       <div className="flex justify-center gap-4 mb-6">
         <button
@@ -615,16 +669,19 @@ export default function SupplierOrders() {
           <div className="flex justify-center gap-4">
             <button
               onClick={saveOrder}
-              disabled={!supplierName.trim() || products.length === 0}
+              disabled={isSaving || !supplierName.trim() || products.length === 0}
               className="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isEditing ? 'Actualizar Orden' : 'Guardar Orden'}
+              {isSaving
+                ? (isEditing ? 'Actualizando...' : 'Guardando...')
+                : (isEditing ? 'Actualizar Orden' : 'Guardar Orden')}
             </button>
 
             {isEditing && (
               <button
                 onClick={cancelEdit}
-                className="px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500"
+                disabled={isSaving}
+                className="px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancelar Edición
               </button>
@@ -632,7 +689,8 @@ export default function SupplierOrders() {
 
             <button
               onClick={clearForm}
-              className="px-6 py-2 rounded-lg hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-gray-500"
+              disabled={isSaving}
+              className="px-6 py-2 rounded-lg hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
                 background: 'var(--button-bg)',
                 color: 'var(--button-text)',
@@ -647,87 +705,97 @@ export default function SupplierOrders() {
         <div className="space-y-4">
           <h3 className="text-xl font-semibold" style={{ color: 'var(--foreground)' }}>Órdenes Guardadas</h3>
 
-          {orders.length === 0 ? (
+          {loadingOrders ? (
+            <div className="text-center py-8" style={{ color: 'var(--muted-foreground)' }}>
+              Cargando órdenes...
+            </div>
+          ) : orders.length === 0 ? (
             <div className="text-center py-8" style={{ color: 'var(--muted-foreground)' }}>
               No hay órdenes guardadas todavía.
             </div>
           ) : (
-            orders.map((order) => (
-              <div key={order.id} className="rounded-lg border p-6" style={{ background: 'var(--card-bg)', borderColor: 'var(--border)' }}>
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h4 className="text-lg font-medium" style={{ color: 'var(--foreground)' }}>{order.supplierName}</h4>
-                    <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>
-                      Orden: {new Date(order.orderDate).toLocaleDateString()}
-                      {order.expectedDeliveryDate && (
-                        <> • Entrega: {new Date(order.expectedDeliveryDate).toLocaleDateString()}</>
-                      )}
+            orders.map(order => {
+              const orderDateLabel = order.orderDate ? new Date(order.orderDate).toLocaleDateString() : 'Sin fecha'
+              const expectedDateLabel = order.expectedDeliveryDate ? new Date(order.expectedDeliveryDate).toLocaleDateString() : null
+              const orderKey = order.documentId ? `${order.documentId}-${order.id}` : order.id
+
+              return (
+                <div key={orderKey} className="rounded-lg border p-6" style={{ background: 'var(--card-bg)', borderColor: 'var(--border)' }}>
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h4 className="text-lg font-medium" style={{ color: 'var(--foreground)' }}>{order.supplierName}</h4>
+                      <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>
+                        Orden: {orderDateLabel}
+                        {expectedDateLabel && (
+                          <> • Entrega: {expectedDateLabel}</>
+                        )}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => startEdit(order)}
+                        className="text-blue-500 hover:text-blue-700 p-2"
+                        title="Editar orden"
+                      >
+                        <Edit className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => deleteOrder(order.id, order.documentId)}
+                        className="text-red-500 hover:text-red-700 p-2"
+                        title="Eliminar orden"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {order.notes && (
+                    <p className="text-sm mb-4" style={{ color: 'var(--muted-foreground)' }}>
+                      <strong>Notas:</strong> {order.notes}
                     </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => startEdit(order)}
-                      className="text-blue-500 hover:text-blue-700 p-2"
-                      title="Editar orden"
-                    >
-                      <Edit className="w-5 h-5" />
-                    </button>
-                    <button
-                      onClick={() => deleteOrder(order.id)}
-                      className="text-red-500 hover:text-red-700 p-2"
-                      title="Eliminar orden"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
+                  )}
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm border-collapse">
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                          <th className="text-left py-1 px-2" style={{ color: 'var(--foreground)' }}>Producto</th>
+                          <th className="text-center py-1 px-2" style={{ color: 'var(--foreground)' }}>Cantidad</th>
+                          <th className="text-center py-1 px-2" style={{ color: 'var(--foreground)' }}>Código</th>
+                          <th className="text-right py-1 px-2" style={{ color: 'var(--foreground)' }}>Precio</th>
+                          <th className="text-right py-1 px-2" style={{ color: 'var(--foreground)' }}>Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {order.products.map((product: Product) => (
+                          <tr key={product.id} style={{ borderBottom: '1px solid var(--muted)' }}>
+                            <td className="py-1 px-2" style={{ color: 'var(--foreground)' }}>{product.name}</td>
+                            <td className="py-1 px-2 text-center" style={{ color: 'var(--foreground)' }}>{product.quantity}</td>
+                            <td className="py-1 px-2 text-center" style={{ color: 'var(--foreground)' }}>
+                              {product.barcode || 'N/A'}
+                            </td>
+                            <td className="py-1 px-2 text-right" style={{ color: 'var(--foreground)' }}>
+                              {product.price ? `₡${product.price.toFixed(2)}` : 'N/A'}
+                            </td>
+                            <td className="py-1 px-2 text-right" style={{ color: 'var(--foreground)' }}>
+                              {product.price ? `₡${(product.quantity * product.price).toFixed(2)}` : 'N/A'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      {order.total && order.total > 0 && (
+                        <tfoot>
+                          <tr className="font-bold" style={{ borderTop: '2px solid var(--border)' }}>
+                            <td colSpan={4} className="py-1 px-2 text-right" style={{ color: 'var(--foreground)' }}>Total:</td>
+                            <td className="py-1 px-2 text-right" style={{ color: 'var(--foreground)' }}>₡{order.total.toFixed(2)}</td>
+                          </tr>
+                        </tfoot>
+                      )}
+                    </table>
                   </div>
                 </div>
-
-                {order.notes && (
-                  <p className="text-sm mb-4" style={{ color: 'var(--muted-foreground)' }}>
-                    <strong>Notas:</strong> {order.notes}
-                  </p>
-                )}
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm border-collapse">
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                        <th className="text-left py-1 px-2" style={{ color: 'var(--foreground)' }}>Producto</th>
-                        <th className="text-center py-1 px-2" style={{ color: 'var(--foreground)' }}>Cantidad</th>
-                        <th className="text-center py-1 px-2" style={{ color: 'var(--foreground)' }}>Código</th>
-                        <th className="text-right py-1 px-2" style={{ color: 'var(--foreground)' }}>Precio</th>
-                        <th className="text-right py-1 px-2" style={{ color: 'var(--foreground)' }}>Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {order.products.map((product) => (
-                        <tr key={product.id} style={{ borderBottom: '1px solid var(--muted)' }}>
-                          <td className="py-1 px-2" style={{ color: 'var(--foreground)' }}>{product.name}</td>
-                          <td className="py-1 px-2 text-center" style={{ color: 'var(--foreground)' }}>{product.quantity}</td>
-                          <td className="py-1 px-2 text-center" style={{ color: 'var(--foreground)' }}>
-                            {product.barcode || 'N/A'}
-                          </td>
-                          <td className="py-1 px-2 text-right" style={{ color: 'var(--foreground)' }}>
-                            {product.price ? `₡${product.price.toFixed(2)}` : 'N/A'}
-                          </td>
-                          <td className="py-1 px-2 text-right" style={{ color: 'var(--foreground)' }}>
-                            {product.price ? `₡${(product.quantity * product.price).toFixed(2)}` : 'N/A'}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    {order.total && order.total > 0 && (
-                      <tfoot>
-                        <tr className="font-bold" style={{ borderTop: '2px solid var(--border)' }}>
-                          <td colSpan={4} className="py-1 px-2 text-right" style={{ color: 'var(--foreground)' }}>Total:</td>
-                          <td className="py-1 px-2 text-right" style={{ color: 'var(--foreground)' }}>₡{order.total.toFixed(2)}</td>
-                        </tr>
-                      </tfoot>
-                    )}
-                  </table>
-                </div>
-              </div>
-            ))
+              )
+            })
           )}
         </div>
       )}
