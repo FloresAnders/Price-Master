@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from 'react';
-import { Banknote, Layers, Trash2, UserPlus } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Banknote, Layers, Settings, Trash2, UserPlus } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import { useProviders } from '../../../hooks/useProviders';
 import ConfirmModal from '../../../components/ui/ConfirmModal';
@@ -44,6 +44,8 @@ type FondoEntry = {
 };
 
 const FONDO_KEY = 'fg_fondos_v1';
+const FONDO_INITIAL_KEY = 'fg_fondo_initial_v1';
+const ADMIN_CODE = '12345'; // TODO: Permitir configurar este codigo desde el perfil de un administrador.
 
 export function ProviderSection({ id }: { id?: string }) {
     const { user, loading: authLoading } = useAuth();
@@ -225,6 +227,11 @@ export function FondoSection({ id }: { id?: string }) {
     const [ingreso, setIngreso] = useState('');
     const [manager, setManager] = useState('');
     const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+    const [initialAmount, setInitialAmount] = useState('0');
+    const [settingsOpen, setSettingsOpen] = useState(false);
+    const [settingsUnlocked, setSettingsUnlocked] = useState(false);
+    const [adminCodeInput, setAdminCodeInput] = useState('');
+    const [settingsError, setSettingsError] = useState<string | null>(null);
 
     const isIngreso = isIngresoType(paymentType);
     const isEgreso = isEgresoType(paymentType);
@@ -282,8 +289,28 @@ export function FondoSection({ id }: { id?: string }) {
     }, []);
 
     useEffect(() => {
+        try {
+            const storedInitial = localStorage.getItem(FONDO_INITIAL_KEY);
+            if (storedInitial !== null) {
+                setInitialAmount(storedInitial);
+            }
+        } catch (err) {
+            console.error('Error reading initial fondo amount from localStorage:', err);
+        }
+    }, []);
+
+    useEffect(() => {
         localStorage.setItem(FONDO_KEY, JSON.stringify(fondoEntries));
     }, [fondoEntries]);
+
+    useEffect(() => {
+        try {
+            const normalized = initialAmount.trim().length > 0 ? initialAmount : '0';
+            localStorage.setItem(FONDO_INITIAL_KEY, normalized);
+        } catch (err) {
+            console.error('Error storing initial fondo amount to localStorage:', err);
+        }
+    }, [initialAmount]);
 
     useEffect(() => {
         if (!selectedProvider) return;
@@ -347,11 +374,54 @@ export function FondoSection({ id }: { id?: string }) {
         setEditingEntryId(null);
     };
 
-    const normalizeMoneyInput = (value: string) => {
-        const sanitized = value.replace(/[^0-9.,]/g, '').replace(',', '.');
-        const [first, ...rest] = sanitized.split('.');
-        return rest.length > 0 ? `${first}.${rest.join('').replace(/\./g, '')}` : first;
+    const normalizeMoneyInput = (value: string) => value.replace(/[^0-9]/g, '');
+
+    const handleInitialAmountChange = (value: string) => {
+        setInitialAmount(normalizeMoneyInput(value));
     };
+
+    const handleInitialAmountBlur = () => {
+        setInitialAmount(prev => {
+            const normalized = prev.trim().length > 0 ? normalizeMoneyInput(prev) : '0';
+            return normalized.length > 0 ? normalized : '0';
+        });
+    };
+
+    const openSettings = () => {
+        setSettingsOpen(true);
+        setSettingsUnlocked(false);
+        setAdminCodeInput('');
+        setSettingsError(null);
+    };
+
+    const closeSettings = useCallback(() => {
+        setSettingsOpen(false);
+        setSettingsUnlocked(false);
+        setAdminCodeInput('');
+        setSettingsError(null);
+    }, []);
+
+    const handleAdminCodeSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        if (adminCodeInput.trim() === ADMIN_CODE) {
+            setSettingsUnlocked(true);
+            setSettingsError(null);
+            setAdminCodeInput('');
+            return;
+        }
+        setSettingsError('Codigo incorrecto.');
+    };
+
+    useEffect(() => {
+        if (!settingsOpen) return;
+        const handleEscape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                closeSettings();
+            }
+        };
+        window.addEventListener('keydown', handleEscape);
+        return () => window.removeEventListener('keydown', handleEscape);
+    }, [settingsOpen, closeSettings]);
 
     const handleSubmitFondo = () => {
         if (!company) return;
@@ -361,8 +431,8 @@ export function FondoSection({ id }: { id?: string }) {
         if (!/^[0-9]{1,4}$/.test(invoiceNumber)) return;
         if (!manager) return;
 
-        const egresoValue = isEgreso ? Number.parseFloat(egreso) : 0;
-        const ingresoValue = isIngreso ? Number.parseFloat(ingreso) : 0;
+    const egresoValue = isEgreso ? Number.parseInt(egreso, 10) : 0;
+    const ingresoValue = isIngreso ? Number.parseInt(ingreso, 10) : 0;
 
         if (isEgreso && (Number.isNaN(egresoValue) || egresoValue <= 0)) return;
         if (isIngreso && (Number.isNaN(ingresoValue) || ingresoValue <= 0)) return;
@@ -437,6 +507,30 @@ export function FondoSection({ id }: { id?: string }) {
     const egresoValid = isEgreso ? !Number.isNaN(egresoValue) && egresoValue > 0 : true;
     const ingresoValid = isIngreso ? !Number.isNaN(ingresoValue) && ingresoValue > 0 : true;
     const requiredAmountProvided = isEgreso ? egreso.trim().length > 0 : ingreso.trim().length > 0;
+    const initialAmountValue = Number.parseFloat(initialAmount) || 0;
+
+    const { totalIngresos, totalEgresos, currentBalance } = useMemo(() => {
+        let ingresos = 0;
+        let egresos = 0;
+        fondoEntries.forEach(entry => {
+            ingresos += entry.amountIngreso;
+            egresos += entry.amountEgreso;
+        });
+        const balance = initialAmountValue + ingresos - egresos;
+        return { totalIngresos: ingresos, totalEgresos: egresos, currentBalance: balance };
+    }, [fondoEntries, initialAmountValue]);
+
+    const balanceAfterById = useMemo(() => {
+        let running = initialAmountValue;
+        const ordered = [...fondoEntries].slice().reverse();
+        const map = new Map<string, number>();
+        ordered.forEach(entry => {
+            running += entry.amountIngreso;
+            running -= entry.amountEgreso;
+            map.set(entry.id, running);
+        });
+        return map;
+    }, [fondoEntries, initialAmountValue]);
 
     const isSubmitDisabled =
         !company ||
@@ -449,9 +543,10 @@ export function FondoSection({ id }: { id?: string }) {
         employeesLoading;
 
     const amountFormatter = useMemo(
-        () => new Intl.NumberFormat('es-CR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+        () => new Intl.NumberFormat('es-CR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }),
         [],
     );
+    const formatAmount = (value: number) => amountFormatter.format(Math.trunc(value));
 
     const amountClass = (isActive: boolean, inputHasValue: boolean, isValid: boolean) => {
         if (!isActive) return 'border-[var(--input-border)]';
@@ -468,9 +563,28 @@ export function FondoSection({ id }: { id?: string }) {
 
     return (
         <div id={id} className="mt-10">
-            <h2 className="text-xl font-semibold text-[var(--foreground)] mb-3 flex items-center gap-2">
-                <Banknote className="w-5 h-5" /> Registrar movimiento de Fondo
-            </h2>
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <h2 className="text-xl font-semibold text-[var(--foreground)] flex items-center gap-2">
+                    <Banknote className="w-5 h-5" /> Registrar movimiento de Fondo
+                </h2>
+                <div className="flex items-center gap-3">
+                    <div className="px-3 py-2 bg-[var(--muted)] border border-[var(--input-border)] rounded text-right min-w-[160px]">
+                        <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Saldo actual</div>
+                        <div className="text-lg font-semibold text-[var(--foreground)]">
+                            {formatAmount(currentBalance)}
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={openSettings}
+                        className="p-2 border border-[var(--input-border)] rounded hover:bg-[var(--muted)]"
+                        title="Abrir configuracion del fondo"
+                        aria-label="Abrir configuracion del fondo"
+                    >
+                        <Settings className="w-5 h-5" />
+                    </button>
+                </div>
+            </div>
 
             {!authLoading && !company && (
                 <p className="text-sm text-[var(--muted-foreground)] mb-4">
@@ -551,7 +665,7 @@ export function FondoSection({ id }: { id?: string }) {
                             {isEgreso ? (
                                 <td className="px-3 py-2 align-top" colSpan={2}>
                                     <input
-                                        placeholder="0.00"
+                                        placeholder="0"
                                         value={egreso}
                                         onChange={e => setEgreso(normalizeMoneyInput(e.target.value))}
                                         onKeyDown={handleFondoKeyDown}
@@ -563,7 +677,7 @@ export function FondoSection({ id }: { id?: string }) {
                             ) : (
                                 <td className="px-3 py-2 align-top" colSpan={2}>
                                     <input
-                                        placeholder="0.00"
+                                        placeholder="0"
                                         value={ingreso}
                                         onChange={e => setIngreso(normalizeMoneyInput(e.target.value))}
                                         onKeyDown={handleFondoKeyDown}
@@ -636,9 +750,10 @@ export function FondoSection({ id }: { id?: string }) {
                     {fondoEntries.map(fe => {
                         const providerName = providersMap.get(fe.providerCode) ?? fe.providerCode;
                         const isEntryEgreso = isEgresoType(fe.paymentType);
-                        const amountLabel = isEntryEgreso
-                            ? amountFormatter.format(fe.amountEgreso)
-                            : amountFormatter.format(fe.amountIngreso);
+                                            const amountLabel = isEntryEgreso
+                                                ? formatAmount(fe.amountEgreso)
+                                                : formatAmount(fe.amountIngreso);
+                        const balanceAfter = balanceAfterById.get(fe.id) ?? initialAmountValue;
                         return (
                             <li key={fe.id} className="bg-[var(--muted)] p-3 rounded">
                                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
@@ -650,6 +765,7 @@ export function FondoSection({ id }: { id?: string }) {
                                             <span>Tipo: {formatMovementType(fe.paymentType)}</span>
                                             <span>{isEntryEgreso ? 'Monto egreso' : 'Monto ingreso'}: {amountLabel}</span>
                                             <span>Encargado: {fe.manager}</span>
+                                            <span>Saldo despues: {formatAmount(balanceAfter)}</span>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
@@ -669,6 +785,116 @@ export function FondoSection({ id }: { id?: string }) {
                     })}
                 </ul>
             </div>
+
+            {settingsOpen && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
+                    onClick={closeSettings}
+                >
+                    <div
+                        className="w-full max-w-2xl rounded border border-[var(--input-border)] bg-[var(--background)] p-6 shadow-lg"
+                        onClick={event => event.stopPropagation()}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="fondo-settings-title"
+                    >
+                        <h3 id="fondo-settings-title" className="text-lg font-semibold text-[var(--foreground)]">
+                            Configuracion del fondo
+                        </h3>
+                        {!settingsUnlocked ? (
+                            <form onSubmit={handleAdminCodeSubmit} className="mt-4 space-y-4">
+                                <p className="text-sm text-[var(--muted-foreground)]">
+                                    Ingresa el codigo de administrador para acceder a la configuracion.
+                                </p>
+                                <input
+                                    type="password"
+                                    value={adminCodeInput}
+                                    onChange={e => {
+                                        setAdminCodeInput(e.target.value);
+                                        if (settingsError) setSettingsError(null);
+                                    }}
+                                    className={`w-full p-2 bg-[var(--input-bg)] border ${settingsError ? 'border-red-500' : 'border-[var(--input-border)]'} rounded`}
+                                    placeholder="Codigo de administrador"
+                                    autoFocus
+                                />
+                                {settingsError && <p className="text-sm text-red-500">{settingsError}</p>}
+                                <div className="flex justify-end gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={closeSettings}
+                                        className="px-4 py-2 border border-[var(--input-border)] rounded text-[var(--foreground)] hover:bg-[var(--muted)]"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="px-4 py-2 bg-[var(--accent)] text-white rounded"
+                                    >
+                                        Validar
+                                    </button>
+                                </div>
+                            </form>
+                        ) : (
+                            <div className="mt-4 space-y-5">
+                                <div className="flex flex-col gap-4 md:flex-row md:items-start">
+                                    <div className="rounded border border-[var(--input-border)] bg-[var(--muted)] p-4 md:w-80">
+                                        <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)] mb-1">
+                                            Monto inicial del fondo
+                                        </label>
+                                        <input
+                                            value={initialAmount}
+                                            onChange={e => handleInitialAmountChange(e.target.value)}
+                                            onBlur={handleInitialAmountBlur}
+                                            className="w-full p-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded"
+                                            placeholder="0"
+                                            inputMode="decimal"
+                                            disabled={!company}
+                                        />
+                                        <p className="mt-2 text-[11px] text-[var(--muted-foreground)]">
+                                            Se usa como base para calcular el saldo disponible tras cada movimiento.
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                                    <div className="p-3 bg-[var(--muted)] border border-[var(--input-border)] rounded">
+                                        <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Saldo inicial</div>
+                                        <div className="text-lg font-semibold text-[var(--foreground)]">
+                                            {formatAmount(initialAmountValue)}
+                                        </div>
+                                    </div>
+                                    <div className="p-3 bg-[var(--muted)] border border-[var(--input-border)] rounded">
+                                        <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Total ingresos</div>
+                                        <div className="text-lg font-semibold text-emerald-600">
+                                            {formatAmount(totalIngresos)}
+                                        </div>
+                                    </div>
+                                    <div className="p-3 bg-[var(--muted)] border border-[var(--input-border)] rounded">
+                                        <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Total egresos</div>
+                                        <div className="text-lg font-semibold text-red-600">
+                                            {formatAmount(totalEgresos)}
+                                        </div>
+                                    </div>
+                                    <div className="p-3 bg-[var(--muted)] border border-[var(--input-border)] rounded">
+                                        <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Saldo actual</div>
+                                        <div className="text-lg font-semibold text-[var(--foreground)]">
+                                            {formatAmount(currentBalance)}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex justify-end gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={closeSettings}
+                                        className="px-4 py-2 border border-[var(--input-border)] rounded text-[var(--foreground)] hover:bg-[var(--muted)]"
+                                    >
+                                        Cerrar
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
