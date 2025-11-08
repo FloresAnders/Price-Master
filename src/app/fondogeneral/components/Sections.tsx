@@ -1,17 +1,45 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
-import { UserPlus, Banknote, Layers, Trash2 } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Banknote, Layers, Trash2, UserPlus } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import { useProviders } from '../../../hooks/useProviders';
 import ConfirmModal from '../../../components/ui/ConfirmModal';
+import { EmpresasService } from '../../../services/empresas';
+
+const FONDO_EGRESO_TYPES = ['COMPRA', 'GASTO', 'MANTENIMIENTO', 'SALARIO'] as const;
+const FONDO_INGRESO_TYPES = ['INGRESO'] as const;
+const FONDO_TYPE_OPTIONS = [...FONDO_EGRESO_TYPES, ...FONDO_INGRESO_TYPES] as const;
+type FondoMovementType = typeof FONDO_EGRESO_TYPES[number] | typeof FONDO_INGRESO_TYPES[number];
+const isFondoMovementType = (value: string): value is FondoMovementType =>
+    FONDO_TYPE_OPTIONS.includes(value as FondoMovementType);
+const isIngresoType = (type: FondoMovementType) => type === 'INGRESO';
+const isEgresoType = (type: FondoMovementType) => !isIngresoType(type);
+const formatMovementType = (type: FondoMovementType) => type.charAt(0) + type.slice(1).toLowerCase();
+const normalizeStoredType = (value: unknown): FondoMovementType => {
+    if (typeof value === 'string') {
+        const upper = value.toUpperCase();
+        if (isFondoMovementType(upper)) {
+            return upper;
+        }
+        if (upper === 'EGRESO') {
+            return 'COMPRA';
+        }
+        if (upper === 'INGRESO') {
+            return 'INGRESO';
+        }
+    }
+    return 'COMPRA';
+};
 
 type FondoEntry = {
     id: string;
     providerCode: string;
     invoiceNumber: string;
-    paymentType: 'Gasto' | 'compra' | 'salario';
-    amount: number;
+    paymentType: FondoMovementType;
+    amountEgreso: number;
+    amountIngreso: number;
+    manager: string;
     createdAt: string;
 };
 
@@ -26,22 +54,23 @@ export function ProviderSection({ id }: { id?: string }) {
     const [formError, setFormError] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
     const [deletingCode, setDeletingCode] = useState<string | null>(null);
-    const [confirmState, setConfirmState] = useState<{ open: boolean; code: string; name: string }>(
-        { open: false, code: '', name: '' }
-    );
+    const [confirmState, setConfirmState] = useState<{ open: boolean; code: string; name: string }>({
+        open: false,
+        code: '',
+        name: '',
+    });
 
     const handleAddProvider = async () => {
         const name = providerName.trim().toUpperCase();
         if (!name) return;
 
-        const duplicate = providers.some(p => p.name.toUpperCase() === name);
-        if (duplicate) {
-            setFormError(`El proveedor "${name}" ya existe.`);
+        if (!company) {
+            setFormError('Tu usuario no tiene una empresa asignada.');
             return;
         }
 
-        if (!company) {
-            setFormError('Tu usuario no tiene una empresa asignada.');
+        if (providers.some(p => p.name.toUpperCase() === name)) {
+            setFormError(`El proveedor "${name}" ya existe.`);
             return;
         }
 
@@ -68,9 +97,7 @@ export function ProviderSection({ id }: { id?: string }) {
         setConfirmState({ open: false, code: '', name: '' });
     };
 
-    const closeRemoveModal = () => {
-        setConfirmState({ open: false, code: '', name: '' });
-    };
+    const closeRemoveModal = () => setConfirmState({ open: false, code: '', name: '' });
 
     const confirmRemoveProvider = async () => {
         if (!company) return;
@@ -95,7 +122,9 @@ export function ProviderSection({ id }: { id?: string }) {
 
     return (
         <div id={id} className="mt-10">
-            <h2 className="text-xl font-semibold text-[var(--foreground)] mb-3 flex items-center gap-2"><UserPlus className="w-5 h-5" /> Agregar proveedor</h2>
+            <h2 className="text-xl font-semibold text-[var(--foreground)] mb-3 flex items-center gap-2">
+                <UserPlus className="w-5 h-5" /> Agregar proveedor
+            </h2>
 
             {company && (
                 <p className="text-xs text-[var(--muted-foreground)] mb-3">
@@ -109,11 +138,7 @@ export function ProviderSection({ id }: { id?: string }) {
                 </p>
             )}
 
-            {resolvedError && (
-                <div className="mb-4 text-sm text-red-500">
-                    {resolvedError}
-                </div>
-            )}
+            {resolvedError && <div className="mb-4 text-sm text-red-500">{resolvedError}</div>}
 
             <div className="flex gap-3 items-start mb-4">
                 <input
@@ -144,12 +169,12 @@ export function ProviderSection({ id }: { id?: string }) {
                     <p className="text-[var(--muted-foreground)]">Cargando proveedores...</p>
                 ) : (
                     <ul className="space-y-2">
-                        {providers.length === 0 && <li className="text-[var(--muted-foreground)]">Aún no hay proveedores.</li>}
+                        {providers.length === 0 && <li className="text-[var(--muted-foreground)]">Aun no hay proveedores.</li>}
                         {providers.map(p => (
                             <li key={p.code} className="flex items-center justify-between bg-[var(--muted)] p-3 rounded">
                                 <div>
                                     <div className="text-[var(--foreground)] font-semibold">{p.name}</div>
-                                    <div className="text-xs text-[var(--muted-foreground)]">Código: {p.code}</div>
+                                    <div className="text-xs text-[var(--muted-foreground)]">Codigo: {p.code}</div>
                                 </div>
                                 <div className="flex items-center gap-3">
                                     <div className="text-xs text-[var(--muted-foreground)]">Empresa: {p.company}</div>
@@ -172,7 +197,7 @@ export function ProviderSection({ id }: { id?: string }) {
             <ConfirmModal
                 open={confirmState.open}
                 title="Eliminar proveedor"
-                message={`¿Quieres eliminar el proveedor "${confirmState.name || confirmState.code}"? Esta acción no se puede deshacer.`}
+                message={`Quieres eliminar el proveedor "${confirmState.name || confirmState.code}"? Esta accion no se puede deshacer.`}
                 confirmText="Eliminar"
                 cancelText="Cancelar"
                 actionType="delete"
@@ -190,53 +215,262 @@ export function FondoSection({ id }: { id?: string }) {
     const { providers, loading: providersLoading, error: providersError } = useProviders(company);
 
     const [fondoEntries, setFondoEntries] = useState<FondoEntry[]>([]);
+    const [companyEmployees, setCompanyEmployees] = useState<string[]>([]);
+    const [employeesLoading, setEmployeesLoading] = useState(false);
+
     const [selectedProvider, setSelectedProvider] = useState('');
     const [invoiceNumber, setInvoiceNumber] = useState('');
-    const [paymentType, setPaymentType] = useState<FondoEntry['paymentType']>('Gasto');
-    const [amount, setAmount] = useState('');
+    const [paymentType, setPaymentType] = useState<FondoEntry['paymentType']>('COMPRA');
+    const [egreso, setEgreso] = useState('');
+    const [ingreso, setIngreso] = useState('');
+    const [manager, setManager] = useState('');
+    const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+
+    const isIngreso = isIngresoType(paymentType);
+    const isEgreso = isEgresoType(paymentType);
+
+    const employeeOptions = useMemo(
+        () => companyEmployees.filter(name => !!name && name.trim().length > 0),
+        [companyEmployees],
+    );
+
+    const editingEntry = useMemo(
+        () => (editingEntryId ? fondoEntries.find(entry => entry.id === editingEntryId) ?? null : null),
+        [editingEntryId, fondoEntries],
+    );
+    const editingProviderCode = editingEntry?.providerCode ?? null;
 
     useEffect(() => {
         try {
             const rawF = localStorage.getItem(FONDO_KEY);
-            setFondoEntries(rawF ? JSON.parse(rawF) : []);
-        } catch (e) {
-            console.error(e);
+            if (!rawF) {
+                setFondoEntries([]);
+                return;
+            }
+
+            const parsed = JSON.parse(rawF);
+            if (!Array.isArray(parsed)) {
+                setFondoEntries([]);
+                return;
+            }
+
+            const sanitized = parsed
+                .map((entry: Partial<FondoEntry>) => ({
+                    ...entry,
+                    paymentType: normalizeStoredType(entry.paymentType),
+                    amountEgreso: typeof entry.amountEgreso === 'number' ? entry.amountEgreso : Number(entry.amountEgreso) || 0,
+                    amountIngreso: typeof entry.amountIngreso === 'number' ? entry.amountIngreso : Number(entry.amountIngreso) || 0,
+                }))
+                .filter((entry): entry is FondoEntry =>
+                    typeof entry.id === 'string' &&
+                    typeof entry.providerCode === 'string' &&
+                    typeof entry.invoiceNumber === 'string' &&
+                    typeof entry.paymentType === 'string' &&
+                    typeof entry.manager === 'string' &&
+                    typeof entry.createdAt === 'string',
+                )
+                .map(entry => ({
+                    ...entry,
+                    amountEgreso: isEgresoType(entry.paymentType) ? entry.amountEgreso : 0,
+                    amountIngreso: isIngresoType(entry.paymentType) ? entry.amountIngreso : 0,
+                }));
+
+            setFondoEntries(sanitized);
+        } catch (err) {
+            console.error('Error reading fondo entries from localStorage:', err);
         }
     }, []);
 
-    useEffect(() => void localStorage.setItem(FONDO_KEY, JSON.stringify(fondoEntries)), [fondoEntries]);
+    useEffect(() => {
+        localStorage.setItem(FONDO_KEY, JSON.stringify(fondoEntries));
+    }, [fondoEntries]);
 
     useEffect(() => {
-        if (selectedProvider && !providers.some(p => p.code === selectedProvider)) {
+        if (!selectedProvider) return;
+        const exists = providers.some(p => p.code === selectedProvider);
+        const isEditingSameProvider = editingEntryId && editingProviderCode === selectedProvider;
+        if (!exists && !isEditingSameProvider) {
             setSelectedProvider('');
         }
-    }, [providers, selectedProvider]);
+    }, [providers, selectedProvider, editingEntryId, editingProviderCode]);
 
-    const handleAddFondo = () => {
+    useEffect(() => {
+        let isActive = true;
+        if (!company) {
+            setCompanyEmployees([]);
+            return () => {
+                isActive = false;
+            };
+        }
+
+        setEmployeesLoading(true);
+        EmpresasService.getAllEmpresas()
+            .then(empresas => {
+                if (!isActive) return;
+                const match = empresas.find(emp => emp.name?.toLowerCase() === company.toLowerCase());
+                const names = match?.empleados?.map(emp => emp.Empleado).filter(Boolean) ?? [];
+                setCompanyEmployees(names as string[]);
+            })
+            .catch(err => {
+                console.error('Error loading company employees:', err);
+                if (isActive) setCompanyEmployees([]);
+            })
+            .finally(() => {
+                if (isActive) setEmployeesLoading(false);
+            });
+
+        return () => {
+            isActive = false;
+        };
+    }, [company]);
+
+    useEffect(() => {
+        if (manager && !employeeOptions.includes(manager)) {
+            setManager('');
+        }
+    }, [manager, employeeOptions]);
+
+    useEffect(() => {
+        if (isIngreso) {
+            setEgreso('');
+        } else {
+            setIngreso('');
+        }
+    }, [paymentType, isIngreso]);
+
+    const resetFondoForm = () => {
+        setInvoiceNumber('');
+        setEgreso('');
+        setIngreso('');
+        setManager('');
+        setPaymentType('COMPRA');
+        setEditingEntryId(null);
+    };
+
+    const normalizeMoneyInput = (value: string) => {
+        const sanitized = value.replace(/[^0-9.,]/g, '').replace(',', '.');
+        const [first, ...rest] = sanitized.split('.');
+        return rest.length > 0 ? `${first}.${rest.join('').replace(/\./g, '')}` : first;
+    };
+
+    const handleSubmitFondo = () => {
         if (!company) return;
         if (!selectedProvider) return;
-        if (!providers.some(p => p.code === selectedProvider)) return;
+        const providerExists = selectedProviderExists;
+        if (!providerExists && !(editingEntryId && editingEntry?.providerCode === selectedProvider)) return;
         if (!/^[0-9]{1,4}$/.test(invoiceNumber)) return;
-        const amt = parseFloat(amount);
-        if (Number.isNaN(amt)) return;
+        if (!manager) return;
+
+        const egresoValue = isEgreso ? Number.parseFloat(egreso) : 0;
+        const ingresoValue = isIngreso ? Number.parseFloat(ingreso) : 0;
+
+        if (isEgreso && (Number.isNaN(egresoValue) || egresoValue <= 0)) return;
+        if (isIngreso && (Number.isNaN(ingresoValue) || ingresoValue <= 0)) return;
+
+        const paddedInvoice = invoiceNumber.padStart(4, '0');
+
+        if (editingEntryId) {
+            setFondoEntries(prev =>
+                prev.map(entry =>
+                    entry.id === editingEntryId
+                        ? {
+                            ...entry,
+                            providerCode: selectedProvider,
+                            invoiceNumber: paddedInvoice,
+                            paymentType,
+                            amountEgreso: isEgreso ? egresoValue : 0,
+                            amountIngreso: isIngreso ? ingresoValue : 0,
+                            manager,
+                        }
+                        : entry,
+                ),
+            );
+            resetFondoForm();
+            return;
+        }
+
         const entry: FondoEntry = {
             id: String(Date.now()),
             providerCode: selectedProvider,
-            invoiceNumber: invoiceNumber.padStart(4, '0'),
+            invoiceNumber: paddedInvoice,
             paymentType,
-            amount: amt,
+            amountEgreso: isEgreso ? egresoValue : 0,
+            amountIngreso: isIngreso ? ingresoValue : 0,
+            manager,
             createdAt: new Date().toISOString(),
         };
+
         setFondoEntries(prev => [entry, ...prev]);
-        setInvoiceNumber('');
-        setAmount('');
+        resetFondoForm();
+    };
+
+    const startEditingEntry = (entry: FondoEntry) => {
+        setEditingEntryId(entry.id);
+        setSelectedProvider(entry.providerCode);
+        setInvoiceNumber(entry.invoiceNumber);
+        setPaymentType(entry.paymentType);
+        setManager(entry.manager);
+        if (isIngresoType(entry.paymentType)) {
+            setIngreso(entry.amountIngreso > 0 ? entry.amountIngreso.toString() : '');
+            setEgreso('');
+        } else {
+            setEgreso(entry.amountEgreso > 0 ? entry.amountEgreso.toString() : '');
+            setIngreso('');
+        }
+    };
+
+    const cancelEditing = () => {
+        resetFondoForm();
     };
 
     const isProviderSelectDisabled = !company || providersLoading || providers.length === 0;
+    const providersMap = useMemo(() => {
+        const map = new Map<string, string>();
+        providers.forEach(p => map.set(p.code, p.name));
+        return map;
+    }, [providers]);
+    const selectedProviderExists = selectedProvider ? providers.some(p => p.code === selectedProvider) : false;
+
+    const invoiceValid = /^[0-9]{1,4}$/.test(invoiceNumber) || invoiceNumber.length === 0;
+    const egresoValue = Number.parseFloat(egreso);
+    const ingresoValue = Number.parseFloat(ingreso);
+    const egresoValid = isEgreso ? !Number.isNaN(egresoValue) && egresoValue > 0 : true;
+    const ingresoValid = isIngreso ? !Number.isNaN(ingresoValue) && ingresoValue > 0 : true;
+    const requiredAmountProvided = isEgreso ? egreso.trim().length > 0 : ingreso.trim().length > 0;
+
+    const isSubmitDisabled =
+        !company ||
+        (!editingEntryId && isProviderSelectDisabled) ||
+        !invoiceValid ||
+        !requiredAmountProvided ||
+        !egresoValid ||
+        !ingresoValid ||
+        !manager ||
+        employeesLoading;
+
+    const amountFormatter = useMemo(
+        () => new Intl.NumberFormat('es-CR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+        [],
+    );
+
+    const amountClass = (isActive: boolean, inputHasValue: boolean, isValid: boolean) => {
+        if (!isActive) return 'border-[var(--input-border)]';
+        if (inputHasValue && !isValid) return 'border-red-500';
+        return 'border-[var(--input-border)]';
+    };
+
+    const handleFondoKeyDown = (event: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            handleSubmitFondo();
+        }
+    };
 
     return (
         <div id={id} className="mt-10">
-            <h2 className="text-xl font-semibold text-[var(--foreground)] mb-3 flex items-center gap-2"><Banknote className="w-5 h-5" /> Registrar movimiento de Fondo</h2>
+            <h2 className="text-xl font-semibold text-[var(--foreground)] mb-3 flex items-center gap-2">
+                <Banknote className="w-5 h-5" /> Registrar movimiento de Fondo
+            </h2>
 
             {!authLoading && !company && (
                 <p className="text-sm text-[var(--muted-foreground)] mb-4">
@@ -244,98 +478,192 @@ export function FondoSection({ id }: { id?: string }) {
                 </p>
             )}
 
-            {providersError && (
-                <div className="mb-4 text-sm text-red-500">
-                    {providersError}
+            {providersError && <div className="mb-4 text-sm text-red-500">{providersError}</div>}
+
+            {editingEntry && (
+                <div className="mb-3 text-xs text-[var(--muted-foreground)]">
+                    Editando movimiento #{editingEntry.invoiceNumber}. Actualiza los datos y presiona "Actualizar" o cancela para volver al modo de registro.
                 </div>
             )}
 
-            <div className="space-y-3">
-                <div className="flex flex-col sm:flex-row gap-3">
-                    <select
-                        value={selectedProvider}
-                        onChange={e => setSelectedProvider(e.target.value)}
-                        className="flex-1 p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded"
-                        disabled={isProviderSelectDisabled}
-                    >
-                        <option value="">
-                            {providersLoading ? 'Cargando proveedores...' : 'Seleccionar proveedor'}
-                        </option>
-                        {providers.map(p => (
-                            <option key={p.code} value={p.code}>{`${p.name} (${p.code})`}</option>
-                        ))}
-                    </select>
+            <div className="overflow-x-auto">
+                <table className="min-w-full border border-[var(--input-border)] text-sm">
+                    <thead className="bg-[var(--muted)] text-[var(--foreground)]">
+                        <tr>
+                            <th className="px-3 py-2 text-left">Proveedor</th>
+                            <th className="px-3 py-2 text-left">Numero Factura</th>
+                            <th className="px-3 py-2 text-left">Tipo</th>
+                            <th className="px-3 py-2 text-center" colSpan={2}>
+                                Monto
+                            </th>
+                            <th className="px-3 py-2 text-left">Encargado</th>
+                            <th className="px-3 py-2 text-left"></th>
+                        </tr>
 
-                    <input
-                        placeholder="Número de factura (4 dígitos)"
-                        value={invoiceNumber}
-                        onChange={e => setInvoiceNumber(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                        className="w-48 p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded"
-                        disabled={!company}
-                    />
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-3">
-                    <select
-                        value={paymentType}
-                        onChange={e => setPaymentType(e.target.value as FondoEntry['paymentType'])}
-                        className="p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded"
-                        disabled={!company}
-                    >
-                        <option value="Gasto">Gasto</option>
-                        <option value="compra">compra</option>
-                        <option value="salario">salario</option>
-                    </select>
-
-                    <input
-                        placeholder="Monto"
-                        value={amount}
-                        onChange={e => setAmount(e.target.value)}
-                        className="flex-1 p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded"
-                        inputMode="decimal"
-                        disabled={!company}
-                    />
-
-                    <div className="flex items-center">
-                        <button
-                            className="px-4 py-3 bg-[var(--accent)] text-white rounded disabled:opacity-50"
-                            onClick={handleAddFondo}
-                            disabled={
-                                !company ||
-                                !selectedProvider ||
-                                invoiceNumber.length === 0 ||
-                                amount.trim().length === 0 ||
-                                isProviderSelectDisabled ||
-                                providersLoading
-                            }
-                        >
-                            Guardar
-                        </button>
-                    </div>
-                </div>
-
-                {!providersLoading && providers.length === 0 && company && (
-                    <p className="text-sm text-[var(--muted-foreground)]">
-                        Registra un proveedor para poder asociarlo a los movimientos del fondo.
-                    </p>
-                )}
+                    </thead>
+                    <tbody>
+                        <tr className="border-t border-[var(--input-border)]">
+                            <td className="px-3 py-2 align-top">
+                                <select
+                                    value={selectedProvider}
+                                    onChange={e => setSelectedProvider(e.target.value)}
+                                    onKeyDown={handleFondoKeyDown}
+                                    className="w-full p-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded"
+                                    disabled={isProviderSelectDisabled}
+                                >
+                                    <option value="">
+                                        {providersLoading ? 'Cargando proveedores...' : 'Seleccionar proveedor'}
+                                    </option>
+                                    {selectedProvider && !selectedProviderExists && (
+                                        <option value={selectedProvider}>{`Proveedor no disponible (${selectedProvider})`}</option>
+                                    )}
+                                    {providers.map(p => (
+                                        <option key={p.code} value={p.code}>{`${p.name} (${p.code})`}</option>
+                                    ))}
+                                </select>
+                            </td>
+                            <td className="px-3 py-2 align-top">
+                                <input
+                                    placeholder="0000"
+                                    value={invoiceNumber}
+                                    onChange={e => setInvoiceNumber(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                                    onKeyDown={handleFondoKeyDown}
+                                    className={`w-full p-2 bg-[var(--input-bg)] border ${invoiceValid || invoiceNumber.length === 0
+                                        ? 'border-[var(--input-border)]'
+                                        : 'border-red-500'
+                                        } rounded`}
+                                    disabled={!company}
+                                />
+                            </td>
+                            <td className="px-3 py-2 align-top">
+                                <select
+                                    value={paymentType}
+                                    onChange={e => setPaymentType(e.target.value as FondoEntry['paymentType'])}
+                                    onKeyDown={handleFondoKeyDown}
+                                    className="w-full p-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded"
+                                    disabled={!company}
+                                >
+                                    {FONDO_TYPE_OPTIONS.map(option => (
+                                        <option key={option} value={option}>{formatMovementType(option)}</option>
+                                    ))}
+                                </select>
+                            </td>
+                            {isEgreso ? (
+                                <td className="px-3 py-2 align-top" colSpan={2}>
+                                    <input
+                                        placeholder="0.00"
+                                        value={egreso}
+                                        onChange={e => setEgreso(normalizeMoneyInput(e.target.value))}
+                                        onKeyDown={handleFondoKeyDown}
+                                        className={`w-full p-2 bg-[var(--input-bg)] border ${amountClass(true, egreso.trim().length > 0, egresoValid)
+                                            } rounded`}
+                                        inputMode="decimal"
+                                    />
+                                </td>
+                            ) : (
+                                <td className="px-3 py-2 align-top" colSpan={2}>
+                                    <input
+                                        placeholder="0.00"
+                                        value={ingreso}
+                                        onChange={e => setIngreso(normalizeMoneyInput(e.target.value))}
+                                        onKeyDown={handleFondoKeyDown}
+                                        className={`w-full p-2 bg-[var(--input-bg)] border ${amountClass(true, ingreso.trim().length > 0, ingresoValid)
+                                            } rounded`}
+                                        inputMode="decimal"
+                                    />
+                                </td>
+                            )}
+                            <td className="px-3 py-2 align-top">
+                                <select
+                                    value={manager}
+                                    onChange={e => setManager(e.target.value)}
+                                    onKeyDown={handleFondoKeyDown}
+                                    className="w-full p-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded"
+                                    disabled={!company || employeesLoading || employeeOptions.length === 0}
+                                >
+                                    <option value="">
+                                        {employeesLoading ? 'Cargando encargados...' : 'Seleccionar encargado'}
+                                    </option>
+                                    {employeeOptions.map(name => (
+                                        <option key={name} value={name}>
+                                            {name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </td>
+                            <td className="px-3 py-2 align-top text-center">
+                                <div className="flex justify-center gap-2">
+                                    {editingEntryId && (
+                                        <button
+                                            type="button"
+                                            className="px-4 py-2 border border-[var(--input-border)] rounded text-[var(--foreground)] hover:bg-[var(--muted)] disabled:opacity-50"
+                                            onClick={cancelEditing}
+                                        >
+                                            Cancelar
+                                        </button>
+                                    )}
+                                    <button
+                                        type="button"
+                                        className="px-4 py-2 bg-[var(--accent)] text-white rounded disabled:opacity-50"
+                                        onClick={handleSubmitFondo}
+                                        disabled={isSubmitDisabled}
+                                    >
+                                        {editingEntryId ? 'Actualizar' : 'Guardar'}
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
+
+            {!providersLoading && providers.length === 0 && company && (
+                <p className="text-sm text-[var(--muted-foreground)] mt-3">
+                    Registra un proveedor para poder asociarlo a los movimientos del fondo.
+                </p>
+            )}
+
+            {!employeesLoading && employeeOptions.length === 0 && company && (
+                <p className="text-sm text-[var(--muted-foreground)] mt-2">
+                    La empresa no tiene empleados registrados; agrega empleados para seleccionar un encargado.
+                </p>
+            )}
 
             <div className="mt-6">
                 <h3 className="text-sm font-medium text-[var(--foreground)] mb-2">Movimientos recientes</h3>
                 <ul className="space-y-2">
-                    {fondoEntries.length === 0 && <li className="text-[var(--muted-foreground)]">No hay movimientos aún.</li>}
+                    {fondoEntries.length === 0 && <li className="text-[var(--muted-foreground)]">No hay movimientos aun.</li>}
                     {fondoEntries.map(fe => {
-                        const prov = providers.find(p => p.code === fe.providerCode);
+                        const providerName = providersMap.get(fe.providerCode) ?? fe.providerCode;
+                        const isEntryEgreso = isEgresoType(fe.paymentType);
+                        const amountLabel = isEntryEgreso
+                            ? amountFormatter.format(fe.amountEgreso)
+                            : amountFormatter.format(fe.amountIngreso);
                         return (
-                            <li key={fe.id} className="bg-[var(--muted)] p-3 rounded flex justify-between items-start">
-                                <div>
-                                    <div className="font-semibold text-[var(--foreground)]">
-                                        {prov ? prov.name : fe.providerCode} <span className="text-xs text-[var(--muted-foreground)]">#{fe.invoiceNumber}</span>
+                            <li key={fe.id} className="bg-[var(--muted)] p-3 rounded">
+                                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                                    <div>
+                                        <div className="font-semibold text-[var(--foreground)]">
+                                            {providerName} <span className="text-xs text-[var(--muted-foreground)]">#{fe.invoiceNumber}</span>
+                                        </div>
+                                        <div className="text-xs text-[var(--muted-foreground)] space-x-3">
+                                            <span>Tipo: {formatMovementType(fe.paymentType)}</span>
+                                            <span>{isEntryEgreso ? 'Monto egreso' : 'Monto ingreso'}: {amountLabel}</span>
+                                            <span>Encargado: {fe.manager}</span>
+                                        </div>
                                     </div>
-                                    <div className="text-xs text-[var(--muted-foreground)]">{fe.paymentType} — {fe.amount}</div>
+                                    <div className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
+                                        <button
+                                            type="button"
+                                            className="px-3 py-1 border border-[var(--input-border)] rounded hover:bg-[var(--muted)] disabled:opacity-50"
+                                            onClick={() => startEditingEntry(fe)}
+                                            disabled={editingEntryId === fe.id}
+                                        >
+                                            {editingEntryId === fe.id ? 'Editando' : 'Editar'}
+                                        </button>
+                                        <span>{new Date(fe.createdAt).toLocaleString()}</span>
+                                    </div>
                                 </div>
-                                <div className="text-xs text-[var(--muted-foreground)]">{new Date(fe.createdAt).toLocaleString()}</div>
                             </li>
                         );
                     })}
@@ -348,9 +676,11 @@ export function FondoSection({ id }: { id?: string }) {
 export function OtraSection({ id }: { id?: string }) {
     return (
         <div id={id} className="mt-10">
-            <h2 className="text-xl font-semibold text-[var(--foreground)] mb-3 flex items-center gap-2"><Layers className="w-5 h-5" /> Otra</h2>
+            <h2 className="text-xl font-semibold text-[var(--foreground)] mb-3 flex items-center gap-2">
+                <Layers className="w-5 h-5" /> Otra
+            </h2>
             <div className="p-4 bg-[var(--muted)] border border-[var(--border)] rounded">
-                <p className="text-[var(--muted-foreground)]">Acciones adicionales próximamente.</p>
+                <p className="text-[var(--muted-foreground)]">Acciones adicionales proximamente.</p>
             </div>
         </div>
     );
