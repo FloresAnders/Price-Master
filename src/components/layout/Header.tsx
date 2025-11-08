@@ -1,12 +1,12 @@
 'use client'
 
 import Image from 'next/image';
-import { Settings, LogOut, Menu, X, Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck, History, User, ChevronDown, Bell } from 'lucide-react';
+import { Settings, LogOut, Menu, X, Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck, History, User, ChevronDown, Bell, UserPlus, Layers } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { collection, query as fbQuery, where as fbWhere, orderBy as fbOrderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { createPortal } from 'react-dom';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../../hooks/useAuth';
 import { SolicitudesService } from '@/services/solicitudes';
 import { ThemeToggle } from './ThemeToggle';
@@ -47,6 +47,7 @@ interface HeaderProps {
 export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const { logout, user } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
@@ -62,6 +63,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const initializedSolicitudesRef = useRef(false);
   const knownSolicitudesRef = useRef<Set<string>>(new Set());
+  const [currentHash, setCurrentHash] = useState('');
 
   // Ensure component is mounted on client
   useEffect(() => {
@@ -108,6 +110,15 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       localStorage.setItem('show-calculator', showCalculator.toString());
     }
   }, [showCalculator]);
+
+  // Keep currentHash in sync in case some code manipulates history.hash
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const updateHash = () => setCurrentHash(window.location.hash || '');
+    updateHash();
+    window.addEventListener('hashchange', updateHash);
+    return () => window.removeEventListener('hashchange', updateHash);
+  }, []);
 
   // Close dropdown on scroll or resize
   useEffect(() => {
@@ -355,6 +366,83 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
             />
             Time Master
           </button>
+
+          {/* If we're inside the Fondo General area, show its quick actions in the header */}
+          {pathname && pathname.startsWith('/fondogeneral') && (
+            <nav className="hidden lg:flex items-center gap-1">
+              {/* Agregar proveedor */}
+              <button
+                onClick={() => {
+                  (async () => {
+                    try {
+                      await router.push('/fondogeneral/agregarproveedor');
+                    } catch {
+                      window.location.href = '/fondogeneral/agregarproveedor';
+                    }
+                  })();
+                }}
+                className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${pathname === '/fondogeneral/agregarproveedor'
+                  ? 'text-[var(--tab-text-active)] font-semibold'
+                  : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
+                }`}
+                title="Agregar proveedor"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span className="hidden xl:inline">Agregar proveedor</span>
+                {currentHash === '#agregarproveedor' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
+                )}
+              </button>
+
+              {/* Fondo */}
+              <button
+                onClick={() => {
+                  (async () => {
+                    try {
+                      await router.push('/fondogeneral/fondogeneral');
+                    } catch {
+                      window.location.href = '/fondogeneral/fondogeneral';
+                    }
+                  })();
+                }}
+                className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${pathname === '/fondogeneral/fondogeneral' || pathname === '/fondogeneral'
+                  ? 'text-[var(--tab-text-active)] font-semibold'
+                  : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
+                }`}
+                title="Fondo"
+              >
+                <Banknote className="w-4 h-4" />
+                <span className="hidden xl:inline">Fondo</span>
+                {(currentHash === '#fondogeneral' || (pathname === '/fondogeneral' && !currentHash)) && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
+                )}
+              </button>
+
+              {/* Otra */}
+              <button
+                onClick={() => {
+                  (async () => {
+                    try {
+                      await router.push('/fondogeneral/otra');
+                    } catch {
+                      window.location.href = '/fondogeneral/otra';
+                    }
+                  })();
+                }}
+                className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${pathname === '/fondogeneral/otra'
+                  ? 'text-[var(--tab-text-active)] font-semibold'
+                  : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
+                }`}
+                title="Otra"
+              >
+                <Layers className="w-4 h-4" />
+                <span className="hidden xl:inline">Otra</span>
+                {currentHash === '#otra' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
+                )}
+              </button>
+            </nav>
+          )}
 
           {/* Desktop navigation tabs - only show when inside a card */}
           {activeTab && visibleTabs.length > 0 && (
