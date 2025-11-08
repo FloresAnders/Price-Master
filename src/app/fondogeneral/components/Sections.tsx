@@ -265,8 +265,12 @@ export function FondoSection({ id }: { id?: string }) {
                 .map((entry: Partial<FondoEntry>) => ({
                     ...entry,
                     paymentType: normalizeStoredType(entry.paymentType),
-                    amountEgreso: typeof entry.amountEgreso === 'number' ? entry.amountEgreso : Number(entry.amountEgreso) || 0,
-                    amountIngreso: typeof entry.amountIngreso === 'number' ? entry.amountIngreso : Number(entry.amountIngreso) || 0,
+                    amountEgreso: Math.trunc(
+                        typeof entry.amountEgreso === 'number' ? entry.amountEgreso : Number(entry.amountEgreso) || 0,
+                    ),
+                    amountIngreso: Math.trunc(
+                        typeof entry.amountIngreso === 'number' ? entry.amountIngreso : Number(entry.amountIngreso) || 0,
+                    ),
                 }))
                 .filter((entry): entry is FondoEntry =>
                     typeof entry.id === 'string' &&
@@ -481,10 +485,12 @@ export function FondoSection({ id }: { id?: string }) {
         setPaymentType(entry.paymentType);
         setManager(entry.manager);
         if (isIngresoType(entry.paymentType)) {
-            setIngreso(entry.amountIngreso > 0 ? entry.amountIngreso.toString() : '');
+            const ingresoValue = Math.trunc(entry.amountIngreso);
+            setIngreso(ingresoValue > 0 ? ingresoValue.toString() : '');
             setEgreso('');
         } else {
-            setEgreso(entry.amountEgreso > 0 ? entry.amountEgreso.toString() : '');
+            const egresoValue = Math.trunc(entry.amountEgreso);
+            setEgreso(egresoValue > 0 ? egresoValue.toString() : '');
             setIngreso('');
         }
     };
@@ -502,12 +508,12 @@ export function FondoSection({ id }: { id?: string }) {
     const selectedProviderExists = selectedProvider ? providers.some(p => p.code === selectedProvider) : false;
 
     const invoiceValid = /^[0-9]{1,4}$/.test(invoiceNumber) || invoiceNumber.length === 0;
-    const egresoValue = Number.parseFloat(egreso);
-    const ingresoValue = Number.parseFloat(ingreso);
+    const egresoValue = Number.parseInt(egreso, 10);
+    const ingresoValue = Number.parseInt(ingreso, 10);
     const egresoValid = isEgreso ? !Number.isNaN(egresoValue) && egresoValue > 0 : true;
     const ingresoValid = isIngreso ? !Number.isNaN(ingresoValue) && ingresoValue > 0 : true;
     const requiredAmountProvided = isEgreso ? egreso.trim().length > 0 : ingreso.trim().length > 0;
-    const initialAmountValue = Number.parseFloat(initialAmount) || 0;
+    const initialAmountValue = Number.parseInt(initialAmount, 10) || 0;
 
     const { totalIngresos, totalEgresos, currentBalance } = useMemo(() => {
         let ingresos = 0;
