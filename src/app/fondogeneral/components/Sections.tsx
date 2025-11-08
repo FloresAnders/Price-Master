@@ -31,8 +31,14 @@ export function ProviderSection({ id }: { id?: string }) {
     );
 
     const handleAddProvider = async () => {
-        const name = providerName.trim();
+        const name = providerName.trim().toUpperCase();
         if (!name) return;
+
+        const duplicate = providers.some(p => p.name.toUpperCase() === name);
+        if (duplicate) {
+            setFormError(`El proveedor "${name}" ya existe.`);
+            return;
+        }
 
         if (!company) {
             setFormError('Tu usuario no tiene una empresa asignada.');
@@ -114,7 +120,13 @@ export function ProviderSection({ id }: { id?: string }) {
                     className="flex-1 p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded"
                     placeholder="Nombre del proveedor"
                     value={providerName}
-                    onChange={e => setProviderName(e.target.value)}
+                    onChange={e => setProviderName(e.target.value.toUpperCase())}
+                    onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            void handleAddProvider();
+                        }
+                    }}
                     disabled={!company || saving || deletingCode !== null}
                 />
                 <button

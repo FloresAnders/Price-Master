@@ -32,7 +32,7 @@ export function useProviders(company?: string) {
 		}
 	}, [company]);
 
-	const addProvider = useCallback(async (name: string) => {
+		const addProvider = useCallback(async (name: string) => {
 		const trimmedCompany = (company || '').trim();
 		if (!trimmedCompany) {
 			const message = 'No se pudo determinar la empresa del usuario.';
@@ -42,7 +42,7 @@ export function useProviders(company?: string) {
 
 		try {
 			setError(null);
-			await ProvidersService.addProvider(trimmedCompany, name);
+				await ProvidersService.addProvider(trimmedCompany, name);
 			await fetchProviders();
 		} catch (err) {
 			const message = err instanceof Error ? err.message : 'No se pudo guardar el proveedor.';

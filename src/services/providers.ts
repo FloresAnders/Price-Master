@@ -128,7 +128,7 @@ export class ProvidersService {
 			throw new Error('No se pudo determinar la empresa del usuario.');
 		}
 
-		const trimmedName = (providerName || '').trim();
+			const trimmedName = (providerName || '').trim();
 		if (!trimmedName) {
 			throw new Error('El nombre del proveedor es obligatorio.');
 		}
@@ -145,10 +145,19 @@ export class ProvidersService {
 						providers: [] as ProviderEntry[]
 					};
 
+				const normalizedName = trimmedName.toUpperCase();
+				const duplicate = document.providers.some(
+					provider => provider.name.toUpperCase() === normalizedName
+				);
+
+				if (duplicate) {
+					throw new Error('Ya existe un proveedor con ese nombre.');
+				}
+
 			const nextNumericCode = deriveNextCode(document.nextCode, document.providers);
 			const createdProvider: ProviderEntry = {
 				code: String(nextNumericCode).padStart(4, '0'),
-				name: trimmedName,
+					name: normalizedName,
 				company: document.company
 			};
 
