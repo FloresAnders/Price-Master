@@ -40,6 +40,7 @@ type FondoEntry = {
     amountEgreso: number;
     amountIngreso: number;
     manager: string;
+    notes: string;
     createdAt: string;
 };
 
@@ -226,6 +227,7 @@ export function FondoSection({ id }: { id?: string }) {
     const [egreso, setEgreso] = useState('');
     const [ingreso, setIngreso] = useState('');
     const [manager, setManager] = useState('');
+    const [notes, setNotes] = useState('');
     const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
     const [initialAmount, setInitialAmount] = useState('0');
     const [settingsOpen, setSettingsOpen] = useState(false);
@@ -271,6 +273,7 @@ export function FondoSection({ id }: { id?: string }) {
                     amountIngreso: Math.trunc(
                         typeof entry.amountIngreso === 'number' ? entry.amountIngreso : Number(entry.amountIngreso) || 0,
                     ),
+                    notes: typeof entry.notes === 'string' ? entry.notes : '',
                 }))
                 .filter((entry): entry is FondoEntry =>
                     typeof entry.id === 'string' &&
@@ -278,6 +281,7 @@ export function FondoSection({ id }: { id?: string }) {
                     typeof entry.invoiceNumber === 'string' &&
                     typeof entry.paymentType === 'string' &&
                     typeof entry.manager === 'string' &&
+                    typeof entry.notes === 'string' &&
                     typeof entry.createdAt === 'string',
                 )
                 .map(entry => ({
@@ -375,6 +379,7 @@ export function FondoSection({ id }: { id?: string }) {
         setIngreso('');
         setManager('');
         setPaymentType('COMPRA');
+        setNotes('');
         setEditingEntryId(null);
     };
 
@@ -435,8 +440,9 @@ export function FondoSection({ id }: { id?: string }) {
         if (!/^[0-9]{1,4}$/.test(invoiceNumber)) return;
         if (!manager) return;
 
-    const egresoValue = isEgreso ? Number.parseInt(egreso, 10) : 0;
-    const ingresoValue = isIngreso ? Number.parseInt(ingreso, 10) : 0;
+        const egresoValue = isEgreso ? Number.parseInt(egreso, 10) : 0;
+        const ingresoValue = isIngreso ? Number.parseInt(ingreso, 10) : 0;
+        const trimmedNotes = notes.trim();
 
         if (isEgreso && (Number.isNaN(egresoValue) || egresoValue <= 0)) return;
         if (isIngreso && (Number.isNaN(ingresoValue) || ingresoValue <= 0)) return;
@@ -455,6 +461,7 @@ export function FondoSection({ id }: { id?: string }) {
                             amountEgreso: isEgreso ? egresoValue : 0,
                             amountIngreso: isIngreso ? ingresoValue : 0,
                             manager,
+                            notes: trimmedNotes,
                         }
                         : entry,
                 ),
@@ -471,6 +478,7 @@ export function FondoSection({ id }: { id?: string }) {
             amountEgreso: isEgreso ? egresoValue : 0,
             amountIngreso: isIngreso ? ingresoValue : 0,
             manager,
+            notes: trimmedNotes,
             createdAt: new Date().toISOString(),
         };
 
@@ -484,6 +492,7 @@ export function FondoSection({ id }: { id?: string }) {
         setInvoiceNumber(entry.invoiceNumber);
         setPaymentType(entry.paymentType);
         setManager(entry.manager);
+        setNotes(entry.notes ?? '');
         if (isIngresoType(entry.paymentType)) {
             const ingresoValue = Math.trunc(entry.amountIngreso);
             setIngreso(ingresoValue > 0 ? ingresoValue.toString() : '');
@@ -616,8 +625,12 @@ export function FondoSection({ id }: { id?: string }) {
                             <th className="px-3 py-2 text-center" colSpan={2}>
                                 Monto
                             </th>
+                            <th className="px-3 py-2 text-left">Observacion</th>
                             <th className="px-3 py-2 text-left">Encargado</th>
                             <th className="px-3 py-2 text-left"></th>
+                        </tr>
+                        <tr className="text-xs text-[var(--muted-foreground)]">
+
                         </tr>
 
                     </thead>
@@ -677,7 +690,7 @@ export function FondoSection({ id }: { id?: string }) {
                                         onKeyDown={handleFondoKeyDown}
                                         className={`w-full p-2 bg-[var(--input-bg)] border ${amountClass(true, egreso.trim().length > 0, egresoValid)
                                             } rounded`}
-                                        inputMode="decimal"
+                                        inputMode="numeric"
                                     />
                                 </td>
                             ) : (
@@ -689,10 +702,20 @@ export function FondoSection({ id }: { id?: string }) {
                                         onKeyDown={handleFondoKeyDown}
                                         className={`w-full p-2 bg-[var(--input-bg)] border ${amountClass(true, ingreso.trim().length > 0, ingresoValid)
                                             } rounded`}
-                                        inputMode="decimal"
+                                        inputMode="numeric"
                                     />
                                 </td>
                             )}
+                            <td className="px-3 py-2 align-top">
+                                <input
+                                    placeholder="Observacion"
+                                    value={notes}
+                                    onChange={e => setNotes(e.target.value)}
+                                    onKeyDown={handleFondoKeyDown}
+                                    className="w-full p-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded"
+                                    maxLength={200}
+                                />
+                            </td>
                             <td className="px-3 py-2 align-top">
                                 <select
                                     value={manager}
@@ -756,9 +779,9 @@ export function FondoSection({ id }: { id?: string }) {
                     {fondoEntries.map(fe => {
                         const providerName = providersMap.get(fe.providerCode) ?? fe.providerCode;
                         const isEntryEgreso = isEgresoType(fe.paymentType);
-                                            const amountLabel = isEntryEgreso
-                                                ? formatAmount(fe.amountEgreso)
-                                                : formatAmount(fe.amountIngreso);
+                        const amountLabel = isEntryEgreso
+                            ? formatAmount(fe.amountEgreso)
+                            : formatAmount(fe.amountIngreso);
                         const balanceAfter = balanceAfterById.get(fe.id) ?? initialAmountValue;
                         return (
                             <li key={fe.id} className="bg-[var(--muted)] p-3 rounded">
@@ -773,6 +796,11 @@ export function FondoSection({ id }: { id?: string }) {
                                             <span>Encargado: {fe.manager}</span>
                                             <span>Saldo despues: {formatAmount(balanceAfter)}</span>
                                         </div>
+                                        {fe.notes && (
+                                            <div className="text-xs text-[var(--muted-foreground)] mt-1">
+                                                Observacion: {fe.notes}
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
                                         <button
@@ -853,7 +881,7 @@ export function FondoSection({ id }: { id?: string }) {
                                             onBlur={handleInitialAmountBlur}
                                             className="w-full p-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded"
                                             placeholder="0"
-                                            inputMode="decimal"
+                                            inputMode="numeric"
                                             disabled={!company}
                                         />
                                         <p className="mt-2 text-[11px] text-[var(--muted-foreground)]">
