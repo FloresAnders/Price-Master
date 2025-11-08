@@ -13,6 +13,12 @@ export interface Empresas {
   empleados: EmpresaEmpleado[];
 }
 
+export interface ProviderEntry {
+  code: string;
+  name: string;
+  company: string;
+}
+
 export interface Sorteo {
   id?: string;
   name: string;
