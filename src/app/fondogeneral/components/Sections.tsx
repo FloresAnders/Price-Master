@@ -1,7 +1,29 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Banknote, Layers, Plus, Settings, Trash2, UserPlus, X } from 'lucide-react';
+import {
+    ArrowDownRight,
+    ArrowUpRight,
+    Banknote,
+    Clock,
+    FileText,
+    Layers,
+    Lock,
+    LockOpen,
+    Pencil,
+    Plus,
+    Settings,
+    Tag,
+    Trash2,
+    UserCircle,
+    UserPlus,
+    X,
+} from 'lucide-react';
+import Drawer from '@mui/material/Drawer';
+import Box from '@mui/material/Box';
+import IconButton from '@mui/material/IconButton';
+import Typography from '@mui/material/Typography';
+import Divider from '@mui/material/Divider';
 import { useAuth } from '../../../hooks/useAuth';
 import { useProviders } from '../../../hooks/useProviders';
 import ConfirmModal from '../../../components/ui/ConfirmModal';
@@ -125,7 +147,7 @@ export function ProviderSection({ id }: { id?: string }) {
     const isLoading = authLoading || providersLoading;
 
     return (
-        <div id={id} className="mt-10">
+        <div id={id} className="mt-10" style={{ color: '#ffffff' }}>
             <h2 className="text-xl font-semibold text-[var(--foreground)] mb-3 flex items-center gap-2">
                 <UserPlus className="w-5 h-5" /> Agregar proveedor
             </h2>
@@ -236,6 +258,7 @@ export function FondoSection({ id }: { id?: string }) {
     const [adminCodeInput, setAdminCodeInput] = useState('');
     const [settingsError, setSettingsError] = useState<string | null>(null);
     const [movementModalOpen, setMovementModalOpen] = useState(false);
+    const [movementAutoCloseLocked, setMovementAutoCloseLocked] = useState(false);
 
     const isIngreso = isIngresoType(paymentType);
     const isEgreso = isEgresoType(paymentType);
@@ -469,7 +492,9 @@ export function FondoSection({ id }: { id?: string }) {
                 ),
             );
             resetFondoForm();
-            setMovementModalOpen(false);
+            if (!movementAutoCloseLocked) {
+                setMovementModalOpen(false);
+            }
             return;
         }
 
@@ -487,7 +512,9 @@ export function FondoSection({ id }: { id?: string }) {
 
         setFondoEntries(prev => [entry, ...prev]);
         resetFondoForm();
-        setMovementModalOpen(false);
+        if (!movementAutoCloseLocked) {
+            setMovementModalOpen(false);
+        }
     };
 
     const startEditingEntry = (entry: FondoEntry) => {
@@ -566,6 +593,14 @@ export function FondoSection({ id }: { id?: string }) {
         () => new Intl.NumberFormat('es-CR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }),
         [],
     );
+    const dateTimeFormatter = useMemo(
+        () =>
+            new Intl.DateTimeFormat('es-CR', {
+                dateStyle: 'short',
+                timeStyle: 'short',
+            }),
+        [],
+    );
     const formatAmount = (value: number) => amountFormatter.format(Math.trunc(value));
 
     const amountClass = (isActive: boolean, inputHasValue: boolean, isValid: boolean) => {
@@ -596,6 +631,7 @@ export function FondoSection({ id }: { id?: string }) {
     const closeMovementModal = () => {
         setMovementModalOpen(false);
         resetFondoForm();
+        setMovementAutoCloseLocked(false);
     };
     const handleOpenCreateMovement = () => {
         resetFondoForm();
@@ -619,17 +655,11 @@ export function FondoSection({ id }: { id?: string }) {
                     <button
                         type="button"
                         onClick={handleOpenCreateMovement}
-                        className="flex items-center gap-2 px-4 py-2 bg-[var(--accent)] text-white rounded hover:opacity-90"
+                        className="flex items-center gap-2 px-4 py-2 text-white rounded fg-add-mov-btn"
                     >
                         <Plus className="w-4 h-4" />
                         Agregar movimiento
                     </button>
-                    <div className="px-3 py-2 bg-[var(--muted)] border border-[var(--input-border)] rounded text-right min-w-[160px]">
-                        <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Saldo actual</div>
-                        <div className="text-lg font-semibold text-[var(--foreground)]">
-                            {formatAmount(currentBalance)}
-                        </div>
-                    </div>
                     <button
                         type="button"
                         onClick={openSettings}
@@ -650,29 +680,55 @@ export function FondoSection({ id }: { id?: string }) {
 
             {providersError && <div className="mb-4 text-sm text-red-500">{providersError}</div>}
 
-            {movementModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4" onClick={closeMovementModal}>
-                    <div
-                        className="w-full max-w-5xl rounded border border-[var(--input-border)] bg-[var(--background)] p-6 shadow-lg"
-                        onClick={event => event.stopPropagation()}
+            <Drawer
+                anchor="right"
+                open={movementModalOpen}
+                onClose={closeMovementModal}
+                PaperProps={{
+                    sx: {
+                        width: { xs: '100vw', sm: 520 },
+                        maxWidth: '100vw',
+                        bgcolor: '#1f262a',
+                        color: '#ffffff',
+                    },
+                }}
+            >
+                <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                    <Box
+                        sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            px: 3,
+                            py: 2,
+                        }}
                     >
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-lg font-semibold text-[var(--foreground)]">
-                                {editingEntry ? `Editar movimiento #${editingEntry.invoiceNumber}` : 'Registrar movimiento'}
-                            </h3>
-                            <button
-                                type="button"
+                        <Typography variant="h6" component="h3" sx={{ fontWeight: 600 }}>
+                            {editingEntry ? `Editar movimiento #${editingEntry.invoiceNumber}` : 'Registrar movimiento'}
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <IconButton
+                                aria-label={movementAutoCloseLocked ? 'Desbloquear cierre automatico' : 'Bloquear cierre automatico'}
+                                onClick={() => setMovementAutoCloseLocked(prev => !prev)}
+                                sx={{ color: 'var(--foreground)' }}
+                            >
+                                {movementAutoCloseLocked ? <Lock className="w-4 h-4" /> : <LockOpen className="w-4 h-4" />}
+                            </IconButton>
+                            <IconButton
+                                aria-label="Cerrar registro de movimiento"
                                 onClick={closeMovementModal}
-                                className="p-2 rounded border border-[var(--input-border)] hover:bg-[var(--muted)]"
-                                aria-label="Cerrar modal"
+                                sx={{ color: 'var(--foreground)' }}
                             >
                                 <X className="w-4 h-4" />
-                            </button>
-                        </div>
+                            </IconButton>
+                        </Box>
+                    </Box>
+                    <Divider sx={{ borderColor: 'var(--input-border)' }} />
+                    <Box sx={{ flex: 1, overflowY: 'auto', px: 3, py: 2 }}>
                         {editingEntry && (
-                            <p className="mb-3 text-xs text-[var(--muted-foreground)]">
+                            <Typography variant="caption" component="p" sx={{ color: 'var(--muted-foreground)', mb: 2 }}>
                                 Editando movimiento #{editingEntry.invoiceNumber}. Actualiza los datos y presiona &quot;Actualizar&quot; o cancela para volver al modo de registro.
-                            </p>
+                            </Typography>
                         )}
                         <AgregarMovimiento
                             selectedProvider={selectedProvider}
@@ -709,9 +765,9 @@ export function FondoSection({ id }: { id?: string }) {
                             isSubmitDisabled={isSubmitDisabled}
                             onFieldKeyDown={handleFondoKeyDown}
                         />
-                    </div>
-                </div>
-            )}
+                    </Box>
+                </Box>
+            </Drawer>
 
             {!providersLoading && providers.length === 0 && company && (
                 <p className="text-sm text-[var(--muted-foreground)] mt-3">
@@ -726,60 +782,162 @@ export function FondoSection({ id }: { id?: string }) {
             )}
 
             <div className="mt-6">
-                <h3 className="text-sm font-medium text-[var(--foreground)] mb-2">Movimientos recientes</h3>
-                <ul className="space-y-2">
-                    {fondoEntries.length === 0 && <li className="text-[var(--muted-foreground)]">No hay movimientos aun.</li>}
-                    {fondoEntries.map(fe => {
-                        const providerName = providersMap.get(fe.providerCode) ?? fe.providerCode;
-                        const isEntryEgreso = isEgresoType(fe.paymentType);
-                        const amountLabel = isEntryEgreso
-                            ? formatAmount(fe.amountEgreso)
-                            : formatAmount(fe.amountIngreso);
-                        const balanceAfter = balanceAfterById.get(fe.id) ?? initialAmountValue;
-                        return (
-                            <li key={fe.id} className="bg-[var(--muted)] p-3 rounded">
-                                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
-                                    <div>
-                                        <div className="font-semibold text-[var(--foreground)]">
-                                            {providerName} <span className="text-xs text-[var(--muted-foreground)]">#{fe.invoiceNumber}</span>
-                                        </div>
-                                        <div className="text-xs text-[var(--muted-foreground)] space-x-3">
-                                            <span>Tipo: {formatMovementType(fe.paymentType)}</span>
-                                            <span>{isEntryEgreso ? 'Monto egreso' : 'Monto ingreso'}: {amountLabel}</span>
-                                            <span>Encargado: {fe.manager}</span>
-                                            <span>Saldo despues: {formatAmount(balanceAfter)}</span>
-                                        </div>
-                                        {fe.notes && (
-                                            <div className="text-xs text-[var(--muted-foreground)] mt-1">
-                                                Observacion: {fe.notes}
+                <h3 className="text-sm font-medium text-[var(--muted-foreground)] mb-2 text-center">Movimientos recientes</h3>
+                {fondoEntries.length === 0 ? (
+                    <p className="text-sm text-[var(--muted-foreground)] text-center">No hay movimientos aun.</p>
+                ) : (
+                    <div className="overflow-x-auto rounded border border-[var(--input-border)] bg-[#1f262a] text-white">
+                        <div className="max-h-[36rem] overflow-y-auto">
+                            <table className="w-full min-w-[920px] text-sm">
+                                <thead className="bg-[var(--muted)] text-xs uppercase tracking-wide text-[var(--muted-foreground)]">
+                                    <tr>
+                                        <th className="px-3 py-2 text-left font-semibold">
+                                            <div className="flex items-center gap-2">
+                                                <Clock className="w-4 h-4" />
+                                                Hora
                                             </div>
-                                        )}
-                                    </div>
-                                    <div className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
-                                        <button
-                                            type="button"
-                                            className="px-3 py-1 border border-[var(--input-border)] rounded hover:bg-[var(--muted)] disabled:opacity-50"
-                                            onClick={() => startEditingEntry(fe)}
-                                            disabled={editingEntryId === fe.id}
-                                        >
-                                            {editingEntryId === fe.id ? 'Editando' : 'Editar'}
-                                        </button>
-                                        <span>{new Date(fe.createdAt).toLocaleString()}</span>
-                                    </div>
-                                </div>
-                            </li>
-                        );
-                    })}
-                </ul>
+                                        </th>
+                                        <th className="px-3 py-2 text-left font-semibold">
+                                            <div className="flex items-center gap-2">
+                                                <Layers className="w-4 h-4" />
+                                                Motivo
+                                            </div>
+                                        </th>
+                                        <th className="px-3 py-2 text-left font-semibold">
+                                            <div className="flex items-center gap-2">
+                                                <Tag className="w-4 h-4" />
+                                                Tipo
+                                            </div>
+                                        </th>
+                                        <th className="px-3 py-2 text-left font-semibold">
+                                            <div className="flex items-center gap-2">
+                                                <FileText className="w-4 h-4" />
+                                                N° factura
+                                            </div>
+                                        </th>
+                                        <th className="px-3 py-2 text-left font-semibold">
+                                            <div className="flex items-center gap-2">
+                                                <Banknote className="w-4 h-4" />
+                                                Monto
+                                            </div>
+                                        </th>
+                                        <th className="px-3 py-2 text-left font-semibold">
+                                            <div className="flex items-center gap-2">
+                                                <UserCircle className="w-4 h-4" />
+                                                Encargado
+                                            </div>
+                                        </th>
+                                        <th className="px-3 py-2 text-left font-semibold">
+                                            <div className="flex items-center gap-2">
+                                                <Pencil className="w-4 h-4" />
+                                                Editar
+                                            </div>
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {fondoEntries.map(fe => {
+                                        const providerName = providersMap.get(fe.providerCode) ?? fe.providerCode;
+                                        const isEntryEgreso = isEgresoType(fe.paymentType);
+                                        const movementAmount = isEntryEgreso ? fe.amountEgreso : fe.amountIngreso;
+                                        const amountLabel = formatAmount(movementAmount);
+                                        const balanceAfter = balanceAfterById.get(fe.id) ?? initialAmountValue;
+                                        const recordedAt = new Date(fe.createdAt);
+                                        const formattedDate = Number.isNaN(recordedAt.getTime())
+                                            ? 'Sin fecha'
+                                            : dateTimeFormatter.format(recordedAt);
+                                        const amountPrefix = isEntryEgreso ? '-' : '+';
+                                        return (
+                                            <tr key={fe.id} className="border-t border-[var(--input-border)] hover:bg-[var(--muted)]">
+                                                <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">{formattedDate}</td>
+                                                <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
+                                                    <div className="font-semibold text-[var(--muted-foreground)]">{providerName}</div>
+                                                    {fe.notes && (
+                                                        <div className="mt-1 text-xs text-[var(--muted-foreground)] break-words">
+                                                            {fe.notes}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
+                                                    {formatMovementType(fe.paymentType)}
+                                                </td>
+                                                <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">#{fe.invoiceNumber}</td>
+                                                <td className="px-3 py-2 align-top">
+                                                    <div className="flex flex-col gap-1 text-right">
+                                                        <div className="flex items-center justify-end gap-2">
+                                                            {isEntryEgreso ? (
+                                                                <ArrowUpRight className="w-4 h-4 text-red-500" />
+                                                            ) : (
+                                                                <ArrowDownRight className="w-4 h-4 text-green-500" />
+                                                            )}
+                                                            <span
+                                                                className={`font-semibold ${isEntryEgreso ? 'text-red-500' : 'text-green-600'
+                                                                    }`}
+                                                            >
+                                                                {`${amountPrefix} CRC ${amountLabel}`}
+                                                            </span>
+                                                        </div>
+                                                        <span className="text-xs text-[var(--muted-foreground)]">
+                                                            Saldo: CRC {formatAmount(balanceAfter)}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">{fe.manager}</td>
+                                                <td className="px-3 py-2 align-top">
+                                                    <button
+                                                        type="button"
+                                                        className="inline-flex items-center gap-2 rounded border border-[var(--input-border)] px-3 py-1 text-xs font-medium text-[var(--muted-foreground)] hover:bg-[var(--muted)] disabled:opacity-50"
+                                                        onClick={() => startEditingEntry(fe)}
+                                                        disabled={editingEntryId === fe.id}
+                                                        title="Editar movimiento"
+                                                    >
+                                                        <Pencil className="w-4 h-4" />
+                                                        {editingEntryId === fe.id ? 'Editando' : 'Editar'}
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            <div className="mt-5">
+                <div className="grid items-center grid-cols-1 sm:grid-cols-[1fr_auto_1fr] gap-4">
+                    <a
+                        href="/fondogeneral"
+                        className="text-sm text-[var(--muted-foreground)] sm:justify-self-start flex items-center gap-2"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4" aria-hidden="true">
+                            <path d="M19 12H5" />
+                            <path d="M12 19l-7-7 7-7" />
+                        </svg>
+                        <span>Volver</span>
+                    </a>
+
+                    <div className="w-full sm:w-auto sm:justify-self-center">
+                        <div className="px-4 py-3 rounded text-center min-w-[190px] fg-balance-card">
+                            <div className="text-xs uppercase tracking-wide">Saldo actual</div>
+                            <div className="text-lg font-semibold">
+                                {formatAmount(currentBalance)}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="hidden sm:block" />
+                </div>
             </div>
 
             {settingsOpen && (
                 <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-gray-800/40 px-4"
                     onClick={closeSettings}
                 >
                     <div
-                        className="w-full max-w-2xl rounded border border-[var(--input-border)] bg-[var(--background)] p-6 shadow-lg"
+                        className="w-full max-w-2xl rounded border border-[var(--input-border)] bg-[#1f262a] p-6 shadow-lg text-white"
                         onClick={event => event.stopPropagation()}
                         role="dialog"
                         aria-modal="true"

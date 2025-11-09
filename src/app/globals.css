@@ -342,3 +342,28 @@
   animation: step-right 0.5s ease-in-out infinite;
   transform-origin: 12px 20px;
 }
+
+/* Button style for Fondo: Agregar movimiento */
+.fg-add-mov-btn {
+  transition: background-color 0.2s ease, transform 0.1s ease, border-color 0.2s ease;
+  background-color: transparent;
+  color: #FFFFFF; /* ensure text is white */
+  border: 3px solid #b2b6bf; /* bone */
+}
+
+.fg-add-mov-btn:hover {
+  background-color: #3B82F6; /* fill with blue on hover */
+  border-color: #F2E9DA; /* bone */
+  transform: translateY(-1px);
+}
+
+/* Balance card style (bottom) - match Add Movement button visuals */
+.fg-balance-card {
+  background-color: transparent;
+  color: #FFFFFF;
+  border: 3px solid #F2E9DA; /* bone */
+}
+
+.fg-balance-card * {
+  color: #FFFFFF !important;
+}
