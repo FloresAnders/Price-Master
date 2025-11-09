@@ -1,16 +1,17 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Banknote, Layers, Settings, Trash2, UserPlus } from 'lucide-react';
+import { Banknote, Layers, Plus, Settings, Trash2, UserPlus, X } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import { useProviders } from '../../../hooks/useProviders';
 import ConfirmModal from '../../../components/ui/ConfirmModal';
 import { EmpresasService } from '../../../services/empresas';
+import AgregarMovimiento from './AgregarMovimiento';
 
 const FONDO_EGRESO_TYPES = ['COMPRA', 'GASTO', 'MANTENIMIENTO', 'SALARIO'] as const;
 const FONDO_INGRESO_TYPES = ['INGRESO'] as const;
 const FONDO_TYPE_OPTIONS = [...FONDO_EGRESO_TYPES, ...FONDO_INGRESO_TYPES] as const;
-type FondoMovementType = typeof FONDO_EGRESO_TYPES[number] | typeof FONDO_INGRESO_TYPES[number];
+export type FondoMovementType = typeof FONDO_EGRESO_TYPES[number] | typeof FONDO_INGRESO_TYPES[number];
 const isFondoMovementType = (value: string): value is FondoMovementType =>
     FONDO_TYPE_OPTIONS.includes(value as FondoMovementType);
 const isIngresoType = (type: FondoMovementType) => type === 'INGRESO';
@@ -32,7 +33,7 @@ const normalizeStoredType = (value: unknown): FondoMovementType => {
     return 'COMPRA';
 };
 
-type FondoEntry = {
+export type FondoEntry = {
     id: string;
     providerCode: string;
     invoiceNumber: string;
@@ -234,6 +235,7 @@ export function FondoSection({ id }: { id?: string }) {
     const [settingsUnlocked, setSettingsUnlocked] = useState(false);
     const [adminCodeInput, setAdminCodeInput] = useState('');
     const [settingsError, setSettingsError] = useState<string | null>(null);
+    const [movementModalOpen, setMovementModalOpen] = useState(false);
 
     const isIngreso = isIngresoType(paymentType);
     const isEgreso = isEgresoType(paymentType);
@@ -467,6 +469,7 @@ export function FondoSection({ id }: { id?: string }) {
                 ),
             );
             resetFondoForm();
+            setMovementModalOpen(false);
             return;
         }
 
@@ -484,6 +487,7 @@ export function FondoSection({ id }: { id?: string }) {
 
         setFondoEntries(prev => [entry, ...prev]);
         resetFondoForm();
+        setMovementModalOpen(false);
     };
 
     const startEditingEntry = (entry: FondoEntry) => {
@@ -502,6 +506,7 @@ export function FondoSection({ id }: { id?: string }) {
             setEgreso(egresoValue > 0 ? egresoValue.toString() : '');
             setIngreso('');
         }
+        setMovementModalOpen(true);
     };
 
     const cancelEditing = () => {
@@ -569,6 +574,34 @@ export function FondoSection({ id }: { id?: string }) {
         return 'border-[var(--input-border)]';
     };
 
+    const handleProviderChange = (value: string) => setSelectedProvider(value);
+    const handleInvoiceNumberChange = (value: string) => setInvoiceNumber(value.replace(/\D/g, '').slice(0, 4));
+    const handlePaymentTypeChange = (value: string) => {
+        if (isFondoMovementType(value)) {
+            setPaymentType(value);
+        }
+    };
+    const handleEgresoChange = (value: string) => setEgreso(normalizeMoneyInput(value));
+    const handleIngresoChange = (value: string) => setIngreso(normalizeMoneyInput(value));
+    const handleNotesChange = (value: string) => setNotes(value);
+    const handleManagerChange = (value: string) => setManager(value);
+
+    const managerSelectDisabled = !company || employeesLoading || employeeOptions.length === 0;
+    const invoiceDisabled = !company;
+    const egresoBorderClass = amountClass(isEgreso, egreso.trim().length > 0, egresoValid);
+    const ingresoBorderClass = amountClass(isIngreso, ingreso.trim().length > 0, ingresoValid);
+    const formatMovementTypeForSelect = (value: string) =>
+        formatMovementType(isFondoMovementType(value) ? value : 'COMPRA');
+
+    const closeMovementModal = () => {
+        setMovementModalOpen(false);
+        resetFondoForm();
+    };
+    const handleOpenCreateMovement = () => {
+        resetFondoForm();
+        setMovementModalOpen(true);
+    };
+
     const handleFondoKeyDown = (event: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>) => {
         if (event.key === 'Enter') {
             event.preventDefault();
@@ -583,6 +616,14 @@ export function FondoSection({ id }: { id?: string }) {
                     <Banknote className="w-5 h-5" /> Registrar movimiento de Fondo
                 </h2>
                 <div className="flex items-center gap-3">
+                    <button
+                        type="button"
+                        onClick={handleOpenCreateMovement}
+                        className="flex items-center gap-2 px-4 py-2 bg-[var(--accent)] text-white rounded hover:opacity-90"
+                    >
+                        <Plus className="w-4 h-4" />
+                        Agregar movimiento
+                    </button>
                     <div className="px-3 py-2 bg-[var(--muted)] border border-[var(--input-border)] rounded text-right min-w-[160px]">
                         <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Saldo actual</div>
                         <div className="text-lg font-semibold text-[var(--foreground)]">
@@ -609,156 +650,68 @@ export function FondoSection({ id }: { id?: string }) {
 
             {providersError && <div className="mb-4 text-sm text-red-500">{providersError}</div>}
 
-            {editingEntry && (
-                <div className="mb-3 text-xs text-[var(--muted-foreground)]">
-                    Editando movimiento #{editingEntry.invoiceNumber}. Actualiza los datos y presiona "Actualizar" o cancela para volver al modo de registro.
+            {movementModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4" onClick={closeMovementModal}>
+                    <div
+                        className="w-full max-w-5xl rounded border border-[var(--input-border)] bg-[var(--background)] p-6 shadow-lg"
+                        onClick={event => event.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-semibold text-[var(--foreground)]">
+                                {editingEntry ? `Editar movimiento #${editingEntry.invoiceNumber}` : 'Registrar movimiento'}
+                            </h3>
+                            <button
+                                type="button"
+                                onClick={closeMovementModal}
+                                className="p-2 rounded border border-[var(--input-border)] hover:bg-[var(--muted)]"
+                                aria-label="Cerrar modal"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+                        {editingEntry && (
+                            <p className="mb-3 text-xs text-[var(--muted-foreground)]">
+                                Editando movimiento #{editingEntry.invoiceNumber}. Actualiza los datos y presiona &quot;Actualizar&quot; o cancela para volver al modo de registro.
+                            </p>
+                        )}
+                        <AgregarMovimiento
+                            selectedProvider={selectedProvider}
+                            onProviderChange={handleProviderChange}
+                            providers={providers}
+                            providersLoading={providersLoading}
+                            isProviderSelectDisabled={isProviderSelectDisabled}
+                            selectedProviderExists={selectedProviderExists}
+                            invoiceNumber={invoiceNumber}
+                            onInvoiceNumberChange={handleInvoiceNumberChange}
+                            invoiceValid={invoiceValid}
+                            invoiceDisabled={invoiceDisabled}
+                            paymentType={paymentType}
+                            onPaymentTypeChange={handlePaymentTypeChange}
+                            movementTypeOptions={FONDO_TYPE_OPTIONS}
+                            formatMovementType={formatMovementTypeForSelect}
+                            isEgreso={isEgreso}
+                            egreso={egreso}
+                            onEgresoChange={handleEgresoChange}
+                            egresoBorderClass={egresoBorderClass}
+                            ingreso={ingreso}
+                            onIngresoChange={handleIngresoChange}
+                            ingresoBorderClass={ingresoBorderClass}
+                            notes={notes}
+                            onNotesChange={handleNotesChange}
+                            manager={manager}
+                            onManagerChange={handleManagerChange}
+                            managerSelectDisabled={managerSelectDisabled}
+                            employeeOptions={employeeOptions}
+                            employeesLoading={employeesLoading}
+                            editingEntryId={editingEntryId}
+                            onCancelEditing={cancelEditing}
+                            onSubmit={handleSubmitFondo}
+                            isSubmitDisabled={isSubmitDisabled}
+                            onFieldKeyDown={handleFondoKeyDown}
+                        />
+                    </div>
                 </div>
             )}
-
-            <div className="overflow-x-auto">
-                <table className="min-w-full border border-[var(--input-border)] text-sm">
-                    <thead className="bg-[var(--muted)] text-[var(--foreground)]">
-                        <tr>
-                            <th className="px-3 py-2 text-left">Proveedor</th>
-                            <th className="px-3 py-2 text-left">Numero Factura</th>
-                            <th className="px-3 py-2 text-left">Tipo</th>
-                            <th className="px-3 py-2 text-center" colSpan={2}>
-                                Monto
-                            </th>
-                            <th className="px-3 py-2 text-left">Observacion</th>
-                            <th className="px-3 py-2 text-left">Encargado</th>
-                            <th className="px-3 py-2 text-left"></th>
-                        </tr>
-                        <tr className="text-xs text-[var(--muted-foreground)]">
-
-                        </tr>
-
-                    </thead>
-                    <tbody>
-                        <tr className="border-t border-[var(--input-border)]">
-                            <td className="px-3 py-2 align-top">
-                                <select
-                                    value={selectedProvider}
-                                    onChange={e => setSelectedProvider(e.target.value)}
-                                    onKeyDown={handleFondoKeyDown}
-                                    className="w-full p-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded"
-                                    disabled={isProviderSelectDisabled}
-                                >
-                                    <option value="">
-                                        {providersLoading ? 'Cargando proveedores...' : 'Seleccionar proveedor'}
-                                    </option>
-                                    {selectedProvider && !selectedProviderExists && (
-                                        <option value={selectedProvider}>{`Proveedor no disponible (${selectedProvider})`}</option>
-                                    )}
-                                    {providers.map(p => (
-                                        <option key={p.code} value={p.code}>{`${p.name} (${p.code})`}</option>
-                                    ))}
-                                </select>
-                            </td>
-                            <td className="px-3 py-2 align-top">
-                                <input
-                                    placeholder="0000"
-                                    value={invoiceNumber}
-                                    onChange={e => setInvoiceNumber(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                                    onKeyDown={handleFondoKeyDown}
-                                    className={`w-full p-2 bg-[var(--input-bg)] border ${invoiceValid || invoiceNumber.length === 0
-                                        ? 'border-[var(--input-border)]'
-                                        : 'border-red-500'
-                                        } rounded`}
-                                    disabled={!company}
-                                />
-                            </td>
-                            <td className="px-3 py-2 align-top">
-                                <select
-                                    value={paymentType}
-                                    onChange={e => setPaymentType(e.target.value as FondoEntry['paymentType'])}
-                                    onKeyDown={handleFondoKeyDown}
-                                    className="w-full p-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded"
-                                    disabled={!company}
-                                >
-                                    {FONDO_TYPE_OPTIONS.map(option => (
-                                        <option key={option} value={option}>{formatMovementType(option)}</option>
-                                    ))}
-                                </select>
-                            </td>
-                            {isEgreso ? (
-                                <td className="px-3 py-2 align-top" colSpan={2}>
-                                    <input
-                                        placeholder="0"
-                                        value={egreso}
-                                        onChange={e => setEgreso(normalizeMoneyInput(e.target.value))}
-                                        onKeyDown={handleFondoKeyDown}
-                                        className={`w-full p-2 bg-[var(--input-bg)] border ${amountClass(true, egreso.trim().length > 0, egresoValid)
-                                            } rounded`}
-                                        inputMode="numeric"
-                                    />
-                                </td>
-                            ) : (
-                                <td className="px-3 py-2 align-top" colSpan={2}>
-                                    <input
-                                        placeholder="0"
-                                        value={ingreso}
-                                        onChange={e => setIngreso(normalizeMoneyInput(e.target.value))}
-                                        onKeyDown={handleFondoKeyDown}
-                                        className={`w-full p-2 bg-[var(--input-bg)] border ${amountClass(true, ingreso.trim().length > 0, ingresoValid)
-                                            } rounded`}
-                                        inputMode="numeric"
-                                    />
-                                </td>
-                            )}
-                            <td className="px-3 py-2 align-top">
-                                <input
-                                    placeholder="Observacion"
-                                    value={notes}
-                                    onChange={e => setNotes(e.target.value)}
-                                    onKeyDown={handleFondoKeyDown}
-                                    className="w-full p-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded"
-                                    maxLength={200}
-                                />
-                            </td>
-                            <td className="px-3 py-2 align-top">
-                                <select
-                                    value={manager}
-                                    onChange={e => setManager(e.target.value)}
-                                    onKeyDown={handleFondoKeyDown}
-                                    className="w-full p-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded"
-                                    disabled={!company || employeesLoading || employeeOptions.length === 0}
-                                >
-                                    <option value="">
-                                        {employeesLoading ? 'Cargando encargados...' : 'Seleccionar encargado'}
-                                    </option>
-                                    {employeeOptions.map(name => (
-                                        <option key={name} value={name}>
-                                            {name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </td>
-                            <td className="px-3 py-2 align-top text-center">
-                                <div className="flex justify-center gap-2">
-                                    {editingEntryId && (
-                                        <button
-                                            type="button"
-                                            className="px-4 py-2 border border-[var(--input-border)] rounded text-[var(--foreground)] hover:bg-[var(--muted)] disabled:opacity-50"
-                                            onClick={cancelEditing}
-                                        >
-                                            Cancelar
-                                        </button>
-                                    )}
-                                    <button
-                                        type="button"
-                                        className="px-4 py-2 bg-[var(--accent)] text-white rounded disabled:opacity-50"
-                                        onClick={handleSubmitFondo}
-                                        disabled={isSubmitDisabled}
-                                    >
-                                        {editingEntryId ? 'Actualizar' : 'Guardar'}
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
 
             {!providersLoading && providers.length === 0 && company && (
                 <p className="text-sm text-[var(--muted-foreground)] mt-3">
