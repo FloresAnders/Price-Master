@@ -1,30 +1,33 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-    ArrowDownRight,
-    ArrowUpRight,
-    Banknote,
-    Clock,
-    FileText,
-    Layers,
-    Lock,
-    LockOpen,
-    Pencil,
-    Plus,
-    ArrowUpDown,
-    Settings,
-    Tag,
-    Trash2,
-    UserCircle,
-    UserPlus,
-    X,
-} from 'lucide-react';
-import Drawer from '@mui/material/Drawer';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Box from '@mui/material/Box';
+import Drawer from '@mui/material/Drawer';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import Divider from '@mui/material/Divider';
+import {
+    UserPlus,
+    Plus,
+    Pencil,
+    Trash2,
+    X,
+    Banknote,
+    Clock,
+    Layers,
+    Tag,
+    FileText,
+    UserCircle,
+    ArrowUpDown,
+    ArrowUpRight,
+    ArrowDownRight,
+    Settings,
+    Lock,
+    LockOpen,
+    CalendarDays,
+    ChevronLeft,
+    ChevronRight,
+} from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import { useProviders } from '../../../hooks/useProviders';
 import ConfirmModal from '../../../components/ui/ConfirmModal';
@@ -87,6 +90,10 @@ export type FondoEntry = {
     manager: string;
     notes: string;
     createdAt: string;
+    // audit fields: when an edit is recorded, we create an audit movement
+    isAudit?: boolean;
+    originalEntryId?: string;
+    auditDetails?: string;
 };
 
 const FONDO_KEY = 'fg_fondos_v1';
@@ -407,7 +414,31 @@ export function FondoSection({ id }: { id?: string }) {
     const [settingsError, setSettingsError] = useState<string | null>(null);
     const [movementModalOpen, setMovementModalOpen] = useState(false);
     const [movementAutoCloseLocked, setMovementAutoCloseLocked] = useState(false);
-    const [sortAsc, setSortAsc] = useState(false);
+    // Audit modal state: show full before/after history when an edited entry is clicked
+    const [auditModalOpen, setAuditModalOpen] = useState(false);
+    const [auditModalData, setAuditModalData] = useState<{ history?: any[] } | null>(null);
+    // sortAsc: when true we show oldest first (so newest appears at the bottom).
+    // Default true per UX: the most recent movement should appear below.
+    const [sortAsc, setSortAsc] = useState(true);
+
+    // Calendar / day-filtering states (Desde / Hasta)
+    const [calendarFromOpen, setCalendarFromOpen] = useState(false);
+    const [calendarToOpen, setCalendarToOpen] = useState(false);
+    const [calendarFromMonth, setCalendarFromMonth] = useState(() => {
+        const d = new Date();
+        d.setDate(1);
+        d.setHours(0, 0, 0, 0);
+        return d;
+    });
+    const [calendarToMonth, setCalendarToMonth] = useState(() => {
+        const d = new Date();
+        d.setDate(1);
+        d.setHours(0, 0, 0, 0);
+        return d;
+    });
+    // fromFilter / toFilter hold YYYY-MM-DD keys when a date is selected
+    const [fromFilter, setFromFilter] = useState<string | null>(null);
+    const [toFilter, setToFilter] = useState<string | null>(null);
 
     // Column widths for resizable columns (simple px based)
     const [columnWidths, setColumnWidths] = useState<Record<string, string>>({
@@ -420,6 +451,11 @@ export function FondoSection({ id }: { id?: string }) {
         editar: '120px',
     });
     const resizingRef = React.useRef<{ key: string; startX: number; startWidth: number } | null>(null);
+    // refs to detect outside clicks for the from/to calendar popovers
+    const fromCalendarRef = React.useRef<HTMLDivElement | null>(null);
+    const toCalendarRef = React.useRef<HTMLDivElement | null>(null);
+    const fromButtonRef = React.useRef<HTMLButtonElement | null>(null);
+    const toButtonRef = React.useRef<HTMLButtonElement | null>(null);
 
     const startResizing = (event: React.MouseEvent, key: string) => {
         event.preventDefault();
@@ -445,6 +481,28 @@ export function FondoSection({ id }: { id?: string }) {
             window.removeEventListener('mouseup', onUp);
         };
     }, [columnWidths]);
+
+    // Close calendars when clicking outside them (but don't close when clicking the toggle buttons)
+    useEffect(() => {
+        if (!calendarFromOpen && !calendarToOpen) return;
+
+        const handler = (e: MouseEvent) => {
+            const target = e.target as Node | null;
+            if (calendarFromOpen) {
+                if (fromCalendarRef.current && target && fromCalendarRef.current.contains(target)) return;
+                if (fromButtonRef.current && target && fromButtonRef.current.contains(target)) return;
+                setCalendarFromOpen(false);
+            }
+            if (calendarToOpen) {
+                if (toCalendarRef.current && target && toCalendarRef.current.contains(target)) return;
+                if (toButtonRef.current && target && toButtonRef.current.contains(target)) return;
+                setCalendarToOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [calendarFromOpen, calendarToOpen]);
 
     const isIngreso = isIngresoType(paymentType);
     const isEgreso = isEgresoType(paymentType);
@@ -474,32 +532,43 @@ export function FondoSection({ id }: { id?: string }) {
                 return;
             }
 
-            const sanitized = parsed
-                .map((entry: Partial<FondoEntry>) => ({
-                    ...entry,
-                    paymentType: normalizeStoredType(entry.paymentType),
-                    amountEgreso: Math.trunc(
-                        typeof entry.amountEgreso === 'number' ? entry.amountEgreso : Number(entry.amountEgreso) || 0,
-                    ),
-                    amountIngreso: Math.trunc(
-                        typeof entry.amountIngreso === 'number' ? entry.amountIngreso : Number(entry.amountIngreso) || 0,
-                    ),
+            const sanitized: FondoEntry[] = (parsed as any[]).reduce<FondoEntry[]>((acc, raw) => {
+                const entry = raw as Partial<FondoEntry>;
+
+                const id = typeof entry.id === 'string' ? entry.id : undefined;
+                const providerCode = typeof entry.providerCode === 'string' ? entry.providerCode : undefined;
+                const invoiceNumber = typeof entry.invoiceNumber === 'string' ? entry.invoiceNumber : '';
+                const paymentType = normalizeStoredType(entry.paymentType);
+                const manager = typeof entry.manager === 'string' ? entry.manager : undefined;
+                const createdAt = typeof entry.createdAt === 'string' ? entry.createdAt : undefined;
+
+                // required runtime fields: id, providerCode, manager, createdAt
+                if (!id || !providerCode || !manager || !createdAt) return acc;
+
+                const rawEgreso = typeof entry.amountEgreso === 'number' ? entry.amountEgreso : Number(entry.amountEgreso) || 0;
+                const rawIngreso = typeof entry.amountIngreso === 'number' ? entry.amountIngreso : Number(entry.amountIngreso) || 0;
+
+                const amountEgreso = Math.trunc(rawEgreso);
+                const amountIngreso = Math.trunc(rawIngreso);
+
+                const normalized: FondoEntry = {
+                    id,
+                    providerCode,
+                    invoiceNumber,
+                    paymentType,
+                    amountEgreso: isEgresoType(paymentType) ? amountEgreso : 0,
+                    amountIngreso: isIngresoType(paymentType) ? amountIngreso : 0,
+                    manager,
                     notes: typeof entry.notes === 'string' ? entry.notes : '',
-                }))
-                .filter((entry): entry is FondoEntry =>
-                    typeof entry.id === 'string' &&
-                    typeof entry.providerCode === 'string' &&
-                    typeof entry.invoiceNumber === 'string' &&
-                    typeof entry.paymentType === 'string' &&
-                    typeof entry.manager === 'string' &&
-                    typeof entry.notes === 'string' &&
-                    typeof entry.createdAt === 'string',
-                )
-                .map(entry => ({
-                    ...entry,
-                    amountEgreso: isEgresoType(entry.paymentType) ? entry.amountEgreso : 0,
-                    amountIngreso: isIngresoType(entry.paymentType) ? entry.amountIngreso : 0,
-                }));
+                    createdAt,
+                    isAudit: !!entry.isAudit,
+                    originalEntryId: typeof entry.originalEntryId === 'string' ? entry.originalEntryId : undefined,
+                    auditDetails: typeof entry.auditDetails === 'string' ? entry.auditDetails : undefined,
+                };
+
+                acc.push(normalized);
+                return acc;
+            }, []);
 
             setFondoEntries(sanitized);
         } catch (err) {
@@ -660,23 +729,51 @@ export function FondoSection({ id }: { id?: string }) {
 
         const paddedInvoice = invoiceNumber.padStart(4, '0');
 
-        if (editingEntryId) {
-            setFondoEntries(prev =>
-                prev.map(entry =>
-                    entry.id === editingEntryId
-                        ? {
-                            ...entry,
-                            providerCode: selectedProvider,
-                            invoiceNumber: paddedInvoice,
-                            paymentType,
-                            amountEgreso: isEgreso ? egresoValue : 0,
-                            amountIngreso: isIngreso ? ingresoValue : 0,
-                            manager,
-                            notes: trimmedNotes,
-                        }
-                        : entry,
-                ),
-            );
+            if (editingEntryId) {
+            // Update the existing entry in-place so balances remain correct.
+            const original = fondoEntries.find(e => e.id === editingEntryId);
+            if (!original) return;
+
+            const changes: string[] = [];
+            if (selectedProvider !== original.providerCode) changes.push(`Proveedor: ${original.providerCode} → ${selectedProvider}`);
+            if (paddedInvoice !== original.invoiceNumber) changes.push(`N° factura: ${original.invoiceNumber} → ${paddedInvoice}`);
+            if (paymentType !== original.paymentType) changes.push(`Tipo: ${original.paymentType} → ${paymentType}`);
+            const originalAmount = isEgresoType(original.paymentType) ? original.amountEgreso : original.amountIngreso;
+            const newAmount = isEgreso ? egresoValue : ingresoValue;
+            if (Number.isFinite(originalAmount) && originalAmount !== newAmount) changes.push(`Monto: ${originalAmount} → ${newAmount}`);
+            if (manager !== original.manager) changes.push(`Encargado: ${original.manager} → ${manager}`);
+            if (trimmedNotes !== (original.notes ?? '')) changes.push(`Notas: "${original.notes}" → "${trimmedNotes}"`);
+
+            setFondoEntries(prev => prev.map(e => {
+                if (e.id !== editingEntryId) return e;
+                // append to existing history if present
+                let history: any[] = [];
+                try {
+                    const existing = e.auditDetails ? JSON.parse(e.auditDetails) as any : null;
+                    if (existing && Array.isArray(existing.history)) history = existing.history.slice();
+                    else if (existing && existing.before && existing.after) history = [{ at: existing.at ?? e.createdAt, before: existing.before, after: existing.after }];
+                } catch {
+                    history = [];
+                }
+                const newRecord = { at: new Date().toISOString(), before: { ...e }, after: { providerCode: selectedProvider, invoiceNumber: paddedInvoice, paymentType, amountEgreso: isEgreso ? egresoValue : 0, amountIngreso: isEgreso ? 0 : ingresoValue, manager, notes: trimmedNotes } };
+                history.push(newRecord);
+                // keep original createdAt so chronological order and balances are preserved
+                return {
+                    ...e,
+                    providerCode: selectedProvider,
+                    invoiceNumber: paddedInvoice,
+                    paymentType,
+                    amountEgreso: isEgreso ? egresoValue : 0,
+                    amountIngreso: isEgreso ? 0 : ingresoValue,
+                    manager,
+                    notes: trimmedNotes,
+                    // mark as edited/audited and preserve originalEntryId (point to initial id)
+                    isAudit: true,
+                    originalEntryId: e.originalEntryId ?? e.id,
+                    auditDetails: JSON.stringify({ history }),
+                } as FondoEntry;
+            }));
+
             resetFondoForm();
             if (!movementAutoCloseLocked) {
                 setMovementModalOpen(false);
@@ -704,6 +801,7 @@ export function FondoSection({ id }: { id?: string }) {
     };
 
     const startEditingEntry = (entry: FondoEntry) => {
+        // Allow editing of entries even if previously edited; we accumulate audit history.
         setEditingEntryId(entry.id);
         setSelectedProvider(entry.providerCode);
         setInvoiceNumber(entry.invoiceNumber);
@@ -858,13 +956,328 @@ export function FondoSection({ id }: { id?: string }) {
 
     const displayedEntries = useMemo(() => (sortAsc ? [...fondoEntries].slice().reverse() : fondoEntries), [fondoEntries, sortAsc]);
 
+    const dateKeyFromDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+    // days that have at least one movement (used to enable/disable dates in the calendar)
+    const daysWithMovements = useMemo(() => {
+        const s = new Set<string>();
+        fondoEntries.forEach(entry => {
+            const d = new Date(entry.createdAt);
+            if (!Number.isNaN(d.getTime())) s.add(dateKeyFromDate(d));
+        });
+        return s;
+    }, [fondoEntries]);
+
+    // If a from/to filter is set, show only entries in the inclusive range; otherwise show all displayedEntries
+    const filteredEntries = useMemo(() => {
+        if (!fromFilter && !toFilter) return displayedEntries;
+        return displayedEntries.filter(entry => {
+            const d = new Date(entry.createdAt);
+            const key = dateKeyFromDate(d);
+            if (fromFilter && toFilter) return key >= fromFilter && key <= toFilter;
+            if (fromFilter && !toFilter) return key === fromFilter;
+            if (!fromFilter && toFilter) return key === toFilter;
+            return true;
+        });
+    }, [displayedEntries, fromFilter, toFilter]);
+
+    // Pagination: pageSize may be 5,10,15 or 'all'. Default to 10 visible items.
+    const [pageSize, setPageSize] = useState<number | 'all'>(10);
+    const [pageIndex, setPageIndex] = useState(0);
+
+    const totalPages = useMemo(() => {
+        if (pageSize === 'all') return 1;
+        return Math.max(1, Math.ceil(filteredEntries.length / pageSize));
+    }, [filteredEntries.length, pageSize]);
+
+    useEffect(() => {
+        // clamp pageIndex when entries or pageSize change
+        setPageIndex(prev => Math.min(prev, Math.max(0, totalPages - 1)));
+    }, [totalPages]);
+
+    useEffect(() => {
+        // whenever user changes pageSize, reset to first page
+        setPageIndex(0);
+    }, [pageSize]);
+
+    const paginatedEntries = useMemo(() => {
+        if (pageSize === 'all') return filteredEntries;
+        const start = pageIndex * pageSize;
+        return filteredEntries.slice(start, start + pageSize);
+    }, [filteredEntries, pageIndex, pageSize]);
+
+    // Group visible entries by day (local date). We'll render a date header row per group.
+    const groupedByDay = useMemo(() => {
+        const map = new Map<string, FondoEntry[]>();
+        paginatedEntries.forEach(entry => {
+            const d = new Date(entry.createdAt);
+            // use local date key YYYY-MM-DD
+            const key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+            const arr = map.get(key) ?? [];
+            arr.push(entry);
+            map.set(key, arr);
+        });
+        return map;
+    }, [paginatedEntries]);
+
+    const dateOnlyFormatter = useMemo(() => new Intl.DateTimeFormat('es-CR', { dateStyle: 'medium' }), []);
+    const formatGroupLabel = (isoDateKey: string) => {
+        const [y, m, d] = isoDateKey.split('-').map(Number);
+        const date = new Date(y, m - 1, d);
+        // Always show the formatted local date (no 'Hoy' / 'Ayer' labels)
+        return dateOnlyFormatter.format(date);
+    };
+
+    const formatKeyToDisplay = (isoDateKey: string | null) => {
+        if (!isoDateKey) return 'dd/mm/yyyy';
+        const [y, m, d] = isoDateKey.split('-').map(Number);
+        const dd = String(d).padStart(2, '0');
+        const mm = String(m).padStart(2, '0');
+        const yyyy = String(y);
+        return `${dd}/${mm}/${yyyy}`;
+    };
+
     return (
         <div id={id} className="mt-10">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h2 className="text-xl font-semibold text-[var(--foreground)] flex items-center gap-2">
                     <Banknote className="w-5 h-5" /> Registrar movimiento de Fondo
                 </h2>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 relative">
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            ref={fromButtonRef}
+                            onClick={() => setCalendarFromOpen(prev => !prev)}
+                            className="flex items-center gap-2 px-3 py-2 border border-[var(--input-border)] rounded hover:bg-[var(--muted)] bg-transparent text-[var(--muted-foreground)]"
+                            title="Seleccionar fecha desde"
+                            aria-label="Seleccionar fecha desde"
+                        >
+                            <span className="text-sm font-medium">{fromFilter ? formatKeyToDisplay(fromFilter) : 'dd/mm/yyyy'}</span>
+                            <CalendarDays className="w-4 h-4" />
+                        </button>
+
+                        {calendarFromOpen && (
+                            <div ref={fromCalendarRef} className="absolute left-0 top-full mt-2 z-50" onClick={e => e.stopPropagation()}>
+                                <div className="w-64 bg-[#1f262a] border border-[var(--input-border)] rounded p-3 shadow-lg text-white">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const m = new Date(calendarFromMonth);
+                                                m.setMonth(m.getMonth() - 1);
+                                                setCalendarFromMonth(new Date(m));
+                                            }}
+                                            className="p-1 rounded hover:bg-[var(--muted)]"
+                                        >
+                                            <ChevronLeft className="w-4 h-4" />
+                                        </button>
+                                        <div className="text-sm font-semibold capitalize">
+                                            {calendarFromMonth.toLocaleString('es-CR', { month: 'long', year: 'numeric' })}
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const m = new Date(calendarFromMonth);
+                                                m.setMonth(m.getMonth() + 1);
+                                                setCalendarFromMonth(new Date(m));
+                                            }}
+                                            className="p-1 rounded hover:bg-[var(--muted)]"
+                                        >
+                                            <ChevronRight className="w-4 h-4" />
+                                        </button>
+                                    </div>
+
+                                    <div className="grid grid-cols-7 gap-1 text-center text-xs text-[var(--muted-foreground)]">
+                                        {['D','L','M','M','J','V','S'].map((d, i) => (
+                                            <div key={`${d}-${i}`} className="py-1">{d}</div>
+                                        ))}
+                                    </div>
+
+                                    <div className="grid grid-cols-7 gap-1 mt-2 text-sm">
+                                        {(() => {
+                                            const cells: React.ReactNode[] = [];
+                                            const year = calendarFromMonth.getFullYear();
+                                            const month = calendarFromMonth.getMonth();
+                                            const first = new Date(year, month, 1);
+                                            const start = first.getDay();
+                                            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+                                            for (let i = 0; i < start; i++) cells.push(<div key={`pad-f-${i}`} />);
+
+                                            for (let day = 1; day <= daysInMonth; day++) {
+                                                const d = new Date(year, month, day);
+                                                const key = dateKeyFromDate(d);
+                                                const enabled = daysWithMovements.has(key);
+                                                const isSelected = fromFilter === key;
+                                                if (enabled) {
+                                                    cells.push(
+                                                        <button
+                                                            key={key}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setFromFilter(key);
+                                                                setCalendarFromOpen(false);
+                                                                setPageSize('all');
+                                                                setPageIndex(0);
+                                                            }}
+                                                            className={`py-1 rounded ${isSelected ? 'bg-[var(--accent)] text-white' : 'hover:bg-[var(--muted)]'}`}
+                                                        >
+                                                            {day}
+                                                        </button>,
+                                                    );
+                                                } else {
+                                                    cells.push(
+                                                        <div key={key} className="py-1 text-[var(--muted-foreground)] opacity-60">
+                                                            {day}
+                                                        </div>,
+                                                    );
+                                                }
+                                            }
+                                            return cells;
+                                        })()}
+                                    </div>
+
+                                    <div className="mt-3 flex justify-between">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setFromFilter(null);
+                                                setCalendarFromOpen(false);
+                                            }}
+                                            className="px-2 py-1 border border-[var(--input-border)] rounded text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+                                        >
+                                            Limpiar
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setCalendarFromOpen(false)}
+                                            className="px-2 py-1 border border-[var(--input-border)] rounded text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+                                        >
+                                            Cerrar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <button
+                            type="button"
+                            ref={toButtonRef}
+                            onClick={() => setCalendarToOpen(prev => !prev)}
+                            className="flex items-center gap-2 px-3 py-2 border border-[var(--input-border)] rounded hover:bg-[var(--muted)] bg-transparent text-[var(--muted-foreground)]"
+                            title="Seleccionar fecha hasta"
+                            aria-label="Seleccionar fecha hasta"
+                        >
+                            <span className="text-sm font-medium">{toFilter ? formatKeyToDisplay(toFilter) : 'dd/mm/yyyy'}</span>
+                            <CalendarDays className="w-4 h-4" />
+                        </button>
+
+                        {calendarToOpen && (
+                            <div ref={toCalendarRef} className="absolute left-40 top-full mt-2 z-50" onClick={e => e.stopPropagation()}>
+                                <div className="w-64 bg-[#1f262a] border border-[var(--input-border)] rounded p-3 shadow-lg text-white">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const m = new Date(calendarToMonth);
+                                                m.setMonth(m.getMonth() - 1);
+                                                setCalendarToMonth(new Date(m));
+                                            }}
+                                            className="p-1 rounded hover:bg-[var(--muted)]"
+                                        >
+                                            <ChevronLeft className="w-4 h-4" />
+                                        </button>
+                                        <div className="text-sm font-semibold capitalize">
+                                            {calendarToMonth.toLocaleString('es-CR', { month: 'long', year: 'numeric' })}
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const m = new Date(calendarToMonth);
+                                                m.setMonth(m.getMonth() + 1);
+                                                setCalendarToMonth(new Date(m));
+                                            }}
+                                            className="p-1 rounded hover:bg-[var(--muted)]"
+                                        >
+                                            <ChevronRight className="w-4 h-4" />
+                                        </button>
+                                    </div>
+
+                                    <div className="grid grid-cols-7 gap-1 text-center text-xs text-[var(--muted-foreground)]">
+                                        {['D','L','M','M','J','V','S'].map((d, i) => (
+                                            <div key={`${d}-${i}`} className="py-1">{d}</div>
+                                        ))}
+                                    </div>
+
+                                    <div className="grid grid-cols-7 gap-1 mt-2 text-sm">
+                                        {(() => {
+                                            const cells: React.ReactNode[] = [];
+                                            const year = calendarToMonth.getFullYear();
+                                            const month = calendarToMonth.getMonth();
+                                            const first = new Date(year, month, 1);
+                                            const start = first.getDay();
+                                            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+                                            for (let i = 0; i < start; i++) cells.push(<div key={`pad-t-${i}`} />);
+
+                                            for (let day = 1; day <= daysInMonth; day++) {
+                                                const d = new Date(year, month, day);
+                                                const key = dateKeyFromDate(d);
+                                                const enabled = daysWithMovements.has(key);
+                                                const isSelected = toFilter === key;
+                                                if (enabled) {
+                                                    cells.push(
+                                                        <button
+                                                            key={key}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setToFilter(key);
+                                                                setCalendarToOpen(false);
+                                                                setPageSize('all');
+                                                                setPageIndex(0);
+                                                            }}
+                                                            className={`py-1 rounded ${isSelected ? 'bg-[var(--accent)] text-white' : 'hover:bg-[var(--muted)]'}`}
+                                                        >
+                                                            {day}
+                                                        </button>,
+                                                    );
+                                                } else {
+                                                    cells.push(
+                                                        <div key={key} className="py-1 text-[var(--muted-foreground)] opacity-60">
+                                                            {day}
+                                                        </div>,
+                                                    );
+                                                }
+                                            }
+                                            return cells;
+                                        })()}
+                                    </div>
+
+                                    <div className="mt-3 flex justify-between">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setToFilter(null);
+                                                setCalendarToOpen(false);
+                                            }}
+                                            className="px-2 py-1 border border-[var(--input-border)] rounded text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+                                        >
+                                            Limpiar
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setCalendarToOpen(false)}
+                                            className="px-2 py-1 border border-[var(--input-border)] rounded text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+                                        >
+                                            Cerrar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
                     <button
                         type="button"
                         onClick={handleOpenCreateMovement}
@@ -873,15 +1286,7 @@ export function FondoSection({ id }: { id?: string }) {
                         <Plus className="w-4 h-4" />
                         Agregar movimiento
                     </button>
-                    <button
-                        type="button"
-                        onClick={openSettings}
-                        className="p-2 border border-[var(--input-border)] rounded hover:bg-[var(--muted)]"
-                        title="Abrir configuracion del fondo"
-                        aria-label="Abrir configuracion del fondo"
-                    >
-                        <Settings className="w-5 h-5" />
-                    </button>
+                    {/* Settings button moved into the balance card below */}
                 </div>
             </div>
 
@@ -907,19 +1312,11 @@ export function FondoSection({ id }: { id?: string }) {
                 }}
             >
                 <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                    <Box
-                        sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            px: 3,
-                            py: 2,
-                        }}
-                    >
-                        <Typography variant="h6" component="h3" sx={{ fontWeight: 600 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', px: 3, py: 2, position: 'relative' }}>
+                        <Typography variant="h6" component="h3" sx={{ fontWeight: 600, textAlign: 'center', width: '100%' }}>
                             {editingEntry ? `Editar movimiento #${editingEntry.invoiceNumber}` : 'Registrar movimiento'}
                         </Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Box sx={{ position: 'absolute', right: 12, display: 'flex', alignItems: 'center', gap: 1 }}>
                             <IconButton
                                 aria-label={movementAutoCloseLocked ? 'Desbloquear cierre automatico' : 'Bloquear cierre automatico'}
                                 onClick={() => setMovementAutoCloseLocked(prev => !prev)}
@@ -999,6 +1396,20 @@ export function FondoSection({ id }: { id?: string }) {
                 ) : (
                     <div className="overflow-x-auto rounded border border-[var(--input-border)] bg-[#1f262a] text-white">
                         <div className="max-h-[36rem] overflow-y-auto">
+                            {(fromFilter || toFilter) && (
+                                <div className="px-3 py-2">
+                                    <div className="text-sm text-[var(--muted-foreground)]">
+                                        Filtro: {fromFilter ? formatGroupLabel(fromFilter) : '—'}{toFilter ? ` → ${formatGroupLabel(toFilter)}` : ''}
+                                        <button
+                                            type="button"
+                                            onClick={() => { setFromFilter(null); setToFilter(null); setPageIndex(0); setPageSize(10); }}
+                                            className="ml-3 px-2 py-1 border border-[var(--input-border)] rounded text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+                                        >
+                                            Limpiar filtro
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                             <table className="w-full min-w-[920px] text-sm">
                                 <colgroup>
                                     <col style={{ width: columnWidths.hora }} />
@@ -1101,80 +1512,184 @@ export function FondoSection({ id }: { id?: string }) {
                                         </th>
                                     </tr>
                                 </thead>
-                                <tbody>
-                                    {displayedEntries.map((fe) => {
-                                        // the newest entry is the first element in fondoEntries (inserted at index 0)
-                                        const isMostRecent = fe.id === fondoEntries[0]?.id;
-                                        const providerName = providersMap.get(fe.providerCode) ?? fe.providerCode;
-                                        const isEntryEgreso = isEgresoType(fe.paymentType);
-                                        const movementAmount = isEntryEgreso ? fe.amountEgreso : fe.amountIngreso;
-                                        const amountLabel = formatAmount(movementAmount);
-                                        const balanceAfter = balanceAfterById.get(fe.id) ?? initialAmountValue;
-                                        // compute the balance immediately before this movement was applied
-                                        const previousBalance = isEntryEgreso
-                                            ? balanceAfter + fe.amountEgreso
-                                            : balanceAfter - fe.amountIngreso;
-                                        const recordedAt = new Date(fe.createdAt);
-                                        const formattedDate = Number.isNaN(recordedAt.getTime())
-                                            ? 'Sin fecha'
-                                            : dateTimeFormatter.format(recordedAt);
-                                        const amountPrefix = isEntryEgreso ? '-' : '+';
-                                        return (
-                                            <tr
-                                                key={fe.id}
-                                                className={`border-t border-[var(--input-border)] hover:bg-[var(--muted)] ${isMostRecent ? 'bg-[#273238]' : ''}`}
-                                            >
-                                                <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">{formattedDate}</td>
-                                                <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
-                                                    <div className="font-semibold text-[var(--muted-foreground)]">{providerName}</div>
-                                                    {fe.notes && (
-                                                        <div className="mt-1 text-xs text-[var(--muted-foreground)] break-words">
-                                                            {fe.notes}
-                                                        </div>
-                                                    )}
-                                                </td>
-                                                <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
-                                                    {formatMovementType(fe.paymentType)}
-                                                </td>
-                                                <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">#{fe.invoiceNumber}</td>
-                                                <td className="px-3 py-2 align-top">
-                                                    <div className="flex flex-col gap-1 text-right">
-                                                        <div className="flex items-center justify-end gap-2">
-                                                            {isEntryEgreso ? (
-                                                                <ArrowUpRight className="w-4 h-4 text-red-500" />
-                                                            ) : (
-                                                                <ArrowDownRight className="w-4 h-4 text-green-500" />
+                                {Array.from(groupedByDay.entries()).map(([dayKey, entries]) => (
+                                    <tbody key={dayKey}>
+                                        {entries.map((fe) => {
+                                            // the newest entry is the first element in fondoEntries (inserted at index 0)
+                                            const isMostRecent = fe.id === fondoEntries[0]?.id;
+                                            const providerName = providersMap.get(fe.providerCode) ?? fe.providerCode;
+                                            const isEntryEgreso = isEgresoType(fe.paymentType);
+                                            const movementAmount = isEntryEgreso ? fe.amountEgreso : fe.amountIngreso;
+                                            const amountLabel = formatAmount(movementAmount);
+                                            const balanceAfter = balanceAfterById.get(fe.id) ?? initialAmountValue;
+                                            // compute the balance immediately before this movement was applied
+                                            const previousBalance = isEntryEgreso
+                                                ? balanceAfter + fe.amountEgreso
+                                                : balanceAfter - fe.amountIngreso;
+                                            const recordedAt = new Date(fe.createdAt);
+                                            const formattedDate = Number.isNaN(recordedAt.getTime())
+                                                ? 'Sin fecha'
+                                                : dateTimeFormatter.format(recordedAt);
+                                            const amountPrefix = isEntryEgreso ? '-' : '+';
+                                            // prepare tooltip text for edited entries
+                                            let auditTooltip: string | undefined;
+                                            let parsedAudit: any | null = null;
+                                                                            if (fe.isAudit && fe.auditDetails) {
+                                                                                try {
+                                                                                    const parsed = JSON.parse(fe.auditDetails) as any;
+                                                                                    // normalize to history array for backward compatibility
+                                                                                    let history: any[] = [];
+                                                                                    if (Array.isArray(parsed?.history)) {
+                                                                                        history = parsed.history;
+                                                                                    } else if (parsed?.before && parsed?.after) {
+                                                                                        history = [{ at: parsed.at ?? fe.createdAt, before: parsed.before, after: parsed.after }];
+                                                                                    }
+                                                                                    parsedAudit = { history };
+
+                                                                                    // build tooltip from accumulated history (show each change timestamp + small summary)
+                                                                                    const lines: string[] = history.map(h => {
+                                                                                        const at = h?.at ? dateTimeFormatter.format(new Date(h.at)) : '—';
+                                                                                        const before = h?.before ?? {};
+                                                                                        const after = h?.after ?? {};
+                                                                                        const parts: string[] = [];
+                                                                                        if (before.providerCode !== after.providerCode) parts.push(`Proveedor: ${before.providerCode} → ${after.providerCode}`);
+                                                                                        if (before.invoiceNumber !== after.invoiceNumber) parts.push(`Factura: ${before.invoiceNumber} → ${after.invoiceNumber}`);
+                                                                                        if (before.paymentType !== after.paymentType) parts.push(`Tipo: ${before.paymentType} → ${after.paymentType}`);
+                                                                                        const beforeAmt = before && before.paymentType ? (isEgresoType(before.paymentType) ? Number(before.amountEgreso || 0) : Number(before.amountIngreso || 0)) : undefined;
+                                                                                        const afterAmt = after && (after.paymentType ?? before.paymentType) ? (isEgresoType(after.paymentType ?? before.paymentType) ? Number(after.amountEgreso || 0) : Number(after.amountIngreso || 0)) : undefined;
+                                                                                        if (typeof beforeAmt === 'number' && typeof afterAmt === 'number' && beforeAmt !== afterAmt) {
+                                                                                            parts.push(`Monto: ₡ ${formatAmount(beforeAmt)} → ₡ ${formatAmount(afterAmt)}`);
+                                                                                        }
+                                                                                        if (before.manager !== after.manager) parts.push(`Encargado: ${before.manager} → ${after.manager}`);
+                                                                                        if ((before.notes ?? '') !== (after.notes ?? '')) parts.push(`Notas: "${before.notes ?? ''}" → "${after.notes ?? ''}"`);
+                                                                                        return `${at}: ${parts.join('; ') || 'Editado (sin cambios detectados)'} `;
+                                                                                    });
+                                                                                    auditTooltip = lines.join('\n');
+                                                                                } catch {
+                                                                                    auditTooltip = 'Editado';
+                                                                                    parsedAudit = null;
+                                                                                }
+                                                                            }
+                                            return (
+                                                <tr
+                                                    key={fe.id}
+                                                    className={`border-t border-[var(--input-border)] hover:bg-[var(--muted)] ${isMostRecent ? 'bg-[#273238]' : ''}`}
+                                                >
+                                                    <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">{formattedDate}</td>
+                                                    <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="font-semibold text-[var(--muted-foreground)]">{providerName}</div>
+                                                            {fe.isAudit && (
+                                                                <div
+                                                                    role="button"
+                                                                    tabIndex={0}
+                                                                    onClick={() => {
+                                                                        if (parsedAudit) {
+                                                                            setAuditModalData(parsedAudit);
+                                                                            setAuditModalOpen(true);
+                                                                        }
+                                                                    }}
+                                                                    onKeyDown={e => {
+                                                                        if ((e.key === 'Enter' || e.key === ' ') && parsedAudit) {
+                                                                            setAuditModalData(parsedAudit);
+                                                                            setAuditModalOpen(true);
+                                                                        }
+                                                                    }}
+                                                                    title={auditTooltip}
+                                                                    className="inline-flex items-center gap-2 text-[11px] text-yellow-400 bg-yellow-900/10 px-2 py-0.5 rounded cursor-pointer"
+                                                                >
+                                                                    <Pencil className="w-3 h-3 text-yellow-300" />
+                                                                    <span>Editado</span>
+                                                                </div>
                                                             )}
-                                                            <span
-                                                                className={`font-semibold ${isEntryEgreso ? 'text-red-500' : 'text-green-600'
-                                                                    }`}
-                                                            >
-                                                                {`${amountPrefix} ₡ ${amountLabel}`}
+                                                        </div>
+                                                        {fe.notes && (
+                                                            <div className="mt-1 text-xs text-[var(--muted-foreground)] break-words">
+                                                                {fe.notes}
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
+                                                        {formatMovementType(fe.paymentType)}
+                                                    </td>
+                                                    <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">#{fe.invoiceNumber}</td>
+                                                    <td className="px-3 py-2 align-top">
+                                                        <div className="flex flex-col gap-1 text-right">
+                                                            <div className="flex items-center justify-end gap-2">
+                                                                {isEntryEgreso ? (
+                                                                    <ArrowUpRight className="w-4 h-4 text-red-500" />
+                                                                ) : (
+                                                                    <ArrowDownRight className="w-4 h-4 text-green-500" />
+                                                                )}
+                                                                <span
+                                                                    className={`font-semibold ${isEntryEgreso ? 'text-red-500' : 'text-green-600'
+                                                                        }`}
+                                                                >
+                                                                    {`${amountPrefix} ₡ ${amountLabel}`}
+                                                                </span>
+                                                            </div>
+                                                            <span className="text-xs text-[var(--muted-foreground)]">
+                                                                Saldo anterior: ₡ {formatAmount(previousBalance)}
                                                             </span>
                                                         </div>
-                                                        <span className="text-xs text-[var(--muted-foreground)]">
-                                                            Saldo anterior: ₡ {formatAmount(previousBalance)}
-                                                        </span>
-                                                    </div>
-                                                </td>
-                                                <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">{fe.manager}</td>
-                                                <td className="px-3 py-2 align-top">
-                                                    <button
-                                                        type="button"
-                                                        className="inline-flex items-center gap-2 rounded border border-[var(--input-border)] px-3 py-1 text-xs font-medium text-[var(--muted-foreground)] hover:bg-[var(--muted)] disabled:opacity-50"
-                                                        onClick={() => startEditingEntry(fe)}
-                                                        disabled={editingEntryId === fe.id}
-                                                        title="Editar movimiento"
-                                                    >
-                                                        <Pencil className="w-4 h-4" />
-                                                        {editingEntryId === fe.id ? 'Editando' : 'Editar'}
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
+                                                    </td>
+                                                    <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">{fe.manager}</td>
+                                                    <td className="px-3 py-2 align-top">
+                                                            <button
+                                                                type="button"
+                                                                className="inline-flex items-center gap-2 rounded border border-[var(--input-border)] px-3 py-1 text-xs font-medium text-[var(--muted-foreground)] hover:bg-[var(--muted)] disabled:opacity-50"
+                                                                onClick={() => startEditingEntry(fe)}
+                                                                disabled={editingEntryId === fe.id}
+                                                                title={'Editar movimiento'}
+                                                            >
+                                                                <Pencil className="w-4 h-4" />
+                                                                {editingEntryId === fe.id ? 'Editando' : 'Editar'}
+                                                            </button>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                ))}
                             </table>
+                        </div>
+                        <div className="px-3 py-2 flex items-center justify-between bg-transparent text-sm text-[var(--muted-foreground)]">
+                            <div className="flex items-center gap-2">
+                                <span>Mostrar</span>
+                                <select
+                                    value={pageSize === 'all' ? 'all' : String(pageSize)}
+                                    onChange={e => {
+                                        const v = e.target.value;
+                                        if (v === 'all') setPageSize('all');
+                                        else setPageSize(Number.parseInt(v, 10) || 10);
+                                    }}
+                                    className="p-1 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm"
+                                >
+                                    <option value="5">5</option>
+                                    <option value="10">10</option>
+                                    <option value="15">15</option>
+                                    <option value="all">Todos</option>
+                                </select>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setPageIndex(p => Math.max(0, p - 1))}
+                                    disabled={pageIndex <= 0}
+                                    className="px-2 py-1 border border-[var(--input-border)] rounded disabled:opacity-50"
+                                >
+                                    Anterior
+                                </button>
+                                <div className="px-2">Página {Math.min(pageIndex + 1, totalPages)} de {totalPages}</div>
+                                <button
+                                    type="button"
+                                    onClick={() => setPageIndex(p => Math.min(totalPages - 1, p + 1))}
+                                    disabled={pageIndex >= totalPages - 1}
+                                    className="px-2 py-1 border border-[var(--input-border)] rounded disabled:opacity-50"
+                                >
+                                    Siguiente
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -1194,11 +1709,20 @@ export function FondoSection({ id }: { id?: string }) {
                     </a>
 
                     <div className="w-full sm:w-auto sm:justify-self-center">
-                        <div className="px-4 py-3 rounded text-center min-w-[190px] fg-balance-card">
+                        <div className="px-4 py-3 rounded text-center min-w-[190px] fg-balance-card relative">
                             <div className="text-xs uppercase tracking-wide">Saldo actual</div>
                             <div className="text-lg font-semibold">
                                 ₡ {formatAmount(currentBalance)}
                             </div>
+                            <button
+                                type="button"
+                                onClick={openSettings}
+                                title="Abrir configuracion del fondo"
+                                aria-label="Abrir configuracion del fondo"
+                                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded border border-transparent hover:bg-[var(--muted)]"
+                            >
+                                <Settings className="w-4 h-4 text-[var(--foreground)]" />
+                            </button>
                         </div>
                     </div>
 
@@ -1206,6 +1730,48 @@ export function FondoSection({ id }: { id?: string }) {
                 </div>
             </div>
 
+            {auditModalOpen && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-gray-800/60 px-4"
+                    onClick={() => setAuditModalOpen(false)}
+                >
+                    <div
+                        className="w-full max-w-2xl rounded border border-[var(--input-border)] bg-[#1f262a] p-6 shadow-lg text-white"
+                        onClick={e => e.stopPropagation()}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="audit-modal-title"
+                    >
+                        <h3 id="audit-modal-title" className="text-lg font-semibold">Historial de edición</h3>
+                        <div className="mt-4 space-y-3 max-h-[60vh] overflow-auto">
+                            {auditModalData?.history?.map((h, idx) => (
+                                <div key={idx} className="p-3 bg-[#0f1516] rounded">
+                                    <div className="text-xs text-[var(--muted-foreground)]">Cambio {idx + 1} — {h?.at ? dateTimeFormatter.format(new Date(h.at)) : '—'}</div>
+                                    <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div>
+                                            <div className="text-xs text-[var(--muted-foreground)]">Antes</div>
+                                            <pre className="mt-2 text-sm bg-[#0b1011] p-3 rounded overflow-auto max-h-48">{JSON.stringify(h?.before ?? {}, null, 2)}</pre>
+                                        </div>
+                                        <div>
+                                            <div className="text-xs text-[var(--muted-foreground)]">Después</div>
+                                            <pre className="mt-2 text-sm bg-[#0b1011] p-3 rounded overflow-auto max-h-48">{JSON.stringify(h?.after ?? {}, null, 2)}</pre>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="flex justify-end mt-4">
+                            <button
+                                type="button"
+                                onClick={() => setAuditModalOpen(false)}
+                                className="px-4 py-2 border border-[var(--input-border)] rounded"
+                            >
+                                Cerrar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
             {settingsOpen && (
                 <div
                     className="fixed inset-0 z-50 flex items-center justify-center bg-gray-800/40 px-4"

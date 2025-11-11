@@ -1,4 +1,5 @@
 import React from 'react';
+import { Save } from 'lucide-react';
 import type { FondoMovementType } from './Sections';
 
 type ProviderOption = {
@@ -87,7 +88,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
 
     return (
         <div className="space-y-5">
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 grid-cols-1">
                 <div className="flex flex-col gap-1">
                     <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
                         Proveedor
@@ -193,10 +194,11 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                 )}
                 <button
                     type="button"
-                    className="px-4 py-2 bg-[var(--accent)] text-white rounded disabled:opacity-50"
+                    className="px-4 py-2 bg-blue-400 text-white rounded hover:bg-blue-500 disabled:opacity-50 inline-flex items-center gap-2"
                     onClick={onSubmit}
                     disabled={isSubmitDisabled}
                 >
+                    <Save className="w-4 h-4" />
                     {editingEntryId ? 'Actualizar' : 'Guardar'}
                 </button>
             </div>
