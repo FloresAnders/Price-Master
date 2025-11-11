@@ -27,6 +27,7 @@ import {
     CalendarDays,
     ChevronLeft,
     ChevronRight,
+    Wallet,
 } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import { useProviders } from '../../../hooks/useProviders';
@@ -440,6 +441,12 @@ export function FondoSection({ id }: { id?: string }) {
     const [fromFilter, setFromFilter] = useState<string | null>(null);
     const [toFilter, setToFilter] = useState<string | null>(null);
 
+    // Advanced filters
+    const [filterProviderCode, setFilterProviderCode] = useState<string | 'all'>('all');
+    const [filterPaymentType, setFilterPaymentType] = useState<FondoEntry['paymentType'] | 'all'>('all');
+    const [filterEditedOnly, setFilterEditedOnly] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+
     // Column widths for resizable columns (simple px based)
     const [columnWidths, setColumnWidths] = useState<Record<string, string>>({
         hora: '140px',
@@ -832,6 +839,11 @@ export function FondoSection({ id }: { id?: string }) {
     }, [providers]);
     const selectedProviderExists = selectedProvider ? providers.some(p => p.code === selectedProvider) : false;
 
+    // reset page when filters change so user sees first page of filtered results
+    useEffect(() => {
+        setPageIndex(0);
+    }, [filterProviderCode, filterPaymentType, filterEditedOnly, searchQuery, fromFilter, toFilter]);
+
     const invoiceValid = /^[0-9]{1,4}$/.test(invoiceNumber) || invoiceNumber.length === 0;
     const egresoValue = Number.parseInt(egreso, 10);
     const ingresoValue = Number.parseInt(ingreso, 10);
@@ -968,18 +980,55 @@ export function FondoSection({ id }: { id?: string }) {
         return s;
     }, [fondoEntries]);
 
-    // If a from/to filter is set, show only entries in the inclusive range; otherwise show all displayedEntries
+    // Apply all active filters to displayedEntries: date range, provider, type, manager, edited-only and free-text search
     const filteredEntries = useMemo(() => {
-        if (!fromFilter && !toFilter) return displayedEntries;
-        return displayedEntries.filter(entry => {
-            const d = new Date(entry.createdAt);
-            const key = dateKeyFromDate(d);
-            if (fromFilter && toFilter) return key >= fromFilter && key <= toFilter;
-            if (fromFilter && !toFilter) return key === fromFilter;
-            if (!fromFilter && toFilter) return key === toFilter;
-            return true;
-        });
-    }, [displayedEntries, fromFilter, toFilter]);
+        let base = displayedEntries.slice();
+
+        // date filtering (from/to)
+        if (fromFilter || toFilter) {
+            base = base.filter(entry => {
+                const key = dateKeyFromDate(new Date(entry.createdAt));
+                if (fromFilter && toFilter) return key >= fromFilter && key <= toFilter;
+                if (fromFilter && !toFilter) return key === fromFilter;
+                if (!fromFilter && toFilter) return key === toFilter;
+                return true;
+            });
+        }
+
+        // provider filter
+        if (filterProviderCode && filterProviderCode !== 'all') {
+            base = base.filter(e => e.providerCode === filterProviderCode);
+        }
+
+        // payment type filter
+        if (filterPaymentType && filterPaymentType !== 'all') {
+            base = base.filter(e => e.paymentType === filterPaymentType);
+        }
+
+        // manager filter - not enabled in UI currently
+
+        // edited only
+        if (filterEditedOnly) {
+            base = base.filter(e => !!e.isAudit);
+        }
+
+        // search across invoice, notes, provider name and manager
+        const q = searchQuery.trim().toLowerCase();
+        if (q.length > 0) {
+            base = base.filter(e => {
+                const provName = providersMap.get(e.providerCode) ?? '';
+                return (
+                    String(e.invoiceNumber).toLowerCase().includes(q) ||
+                    String(e.notes ?? '').toLowerCase().includes(q) ||
+                    provName.toLowerCase().includes(q) ||
+                    String(e.manager ?? '').toLowerCase().includes(q) ||
+                    String(e.paymentType ?? '').toLowerCase().includes(q)
+                );
+            });
+        }
+
+        return base;
+    }, [displayedEntries, fromFilter, toFilter, filterProviderCode, filterPaymentType, filterEditedOnly, searchQuery, providersMap]);
 
     // Pagination: pageSize may be 5,10,15 or 'all'. Default to 10 visible items.
     const [pageSize, setPageSize] = useState<number | 'all'>(10);
@@ -1038,12 +1087,79 @@ export function FondoSection({ id }: { id?: string }) {
     };
 
     return (
-        <div id={id} className="mt-10">
-            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <h2 className="text-xl font-semibold text-[var(--foreground)] flex items-center gap-2">
-                    <Banknote className="w-5 h-5" /> Registrar movimiento de Fondo
+        <div id={id} className="mt-6">
+            {/* Main title at the very top - centered with icon above */}
+            <div className="mb-4 flex flex-col items-center justify-center">
+                <Wallet className="w-8 h-8 text-[var(--accent)] mb-1.5" />
+                <h2 className="text-xl font-semibold text-[var(--foreground)] text-center">
+                    Registrar movimiento de Fondo
                 </h2>
-                <div className="flex items-center gap-3 relative">
+            </div>
+
+            {/* Professional filter bar - centered */}
+            <div className="mb-4 flex flex-col items-center justify-center gap-3 pb-3 border-b border-[var(--input-border)]">
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                    <select
+                        value={filterProviderCode}
+                        onChange={e => setFilterProviderCode(e.target.value || 'all')}
+                        className="px-3 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--muted-foreground)]"
+                        title="Filtrar por proveedor"
+                        aria-label="Filtrar por proveedor"
+                    >
+                        <option value="all">Todos los proveedores</option>
+                        {providers.map(p => (
+                            <option key={p.code} value={p.code}>{p.name}</option>
+                        ))}
+                    </select>
+
+                    <select
+                        value={filterPaymentType}
+                        onChange={e => setFilterPaymentType((e.target.value as any) || 'all')}
+                        className="px-3 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--muted-foreground)]"
+                        title="Filtrar por tipo"
+                        aria-label="Filtrar por tipo"
+                    >
+                        <option value="all">Todas las categorías</option>
+                        {FONDO_TYPE_OPTIONS.map(opt => (
+                            <option key={opt} value={opt}>{formatMovementType(opt)}</option>
+                        ))}
+                    </select>
+
+                    <input
+                        type="search"
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        placeholder="Buscar factura, notas o proveedor"
+                        className="px-3 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm w-48 text-[var(--muted-foreground)]"
+                        aria-label="Buscar movimientos"
+                    />
+
+                    <label className="flex items-center gap-2 text-sm text-[var(--muted-foreground)]">
+                        <input type="checkbox" checked={filterEditedOnly} onChange={e => setFilterEditedOnly(e.target.checked)} />
+                        Editados
+                    </label>
+
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setFilterProviderCode('all');
+                            setFilterPaymentType('all');
+                            setFilterEditedOnly(false);
+                            setSearchQuery('');
+                            setFromFilter(null);
+                            setToFilter(null);
+                        }}
+                        className="px-3 py-2 bg-transparent border border-[var(--input-border)] rounded text-sm text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+                        title="Limpiar filtros"
+                    >
+                        Limpiar
+                    </button>
+                </div>
+            </div>
+
+            {/* Calendars and Add button - all centered */}
+            <div className="mb-4 flex flex-col items-center justify-center gap-3">
+                <div className="flex items-center justify-center gap-3 relative flex-wrap">
                     <div className="flex items-center gap-2">
                         <button
                             type="button"
