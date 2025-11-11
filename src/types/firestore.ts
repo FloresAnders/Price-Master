@@ -17,6 +17,7 @@ export interface ProviderEntry {
   code: string;
   name: string;
   company: string;
+  type?: string;
 }
 
 export interface Sorteo {

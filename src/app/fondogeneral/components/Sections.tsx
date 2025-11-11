@@ -12,6 +12,7 @@ import {
     LockOpen,
     Pencil,
     Plus,
+    ArrowUpDown,
     Settings,
     Tag,
     Trash2,
@@ -30,29 +31,50 @@ import ConfirmModal from '../../../components/ui/ConfirmModal';
 import { EmpresasService } from '../../../services/empresas';
 import AgregarMovimiento from './AgregarMovimiento';
 
-const FONDO_EGRESO_TYPES = ['COMPRA', 'GASTO', 'MANTENIMIENTO', 'SALARIO'] as const;
-const FONDO_INGRESO_TYPES = ['INGRESO'] as const;
-const FONDO_TYPE_OPTIONS = [...FONDO_EGRESO_TYPES, ...FONDO_INGRESO_TYPES] as const;
-export type FondoMovementType = typeof FONDO_EGRESO_TYPES[number] | typeof FONDO_INGRESO_TYPES[number];
+const FONDO_INGRESO_TYPES = ['VENTAS', 'OTROS INGRESOS'] as const;
+const FONDO_EGRESO_TYPES = [
+    'COMPRA INVENTARIO',
+    'SALARIOS',
+    'REPARACION EQUIPO',
+    'PAGO TIEMPOS',
+    'PAGO BANCA',
+    'CARGAS SOCIALES',
+    'ELECTRICIDAD',
+] as const;
+
+// Opciones visibles en el selector
+const FONDO_TYPE_OPTIONS = [...FONDO_INGRESO_TYPES, ...FONDO_EGRESO_TYPES] as const;
+
+export type FondoMovementType = typeof FONDO_INGRESO_TYPES[number] | typeof FONDO_EGRESO_TYPES[number];
+
 const isFondoMovementType = (value: string): value is FondoMovementType =>
     FONDO_TYPE_OPTIONS.includes(value as FondoMovementType);
-const isIngresoType = (type: FondoMovementType) => type === 'INGRESO';
+
+const isIngresoType = (type: FondoMovementType) => (FONDO_INGRESO_TYPES as readonly string[]).includes(type);
 const isEgresoType = (type: FondoMovementType) => !isIngresoType(type);
-const formatMovementType = (type: FondoMovementType) => type.charAt(0) + type.slice(1).toLowerCase();
+
+// Formatea en Titulo Caso cada palabra
+const formatMovementType = (type: FondoMovementType) =>
+    type
+        .toLowerCase()
+        .split(' ')
+        .map(w => (w ? w[0].toUpperCase() + w.slice(1) : w))
+        .join(' ');
+
+// Normaliza valores historicos guardados en localStorage a las nuevas categorias
 const normalizeStoredType = (value: unknown): FondoMovementType => {
     if (typeof value === 'string') {
-        const upper = value.toUpperCase();
-        if (isFondoMovementType(upper)) {
-            return upper;
-        }
-        if (upper === 'EGRESO') {
-            return 'COMPRA';
-        }
-        if (upper === 'INGRESO') {
-            return 'INGRESO';
-        }
+        const upper = value.toUpperCase().trim();
+        if (isFondoMovementType(upper)) return upper;
+        // Compatibilidad con valores antiguos
+        if (upper === 'INGRESO') return 'VENTAS';
+        if (upper === 'EGRESO') return 'COMPRA INVENTARIO';
+        if (upper === 'COMPRA') return 'COMPRA INVENTARIO';
+        if (upper === 'MANTENIMIENTO') return 'REPARACION EQUIPO';
+        if (upper === 'SALARIO' || upper === 'SALARIOS') return 'SALARIOS';
+        if (upper === 'GASTO') return 'ELECTRICIDAD'; // categoria generica de gasto
     }
-    return 'COMPRA';
+    return 'COMPRA INVENTARIO';
 };
 
 export type FondoEntry = {
@@ -74,48 +96,35 @@ const ADMIN_CODE = '12345'; // TODO: Permitir configurar este codigo desde el pe
 export function ProviderSection({ id }: { id?: string }) {
     const { user, loading: authLoading } = useAuth();
     const company = user?.ownercompanie?.trim() ?? '';
-    const { providers, loading: providersLoading, error, addProvider, removeProvider } = useProviders(company);
+    const { providers, loading: providersLoading, error, addProvider, removeProvider, updateProvider } = useProviders(company);
 
     const [providerName, setProviderName] = useState('');
+    const [providerType, setProviderType] = useState<FondoMovementType | ''>('');
+    const [editingProviderCode, setEditingProviderCode] = useState<string | null>(null);
     const [formError, setFormError] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
     const [deletingCode, setDeletingCode] = useState<string | null>(null);
+    const [providerDrawerOpen, setProviderDrawerOpen] = useState(false);
     const [confirmState, setConfirmState] = useState<{ open: boolean; code: string; name: string }>({
         open: false,
         code: '',
         name: '',
     });
 
-    const handleAddProvider = async () => {
-        const name = providerName.trim().toUpperCase();
-        if (!name) return;
-
-        if (!company) {
-            setFormError('Tu usuario no tiene una empresa asignada.');
-            return;
-        }
-
-        if (providers.some(p => p.name.toUpperCase() === name)) {
-            setFormError(`El proveedor "${name}" ya existe.`);
-            return;
-        }
-
-        try {
-            setSaving(true);
-            setFormError(null);
-            await addProvider(name);
-            setProviderName('');
-        } catch (err) {
-            const message = err instanceof Error ? err.message : 'No se pudo guardar el proveedor.';
-            setFormError(message);
-        } finally {
-            setSaving(false);
-        }
-    };
+    // provider creation is handled from the drawer UI below
 
     const openRemoveModal = (code: string, name: string) => {
         if (!company) return;
         setConfirmState({ open: true, code, name });
+    };
+
+    const openEditProvider = (code: string) => {
+        const prov = providers.find(p => p.code === code);
+        if (!prov) return;
+        setEditingProviderCode(prov.code);
+        setProviderName(prov.name ?? '');
+        setProviderType((prov.type as FondoMovementType) ?? '');
+        setProviderDrawerOpen(true);
     };
 
     const cancelRemoveModal = () => {
@@ -148,15 +157,34 @@ export function ProviderSection({ id }: { id?: string }) {
 
     return (
         <div id={id} className="mt-10" style={{ color: '#ffffff' }}>
-            <h2 className="text-xl font-semibold text-[var(--foreground)] mb-3 flex items-center gap-2">
-                <UserPlus className="w-5 h-5" /> Agregar proveedor
-            </h2>
-
-            {company && (
-                <p className="text-xs text-[var(--muted-foreground)] mb-3">
-                    Empresa asignada: <span className="font-medium text-[var(--foreground)]">{company}</span>
-                </p>
-            )}
+            <div className="mb-4 flex items-center justify-between">
+                <div className="flex flex-col items-center">
+                    <h2 className="text-xl font-semibold text-[var(--foreground)] flex items-center gap-2">
+                        <UserPlus className="w-5 h-5" /> Agregar proveedor
+                    </h2>
+                    {company && (
+                        <p className="text-xs text-[var(--muted-foreground)] mt-1">
+                            Empresa asignada: <span className="font-medium text-[var(--foreground)]">{company}</span>
+                        </p>
+                    )}
+                </div>
+                <div className="flex items-center">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setEditingProviderCode(null);
+                            setProviderName('');
+                            setProviderType('');
+                            setProviderDrawerOpen(true);
+                        }}
+                        className="px-4 py-2 border border-[var(--input-border)] rounded flex items-center gap-2 hover:bg-[var(--muted)]"
+                        disabled={!company}
+                    >
+                        <Plus className="w-4 h-4" />
+                        Agregar proveedor
+                    </button>
+                </div>
+            </div>
 
             {!authLoading && !company && (
                 <p className="text-sm text-[var(--muted-foreground)] mb-4">
@@ -166,28 +194,7 @@ export function ProviderSection({ id }: { id?: string }) {
 
             {resolvedError && <div className="mb-4 text-sm text-red-500">{resolvedError}</div>}
 
-            <div className="flex gap-3 items-start mb-4">
-                <input
-                    className="flex-1 p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded"
-                    placeholder="Nombre del proveedor"
-                    value={providerName}
-                    onChange={e => setProviderName(e.target.value.toUpperCase())}
-                    onKeyDown={e => {
-                        if (e.key === 'Enter') {
-                            e.preventDefault();
-                            void handleAddProvider();
-                        }
-                    }}
-                    disabled={!company || saving || deletingCode !== null}
-                />
-                <button
-                    className="px-4 py-3 bg-[var(--accent)] text-white rounded disabled:opacity-50"
-                    onClick={handleAddProvider}
-                    disabled={!company || !providerName.trim() || saving || deletingCode !== null}
-                >
-                    {saving ? 'Guardando...' : 'Guardar'}
-                </button>
-            </div>
+            
 
             <div>
                 <h3 className="text-sm font-medium text-[var(--foreground)] mb-2">Lista de Proveedores</h3>
@@ -197,13 +204,22 @@ export function ProviderSection({ id }: { id?: string }) {
                     <ul className="space-y-2">
                         {providers.length === 0 && <li className="text-[var(--muted-foreground)]">Aun no hay proveedores.</li>}
                         {providers.map(p => (
-                            <li key={p.code} className="flex items-center justify-between bg-[var(--muted)] p-3 rounded">
+                                    <li key={p.code} className="flex items-center justify-between bg-[var(--muted)] p-3 rounded">
                                 <div>
                                     <div className="text-[var(--foreground)] font-semibold">{p.name}</div>
                                     <div className="text-xs text-[var(--muted-foreground)]">Codigo: {p.code}</div>
                                 </div>
                                 <div className="flex items-center gap-3">
                                     <div className="text-xs text-[var(--muted-foreground)]">Empresa: {p.company}</div>
+                                    <button
+                                        type="button"
+                                        className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] disabled:opacity-50"
+                                        onClick={() => openEditProvider(p.code)}
+                                        disabled={saving || deletingCode !== null}
+                                        title="Editar proveedor"
+                                    >
+                                        <Pencil className="w-4 h-4" />
+                                    </button>
                                     <button
                                         type="button"
                                         className="text-red-500 hover:text-red-600 disabled:opacity-50"
@@ -231,6 +247,138 @@ export function ProviderSection({ id }: { id?: string }) {
                 onConfirm={confirmRemoveProvider}
                 onCancel={cancelRemoveModal}
             />
+
+            <Drawer
+                anchor="right"
+                open={providerDrawerOpen}
+                onClose={() => {
+                    setProviderDrawerOpen(false);
+                    setFormError(null);
+                    setProviderName('');
+                    setProviderType('');
+                    setEditingProviderCode(null);
+                }}
+                PaperProps={{
+                    sx: {
+                        width: { xs: '100vw', sm: 460 },
+                        maxWidth: '100vw',
+                        bgcolor: '#1f262a',
+                        color: '#ffffff',
+                    },
+                }}
+            >
+                <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 3, py: 2 }}>
+                        <Typography variant="h6" component="h3" sx={{ fontWeight: 600 }}>
+                            {editingProviderCode ? 'Editar proveedor' : 'Agregar proveedor'}
+                        </Typography>
+                        <IconButton
+                            aria-label="Cerrar"
+                            onClick={() => {
+                                setProviderDrawerOpen(false);
+                                setFormError(null);
+                                setProviderName('');
+                                setProviderType('');
+                                setEditingProviderCode(null);
+                            }}
+                            sx={{ color: 'var(--foreground)' }}
+                        >
+                            <X className="w-4 h-4" />
+                        </IconButton>
+                    </Box>
+                    <Divider sx={{ borderColor: 'var(--input-border)' }} />
+                    <Box sx={{ flex: 1, overflowY: 'auto', px: 3, py: 3 }}>
+                        {company && (
+                            <p className="text-xs text-[var(--muted-foreground)] mb-3">
+                                Empresa asignada: <span className="font-medium text-[var(--foreground)]">{company}</span>
+                            </p>
+                        )}
+                        {resolvedError && <div className="mb-4 text-sm text-red-500">{resolvedError}</div>}
+
+                        <div className="flex flex-col gap-3">
+                            <input
+                                className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded"
+                                placeholder="Nombre del proveedor"
+                                value={providerName}
+                                onChange={e => setProviderName(e.target.value.toUpperCase())}
+                                disabled={!company || saving || deletingCode !== null}
+                                autoFocus
+                            />
+                            <select
+                                value={providerType}
+                                onChange={e => setProviderType(e.target.value as FondoMovementType | '')}
+                                className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded"
+                                disabled={!company || saving}
+                            >
+                                <option value="">Tipo (opcional)</option>
+                                {FONDO_TYPE_OPTIONS.map(opt => (
+                                    <option key={opt} value={opt}>{formatMovementType(opt)}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="flex justify-end gap-2 mt-6">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setProviderDrawerOpen(false);
+                                    setFormError(null);
+                                    setProviderName('');
+                                    setProviderType('');
+                                    setEditingProviderCode(null);
+                                }}
+                                className="px-4 py-2 border border-[var(--input-border)] rounded text-[var(--foreground)] hover:bg-[var(--muted)]"
+                                disabled={saving}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="button"
+                                onClick={async () => {
+                                            const name = providerName.trim().toUpperCase();
+                                            if (!name) {
+                                                setFormError('Nombre requerido.');
+                                                return;
+                                            }
+                                            if (!company) {
+                                                setFormError('Tu usuario no tiene una empresa asignada.');
+                                                return;
+                                            }
+                                            try {
+                                                setSaving(true);
+                                                setFormError(null);
+                                                if (editingProviderCode) {
+                                                    // Actualizar proveedor existente
+                                                    await updateProvider(editingProviderCode, name, providerType || undefined);
+                                                } else {
+                                                    // Crear nuevo proveedor
+                                                    if (providers.some(p => p.name.toUpperCase() === name)) {
+                                                        setFormError(`El proveedor "${name}" ya existe.`);
+                                                        setSaving(false);
+                                                        return;
+                                                    }
+                                                    await addProvider(name, providerType || undefined);
+                                                }
+                                                setProviderName('');
+                                                setProviderType('');
+                                                setEditingProviderCode(null);
+                                                setProviderDrawerOpen(false);
+                                            } catch (err) {
+                                                const message = err instanceof Error ? err.message : 'No se pudo guardar el proveedor.';
+                                                setFormError(message);
+                                            } finally {
+                                                setSaving(false);
+                                            }
+                                        }}
+                                className="px-4 py-2 bg-[var(--accent)] text-white rounded disabled:opacity-50"
+                                disabled={!company || saving || deletingCode !== null}
+                            >
+                                        {saving ? (editingProviderCode ? 'Actualizando...' : 'Guardando...') : (editingProviderCode ? 'Actualizar' : 'Guardar')}
+                            </button>
+                        </div>
+                    </Box>
+                </Box>
+            </Drawer>
         </div>
     );
 }
@@ -246,7 +394,7 @@ export function FondoSection({ id }: { id?: string }) {
 
     const [selectedProvider, setSelectedProvider] = useState('');
     const [invoiceNumber, setInvoiceNumber] = useState('');
-    const [paymentType, setPaymentType] = useState<FondoEntry['paymentType']>('COMPRA');
+    const [paymentType, setPaymentType] = useState<FondoEntry['paymentType']>('COMPRA INVENTARIO');
     const [egreso, setEgreso] = useState('');
     const [ingreso, setIngreso] = useState('');
     const [manager, setManager] = useState('');
@@ -259,6 +407,44 @@ export function FondoSection({ id }: { id?: string }) {
     const [settingsError, setSettingsError] = useState<string | null>(null);
     const [movementModalOpen, setMovementModalOpen] = useState(false);
     const [movementAutoCloseLocked, setMovementAutoCloseLocked] = useState(false);
+    const [sortAsc, setSortAsc] = useState(false);
+
+    // Column widths for resizable columns (simple px based)
+    const [columnWidths, setColumnWidths] = useState<Record<string, string>>({
+        hora: '140px',
+        motivo: '260px',
+        tipo: '160px',
+        factura: '90px',
+        monto: '180px',
+        encargado: '140px',
+        editar: '120px',
+    });
+    const resizingRef = React.useRef<{ key: string; startX: number; startWidth: number } | null>(null);
+
+    const startResizing = (event: React.MouseEvent, key: string) => {
+        event.preventDefault();
+        const startWidth = parseInt(columnWidths[key] || '100', 10) || 100;
+        resizingRef.current = { key, startX: event.clientX, startWidth };
+    };
+
+    useEffect(() => {
+        const onMove = (e: MouseEvent) => {
+            const r = resizingRef.current;
+            if (!r) return;
+            const delta = e.clientX - r.startX;
+            const newW = Math.max(40, r.startWidth + delta);
+            setColumnWidths(prev => ({ ...prev, [r.key]: `${newW}px` }));
+        };
+        const onUp = () => {
+            resizingRef.current = null;
+        };
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+        return () => {
+            window.removeEventListener('mousemove', onMove);
+            window.removeEventListener('mouseup', onUp);
+        };
+    }, [columnWidths]);
 
     const isIngreso = isIngresoType(paymentType);
     const isEgreso = isEgresoType(paymentType);
@@ -403,7 +589,7 @@ export function FondoSection({ id }: { id?: string }) {
         setEgreso('');
         setIngreso('');
         setManager('');
-        setPaymentType('COMPRA');
+    setPaymentType('COMPRA INVENTARIO');
         setNotes('');
         setEditingEntryId(null);
     };
@@ -609,13 +795,23 @@ export function FondoSection({ id }: { id?: string }) {
         return 'border-[var(--input-border)]';
     };
 
-    const handleProviderChange = (value: string) => setSelectedProvider(value);
-    const handleInvoiceNumberChange = (value: string) => setInvoiceNumber(value.replace(/\D/g, '').slice(0, 4));
-    const handlePaymentTypeChange = (value: string) => {
-        if (isFondoMovementType(value)) {
-            setPaymentType(value);
+    const handleProviderChange = (value: string) => {
+        setSelectedProvider(value);
+        try {
+            const prov = providers.find(p => p.code === value);
+            if (prov && prov.type && isFondoMovementType(prov.type)) {
+                setPaymentType(prov.type as FondoEntry['paymentType']);
+            } else {
+                // fallback to default when provider has no type or it's invalid
+                setPaymentType('COMPRA INVENTARIO');
+            }
+        } catch {
+            // defensive: ensure UI remains usable on unexpected provider shapes
+            setPaymentType('COMPRA INVENTARIO');
         }
     };
+    const handleInvoiceNumberChange = (value: string) => setInvoiceNumber(value.replace(/\D/g, '').slice(0, 4));
+    // paymentType is derived from the selected provider; no manual change handler needed
     const handleEgresoChange = (value: string) => setEgreso(normalizeMoneyInput(value));
     const handleIngresoChange = (value: string) => setIngreso(normalizeMoneyInput(value));
     const handleNotesChange = (value: string) => setNotes(value);
@@ -625,8 +821,7 @@ export function FondoSection({ id }: { id?: string }) {
     const invoiceDisabled = !company;
     const egresoBorderClass = amountClass(isEgreso, egreso.trim().length > 0, egresoValid);
     const ingresoBorderClass = amountClass(isIngreso, ingreso.trim().length > 0, ingresoValid);
-    const formatMovementTypeForSelect = (value: string) =>
-        formatMovementType(isFondoMovementType(value) ? value : 'COMPRA');
+    
 
     const closeMovementModal = () => {
         setMovementModalOpen(false);
@@ -635,6 +830,22 @@ export function FondoSection({ id }: { id?: string }) {
     };
     const handleOpenCreateMovement = () => {
         resetFondoForm();
+        // If a provider is already selected, derive paymentType from it so the form
+        // doesn't stay with the reset default ('COMPRA INVENTARIO'). This prevents
+        // cases where the UI shows a provider whose configured type (e.g. 'OTROS INGRESOS')
+        // is ignored because resetFondoForm set the paymentType to the default.
+        if (selectedProvider) {
+            try {
+                const prov = providers.find(p => p.code === selectedProvider);
+                if (prov && prov.type && isFondoMovementType(prov.type)) {
+                    setPaymentType(prov.type as FondoEntry['paymentType']);
+                } else {
+                    setPaymentType('COMPRA INVENTARIO');
+                }
+            } catch {
+                setPaymentType('COMPRA INVENTARIO');
+            }
+        }
         setMovementModalOpen(true);
     };
 
@@ -644,6 +855,8 @@ export function FondoSection({ id }: { id?: string }) {
             handleSubmitFondo();
         }
     };
+
+    const displayedEntries = useMemo(() => (sortAsc ? [...fondoEntries].slice().reverse() : fondoEntries), [fondoEntries, sortAsc]);
 
     return (
         <div id={id} className="mt-10">
@@ -742,9 +955,7 @@ export function FondoSection({ id }: { id?: string }) {
                             invoiceValid={invoiceValid}
                             invoiceDisabled={invoiceDisabled}
                             paymentType={paymentType}
-                            onPaymentTypeChange={handlePaymentTypeChange}
-                            movementTypeOptions={FONDO_TYPE_OPTIONS}
-                            formatMovementType={formatMovementTypeForSelect}
+                            
                             isEgreso={isEgreso}
                             egreso={egreso}
                             onEgresoChange={handleEgresoChange}
@@ -789,66 +1000,130 @@ export function FondoSection({ id }: { id?: string }) {
                     <div className="overflow-x-auto rounded border border-[var(--input-border)] bg-[#1f262a] text-white">
                         <div className="max-h-[36rem] overflow-y-auto">
                             <table className="w-full min-w-[920px] text-sm">
+                                <colgroup>
+                                    <col style={{ width: columnWidths.hora }} />
+                                    <col style={{ width: columnWidths.motivo }} />
+                                    <col style={{ width: columnWidths.tipo }} />
+                                    <col style={{ width: columnWidths.factura }} />
+                                    <col style={{ width: columnWidths.monto }} />
+                                    <col style={{ width: columnWidths.encargado }} />
+                                    <col style={{ width: columnWidths.editar }} />
+                                </colgroup>
                                 <thead className="bg-[var(--muted)] text-xs uppercase tracking-wide text-[var(--muted-foreground)]">
                                     <tr>
                                         <th className="px-3 py-2 text-left font-semibold">
-                                            <div className="flex items-center gap-2">
-                                                <Clock className="w-4 h-4" />
-                                                Hora
+                                            <div className="relative pr-2">
+                                                <div className="flex items-center gap-2">
+                                                    <Clock className="w-4 h-4" />
+                                                    Hora
+                                                </div>
+                                                <div
+                                                    onMouseDown={e => startResizing(e, 'hora')}
+                                                    className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
+                                                    style={{ touchAction: 'none' }}
+                                                >
+                                                    <div style={{ width: 2, height: '70%', background: 'rgba(255,255,255,0.18)', borderRadius: 3 }} />
+                                                </div>
                                             </div>
                                         </th>
                                         <th className="px-3 py-2 text-left font-semibold">
-                                            <div className="flex items-center gap-2">
-                                                <Layers className="w-4 h-4" />
-                                                Motivo
+                                            <div className="relative pr-2">
+                                                <div className="flex items-center gap-2">
+                                                    <Layers className="w-4 h-4" />
+                                                    Motivo
+                                                </div>
+                                                <div onMouseDown={e => startResizing(e, 'motivo')} className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center" style={{ touchAction: 'none' }}>
+                                                    <div style={{ width: 2, height: '70%', background: 'rgba(255,255,255,0.18)', borderRadius: 3 }} />
+                                                </div>
                                             </div>
                                         </th>
                                         <th className="px-3 py-2 text-left font-semibold">
-                                            <div className="flex items-center gap-2">
-                                                <Tag className="w-4 h-4" />
-                                                Tipo
+                                            <div className="relative pr-2">
+                                                <div className="flex items-center gap-2">
+                                                    <Tag className="w-4 h-4" />
+                                                    Tipo
+                                                </div>
+                                                <div onMouseDown={e => startResizing(e, 'tipo')} className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center" style={{ touchAction: 'none' }}>
+                                                    <div style={{ width: 2, height: '70%', background: 'rgba(255,255,255,0.18)', borderRadius: 3 }} />
+                                                </div>
                                             </div>
                                         </th>
                                         <th className="px-3 py-2 text-left font-semibold">
-                                            <div className="flex items-center gap-2">
-                                                <FileText className="w-4 h-4" />
-                                                N° factura
+                                            <div className="relative pr-2">
+                                                <div className="flex items-center gap-2">
+                                                    <FileText className="w-4 h-4" />
+                                                    N° factura
+                                                </div>
+                                                <div onMouseDown={e => startResizing(e, 'factura')} className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center" style={{ touchAction: 'none' }}>
+                                                    <div style={{ width: 2, height: '70%', background: 'rgba(255,255,255,0.18)', borderRadius: 3 }} />
+                                                </div>
                                             </div>
                                         </th>
                                         <th className="px-3 py-2 text-left font-semibold">
-                                            <div className="flex items-center gap-2">
-                                                <Banknote className="w-4 h-4" />
-                                                Monto
+                                            <div className="relative pr-2">
+                                                <div className="flex items-center gap-2">
+                                                    <Banknote className="w-4 h-4" />
+                                                    Monto
+                                                </div>
+                                                <div onMouseDown={e => startResizing(e, 'monto')} className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center" style={{ touchAction: 'none' }}>
+                                                    <div style={{ width: 2, height: '70%', background: 'rgba(255,255,255,0.18)', borderRadius: 3 }} />
+                                                </div>
                                             </div>
                                         </th>
                                         <th className="px-3 py-2 text-left font-semibold">
-                                            <div className="flex items-center gap-2">
-                                                <UserCircle className="w-4 h-4" />
-                                                Encargado
+                                            <div className="relative pr-2">
+                                                <div className="flex items-center gap-2">
+                                                    <UserCircle className="w-4 h-4" />
+                                                    Encargado
+                                                </div>
+                                                <div onMouseDown={e => startResizing(e, 'encargado')} className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center" style={{ touchAction: 'none' }}>
+                                                    <div style={{ width: 2, height: '70%', background: 'rgba(255,255,255,0.18)', borderRadius: 3 }} />
+                                                </div>
                                             </div>
                                         </th>
                                         <th className="px-3 py-2 text-left font-semibold">
-                                            <div className="flex items-center gap-2">
-                                                <Pencil className="w-4 h-4" />
-                                                Editar
+                                            <div className="relative pr-2">
+                                                <div className="flex items-center justify-end gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setSortAsc(prev => !prev)}
+                                                        title={sortAsc ? 'Mostrar más reciente arriba' : 'Mostrar más reciente abajo'}
+                                                        aria-label="Invertir orden de movimientos"
+                                                        className="p-1 border border-[var(--input-border)] rounded hover:bg-[var(--muted)]"
+                                                    >
+                                                        <ArrowUpDown className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                                <div onMouseDown={e => startResizing(e, 'editar')} className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center" style={{ touchAction: 'none' }}>
+                                                    <div style={{ width: 2, height: '70%', background: 'rgba(255,255,255,0.18)', borderRadius: 3 }} />
+                                                </div>
                                             </div>
                                         </th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {fondoEntries.map(fe => {
+                                    {displayedEntries.map((fe) => {
+                                        // the newest entry is the first element in fondoEntries (inserted at index 0)
+                                        const isMostRecent = fe.id === fondoEntries[0]?.id;
                                         const providerName = providersMap.get(fe.providerCode) ?? fe.providerCode;
                                         const isEntryEgreso = isEgresoType(fe.paymentType);
                                         const movementAmount = isEntryEgreso ? fe.amountEgreso : fe.amountIngreso;
                                         const amountLabel = formatAmount(movementAmount);
                                         const balanceAfter = balanceAfterById.get(fe.id) ?? initialAmountValue;
+                                        // compute the balance immediately before this movement was applied
+                                        const previousBalance = isEntryEgreso
+                                            ? balanceAfter + fe.amountEgreso
+                                            : balanceAfter - fe.amountIngreso;
                                         const recordedAt = new Date(fe.createdAt);
                                         const formattedDate = Number.isNaN(recordedAt.getTime())
                                             ? 'Sin fecha'
                                             : dateTimeFormatter.format(recordedAt);
                                         const amountPrefix = isEntryEgreso ? '-' : '+';
                                         return (
-                                            <tr key={fe.id} className="border-t border-[var(--input-border)] hover:bg-[var(--muted)]">
+                                            <tr
+                                                key={fe.id}
+                                                className={`border-t border-[var(--input-border)] hover:bg-[var(--muted)] ${isMostRecent ? 'bg-[#273238]' : ''}`}
+                                            >
                                                 <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">{formattedDate}</td>
                                                 <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
                                                     <div className="font-semibold text-[var(--muted-foreground)]">{providerName}</div>
@@ -874,11 +1149,11 @@ export function FondoSection({ id }: { id?: string }) {
                                                                 className={`font-semibold ${isEntryEgreso ? 'text-red-500' : 'text-green-600'
                                                                     }`}
                                                             >
-                                                                {`${amountPrefix} CRC ${amountLabel}`}
+                                                                {`${amountPrefix} ₡ ${amountLabel}`}
                                                             </span>
                                                         </div>
                                                         <span className="text-xs text-[var(--muted-foreground)]">
-                                                            Saldo: CRC {formatAmount(balanceAfter)}
+                                                            Saldo anterior: ₡ {formatAmount(previousBalance)}
                                                         </span>
                                                     </div>
                                                 </td>
@@ -922,7 +1197,7 @@ export function FondoSection({ id }: { id?: string }) {
                         <div className="px-4 py-3 rounded text-center min-w-[190px] fg-balance-card">
                             <div className="text-xs uppercase tracking-wide">Saldo actual</div>
                             <div className="text-lg font-semibold">
-                                {formatAmount(currentBalance)}
+                                ₡ {formatAmount(currentBalance)}
                             </div>
                         </div>
                     </div>
@@ -987,9 +1262,9 @@ export function FondoSection({ id }: { id?: string }) {
                                             Monto inicial del fondo
                                         </label>
                                         <input
-                                            value={initialAmount}
+                                            value={initialAmount.trim().length > 0 ? `₡ ${formatAmount(Number(initialAmount))}` : ''}
                                             onChange={e => handleInitialAmountChange(e.target.value)}
-                                            onBlur={handleInitialAmountBlur}
+                                            onBlur={() => handleInitialAmountBlur()}
                                             className="w-full p-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded"
                                             placeholder="0"
                                             inputMode="numeric"
@@ -1004,25 +1279,25 @@ export function FondoSection({ id }: { id?: string }) {
                                     <div className="p-3 bg-[var(--muted)] border border-[var(--input-border)] rounded">
                                         <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Saldo inicial</div>
                                         <div className="text-lg font-semibold text-[var(--foreground)]">
-                                            {formatAmount(initialAmountValue)}
+                                            ₡ {formatAmount(initialAmountValue)}
                                         </div>
                                     </div>
                                     <div className="p-3 bg-[var(--muted)] border border-[var(--input-border)] rounded">
                                         <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Total ingresos</div>
                                         <div className="text-lg font-semibold text-emerald-600">
-                                            {formatAmount(totalIngresos)}
+                                            ₡ {formatAmount(totalIngresos)}
                                         </div>
                                     </div>
                                     <div className="p-3 bg-[var(--muted)] border border-[var(--input-border)] rounded">
                                         <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Total egresos</div>
                                         <div className="text-lg font-semibold text-red-600">
-                                            {formatAmount(totalEgresos)}
+                                            ₡ {formatAmount(totalEgresos)}
                                         </div>
                                     </div>
                                     <div className="p-3 bg-[var(--muted)] border border-[var(--input-border)] rounded">
                                         <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Saldo actual</div>
                                         <div className="text-lg font-semibold text-[var(--foreground)]">
-                                            {formatAmount(currentBalance)}
+                                            ₡ {formatAmount(currentBalance)}
                                         </div>
                                     </div>
                                 </div>

@@ -18,9 +18,6 @@ type AgregarMovimientoProps = {
     invoiceValid: boolean;
     invoiceDisabled: boolean;
     paymentType: FondoMovementType;
-    onPaymentTypeChange: (value: string) => void;
-    movementTypeOptions: readonly string[];
-    formatMovementType: (type: string) => string;
     isEgreso: boolean;
     egreso: string;
     onEgresoChange: (value: string) => void;
@@ -53,10 +50,6 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
     onInvoiceNumberChange,
     invoiceValid,
     invoiceDisabled,
-    paymentType,
-    onPaymentTypeChange,
-    movementTypeOptions,
-    formatMovementType,
     isEgreso,
     egreso,
     onEgresoChange,
@@ -78,6 +71,19 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
     onFieldKeyDown,
 }) => {
     const invoiceBorderClass = invoiceValid || invoiceNumber.length === 0 ? 'border-[var(--input-border)]' : 'border-red-500';
+    const inputFormatter = React.useMemo(
+        () => new Intl.NumberFormat('es-CR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }),
+        [],
+    );
+
+    const formatInputDisplay = (raw: string) => {
+        if (!raw || raw.trim().length === 0) return '';
+        const n = Number(raw);
+        if (Number.isNaN(n)) return raw;
+        return `₡ ${inputFormatter.format(Math.trunc(n))}`;
+    };
+
+    const extractDigits = (value: string) => value.replace(/[^0-9]/g, '');
 
     return (
         <div className="space-y-5">
@@ -119,22 +125,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                     />
                 </div>
 
-                <div className="flex flex-col gap-1">
-                    <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
-                        Tipo
-                    </label>
-                    <select
-                        value={paymentType}
-                        onChange={event => onPaymentTypeChange(event.target.value)}
-                        onKeyDown={onFieldKeyDown}
-                        className="w-full p-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded"
-                        disabled={invoiceDisabled}
-                    >
-                        {movementTypeOptions.map(option => (
-                            <option key={option} value={option}>{formatMovementType(option)}</option>
-                        ))}
-                    </select>
-                </div>
+                {/* Tipo ya se determina por el proveedor seleccionado; no se muestra selector aquí */}
 
                 <div className="flex flex-col gap-1">
                     <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
@@ -142,10 +133,11 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                     </label>
                     <input
                         placeholder="0"
-                        value={isEgreso ? egreso : ingreso}
-                        onChange={event =>
-                            isEgreso ? onEgresoChange(event.target.value) : onIngresoChange(event.target.value)
-                        }
+                        value={formatInputDisplay(isEgreso ? egreso : ingreso)}
+                        onChange={event => {
+                            const digits = extractDigits(event.target.value);
+                            if (isEgreso) onEgresoChange(digits); else onIngresoChange(digits);
+                        }}
                         onKeyDown={onFieldKeyDown}
                         className={`w-full p-2 bg-[var(--input-bg)] border ${isEgreso ? egresoBorderClass : ingresoBorderClass} rounded`}
                         inputMode="numeric"
