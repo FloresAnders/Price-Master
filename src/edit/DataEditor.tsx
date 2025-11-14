@@ -10,7 +10,7 @@ import { UsersService } from '../services/users';
 import { useAuth } from '../hooks/useAuth';
 import { CcssConfigService } from '../services/ccss-config';
 import { Sorteo, User, CcssConfig, UserPermissions, companies } from '../types/firestore';
-import { getDefaultPermissions, getNoPermissions } from '../utils/permissions';
+import { getDefaultPermissions, getNoPermissions, hasPermission } from '../utils/permissions';
 import ScheduleReportTab from '../components/business/ScheduleReportTab';
 import ConfirmModal from '../components/ui/ConfirmModal';
 import ExportModal from '../components/export/ExportModal';
@@ -122,10 +122,83 @@ export default function DataEditor() {
             setOriginalSorteosData(JSON.parse(JSON.stringify(sorteos)));
 
             // Cargar empresas desde Firebase
+            // hoist a variable so later user-filtering can re-use the fetched empresas
+            let empresasToShow: any[] = [];
             try {
                 const empresas = await EmpresasService.getAllEmpresas();
-                setEmpresasData(empresas);
-                setOriginalEmpresasData(JSON.parse(JSON.stringify(empresas)));
+
+                // Si el actor autenticado tiene permiso de mantenimiento, solo mostrar
+                // las empresas cuyo ownerId coincide con el ownerId/resolved del actor.
+                empresasToShow = empresas;
+                try {
+                    if (currentUser && hasPermission(currentUser.permissions, 'mantenimiento')) {
+                        const actorOwnerId = resolveOwnerIdForActor();
+                        // Si se pudo resolver ownerId del actor, filtrar por ese ownerId.
+                        if (actorOwnerId) {
+                            empresasToShow = (empresas || []).filter((e: any) => e && e.ownerId === actorOwnerId);
+                        } else {
+                            // Fallback: usar currentUser.id or currentUser.ownerId if present
+                            empresasToShow = (empresas || []).filter((e: any) => e && (e.ownerId === currentUser.id || e.ownerId === currentUser.ownerId));
+                        }
+
+                        // Additionally ensure admins see companies they created (ownerId === currentUser.id)
+                        if (currentUser.role === 'admin') {
+                            try {
+                                const allowed = new Set<string>();
+                                if (currentUser.id) allowed.add(String(currentUser.id));
+                                if (currentUser.ownerId) allowed.add(String(currentUser.ownerId));
+                                try {
+                                    if (typeof window !== 'undefined') {
+                                        const sessionRaw = localStorage.getItem('pricemaster_session');
+                                        if (sessionRaw) {
+                                            const session = JSON.parse(sessionRaw);
+                                            if (session && session.ownerId) allowed.add(String(session.ownerId));
+                                        }
+                                    }
+                                } catch {}
+
+                                // merge: include any empresas whose ownerId is in allowed
+                                empresasToShow = (empresas || []).filter((e: any) => e && allowed.has(String(e.ownerId)));
+                            } catch (err) {
+                                console.warn('Error ensuring admin-owned empresas visible:', err);
+                            }
+                        }
+                    }
+                } catch (err) {
+                    // Si ocurre algún error durante el filtrado, dejar las empresas tal cual
+                    console.warn('Error filtrando empresas por ownerId:', err);
+                    empresasToShow = empresas;
+                }
+
+                // Additionally, if the current actor is an admin, exclude empresas
+                // that belong to a superadmin (i.e., empresas whose ownerId user.role === 'superadmin')
+                try {
+                    if (currentUser?.role === 'admin') {
+                        const ownerIds = Array.from(new Set((empresasToShow || []).map((e: any) => e.ownerId).filter(Boolean)));
+                        const owners = await Promise.all(ownerIds.map(id => UsersService.getUserById(id)));
+                        const ownerRoleById = new Map<string, string | undefined>();
+                        ownerIds.forEach((id, idx) => ownerRoleById.set(id, owners[idx]?.role));
+
+                        // Debug info to help diagnose missing empresas
+                        console.debug('[DataEditor] currentUser:', currentUser?.id, currentUser?.ownerId, 'resolved actorOwnerId:', resolveOwnerIdForActor());
+                        console.debug('[DataEditor] empresas fetched:', (empresas || []).length, 'ownerIds:', ownerIds);
+                        console.debug('[DataEditor] owner roles:', Array.from(ownerRoleById.entries()));
+
+                        empresasToShow = (empresasToShow || []).filter((e: any) => {
+                            const ownerRole = ownerRoleById.get(e.ownerId);
+                            // if owner is superadmin, hide from admin actors
+                            if (ownerRole === 'superadmin') return false;
+                            return true;
+                        });
+
+                        console.debug('[DataEditor] empresas after filtering:', empresasToShow.map((x: any) => ({ id: x.id, ownerId: x.ownerId, name: x.name })));
+                    }
+                } catch (err) {
+                    console.warn('Error resolving empresa owners while filtering superadmin-owned empresas:', err);
+                }
+
+                setEmpresasData(empresasToShow);
+                setOriginalEmpresasData(JSON.parse(JSON.stringify(empresasToShow)));
             } catch (err) {
                 console.warn('No se pudo cargar empresas:', err);
                 setEmpresasData([]);
@@ -143,8 +216,65 @@ export default function DataEditor() {
                     console.warn('Error ensuring all permissions:', error);
                 }
 
-                setUsersData(users);
-                setOriginalUsersData(JSON.parse(JSON.stringify(users)));
+                // Filtrar usuarios para que actores no-superadmin solo vean usuarios
+                // que compartan el mismo ownerId/resolved owner del actor.
+                let usersToShow = users;
+                try {
+                    if (currentUser.role !== 'superadmin') {
+                        // Construir un conjunto de ownerIds permitidos basados en el actor:
+                        // - currentUser.id (si el admin actúa en su propio id)
+                        // - currentUser.ownerId (cuando es delegado)
+                        // - session.ownerId si existe en localStorage
+                        const allowed = new Set<string>();
+                        if (currentUser.id) allowed.add(String(currentUser.id));
+                        if (currentUser.ownerId) allowed.add(String(currentUser.ownerId));
+
+                        try {
+                            if (typeof window !== 'undefined') {
+                                const sessionRaw = localStorage.getItem('pricemaster_session');
+                                if (sessionRaw) {
+                                    const session = JSON.parse(sessionRaw);
+                                    if (session && session.ownerId) allowed.add(String(session.ownerId));
+                                }
+                            }
+                        } catch {}
+
+                        // Si el actor tiene eliminate === false, su id debe permitirse también
+                        if (currentUser.eliminate === false && currentUser.id) allowed.add(String(currentUser.id));
+
+                        usersToShow = (users || []).filter(u => {
+                            if (!u) return false;
+                            // siempre mostrar al propio actor
+                            if (u.id && currentUser.id && String(u.id) === String(currentUser.id)) return true;
+                            if (u.ownerId && allowed.has(String(u.ownerId))) return true;
+                            return false;
+                        });
+                    }
+                } catch (err) {
+                    console.warn('Error filtering users by ownerId:', err);
+                    usersToShow = users;
+                }
+
+                setUsersData(usersToShow);
+                setOriginalUsersData(JSON.parse(JSON.stringify(usersToShow)));
+
+                // Re-apply empresa filtering so admins see empresas owned by users they can see.
+                try {
+                    if (currentUser && currentUser.role !== 'superadmin') {
+                        const visibleOwnerIds = (usersToShow || []).map(u => u.id).filter(Boolean).map(String);
+                        if (visibleOwnerIds.length > 0) {
+                            // Use the empresas we just fetched/filtered earlier in this function
+                            const filteredEmpresas = (empresasToShow || []).filter(e => e && e.ownerId && visibleOwnerIds.includes(String(e.ownerId)));
+                            // Only set if we have results; otherwise keep current empresasData (avoid hiding unintentionally)
+                            if (filteredEmpresas.length > 0) {
+                                setEmpresasData(filteredEmpresas);
+                                setOriginalEmpresasData(JSON.parse(JSON.stringify(filteredEmpresas)));
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.warn('Error re-filtering empresas based on visible users:', err);
+                }
             } else {
                 // Si no hay currentUser (por ejemplo durante SSR/hydration temprana), inicializar vacíos
                 setUsersData([]);
@@ -460,8 +590,8 @@ export default function DataEditor() {
             timingcontrol: 'Control Tiempos',
             controlhorario: 'Control Horario',
             supplierorders: 'Órdenes Proveedor',
-                mantenimiento: 'Mantenimiento',
-                solicitud: 'Solicitud',
+            mantenimiento: 'Mantenimiento',
+            solicitud: 'Solicitud',
             scanhistory: 'Historial de Escaneos',
         };
         return labels[permission] || permission;
@@ -477,8 +607,8 @@ export default function DataEditor() {
             timingcontrol: 'Registro de venta de tiempos',
             controlhorario: 'Registro de horarios de trabajo',
             supplierorders: 'Gestión de órdenes de proveedores',
-                mantenimiento: 'Acceso al panel de administración',
-                solicitud: 'Permite gestionar solicitudes dentro del módulo de mantenimiento',
+            mantenimiento: 'Acceso al panel de administración',
+            solicitud: 'Permite gestionar solicitudes dentro del módulo de mantenimiento',
             scanhistory: 'Ver historial completo de escaneos realizados',
         };
         return descriptions[permission] || permission;
@@ -746,10 +876,10 @@ export default function DataEditor() {
     // Funciones para manejar configuración CCSS
     const addCcssConfig = () => {
         const ownerId = resolveOwnerIdForActor();
-        
+
         // Verificar si ya existe un config para este owner
         const existingConfigIndex = ccssConfigsData.findIndex(config => config.ownerId === ownerId);
-        
+
         if (existingConfigIndex !== -1) {
             // Si existe, agregar una nueva company al array
             const updatedConfigs = [...ccssConfigsData];
@@ -786,19 +916,19 @@ export default function DataEditor() {
     const updateCcssConfig = (configIndex: number, companyIndex: number, field: string, value: string | number) => {
         const updated = [...ccssConfigsData];
         const updatedCompanies = [...updated[configIndex].companie];
-        
+
         if (field === 'ownerCompanie') {
-            updatedCompanies[companyIndex] = { 
-                ...updatedCompanies[companyIndex], 
-                ownerCompanie: value as string 
+            updatedCompanies[companyIndex] = {
+                ...updatedCompanies[companyIndex],
+                ownerCompanie: value as string
             };
         } else if (['mt', 'tc', 'valorhora', 'horabruta'].includes(field)) {
-            updatedCompanies[companyIndex] = { 
-                ...updatedCompanies[companyIndex], 
-                [field]: value as number 
+            updatedCompanies[companyIndex] = {
+                ...updatedCompanies[companyIndex],
+                [field]: value as number
             };
         }
-        
+
         updated[configIndex] = {
             ...updated[configIndex],
             companie: updatedCompanies
@@ -814,7 +944,7 @@ export default function DataEditor() {
             config: CcssConfig;
             company: companies;
         }> = [];
-        
+
         ccssConfigsData.forEach((config, configIndex) => {
             config.companie.forEach((company, companyIndex) => {
                 flattened.push({
@@ -825,7 +955,7 @@ export default function DataEditor() {
                 });
             });
         });
-        
+
         return flattened;
     };
 
@@ -841,10 +971,10 @@ export default function DataEditor() {
                 try {
                     const updatedConfigs = [...ccssConfigsData];
                     const updatedCompanies = [...updatedConfigs[configIndex].companie];
-                    
+
                     // Remover la company específica
                     updatedCompanies.splice(companyIndex, 1);
-                    
+
                     if (updatedCompanies.length === 0) {
                         // Si no quedan companies, eliminar todo el config
                         if (config.id) {
@@ -861,7 +991,7 @@ export default function DataEditor() {
                             await CcssConfigService.updateCcssConfig(updatedConfigs[configIndex]);
                         }
                     }
-                    
+
                     setCcssConfigsData(updatedConfigs);
                     showToast(`Configuración para ${configName} eliminada exitosamente`, 'success');
                 } catch (error) {
@@ -1155,9 +1285,9 @@ export default function DataEditor() {
                                                 }
                                             }
                                         } catch (err) {
-                                                console.error('Error saving empresa:', err);
-                                                showToast('Error al guardar empresa', 'error');
-                                            }
+                                            console.error('Error saving empresa:', err);
+                                            showToast('Error al guardar empresa', 'error');
+                                        }
                                     }}
                                     className="px-3 py-2 sm:px-4 rounded-md bg-green-600 hover:bg-green-700 text-white transition-colors text-sm sm:text-base"
                                 >
@@ -1370,8 +1500,10 @@ export default function DataEditor() {
                                         )}
                                     </select>
                                 </div>
-                                {/* If role is admin and not delegated (eliminate === false), show maxCompanies field */}
-                                {user.role === 'admin' && user.eliminate === false && (
+                                {/* If role is admin and not delegated (eliminate === false), show maxCompanies field
+                                    But if the current authenticated actor is an admin and this is a newly-created user (no id),
+                                    hide the input per requirement. */}
+                                {user.role === 'admin' && user.eliminate === false && !(currentUser?.role === 'admin' && !user.id) && (
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Máx. Empresas:</label>
                                         <input
@@ -1527,7 +1659,7 @@ export default function DataEditor() {
                                                         // Crear una nueva copia del config completo con la company actualizada
                                                         const updatedConfig = {
                                                             ...item.config,
-                                                            companie: item.config.companie.map((comp, idx) => 
+                                                            companie: item.config.companie.map((comp, idx) =>
                                                                 idx === item.companyIndex ? item.company : comp
                                                             )
                                                         };
@@ -1573,16 +1705,33 @@ export default function DataEditor() {
                                                 className="w-full px-4 py-3 border border-blue-300 dark:border-blue-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm"
                                             >
                                                 <option value="">Seleccionar empresa...</option>
-                                                {empresasData
-                                                    .filter(empresa => empresa.ownerId === resolveOwnerIdForActor())
-                                                    .map((empresa, idx) => (
-                                                        <option key={empresa.id || idx} value={empresa.name}>
-                                                            {empresa.name}
-                                                        </option>
-                                                    ))
-                                                }
+                                                {(() => {
+                                                    // Build allowed ownerId set: currentUser.id, currentUser.ownerId and session.ownerId
+                                                    if (!currentUser || currentUser.role === 'superadmin') {
+                                                        return (empresasData || []).map((empresa, idx) => (
+                                                            <option key={empresa.id || idx} value={empresa.name}>{empresa.name}</option>
+                                                        ));
+                                                    }
+
+                                                    const allowed = new Set<string>();
+                                                    if (currentUser.id) allowed.add(String(currentUser.id));
+                                                    if (currentUser.ownerId) allowed.add(String(currentUser.ownerId));
+                                                    try {
+                                                        if (typeof window !== 'undefined') {
+                                                            const sessionRaw = localStorage.getItem('pricemaster_session');
+                                                            if (sessionRaw) {
+                                                                const session = JSON.parse(sessionRaw);
+                                                                if (session && session.ownerId) allowed.add(String(session.ownerId));
+                                                            }
+                                                        }
+                                                    } catch {}
+
+                                                    return (empresasData || []).filter(empresa => empresa && empresa.ownerId && allowed.has(String(empresa.ownerId))).map((empresa, idx) => (
+                                                        <option key={empresa.id || idx} value={empresa.name}>{empresa.name}</option>
+                                                    ));
+                                                })()}
                                             </select>
-                                            
+
                                         </div>
                                     </div>
 

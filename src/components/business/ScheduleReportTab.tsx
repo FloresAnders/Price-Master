@@ -4,6 +4,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, Calendar, MapPin, FileText, Clock, Calculator, Eye } from 'lucide-react';
 import { EmpresasService } from '../../services/empresas';
+import { UsersService } from '../../services/users';
 import useToast from '../../hooks/useToast';
 import { useAuth } from '../../hooks/useAuth';
 import { SchedulesService, ScheduleEntry } from '../../services/schedules';
@@ -141,8 +142,31 @@ export default function ScheduleReportTab() {
     const loadLocations = async () => {
       try {
         const empresas = await EmpresasService.getAllEmpresas();
-
         let owned: typeof empresas = [];
+
+        // Resolve actor ownerId similarly to other actor-aware components.
+        const resolveOwnerIdForActor = () => {
+          // prefer explicit ownerId on currentUser
+          if (currentUser?.ownerId) return currentUser.ownerId;
+
+          // fallback to enriched session in browser
+          if (typeof window !== 'undefined') {
+            try {
+              const sessionRaw = localStorage.getItem('pricemaster_session');
+              if (sessionRaw) {
+                const session = JSON.parse(sessionRaw);
+                if (session && session.ownerId) return session.ownerId;
+                if (session && session.eliminate === false && session.id) return session.id;
+              }
+            } catch {
+              // ignore
+            }
+          }
+
+          // finally, if currentUser is present and not marked as delegated (eliminate === false), use its id
+          if (currentUser && (currentUser as any).eliminate === false && (currentUser as any).id) return (currentUser as any).id;
+          return '';
+        };
 
         // Si no hay usuario autenticado aún, mostrar vacío
         if (!currentUser) {
@@ -151,12 +175,53 @@ export default function ScheduleReportTab() {
           // superadmin ve todas las empresas
           owned = empresas || [];
         } else {
-          // Mostrar empresas cuyo ownerId coincide con currentUser.id
-          // o con currentUser.ownerId (admins delegados que actúan en nombre de un owner)
-          owned = (empresas || []).filter(e => e && e.ownerId && (
-            String(e.ownerId) === String(currentUser.id) ||
-            (currentUser.ownerId && String(e.ownerId) === String(currentUser.ownerId))
-          ));
+          const actorOwnerId = resolveOwnerIdForActor();
+          if (actorOwnerId) {
+            owned = (empresas || []).filter(e => e && e.ownerId && String(e.ownerId) === String(actorOwnerId));
+          } else {
+            // fallback to previous behavior matching by currentUser.id or currentUser.ownerId
+            owned = (empresas || []).filter(e => e && e.ownerId && (
+              String(e.ownerId) === String(currentUser.id) ||
+              (currentUser.ownerId && String(e.ownerId) === String(currentUser.ownerId))
+            ));
+          }
+        }
+
+        try {
+          // If the current actor is an admin, exclude empresas owned by a superadmin user
+          if (currentUser?.role === 'admin') {
+            // Also ensure admins see companies they themselves created (ownerId === currentUser.id)
+            const allowed = new Set<string>();
+            if (currentUser.id) allowed.add(String(currentUser.id));
+            if (currentUser.ownerId) allowed.add(String(currentUser.ownerId));
+            try {
+              if (typeof window !== 'undefined') {
+                const sessionRaw = localStorage.getItem('pricemaster_session');
+                if (sessionRaw) {
+                  const session = JSON.parse(sessionRaw);
+                  if (session && session.ownerId) allowed.add(String(session.ownerId));
+                }
+              }
+            } catch {}
+
+            // Merge with previously computed owned list: include empresas whose ownerId is in allowed
+            const merged = (empresas || []).filter((e: any) => e && e.ownerId && allowed.has(String(e.ownerId)));
+            // prefer merged if it has entries, otherwise keep existing 'owned'
+            if (merged.length > 0) owned = merged;
+            const ownerIds = Array.from(new Set((owned || []).map((e: any) => e.ownerId).filter(Boolean)));
+            const owners = await Promise.all(ownerIds.map(id => UsersService.getUserById(id)));
+            const ownerRoleById = new Map<string, string | undefined>();
+            ownerIds.forEach((id, idx) => ownerRoleById.set(id, owners[idx]?.role));
+
+            console.debug('[ScheduleReportTab] currentUser:', currentUser?.id, currentUser?.ownerId, 'owned count before:', (owned || []).length);
+            console.debug('[ScheduleReportTab] owner roles:', Array.from(ownerRoleById.entries()));
+
+            owned = (owned || []).filter((e: any) => ownerRoleById.get(e.ownerId) !== 'superadmin');
+
+            console.debug('[ScheduleReportTab] owned after filtering:', (owned || []).map((x: any) => ({ id: x.id, ownerId: x.ownerId, name: x.name })));
+          }
+        } catch (err) {
+          console.warn('Error resolving empresa owners for schedule filtering:', err);
         }
 
         const mapped = owned.map(e => ({
