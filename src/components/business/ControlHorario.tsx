@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { Clock, ChevronLeft, ChevronRight, User as UserIcon, Lock, Unlock, Info } from 'lucide-react';
+import { Clock, ChevronLeft, ChevronRight, User as UserIcon, Lock, Unlock, Info, Settings } from 'lucide-react';
 import { EmpresasService } from '../../services/empresas';
 import { SchedulesService } from '../../services/schedules';
 import type { ScheduleEntry } from '../../services/schedules';
@@ -296,6 +296,106 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
     day: 0,
     currentHours: 0
   });
+
+  // Color settings for shift types, persisted in localStorage
+  const [showColorSettings, setShowColorSettings] = useState(false);
+  const [colorConfig, setColorConfig] = useState<{ [k: string]: string }>(() => {
+    const defaults = { N: '#87CEEB', D: '#FFFF00', L: '#FF00FF', V: '#28a745', I: '#fd7e14' };
+    try {
+      if (typeof window !== 'undefined') {
+        const raw = localStorage.getItem('controlHorarioShiftColors');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          return { ...defaults, ...(parsed || {}) };
+        }
+      }
+    } catch (e) {
+      console.warn('Error reading color config from localStorage during init:', e);
+    }
+    return defaults;
+  });
+
+  // Save color config to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('controlHorarioShiftColors', JSON.stringify(colorConfig));
+    } catch (e) {
+      console.warn('Error saving color config:', e);
+    }
+  }, [colorConfig]);
+
+  // Popover refs & animation state for closing
+  const popoverRef = React.useRef<HTMLDivElement | null>(null);
+  const gearButtonRef = React.useRef<HTMLButtonElement | null>(null);
+  const timeoutRef = React.useRef<number | null>(null);
+  const [isPopoverClosing, setIsPopoverClosing] = useState(false);
+
+  const openPopover = React.useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    setIsPopoverClosing(false);
+    setShowColorSettings(true);
+  }, []);
+
+  const closePopoverAnimated = React.useCallback((delay = 180) => {
+    if (isPopoverClosing) return;
+    setIsPopoverClosing(true);
+    timeoutRef.current = window.setTimeout(() => {
+      setIsPopoverClosing(false);
+      setShowColorSettings(false);
+      timeoutRef.current = null;
+    }, delay);
+  }, [isPopoverClosing]);
+
+  const togglePopover = React.useCallback(() => {
+    if (!showColorSettings) openPopover();
+    else closePopoverAnimated();
+  }, [showColorSettings, openPopover, closePopoverAnimated]);
+
+  // Utility: return black or white depending on background color contrast
+  function getContrastColor(hexColor: string) {
+    try {
+      let hex = hexColor.replace('#', '');
+      if (hex.length === 3) {
+        hex = hex.split('').map(c => c + c).join('');
+      }
+      const r = parseInt(hex.substring(0, 2), 16);
+      const g = parseInt(hex.substring(2, 4), 16);
+      const b = parseInt(hex.substring(4, 6), 16);
+      // Relative luminance
+      const lum = 0.2126 * (r / 255) + 0.7152 * (g / 255) + 0.0722 * (b / 255);
+      return lum > 0.6 ? '#000' : '#fff';
+    } catch {
+      return '#000';
+    }
+  }
+
+  // Close color settings popover on ESC
+  useEffect(() => {
+    if (!showColorSettings) return;
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === 'Escape' || ev.key === 'Esc') {
+        closePopoverAnimated();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [showColorSettings, closePopoverAnimated]);
+
+  // Click-away: close popover when clicking outside of it or the gear button
+  useEffect(() => {
+    if (!showColorSettings) return;
+    const onDocClick = (ev: MouseEvent) => {
+      const target = ev.target as Node;
+      if (popoverRef.current && popoverRef.current.contains(target)) return;
+      if (gearButtonRef.current && gearButtonRef.current.contains(target)) return;
+      closePopoverAnimated();
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [showColorSettings, closePopoverAnimated]);
 
   // useRef hooks
   const autoQuincenaRef = React.useRef<boolean>(false);
@@ -842,9 +942,9 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
   const getShiftOptions = () => {
     const baseOptions = [
       { value: '', label: '', color: 'var(--input-bg)', textColor: 'var(--foreground)' },
-      { value: 'N', label: 'N', color: '#87CEEB', textColor: '#000' },
-      { value: 'D', label: 'D', color: '#FFFF00', textColor: '#000' },
-      { value: 'L', label: 'L', color: '#FF00FF', textColor: '#FFF' },
+      { value: 'N', label: 'N', color: colorConfig.N || '#87CEEB', textColor: getContrastColor(colorConfig.N || '#87CEEB') },
+      { value: 'D', label: 'D', color: colorConfig.D || '#FFFF00', textColor: getContrastColor(colorConfig.D || '#FFFF00') },
+      { value: 'L', label: 'L', color: colorConfig.L || '#FF00FF', textColor: getContrastColor(colorConfig.L || '#FF00FF') },
     ];
 
     // Agregar opciones adicionales solo para usuarios ADMIN
@@ -863,11 +963,11 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
   // Opciones completas para visualización (todos los usuarios pueden ver los colores)
   const getAllShiftColors = () => [
     { value: '', label: '', color: 'var(--input-bg)', textColor: 'var(--foreground)' },
-    { value: 'N', label: 'N', color: '#87CEEB', textColor: '#000' },
-    { value: 'D', label: 'D', color: '#FFFF00', textColor: '#000' },
-    { value: 'L', label: 'L', color: '#FF00FF', textColor: '#FFF' },
-    { value: 'V', label: 'V', color: '#28a745', textColor: '#FFF' }, // Verde para Vacaciones
-    { value: 'I', label: 'I', color: '#fd7e14', textColor: '#FFF' }  // Naranja para Incapacidad
+    { value: 'N', label: 'N', color: colorConfig.N || '#87CEEB', textColor: getContrastColor(colorConfig.N || '#87CEEB') },
+    { value: 'D', label: 'D', color: colorConfig.D || '#FFFF00', textColor: getContrastColor(colorConfig.D || '#FFFF00') },
+    { value: 'L', label: 'L', color: colorConfig.L || '#FF00FF', textColor: getContrastColor(colorConfig.L || '#FF00FF') },
+    { value: 'V', label: 'V', color: colorConfig.V || '#28a745', textColor: getContrastColor(colorConfig.V || '#28a745') }, // Verde para Vacaciones
+    { value: 'I', label: 'I', color: colorConfig.I || '#fd7e14', textColor: getContrastColor(colorConfig.I || '#fd7e14') }  // Naranja para Incapacidad
   ];
 
   // Función para obtener el color de fondo según la letra (todos los usuarios ven todos los colores)
@@ -1180,20 +1280,20 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
             let textColor = '#000000';
 
             if (shift === 'N') {
-              bgColor = '#87CEEB'; // Azul claro
-              textColor = '#000000';
+              bgColor = colorConfig.N || '#87CEEB';
+              textColor = getContrastColor(bgColor);
             } else if (shift === 'D') {
-              bgColor = '#FFFF00'; // Amarillo
-              textColor = '#000000';
+              bgColor = colorConfig.D || '#FFFF00';
+              textColor = getContrastColor(bgColor);
             } else if (shift === 'L') {
-              bgColor = '#FF00FF'; // Magenta
-              textColor = '#ffffff';
+              bgColor = colorConfig.L || '#FF00FF';
+              textColor = getContrastColor(bgColor);
             } else if (shift === 'V') {
-              bgColor = '#28a745'; // Verde para Vacaciones
-              textColor = '#ffffff';
+              bgColor = colorConfig.V || '#28a745';
+              textColor = getContrastColor(bgColor);
             } else if (shift === 'I') {
-              bgColor = '#fd7e14'; // Naranja para Incapacidad
-              textColor = '#ffffff';
+              bgColor = colorConfig.I || '#fd7e14';
+              textColor = getContrastColor(bgColor);
             }
 
             // Dibujar celda
@@ -1241,9 +1341,11 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
         { label: 'Vacío = Sin horas registradas', color: '#f9fafb', textColor: '#000' },
         { label: 'Número = Horas trabajadas', color: '#ffffff', textColor: '#000' }
       ] : [
-        { label: 'N = Nocturno', color: '#87CEEB', textColor: '#000' },
-        { label: 'D = Diurno', color: '#FFFF00', textColor: '#000' },
-        { label: 'L = Libre', color: '#FF00FF', textColor: '#fff' },
+        { label: 'N = Nocturno', color: colorConfig.N || '#87CEEB', textColor: getContrastColor(colorConfig.N || '#87CEEB') },
+        { label: 'D = Diurno', color: colorConfig.D || '#FFFF00', textColor: getContrastColor(colorConfig.D || '#FFFF00') },
+        { label: 'L = Libre', color: colorConfig.L || '#FF00FF', textColor: getContrastColor(colorConfig.L || '#FF00FF') },
+        { label: 'V = Vacaciones', color: colorConfig.V || '#28a745', textColor: getContrastColor(colorConfig.V || '#28a745') },
+        { label: 'I = Incapacidad', color: colorConfig.I || '#fd7e14', textColor: getContrastColor(colorConfig.I || '#fd7e14') },
         { label: 'Vacío = Sin asignar', color: '#f9fafb', textColor: '#000' }
       ];
 
@@ -1566,7 +1668,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
 
   return (
     <>
-      <div className="max-w-full mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4 sm:p-6">
+  <div className="relative max-w-full mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4 sm:p-6">
         {/* notifications are rendered globally by ToastProvider */}
 
         {/* Loading indicator */}
@@ -1620,6 +1722,17 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
                 <div className="hidden sm:block px-3 py-2 text-sm text-[var(--tab-text)]">
                 </div>
               )}
+              {/* Gear: Color settings */}
+              <button
+                ref={gearButtonRef}
+                title="Configurar colores"
+                onClick={() => togglePopover()}
+                className="ml-2 inline-flex items-center justify-center p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700"
+                aria-expanded={showColorSettings}
+                aria-controls="color-settings-popover"
+              >
+                <Settings className="w-5 h-5" />
+              </button>
             </div>
           </div>
 
@@ -1760,6 +1873,44 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
               </button>
             </div>
           </div>
+          {/* Color settings popover */}
+          {showColorSettings && (
+            <div
+              id="color-settings-popover"
+              ref={popoverRef}
+              role="dialog"
+              aria-label="Colores de Turnos"
+              className={`absolute top-6 right-6 z-50 w-72 bg-[var(--card-bg)] border border-[var(--input-border)] rounded shadow p-4 transition-opacity transform duration-200 ease-out origin-top-right ${isPopoverClosing ? 'opacity-0 -translate-y-2 scale-95' : 'opacity-100 translate-y-0 scale-100'}`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <strong className="text-sm">Colores de Turnos</strong>
+                <button onClick={() => closePopoverAnimated()} className="text-sm px-2 py-1">✕</button>
+              </div>
+              <div className="flex flex-col gap-2">
+                {['N','D','L','V','I'].map(k => (
+                  <label key={k} className="flex items-center justify-between gap-2 text-sm">
+                    <span className="w-6">{k}</span>
+                    <input
+                      type="color"
+                      value={colorConfig[k] || '#ffffff'}
+                      onChange={(e) => setColorConfig(prev => ({ ...prev, [k]: e.target.value }))}
+                      className="w-12 h-8 p-0 border-0"
+                    />
+                    <span className="ml-2 text-xs text-[var(--muted-foreground)]">{colorConfig[k]}</span>
+                  </label>
+                ))}
+              </div>
+              <div className="mt-3 flex items-center justify-between">
+                <button
+                  onClick={() => {
+                    setColorConfig({ N: '#87CEEB', D: '#FFFF00', L: '#FF00FF', V: '#28a745', I: '#fd7e14' });
+                  }}
+                  className="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 text-sm"
+                >Restablecer</button>
+                <button onClick={() => closePopoverAnimated()} className="px-3 py-1 rounded bg-blue-600 text-white text-sm">Cerrar</button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Leyenda de colores */}
@@ -1776,26 +1927,14 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
           </div>
         ) : (
           <div className="mb-6 flex flex-wrap gap-4 justify-center">
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded" style={{ backgroundColor: '#87CEEB' }}></div>
-              <span className="text-sm">N - Nocturno</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded" style={{ backgroundColor: '#FFFF00' }}></div>
-              <span className="text-sm">D - Diurno</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded" style={{ backgroundColor: '#FF00FF' }}></div>
-              <span className="text-sm">L - Libre</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded" style={{ backgroundColor: '#28a745' }}></div>
-              <span className="text-sm">V - Vacaciones</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded" style={{ backgroundColor: '#fd7e14' }}></div>
-              <span className="text-sm">I - Incapacidad</span>
-            </div>
+            {['N','D','L','V','I'].map(k => (
+              <div key={k} className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded" style={{ backgroundColor: colorConfig[k] || (k === 'N' ? '#87CEEB' : k === 'D' ? '#FFFF00' : k === 'L' ? '#FF00FF' : k === 'V' ? '#28a745' : '#fd7e14') }}></div>
+                <span className="text-sm">
+                  {k} {k === 'N' ? '- Nocturno' : k === 'D' ? '- Diurno' : k === 'L' ? '- Libre' : k === 'V' ? '- Vacaciones' : '- Incapacidad'}
+                </span>
+              </div>
+            ))}
           </div>
         )}        {/* Grid de horarios */}
         <div className="overflow-x-auto -mx-4 sm:mx-0" style={{ overflowY: 'hidden' }}>
