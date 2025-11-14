@@ -122,12 +122,14 @@ export default function DataEditor() {
             setOriginalSorteosData(JSON.parse(JSON.stringify(sorteos)));
 
             // Cargar empresas desde Firebase
+            // hoist a variable so later user-filtering can re-use the fetched empresas
+            let empresasToShow: any[] = [];
             try {
                 const empresas = await EmpresasService.getAllEmpresas();
 
                 // Si el actor autenticado tiene permiso de mantenimiento, solo mostrar
                 // las empresas cuyo ownerId coincide con el ownerId/resolved del actor.
-                let empresasToShow = empresas;
+                empresasToShow = empresas;
                 try {
                     if (currentUser && hasPermission(currentUser.permissions, 'mantenimiento')) {
                         const actorOwnerId = resolveOwnerIdForActor();
@@ -261,8 +263,8 @@ export default function DataEditor() {
                     if (currentUser && currentUser.role !== 'superadmin') {
                         const visibleOwnerIds = (usersToShow || []).map(u => u.id).filter(Boolean).map(String);
                         if (visibleOwnerIds.length > 0) {
-                            const filteredEmpresas = (empresasData || []).filter(e => e && e.ownerId && visibleOwnerIds.includes(String(e.ownerId)));
-                            const filteredOriginal = (originalEmpresasData || []).filter(e => e && e.ownerId && visibleOwnerIds.includes(String(e.ownerId)));
+                            // Use the empresas we just fetched/filtered earlier in this function
+                            const filteredEmpresas = (empresasToShow || []).filter(e => e && e.ownerId && visibleOwnerIds.includes(String(e.ownerId)));
                             // Only set if we have results; otherwise keep current empresasData (avoid hiding unintentionally)
                             if (filteredEmpresas.length > 0) {
                                 setEmpresasData(filteredEmpresas);
@@ -1703,14 +1705,31 @@ export default function DataEditor() {
                                                 className="w-full px-4 py-3 border border-blue-300 dark:border-blue-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm"
                                             >
                                                 <option value="">Seleccionar empresa...</option>
-                                                {empresasData
-                                                    .filter(empresa => empresa.ownerId === resolveOwnerIdForActor())
-                                                    .map((empresa, idx) => (
-                                                        <option key={empresa.id || idx} value={empresa.name}>
-                                                            {empresa.name}
-                                                        </option>
-                                                    ))
-                                                }
+                                                {(() => {
+                                                    // Build allowed ownerId set: currentUser.id, currentUser.ownerId and session.ownerId
+                                                    if (!currentUser || currentUser.role === 'superadmin') {
+                                                        return (empresasData || []).map((empresa, idx) => (
+                                                            <option key={empresa.id || idx} value={empresa.name}>{empresa.name}</option>
+                                                        ));
+                                                    }
+
+                                                    const allowed = new Set<string>();
+                                                    if (currentUser.id) allowed.add(String(currentUser.id));
+                                                    if (currentUser.ownerId) allowed.add(String(currentUser.ownerId));
+                                                    try {
+                                                        if (typeof window !== 'undefined') {
+                                                            const sessionRaw = localStorage.getItem('pricemaster_session');
+                                                            if (sessionRaw) {
+                                                                const session = JSON.parse(sessionRaw);
+                                                                if (session && session.ownerId) allowed.add(String(session.ownerId));
+                                                            }
+                                                        }
+                                                    } catch {}
+
+                                                    return (empresasData || []).filter(empresa => empresa && empresa.ownerId && allowed.has(String(empresa.ownerId))).map((empresa, idx) => (
+                                                        <option key={empresa.id || idx} value={empresa.name}>{empresa.name}</option>
+                                                    ));
+                                                })()}
                                             </select>
 
                                         </div>
