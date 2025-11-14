@@ -138,11 +138,61 @@ export default function DataEditor() {
                             // Fallback: usar currentUser.id or currentUser.ownerId if present
                             empresasToShow = (empresas || []).filter((e: any) => e && (e.ownerId === currentUser.id || e.ownerId === currentUser.ownerId));
                         }
+
+                        // Additionally ensure admins see companies they created (ownerId === currentUser.id)
+                        if (currentUser.role === 'admin') {
+                            try {
+                                const allowed = new Set<string>();
+                                if (currentUser.id) allowed.add(String(currentUser.id));
+                                if (currentUser.ownerId) allowed.add(String(currentUser.ownerId));
+                                try {
+                                    if (typeof window !== 'undefined') {
+                                        const sessionRaw = localStorage.getItem('pricemaster_session');
+                                        if (sessionRaw) {
+                                            const session = JSON.parse(sessionRaw);
+                                            if (session && session.ownerId) allowed.add(String(session.ownerId));
+                                        }
+                                    }
+                                } catch {}
+
+                                // merge: include any empresas whose ownerId is in allowed
+                                empresasToShow = (empresas || []).filter((e: any) => e && allowed.has(String(e.ownerId)));
+                            } catch (err) {
+                                console.warn('Error ensuring admin-owned empresas visible:', err);
+                            }
+                        }
                     }
                 } catch (err) {
                     // Si ocurre algún error durante el filtrado, dejar las empresas tal cual
                     console.warn('Error filtrando empresas por ownerId:', err);
                     empresasToShow = empresas;
+                }
+
+                // Additionally, if the current actor is an admin, exclude empresas
+                // that belong to a superadmin (i.e., empresas whose ownerId user.role === 'superadmin')
+                try {
+                    if (currentUser?.role === 'admin') {
+                        const ownerIds = Array.from(new Set((empresasToShow || []).map((e: any) => e.ownerId).filter(Boolean)));
+                        const owners = await Promise.all(ownerIds.map(id => UsersService.getUserById(id)));
+                        const ownerRoleById = new Map<string, string | undefined>();
+                        ownerIds.forEach((id, idx) => ownerRoleById.set(id, owners[idx]?.role));
+
+                        // Debug info to help diagnose missing empresas
+                        console.debug('[DataEditor] currentUser:', currentUser?.id, currentUser?.ownerId, 'resolved actorOwnerId:', resolveOwnerIdForActor());
+                        console.debug('[DataEditor] empresas fetched:', (empresas || []).length, 'ownerIds:', ownerIds);
+                        console.debug('[DataEditor] owner roles:', Array.from(ownerRoleById.entries()));
+
+                        empresasToShow = (empresasToShow || []).filter((e: any) => {
+                            const ownerRole = ownerRoleById.get(e.ownerId);
+                            // if owner is superadmin, hide from admin actors
+                            if (ownerRole === 'superadmin') return false;
+                            return true;
+                        });
+
+                        console.debug('[DataEditor] empresas after filtering:', empresasToShow.map((x: any) => ({ id: x.id, ownerId: x.ownerId, name: x.name })));
+                    }
+                } catch (err) {
+                    console.warn('Error resolving empresa owners while filtering superadmin-owned empresas:', err);
                 }
 
                 setEmpresasData(empresasToShow);
@@ -164,8 +214,65 @@ export default function DataEditor() {
                     console.warn('Error ensuring all permissions:', error);
                 }
 
-                setUsersData(users);
-                setOriginalUsersData(JSON.parse(JSON.stringify(users)));
+                // Filtrar usuarios para que actores no-superadmin solo vean usuarios
+                // que compartan el mismo ownerId/resolved owner del actor.
+                let usersToShow = users;
+                try {
+                    if (currentUser.role !== 'superadmin') {
+                        // Construir un conjunto de ownerIds permitidos basados en el actor:
+                        // - currentUser.id (si el admin actúa en su propio id)
+                        // - currentUser.ownerId (cuando es delegado)
+                        // - session.ownerId si existe en localStorage
+                        const allowed = new Set<string>();
+                        if (currentUser.id) allowed.add(String(currentUser.id));
+                        if (currentUser.ownerId) allowed.add(String(currentUser.ownerId));
+
+                        try {
+                            if (typeof window !== 'undefined') {
+                                const sessionRaw = localStorage.getItem('pricemaster_session');
+                                if (sessionRaw) {
+                                    const session = JSON.parse(sessionRaw);
+                                    if (session && session.ownerId) allowed.add(String(session.ownerId));
+                                }
+                            }
+                        } catch {}
+
+                        // Si el actor tiene eliminate === false, su id debe permitirse también
+                        if (currentUser.eliminate === false && currentUser.id) allowed.add(String(currentUser.id));
+
+                        usersToShow = (users || []).filter(u => {
+                            if (!u) return false;
+                            // siempre mostrar al propio actor
+                            if (u.id && currentUser.id && String(u.id) === String(currentUser.id)) return true;
+                            if (u.ownerId && allowed.has(String(u.ownerId))) return true;
+                            return false;
+                        });
+                    }
+                } catch (err) {
+                    console.warn('Error filtering users by ownerId:', err);
+                    usersToShow = users;
+                }
+
+                setUsersData(usersToShow);
+                setOriginalUsersData(JSON.parse(JSON.stringify(usersToShow)));
+
+                // Re-apply empresa filtering so admins see empresas owned by users they can see.
+                try {
+                    if (currentUser && currentUser.role !== 'superadmin') {
+                        const visibleOwnerIds = (usersToShow || []).map(u => u.id).filter(Boolean).map(String);
+                        if (visibleOwnerIds.length > 0) {
+                            const filteredEmpresas = (empresasData || []).filter(e => e && e.ownerId && visibleOwnerIds.includes(String(e.ownerId)));
+                            const filteredOriginal = (originalEmpresasData || []).filter(e => e && e.ownerId && visibleOwnerIds.includes(String(e.ownerId)));
+                            // Only set if we have results; otherwise keep current empresasData (avoid hiding unintentionally)
+                            if (filteredEmpresas.length > 0) {
+                                setEmpresasData(filteredEmpresas);
+                                setOriginalEmpresasData(JSON.parse(JSON.stringify(filteredEmpresas)));
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.warn('Error re-filtering empresas based on visible users:', err);
+                }
             } else {
                 // Si no hay currentUser (por ejemplo durante SSR/hydration temprana), inicializar vacíos
                 setUsersData([]);
