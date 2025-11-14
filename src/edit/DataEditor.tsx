@@ -10,7 +10,7 @@ import { UsersService } from '../services/users';
 import { useAuth } from '../hooks/useAuth';
 import { CcssConfigService } from '../services/ccss-config';
 import { Sorteo, User, CcssConfig, UserPermissions, companies } from '../types/firestore';
-import { getDefaultPermissions, getNoPermissions } from '../utils/permissions';
+import { getDefaultPermissions, getNoPermissions, hasPermission } from '../utils/permissions';
 import ScheduleReportTab from '../components/business/ScheduleReportTab';
 import ConfirmModal from '../components/ui/ConfirmModal';
 import ExportModal from '../components/export/ExportModal';
@@ -124,8 +124,29 @@ export default function DataEditor() {
             // Cargar empresas desde Firebase
             try {
                 const empresas = await EmpresasService.getAllEmpresas();
-                setEmpresasData(empresas);
-                setOriginalEmpresasData(JSON.parse(JSON.stringify(empresas)));
+
+                // Si el actor autenticado tiene permiso de mantenimiento, solo mostrar
+                // las empresas cuyo ownerId coincide con el ownerId/resolved del actor.
+                let empresasToShow = empresas;
+                try {
+                    if (currentUser && hasPermission(currentUser.permissions, 'mantenimiento')) {
+                        const actorOwnerId = resolveOwnerIdForActor();
+                        // Si se pudo resolver ownerId del actor, filtrar por ese ownerId.
+                        if (actorOwnerId) {
+                            empresasToShow = (empresas || []).filter((e: any) => e && e.ownerId === actorOwnerId);
+                        } else {
+                            // Fallback: usar currentUser.id or currentUser.ownerId if present
+                            empresasToShow = (empresas || []).filter((e: any) => e && (e.ownerId === currentUser.id || e.ownerId === currentUser.ownerId));
+                        }
+                    }
+                } catch (err) {
+                    // Si ocurre algún error durante el filtrado, dejar las empresas tal cual
+                    console.warn('Error filtrando empresas por ownerId:', err);
+                    empresasToShow = empresas;
+                }
+
+                setEmpresasData(empresasToShow);
+                setOriginalEmpresasData(JSON.parse(JSON.stringify(empresasToShow)));
             } catch (err) {
                 console.warn('No se pudo cargar empresas:', err);
                 setEmpresasData([]);
@@ -460,8 +481,8 @@ export default function DataEditor() {
             timingcontrol: 'Control Tiempos',
             controlhorario: 'Control Horario',
             supplierorders: 'Órdenes Proveedor',
-                mantenimiento: 'Mantenimiento',
-                solicitud: 'Solicitud',
+            mantenimiento: 'Mantenimiento',
+            solicitud: 'Solicitud',
             scanhistory: 'Historial de Escaneos',
         };
         return labels[permission] || permission;
@@ -477,8 +498,8 @@ export default function DataEditor() {
             timingcontrol: 'Registro de venta de tiempos',
             controlhorario: 'Registro de horarios de trabajo',
             supplierorders: 'Gestión de órdenes de proveedores',
-                mantenimiento: 'Acceso al panel de administración',
-                solicitud: 'Permite gestionar solicitudes dentro del módulo de mantenimiento',
+            mantenimiento: 'Acceso al panel de administración',
+            solicitud: 'Permite gestionar solicitudes dentro del módulo de mantenimiento',
             scanhistory: 'Ver historial completo de escaneos realizados',
         };
         return descriptions[permission] || permission;
@@ -746,10 +767,10 @@ export default function DataEditor() {
     // Funciones para manejar configuración CCSS
     const addCcssConfig = () => {
         const ownerId = resolveOwnerIdForActor();
-        
+
         // Verificar si ya existe un config para este owner
         const existingConfigIndex = ccssConfigsData.findIndex(config => config.ownerId === ownerId);
-        
+
         if (existingConfigIndex !== -1) {
             // Si existe, agregar una nueva company al array
             const updatedConfigs = [...ccssConfigsData];
@@ -786,19 +807,19 @@ export default function DataEditor() {
     const updateCcssConfig = (configIndex: number, companyIndex: number, field: string, value: string | number) => {
         const updated = [...ccssConfigsData];
         const updatedCompanies = [...updated[configIndex].companie];
-        
+
         if (field === 'ownerCompanie') {
-            updatedCompanies[companyIndex] = { 
-                ...updatedCompanies[companyIndex], 
-                ownerCompanie: value as string 
+            updatedCompanies[companyIndex] = {
+                ...updatedCompanies[companyIndex],
+                ownerCompanie: value as string
             };
         } else if (['mt', 'tc', 'valorhora', 'horabruta'].includes(field)) {
-            updatedCompanies[companyIndex] = { 
-                ...updatedCompanies[companyIndex], 
-                [field]: value as number 
+            updatedCompanies[companyIndex] = {
+                ...updatedCompanies[companyIndex],
+                [field]: value as number
             };
         }
-        
+
         updated[configIndex] = {
             ...updated[configIndex],
             companie: updatedCompanies
@@ -814,7 +835,7 @@ export default function DataEditor() {
             config: CcssConfig;
             company: companies;
         }> = [];
-        
+
         ccssConfigsData.forEach((config, configIndex) => {
             config.companie.forEach((company, companyIndex) => {
                 flattened.push({
@@ -825,7 +846,7 @@ export default function DataEditor() {
                 });
             });
         });
-        
+
         return flattened;
     };
 
@@ -841,10 +862,10 @@ export default function DataEditor() {
                 try {
                     const updatedConfigs = [...ccssConfigsData];
                     const updatedCompanies = [...updatedConfigs[configIndex].companie];
-                    
+
                     // Remover la company específica
                     updatedCompanies.splice(companyIndex, 1);
-                    
+
                     if (updatedCompanies.length === 0) {
                         // Si no quedan companies, eliminar todo el config
                         if (config.id) {
@@ -861,7 +882,7 @@ export default function DataEditor() {
                             await CcssConfigService.updateCcssConfig(updatedConfigs[configIndex]);
                         }
                     }
-                    
+
                     setCcssConfigsData(updatedConfigs);
                     showToast(`Configuración para ${configName} eliminada exitosamente`, 'success');
                 } catch (error) {
@@ -1155,9 +1176,9 @@ export default function DataEditor() {
                                                 }
                                             }
                                         } catch (err) {
-                                                console.error('Error saving empresa:', err);
-                                                showToast('Error al guardar empresa', 'error');
-                                            }
+                                            console.error('Error saving empresa:', err);
+                                            showToast('Error al guardar empresa', 'error');
+                                        }
                                     }}
                                     className="px-3 py-2 sm:px-4 rounded-md bg-green-600 hover:bg-green-700 text-white transition-colors text-sm sm:text-base"
                                 >
@@ -1370,8 +1391,10 @@ export default function DataEditor() {
                                         )}
                                     </select>
                                 </div>
-                                {/* If role is admin and not delegated (eliminate === false), show maxCompanies field */}
-                                {user.role === 'admin' && user.eliminate === false && (
+                                {/* If role is admin and not delegated (eliminate === false), show maxCompanies field
+                                    But if the current authenticated actor is an admin and this is a newly-created user (no id),
+                                    hide the input per requirement. */}
+                                {user.role === 'admin' && user.eliminate === false && !(currentUser?.role === 'admin' && !user.id) && (
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Máx. Empresas:</label>
                                         <input
@@ -1527,7 +1550,7 @@ export default function DataEditor() {
                                                         // Crear una nueva copia del config completo con la company actualizada
                                                         const updatedConfig = {
                                                             ...item.config,
-                                                            companie: item.config.companie.map((comp, idx) => 
+                                                            companie: item.config.companie.map((comp, idx) =>
                                                                 idx === item.companyIndex ? item.company : comp
                                                             )
                                                         };
@@ -1582,7 +1605,7 @@ export default function DataEditor() {
                                                     ))
                                                 }
                                             </select>
-                                            
+
                                         </div>
                                     </div>
 
