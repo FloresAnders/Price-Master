@@ -38,6 +38,8 @@ type AgregarMovimientoProps = {
     onSubmit: () => void;
     isSubmitDisabled: boolean;
     onFieldKeyDown: (event: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>) => void;
+    currency?: 'CRC' | 'USD';
+    onCurrencyChange?: (c: 'CRC' | 'USD') => void;
 };
 
 const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
@@ -70,10 +72,16 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
     onSubmit,
     isSubmitDisabled,
     onFieldKeyDown,
+    currency = 'CRC',
+    onCurrencyChange,
 }) => {
     const invoiceBorderClass = invoiceValid || invoiceNumber.length === 0 ? 'border-[var(--input-border)]' : 'border-red-500';
-    const inputFormatter = React.useMemo(
+    const inputFormatterCRC = React.useMemo(
         () => new Intl.NumberFormat('es-CR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }),
+        [],
+    );
+    const inputFormatterUSD = React.useMemo(
+        () => new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }),
         [],
     );
 
@@ -81,7 +89,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
         if (!raw || raw.trim().length === 0) return '';
         const n = Number(raw);
         if (Number.isNaN(n)) return raw;
-        return `₡ ${inputFormatter.format(Math.trunc(n))}`;
+        return currency === 'USD' ? `$ ${inputFormatterUSD.format(Math.trunc(n))}` : `₡ ${inputFormatterCRC.format(Math.trunc(n))}`;
     };
 
     const extractDigits = (value: string) => value.replace(/[^0-9]/g, '');
@@ -132,17 +140,43 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                     <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
                         Monto
                     </label>
-                    <input
-                        placeholder="0"
-                        value={formatInputDisplay(isEgreso ? egreso : ingreso)}
-                        onChange={event => {
-                            const digits = extractDigits(event.target.value);
-                            if (isEgreso) onEgresoChange(digits); else onIngresoChange(digits);
-                        }}
-                        onKeyDown={onFieldKeyDown}
-                        className={`w-full p-2 bg-[var(--input-bg)] border ${isEgreso ? egresoBorderClass : ingresoBorderClass} rounded`}
-                        inputMode="numeric"
-                    />
+                    <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 text-sm">
+                            <label className="inline-flex items-center gap-2">
+                                <input
+                                    type="radio"
+                                    name="fg_currency"
+                                    value="CRC"
+                                    checked={currency === 'CRC'}
+                                    onChange={() => onCurrencyChange && onCurrencyChange('CRC')}
+                                    className="accent-[var(--accent)]"
+                                />
+                                <span className="text-xs text-[var(--muted-foreground)]">Colones (₡)</span>
+                            </label>
+                            <label className="inline-flex items-center gap-2">
+                                <input
+                                    type="radio"
+                                    name="fg_currency"
+                                    value="USD"
+                                    checked={currency === 'USD'}
+                                    onChange={() => onCurrencyChange && onCurrencyChange('USD')}
+                                    className="accent-[var(--accent)]"
+                                />
+                                <span className="text-xs text-[var(--muted-foreground)]">Dólares ($)</span>
+                            </label>
+                        </div>
+                        <input
+                            placeholder="0"
+                            value={formatInputDisplay(isEgreso ? egreso : ingreso)}
+                            onChange={event => {
+                                const digits = extractDigits(event.target.value);
+                                if (isEgreso) onEgresoChange(digits); else onIngresoChange(digits);
+                            }}
+                            onKeyDown={onFieldKeyDown}
+                            className={`flex-1 p-2 bg-[var(--input-bg)] border ${isEgreso ? egresoBorderClass : ingresoBorderClass} rounded`}
+                            inputMode="numeric"
+                        />
+                    </div>
                 </div>
 
                 <div className="flex flex-col gap-1">
