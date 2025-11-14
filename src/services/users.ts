@@ -135,6 +135,11 @@ export class UsersService {
       ...user,
       ownerId: ownerIdToUse,
       eliminate: actor?.role === 'admin' ? true : (user.eliminate ?? false),
+  // If an admin actor creates another admin, set maxCompanies to -1 so the created admin
+  // cannot create companies. A numeric maxCompanies is enforced by EmpresasService when
+  // typeof owner.maxCompanies === 'number'. Using -1 will make the owner check fail
+  // (currentCount >= -1) and therefore prevent company creation.
+  maxCompanies: (enrichedActor?.role === 'admin' && user.role === 'admin') ? -1 : user.maxCompanies,
       permissions: user.permissions || getDefaultPermissions(user.role)
     };
 
