@@ -97,10 +97,12 @@ export type FondoEntry = {
     auditDetails?: string;
 };
 
-const FONDO_KEY = 'fg_fondos_v1';
-const FONDO_INITIAL_KEY = 'fg_fondo_initial_v1';
-const FONDO_INITIAL_USD_KEY = 'fg_fondo_initial_usd_v1';
+const FONDO_KEY_SUFFIX = '_fondos_v1';
+const FONDO_INITIAL_KEY_SUFFIX = '_fondo_initial_v1';
+const FONDO_INITIAL_USD_KEY_SUFFIX = '_fondo_initial_usd_v1';
 const ADMIN_CODE = '12345'; // TODO: Permitir configurar este codigo desde el perfil de un administrador.
+
+const buildStorageKey = (namespace: string, suffix: string) => `${namespace}${suffix}`;
 
 export function ProviderSection({ id }: { id?: string }) {
     const { user, loading: authLoading } = useAuth();
@@ -392,7 +394,7 @@ export function ProviderSection({ id }: { id?: string }) {
     );
 }
 
-export function FondoSection({ id }: { id?: string }) {
+export function FondoSection({ id, mode = 'all', namespace = 'fg' }: { id?: string; mode?: 'all' | 'ingreso' | 'egreso'; namespace?: string }) {
     const { user, loading: authLoading } = useAuth();
     const company = user?.ownercompanie?.trim() ?? '';
     const { providers, loading: providersLoading, error: providersError } = useProviders(company);
@@ -403,7 +405,9 @@ export function FondoSection({ id }: { id?: string }) {
 
     const [selectedProvider, setSelectedProvider] = useState('');
     const [invoiceNumber, setInvoiceNumber] = useState('');
-    const [paymentType, setPaymentType] = useState<FondoEntry['paymentType']>('COMPRA INVENTARIO');
+    const defaultPaymentType: FondoEntry['paymentType'] =
+        mode === 'ingreso' ? FONDO_INGRESO_TYPES[0] : mode === 'egreso' ? FONDO_EGRESO_TYPES[0] : 'COMPRA INVENTARIO';
+    const [paymentType, setPaymentType] = useState<FondoEntry['paymentType']>(defaultPaymentType);
     const [egreso, setEgreso] = useState('');
     const [ingreso, setIngreso] = useState('');
     const [manager, setManager] = useState('');
@@ -418,6 +422,8 @@ export function FondoSection({ id }: { id?: string }) {
     const [movementModalOpen, setMovementModalOpen] = useState(false);
     const [movementAutoCloseLocked, setMovementAutoCloseLocked] = useState(false);
     const [movementCurrency, setMovementCurrency] = useState<'CRC' | 'USD'>('CRC');
+    const [entriesHydrated, setEntriesHydrated] = useState(false);
+    const [initialsHydrated, setInitialsHydrated] = useState(false);
     // Audit modal state: show full before/after history when an edited entry is clicked
     const [auditModalOpen, setAuditModalOpen] = useState(false);
     const [auditModalData, setAuditModalData] = useState<{ history?: any[] } | null>(null);
@@ -446,7 +452,9 @@ export function FondoSection({ id }: { id?: string }) {
 
     // Advanced filters
     const [filterProviderCode, setFilterProviderCode] = useState<string | 'all'>('all');
-    const [filterPaymentType, setFilterPaymentType] = useState<FondoEntry['paymentType'] | 'all'>('all');
+    const initialFilterPaymentType: FondoEntry['paymentType'] | 'all' =
+        mode === 'all' ? 'all' : mode === 'ingreso' ? FONDO_INGRESO_TYPES[0] : FONDO_EGRESO_TYPES[0];
+    const [filterPaymentType, setFilterPaymentType] = useState<FondoEntry['paymentType'] | 'all'>(initialFilterPaymentType);
     const [filterEditedOnly, setFilterEditedOnly] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -529,8 +537,10 @@ export function FondoSection({ id }: { id?: string }) {
     const editingProviderCode = editingEntry?.providerCode ?? null;
 
     useEffect(() => {
+        setEntriesHydrated(false);
         try {
-            const rawF = localStorage.getItem(FONDO_KEY);
+            const fondoKey = buildStorageKey(namespace, FONDO_KEY_SUFFIX);
+            const rawF = localStorage.getItem(fondoKey);
             if (!rawF) {
                 setFondoEntries([]);
                 return;
@@ -584,36 +594,52 @@ export function FondoSection({ id }: { id?: string }) {
             setFondoEntries(sanitized);
         } catch (err) {
             console.error('Error reading fondo entries from localStorage:', err);
+        } finally {
+            setEntriesHydrated(true);
         }
-    }, []);
+    }, [namespace]);
 
     useEffect(() => {
+        setInitialsHydrated(false);
         try {
-            const storedInitial = localStorage.getItem(FONDO_INITIAL_KEY);
+            const initKey = buildStorageKey(namespace, FONDO_INITIAL_KEY_SUFFIX);
+            const initUsdKey = buildStorageKey(namespace, FONDO_INITIAL_USD_KEY_SUFFIX);
+            const storedInitial = localStorage.getItem(initKey);
             if (storedInitial !== null) {
                 setInitialAmount(storedInitial);
             }
-            const storedInitialUsd = localStorage.getItem(FONDO_INITIAL_USD_KEY);
+            const storedInitialUsd = localStorage.getItem(initUsdKey);
             if (storedInitialUsd !== null) setInitialAmountUSD(storedInitialUsd);
         } catch (err) {
             console.error('Error reading initial fondo amount from localStorage:', err);
+        } finally {
+            setInitialsHydrated(true);
         }
-    }, []);
+    }, [namespace]);
 
     useEffect(() => {
-        localStorage.setItem(FONDO_KEY, JSON.stringify(fondoEntries));
-    }, [fondoEntries]);
-
-    useEffect(() => {
+        if (!entriesHydrated) return;
         try {
+            const fondoKey = buildStorageKey(namespace, FONDO_KEY_SUFFIX);
+            localStorage.setItem(fondoKey, JSON.stringify(fondoEntries));
+        } catch (err) {
+            console.error('Error storing fondo entries to localStorage:', err);
+        }
+    }, [fondoEntries, namespace, entriesHydrated]);
+
+    useEffect(() => {
+        if (!initialsHydrated) return;
+        try {
+            const initKey = buildStorageKey(namespace, FONDO_INITIAL_KEY_SUFFIX);
+            const initUsdKey = buildStorageKey(namespace, FONDO_INITIAL_USD_KEY_SUFFIX);
             const normalized = initialAmount.trim().length > 0 ? initialAmount : '0';
-            localStorage.setItem(FONDO_INITIAL_KEY, normalized);
+            localStorage.setItem(initKey, normalized);
             const normalizedUsd = initialAmountUSD.trim().length > 0 ? initialAmountUSD : '0';
-            localStorage.setItem(FONDO_INITIAL_USD_KEY, normalizedUsd);
+            localStorage.setItem(initUsdKey, normalizedUsd);
         } catch (err) {
             console.error('Error storing initial fondo amount to localStorage:', err);
         }
-    }, [initialAmount, initialAmountUSD]);
+    }, [initialAmount, initialAmountUSD, namespace, initialsHydrated]);
 
     useEffect(() => {
         if (!selectedProvider) return;
@@ -1000,6 +1026,9 @@ export function FondoSection({ id }: { id?: string }) {
                 setPaymentType('COMPRA INVENTARIO');
             }
         }
+        // If this FondoSection instance is scoped to ingresos/egresos, force that default
+        if (mode === 'ingreso') setPaymentType(FONDO_INGRESO_TYPES[0]);
+        if (mode === 'egreso') setPaymentType(FONDO_EGRESO_TYPES[0]);
         setMovementModalOpen(true);
     };
 
@@ -1039,6 +1068,13 @@ export function FondoSection({ id }: { id?: string }) {
             });
         }
 
+        // restrict by tab mode (ingreso/egreso) when applicable
+        if (mode === 'ingreso') {
+            base = base.filter(e => isIngresoType(e.paymentType));
+        } else if (mode === 'egreso') {
+            base = base.filter(e => isEgresoType(e.paymentType));
+        }
+
         // provider filter
         if (filterProviderCode && filterProviderCode !== 'all') {
             base = base.filter(e => e.providerCode === filterProviderCode);
@@ -1072,7 +1108,7 @@ export function FondoSection({ id }: { id?: string }) {
         }
 
         return base;
-    }, [displayedEntries, fromFilter, toFilter, filterProviderCode, filterPaymentType, filterEditedOnly, searchQuery, providersMap]);
+    }, [displayedEntries, fromFilter, toFilter, filterProviderCode, filterPaymentType, filterEditedOnly, searchQuery, providersMap, mode]);
 
     // Pagination: pageSize may be 5,10,15 or 'all'. Default to 10 visible items.
     const [pageSize, setPageSize] = useState<number | 'all'>(10);
@@ -2117,4 +2153,17 @@ export function OtraSection({ id }: { id?: string }) {
             </div>
         </div>
     );
+}
+
+// Small wrappers so each tab can mount an independent fondo implementation
+export function FondoIngresoSection({ id }: { id?: string }) {
+    return <FondoSection id={id} mode="ingreso" />;
+}
+
+export function FondoEgresoSection({ id }: { id?: string }) {
+    return <FondoSection id={id} mode="egreso" />;
+}
+
+export function FondoGeneralSection({ id }: { id?: string }) {
+    return <FondoSection id={id} mode="all" />;
 }
