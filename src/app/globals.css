@@ -364,6 +364,14 @@
   border: 3px solid #F2E9DA; /* bone */
 }
 
+.fg-balance-card {
+  /* Make the balance card visible on dark backgrounds by using
+     the standard card background and input border color. */
+  background-color: #1f262a; /* same as other cards in the app */
+  color: #FFFFFF;
+  border: 3px solid var(--input-border);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.35);
+}
 .fg-balance-card * {
   color: #FFFFFF !important;
 }

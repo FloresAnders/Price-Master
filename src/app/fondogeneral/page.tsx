@@ -11,7 +11,7 @@ export default function FondoGeneralIndex() {
         try {
             // navigate to the section's individual page
             await router.push(subpath);
-        } catch (err) {
+        } catch {
             // fallback to hub+hash
             if (typeof window !== 'undefined') window.location.href = `/fondogeneral#${fragment}`;
         }

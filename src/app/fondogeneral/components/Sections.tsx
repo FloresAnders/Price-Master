@@ -862,7 +862,6 @@ export function FondoSection({ id }: { id?: string }) {
     const egresoValid = isEgreso ? !Number.isNaN(egresoValue) && egresoValue > 0 : true;
     const ingresoValid = isIngreso ? !Number.isNaN(ingresoValue) && ingresoValue > 0 : true;
     const requiredAmountProvided = isEgreso ? egreso.trim().length > 0 : ingreso.trim().length > 0;
-    const initialAmountValue = Number.parseInt(initialAmount, 10) || 0;
 
     const { totalIngresosCRC, totalEgresosCRC, currentBalanceCRC, totalIngresosUSD, totalEgresosUSD, currentBalanceUSD } = useMemo(() => {
         let ingresosCRC = 0;
@@ -941,7 +940,6 @@ export function FondoSection({ id }: { id?: string }) {
             }),
         [],
     );
-    const formatAmount = (value: number) => amountFormatter.format(Math.trunc(value));
     const formatByCurrency = (currency: 'CRC' | 'USD', value: number) =>
         currency === 'USD' ? `$ ${amountFormatterUSD.format(Math.trunc(value))}` : `₡ ${amountFormatter.format(Math.trunc(value))}`;
 
@@ -1872,23 +1870,25 @@ export function FondoSection({ id }: { id?: string }) {
                         <span>Volver</span>
                     </a>
 
-                    <div className="w-full sm:w-auto sm:justify-self-center">
+                    <div className="w-auto justify-self-center">
                         <div className="px-4 py-3 rounded min-w-[320px] fg-balance-card relative">
-                            <div className="sr-only">Saldo actual</div>
-                            <div className="flex items-center">
-                                <div className="flex-1 text-center border-r border-[var(--input-border)]">
-                                    <div className="text-xs uppercase tracking-wide">Colones</div>
-                                    <div className="text-lg font-semibold">
-                                        {formatByCurrency('CRC', currentBalanceCRC)}
+                            <div className="w-full">
+                                <div className="text-sm font-medium text-[var(--muted-foreground)] text-center mb-3">Saldo actual</div>
+                                <div className="flex items-center relative">
+                                    <div className="flex-1 text-center border-r border-[var(--input-border)] relative z-10">
+                                        <div className="text-xs uppercase tracking-wide text-[var(--foreground)]">Colones</div>
+                                        <div className="text-lg font-semibold text-[var(--foreground)]">
+                                            {formatByCurrency('CRC', currentBalanceCRC)}
+                                        </div>
                                     </div>
-                                </div>
-                                <div className='absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-full flex items-center justify-center pointer-events-none' aria-hidden="true">
-                                    <div style={{ width: 2, height: '70%', background: 'rgba(255,255,255,0.18)', borderRadius: 3 }} />
-                                </div>
-                                <div className="flex-1 text-center border-l border-[var(--input-border)]">
-                                    <div className="text-xs uppercase tracking-wide">Dólares</div>
-                                    <div className="text-lg font-semibold">
-                                        {formatByCurrency('USD', currentBalanceUSD)}
+                                    <div className='absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-full flex items-center justify-center pointer-events-none z-0' aria-hidden="true">
+                                        <div style={{ width: 2, height: '70%', background: 'rgba(255,255,255,0.18)', borderRadius: 3 }} />
+                                    </div>
+                                    <div className="flex-1 text-center border-l border-[var(--input-border)] relative z-10">
+                                        <div className="text-xs uppercase tracking-wide text-[var(--foreground)]">Dólares</div>
+                                        <div className="text-lg font-semibold text-[var(--foreground)]">
+                                            {formatByCurrency('USD', currentBalanceUSD)}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
