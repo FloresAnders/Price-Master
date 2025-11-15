@@ -284,7 +284,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   ];
 
   // Get user permissions or default if not available
-  const userPermissions = user?.permissions || getDefaultPermissions(user?.role);
+  const userPermissions = user?.permissions || getDefaultPermissions(user?.role || 'user');
+  const canManageFondoGeneral = Boolean(userPermissions.fondogeneral);
 
   // Filter tabs based on user permissions
   const visibleTabs = allTabs.filter(tab => {
@@ -368,7 +369,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
           </button>
 
           {/* If we're inside the Fondo General area, show its quick actions in the header */}
-          {pathname && pathname.startsWith('/fondogeneral') && (
+          {pathname && pathname.startsWith('/fondogeneral') && canManageFondoGeneral && (
             <nav className="hidden lg:flex items-center gap-1">
               {/* Agregar proveedor */}
               <button

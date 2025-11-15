@@ -22,6 +22,9 @@ const PERMISSION_LABELS = {
   supplierorders: 'Órdenes Proveedor',
   mantenimiento: 'Mantenimiento',
   fondogeneral: 'Fondo General',
+  fondogeneralBCR: 'Fondo General - BCR',
+  fondogeneralBN: 'Fondo General - BN',
+  fondogeneralBAC: 'Fondo General - BAC',
   solicitud: 'Solicitud',
   scanhistory: 'Historial de Escaneos',
 };
@@ -36,6 +39,9 @@ const PERMISSION_DESCRIPTIONS = {
   supplierorders: 'Gestión de órdenes de proveedores',
   mantenimiento: 'Acceso al panel de administración',
   fondogeneral: 'Permiso para ver y administrar el fondo general de la compañía',
+  fondogeneralBCR: 'Permite registrar movimientos del fondo general para la cuenta BCR',
+  fondogeneralBN: 'Permite registrar movimientos del fondo general para la cuenta BN',
+  fondogeneralBAC: 'Permite registrar movimientos del fondo general para la cuenta BAC',
   solicitud: 'Permite gestionar solicitudes dentro del módulo de mantenimiento',
   scanhistory: 'Ver historial completo de escaneos realizados',
 };

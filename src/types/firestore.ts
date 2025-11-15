@@ -34,6 +34,9 @@ export interface UserPermissions {
   supplierorders: boolean; // Órdenes Proveedor - Gestión de órdenes de proveedores
   mantenimiento: boolean;  // Mantenimiento - Nueva sección de mantenimiento
   fondogeneral?: boolean; // Fondo General - Acceso a administración del fondo general
+  fondogeneralBCR?: boolean; // Fondo General - Acceso a la cuenta BCR
+  fondogeneralBN?: boolean; // Fondo General - Acceso a la cuenta BN
+  fondogeneralBAC?: boolean; // Fondo General - Acceso a la cuenta BAC
   solicitud?: boolean; // Solicitud - Permiso extra en sección de Mantenimiento
   scanhistory: boolean;    // Historial General de Escaneos - Ver historial completo de escaneos
   scanhistoryEmpresas?: string[]; // Empresas específicas para historial de escaneos (almacena company names)
