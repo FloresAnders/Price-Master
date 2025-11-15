@@ -1876,18 +1876,16 @@ export function FondoSection({ id }: { id?: string }) {
                         <div className="px-4 py-3 rounded min-w-[320px] fg-balance-card relative">
                             <div className="sr-only">Saldo actual</div>
                             <div className="flex items-center">
-                                <div className="flex-1 text-center">
+                                <div className="flex-1 text-center border-r border-[var(--input-border)]">
                                     <div className="text-xs uppercase tracking-wide">Colones</div>
                                     <div className="text-lg font-semibold">
                                         {formatByCurrency('CRC', currentBalanceCRC)}
                                     </div>
                                 </div>
-
-                                <div className="mx-3 flex items-center" aria-hidden>
+                                <div className='absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-full flex items-center justify-center pointer-events-none' aria-hidden="true">
                                     <div style={{ width: 2, height: '70%', background: 'rgba(255,255,255,0.18)', borderRadius: 3 }} />
                                 </div>
-
-                                <div className="flex-1 text-center">
+                                <div className="flex-1 text-center border-l border-[var(--input-border)]">
                                     <div className="text-xs uppercase tracking-wide">Dólares</div>
                                     <div className="text-lg font-semibold">
                                         {formatByCurrency('USD', currentBalanceUSD)}
