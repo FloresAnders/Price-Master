@@ -1133,14 +1133,6 @@ export function FondoSection({ id }: { id?: string }) {
 
     return (
         <div id={id} className="mt-6">
-            {/* Main title at the very top - centered with icon above */}
-            <div className="mb-4 flex flex-col items-center justify-center">
-                <Wallet className="w-8 h-8 text-[var(--accent)] mb-1.5" />
-                <h2 className="text-xl font-semibold text-[var(--foreground)] text-center">
-                    Registrar movimiento de Fondo
-                </h2>
-            </div>
-
             {/* Professional filter bar - centered */}
             <div className="mb-4 flex flex-col items-center justify-center gap-3 pb-3 border-b border-[var(--input-border)]">
                 <div className="flex flex-wrap items-center justify-center gap-2">

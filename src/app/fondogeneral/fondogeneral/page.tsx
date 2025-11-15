@@ -15,7 +15,7 @@ export default function FondoPage() {
 
     return (
         <div className="max-w-6xl mx-auto py-8 px-4 border ">TODO: ELIMINAR ESTE DIV
-            <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl p-6">console2
+            <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl p-6">
                 <div>
                     <div role="tablist" aria-label="Cuentas" className="flex gap-4 border-b border-[var(--input-border)] mb-4">
                         {tabs.map((tab) => (
