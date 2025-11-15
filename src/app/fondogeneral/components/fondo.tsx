@@ -120,6 +120,143 @@ const NAMESPACE_DESCRIPTIONS: Record<string, string> = {
     bac: 'la cuenta BAC',
 };
 
+const MOVEMENT_STORAGE_PREFIX = 'movements';
+
+type MovementCurrencyKey = 'CRC' | 'USD';
+type MovementAccountKey = 'FondoGeneral' | 'BCR' | 'BN' | 'BAC';
+type MovementBucket = { movements: FondoEntry[] };
+type MovementAccount = Record<MovementCurrencyKey, MovementBucket>;
+type MovementStorage = {
+    company: string;
+    accounts: Record<MovementAccountKey, MovementAccount>;
+};
+
+const ACCOUNT_KEY_BY_NAMESPACE: Record<string, MovementAccountKey> = {
+    fg: 'FondoGeneral',
+    bcr: 'BCR',
+    bn: 'BN',
+    bac: 'BAC',
+};
+
+const buildMovementStorageKey = (identifier: string) =>
+    `${MOVEMENT_STORAGE_PREFIX}_${identifier && identifier.length > 0 ? identifier : 'global'}`;
+
+const buildCompanyMovementsKey = (companyName: string) => buildMovementStorageKey((companyName || '').trim());
+const buildLegacyOwnerMovementsKey = (ownerId: string) => buildMovementStorageKey((ownerId || '').trim());
+
+const getAccountKeyFromNamespace = (namespace: string): MovementAccountKey =>
+    ACCOUNT_KEY_BY_NAMESPACE[namespace] || 'FondoGeneral';
+
+const createEmptyMovementAccount = (): MovementAccount => ({
+    CRC: { movements: [] },
+    USD: { movements: [] },
+});
+
+const createEmptyMovementStorage = (company: string): MovementStorage => ({
+    company,
+    accounts: {
+        FondoGeneral: createEmptyMovementAccount(),
+        BCR: createEmptyMovementAccount(),
+        BN: createEmptyMovementAccount(),
+        BAC: createEmptyMovementAccount(),
+    },
+});
+
+const ensureMovementStorageShape = (raw: unknown, company: string): MovementStorage => {
+    const normalizedCompany = company || '';
+    if (!raw || typeof raw !== 'object') {
+        return createEmptyMovementStorage(normalizedCompany);
+    }
+
+    const candidate = raw as Partial<MovementStorage> & {
+        ownerId?: string;
+        accounts?: Partial<Record<MovementAccountKey, Partial<MovementAccount>>>;
+    };
+    const storage = createEmptyMovementStorage(normalizedCompany);
+    const sourceCompany =
+        typeof candidate.company === 'string'
+            ? candidate.company
+            : typeof candidate.ownerId === 'string'
+                ? candidate.ownerId
+                : normalizedCompany;
+    storage.company = sourceCompany;
+
+    (Object.keys(storage.accounts) as MovementAccountKey[]).forEach(accountKey => {
+        const sourceAccount = candidate.accounts?.[accountKey];
+        storage.accounts[accountKey] = {
+            CRC: {
+                movements: Array.isArray(sourceAccount?.CRC?.movements)
+                    ? (sourceAccount?.CRC?.movements as unknown as FondoEntry[])
+                    : [],
+            },
+            USD: {
+                movements: Array.isArray(sourceAccount?.USD?.movements)
+                    ? (sourceAccount?.USD?.movements as unknown as FondoEntry[])
+                    : [],
+            },
+        };
+    });
+
+    return storage;
+};
+
+const sanitizeFondoEntries = (rawEntries: unknown, forcedCurrency?: MovementCurrencyKey): FondoEntry[] => {
+    if (!Array.isArray(rawEntries)) return [];
+
+    return rawEntries.reduce<FondoEntry[]>((acc, raw) => {
+        const entry = raw as Partial<FondoEntry>;
+
+        const id = typeof entry.id === 'string' ? entry.id : undefined;
+        const providerCode = typeof entry.providerCode === 'string' ? entry.providerCode : undefined;
+        const invoiceNumber = typeof entry.invoiceNumber === 'string' ? entry.invoiceNumber : '';
+        const paymentType = normalizeStoredType(entry.paymentType);
+        const manager = typeof entry.manager === 'string' ? entry.manager : undefined;
+        const createdAt = typeof entry.createdAt === 'string' ? entry.createdAt : undefined;
+
+        if (!id || !providerCode || !manager || !createdAt) return acc;
+
+        const rawEgreso = typeof entry.amountEgreso === 'number' ? entry.amountEgreso : Number(entry.amountEgreso) || 0;
+        const rawIngreso = typeof entry.amountIngreso === 'number' ? entry.amountIngreso : Number(entry.amountIngreso) || 0;
+
+        const amountEgreso = Math.trunc(rawEgreso);
+        const amountIngreso = Math.trunc(rawIngreso);
+
+        const currency: MovementCurrencyKey = forcedCurrency ?? (entry.currency === 'USD' ? 'USD' : 'CRC');
+
+        acc.push({
+            id,
+            providerCode,
+            invoiceNumber,
+            paymentType,
+            currency,
+            amountEgreso: isEgresoType(paymentType) ? amountEgreso : 0,
+            amountIngreso: isIngresoType(paymentType) ? amountIngreso : 0,
+            manager,
+            notes: typeof entry.notes === 'string' ? entry.notes : '',
+            createdAt,
+            isAudit: !!entry.isAudit,
+            originalEntryId: typeof entry.originalEntryId === 'string' ? entry.originalEntryId : undefined,
+            auditDetails: typeof entry.auditDetails === 'string' ? entry.auditDetails : undefined,
+        });
+
+        return acc;
+    }, []);
+};
+
+const splitEntriesByCurrency = (entries: FondoEntry[]) => {
+    const buckets: Record<MovementCurrencyKey, FondoEntry[]> = {
+        CRC: [],
+        USD: [],
+    };
+
+    entries.forEach(entry => {
+        const currency: MovementCurrencyKey = entry.currency === 'USD' ? 'USD' : 'CRC';
+        buckets[currency].push(entry);
+    });
+
+    return buckets;
+};
+
 const AccessRestrictedMessage = ({ description }: { description: string }) => (
     <div className="flex flex-col items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)] text-center">
         <Lock className="w-10 h-10 text-[var(--muted-foreground)] mb-4" />
@@ -786,66 +923,66 @@ export function FondoSection({
 
     useEffect(() => {
         setEntriesHydrated(false);
+        const normalizedCompany = (company || '').trim();
+        if (normalizedCompany.length === 0) {
+            setFondoEntries([]);
+            setEntriesHydrated(true);
+            return;
+        }
+
         try {
-            const fondoKey = buildStorageKey(namespace, FONDO_KEY_SUFFIX);
-            const rawF = localStorage.getItem(fondoKey);
-            if (!rawF) {
-                setFondoEntries([]);
-                return;
+            const accountKey = getAccountKeyFromNamespace(namespace);
+            const parseTime = (value: string) => {
+                const timestamp = Date.parse(value);
+                return Number.isNaN(timestamp) ? 0 : timestamp;
+            };
+            const buildEntriesFromRaw = (rawData: string | null): FondoEntry[] | null => {
+                if (!rawData) return null;
+                try {
+                    const parsed = JSON.parse(rawData);
+                    const storage = ensureMovementStorageShape(parsed, normalizedCompany);
+                    const accountData = storage.accounts[accountKey];
+                    if (!accountData) return null;
+                    const crcEntries = sanitizeFondoEntries(accountData.CRC.movements, 'CRC');
+                    const usdEntries = sanitizeFondoEntries(accountData.USD.movements, 'USD');
+                    return [...crcEntries, ...usdEntries].sort((a, b) => parseTime(b.createdAt) - parseTime(a.createdAt));
+                } catch (err) {
+                    console.error('Error parsing stored fondo entries:', err);
+                    return null;
+                }
+            };
+
+            const companyKey = buildCompanyMovementsKey(normalizedCompany);
+            let loadedEntries: FondoEntry[] | null = buildEntriesFromRaw(localStorage.getItem(companyKey));
+
+            if (!loadedEntries && ownerId) {
+                const ownerKey = buildLegacyOwnerMovementsKey(ownerId);
+                if (ownerKey !== companyKey) {
+                    loadedEntries = buildEntriesFromRaw(localStorage.getItem(ownerKey));
+                }
             }
 
-            const parsed = JSON.parse(rawF);
-            if (!Array.isArray(parsed)) {
-                setFondoEntries([]);
-                return;
+            if (!loadedEntries) {
+                const legacyKey = buildStorageKey(namespace, FONDO_KEY_SUFFIX);
+                const legacyRaw = localStorage.getItem(legacyKey);
+                if (legacyRaw) {
+                    try {
+                        const legacyParsed = JSON.parse(legacyRaw);
+                        loadedEntries = sanitizeFondoEntries(legacyParsed);
+                    } catch (err) {
+                        console.error('Error parsing legacy fondo entries:', err);
+                    }
+                }
             }
 
-            const sanitized: FondoEntry[] = (parsed as any[]).reduce<FondoEntry[]>((acc, raw) => {
-                const entry = raw as Partial<FondoEntry>;
-
-                const id = typeof entry.id === 'string' ? entry.id : undefined;
-                const providerCode = typeof entry.providerCode === 'string' ? entry.providerCode : undefined;
-                const invoiceNumber = typeof entry.invoiceNumber === 'string' ? entry.invoiceNumber : '';
-                const paymentType = normalizeStoredType(entry.paymentType);
-                const manager = typeof entry.manager === 'string' ? entry.manager : undefined;
-                const createdAt = typeof entry.createdAt === 'string' ? entry.createdAt : undefined;
-
-                // required runtime fields: id, providerCode, manager, createdAt
-                if (!id || !providerCode || !manager || !createdAt) return acc;
-
-                const rawEgreso = typeof entry.amountEgreso === 'number' ? entry.amountEgreso : Number(entry.amountEgreso) || 0;
-                const rawIngreso = typeof entry.amountIngreso === 'number' ? entry.amountIngreso : Number(entry.amountIngreso) || 0;
-
-                const amountEgreso = Math.trunc(rawEgreso);
-                const amountIngreso = Math.trunc(rawIngreso);
-
-                const normalized: FondoEntry = {
-                    id,
-                    providerCode,
-                    invoiceNumber,
-                    paymentType,
-                    currency: (entry as any).currency === 'USD' ? 'USD' : 'CRC',
-                    amountEgreso: isEgresoType(paymentType) ? amountEgreso : 0,
-                    amountIngreso: isIngresoType(paymentType) ? amountIngreso : 0,
-                    manager,
-                    notes: typeof entry.notes === 'string' ? entry.notes : '',
-                    createdAt,
-                    isAudit: !!entry.isAudit,
-                    originalEntryId: typeof entry.originalEntryId === 'string' ? entry.originalEntryId : undefined,
-                    auditDetails: typeof entry.auditDetails === 'string' ? entry.auditDetails : undefined,
-                };
-
-                acc.push(normalized);
-                return acc;
-            }, []);
-
-            setFondoEntries(sanitized);
+            setFondoEntries(loadedEntries ?? []);
         } catch (err) {
             console.error('Error reading fondo entries from localStorage:', err);
+            setFondoEntries([]);
         } finally {
             setEntriesHydrated(true);
         }
-    }, [namespace]);
+    }, [namespace, ownerId, company]);
 
     useEffect(() => {
         setInitialsHydrated(false);
@@ -867,13 +1004,36 @@ export function FondoSection({
 
     useEffect(() => {
         if (!entriesHydrated) return;
+        const normalizedCompany = (company || '').trim();
+        if (normalizedCompany.length === 0) return;
+
         try {
-            const fondoKey = buildStorageKey(namespace, FONDO_KEY_SUFFIX);
-            localStorage.setItem(fondoKey, JSON.stringify(fondoEntries));
+            const companyKey = buildCompanyMovementsKey(normalizedCompany);
+            const rawStorage = localStorage.getItem(companyKey);
+            const parsedStorage = rawStorage ? JSON.parse(rawStorage) : null;
+            const storage = ensureMovementStorageShape(parsedStorage, normalizedCompany);
+            const accountKey = getAccountKeyFromNamespace(namespace);
+            const grouped = splitEntriesByCurrency(fondoEntries);
+            storage.company = normalizedCompany;
+            storage.accounts[accountKey] = {
+                CRC: { movements: grouped.CRC },
+                USD: { movements: grouped.USD },
+            };
+            localStorage.setItem(companyKey, JSON.stringify(storage));
+
+            const legacyKey = buildStorageKey(namespace, FONDO_KEY_SUFFIX);
+            localStorage.removeItem(legacyKey);
+
+            if (ownerId) {
+                const legacyOwnerKey = buildLegacyOwnerMovementsKey(ownerId);
+                if (legacyOwnerKey !== companyKey) {
+                    localStorage.removeItem(legacyOwnerKey);
+                }
+            }
         } catch (err) {
             console.error('Error storing fondo entries to localStorage:', err);
         }
-    }, [fondoEntries, namespace, entriesHydrated]);
+    }, [fondoEntries, namespace, entriesHydrated, company, ownerId]);
 
     useEffect(() => {
         if (!initialsHydrated) return;
