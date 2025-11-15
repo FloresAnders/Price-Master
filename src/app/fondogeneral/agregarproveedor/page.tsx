@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ProviderSection } from '../components/Sections';
+import { ProviderSection } from '../components/fondo';
 
 export default function AgregarProveedorPage() {
     return (

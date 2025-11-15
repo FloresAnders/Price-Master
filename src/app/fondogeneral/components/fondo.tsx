@@ -27,7 +27,6 @@ import {
     CalendarDays,
     ChevronLeft,
     ChevronRight,
-    Wallet,
 } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import { useProviders } from '../../../hooks/useProviders';

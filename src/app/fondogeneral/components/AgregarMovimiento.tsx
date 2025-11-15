@@ -1,6 +1,6 @@
 import React from 'react';
 import { Save } from 'lucide-react';
-import type { FondoMovementType } from './Sections';
+import type { FondoMovementType } from './fondo';
 
 type ProviderOption = {
     code: string;

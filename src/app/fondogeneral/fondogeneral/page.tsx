@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { FondoSection } from '../components/Sections';
+import { FondoSection } from '../components/fondo';
 
 const tabs = [
     { id: 'fondo', label: 'Fondo General' },
