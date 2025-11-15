@@ -204,7 +204,7 @@ export function ProviderSection({ id }: { id?: string }) {
 
             {resolvedError && <div className="mb-4 text-sm text-red-500">{resolvedError}</div>}
 
-            
+
 
             <div>
                 <h3 className="text-sm font-medium text-[var(--foreground)] mb-2">Lista de Proveedores</h3>
@@ -214,7 +214,7 @@ export function ProviderSection({ id }: { id?: string }) {
                     <ul className="space-y-2">
                         {providers.length === 0 && <li className="text-[var(--muted-foreground)]">Aun no hay proveedores.</li>}
                         {providers.map(p => (
-                                    <li key={p.code} className="flex items-center justify-between bg-[var(--muted)] p-3 rounded">
+                            <li key={p.code} className="flex items-center justify-between bg-[var(--muted)] p-3 rounded">
                                 <div>
                                     <div className="text-[var(--foreground)] font-semibold">{p.name}</div>
                                     <div className="text-xs text-[var(--muted-foreground)]">Codigo: {p.code}</div>
@@ -345,45 +345,45 @@ export function ProviderSection({ id }: { id?: string }) {
                             <button
                                 type="button"
                                 onClick={async () => {
-                                            const name = providerName.trim().toUpperCase();
-                                            if (!name) {
-                                                setFormError('Nombre requerido.');
-                                                return;
-                                            }
-                                            if (!company) {
-                                                setFormError('Tu usuario no tiene una empresa asignada.');
-                                                return;
-                                            }
-                                            try {
-                                                setSaving(true);
-                                                setFormError(null);
-                                                if (editingProviderCode) {
-                                                    // Actualizar proveedor existente
-                                                    await updateProvider(editingProviderCode, name, providerType || undefined);
-                                                } else {
-                                                    // Crear nuevo proveedor
-                                                    if (providers.some(p => p.name.toUpperCase() === name)) {
-                                                        setFormError(`El proveedor "${name}" ya existe.`);
-                                                        setSaving(false);
-                                                        return;
-                                                    }
-                                                    await addProvider(name, providerType || undefined);
-                                                }
-                                                setProviderName('');
-                                                setProviderType('');
-                                                setEditingProviderCode(null);
-                                                setProviderDrawerOpen(false);
-                                            } catch (err) {
-                                                const message = err instanceof Error ? err.message : 'No se pudo guardar el proveedor.';
-                                                setFormError(message);
-                                            } finally {
+                                    const name = providerName.trim().toUpperCase();
+                                    if (!name) {
+                                        setFormError('Nombre requerido.');
+                                        return;
+                                    }
+                                    if (!company) {
+                                        setFormError('Tu usuario no tiene una empresa asignada.');
+                                        return;
+                                    }
+                                    try {
+                                        setSaving(true);
+                                        setFormError(null);
+                                        if (editingProviderCode) {
+                                            // Actualizar proveedor existente
+                                            await updateProvider(editingProviderCode, name, providerType || undefined);
+                                        } else {
+                                            // Crear nuevo proveedor
+                                            if (providers.some(p => p.name.toUpperCase() === name)) {
+                                                setFormError(`El proveedor "${name}" ya existe.`);
                                                 setSaving(false);
+                                                return;
                                             }
-                                        }}
+                                            await addProvider(name, providerType || undefined);
+                                        }
+                                        setProviderName('');
+                                        setProviderType('');
+                                        setEditingProviderCode(null);
+                                        setProviderDrawerOpen(false);
+                                    } catch (err) {
+                                        const message = err instanceof Error ? err.message : 'No se pudo guardar el proveedor.';
+                                        setFormError(message);
+                                    } finally {
+                                        setSaving(false);
+                                    }
+                                }}
                                 className="px-4 py-2 bg-[var(--accent)] text-white rounded disabled:opacity-50"
                                 disabled={!company || saving || deletingCode !== null}
                             >
-                                        {saving ? (editingProviderCode ? 'Actualizando...' : 'Guardando...') : (editingProviderCode ? 'Actualizar' : 'Guardar')}
+                                {saving ? (editingProviderCode ? 'Actualizando...' : 'Guardando...') : (editingProviderCode ? 'Actualizar' : 'Guardar')}
                             </button>
                         </div>
                     </Box>
@@ -674,7 +674,7 @@ export function FondoSection({ id }: { id?: string }) {
         setEgreso('');
         setIngreso('');
         setManager('');
-    setPaymentType('COMPRA INVENTARIO');
+        setPaymentType('COMPRA INVENTARIO');
         setNotes('');
         setEditingEntryId(null);
     };
@@ -745,7 +745,7 @@ export function FondoSection({ id }: { id?: string }) {
 
         const paddedInvoice = invoiceNumber.padStart(4, '0');
 
-            if (editingEntryId) {
+        if (editingEntryId) {
             // Update the existing entry in-place so balances remain correct.
             const original = fondoEntries.find(e => e.id === editingEntryId);
             if (!original) return;
@@ -977,7 +977,7 @@ export function FondoSection({ id }: { id?: string }) {
     const invoiceDisabled = !company;
     const egresoBorderClass = amountClass(isEgreso, egreso.trim().length > 0, egresoValid);
     const ingresoBorderClass = amountClass(isIngreso, ingreso.trim().length > 0, ingresoValid);
-    
+
 
     const closeMovementModal = () => {
         setMovementModalOpen(false);
@@ -1252,7 +1252,7 @@ export function FondoSection({ id }: { id?: string }) {
                                     </div>
 
                                     <div className="grid grid-cols-7 gap-1 text-center text-xs text-[var(--muted-foreground)]">
-                                        {['D','L','M','M','J','V','S'].map((d, i) => (
+                                        {['D', 'L', 'M', 'M', 'J', 'V', 'S'].map((d, i) => (
                                             <div key={`${d}-${i}`} className="py-1">{d}</div>
                                         ))}
                                     </div>
@@ -1368,7 +1368,7 @@ export function FondoSection({ id }: { id?: string }) {
                                     </div>
 
                                     <div className="grid grid-cols-7 gap-1 text-center text-xs text-[var(--muted-foreground)]">
-                                        {['D','L','M','M','J','V','S'].map((d, i) => (
+                                        {['D', 'L', 'M', 'M', 'J', 'V', 'S'].map((d, i) => (
                                             <div key={`${d}-${i}`} className="py-1">{d}</div>
                                         ))}
                                     </div>
@@ -1515,7 +1515,7 @@ export function FondoSection({ id }: { id?: string }) {
                             invoiceValid={invoiceValid}
                             invoiceDisabled={invoiceDisabled}
                             paymentType={paymentType}
-                            
+
                             isEgreso={isEgreso}
                             egreso={egreso}
                             onEgresoChange={handleEgresoChange}
@@ -1699,44 +1699,44 @@ export function FondoSection({ id }: { id?: string }) {
                                             // prepare tooltip text for edited entries
                                             let auditTooltip: string | undefined;
                                             let parsedAudit: any | null = null;
-                                                                            if (fe.isAudit && fe.auditDetails) {
-                                                                                try {
-                                                                                    const parsed = JSON.parse(fe.auditDetails) as any;
-                                                                                    // normalize to history array for backward compatibility
-                                                                                    let history: any[] = [];
-                                                                                    if (Array.isArray(parsed?.history)) {
-                                                                                        history = parsed.history;
-                                                                                    } else if (parsed?.before && parsed?.after) {
-                                                                                        history = [{ at: parsed.at ?? fe.createdAt, before: parsed.before, after: parsed.after }];
-                                                                                    }
-                                                                                    parsedAudit = { history };
+                                            if (fe.isAudit && fe.auditDetails) {
+                                                try {
+                                                    const parsed = JSON.parse(fe.auditDetails) as any;
+                                                    // normalize to history array for backward compatibility
+                                                    let history: any[] = [];
+                                                    if (Array.isArray(parsed?.history)) {
+                                                        history = parsed.history;
+                                                    } else if (parsed?.before && parsed?.after) {
+                                                        history = [{ at: parsed.at ?? fe.createdAt, before: parsed.before, after: parsed.after }];
+                                                    }
+                                                    parsedAudit = { history };
 
-                                                                                    // build tooltip from accumulated history (show each change timestamp + small summary)
-                                                                                    const lines: string[] = history.map(h => {
-                                                                                        const at = h?.at ? dateTimeFormatter.format(new Date(h.at)) : '—';
-                                                                                        const before = h?.before ?? {};
-                                                                                        const after = h?.after ?? {};
-                                                                                        const parts: string[] = [];
-                                                                                        if (before.providerCode !== after.providerCode) parts.push(`Proveedor: ${before.providerCode} → ${after.providerCode}`);
-                                                                                        if (before.invoiceNumber !== after.invoiceNumber) parts.push(`Factura: ${before.invoiceNumber} → ${after.invoiceNumber}`);
-                                                                                        if (before.paymentType !== after.paymentType) parts.push(`Tipo: ${before.paymentType} → ${after.paymentType}`);
-                                                                                        const beforeAmt = before && before.paymentType ? (isEgresoType(before.paymentType) ? Number(before.amountEgreso || 0) : Number(before.amountIngreso || 0)) : undefined;
-                                                                                        const afterAmt = after && (after.paymentType ?? before.paymentType) ? (isEgresoType(after.paymentType ?? before.paymentType) ? Number(after.amountEgreso || 0) : Number(after.amountIngreso || 0)) : undefined;
-                                                                                        const beforeCur = (before && (before.currency as 'CRC' | 'USD')) || entryCurrency || 'CRC';
-                                                                                        const afterCur = (after && (after.currency as 'CRC' | 'USD')) || entryCurrency || 'CRC';
-                                                                                            if (typeof beforeAmt === 'number' && typeof afterAmt === 'number' && beforeAmt !== afterAmt) {
-                                                                                                parts.push(`Monto: ${formatByCurrency(beforeCur, beforeAmt)} → ${formatByCurrency(afterCur, afterAmt)}`);
-                                                                                            }
-                                                                                            if (before.manager !== after.manager) parts.push(`Encargado: ${before.manager} → ${after.manager}`);
-                                                                                            if ((before.notes ?? '') !== (after.notes ?? '')) parts.push(`Notas: "${before.notes ?? ''}" → "${after.notes ?? ''}"`);
-                                                                                            return `${at}: ${parts.join('; ') || 'Editado (sin cambios detectados)'} `;
-                                                                                    });
-                                                                                    auditTooltip = lines.join('\n');
-                                                                                } catch {
-                                                                                    auditTooltip = 'Editado';
-                                                                                    parsedAudit = null;
-                                                                                }
-                                                                            }
+                                                    // build tooltip from accumulated history (show each change timestamp + small summary)
+                                                    const lines: string[] = history.map(h => {
+                                                        const at = h?.at ? dateTimeFormatter.format(new Date(h.at)) : '—';
+                                                        const before = h?.before ?? {};
+                                                        const after = h?.after ?? {};
+                                                        const parts: string[] = [];
+                                                        if (before.providerCode !== after.providerCode) parts.push(`Proveedor: ${before.providerCode} → ${after.providerCode}`);
+                                                        if (before.invoiceNumber !== after.invoiceNumber) parts.push(`Factura: ${before.invoiceNumber} → ${after.invoiceNumber}`);
+                                                        if (before.paymentType !== after.paymentType) parts.push(`Tipo: ${before.paymentType} → ${after.paymentType}`);
+                                                        const beforeAmt = before && before.paymentType ? (isEgresoType(before.paymentType) ? Number(before.amountEgreso || 0) : Number(before.amountIngreso || 0)) : undefined;
+                                                        const afterAmt = after && (after.paymentType ?? before.paymentType) ? (isEgresoType(after.paymentType ?? before.paymentType) ? Number(after.amountEgreso || 0) : Number(after.amountIngreso || 0)) : undefined;
+                                                        const beforeCur = (before && (before.currency as 'CRC' | 'USD')) || entryCurrency || 'CRC';
+                                                        const afterCur = (after && (after.currency as 'CRC' | 'USD')) || entryCurrency || 'CRC';
+                                                        if (typeof beforeAmt === 'number' && typeof afterAmt === 'number' && beforeAmt !== afterAmt) {
+                                                            parts.push(`Monto: ${formatByCurrency(beforeCur, beforeAmt)} → ${formatByCurrency(afterCur, afterAmt)}`);
+                                                        }
+                                                        if (before.manager !== after.manager) parts.push(`Encargado: ${before.manager} → ${after.manager}`);
+                                                        if ((before.notes ?? '') !== (after.notes ?? '')) parts.push(`Notas: "${before.notes ?? ''}" → "${after.notes ?? ''}"`);
+                                                        return `${at}: ${parts.join('; ') || 'Editado (sin cambios detectados)'} `;
+                                                    });
+                                                    auditTooltip = lines.join('\n');
+                                                } catch {
+                                                    auditTooltip = 'Editado';
+                                                    parsedAudit = null;
+                                                }
+                                            }
                                             return (
                                                 <tr
                                                     key={fe.id}
@@ -1799,16 +1799,16 @@ export function FondoSection({ id }: { id?: string }) {
                                                     </td>
                                                     <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">{fe.manager}</td>
                                                     <td className="px-3 py-2 align-top">
-                                                            <button
-                                                                type="button"
-                                                                className="inline-flex items-center gap-2 rounded border border-[var(--input-border)] px-3 py-1 text-xs font-medium text-[var(--muted-foreground)] hover:bg-[var(--muted)] disabled:opacity-50"
-                                                                onClick={() => startEditingEntry(fe)}
-                                                                disabled={editingEntryId === fe.id}
-                                                                title={'Editar movimiento'}
-                                                            >
-                                                                <Pencil className="w-4 h-4" />
-                                                                {editingEntryId === fe.id ? 'Editando' : 'Editar'}
-                                                            </button>
+                                                        <button
+                                                            type="button"
+                                                            className="inline-flex items-center gap-2 rounded border border-[var(--input-border)] px-3 py-1 text-xs font-medium text-[var(--muted-foreground)] hover:bg-[var(--muted)] disabled:opacity-50"
+                                                            onClick={() => startEditingEntry(fe)}
+                                                            disabled={editingEntryId === fe.id}
+                                                            title={'Editar movimiento'}
+                                                        >
+                                                            <Pencil className="w-4 h-4" />
+                                                            {editingEntryId === fe.id ? 'Editando' : 'Editar'}
+                                                        </button>
                                                     </td>
                                                 </tr>
                                             );
