@@ -30,6 +30,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import { useProviders } from '../../../hooks/useProviders';
+import type { UserPermissions, Empresas } from '../../../types/firestore';
+import { getDefaultPermissions } from '../../../utils/permissions';
 import ConfirmModal from '../../../components/ui/ConfirmModal';
 import { EmpresasService } from '../../../services/empresas';
 import AgregarMovimiento from './AgregarMovimiento';
@@ -104,10 +106,97 @@ const ADMIN_CODE = '12345'; // TODO: Permitir configurar este codigo desde el pe
 
 const buildStorageKey = (namespace: string, suffix: string) => `${namespace}${suffix}`;
 
+const NAMESPACE_PERMISSIONS: Record<string, keyof UserPermissions> = {
+    fg: 'fondogeneral',
+    bcr: 'fondogeneralBCR',
+    bn: 'fondogeneralBN',
+    bac: 'fondogeneralBAC',
+};
+
+const NAMESPACE_DESCRIPTIONS: Record<string, string> = {
+    fg: 'el Fondo General',
+    bcr: 'la cuenta BCR',
+    bn: 'la cuenta BN',
+    bac: 'la cuenta BAC',
+};
+
+const AccessRestrictedMessage = ({ description }: { description: string }) => (
+    <div className="flex flex-col items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)] text-center">
+        <Lock className="w-10 h-10 text-[var(--muted-foreground)] mb-4" />
+        <h3 className="text-lg font-semibold text-[var(--foreground)] mb-2">Acceso restringido</h3>
+        <p className="text-[var(--muted-foreground)]">{description}</p>
+        <p className="text-sm text-[var(--muted-foreground)] mt-2">Contacta a un administrador para obtener acceso.</p>
+    </div>
+);
+
 export function ProviderSection({ id }: { id?: string }) {
     const { user, loading: authLoading } = useAuth();
-    const company = user?.ownercompanie?.trim() ?? '';
+    const assignedCompany = user?.ownercompanie?.trim() ?? '';
+    const ownerId = (user?.ownerId || '').trim();
+    const isAdminUser = user?.role === 'admin';
+    const [adminCompany, setAdminCompany] = useState(assignedCompany);
+    useEffect(() => {
+        setAdminCompany(assignedCompany);
+    }, [assignedCompany]);
+    const company = isAdminUser ? adminCompany : assignedCompany;
     const { providers, loading: providersLoading, error, addProvider, removeProvider, updateProvider } = useProviders(company);
+    const permissions = user?.permissions || getDefaultPermissions(user?.role || 'user');
+    const canManageFondoGeneral = Boolean(permissions.fondogeneral);
+    const [ownerCompanies, setOwnerCompanies] = useState<Empresas[]>([]);
+    const [ownerCompaniesLoading, setOwnerCompaniesLoading] = useState(false);
+    const [ownerCompaniesError, setOwnerCompaniesError] = useState<string | null>(null);
+
+    const sortedOwnerCompanies = useMemo(() => {
+        return ownerCompanies
+            .slice()
+            .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' }));
+    }, [ownerCompanies]);
+
+    useEffect(() => {
+        if (!isAdminUser) {
+            setOwnerCompanies([]);
+            setOwnerCompaniesLoading(false);
+            setOwnerCompaniesError(null);
+            return;
+        }
+        if (!ownerId) {
+            setOwnerCompanies([]);
+            setOwnerCompaniesLoading(false);
+            setOwnerCompaniesError('No se pudo determinar el ownerId asociado a tu cuenta.');
+            return;
+        }
+
+        let isMounted = true;
+        setOwnerCompaniesLoading(true);
+        setOwnerCompaniesError(null);
+
+        EmpresasService.getAllEmpresas()
+            .then(empresas => {
+                if (!isMounted) return;
+                const filtered = empresas.filter(emp => (emp.ownerId || '').trim() === ownerId);
+                setOwnerCompanies(filtered);
+                setAdminCompany(current => {
+                    const normalizedCurrent = (current || '').trim().toLowerCase();
+                    if (normalizedCurrent.length > 0) {
+                        const exists = filtered.some(emp => (emp.name || '').trim().toLowerCase() === normalizedCurrent);
+                        if (exists) return current;
+                    }
+                    return filtered[0]?.name ?? '';
+                });
+            })
+            .catch(err => {
+                if (!isMounted) return;
+                setOwnerCompanies([]);
+                setOwnerCompaniesError(err instanceof Error ? err.message : 'No se pudieron cargar las empresas disponibles.');
+            })
+            .finally(() => {
+                if (isMounted) setOwnerCompaniesLoading(false);
+            });
+
+        return () => {
+            isMounted = false;
+        };
+    }, [isAdminUser, ownerId]);
 
     const [providerName, setProviderName] = useState('');
     const [providerType, setProviderType] = useState<FondoMovementType | ''>('');
@@ -121,6 +210,21 @@ export function ProviderSection({ id }: { id?: string }) {
         code: '',
         name: '',
     });
+    const companySelectId = `provider-company-select-${id ?? 'default'}`;
+    const showCompanySelector = isAdminUser && (ownerCompaniesLoading || sortedOwnerCompanies.length > 0 || !!ownerCompaniesError);
+    const currentCompanyLabel = company || 'Sin empresa seleccionada';
+
+    const handleAdminCompanyChange = useCallback((value: string) => {
+        if (!isAdminUser) return;
+        setAdminCompany(value);
+        setProviderDrawerOpen(false);
+        setFormError(null);
+        setProviderName('');
+        setProviderType('');
+        setEditingProviderCode(null);
+        setDeletingCode(null);
+        setConfirmState({ open: false, code: '', name: '' });
+    }, [isAdminUser]);
 
     // provider creation is handled from the drawer UI below
 
@@ -166,6 +270,24 @@ export function ProviderSection({ id }: { id?: string }) {
     const resolvedError = formError || error;
     const isLoading = authLoading || providersLoading;
 
+    if (authLoading) {
+        return (
+            <div id={id} className="mt-10">
+                <div className="p-6 bg-[var(--card-bg)] border border-[var(--input-border)] rounded text-center">
+                    <p className="text-[var(--muted-foreground)]">Cargando permisos...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (!canManageFondoGeneral) {
+        return (
+            <div id={id} className="mt-10">
+                <AccessRestrictedMessage description="No tienes permisos para administrar proveedores del Fondo General." />
+            </div>
+        );
+    }
+
     return (
         <div id={id} className="mt-10" style={{ color: '#ffffff' }}>
             <div className="mb-4 flex items-center justify-between">
@@ -197,9 +319,55 @@ export function ProviderSection({ id }: { id?: string }) {
                 </div>
             </div>
 
-            {!authLoading && !company && (
+            {showCompanySelector && (
+                <div className="mb-4 w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/70 p-4">
+                    <div className="flex flex-col gap-2 text-sm text-[var(--foreground)] sm:flex-row sm:items-center sm:gap-4">
+                        <div className="min-w-[180px]">
+                            <p className="text-[11px] uppercase tracking-wide text-[var(--muted-foreground)]">Empresa actual</p>
+                            <p className="text-sm font-semibold text-[var(--foreground)] truncate" title={currentCompanyLabel}>{currentCompanyLabel}</p>
+                            {ownerCompaniesError && <p className="text-xs text-red-500 mt-1">{ownerCompaniesError}</p>}
+                        </div>
+                        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+                            <label htmlFor={companySelectId} className="text-xs font-medium text-[var(--muted-foreground)]">
+                                Seleccionar empresa
+                            </label>
+                            <select
+                                id={companySelectId}
+                                value={company}
+                                onChange={e => handleAdminCompanyChange(e.target.value)}
+                                disabled={ownerCompaniesLoading || sortedOwnerCompanies.length === 0}
+                                className="min-w-[220px] px-3 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
+                            >
+                                {ownerCompaniesLoading && <option value="">Cargando empresas...</option>}
+                                {!ownerCompaniesLoading && sortedOwnerCompanies.length === 0 && (
+                                    <option value="">Sin empresas disponibles</option>
+                                )}
+                                {!ownerCompaniesLoading && sortedOwnerCompanies.length > 0 && (
+                                    <>
+                                        <option value="" disabled>
+                                            Selecciona una empresa
+                                        </option>
+                                        {sortedOwnerCompanies.map((emp, index) => (
+                                            <option key={emp.id || emp.name || `admin-company-${index}`} value={emp.name || ''}>
+                                                {emp.name || 'Sin nombre'}
+                                            </option>
+                                        ))}
+                                    </>
+                                )}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {!authLoading && !company && !isAdminUser && (
                 <p className="text-sm text-[var(--muted-foreground)] mb-4">
                     Tu usuario no tiene una empresa asociada; no es posible registrar proveedores.
+                </p>
+            )}
+            {!authLoading && !company && isAdminUser && (
+                <p className="text-sm text-[var(--muted-foreground)] mb-4">
+                    Selecciona una empresa para administrar proveedores.
                 </p>
             )}
 
@@ -394,10 +562,90 @@ export function ProviderSection({ id }: { id?: string }) {
     );
 }
 
-export function FondoSection({ id, mode = 'all', namespace = 'fg' }: { id?: string; mode?: 'all' | 'ingreso' | 'egreso'; namespace?: string }) {
+export function FondoSection({
+    id,
+    mode = 'all',
+    namespace = 'fg',
+    companySelectorPlacement = 'content',
+    onCompanySelectorChange,
+}: {
+    id?: string;
+    mode?: 'all' | 'ingreso' | 'egreso';
+    namespace?: string;
+    companySelectorPlacement?: 'content' | 'external';
+    onCompanySelectorChange?: (node: React.ReactNode | null) => void;
+}) {
     const { user, loading: authLoading } = useAuth();
-    const company = user?.ownercompanie?.trim() ?? '';
+    const assignedCompany = user?.ownercompanie?.trim() ?? '';
+    const ownerId = (user?.ownerId || '').trim();
+    const isAdminUser = user?.role === 'admin';
+    const [adminCompany, setAdminCompany] = useState(assignedCompany);
+    useEffect(() => {
+        setAdminCompany(assignedCompany);
+    }, [assignedCompany]);
+    const company = isAdminUser ? adminCompany : assignedCompany;
     const { providers, loading: providersLoading, error: providersError } = useProviders(company);
+    const [ownerCompanies, setOwnerCompanies] = useState<Empresas[]>([]);
+    const [ownerCompaniesLoading, setOwnerCompaniesLoading] = useState(false);
+    const [ownerCompaniesError, setOwnerCompaniesError] = useState<string | null>(null);
+
+    const sortedOwnerCompanies = useMemo(() => {
+        return ownerCompanies
+            .slice()
+            .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' }));
+    }, [ownerCompanies]);
+
+    useEffect(() => {
+        if (!isAdminUser) {
+            setOwnerCompanies([]);
+            setOwnerCompaniesLoading(false);
+            setOwnerCompaniesError(null);
+            return;
+        }
+        if (!ownerId) {
+            setOwnerCompanies([]);
+            setOwnerCompaniesLoading(false);
+            setOwnerCompaniesError('No se pudo determinar el ownerId asociado a tu cuenta.');
+            return;
+        }
+
+        let isMounted = true;
+        setOwnerCompaniesLoading(true);
+        setOwnerCompaniesError(null);
+
+        EmpresasService.getAllEmpresas()
+            .then(empresas => {
+                if (!isMounted) return;
+                const filtered = empresas.filter(emp => (emp.ownerId || '').trim() === ownerId);
+                setOwnerCompanies(filtered);
+                setAdminCompany(current => {
+                    const normalizedCurrent = (current || '').trim().toLowerCase();
+                    if (normalizedCurrent.length > 0) {
+                        const exists = filtered.some(emp => (emp.name || '').trim().toLowerCase() === normalizedCurrent);
+                        if (exists) return current;
+                    }
+                    return filtered[0]?.name ?? '';
+                });
+            })
+            .catch(err => {
+                if (!isMounted) return;
+                setOwnerCompanies([]);
+                setOwnerCompaniesError(err instanceof Error ? err.message : 'No se pudieron cargar las empresas disponibles.');
+            })
+            .finally(() => {
+                if (isMounted) setOwnerCompaniesLoading(false);
+            });
+
+        return () => {
+            isMounted = false;
+        };
+    }, [isAdminUser, ownerId]);
+    const permissions = user?.permissions || getDefaultPermissions(user?.role || 'user');
+    const hasGeneralAccess = Boolean(permissions.fondogeneral);
+    const requiredPermissionKey = NAMESPACE_PERMISSIONS[namespace] || 'fondogeneral';
+    const hasSpecificAccess = Boolean(permissions[requiredPermissionKey]);
+    const canAccessSection = namespace === 'fg' ? hasGeneralAccess : (hasGeneralAccess && hasSpecificAccess);
+    const namespaceDescription = NAMESPACE_DESCRIPTIONS[namespace] || 'esta sección del Fondo General';
 
     const [fondoEntries, setFondoEntries] = useState<FondoEntry[]>([]);
     const [companyEmployees, setCompanyEmployees] = useState<string[]>([]);
@@ -694,7 +942,7 @@ export function FondoSection({ id, mode = 'all', namespace = 'fg' }: { id?: stri
         }
     }, [paymentType, isIngreso]);
 
-    const resetFondoForm = () => {
+    const resetFondoForm = useCallback(() => {
         setInvoiceNumber('');
         setEgreso('');
         setIngreso('');
@@ -702,7 +950,7 @@ export function FondoSection({ id, mode = 'all', namespace = 'fg' }: { id?: stri
         setPaymentType('COMPRA INVENTARIO');
         setNotes('');
         setEditingEntryId(null);
-    };
+    }, []);
 
     const normalizeMoneyInput = (value: string) => value.replace(/[^0-9]/g, '');
 
@@ -1032,6 +1280,22 @@ export function FondoSection({ id, mode = 'all', namespace = 'fg' }: { id?: stri
         setMovementModalOpen(true);
     };
 
+    const handleAdminCompanyChange = useCallback((value: string) => {
+        if (!isAdminUser) return;
+        setAdminCompany(value);
+        setMovementModalOpen(false);
+        resetFondoForm();
+        setMovementAutoCloseLocked(false);
+        setSelectedProvider('');
+        setFilterProviderCode('all');
+        setFilterPaymentType(mode === 'all' ? 'all' : (mode === 'ingreso' ? FONDO_INGRESO_TYPES[0] : FONDO_EGRESO_TYPES[0]));
+        setFilterEditedOnly(false);
+        setSearchQuery('');
+        setFromFilter(null);
+        setToFilter(null);
+        setPageIndex(0);
+    }, [isAdminUser, mode, resetFondoForm]);
+
     const handleFondoKeyDown = (event: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>) => {
         if (event.key === 'Enter') {
             event.preventDefault();
@@ -1166,8 +1430,86 @@ export function FondoSection({ id, mode = 'all', namespace = 'fg' }: { id?: stri
         return `${dd}/${mm}/${yyyy}`;
     };
 
+    const companySelectId = `fg-company-select-${namespace}`;
+    const showCompanySelector = isAdminUser && (ownerCompaniesLoading || sortedOwnerCompanies.length > 0 || !!ownerCompaniesError);
+    const currentCompanyLabel = company || 'Sin empresa seleccionada';
+    const companySelectorContent = useMemo(() => {
+        if (!showCompanySelector) return null;
+
+        return (
+            <div className="flex flex-col gap-2 text-sm text-[var(--foreground)] sm:flex-row sm:items-center sm:gap-4">
+                <div className="min-w-[180px]">
+                    <p className="text-[11px] uppercase tracking-wide text-[var(--muted-foreground)]">Empresa actual</p>
+                    <p className="text-sm font-semibold text-[var(--foreground)] truncate" title={currentCompanyLabel}>{currentCompanyLabel}</p>
+                    {ownerCompaniesError && <p className="text-xs text-red-500 mt-1">{ownerCompaniesError}</p>}
+                </div>
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+                    <label htmlFor={companySelectId} className="text-xs font-medium text-[var(--muted-foreground)]">
+                        Seleccionar empresa
+                    </label>
+                    <select
+                        id={companySelectId}
+                        value={company}
+                        onChange={e => handleAdminCompanyChange(e.target.value)}
+                        disabled={ownerCompaniesLoading || sortedOwnerCompanies.length === 0}
+                        className="min-w-[220px] px-3 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
+                    >
+                        {ownerCompaniesLoading && <option value="">Cargando empresas...</option>}
+                        {!ownerCompaniesLoading && sortedOwnerCompanies.length === 0 && (
+                            <option value="">Sin empresas disponibles</option>
+                        )}
+                        {!ownerCompaniesLoading && sortedOwnerCompanies.length > 0 && (
+                            <>
+                                <option value="" disabled>
+                                    Selecciona una empresa
+                                </option>
+                                {sortedOwnerCompanies.map((emp, index) => (
+                                    <option key={emp.id || emp.name || `company-${index}`} value={emp.name || ''}>
+                                        {emp.name || 'Sin nombre'}
+                                    </option>
+                                ))}
+                            </>
+                        )}
+                    </select>
+                </div>
+            </div>
+        );
+    }, [showCompanySelector, currentCompanyLabel, ownerCompaniesError, companySelectId, company, ownerCompaniesLoading, sortedOwnerCompanies, handleAdminCompanyChange]);
+
+    useEffect(() => {
+        if (!onCompanySelectorChange) return;
+        if (companySelectorPlacement === 'external') {
+            onCompanySelectorChange(companySelectorContent);
+            return () => onCompanySelectorChange(null);
+        }
+        onCompanySelectorChange(null);
+    }, [companySelectorPlacement, companySelectorContent, onCompanySelectorChange]);
+
+    if (authLoading) {
+        return (
+            <div id={id} className="mt-6">
+                <div className="p-6 bg-[var(--card-bg)] border border-[var(--input-border)] rounded text-center">
+                    <p className="text-[var(--muted-foreground)]">Cargando permisos...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (!canAccessSection) {
+        return (
+            <div id={id} className="mt-6">
+                <AccessRestrictedMessage description={`No tienes permisos para acceder a ${namespaceDescription}.`} />
+            </div>
+        );
+    }
+
     return (
         <div id={id} className="mt-6">
+            {companySelectorPlacement === 'content' && companySelectorContent && (
+                <div className="mb-4 w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/70 p-4">
+                    {companySelectorContent}
+                </div>
+            )}
             {/* Professional filter bar - centered */}
             <div className="mb-4 flex flex-col items-center justify-center gap-3 pb-3 border-b border-[var(--input-border)]">
                 <div className="flex flex-wrap items-center justify-center gap-2">
@@ -1480,7 +1822,9 @@ export function FondoSection({ id, mode = 'all', namespace = 'fg' }: { id?: stri
 
             {!authLoading && !company && (
                 <p className="text-sm text-[var(--muted-foreground)] mb-4">
-                    Tu usuario no tiene una empresa asociada; registra una empresa para continuar.
+                    {isAdminUser
+                        ? 'Selecciona una empresa para continuar.'
+                        : 'Tu usuario no tiene una empresa asociada; registra una empresa para continuar.'}
                 </p>
             )}
 

@@ -2,10 +2,15 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import { Banknote, UserPlus, Layers } from 'lucide-react';
+import { Banknote, UserPlus, Layers, Lock } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { getDefaultPermissions } from '@/utils/permissions';
 
 export default function FondoGeneralIndex() {
     const router = useRouter();
+    const { user, loading } = useAuth();
+    const permissions = user?.permissions || getDefaultPermissions(user?.role || 'user');
+    const hasGeneralAccess = Boolean(permissions.fondogeneral);
 
     const goToSection = async (subpath: string, fragment: string) => {
         try {
@@ -16,6 +21,29 @@ export default function FondoGeneralIndex() {
             if (typeof window !== 'undefined') window.location.href = `/fondogeneral#${fragment}`;
         }
     };
+
+    if (loading) {
+        return (
+            <div className="max-w-4xl mx-auto py-8 px-4">
+                <div className="flex items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)]">
+                    <p className="text-[var(--muted-foreground)]">Cargando permisos...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (!hasGeneralAccess) {
+        return (
+            <div className="max-w-4xl mx-auto py-8 px-4">
+                <div className="flex flex-col items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)] text-center">
+                    <Lock className="w-10 h-10 text-[var(--muted-foreground)] mb-4" />
+                    <h3 className="text-lg font-semibold text-[var(--foreground)] mb-2">Acceso restringido</h3>
+                    <p className="text-[var(--muted-foreground)]">No tienes permisos para acceder al módulo de Fondo General.</p>
+                    <p className="text-sm text-[var(--muted-foreground)] mt-2">Contacta a un administrador para obtener acceso.</p>
+                </div>
+            </div>
+        );
+    }
 
 
     return (
