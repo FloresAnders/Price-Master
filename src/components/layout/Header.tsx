@@ -434,10 +434,10 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                   ? 'text-[var(--tab-text-active)] font-semibold'
                   : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
                 }`}
-                title="Otra"
+                title="Reportes"
               >
                 <Layers className="w-4 h-4" />
-                <span className="hidden xl:inline">Otra</span>
+                <span className="hidden xl:inline">Reportes</span>
                 {currentHash === '#otra' && (
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
                 )}

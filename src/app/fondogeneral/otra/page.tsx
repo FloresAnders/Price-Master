@@ -39,7 +39,7 @@ export default function OtraPage() {
             <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl p-6">
                 <div className="flex items-center mb-4">
                     <Layers className="w-8 h-8 mr-3 text-[var(--foreground)]" />
-                    <h1 className="text-2xl font-bold text-[var(--foreground)]">Otra</h1>
+                    <h1 className="text-2xl font-bold text-[var(--foreground)]">Reportess</h1>
                 </div>
 
                 <div className="p-4 bg-[var(--muted)] border border-[var(--border)] rounded">

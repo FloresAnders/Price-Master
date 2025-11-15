@@ -89,7 +89,7 @@ export default function FondoGeneralIndex() {
                         <div className="flex items-center justify-center w-12 h-12 rounded-md bg-[var(--muted)] mb-4">
                             <Layers className="w-6 h-6 text-[var(--foreground)]" />
                         </div>
-                        <h3 className="text-lg font-semibold text-[var(--foreground)]">Otra</h3>
+                        <h3 className="text-lg font-semibold text-[var(--foreground)]">Reportesdelete</h3>
                         <p className="text-sm text-[var(--muted-foreground)] mt-2">Acciones adicionales.</p>
                     </button>
                 </div>
