@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Box from '@mui/material/Box';
 import Drawer from '@mui/material/Drawer';
 import IconButton from '@mui/material/IconButton';
@@ -34,6 +34,14 @@ import type { UserPermissions, Empresas } from '../../../types/firestore';
 import { getDefaultPermissions } from '../../../utils/permissions';
 import ConfirmModal from '../../../components/ui/ConfirmModal';
 import { EmpresasService } from '../../../services/empresas';
+import {
+    MovimientosFondosService,
+    MovementAccountKey,
+    MovementCurrencyKey,
+    MovementCurrencySettings,
+    MovementStorage,
+    MovementStorageMetadata,
+} from '../../../services/movimientos-fondos';
 import AgregarMovimiento from './AgregarMovimiento';
 
 const FONDO_INGRESO_TYPES = ['VENTAS', 'OTROS INGRESOS'] as const;
@@ -100,8 +108,6 @@ export type FondoEntry = {
 };
 
 const FONDO_KEY_SUFFIX = '_fondos_v1';
-const FONDO_INITIAL_KEY_SUFFIX = '_fondo_initial_v1';
-const FONDO_INITIAL_USD_KEY_SUFFIX = '_fondo_initial_usd_v1';
 const ADMIN_CODE = '12345'; // TODO: Permitir configurar este codigo desde el perfil de un administrador.
 
 const buildStorageKey = (namespace: string, suffix: string) => `${namespace}${suffix}`;
@@ -120,17 +126,6 @@ const NAMESPACE_DESCRIPTIONS: Record<string, string> = {
     bac: 'la cuenta BAC',
 };
 
-const MOVEMENT_STORAGE_PREFIX = 'movements';
-
-type MovementCurrencyKey = 'CRC' | 'USD';
-type MovementAccountKey = 'FondoGeneral' | 'BCR' | 'BN' | 'BAC';
-type MovementBucket = { movements: FondoEntry[] };
-type MovementAccount = Record<MovementCurrencyKey, MovementBucket>;
-type MovementStorage = {
-    company: string;
-    accounts: Record<MovementAccountKey, MovementAccount>;
-};
-
 const ACCOUNT_KEY_BY_NAMESPACE: Record<string, MovementAccountKey> = {
     fg: 'FondoGeneral',
     bcr: 'BCR',
@@ -138,67 +133,8 @@ const ACCOUNT_KEY_BY_NAMESPACE: Record<string, MovementAccountKey> = {
     bac: 'BAC',
 };
 
-const buildMovementStorageKey = (identifier: string) =>
-    `${MOVEMENT_STORAGE_PREFIX}_${identifier && identifier.length > 0 ? identifier : 'global'}`;
-
-const buildCompanyMovementsKey = (companyName: string) => buildMovementStorageKey((companyName || '').trim());
-const buildLegacyOwnerMovementsKey = (ownerId: string) => buildMovementStorageKey((ownerId || '').trim());
-
 const getAccountKeyFromNamespace = (namespace: string): MovementAccountKey =>
     ACCOUNT_KEY_BY_NAMESPACE[namespace] || 'FondoGeneral';
-
-const createEmptyMovementAccount = (): MovementAccount => ({
-    CRC: { movements: [] },
-    USD: { movements: [] },
-});
-
-const createEmptyMovementStorage = (company: string): MovementStorage => ({
-    company,
-    accounts: {
-        FondoGeneral: createEmptyMovementAccount(),
-        BCR: createEmptyMovementAccount(),
-        BN: createEmptyMovementAccount(),
-        BAC: createEmptyMovementAccount(),
-    },
-});
-
-const ensureMovementStorageShape = (raw: unknown, company: string): MovementStorage => {
-    const normalizedCompany = company || '';
-    if (!raw || typeof raw !== 'object') {
-        return createEmptyMovementStorage(normalizedCompany);
-    }
-
-    const candidate = raw as Partial<MovementStorage> & {
-        ownerId?: string;
-        accounts?: Partial<Record<MovementAccountKey, Partial<MovementAccount>>>;
-    };
-    const storage = createEmptyMovementStorage(normalizedCompany);
-    const sourceCompany =
-        typeof candidate.company === 'string'
-            ? candidate.company
-            : typeof candidate.ownerId === 'string'
-                ? candidate.ownerId
-                : normalizedCompany;
-    storage.company = sourceCompany;
-
-    (Object.keys(storage.accounts) as MovementAccountKey[]).forEach(accountKey => {
-        const sourceAccount = candidate.accounts?.[accountKey];
-        storage.accounts[accountKey] = {
-            CRC: {
-                movements: Array.isArray(sourceAccount?.CRC?.movements)
-                    ? (sourceAccount?.CRC?.movements as unknown as FondoEntry[])
-                    : [],
-            },
-            USD: {
-                movements: Array.isArray(sourceAccount?.USD?.movements)
-                    ? (sourceAccount?.USD?.movements as unknown as FondoEntry[])
-                    : [],
-            },
-        };
-    });
-
-    return storage;
-};
 
 const sanitizeFondoEntries = (rawEntries: unknown, forcedCurrency?: MovementCurrencyKey): FondoEntry[] => {
     if (!Array.isArray(rawEntries)) return [];
@@ -256,6 +192,18 @@ const splitEntriesByCurrency = (entries: FondoEntry[]) => {
 
     return buckets;
 };
+
+const buildDefaultCurrencyMetadata = (): Record<MovementCurrencyKey, MovementCurrencySettings> => ({
+    CRC: { enabled: true, initialBalance: 0, currentBalance: 0 },
+    USD: { enabled: true, initialBalance: 0, currentBalance: 0 },
+});
+
+const buildDefaultAccountsMetadata = (): Record<MovementAccountKey, Record<MovementCurrencyKey, MovementCurrencySettings>> => ({
+    FondoGeneral: buildDefaultCurrencyMetadata(),
+    BCR: buildDefaultCurrencyMetadata(),
+    BN: buildDefaultCurrencyMetadata(),
+    BAC: buildDefaultCurrencyMetadata(),
+});
 
 const AccessRestrictedMessage = ({ description }: { description: string }) => (
     <div className="flex flex-col items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)] text-center">
@@ -349,7 +297,6 @@ export function ProviderSection({ id }: { id?: string }) {
     });
     const companySelectId = `provider-company-select-${id ?? 'default'}`;
     const showCompanySelector = isAdminUser && (ownerCompaniesLoading || sortedOwnerCompanies.length > 0 || !!ownerCompaniesError);
-    const currentCompanyLabel = company || 'Sin empresa seleccionada';
 
     const handleAdminCompanyChange = useCallback((value: string) => {
         if (!isAdminUser) return;
@@ -439,63 +386,34 @@ export function ProviderSection({ id }: { id?: string }) {
                     )}
                 </div>
                 <div className="flex items-center">
-                    <button
-                        type="button"
-                        onClick={() => {
-                            setEditingProviderCode(null);
-                            setProviderName('');
-                            setProviderType('');
-                            setProviderDrawerOpen(true);
-                        }}
-                        className="px-4 py-2 border border-[var(--input-border)] rounded flex items-center gap-2 hover:bg-[var(--muted)]"
-                        disabled={!company}
-                    >
-                        <Plus className="w-4 h-4" />
-                        Agregar proveedor
-                    </button>
+                    {showCompanySelector && (
+                        <select
+                            id={companySelectId}
+                            value={adminCompany}
+                            onChange={event => handleAdminCompanyChange(event.target.value)}
+                            disabled={ownerCompaniesLoading || sortedOwnerCompanies.length === 0}
+                            className="min-w-[220px] px-3 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
+                        >
+                            {ownerCompaniesLoading && <option value="">Cargando empresas...</option>}
+                            {!ownerCompaniesLoading && sortedOwnerCompanies.length === 0 && (
+                                <option value="">Sin empresas disponibles</option>
+                            )}
+                            {!ownerCompaniesLoading && sortedOwnerCompanies.length > 0 && (
+                                <>
+                                    <option value="" disabled>
+                                        Selecciona una empresa
+                                    </option>
+                                    {sortedOwnerCompanies.map((emp, index) => (
+                                        <option key={emp.id || emp.name || `admin-company-${index}`} value={emp.name || ''}>
+                                            {emp.name || 'Sin nombre'}
+                                        </option>
+                                    ))}
+                                </>
+                            )}
+                        </select>
+                    )}
                 </div>
             </div>
-
-            {showCompanySelector && (
-                <div className="mb-4 w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/70 p-4">
-                    <div className="flex flex-col gap-2 text-sm text-[var(--foreground)] sm:flex-row sm:items-center sm:gap-4">
-                        <div className="min-w-[180px]">
-                            <p className="text-[11px] uppercase tracking-wide text-[var(--muted-foreground)]">Empresa actual</p>
-                            <p className="text-sm font-semibold text-[var(--foreground)] truncate" title={currentCompanyLabel}>{currentCompanyLabel}</p>
-                            {ownerCompaniesError && <p className="text-xs text-red-500 mt-1">{ownerCompaniesError}</p>}
-                        </div>
-                        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
-                            <label htmlFor={companySelectId} className="text-xs font-medium text-[var(--muted-foreground)]">
-                                Seleccionar empresa
-                            </label>
-                            <select
-                                id={companySelectId}
-                                value={company}
-                                onChange={e => handleAdminCompanyChange(e.target.value)}
-                                disabled={ownerCompaniesLoading || sortedOwnerCompanies.length === 0}
-                                className="min-w-[220px] px-3 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
-                            >
-                                {ownerCompaniesLoading && <option value="">Cargando empresas...</option>}
-                                {!ownerCompaniesLoading && sortedOwnerCompanies.length === 0 && (
-                                    <option value="">Sin empresas disponibles</option>
-                                )}
-                                {!ownerCompaniesLoading && sortedOwnerCompanies.length > 0 && (
-                                    <>
-                                        <option value="" disabled>
-                                            Selecciona una empresa
-                                        </option>
-                                        {sortedOwnerCompanies.map((emp, index) => (
-                                            <option key={emp.id || emp.name || `admin-company-${index}`} value={emp.name || ''}>
-                                                {emp.name || 'Sin nombre'}
-                                            </option>
-                                        ))}
-                                    </>
-                                )}
-                            </select>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {!authLoading && !company && !isAdminUser && (
                 <p className="text-sm text-[var(--muted-foreground)] mb-4">
@@ -783,6 +701,7 @@ export function FondoSection({
     const hasSpecificAccess = Boolean(permissions[requiredPermissionKey]);
     const canAccessSection = namespace === 'fg' ? hasGeneralAccess : (hasGeneralAccess && hasSpecificAccess);
     const namespaceDescription = NAMESPACE_DESCRIPTIONS[namespace] || 'esta sección del Fondo General';
+    const accountKey = useMemo(() => getAccountKeyFromNamespace(namespace), [namespace]);
 
     const [fondoEntries, setFondoEntries] = useState<FondoEntry[]>([]);
     const [companyEmployees, setCompanyEmployees] = useState<string[]>([]);
@@ -808,13 +727,18 @@ export function FondoSection({
     const [movementAutoCloseLocked, setMovementAutoCloseLocked] = useState(false);
     const [movementCurrency, setMovementCurrency] = useState<'CRC' | 'USD'>('CRC');
     const [entriesHydrated, setEntriesHydrated] = useState(false);
-    const [initialsHydrated, setInitialsHydrated] = useState(false);
+    const [currencyEnabled, setCurrencyEnabled] = useState<Record<MovementCurrencyKey, boolean>>({
+        CRC: true,
+        USD: true,
+    });
+    const [currencyToggleWarning, setCurrencyToggleWarning] = useState<string | null>(null);
     // Audit modal state: show full before/after history when an edited entry is clicked
     const [auditModalOpen, setAuditModalOpen] = useState(false);
     const [auditModalData, setAuditModalData] = useState<{ history?: any[] } | null>(null);
     // sortAsc: when true we show oldest first (so newest appears at the bottom).
     // Default true per UX: the most recent movement should appear below.
     const [sortAsc, setSortAsc] = useState(true);
+    const storageSnapshotRef = useRef<MovementStorage<FondoEntry> | null>(null);
 
     // Calendar / day-filtering states (Desde / Hasta)
     const [calendarFromOpen, setCalendarFromOpen] = useState(false);
@@ -843,6 +767,37 @@ export function FondoSection({
     const [filterEditedOnly, setFilterEditedOnly] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
 
+    const applyMetadataFromStorage = useCallback(
+        (metadata?: MovementStorageMetadata | null) => {
+            if (!metadata) return;
+            const accountMetadata = metadata.accounts?.[accountKey] ?? metadata.currencies ?? buildDefaultCurrencyMetadata();
+            const crcSettings = accountMetadata.CRC;
+            const usdSettings = accountMetadata.USD;
+            setCurrencyEnabled({
+                CRC: crcSettings?.enabled ?? true,
+                USD: usdSettings?.enabled ?? true,
+            });
+
+            const parseBalance = (value: unknown) => {
+                const parsed = typeof value === 'number' ? value : Number(value);
+                return Number.isFinite(parsed) ? Math.trunc(parsed).toString() : null;
+            };
+
+            const nextInitialCRC = parseBalance(crcSettings?.initialBalance);
+            if (nextInitialCRC !== null) {
+                setInitialAmount(nextInitialCRC);
+            }
+
+            const nextInitialUSD = parseBalance(usdSettings?.initialBalance);
+            if (nextInitialUSD !== null) {
+                setInitialAmountUSD(nextInitialUSD);
+            }
+
+            setCurrencyToggleWarning(null);
+        },
+        [accountKey],
+    );
+
     // Column widths for resizable columns (simple px based)
     const [columnWidths, setColumnWidths] = useState<Record<string, string>>({
         hora: '140px',
@@ -865,6 +820,26 @@ export function FondoSection({
         const startWidth = parseInt(columnWidths[key] || '100', 10) || 100;
         resizingRef.current = { key, startX: event.clientX, startWidth };
     };
+
+    useEffect(() => {
+        setCurrencyToggleWarning(null);
+        setCurrencyEnabled({ CRC: true, USD: true });
+        setMovementCurrency('CRC');
+        setInitialAmount('0');
+        setInitialAmountUSD('0');
+        storageSnapshotRef.current = null;
+    }, [company, accountKey]);
+
+    useEffect(() => {
+        if (currencyEnabled[movementCurrency]) return;
+        if (currencyEnabled.CRC) {
+            setMovementCurrency('CRC');
+            return;
+        }
+        if (currencyEnabled.USD) {
+            setMovementCurrency('USD');
+        }
+    }, [currencyEnabled, movementCurrency]);
 
     useEffect(() => {
         const onMove = (e: MouseEvent) => {
@@ -922,132 +897,151 @@ export function FondoSection({
     const editingProviderCode = editingEntry?.providerCode ?? null;
 
     useEffect(() => {
-        setEntriesHydrated(false);
         const normalizedCompany = (company || '').trim();
         if (normalizedCompany.length === 0) {
             setFondoEntries([]);
             setEntriesHydrated(true);
+            storageSnapshotRef.current = null;
             return;
         }
 
-        try {
-            const accountKey = getAccountKeyFromNamespace(namespace);
-            const parseTime = (value: string) => {
-                const timestamp = Date.parse(value);
-                return Number.isNaN(timestamp) ? 0 : timestamp;
-            };
-            const buildEntriesFromRaw = (rawData: string | null): FondoEntry[] | null => {
-                if (!rawData) return null;
-                try {
-                    const parsed = JSON.parse(rawData);
-                    const storage = ensureMovementStorageShape(parsed, normalizedCompany);
-                    const accountData = storage.accounts[accountKey];
-                    if (!accountData) return null;
-                    const crcEntries = sanitizeFondoEntries(accountData.CRC.movements, 'CRC');
-                    const usdEntries = sanitizeFondoEntries(accountData.USD.movements, 'USD');
-                    return [...crcEntries, ...usdEntries].sort((a, b) => parseTime(b.createdAt) - parseTime(a.createdAt));
-                } catch (err) {
-                    console.error('Error parsing stored fondo entries:', err);
-                    return null;
-                }
-            };
+        setEntriesHydrated(false);
+        storageSnapshotRef.current = null;
+        let isMounted = true;
 
-            const companyKey = buildCompanyMovementsKey(normalizedCompany);
-            let loadedEntries: FondoEntry[] | null = buildEntriesFromRaw(localStorage.getItem(companyKey));
+        const loadEntries = async () => {
+            try {
+                const legacyOwnerKey = ownerId
+                    ? MovimientosFondosService.buildLegacyOwnerMovementsKey(ownerId)
+                    : null;
+                const parseTime = (value: string) => {
+                    const timestamp = Date.parse(value);
+                    return Number.isNaN(timestamp) ? 0 : timestamp;
+                };
 
-            if (!loadedEntries && ownerId) {
-                const ownerKey = buildLegacyOwnerMovementsKey(ownerId);
-                if (ownerKey !== companyKey) {
-                    loadedEntries = buildEntriesFromRaw(localStorage.getItem(ownerKey));
-                }
-            }
+                type StorageEntriesResult = {
+                    entries: FondoEntry[];
+                    storage: MovementStorage<FondoEntry>;
+                };
 
-            if (!loadedEntries) {
-                const legacyKey = buildStorageKey(namespace, FONDO_KEY_SUFFIX);
-                const legacyRaw = localStorage.getItem(legacyKey);
-                if (legacyRaw) {
+                const buildEntriesFromStorage = (rawStorage: unknown): StorageEntriesResult | null => {
+                    if (!rawStorage) return null;
                     try {
-                        const legacyParsed = JSON.parse(legacyRaw);
-                        loadedEntries = sanitizeFondoEntries(legacyParsed);
+                        const storage = MovimientosFondosService.ensureMovementStorageShape<FondoEntry>(
+                            rawStorage,
+                            normalizedCompany,
+                        );
+                        const accountData = storage.accounts[accountKey];
+                        if (!accountData) return null;
+                        const crcEntries = sanitizeFondoEntries(accountData.CRC.movements, 'CRC');
+                        const usdEntries = sanitizeFondoEntries(accountData.USD.movements, 'USD');
+                        const entries = [...crcEntries, ...usdEntries].sort(
+                            (a, b) => parseTime(b.createdAt) - parseTime(a.createdAt),
+                        );
+                        return { entries, storage };
                     } catch (err) {
-                        console.error('Error parsing legacy fondo entries:', err);
+                        console.error('Error parsing stored fondo entries:', err);
+                        return null;
+                    }
+                };
+
+                const buildEntriesFromRaw = (rawData: string | null): StorageEntriesResult | null => {
+                    if (!rawData) return null;
+                    try {
+                        const parsed = JSON.parse(rawData);
+                        return buildEntriesFromStorage(parsed);
+                    } catch (err) {
+                        console.error('Error parsing stored fondo entries:', err);
+                        return null;
+                    }
+                };
+
+                const loadRemoteEntries = async (docKey: string): Promise<StorageEntriesResult | null> => {
+                    if (!docKey) return null;
+                    try {
+                        const remoteStorage = await MovimientosFondosService.getDocument<FondoEntry>(docKey);
+                        if (!remoteStorage) return null;
+                        return buildEntriesFromStorage(remoteStorage);
+                    } catch (err) {
+                        console.error(`Error reading fondo entries from Firestore (${docKey}):`, err);
+                        return null;
+                    }
+                };
+
+                const companyKey = MovimientosFondosService.buildCompanyMovementsKey(normalizedCompany);
+                let resolvedEntries: FondoEntry[] | null = null;
+                let resolvedMetadata: MovementStorageMetadata | null = null;
+                let hasResolvedSource = false;
+
+                const assignResult = (result: StorageEntriesResult | null) => {
+                    if (!result) return false;
+                    resolvedEntries = result.entries;
+                    resolvedMetadata = result.storage?.metadata ?? null;
+                    storageSnapshotRef.current = result.storage;
+                    hasResolvedSource = true;
+                    return true;
+                };
+
+                if (!assignResult(await loadRemoteEntries(companyKey)) && legacyOwnerKey && legacyOwnerKey !== companyKey) {
+                    assignResult(await loadRemoteEntries(legacyOwnerKey));
+                }
+
+                if (!hasResolvedSource) {
+                    assignResult(buildEntriesFromRaw(localStorage.getItem(companyKey)));
+                }
+
+                if (!hasResolvedSource && legacyOwnerKey && legacyOwnerKey !== companyKey) {
+                    assignResult(buildEntriesFromRaw(localStorage.getItem(legacyOwnerKey)));
+                }
+
+                if (!hasResolvedSource) {
+                    const legacyKey = buildStorageKey(namespace, FONDO_KEY_SUFFIX);
+                    const legacyRaw = localStorage.getItem(legacyKey);
+                    if (legacyRaw) {
+                        try {
+                            const legacyParsed = JSON.parse(legacyRaw);
+                            resolvedEntries = sanitizeFondoEntries(legacyParsed);
+                            if (resolvedEntries) {
+                                const fallbackStorage = MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(
+                                    normalizedCompany,
+                                );
+                                const grouped = splitEntriesByCurrency(resolvedEntries);
+                                fallbackStorage.accounts[accountKey] = {
+                                    CRC: { movements: grouped.CRC },
+                                    USD: { movements: grouped.USD },
+                                };
+                                storageSnapshotRef.current = fallbackStorage;
+                            }
+                        } catch (err) {
+                            console.error('Error parsing legacy fondo entries:', err);
+                        }
                     }
                 }
-            }
 
-            setFondoEntries(loadedEntries ?? []);
-        } catch (err) {
-            console.error('Error reading fondo entries from localStorage:', err);
-            setFondoEntries([]);
-        } finally {
-            setEntriesHydrated(true);
-        }
-    }, [namespace, ownerId, company]);
-
-    useEffect(() => {
-        setInitialsHydrated(false);
-        try {
-            const initKey = buildStorageKey(namespace, FONDO_INITIAL_KEY_SUFFIX);
-            const initUsdKey = buildStorageKey(namespace, FONDO_INITIAL_USD_KEY_SUFFIX);
-            const storedInitial = localStorage.getItem(initKey);
-            if (storedInitial !== null) {
-                setInitialAmount(storedInitial);
-            }
-            const storedInitialUsd = localStorage.getItem(initUsdKey);
-            if (storedInitialUsd !== null) setInitialAmountUSD(storedInitialUsd);
-        } catch (err) {
-            console.error('Error reading initial fondo amount from localStorage:', err);
-        } finally {
-            setInitialsHydrated(true);
-        }
-    }, [namespace]);
-
-    useEffect(() => {
-        if (!entriesHydrated) return;
-        const normalizedCompany = (company || '').trim();
-        if (normalizedCompany.length === 0) return;
-
-        try {
-            const companyKey = buildCompanyMovementsKey(normalizedCompany);
-            const rawStorage = localStorage.getItem(companyKey);
-            const parsedStorage = rawStorage ? JSON.parse(rawStorage) : null;
-            const storage = ensureMovementStorageShape(parsedStorage, normalizedCompany);
-            const accountKey = getAccountKeyFromNamespace(namespace);
-            const grouped = splitEntriesByCurrency(fondoEntries);
-            storage.company = normalizedCompany;
-            storage.accounts[accountKey] = {
-                CRC: { movements: grouped.CRC },
-                USD: { movements: grouped.USD },
-            };
-            localStorage.setItem(companyKey, JSON.stringify(storage));
-
-            const legacyKey = buildStorageKey(namespace, FONDO_KEY_SUFFIX);
-            localStorage.removeItem(legacyKey);
-
-            if (ownerId) {
-                const legacyOwnerKey = buildLegacyOwnerMovementsKey(ownerId);
-                if (legacyOwnerKey !== companyKey) {
-                    localStorage.removeItem(legacyOwnerKey);
+                if (isMounted) {
+                    setFondoEntries(resolvedEntries ?? []);
+                    if (resolvedMetadata) {
+                        applyMetadataFromStorage(resolvedMetadata);
+                    }
+                }
+            } catch (err) {
+                console.error('Error reading fondo entries:', err);
+                if (isMounted) {
+                    setFondoEntries([]);
+                }
+            } finally {
+                if (isMounted) {
+                    setEntriesHydrated(true);
                 }
             }
-        } catch (err) {
-            console.error('Error storing fondo entries to localStorage:', err);
-        }
-    }, [fondoEntries, namespace, entriesHydrated, company, ownerId]);
+        };
 
-    useEffect(() => {
-        if (!initialsHydrated) return;
-        try {
-            const initKey = buildStorageKey(namespace, FONDO_INITIAL_KEY_SUFFIX);
-            const initUsdKey = buildStorageKey(namespace, FONDO_INITIAL_USD_KEY_SUFFIX);
-            const normalized = initialAmount.trim().length > 0 ? initialAmount : '0';
-            localStorage.setItem(initKey, normalized);
-            const normalizedUsd = initialAmountUSD.trim().length > 0 ? initialAmountUSD : '0';
-            localStorage.setItem(initUsdKey, normalizedUsd);
-        } catch (err) {
-            console.error('Error storing initial fondo amount to localStorage:', err);
-        }
-    }, [initialAmount, initialAmountUSD, namespace, initialsHydrated]);
+        void loadEntries();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [namespace, ownerId, company, applyMetadataFromStorage, accountKey]);
 
     useEffect(() => {
         if (!selectedProvider) return;
@@ -1347,6 +1341,106 @@ export function FondoSection({
         return map;
     }, [fondoEntries, initialAmountUSD]);
 
+    useEffect(() => {
+        if (!entriesHydrated) return;
+        const normalizedCompany = (company || '').trim();
+        if (normalizedCompany.length === 0) return;
+
+        const persistEntries = async () => {
+            const companyKey = MovimientosFondosService.buildCompanyMovementsKey(normalizedCompany);
+            let storageToPersist: MovementStorage<FondoEntry> | null = null;
+
+            const normalizedInitialCRC = initialAmount.trim().length > 0 ? initialAmount.trim() : '0';
+            const normalizedInitialUSD = initialAmountUSD.trim().length > 0 ? initialAmountUSD.trim() : '0';
+            const hasSnapshot = Boolean(storageSnapshotRef.current);
+            const hasEntries = fondoEntries.length > 0;
+            const metadataDiffers =
+                normalizedInitialCRC !== '0' ||
+                normalizedInitialUSD !== '0' ||
+                !currencyEnabled.CRC ||
+                !currencyEnabled.USD;
+
+            if (!hasSnapshot && !hasEntries && !metadataDiffers) {
+                return;
+            }
+
+            try {
+                const baseStorage = storageSnapshotRef.current
+                    ? MovimientosFondosService.ensureMovementStorageShape<FondoEntry>(
+                        storageSnapshotRef.current,
+                        normalizedCompany,
+                    )
+                    : MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(normalizedCompany);
+                const grouped = splitEntriesByCurrency(fondoEntries);
+                baseStorage.company = normalizedCompany;
+                baseStorage.accounts[accountKey] = {
+                    CRC: { movements: grouped.CRC },
+                    USD: { movements: grouped.USD },
+                };
+                const metadata =
+                    baseStorage.metadata ??
+                    MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(normalizedCompany).metadata ?? {
+                        accounts: buildDefaultAccountsMetadata(),
+                        updatedAt: new Date().toISOString(),
+                    };
+                baseStorage.metadata = metadata;
+                const nextAccountMetadata = {
+                    CRC: {
+                        enabled: currencyEnabled.CRC,
+                        initialBalance: Number(normalizedInitialCRC) || 0,
+                        currentBalance: currentBalanceCRC,
+                    },
+                    USD: {
+                        enabled: currencyEnabled.USD,
+                        initialBalance: Number(normalizedInitialUSD) || 0,
+                        currentBalance: currentBalanceUSD,
+                    },
+                };
+                metadata.accounts[accountKey] = nextAccountMetadata;
+                metadata.currencies = nextAccountMetadata;
+                metadata.updatedAt = new Date().toISOString();
+                localStorage.setItem(companyKey, JSON.stringify(baseStorage));
+
+                const legacyKey = buildStorageKey(namespace, FONDO_KEY_SUFFIX);
+                localStorage.removeItem(legacyKey);
+
+                if (ownerId) {
+                    const legacyOwnerKey = MovimientosFondosService.buildLegacyOwnerMovementsKey(ownerId);
+                    if (legacyOwnerKey !== companyKey) {
+                        localStorage.removeItem(legacyOwnerKey);
+                    }
+                }
+
+                storageSnapshotRef.current = baseStorage;
+                storageToPersist = baseStorage;
+            } catch (err) {
+                console.error('Error preparing fondo entries for persistence:', err);
+            }
+
+            if (!storageToPersist) return;
+
+            try {
+                await MovimientosFondosService.saveDocument(companyKey, storageToPersist);
+            } catch (err) {
+                console.error('Error storing fondo entries to Firestore:', err);
+            }
+        };
+
+        void persistEntries();
+    }, [
+        fondoEntries,
+        namespace,
+        entriesHydrated,
+        company,
+        ownerId,
+        currencyEnabled,
+        initialAmount,
+        initialAmountUSD,
+        currentBalanceCRC,
+        currentBalanceUSD,
+        accountKey,
+    ]);
+
     const isSubmitDisabled =
         !company ||
         (!editingEntryId && isProviderSelectDisabled) ||
@@ -1403,6 +1497,17 @@ export function FondoSection({
     const handleIngresoChange = (value: string) => setIngreso(normalizeMoneyInput(value));
     const handleNotesChange = (value: string) => setNotes(value);
     const handleManagerChange = (value: string) => setManager(value);
+    const toggleCurrencyAvailability = (currency: MovementCurrencyKey) => {
+        setCurrencyEnabled(prev => {
+            const nextState = { ...prev, [currency]: !prev[currency] } as Record<MovementCurrencyKey, boolean>;
+            if (!nextState.CRC && !nextState.USD) {
+                setCurrencyToggleWarning('Debe quedar al menos una moneda activa.');
+                return prev;
+            }
+            setCurrencyToggleWarning(null);
+            return nextState;
+        });
+    };
 
     const managerSelectDisabled = !company || employeesLoading || employeeOptions.length === 0;
     const invoiceDisabled = !company;
@@ -1417,7 +1522,7 @@ export function FondoSection({
     };
     const handleOpenCreateMovement = () => {
         resetFondoForm();
-        setMovementCurrency('CRC');
+        setMovementCurrency(currencyEnabled.CRC ? 'CRC' : 'USD');
         // If a provider is already selected, derive paymentType from it so the form
         // doesn't stay with the reset default ('COMPRA INVENTARIO'). This prevents
         // cases where the UI shows a provider whose configured type (e.g. 'OTROS INGRESOS')
@@ -2066,6 +2171,7 @@ export function FondoSection({
                             onFieldKeyDown={handleFondoKeyDown}
                             currency={movementCurrency}
                             onCurrencyChange={c => setMovementCurrency(c)}
+                            currencyEnabled={currencyEnabled}
                         />
                     </Box>
                 </Box>
@@ -2532,6 +2638,39 @@ export function FondoSection({
                             </form>
                         ) : (
                             <div className="mt-4 space-y-5">
+                                <div className="rounded border border-[var(--input-border)] bg-[var(--muted)] p-4">
+                                    <div className="flex flex-col gap-1">
+                                        <div className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+                                            Monedas habilitadas
+                                        </div>
+                                        <p className="text-sm text-[var(--muted-foreground)]">
+                                            Define si esta empresa opera en colones, dólares o ambas monedas. Las monedas desactivadas no
+                                            estarán disponibles al registrar nuevos movimientos.
+                                        </p>
+                                    </div>
+                                    <div className="mt-3 flex flex-wrap gap-3">
+                                        {(['CRC', 'USD'] as MovementCurrencyKey[]).map(key => {
+                                            const isEnabled = currencyEnabled[key];
+                                            const label = key === 'CRC' ? 'Colones (₡)' : 'Dólares ($)';
+                                            return (
+                                                <button
+                                                    key={key}
+                                                    type="button"
+                                                    onClick={() => toggleCurrencyAvailability(key)}
+                                                    className={`flex-1 min-w-[200px] px-3 py-2 rounded border transition-colors text-left ${isEnabled ? 'bg-emerald-500/10 border-emerald-500 text-emerald-200' : 'bg-[var(--input-bg)] border-[var(--input-border)] text-[var(--muted-foreground)] hover:bg-[var(--muted)]'}`}
+                                                >
+                                                    <div className="text-sm font-semibold">{label}</div>
+                                                    <div className="text-xs uppercase tracking-wide">
+                                                        {isEnabled ? 'Activo' : 'Desactivado'}
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    {currencyToggleWarning && (
+                                        <p className="mt-2 text-xs text-red-500">{currencyToggleWarning}</p>
+                                    )}
+                                </div>
                                 <div className="flex flex-col gap-4 md:flex-row md:items-start">
                                     <div className="rounded border border-[var(--input-border)] bg-[var(--muted)] p-4 md:w-80">
                                         <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)] mb-1">
@@ -2544,7 +2683,7 @@ export function FondoSection({
                                             className="w-full p-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded"
                                             placeholder="0"
                                             inputMode="numeric"
-                                            disabled={!company}
+                                            disabled={!company || !currencyEnabled.CRC}
                                         />
                                         <p className="mt-2 text-[11px] text-[var(--muted-foreground)]">
                                             Se usa como base para calcular el saldo disponible tras cada movimiento (colones).
@@ -2569,7 +2708,7 @@ export function FondoSection({
                                             className="w-full p-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded"
                                             placeholder="0"
                                             inputMode="numeric"
-                                            disabled={!company}
+                                            disabled={!company || !currencyEnabled.USD}
                                         />
                                         <p className="mt-2 text-[11px] text-[var(--muted-foreground)]">
                                             Monto inicial en dólares (saldo separado por moneda).

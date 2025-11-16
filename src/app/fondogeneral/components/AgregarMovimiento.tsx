@@ -40,6 +40,7 @@ type AgregarMovimientoProps = {
     onFieldKeyDown: (event: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>) => void;
     currency?: 'CRC' | 'USD';
     onCurrencyChange?: (c: 'CRC' | 'USD') => void;
+    currencyEnabled?: Record<'CRC' | 'USD', boolean>;
 };
 
 const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
@@ -74,6 +75,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
     onFieldKeyDown,
     currency = 'CRC',
     onCurrencyChange,
+    currencyEnabled = { CRC: true, USD: true },
 }) => {
     const invoiceBorderClass = invoiceValid || invoiceNumber.length === 0 ? 'border-[var(--input-border)]' : 'border-red-500';
     const inputFormatterCRC = React.useMemo(
@@ -150,8 +152,11 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                                     checked={currency === 'CRC'}
                                     onChange={() => onCurrencyChange && onCurrencyChange('CRC')}
                                     className="accent-[var(--accent)]"
+                                    disabled={!currencyEnabled.CRC}
                                 />
-                                <span className="text-xs text-[var(--muted-foreground)]">Colones (₡)</span>
+                                <span className={`text-xs ${currencyEnabled.CRC ? 'text-[var(--muted-foreground)]' : 'text-[var(--muted-foreground)]/60'}`}>
+                                    Colones (₡){!currencyEnabled.CRC && ' (desactivado)'}
+                                </span>
                             </label>
                             <label className="inline-flex items-center gap-2">
                                 <input
@@ -161,8 +166,11 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                                     checked={currency === 'USD'}
                                     onChange={() => onCurrencyChange && onCurrencyChange('USD')}
                                     className="accent-[var(--accent)]"
+                                    disabled={!currencyEnabled.USD}
                                 />
-                                <span className="text-xs text-[var(--muted-foreground)]">Dólares ($)</span>
+                                <span className={`text-xs ${currencyEnabled.USD ? 'text-[var(--muted-foreground)]' : 'text-[var(--muted-foreground)]/60'}`}>
+                                    Dólares ($){!currencyEnabled.USD && ' (desactivado)'}
+                                </span>
                             </label>
                         </div>
                         <input
@@ -173,8 +181,9 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                                 if (isEgreso) onEgresoChange(digits); else onIngresoChange(digits);
                             }}
                             onKeyDown={onFieldKeyDown}
-                            className={`flex-1 p-2 bg-[var(--input-bg)] border ${isEgreso ? egresoBorderClass : ingresoBorderClass} rounded`}
+                            className={`flex-1 p-2 bg-[var(--input-bg)] border ${isEgreso ? egresoBorderClass : ingresoBorderClass} rounded ${currencyEnabled[currency] ? '' : 'opacity-50 cursor-not-allowed'}`}
                             inputMode="numeric"
+                            disabled={!currencyEnabled[currency]}
                         />
                     </div>
                 </div>
