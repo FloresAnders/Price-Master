@@ -777,6 +777,8 @@ export function FondoSection({
     const [movementAutoCloseLocked, setMovementAutoCloseLocked] = useState(false);
     const [movementCurrency, setMovementCurrency] = useState<'CRC' | 'USD'>('CRC');
     const [entriesHydrated, setEntriesHydrated] = useState(false);
+    const [hydratedCompany, setHydratedCompany] = useState('');
+    const [hydratedAccountKey, setHydratedAccountKey] = useState<MovementAccountKey>(accountKey);
     const [currencyEnabled, setCurrencyEnabled] = useState<Record<MovementCurrencyKey, boolean>>({
         CRC: true,
         USD: true,
@@ -960,11 +962,14 @@ export function FondoSection({
         if (normalizedCompany.length === 0) {
             setFondoEntries([]);
             setEntriesHydrated(true);
+            setHydratedCompany('');
+            setHydratedAccountKey(accountKey);
             storageSnapshotRef.current = null;
             return;
         }
 
         setEntriesHydrated(false);
+        setHydratedCompany('');
         setFondoEntries([]);
         storageSnapshotRef.current = null;
         let isMounted = true;
@@ -1103,6 +1108,8 @@ export function FondoSection({
                 }
             } finally {
                 if (isMounted) {
+                    setHydratedCompany(normalizedCompany);
+                    setHydratedAccountKey(accountKey);
                     setEntriesHydrated(true);
                 }
             }
@@ -1416,9 +1423,14 @@ export function FondoSection({
     }, [fondoEntries, initialAmountUSD]);
 
     useEffect(() => {
-        if (!entriesHydrated) return;
+        if (!entriesHydrated || hydratedAccountKey !== accountKey) return;
         const normalizedCompany = (company || '').trim();
-        if (normalizedCompany.length === 0) return;
+        if (
+            normalizedCompany.length === 0 ||
+            hydratedCompany.toLowerCase() !== normalizedCompany.toLowerCase()
+        ) {
+            return;
+        }
 
         const persistEntries = async () => {
             const companyKey = MovimientosFondosService.buildCompanyMovementsKey(normalizedCompany);
@@ -1524,6 +1536,7 @@ export function FondoSection({
         namespace,
         entriesHydrated,
         company,
+        hydratedCompany,
         ownerId,
         currencyEnabled,
         initialAmount,
@@ -1531,6 +1544,7 @@ export function FondoSection({
         currentBalanceCRC,
         currentBalanceUSD,
         accountKey,
+        hydratedAccountKey,
     ]);
 
     const isSubmitDisabled =
@@ -1640,6 +1654,13 @@ export function FondoSection({
     const handleAdminCompanyChange = useCallback((value: string) => {
         if (!isAdminUser) return;
         setAdminCompany(value);
+        setEntriesHydrated(false);
+        setHydratedCompany('');
+        setFondoEntries([]);
+        storageSnapshotRef.current = null;
+        setInitialAmount('0');
+        setInitialAmountUSD('0');
+        setCurrencyEnabled({ CRC: true, USD: true });
         setMovementModalOpen(false);
         resetFondoForm();
         setMovementAutoCloseLocked(false);
