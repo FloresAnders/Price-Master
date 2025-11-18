@@ -5,27 +5,32 @@ import { TestTube, Beaker, FlaskConical, Zap, Code, Database, Upload, Image, Che
 import { storage } from '@/config/firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { useEmail } from '@/hooks/useEmail';
-import type { MovementStorage } from '@/services/movimientos-fondos';
+import type { MovementCurrencyKey, MovementStorage } from '@/services/movimientos-fondos';
 
 type MovimientosCompanyRecord = MovementStorage<unknown> & { id: string };
 
 const summarizeCompanyMovements = (storage?: MovementStorage<unknown> | null) => {
-    if (!storage || !storage.accounts) {
+    if (!storage) {
         return { totalCRC: 0, totalUSD: 0, totalMovements: 0 };
     }
 
+    const movements = storage.operations?.movements ?? [];
     let totalCRC = 0;
     let totalUSD = 0;
 
-    Object.values(storage.accounts).forEach(account => {
-        totalCRC += account?.CRC?.movements?.length || 0;
-        totalUSD += account?.USD?.movements?.length || 0;
+    movements.forEach(movement => {
+        const currency = (movement as { currency?: MovementCurrencyKey }).currency === 'USD' ? 'USD' : 'CRC';
+        if (currency === 'USD') {
+            totalUSD += 1;
+        } else {
+            totalCRC += 1;
+        }
     });
 
     return {
         totalCRC,
         totalUSD,
-        totalMovements: totalCRC + totalUSD,
+        totalMovements: movements.length,
     };
 };
 

@@ -38,9 +38,8 @@ import {
     MovimientosFondosService,
     MovementAccountKey,
     MovementCurrencyKey,
-    MovementCurrencySettings,
     MovementStorage,
-    MovementStorageMetadata,
+    MovementStorageState,
 } from '../../../services/movimientos-fondos';
 import AgregarMovimiento from './AgregarMovimiento';
 
@@ -100,6 +99,7 @@ export type FondoEntry = {
     manager: string;
     notes: string;
     createdAt: string;
+    accountId?: MovementAccountKey;
     currency?: 'CRC' | 'USD';
     // audit fields: when an edit is recorded, we create an audit movement
     isAudit?: boolean;
@@ -133,21 +133,80 @@ const ACCOUNT_KEY_BY_NAMESPACE: Record<string, MovementAccountKey> = {
     bac: 'BAC',
 };
 
+const MOVEMENT_ACCOUNT_KEYS: MovementAccountKey[] = ['FondoGeneral', 'BCR', 'BN', 'BAC'];
+
+const isMovementAccountKey = (value: unknown): value is MovementAccountKey =>
+    typeof value === 'string' && MOVEMENT_ACCOUNT_KEYS.includes(value as MovementAccountKey);
+
 const getAccountKeyFromNamespace = (namespace: string): MovementAccountKey =>
     ACCOUNT_KEY_BY_NAMESPACE[namespace] || 'FondoGeneral';
 
-const sanitizeFondoEntries = (rawEntries: unknown, forcedCurrency?: MovementCurrencyKey): FondoEntry[] => {
+const coerceIdentifier = (value: unknown): string | undefined => {
+    if (typeof value === 'string') {
+        const trimmed = value.trim();
+        return trimmed.length > 0 ? trimmed : undefined;
+    }
+    if (typeof value === 'number' && Number.isFinite(value)) {
+        return String(Math.trunc(value));
+    }
+    return undefined;
+};
+
+const coerceInvoice = (value: unknown): string => {
+    if (typeof value === 'string') return value.trim();
+    if (typeof value === 'number' && Number.isFinite(value)) return String(Math.trunc(value));
+    return '';
+};
+
+const coerceNotes = (value: unknown): string => {
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+    return '';
+};
+
+const resolveCreatedAt = (value: unknown): string | undefined => {
+    if (!value) return undefined;
+    if (typeof value === 'string') {
+        const trimmed = value.trim();
+        return trimmed.length > 0 ? trimmed : undefined;
+    }
+    if (value instanceof Date) {
+        return Number.isNaN(value.getTime()) ? undefined : value.toISOString();
+    }
+    if (typeof value === 'number' && Number.isFinite(value)) {
+        const date = new Date(value);
+        return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+    }
+    if (typeof value === 'object') {
+        const maybeTimestamp = value as { toDate?: () => Date };
+        if (typeof maybeTimestamp?.toDate === 'function') {
+            try {
+                const date = maybeTimestamp.toDate();
+                return date instanceof Date && !Number.isNaN(date.getTime()) ? date.toISOString() : undefined;
+            } catch {
+                return undefined;
+            }
+        }
+    }
+    return undefined;
+};
+
+const sanitizeFondoEntries = (
+    rawEntries: unknown,
+    forcedCurrency?: MovementCurrencyKey,
+    forcedAccount?: MovementAccountKey,
+): FondoEntry[] => {
     if (!Array.isArray(rawEntries)) return [];
 
     return rawEntries.reduce<FondoEntry[]>((acc, raw) => {
         const entry = raw as Partial<FondoEntry>;
 
-        const id = typeof entry.id === 'string' ? entry.id : undefined;
-        const providerCode = typeof entry.providerCode === 'string' ? entry.providerCode : undefined;
-        const invoiceNumber = typeof entry.invoiceNumber === 'string' ? entry.invoiceNumber : '';
+        const id = coerceIdentifier(entry.id);
+        const providerCode = coerceIdentifier(entry.providerCode);
+        const invoiceNumber = coerceInvoice(entry.invoiceNumber);
         const paymentType = normalizeStoredType(entry.paymentType);
-        const manager = typeof entry.manager === 'string' ? entry.manager : undefined;
-        const createdAt = typeof entry.createdAt === 'string' ? entry.createdAt : undefined;
+        const manager = coerceIdentifier(entry.manager);
+        const createdAt = resolveCreatedAt(entry.createdAt);
 
         if (!id || !providerCode || !manager || !createdAt) return acc;
 
@@ -158,6 +217,7 @@ const sanitizeFondoEntries = (rawEntries: unknown, forcedCurrency?: MovementCurr
         const amountIngreso = Math.trunc(rawIngreso);
 
         const currency: MovementCurrencyKey = forcedCurrency ?? (entry.currency === 'USD' ? 'USD' : 'CRC');
+        const accountId = forcedAccount ?? (isMovementAccountKey(entry.accountId) ? entry.accountId : undefined);
 
         acc.push({
             id,
@@ -165,10 +225,11 @@ const sanitizeFondoEntries = (rawEntries: unknown, forcedCurrency?: MovementCurr
             invoiceNumber,
             paymentType,
             currency,
+            accountId,
             amountEgreso: isEgresoType(paymentType) ? amountEgreso : 0,
             amountIngreso: isIngresoType(paymentType) ? amountIngreso : 0,
             manager,
-            notes: typeof entry.notes === 'string' ? entry.notes : '',
+            notes: coerceNotes(entry.notes),
             createdAt,
             isAudit: !!entry.isAudit,
             originalEntryId: typeof entry.originalEntryId === 'string' ? entry.originalEntryId : undefined,
@@ -178,32 +239,6 @@ const sanitizeFondoEntries = (rawEntries: unknown, forcedCurrency?: MovementCurr
         return acc;
     }, []);
 };
-
-const splitEntriesByCurrency = (entries: FondoEntry[]) => {
-    const buckets: Record<MovementCurrencyKey, FondoEntry[]> = {
-        CRC: [],
-        USD: [],
-    };
-
-    entries.forEach(entry => {
-        const currency: MovementCurrencyKey = entry.currency === 'USD' ? 'USD' : 'CRC';
-        buckets[currency].push(entry);
-    });
-
-    return buckets;
-};
-
-const buildDefaultCurrencyMetadata = (): Record<MovementCurrencyKey, MovementCurrencySettings> => ({
-    CRC: { enabled: true, initialBalance: 0, currentBalance: 0 },
-    USD: { enabled: true, initialBalance: 0, currentBalance: 0 },
-});
-
-const buildDefaultAccountsMetadata = (): Record<MovementAccountKey, Record<MovementCurrencyKey, MovementCurrencySettings>> => ({
-    FondoGeneral: buildDefaultCurrencyMetadata(),
-    BCR: buildDefaultCurrencyMetadata(),
-    BN: buildDefaultCurrencyMetadata(),
-    BAC: buildDefaultCurrencyMetadata(),
-});
 
 const AccessRestrictedMessage = ({ description }: { description: string }) => (
     <div className="flex flex-col items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)] text-center">
@@ -385,7 +420,22 @@ export function ProviderSection({ id }: { id?: string }) {
                         </p>
                     )}
                 </div>
-                <div className="flex items-center">
+                <div className="flex items-center gap-3">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setProviderDrawerOpen(true);
+                            setFormError(null);
+                            setProviderName('');
+                            setProviderType('');
+                            setEditingProviderCode(null);
+                        }}
+                        disabled={!company || saving || providersLoading}
+                        className="flex items-center gap-2 px-4 py-2 bg-[var(--accent)] text-white rounded shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <Plus className="w-4 h-4" />
+                        Agregar proveedor
+                    </button>
                     {showCompanySelector && (
                         <select
                             id={companySelectId}
@@ -732,6 +782,10 @@ export function FondoSection({
         USD: true,
     });
     const [currencyToggleWarning, setCurrencyToggleWarning] = useState<string | null>(null);
+    const enabledBalanceCurrencies = useMemo(
+        () => (['CRC', 'USD'] as MovementCurrencyKey[]).filter(currency => currencyEnabled[currency]),
+        [currencyEnabled],
+    );
     // Audit modal state: show full before/after history when an edited entry is clicked
     const [auditModalOpen, setAuditModalOpen] = useState(false);
     const [auditModalData, setAuditModalData] = useState<{ history?: any[] } | null>(null);
@@ -767,32 +821,36 @@ export function FondoSection({
     const [filterEditedOnly, setFilterEditedOnly] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
 
-    const applyMetadataFromStorage = useCallback(
-        (metadata?: MovementStorageMetadata | null) => {
-            if (!metadata) return;
-            const accountMetadata = metadata.accounts?.[accountKey] ?? metadata.currencies ?? buildDefaultCurrencyMetadata();
-            const crcSettings = accountMetadata.CRC;
-            const usdSettings = accountMetadata.USD;
-            setCurrencyEnabled({
-                CRC: crcSettings?.enabled ?? true,
-                USD: usdSettings?.enabled ?? true,
-            });
+    const applyLedgerStateFromStorage = useCallback(
+        (state?: MovementStorageState | null) => {
+            if (!state) return;
 
             const parseBalance = (value: unknown) => {
                 const parsed = typeof value === 'number' ? value : Number(value);
-                return Number.isFinite(parsed) ? Math.trunc(parsed).toString() : null;
+                return Number.isFinite(parsed) ? Math.trunc(parsed) : 0;
             };
 
-            const nextInitialCRC = parseBalance(crcSettings?.initialBalance);
-            if (nextInitialCRC !== null) {
-                setInitialAmount(nextInitialCRC);
-            }
+            const resolveSettings = (currency: MovementCurrencyKey) => {
+                const accountBalance = state.balancesByAccount?.find(
+                    balance => balance.accountId === accountKey && balance.currency === currency,
+                );
+                return {
+                    enabled: accountBalance?.enabled ?? true,
+                    initialBalance: parseBalance(accountBalance?.initialBalance ?? 0),
+                    currentBalance: parseBalance(accountBalance?.currentBalance ?? 0),
+                };
+            };
 
-            const nextInitialUSD = parseBalance(usdSettings?.initialBalance);
-            if (nextInitialUSD !== null) {
-                setInitialAmountUSD(nextInitialUSD);
-            }
+            const crcSettings = resolveSettings('CRC');
+            const usdSettings = resolveSettings('USD');
 
+            setCurrencyEnabled({
+                CRC: crcSettings.enabled,
+                USD: usdSettings.enabled,
+            });
+
+            setInitialAmount(crcSettings.initialBalance.toString());
+            setInitialAmountUSD(usdSettings.initialBalance.toString());
             setCurrencyToggleWarning(null);
         },
         [accountKey],
@@ -898,6 +956,7 @@ export function FondoSection({
 
     useEffect(() => {
         const normalizedCompany = (company || '').trim();
+        const normalizedCompanyLower = normalizedCompany.toLowerCase();
         if (normalizedCompany.length === 0) {
             setFondoEntries([]);
             setEntriesHydrated(true);
@@ -906,8 +965,16 @@ export function FondoSection({
         }
 
         setEntriesHydrated(false);
+        setFondoEntries([]);
         storageSnapshotRef.current = null;
         let isMounted = true;
+
+        const matchesSelectedCompany = (storage?: MovementStorage<FondoEntry> | null) => {
+            if (!storage) return false;
+            const storedCompany = (storage.company || '').trim();
+            if (storedCompany.length === 0) return true;
+            return storedCompany.toLowerCase() === normalizedCompanyLower;
+        };
 
         const loadEntries = async () => {
             try {
@@ -931,11 +998,15 @@ export function FondoSection({
                             rawStorage,
                             normalizedCompany,
                         );
-                        const accountData = storage.accounts[accountKey];
-                        if (!accountData) return null;
-                        const crcEntries = sanitizeFondoEntries(accountData.CRC.movements, 'CRC');
-                        const usdEntries = sanitizeFondoEntries(accountData.USD.movements, 'USD');
-                        const entries = [...crcEntries, ...usdEntries].sort(
+                        const movements = storage.operations?.movements ?? [];
+                        const scopedEntries = movements.filter(rawEntry => {
+                            const candidate = rawEntry as Partial<FondoEntry>;
+                            const movementAccount = isMovementAccountKey(candidate.accountId)
+                                ? candidate.accountId
+                                : accountKey;
+                            return movementAccount === accountKey;
+                        });
+                        const entries = sanitizeFondoEntries(scopedEntries, undefined, accountKey).sort(
                             (a, b) => parseTime(b.createdAt) - parseTime(a.createdAt),
                         );
                         return { entries, storage };
@@ -970,13 +1041,14 @@ export function FondoSection({
 
                 const companyKey = MovimientosFondosService.buildCompanyMovementsKey(normalizedCompany);
                 let resolvedEntries: FondoEntry[] | null = null;
-                let resolvedMetadata: MovementStorageMetadata | null = null;
+                let resolvedState: MovementStorageState | null = null;
                 let hasResolvedSource = false;
 
                 const assignResult = (result: StorageEntriesResult | null) => {
                     if (!result) return false;
+                    if (!matchesSelectedCompany(result.storage)) return false;
                     resolvedEntries = result.entries;
-                    resolvedMetadata = result.storage?.metadata ?? null;
+                    resolvedState = result.storage?.state ?? null;
                     storageSnapshotRef.current = result.storage;
                     hasResolvedSource = true;
                     return true;
@@ -1000,16 +1072,16 @@ export function FondoSection({
                     if (legacyRaw) {
                         try {
                             const legacyParsed = JSON.parse(legacyRaw);
-                            resolvedEntries = sanitizeFondoEntries(legacyParsed);
-                            if (resolvedEntries) {
+                            const parsedEntries = sanitizeFondoEntries(legacyParsed, undefined, accountKey);
+                            if (parsedEntries.length > 0) {
+                                resolvedEntries = parsedEntries;
                                 const fallbackStorage = MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(
                                     normalizedCompany,
                                 );
-                                const grouped = splitEntriesByCurrency(resolvedEntries);
-                                fallbackStorage.accounts[accountKey] = {
-                                    CRC: { movements: grouped.CRC },
-                                    USD: { movements: grouped.USD },
-                                };
+                                fallbackStorage.operations.movements = parsedEntries.map(entry => ({
+                                    ...entry,
+                                    accountId: accountKey,
+                                }));
                                 storageSnapshotRef.current = fallbackStorage;
                             }
                         } catch (err) {
@@ -1020,8 +1092,8 @@ export function FondoSection({
 
                 if (isMounted) {
                     setFondoEntries(resolvedEntries ?? []);
-                    if (resolvedMetadata) {
-                        applyMetadataFromStorage(resolvedMetadata);
+                    if (resolvedState) {
+                        applyLedgerStateFromStorage(resolvedState);
                     }
                 }
             } catch (err) {
@@ -1041,7 +1113,7 @@ export function FondoSection({
         return () => {
             isMounted = false;
         };
-    }, [namespace, ownerId, company, applyMetadataFromStorage, accountKey]);
+    }, [namespace, ownerId, company, applyLedgerStateFromStorage, accountKey]);
 
     useEffect(() => {
         if (!selectedProvider) return;
@@ -1054,8 +1126,10 @@ export function FondoSection({
 
     useEffect(() => {
         let isActive = true;
+        setCompanyEmployees([]);
+
         if (!company) {
-            setCompanyEmployees([]);
+            setEmployeesLoading(false);
             return () => {
                 isActive = false;
             };
@@ -1371,34 +1445,52 @@ export function FondoSection({
                         normalizedCompany,
                     )
                     : MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(normalizedCompany);
-                const grouped = splitEntriesByCurrency(fondoEntries);
                 baseStorage.company = normalizedCompany;
-                baseStorage.accounts[accountKey] = {
-                    CRC: { movements: grouped.CRC },
-                    USD: { movements: grouped.USD },
-                };
-                const metadata =
-                    baseStorage.metadata ??
-                    MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(normalizedCompany).metadata ?? {
-                        accounts: buildDefaultAccountsMetadata(),
-                        updatedAt: new Date().toISOString(),
+                const normalizedEntries: FondoEntry[] = fondoEntries.map(entry => {
+                    const normalizedCurrency: MovementCurrencyKey = entry.currency === 'USD' ? 'USD' : 'CRC';
+                    return {
+                        ...entry,
+                        accountId: accountKey,
+                        currency: normalizedCurrency,
                     };
-                baseStorage.metadata = metadata;
-                const nextAccountMetadata = {
-                    CRC: {
+                });
+
+                const existingMovements = baseStorage.operations?.movements ?? [];
+                const preservedMovements = existingMovements.filter(storedEntry => {
+                    const candidate = storedEntry as Partial<FondoEntry>;
+                    const storedAccount = isMovementAccountKey(candidate.accountId)
+                        ? candidate.accountId
+                        : 'FondoGeneral';
+                    return storedAccount !== accountKey;
+                });
+                baseStorage.operations = {
+                    movements: [...preservedMovements, ...normalizedEntries],
+                };
+
+                const stateSnapshot =
+                    baseStorage.state ?? MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(normalizedCompany).state;
+                const nextAccountBalances = stateSnapshot.balancesByAccount.filter(balance => balance.accountId !== accountKey);
+                const parsedInitialCRC = Number(normalizedInitialCRC) || 0;
+                const parsedInitialUSD = Number(normalizedInitialUSD) || 0;
+                nextAccountBalances.push(
+                    {
+                        accountId: accountKey,
+                        currency: 'CRC',
                         enabled: currencyEnabled.CRC,
-                        initialBalance: Number(normalizedInitialCRC) || 0,
+                        initialBalance: parsedInitialCRC,
                         currentBalance: currentBalanceCRC,
                     },
-                    USD: {
+                    {
+                        accountId: accountKey,
+                        currency: 'USD',
                         enabled: currencyEnabled.USD,
-                        initialBalance: Number(normalizedInitialUSD) || 0,
+                        initialBalance: parsedInitialUSD,
                         currentBalance: currentBalanceUSD,
                     },
-                };
-                metadata.accounts[accountKey] = nextAccountMetadata;
-                metadata.currencies = nextAccountMetadata;
-                metadata.updatedAt = new Date().toISOString();
+                );
+                stateSnapshot.balancesByAccount = nextAccountBalances;
+                stateSnapshot.updatedAt = new Date().toISOString();
+                baseStorage.state = stateSnapshot;
                 localStorage.setItem(companyKey, JSON.stringify(baseStorage));
 
                 const legacyKey = buildStorageKey(namespace, FONDO_KEY_SUFFIX);
@@ -2508,38 +2600,44 @@ export function FondoSection({
                     </a>
 
                     <div className="w-auto justify-self-center">
-                        <div className="px-4 py-3 rounded min-w-[320px] fg-balance-card relative">
-                            <div className="w-full">
-                                <div className="text-sm font-medium text-[var(--muted-foreground)] text-center mb-3">Saldo actual</div>
-                                <div className="flex items-center relative">
-                                    <div className="flex-1 text-center border-r border-[var(--input-border)] relative z-10">
-                                        <div className="text-xs uppercase tracking-wide text-[var(--foreground)]">Colones</div>
-                                        <div className="text-lg font-semibold text-[var(--foreground)]">
-                                            {formatByCurrency('CRC', currentBalanceCRC)}
-                                        </div>
-                                    </div>
-                                    <div className='absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-full flex items-center justify-center pointer-events-none z-0' aria-hidden="true">
-                                        <div style={{ width: 2, height: '70%', background: 'rgba(255,255,255,0.18)', borderRadius: 3 }} />
-                                    </div>
-                                    <div className="flex-1 text-center border-l border-[var(--input-border)] relative z-10">
-                                        <div className="text-xs uppercase tracking-wide text-[var(--foreground)]">Dólares</div>
-                                        <div className="text-lg font-semibold text-[var(--foreground)]">
-                                            {formatByCurrency('USD', currentBalanceUSD)}
-                                        </div>
+                        {enabledBalanceCurrencies.length > 0 && (
+                            <div className="px-4 py-3 rounded min-w-[220px] fg-balance-card relative">
+                                <div className="w-full">
+                                    <div className="text-sm font-medium text-[var(--muted-foreground)] text-center mb-3">Saldo actual</div>
+                                    <div className="flex items-center relative">
+                                        {enabledBalanceCurrencies.map((currency, index) => {
+                                            const isFirst = index === 0;
+                                            const isLast = index === enabledBalanceCurrencies.length - 1;
+                                            const label = currency === 'CRC' ? 'Colones' : 'Dólares';
+                                            const value = currency === 'CRC' ? currentBalanceCRC : currentBalanceUSD;
+                                            return (
+                                                <div
+                                                    key={currency}
+                                                    className={`flex-1 text-center relative z-10 px-3 ${
+                                                        !isFirst ? 'border-l border-[var(--input-border)]' : ''
+                                                    } ${!isLast ? 'border-r border-[var(--input-border)]' : ''}`}
+                                                >
+                                                    <div className="text-xs uppercase tracking-wide text-[var(--foreground)]">{label}</div>
+                                                    <div className="text-lg font-semibold text-[var(--foreground)]">
+                                                        {formatByCurrency(currency, value)}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </div>
-                            </div>
 
-                            <button
-                                type="button"
-                                onClick={openSettings}
-                                title="Abrir configuracion del fondo"
-                                aria-label="Abrir configuracion del fondo"
-                                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded border border-transparent hover:bg-[var(--muted)]"
-                            >
-                                <Settings className="w-4 h-4 text-[var(--foreground)]" />
-                            </button>
-                        </div>
+                                <button
+                                    type="button"
+                                    onClick={openSettings}
+                                    title="Abrir configuracion del fondo"
+                                    aria-label="Abrir configuracion del fondo"
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded border border-transparent hover:bg-[var(--muted)]"
+                                >
+                                    <Settings className="w-4 h-4 text-[var(--foreground)]" />
+                                </button>
+                            </div>
+                        )}
                     </div>
 
                     <div className="hidden sm:block" />
@@ -2715,58 +2813,62 @@ export function FondoSection({
                                         </p>
                                     </div>
                                 </div>
-                                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                                    <div className="p-3 bg-[var(--muted)] border border-[var(--input-border)] rounded">
-                                        <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Saldo inicial (CRC)</div>
-                                        <div className="text-lg font-semibold text-[var(--foreground)]">
-                                            {formatByCurrency('CRC', Number(initialAmount) || 0)}
+                                {currencyEnabled.CRC && (
+                                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                                        <div className="p-3 bg-[var(--muted)] border border-[var(--input-border)] rounded">
+                                            <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Saldo inicial (CRC)</div>
+                                            <div className="text-lg font-semibold text-[var(--foreground)]">
+                                                {formatByCurrency('CRC', Number(initialAmount) || 0)}
+                                            </div>
+                                        </div>
+                                        <div className="p-3 bg-[var(--muted)] border border-[var(--input-border)] rounded">
+                                            <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Total ingresos (CRC)</div>
+                                            <div className="text-lg font-semibold text-emerald-600">
+                                                {formatByCurrency('CRC', totalIngresosCRC)}
+                                            </div>
+                                        </div>
+                                        <div className="p-3 bg-[var(--muted)] border border-[var(--input-border)] rounded">
+                                            <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Total egresos (CRC)</div>
+                                            <div className="text-lg font-semibold text-red-600">
+                                                {formatByCurrency('CRC', totalEgresosCRC)}
+                                            </div>
+                                        </div>
+                                        <div className="p-3 bg-[var(--muted)] border border-[var(--input-border)] rounded">
+                                            <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Saldo actual (CRC)</div>
+                                            <div className="text-lg font-semibold text-[var(--foreground)]">
+                                                {formatByCurrency('CRC', currentBalanceCRC)}
+                                            </div>
                                         </div>
                                     </div>
-                                    <div className="p-3 bg-[var(--muted)] border border-[var(--input-border)] rounded">
-                                        <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Total ingresos (CRC)</div>
-                                        <div className="text-lg font-semibold text-emerald-600">
-                                            {formatByCurrency('CRC', totalIngresosCRC)}
+                                )}
+                                {currencyEnabled.USD && (
+                                    <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                                        <div className="p-3 bg-[var(--muted)] border border-[var(--input-border)] rounded">
+                                            <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Saldo inicial (USD)</div>
+                                            <div className="text-lg font-semibold text-[var(--foreground)]">
+                                                {formatByCurrency('USD', Number(initialAmountUSD) || 0)}
+                                            </div>
+                                        </div>
+                                        <div className="p-3 bg-[var(--muted)] border border-[var(--input-border)] rounded">
+                                            <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Total ingresos (USD)</div>
+                                            <div className="text-lg font-semibold text-emerald-600">
+                                                {formatByCurrency('USD', totalIngresosUSD)}
+                                            </div>
+                                        </div>
+                                        <div className="p-3 bg-[var(--muted)] border border-[var(--input-border)] rounded">
+                                            <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Total egresos (USD)</div>
+                                            <div className="text-lg font-semibold text-red-600">
+                                                {formatByCurrency('USD', totalEgresosUSD)}
+                                            </div>
+                                        </div>
+                                        <div className="p-3 bg-[var(--muted)] border border-[var(--input-border)] rounded">
+                                            <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Saldo actual (USD)</div>
+                                            <div className="text-lg font-semibold text-[var(--foreground)]">
+                                                {formatByCurrency('USD', currentBalanceUSD)}
+                                            </div>
                                         </div>
                                     </div>
-                                    <div className="p-3 bg-[var(--muted)] border border-[var(--input-border)] rounded">
-                                        <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Total egresos (CRC)</div>
-                                        <div className="text-lg font-semibold text-red-600">
-                                            {formatByCurrency('CRC', totalEgresosCRC)}
-                                        </div>
-                                    </div>
-                                    <div className="p-3 bg-[var(--muted)] border border-[var(--input-border)] rounded">
-                                        <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Saldo actual (CRC)</div>
-                                        <div className="text-lg font-semibold text-[var(--foreground)]">
-                                            {formatByCurrency('CRC', currentBalanceCRC)}
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                                    <div className="p-3 bg-[var(--muted)] border border-[var(--input-border)] rounded">
-                                        <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Saldo inicial (USD)</div>
-                                        <div className="text-lg font-semibold text-[var(--foreground)]">
-                                            {formatByCurrency('USD', Number(initialAmountUSD) || 0)}
-                                        </div>
-                                    </div>
-                                    <div className="p-3 bg-[var(--muted)] border border-[var(--input-border)] rounded">
-                                        <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Total ingresos (USD)</div>
-                                        <div className="text-lg font-semibold text-emerald-600">
-                                            {formatByCurrency('USD', totalIngresosUSD)}
-                                        </div>
-                                    </div>
-                                    <div className="p-3 bg-[var(--muted)] border border-[var(--input-border)] rounded">
-                                        <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Total egresos (USD)</div>
-                                        <div className="text-lg font-semibold text-red-600">
-                                            {formatByCurrency('USD', totalEgresosUSD)}
-                                        </div>
-                                    </div>
-                                    <div className="p-3 bg-[var(--muted)] border border-[var(--input-border)] rounded">
-                                        <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Saldo actual (USD)</div>
-                                        <div className="text-lg font-semibold text-[var(--foreground)]">
-                                            {formatByCurrency('USD', currentBalanceUSD)}
-                                        </div>
-                                    </div>
-                                </div>
+                                )}
                                 <div className="flex justify-end gap-2">
                                     <button
                                         type="button"
