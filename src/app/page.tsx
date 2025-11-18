@@ -15,9 +15,10 @@ import { Mantenimiento } from '@/components/admin'
 import { ScanHistoryTable } from '@/components/scanner'
 import { storage } from '@/config/firebase'
 import { ref, listAll } from 'firebase/storage'
+import Pruebas from '@/components/xpruebas/Pruebas'
 
 // 1) Ampliamos ActiveTab para incluir "cashcounter", "controlhorario", "supplierorders", "edit", "scanhistory", "solicitud"
-type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'supplierorders' | 'scanhistory' | 'edit' | 'solicitud' | 'fondogeneral'
+type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'supplierorders' | 'scanhistory' | 'edit' | 'solicitud' | 'fondogeneral' | 'pruebas'
 import FondoGeneralPage from '@/app/fondogeneral/page';
 import SolicitudForm from '@/components/solicitud/SolicitudForm'
 
@@ -190,13 +191,25 @@ export default function HomePage() {
     updateHistoryWithImages();
   }, [checkCodeHasImages, scanHistory]); // Added scanHistory back as dependency
 
+  const isSuperAdmin = user?.role === 'superadmin';
+
+  useEffect(() => {
+    if (!isSuperAdmin && activeTab === 'pruebas') {
+      setActiveTab(null);
+      if (typeof window !== 'undefined' && window.location.hash === '#pruebas') {
+        window.location.hash = '';
+      }
+    }
+  }, [isSuperAdmin, activeTab]);
+
   // 4) Al montar, leemos el hash de la URL y marcamos la pestaña correspondiente
   useEffect(() => {
     const checkAndSetTab = () => {
       if (typeof window !== 'undefined') {
         const hash = window.location.hash.replace('#', '') as ActiveTab;
         const validTabs = [
-          'scanner', 'calculator', 'converter', 'cashcounter', 'timingcontrol', 'controlhorario', 'supplierorders', 'scanhistory', 'solicitud', 'fondogeneral'
+          'scanner', 'calculator', 'converter', 'cashcounter', 'timingcontrol', 'controlhorario', 'supplierorders', 'scanhistory', 'solicitud', 'fondogeneral',
+          ...(isSuperAdmin ? ['pruebas'] : [])
         ];
         if (validTabs.includes(hash)) {
           setActiveTab(hash);
@@ -211,7 +224,7 @@ export default function HomePage() {
     checkAndSetTab();
     const timeout = setTimeout(checkAndSetTab, 100);
     return () => clearTimeout(timeout);
-  }, [])
+  }, [isSuperAdmin])
 
   // 6) Escuchar cambios en el hash para actualizar la pestaña activa
   useEffect(() => {
@@ -219,7 +232,8 @@ export default function HomePage() {
       const handleHashChange = () => {
         const hash = window.location.hash.replace('#', '') as ActiveTab;
         const validTabs = [
-          'scanner', 'calculator', 'converter', 'cashcounter', 'timingcontrol', 'controlhorario', 'supplierorders', 'scanhistory', 'edit', 'solicitud', 'fondogeneral'
+          'scanner', 'calculator', 'converter', 'cashcounter', 'timingcontrol', 'controlhorario', 'supplierorders', 'scanhistory', 'edit', 'solicitud', 'fondogeneral',
+          ...(isSuperAdmin ? ['pruebas'] : [])
         ];
         if (validTabs.includes(hash)) {
           setActiveTab(hash);
@@ -232,7 +246,7 @@ export default function HomePage() {
         window.removeEventListener('hashchange', handleHashChange);
       };
     }
-  }, [])
+  }, [isSuperAdmin])
   return (
     <>
       <main className="flex-1 max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -331,6 +345,11 @@ export default function HomePage() {
               {/* EDIT / MANTENIMIENTO */}
               {activeTab === 'edit' && (
                 <Mantenimiento />
+              )}
+
+              {/* ÁREA DE PRUEBAS */}
+              {activeTab === 'pruebas' && isSuperAdmin && (
+                <Pruebas />
               )}
             </div>
           </>

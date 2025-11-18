@@ -209,6 +209,19 @@ export class MovimientosFondosService {
     return this.ensureMovementStorageShape<T>(doc, company);
   }
 
+  static async getAllDocuments<T = unknown>(): Promise<Array<MovementStorage<T> & { id: string }>> {
+    const documents = await FirestoreService.getAll(this.COLLECTION_NAME);
+    return documents.map(rawDoc => {
+      const { id, ...data } = rawDoc as MovementStorage<T> & { id: string };
+      const company = typeof data.company === 'string' ? data.company : '';
+      const storage = this.ensureMovementStorageShape<T>(data, company);
+      return {
+        ...storage,
+        id,
+      };
+    });
+  }
+
   static async saveDocument<T = unknown>(docId: string, data: MovementStorage<T>): Promise<void> {
     if (!docId) return;
     await FirestoreService.addWithId(this.COLLECTION_NAME, docId, data);
