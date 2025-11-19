@@ -1032,15 +1032,19 @@ export function FondoSection({
                     }
                 };
 
-                const loadRemoteEntries = async (docKey: string): Promise<StorageEntriesResult | null> => {
-                    if (!docKey) return null;
+                const loadRemoteEntries = async (
+                    docKey: string,
+                ): Promise<{ result: StorageEntriesResult | null; status: 'success' | 'not-found' | 'error' }> => {
+                    if (!docKey) return { result: null, status: 'error' };
                     try {
                         const remoteStorage = await MovimientosFondosService.getDocument<FondoEntry>(docKey);
-                        if (!remoteStorage) return null;
-                        return buildEntriesFromStorage(remoteStorage);
+                        if (!remoteStorage) {
+                            return { result: null, status: 'not-found' };
+                        }
+                        return { result: buildEntriesFromStorage(remoteStorage), status: 'success' };
                     } catch (err) {
                         console.error(`Error reading fondo entries from Firestore (${docKey}):`, err);
-                        return null;
+                        return { result: null, status: 'error' };
                     }
                 };
 
@@ -1048,6 +1052,8 @@ export function FondoSection({
                 let resolvedEntries: FondoEntry[] | null = null;
                 let resolvedState: MovementStorageState | null = null;
                 let hasResolvedSource = false;
+                let remoteConfirmedNotFound = false;
+                let remoteAnyError = false;
 
                 const assignResult = (result: StorageEntriesResult | null) => {
                     if (!result) return false;
@@ -1059,8 +1065,40 @@ export function FondoSection({
                     return true;
                 };
 
-                if (!assignResult(await loadRemoteEntries(companyKey)) && legacyOwnerKey && legacyOwnerKey !== companyKey) {
-                    assignResult(await loadRemoteEntries(legacyOwnerKey));
+                const tryRemoteKey = async (docKey: string | null) => {
+                    if (!docKey || hasResolvedSource) return;
+                    const { result, status } = await loadRemoteEntries(docKey);
+                    if (status === 'error') {
+                        remoteAnyError = true;
+                        return;
+                    }
+                    if (status === 'not-found') {
+                        remoteConfirmedNotFound = true;
+                        return;
+                    }
+                    if (status === 'success' && result) {
+                        assignResult(result);
+                    }
+                };
+
+                await tryRemoteKey(companyKey);
+
+                if (!hasResolvedSource && legacyOwnerKey && legacyOwnerKey !== companyKey) {
+                    await tryRemoteKey(legacyOwnerKey);
+                }
+
+                if (!hasResolvedSource && remoteConfirmedNotFound && !remoteAnyError) {
+                    const emptyStorage = MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(normalizedCompany);
+                    storageSnapshotRef.current = emptyStorage;
+                    resolvedEntries = [];
+                    resolvedState = emptyStorage.state;
+                    hasResolvedSource = true;
+                    localStorage.removeItem(companyKey);
+                    if (legacyOwnerKey && legacyOwnerKey !== companyKey) {
+                        localStorage.removeItem(legacyOwnerKey);
+                    }
+                    const legacyKey = buildStorageKey(namespace, FONDO_KEY_SUFFIX);
+                    localStorage.removeItem(legacyKey);
                 }
 
                 if (!hasResolvedSource) {
