@@ -6,7 +6,7 @@ import { useState, useEffect, useRef } from 'react';
 import { collection, query as fbQuery, where as fbWhere, orderBy as fbOrderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { createPortal } from 'react-dom';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useAuth } from '../../hooks/useAuth';
 import { SolicitudesService } from '@/services/solicitudes';
 import { ThemeToggle } from './ThemeToggle';
@@ -37,7 +37,7 @@ const getCreatedAtDate = (value: any): Date | null => {
   return parsed;
 };
 
-type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'supplierorders' | 'histoscans' | 'scanhistory' | 'edit' | 'solicitud'
+type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'supplierorders' | 'histoscans' | 'scanhistory' | 'edit' | 'solicitud' | 'fondogeneral' | 'agregarproveedor' | 'reportes'
 
 interface HeaderProps {
   activeTab?: ActiveTab | null;
@@ -47,7 +47,6 @@ interface HeaderProps {
 export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const { logout, user } = useAuth();
   const pathname = usePathname();
-  const router = useRouter();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
@@ -368,23 +367,18 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
             Time Master
           </button>
 
-          {/* If we're inside the Fondo General area, show its quick actions in the header */}
-          {pathname && pathname.startsWith('/fondogeneral') && canManageFondoGeneral && (
+          {/* If we're on hash #fondogeneral, #agregarproveedor, or #reportes, show fondo quick actions in the header */}
+          {(currentHash === '#fondogeneral' || currentHash === '#agregarproveedor' || currentHash === '#reportes') && canManageFondoGeneral && (
             <nav className="hidden lg:flex items-center gap-1">
               {/* Agregar proveedor */}
               <button
                 onClick={() => {
-                  (async () => {
-                    try {
-                      await router.push('/fondogeneral/agregarproveedor');
-                    } catch {
-                      window.location.href = '/fondogeneral/agregarproveedor';
-                    }
-                  })();
+                  window.location.hash = '#agregarproveedor';
                 }}
-                className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${pathname === '/fondogeneral/agregarproveedor'
-                  ? 'text-[var(--tab-text-active)] font-semibold'
-                  : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
+                className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${
+                  currentHash === '#agregarproveedor'
+                    ? 'text-[var(--tab-text-active)] font-semibold'
+                    : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
                 }`}
                 title="Agregar proveedor"
               >
@@ -398,55 +392,45 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               {/* Fondo */}
               <button
                 onClick={() => {
-                  (async () => {
-                    try {
-                      await router.push('/fondogeneral/fondogeneral');
-                    } catch {
-                      window.location.href = '/fondogeneral/fondogeneral';
-                    }
-                  })();
+                  window.location.hash = '#fondogeneral';
                 }}
-                className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${pathname === '/fondogeneral/fondogeneral' || pathname === '/fondogeneral'
-                  ? 'text-[var(--tab-text-active)] font-semibold'
-                  : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
+                className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${
+                  currentHash === '#fondogeneral'
+                    ? 'text-[var(--tab-text-active)] font-semibold'
+                    : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
                 }`}
                 title="Fondo"
               >
                 <Banknote className="w-4 h-4" />
                 <span className="hidden xl:inline">Fondo</span>
-                {(currentHash === '#fondogeneral' || (pathname === '/fondogeneral' && !currentHash)) && (
+                {currentHash === '#fondogeneral' && (
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
                 )}
               </button>
 
-              {/* Otra */}
+              {/* Reportes */}
               <button
                 onClick={() => {
-                  (async () => {
-                    try {
-                      await router.push('/fondogeneral/otra');
-                    } catch {
-                      window.location.href = '/fondogeneral/otra';
-                    }
-                  })();
+                  window.location.hash = '#reportes';
                 }}
-                className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${pathname === '/fondogeneral/otra'
-                  ? 'text-[var(--tab-text-active)] font-semibold'
-                  : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
+                className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${
+                  currentHash === '#reportes'
+                    ? 'text-[var(--tab-text-active)] font-semibold'
+                    : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
                 }`}
                 title="Reportes"
               >
                 <Layers className="w-4 h-4" />
                 <span className="hidden xl:inline">Reportes</span>
-                {currentHash === '#otra' && (
+                {currentHash === '#reportes' && (
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
                 )}
               </button>
             </nav>
           )}
 
-          {/* Desktop navigation tabs - only show when inside a card */}
-          {activeTab && visibleTabs.length > 0 && (
+          {/* Desktop navigation tabs - only show when inside a card and NOT in fondogeneral/agregarproveedor/reportes */}
+          {activeTab && activeTab !== 'fondogeneral' && activeTab !== 'agregarproveedor' && activeTab !== 'reportes' && visibleTabs.length > 0 && (
             <nav className="hidden lg:flex items-center gap-1">
               {visibleTabs.map((tab) => {
                 const IconComponent = tab.icon;

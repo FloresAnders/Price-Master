@@ -17,9 +17,11 @@ import { storage } from '@/config/firebase'
 import { ref, listAll } from 'firebase/storage'
 import Pruebas from '@/components/xpruebas/Pruebas'
 
-// 1) Ampliamos ActiveTab para incluir "cashcounter", "controlhorario", "supplierorders", "edit", "scanhistory", "solicitud"
-type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'supplierorders' | 'scanhistory' | 'edit' | 'solicitud' | 'fondogeneral' | 'pruebas'
-import FondoGeneralPage from '@/app/fondogeneral/page';
+// 1) Ampliamos ActiveTab para incluir "cashcounter", "controlhorario", "supplierorders", "edit", "scanhistory", "solicitud", "agregarproveedor", "reportes"
+type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'supplierorders' | 'scanhistory' | 'edit' | 'solicitud' | 'fondogeneral' | 'agregarproveedor' | 'reportes' | 'pruebas'
+import FondoPage from '@/app/fondogeneral/fondogeneral/page';
+import AgregarProveedorPage from '@/app/fondogeneral/agregarproveedor/page';
+import ReportesPage from '@/app/fondogeneral/otra/page';
 import SolicitudForm from '@/components/solicitud/SolicitudForm'
 
 export default function HomePage() {
@@ -208,7 +210,7 @@ export default function HomePage() {
       if (typeof window !== 'undefined') {
         const hash = window.location.hash.replace('#', '') as ActiveTab;
         const validTabs = [
-          'scanner', 'calculator', 'converter', 'cashcounter', 'timingcontrol', 'controlhorario', 'supplierorders', 'scanhistory', 'solicitud', 'fondogeneral',
+          'scanner', 'calculator', 'converter', 'cashcounter', 'timingcontrol', 'controlhorario', 'supplierorders', 'scanhistory', 'solicitud', 'fondogeneral', 'agregarproveedor', 'reportes',
           ...(isSuperAdmin ? ['pruebas'] : [])
         ];
         if (validTabs.includes(hash)) {
@@ -232,7 +234,7 @@ export default function HomePage() {
       const handleHashChange = () => {
         const hash = window.location.hash.replace('#', '') as ActiveTab;
         const validTabs = [
-          'scanner', 'calculator', 'converter', 'cashcounter', 'timingcontrol', 'controlhorario', 'supplierorders', 'scanhistory', 'edit', 'solicitud', 'fondogeneral',
+          'scanner', 'calculator', 'converter', 'cashcounter', 'timingcontrol', 'controlhorario', 'supplierorders', 'scanhistory', 'edit', 'solicitud', 'fondogeneral', 'agregarproveedor', 'reportes',
           ...(isSuperAdmin ? ['pruebas'] : [])
         ];
         if (validTabs.includes(hash)) {
@@ -334,7 +336,17 @@ export default function HomePage() {
 
               {/* FONDO GENERAL */}
               {activeTab === 'fondogeneral' && (
-                <FondoGeneralPage />
+                <FondoPage />
+              )}
+
+              {/* AGREGAR PROVEEDOR */}
+              {activeTab === 'agregarproveedor' && (
+                <AgregarProveedorPage />
+              )}
+
+              {/* REPORTES */}
+              {activeTab === 'reportes' && (
+                <ReportesPage />
               )}
 
               {/* SOLICITUD */}

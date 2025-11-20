@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck, Settings, History } from 'lucide-react';
 import AnimatedStickman from '../ui/AnimatedStickman';
-import { useRouter } from 'next/navigation';
 import { User, UserPermissions } from '../../types/firestore';
 import { getDefaultPermissions } from '../../utils/permissions';
 
@@ -29,7 +28,6 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   const [hovered, setHovered] = useState(false);
   const [clickCount, setClickCount] = useState(0);
   const [showStickman, setShowStickman] = useState(false);
-  const router = useRouter();
 
   // Filter menu items based on user permissions
   const getVisibleMenuItems = () => {
@@ -57,12 +55,6 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   const visibleMenuItems = getVisibleMenuItems();
 
   const handleNavigate = (id: string) => {
-    if (id === 'fondogeneral') {
-      // Navegar a la página del Fondo General
-      router.push('/fondogeneral');
-      return;
-    }
-
     if (typeof window !== 'undefined') {
       // Redirigir a la ruta específica para la herramienta usando hash navigation
       window.location.hash = `#${id}`;
