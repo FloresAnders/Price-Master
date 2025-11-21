@@ -42,6 +42,7 @@ import {
     MovementStorageState,
 } from '../../../services/movimientos-fondos';
 import AgregarMovimiento from './AgregarMovimiento';
+import DailyClosingModal, { DailyClosingFormValues } from './DailyClosingModal';
 
 const FONDO_INGRESO_TYPES = ['VENTAS', 'OTROS INGRESOS'] as const;
 
@@ -826,6 +827,7 @@ export function FondoSection({
     const [movementModalOpen, setMovementModalOpen] = useState(false);
     const [movementAutoCloseLocked, setMovementAutoCloseLocked] = useState(false);
     const [movementCurrency, setMovementCurrency] = useState<'CRC' | 'USD'>('CRC');
+    const [dailyClosingModalOpen, setDailyClosingModalOpen] = useState(false);
     const [entriesHydrated, setEntriesHydrated] = useState(false);
     const [hydratedCompany, setHydratedCompany] = useState('');
     const [hydratedAccountKey, setHydratedAccountKey] = useState<MovementAccountKey>(accountKey);
@@ -1653,6 +1655,10 @@ export function FondoSection({
         () => new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }),
         [],
     );
+    const dailyClosingDateFormatter = useMemo(
+        () => new Intl.DateTimeFormat('es-CR', { dateStyle: 'long' }),
+        [],
+    );
     const dateTimeFormatter = useMemo(
         () =>
             new Intl.DateTimeFormat('es-CR', {
@@ -1737,6 +1743,135 @@ export function FondoSection({
         if (mode === 'ingreso') setPaymentType(FONDO_INGRESO_TYPES[0]);
         if (mode === 'egreso') setPaymentType(FONDO_EGRESO_TYPES[0]);
         setMovementModalOpen(true);
+    };
+
+    const handleOpenDailyClosing = () => {
+        if (accountKey !== 'FondoGeneral') return;
+        setDailyClosingModalOpen(true);
+    };
+
+    const handleCloseDailyClosing = () => {
+        setDailyClosingModalOpen(false);
+    };
+
+    const handleConfirmDailyClosing = (closing: DailyClosingFormValues) => {
+        if (accountKey !== 'FondoGeneral') {
+            setDailyClosingModalOpen(false);
+            return;
+        }
+
+        const managerName = closing.manager.trim();
+        if (!managerName) {
+            setDailyClosingModalOpen(false);
+            return;
+        }
+
+        let closingDateValue = closing.closingDate
+            ? new Date(`${closing.closingDate}T00:00:00`)
+            : new Date();
+        if (Number.isNaN(closingDateValue.getTime())) {
+            closingDateValue = new Date();
+        }
+
+        const createdAt = new Date().toISOString();
+        const diffCRC = Math.trunc(closing.totalCRC) - Math.trunc(currentBalanceCRC);
+        const diffUSD = Math.trunc(closing.totalUSD) - Math.trunc(currentBalanceUSD);
+        const hasCrcBreakdown = Object.values(closing.breakdownCRC ?? {}).some(count => count > 0);
+        const hasUsdBreakdown = Object.values(closing.breakdownUSD ?? {}).some(count => count > 0);
+
+        const formatBreakdown = (currency: 'CRC' | 'USD', breakdown: Record<number, number>) => {
+            const entries = Object.entries(breakdown)
+                .filter(([, count]) => count > 0)
+                .map(([denomination, count]) => {
+                    const denomValue = Number(denomination);
+                    const formattedDenom = currency === 'USD'
+                        ? amountFormatterUSD.format(Math.trunc(denomValue))
+                        : amountFormatter.format(Math.trunc(denomValue));
+                    const symbol = currency === 'USD' ? '$' : '₡';
+                    return `${count} x ${symbol}${formattedDenom}`;
+                });
+            return entries.join(', ');
+        };
+
+        const crcBreakdownText = hasCrcBreakdown ? formatBreakdown('CRC', closing.breakdownCRC) : '';
+        const usdBreakdownText = hasUsdBreakdown ? formatBreakdown('USD', closing.breakdownUSD) : '';
+
+        const diffLabel = (currency: 'CRC' | 'USD', diff: number) => {
+            if (diff === 0) return 'sin diferencias';
+            const sign = diff > 0 ? '+' : '-';
+            return `${sign} ${formatByCurrency(currency, Math.abs(diff))}`;
+        };
+
+        const noteParts = [
+            `Cierre diario ${dailyClosingDateFormatter.format(closingDateValue)}`,
+            `Saldo registrado CRC: ${formatByCurrency('CRC', Math.trunc(currentBalanceCRC))}, conteo: ${formatByCurrency('CRC', Math.trunc(closing.totalCRC))}, diferencia: ${diffLabel('CRC', diffCRC)}`,
+            `Saldo registrado USD: ${formatByCurrency('USD', Math.trunc(currentBalanceUSD))}, conteo: ${formatByCurrency('USD', Math.trunc(closing.totalUSD))}, diferencia: ${diffLabel('USD', diffUSD)}`,
+        ];
+
+        if (crcBreakdownText) noteParts.push(`Detalle CRC: ${crcBreakdownText}`);
+        if (usdBreakdownText) noteParts.push(`Detalle USD: ${usdBreakdownText}`);
+        if (closing.notes.trim().length > 0) {
+            noteParts.push(`Notas: ${closing.notes.trim()}`);
+        }
+        noteParts.push(`Encargado: ${managerName}`);
+
+        const baseNotes = noteParts.join(' | ');
+        const entriesToAdd: FondoEntry[] = [];
+        const baseId = `${Date.now()}`;
+
+        const includeCRC =
+            closing.totalCRC > 0 ||
+            diffCRC !== 0 ||
+            hasCrcBreakdown ||
+            (!hasUsdBreakdown && closing.totalUSD === 0);
+        if (includeCRC) {
+            entriesToAdd.push({
+                id: `${baseId}_crc`,
+                providerCode: 'CIERRE DE FONDO',
+                invoiceNumber: '0000',
+                paymentType: diffCRC < 0 ? 'EGRESOS VARIOS' : 'VENTAS',
+                amountEgreso: diffCRC < 0 ? Math.abs(diffCRC) : 0,
+                amountIngreso: diffCRC > 0 ? diffCRC : 0,
+                manager: managerName,
+                notes: baseNotes,
+                createdAt,
+                currency: 'CRC',
+            });
+        }
+
+        const includeUSD = closing.totalUSD > 0 || diffUSD !== 0 || hasUsdBreakdown;
+        if (includeUSD) {
+            entriesToAdd.push({
+                id: `${baseId}_usd`,
+                providerCode: 'CIERRE DE FONDO',
+                invoiceNumber: '0001',
+                paymentType: diffUSD < 0 ? 'EGRESOS VARIOS' : 'VENTAS',
+                amountEgreso: diffUSD < 0 ? Math.abs(diffUSD) : 0,
+                amountIngreso: diffUSD > 0 ? diffUSD : 0,
+                manager: managerName,
+                notes: baseNotes,
+                createdAt,
+                currency: 'USD',
+            });
+        }
+
+        if (entriesToAdd.length === 0) {
+            entriesToAdd.push({
+                id: `${baseId}_crc`,
+                providerCode: 'CIERRE DE FONDO',
+                invoiceNumber: '0000',
+                paymentType: 'VENTAS',
+                amountEgreso: 0,
+                amountIngreso: 0,
+                manager: managerName,
+                notes: baseNotes,
+                createdAt,
+                currency: 'CRC',
+            });
+        }
+
+        setFondoEntries(prev => [...entriesToAdd, ...prev]);
+        setDailyClosingModalOpen(false);
     };
 
     const handleAdminCompanyChange = useCallback((value: string) => {
@@ -2795,7 +2930,7 @@ export function FondoSection({
                     <div className="w-full max-w-2xl">
                         {enabledBalanceCurrencies.length > 0 && (
                             <div className="px-4 py-3 rounded min-w-[220px] fg-balance-card">
-                                <div className="mb-3 text-center text-sm font-medium text-[var(--muted-foreground)]">Saldo actual</div>
+                                <div className="mb-3 text-center text-sm font-medium text-[var(--muted-foreground)]">Saldo Actual</div>
                                 <div className="flex flex-col divide-y divide-[var(--input-border)] sm:flex-row sm:divide-y-0 sm:divide-x">
                                     {enabledBalanceCurrencies.map(currency => {
                                         const label = currency === 'CRC' ? 'Colones' : 'Dólares';
@@ -2810,6 +2945,17 @@ export function FondoSection({
                                         );
                                     })}
                                 </div>
+                                {accountKey === 'FondoGeneral' && (
+                                    <div className="mt-4 flex justify-center">
+                                        <button
+                                            type="button"
+                                            onClick={handleOpenDailyClosing}
+                                            className="px-4 py-2 rounded border border-[var(--input-border)] text-sm text-[var(--foreground)] hover:bg-[var(--muted)]"
+                                        >
+                                            Registrar cierre diario
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
@@ -3054,6 +3200,18 @@ export function FondoSection({
                         )}
                     </div>
                 </div>
+            )}
+
+            {accountKey === 'FondoGeneral' && (
+                <DailyClosingModal
+                    open={dailyClosingModalOpen}
+                    onClose={handleCloseDailyClosing}
+                    onConfirm={handleConfirmDailyClosing}
+                    employees={employeeOptions}
+                    loadingEmployees={employeesLoading}
+                    currentBalanceCRC={currentBalanceCRC}
+                    currentBalanceUSD={currentBalanceUSD}
+                />
             )}
         </div>
     );
