@@ -1,18 +1,18 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
     FileText, 
     Lock, 
     Calendar,
     Filter,
-    Download,
     Search,
     X,
     TrendingUp,
     TrendingDown,
     DollarSign,
-    Building2
+    Building2,
+    RefreshCw
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { getDefaultPermissions } from '@/utils/permissions';
@@ -85,13 +85,14 @@ export default function ReportePage() {
     const ownerId = (user?.ownerId || '').trim();
 
     // Company selection state
-    const [selectedCompany, setSelectedCompany] = useState(assignedCompany);
+    const [selectedCompany, setSelectedCompany] = useState('');
     const [ownerCompanies, setOwnerCompanies] = useState<Empresas[]>([]);
     const [companiesLoading, setCompaniesLoading] = useState(false);
 
     // Movements data
     const [allMovements, setAllMovements] = useState<FondoEntry[]>([]);
     const [movementsLoading, setMovementsLoading] = useState(false);
+    const [isRefreshing, setIsRefreshing] = useState(false);
     
     // Providers
     const { providers } = useProviders(selectedCompany);
@@ -109,6 +110,27 @@ export default function ReportePage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [filterMode, setFilterMode] = useState<'all' | 'ingreso' | 'egreso'>('all');
     const [reportType, setReportType] = useState<'all' | 'solo-gastos' | 'gastos-egresos'>('all');
+
+    // Update selectedCompany when assignedCompany becomes available
+    useEffect(() => {
+        if (!isAdminUser && assignedCompany && !selectedCompany) {
+            setSelectedCompany(assignedCompany);
+        }
+    }, [assignedCompany, selectedCompany, isAdminUser]);
+
+    // Align selected company name with canonical owner company entry
+    useEffect(() => {
+        if (!selectedCompany || ownerCompanies.length === 0) return;
+
+        const normalizedSelected = selectedCompany.trim().toLowerCase();
+        const matchedCompany = ownerCompanies.find(company =>
+            (company.name || '').trim().toLowerCase() === normalizedSelected
+        );
+
+        if (matchedCompany?.name && matchedCompany.name !== selectedCompany) {
+            setSelectedCompany(matchedCompany.name.trim());
+        }
+    }, [selectedCompany, ownerCompanies]);
 
     // Load companies for admin users
     useEffect(() => {
@@ -129,22 +151,56 @@ export default function ReportePage() {
             .finally(() => setCompaniesLoading(false));
     }, [isAdminUser, ownerId]);
 
+    const fetchCompanyStorage = useCallback(async (companyName: string) => {
+        const normalized = (companyName || '').trim();
+        if (!normalized) {
+            return { storage: null, effectiveName: '' };
+        }
+
+        const variants = Array.from(new Set([
+            normalized,
+            normalized.toUpperCase(),
+            normalized.toLowerCase(),
+        ]));
+
+        for (const variant of variants) {
+            const companyKey = MovimientosFondosService.buildCompanyMovementsKey(variant);
+            try {
+                const storage = await MovimientosFondosService.getDocument<FondoEntry>(companyKey);
+                if (storage) {
+                    return { storage, effectiveName: variant };
+                }
+            } catch (err) {
+                console.error('Error loading movements:', err);
+            }
+        }
+
+        return { storage: null, effectiveName: normalized };
+    }, []);
+
     // Load movements data
     useEffect(() => {
-        if (!selectedCompany) {
+        const targetCompany = selectedCompany.trim();
+        if (!targetCompany) {
             setAllMovements([]);
             return;
         }
 
+        let isActive = true;
+
         const loadMovements = async () => {
             setMovementsLoading(true);
             try {
-                const companyKey = MovimientosFondosService.buildCompanyMovementsKey(selectedCompany);
-                const storage = await MovimientosFondosService.getDocument<FondoEntry>(companyKey);
-                
+                const { storage, effectiveName } = await fetchCompanyStorage(targetCompany);
+                if (!isActive) return;
+
+                if (effectiveName && effectiveName !== selectedCompany) {
+                    setSelectedCompany(effectiveName);
+                }
+
                 if (storage?.operations?.movements) {
                     const movements = storage.operations.movements as FondoEntry[];
-                    setAllMovements(movements.sort((a, b) => 
+                    setAllMovements(movements.sort((a, b) =>
                         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
                     ));
                 } else {
@@ -152,14 +208,22 @@ export default function ReportePage() {
                 }
             } catch (err) {
                 console.error('Error loading movements:', err);
-                setAllMovements([]);
+                if (isActive) {
+                    setAllMovements([]);
+                }
             } finally {
-                setMovementsLoading(false);
+                if (isActive) {
+                    setMovementsLoading(false);
+                }
             }
         };
 
         void loadMovements();
-    }, [selectedCompany]);
+
+        return () => {
+            isActive = false;
+        };
+    }, [selectedCompany, assignedCompany, fetchCompanyStorage]);
 
     // Apply filters
     const filteredMovements = useMemo(() => {
@@ -233,7 +297,7 @@ export default function ReportePage() {
 
         return filtered;
     }, [allMovements, dateFrom, dateTo, selectedProvider, selectedType, selectedAccount, 
-        selectedCurrency, filterMode, searchQuery, providersMap]);
+        selectedCurrency, filterMode, searchQuery, providersMap, reportType]);
 
     // Calculate totals
     const totals = useMemo(() => {
@@ -276,33 +340,34 @@ export default function ReportePage() {
         };
     }, [filteredMovements]);
 
-    // Export to CSV
-    const handleExport = () => {
-        if (filteredMovements.length === 0) return;
+    // Refresh movements manually
+    const handleRefresh = async () => {
+        const targetCompany = selectedCompany.trim();
+        if (!targetCompany || movementsLoading) return;
 
-        const headers = ['Fecha', 'Cuenta', 'Moneda', 'Proveedor', 'Factura', 'Tipo', 'Ingreso', 'Egreso', 'Encargado', 'Notas'];
-        const rows = filteredMovements.map(m => [
-            formatDate(m.createdAt),
-            m.accountId || 'FondoGeneral',
-            m.currency || 'CRC',
-            providersMap.get(m.providerCode) ?? m.providerCode,
-            m.invoiceNumber,
-            m.paymentType,
-            isIngresoType(m.paymentType) ? m.amountIngreso.toString() : '0',
-            !isIngresoType(m.paymentType) ? m.amountEgreso.toString() : '0',
-            m.manager,
-            m.notes
-        ]);
+        setIsRefreshing(true);
+        setMovementsLoading(true);
+        try {
+            const { storage, effectiveName } = await fetchCompanyStorage(targetCompany);
 
-        const csv = [headers, ...rows].map(row => 
-            row.map(cell => `"${cell}"`).join(',')
-        ).join('\n');
+            if (effectiveName && effectiveName !== selectedCompany) {
+                setSelectedCompany(effectiveName);
+            }
 
-        const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `reporte-movimientos-${new Date().toISOString().split('T')[0]}.csv`;
-        link.click();
+            if (storage?.operations?.movements) {
+                const movements = storage.operations.movements as FondoEntry[];
+                setAllMovements(movements.sort((a, b) =>
+                    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                ));
+            } else {
+                setAllMovements([]);
+            }
+        } catch (err) {
+            console.error('Error refreshing movements:', err);
+        } finally {
+            setIsRefreshing(false);
+            setMovementsLoading(false);
+        }
     };
 
     // Clear all filters
@@ -362,22 +427,37 @@ export default function ReportePage() {
                         <h1 className="text-2xl font-bold text-[var(--foreground)]">Reportes de Movimientos</h1>
                     </div>
                     
-                    {isAdminUser && ownerCompanies.length > 0 && (
-                        <div className="flex items-center gap-2">
-                            <Building2 className="w-5 h-5 text-[var(--muted-foreground)]" />
-                            <select
-                                value={selectedCompany}
-                                onChange={(e) => setSelectedCompany(e.target.value)}
-                                className="px-3 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
-                            >
-                                {ownerCompanies.map(company => (
-                                    <option key={company.id} value={company.name}>
-                                        {company.name}
+                    <div className="flex items-center gap-3">
+                        {isAdminUser && ownerCompanies.length > 0 && (
+                            <div className="flex items-center gap-2">
+                                <Building2 className="w-5 h-5 text-[var(--muted-foreground)]" />
+                                <select
+                                    value={selectedCompany}
+                                    onChange={(e) => setSelectedCompany(e.target.value.trim())}
+                                    className="px-3 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+                                >
+                                    <option value="" disabled>
+                                        Seleccionar empresa
                                     </option>
-                                ))}
-                            </select>
-                        </div>
-                    )}
+                                    {ownerCompanies.map(company => (
+                                        <option key={company.id} value={company.name}>
+                                            {company.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+                        
+                        <button
+                            onClick={handleRefresh}
+                            disabled={!selectedCompany || isRefreshing || movementsLoading}
+                            className="flex items-center gap-2 px-4 py-2 bg-[var(--accent)] text-white rounded-lg hover:bg-[var(--accent)]/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Actualizar movimientos"
+                        >
+                            <RefreshCw className={`w-4 h-4 ${(isRefreshing || movementsLoading) ? 'animate-spin' : ''}`} />
+                            <span className="font-medium">Actualizar</span>
+                        </button>
+                    </div>
                 </div>
 
                 {/* Report Type Selector */}
@@ -701,19 +781,11 @@ export default function ReportePage() {
                     </div>
                 </div>
 
-                {/* Export Button */}
+                {/* Export Summary */}
                 <div className="flex justify-between items-center mb-4">
                     <p className="text-[var(--muted-foreground)]">
                         Mostrando {filteredMovements.length} de {allMovements.length} movimientos
                     </p>
-                    <button
-                        onClick={handleExport}
-                        disabled={filteredMovements.length === 0}
-                        className="flex items-center gap-2 px-4 py-2 bg-[var(--accent)] text-white rounded-lg hover:bg-[var(--accent)]/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                        <Download className="w-4 h-4" />
-                        Exportar CSV
-                    </button>
                 </div>
 
                 {/* Movements Table */}
@@ -725,9 +797,11 @@ export default function ReportePage() {
                     <div className="flex flex-col items-center justify-center py-12 text-center">
                         <FileText className="w-12 h-12 text-[var(--muted-foreground)] mb-3" />
                         <p className="text-[var(--muted-foreground)]">
-                            {allMovements.length === 0 
-                                ? 'No hay movimientos registrados para esta empresa'
-                                : 'No se encontraron movimientos con los filtros aplicados'
+                            {!selectedCompany
+                                ? 'Selecciona una empresa para ver los movimientos disponibles.'
+                                : allMovements.length === 0
+                                    ? 'No hay movimientos registrados para esta empresa'
+                                    : 'No se encontraron movimientos con los filtros aplicados'
                             }
                         </p>
                     </div>
