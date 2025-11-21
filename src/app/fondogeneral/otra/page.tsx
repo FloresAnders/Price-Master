@@ -19,7 +19,15 @@ import { getDefaultPermissions } from '@/utils/permissions';
 import { MovimientosFondosService, MovementAccountKey } from '@/services/movimientos-fondos';
 import { useProviders } from '@/hooks/useProviders';
 import { EmpresasService } from '@/services/empresas';
-import type { Empresas } from '@/types/firestore';
+import type { Empresas, ProviderEntry } from '@/types/firestore';
+
+const ACCOUNT_OPTIONS: Array<{ value: MovementAccountKey | 'all'; label: string }> = [
+    { value: 'all', label: 'Todas las cuentas' },
+    { value: 'FondoGeneral', label: 'Fondo General' },
+    { value: 'BCR', label: 'BCR' },
+    { value: 'BN', label: 'BN' },
+    { value: 'BAC', label: 'BAC' },
+];
 
 // Types from fondo.tsx
 const FONDO_INGRESO_TYPES = ['VENTAS', 'OTROS INGRESOS'] as const;
@@ -70,9 +78,7 @@ const formatDate = (isoString: string) => {
     return new Intl.DateTimeFormat('es-CR', {
         year: 'numeric',
         month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
+        day: 'numeric'
     }).format(date);
 };
 
@@ -97,7 +103,11 @@ export default function ReportePage() {
     // Providers
     const { providers } = useProviders(selectedCompany);
     const providersMap = useMemo(() => {
-        return new Map(providers.map(p => [p.code, p.name]));
+        const map = new Map<string, ProviderEntry>();
+        providers.forEach(provider => {
+            map.set(provider.code, provider);
+        });
+        return map;
     }, [providers]);
 
     // Filter states
@@ -284,11 +294,14 @@ export default function ReportePage() {
         const query = searchQuery.trim().toLowerCase();
         if (query) {
             filtered = filtered.filter(m => {
-                const providerName = providersMap.get(m.providerCode) ?? '';
+                const providerEntry = providersMap.get(m.providerCode);
+                const providerName = providerEntry?.name?.toLowerCase() ?? '';
+                const providerCategory = providerEntry?.category?.toLowerCase() ?? '';
                 return (
                     m.invoiceNumber.toLowerCase().includes(query) ||
                     m.notes.toLowerCase().includes(query) ||
-                    providerName.toLowerCase().includes(query) ||
+                    providerName.includes(query) ||
+                    providerCategory.includes(query) ||
                     m.manager.toLowerCase().includes(query) ||
                     m.paymentType.toLowerCase().includes(query)
                 );
@@ -339,6 +352,43 @@ export default function ReportePage() {
             usdBalance: usdIngresos - usdEgresos,
         };
     }, [filteredMovements]);
+
+    const tableTotals = useMemo(() => {
+        const baseTotals = {
+            ingreso: { CRC: 0, USD: 0 } as Record<'CRC' | 'USD', number>,
+            gasto: { CRC: 0, USD: 0 } as Record<'CRC' | 'USD', number>,
+            egreso: { CRC: 0, USD: 0 } as Record<'CRC' | 'USD', number>,
+        };
+
+        filteredMovements.forEach(movement => {
+            const currency = (movement.currency ?? 'CRC') as 'CRC' | 'USD';
+
+            if (isIngresoType(movement.paymentType)) {
+                baseTotals.ingreso[currency] += movement.amountIngreso;
+                return;
+            }
+
+            const providerCategory = providersMap.get(movement.providerCode)?.category ?? 'Egreso';
+
+            if (providerCategory === 'Gasto') {
+                baseTotals.gasto[currency] += movement.amountEgreso;
+            } else {
+                baseTotals.egreso[currency] += movement.amountEgreso;
+            }
+        });
+
+        return baseTotals;
+    }, [filteredMovements, providersMap]);
+
+    const formatTotalsByCurrency = (values: Record<'CRC' | 'USD', number>) => {
+        const parts: string[] = [];
+        (['CRC', 'USD'] as const).forEach(currency => {
+            if (values[currency] > 0) {
+                parts.push(formatCurrency(values[currency], currency));
+            }
+        });
+        return parts.length > 0 ? parts.join(' · ') : '-';
+    };
 
     // Refresh movements manually
     const handleRefresh = async () => {
@@ -428,6 +478,18 @@ export default function ReportePage() {
                     </div>
                     
                     <div className="flex items-center gap-3">
+                        <select
+                            value={selectedAccount}
+                            onChange={(e) => setSelectedAccount(e.target.value as MovementAccountKey | 'all')}
+                            className="px-3 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+                            title="Filtrar por cuenta"
+                        >
+                            {ACCOUNT_OPTIONS.map(option => (
+                                <option key={option.value} value={option.value}>
+                                    {option.label}
+                                </option>
+                            ))}
+                        </select>
                         {isAdminUser && ownerCompanies.length > 0 && (
                             <div className="flex items-center gap-2">
                                 <Building2 className="w-5 h-5 text-[var(--muted-foreground)]" />
@@ -698,11 +760,11 @@ export default function ReportePage() {
                                 onChange={(e) => setSelectedAccount(e.target.value as MovementAccountKey | 'all')}
                                 className="w-full px-3 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
                             >
-                                <option value="all">Todas las cuentas</option>
-                                <option value="FondoGeneral">Fondo General</option>
-                                <option value="BCR">BCR</option>
-                                <option value="BN">BN</option>
-                                <option value="BAC">BAC</option>
+                                {ACCOUNT_OPTIONS.map(option => (
+                                    <option key={option.value} value={option.value}>
+                                        {option.label}
+                                    </option>
+                                ))}
                             </select>
                         </div>
 
@@ -816,56 +878,82 @@ export default function ReportePage() {
                                     <th className="px-4 py-3 text-left text-sm font-semibold text-[var(--foreground)]">Proveedor</th>
                                     <th className="px-4 py-3 text-left text-sm font-semibold text-[var(--foreground)]">Tipo</th>
                                     <th className="px-4 py-3 text-right text-sm font-semibold text-[var(--foreground)]">Ingreso</th>
+                                    <th className="px-4 py-3 text-right text-sm font-semibold text-[var(--foreground)]">Gasto</th>
                                     <th className="px-4 py-3 text-right text-sm font-semibold text-[var(--foreground)]">Egreso</th>
-                                    <th className="px-4 py-3 text-left text-sm font-semibold text-[var(--foreground)]">Encargado</th>
-                                    <th className="px-4 py-3 text-left text-sm font-semibold text-[var(--foreground)]">Factura</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredMovements.map((movement) => (
-                                    <tr key={movement.id} className="border-b border-[var(--border)] hover:bg-[var(--muted)]/50 transition-colors">
-                                        <td className="px-4 py-3 text-sm text-[var(--foreground)]">
-                                            {formatDate(movement.createdAt)}
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-[var(--foreground)]">
-                                            {movement.accountId || 'FondoGeneral'}
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-[var(--foreground)]">
-                                            {movement.currency || 'CRC'}
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-[var(--foreground)]">
-                                            {providersMap.get(movement.providerCode) ?? movement.providerCode}
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-[var(--foreground)]">
-                                            <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                                isIngresoType(movement.paymentType)
-                                                    ? 'bg-green-500/20 text-green-700 dark:text-green-400'
-                                                    : 'bg-red-500/20 text-red-700 dark:text-red-400'
-                                            }`}>
-                                                {movement.paymentType}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-right font-medium text-green-700 dark:text-green-400">
-                                            {movement.amountIngreso > 0 
-                                                ? formatCurrency(movement.amountIngreso, movement.currency || 'CRC')
-                                                : '-'
-                                            }
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-right font-medium text-red-700 dark:text-red-400">
-                                            {movement.amountEgreso > 0 
-                                                ? formatCurrency(movement.amountEgreso, movement.currency || 'CRC')
-                                                : '-'
-                                            }
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-[var(--foreground)]">
-                                            {movement.manager}
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-[var(--muted-foreground)]">
-                                            {movement.invoiceNumber || '-'}
-                                        </td>
-                                    </tr>
-                                ))}
+                                {filteredMovements.map((movement) => {
+                                    const providerEntry = providersMap.get(movement.providerCode);
+                                    const providerName = providerEntry?.name ?? movement.providerCode;
+                                    const providerCategory = providerEntry?.category ?? (isIngresoType(movement.paymentType) ? 'Ingreso' : 'Egreso');
+                                    const gastoAmount = providerCategory === 'Gasto' ? movement.amountEgreso : 0;
+                                    const egresoAmount = providerCategory === 'Egreso' ? movement.amountEgreso : 0;
+
+                                    return (
+                                        <tr key={movement.id} className="border-b border-[var(--border)] hover:bg-[var(--muted)]/50 transition-colors">
+                                            <td className="px-4 py-3 text-sm text-[var(--foreground)]">
+                                                {formatDate(movement.createdAt)}
+                                            </td>
+                                            <td className="px-4 py-3 text-sm text-[var(--foreground)]">
+                                                {movement.accountId || 'FondoGeneral'}
+                                            </td>
+                                            <td className="px-4 py-3 text-sm text-[var(--foreground)]">
+                                                {movement.currency || 'CRC'}
+                                            </td>
+                                            <td className="px-4 py-3 text-sm text-[var(--foreground)]">
+                                                <div className="flex flex-col">
+                                                    <span>{providerName}</span>
+                                                    <span className="text-xs text-[var(--muted-foreground)] capitalize">{providerCategory.toLowerCase()}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-3 text-sm text-[var(--foreground)]">
+                                                <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                                    isIngresoType(movement.paymentType)
+                                                        ? 'bg-green-500/20 text-green-700 dark:text-green-400'
+                                                        : 'bg-red-500/20 text-red-700 dark:text-red-400'
+                                                }`}>
+                                                    {movement.paymentType}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3 text-sm text-right font-medium text-green-700 dark:text-green-400">
+                                                {movement.amountIngreso > 0
+                                                    ? formatCurrency(movement.amountIngreso, movement.currency || 'CRC')
+                                                    : '-'
+                                                }
+                                            </td>
+                                            <td className="px-4 py-3 text-sm text-right font-medium text-red-700 dark:text-red-400">
+                                                {gastoAmount > 0
+                                                    ? formatCurrency(gastoAmount, movement.currency || 'CRC')
+                                                    : '-'
+                                                }
+                                            </td>
+                                            <td className="px-4 py-3 text-sm text-right font-medium text-red-700 dark:text-red-400">
+                                                {egresoAmount > 0
+                                                    ? formatCurrency(egresoAmount, movement.currency || 'CRC')
+                                                    : '-'
+                                                }
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
+                            <tfoot>
+                                <tr className="bg-[var(--muted)] border-t border-[var(--border)]">
+                                    <td colSpan={5} className="px-4 py-3 text-sm font-semibold text-[var(--foreground)]">
+                                        Totales
+                                    </td>
+                                    <td className="px-4 py-3 text-sm text-right font-semibold text-green-700 dark:text-green-400">
+                                        {formatTotalsByCurrency(tableTotals.ingreso)}
+                                    </td>
+                                    <td className="px-4 py-3 text-sm text-right font-semibold text-red-700 dark:text-red-400">
+                                        {formatTotalsByCurrency(tableTotals.gasto)}
+                                    </td>
+                                    <td className="px-4 py-3 text-sm text-right font-semibold text-red-700 dark:text-red-400">
+                                        {formatTotalsByCurrency(tableTotals.egreso)}
+                                    </td>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
                 )}
