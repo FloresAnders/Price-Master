@@ -42,57 +42,7 @@ import {
     MovementStorageState,
 } from '../../../services/movimientos-fondos';
 import AgregarMovimiento from './AgregarMovimiento';
-
-export type DailyClosingFormValues = {
-    manager: string;
-    closingDate?: string;
-    totalCRC: number;
-    totalUSD: number;
-    breakdownCRC?: Record<number, number>;
-    breakdownUSD?: Record<number, number>;
-    notes?: string;
-};
-
-/**
- * Local fallback/minimal DailyClosingModal used when the external module is not present.
- * This preserves the component API used in this file while avoiding the missing-module error.
- * Replace with the full implementation or restore the external import when the separate file exists.
- */
-const DailyClosingModal: React.FC<{
-    open: boolean;
-    onClose: () => void;
-    onConfirm: (values: DailyClosingFormValues) => void;
-    employees: string[];
-    loadingEmployees: boolean;
-    currentBalanceCRC: number;
-    currentBalanceUSD: number;
-}> = ({ open, onClose }) => {
-    if (!open) return null;
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-800/60 px-4" onClick={onClose}>
-            <div
-                className="w-full max-w-md rounded border border-[var(--input-border)] bg-[#1f262a] p-6 shadow-lg text-white"
-                onClick={e => e.stopPropagation()}
-                role="dialog"
-                aria-modal="true"
-            >
-                <h3 className="text-lg font-semibold">Registrar cierre diario</h3>
-                <p className="mt-2 text-sm text-[var(--muted-foreground)]">
-                    Modal de cierre diario (implementación reducida). Completa implementación en un archivo separado.
-                </p>
-                <div className="flex justify-end mt-4">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="px-4 py-2 border border-[var(--input-border)] rounded"
-                    >
-                        Cerrar
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-};
+import DailyClosingModal, { DailyClosingFormValues } from './DailyClosingModal';
 
 const FONDO_INGRESO_TYPES = ['VENTAS', 'OTROS INGRESOS'] as const;
 
@@ -1829,8 +1779,7 @@ export function FondoSection({
         const hasCrcBreakdown = Object.values(closing.breakdownCRC ?? {}).some(count => count > 0);
         const hasUsdBreakdown = Object.values(closing.breakdownUSD ?? {}).some(count => count > 0);
 
-        const formatBreakdown = (currency: 'CRC' | 'USD', breakdown?: Record<number, number>) => {
-            if (!breakdown) return '';
+        const formatBreakdown = (currency: 'CRC' | 'USD', breakdown: Record<number, number>) => {
             const entries = Object.entries(breakdown)
                 .filter(([, count]) => count > 0)
                 .map(([denomination, count]) => {
@@ -1861,9 +1810,8 @@ export function FondoSection({
 
         if (crcBreakdownText) noteParts.push(`Detalle CRC: ${crcBreakdownText}`);
         if (usdBreakdownText) noteParts.push(`Detalle USD: ${usdBreakdownText}`);
-        const notesTrimmed = (closing.notes ?? '').trim();
-        if (notesTrimmed.length > 0) {
-            noteParts.push(`Notas: ${notesTrimmed}`);
+        if (closing.notes.trim().length > 0) {
+            noteParts.push(`Notas: ${closing.notes.trim()}`);
         }
         noteParts.push(`Encargado: ${managerName}`);
 
