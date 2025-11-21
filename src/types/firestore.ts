@@ -18,6 +18,9 @@ export interface ProviderEntry {
   name: string;
   company: string;
   type?: string;
+  category?: 'Ingreso' | 'Gasto' | 'Egreso';
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Sorteo {

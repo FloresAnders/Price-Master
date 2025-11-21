@@ -8,6 +8,66 @@ interface ProvidersDocument {
 	providers: ProviderEntry[];
 }
 
+/**
+ * Determina la categoría automáticamente basándose en el tipo de movimiento
+ */
+const getCategoryFromType = (type?: string): 'Ingreso' | 'Gasto' | 'Egreso' | undefined => {
+	if (!type || typeof type !== 'string') return undefined;
+	
+	const normalizedType = type.trim().toUpperCase();
+	
+	// Ingresos
+	if (normalizedType === 'VENTAS' || normalizedType === 'OTROS INGRESOS') {
+		return 'Ingreso';
+	}
+	
+	// Gastos
+	const gastos = [
+		'SALARIOS',
+		'CARGAS SOCIALES',
+		'AGUINALDOS',
+		'VACACIONES',
+		'POLIZA RIESGOS DE TRABAJO',
+		'PAGO TIMBRE Y EDUCACION',
+		'PAGO IMPUESTOS A SOCIEDADES',
+		'PATENTES MUNICIPALES',
+		'ALQUILER LOCAL',
+		'ELECTRICIDAD',
+		'AGUA',
+		'INTERNET',
+		'MANTENIMIENTO INSTALACIONES',
+		'PAPELERIA Y UTILES',
+		'ASEO Y LIMPIEZA',
+		'REDES SOCIALES',
+		'MATERIALES DE EMPAQUE',
+		'CONTROL PLAGAS',
+		'MONITOREO DE ALARMAS',
+		'FACTURA ELECTRONICA',
+		'GASTOS VARIOS'
+	];
+	
+	if (gastos.includes(normalizedType)) {
+		return 'Gasto';
+	}
+	
+	// Egresos
+	const egresos = [
+		'PAGO TIEMPOS',
+		'PAGO BANCA',
+		'COMPRA INVENTARIO',
+		'COMPRA ACTIVOS',
+		'PAGO IMPUESTO RENTA',
+		'PAGO IMPUESTO IVA',
+		'EGRESOS VARIOS'
+	];
+	
+	if (egresos.includes(normalizedType)) {
+		return 'Egreso';
+	}
+	
+	return undefined;
+};
+
 const padCode = (value: unknown): string => {
 	if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {
 		return String(value).padStart(4, '0');
@@ -45,12 +105,23 @@ const normalizeProviderEntry = (raw: unknown, fallbackCompany: string): Provider
 
 	const companyCandidate = typeof data.company === 'string' ? data.company.trim() : '';
 	const typeCandidate = typeof data.type === 'string' ? data.type.trim().toUpperCase() : undefined;
+	
+	// Si hay una categoría guardada, la usamos; si no, la determinamos del tipo
+	const categoryCandidate = typeof data.category === 'string' 
+		? data.category.trim() as 'Ingreso' | 'Gasto' | 'Egreso'
+		: getCategoryFromType(typeCandidate);
+	
+	const createdAt = typeof data.createdAt === 'string' ? data.createdAt : undefined;
+	const updatedAt = typeof data.updatedAt === 'string' ? data.updatedAt : undefined;
 
 	return {
 		name,
 		code,
 		company: companyCandidate || fallbackCompany,
-		type: typeCandidate && typeCandidate.length > 0 ? typeCandidate : undefined
+		type: typeCandidate && typeCandidate.length > 0 ? typeCandidate : undefined,
+		category: categoryCandidate,
+		createdAt,
+		updatedAt
 	};
 };
 
@@ -160,11 +231,16 @@ export class ProvidersService {
 				}
 
 			const nextNumericCode = deriveNextCode(document.nextCode, document.providers);
+			const category = getCategoryFromType(normalizedType);
+			const now = new Date().toISOString();
 			const createdProvider: ProviderEntry = {
 				code: String(nextNumericCode).padStart(4, '0'),
 					name: normalizedName,
 				company: document.company,
-				type: normalizedType
+				type: normalizedType,
+				category,
+				createdAt: now,
+				updatedAt: now
 			};
 
 			const updatedDocument: ProvidersDocument = {
@@ -185,6 +261,9 @@ export class ProvidersService {
 						company: p.company,
 					};
 					if (typeof p.type === 'string' && p.type.length > 0) out.type = p.type;
+					if (typeof p.category === 'string' && p.category.length > 0) out.category = p.category;
+					if (typeof p.createdAt === 'string' && p.createdAt.length > 0) out.createdAt = p.createdAt;
+					if (typeof p.updatedAt === 'string' && p.updatedAt.length > 0) out.updatedAt = p.updatedAt;
 					return out;
 				}),
 			};
@@ -232,23 +311,26 @@ export class ProvidersService {
 						providers: updatedProviders
 					};
 
-					// Sanitize before writing to Firestore to avoid `undefined` values.
-					const firestoreDoc: Record<string, unknown> = {
-						company: updatedDocument.company,
-						nextCode: updatedDocument.nextCode,
-						providers: updatedDocument.providers.map(p => {
-							const out: Record<string, unknown> = {
-								code: p.code,
-								name: p.name,
-								company: p.company,
-							};
-							if (typeof p.type === 'string' && p.type.length > 0) out.type = p.type;
-							return out;
-						}),
-					};
+				// Sanitize before writing to Firestore to avoid `undefined` values.
+				const firestoreDoc: Record<string, unknown> = {
+					company: updatedDocument.company,
+					nextCode: updatedDocument.nextCode,
+					providers: updatedDocument.providers.map(p => {
+						const out: Record<string, unknown> = {
+							code: p.code,
+							name: p.name,
+							company: p.company,
+						};
+						if (typeof p.type === 'string' && p.type.length > 0) out.type = p.type;
+						if (typeof p.category === 'string' && p.category.length > 0) out.category = p.category;
+						if (typeof p.createdAt === 'string' && p.createdAt.length > 0) out.createdAt = p.createdAt;
+						if (typeof p.updatedAt === 'string' && p.updatedAt.length > 0) out.updatedAt = p.updatedAt;
+						return out;
+					}),
+				};
 
-					transaction.set(docRef, firestoreDoc);
-					return providerToRemove;
+				transaction.set(docRef, firestoreDoc);
+				return providerToRemove;
 				});
 
 				return removedProvider;
@@ -291,17 +373,18 @@ export class ProvidersService {
 						throw new Error('Ya existe un proveedor con ese nombre.');
 					}
 
-					const normalizedType = typeof providerType === 'string' && providerType.trim().length > 0
-						? providerType.trim().toUpperCase()
-						: undefined;
+				const normalizedType = typeof providerType === 'string' && providerType.trim().length > 0
+					? providerType.trim().toUpperCase()
+					: undefined;
 
-					const updatedProvider: ProviderEntry = {
-						...document.providers[targetIndex],
-						name: normalizedName,
-						type: normalizedType,
-					};
-
-					const updatedProviders = [...document.providers];
+				const category = getCategoryFromType(normalizedType);
+				const updatedProvider: ProviderEntry = {
+					...document.providers[targetIndex],
+					name: normalizedName,
+					type: normalizedType,
+					category,
+					updatedAt: new Date().toISOString()
+				};					const updatedProviders = [...document.providers];
 					updatedProviders[targetIndex] = updatedProvider;
 
 					const updatedDocument: ProvidersDocument = {
@@ -310,21 +393,24 @@ export class ProvidersService {
 						providers: updatedProviders,
 					};
 
-					const firestoreDoc: Record<string, unknown> = {
-						company: updatedDocument.company,
-						nextCode: updatedDocument.nextCode,
-						providers: updatedDocument.providers.map(p => {
-							const out: Record<string, unknown> = {
-								code: p.code,
-								name: p.name,
-								company: p.company,
-							};
-							if (typeof p.type === 'string' && p.type.length > 0) out.type = p.type;
-							return out;
-						}),
-					};
+				const firestoreDoc: Record<string, unknown> = {
+					company: updatedDocument.company,
+					nextCode: updatedDocument.nextCode,
+					providers: updatedDocument.providers.map(p => {
+						const out: Record<string, unknown> = {
+							code: p.code,
+							name: p.name,
+							company: p.company,
+						};
+						if (typeof p.type === 'string' && p.type.length > 0) out.type = p.type;
+						if (typeof p.category === 'string' && p.category.length > 0) out.category = p.category;
+						if (typeof p.createdAt === 'string' && p.createdAt.length > 0) out.createdAt = p.createdAt;
+						if (typeof p.updatedAt === 'string' && p.updatedAt.length > 0) out.updatedAt = p.updatedAt;
+						return out;
+					}),
+				};
 
-					transaction.set(docRef, firestoreDoc);
+				transaction.set(docRef, firestoreDoc);
 					return updatedProvider;
 				});
 
