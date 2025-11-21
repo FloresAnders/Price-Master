@@ -2156,6 +2156,32 @@ export function FondoSection({
         return `${dd}/${mm}/${yyyy}`;
     };
 
+    const closingsAreLoading = accountKey === 'FondoGeneral' && !dailyClosingsHydrated;
+    const visibleDailyClosings = useMemo(() => {
+        if (accountKey !== 'FondoGeneral') return [] as DailyClosingRecord[];
+        if (!dailyClosingsHydrated) return [] as DailyClosingRecord[];
+        let base = dailyClosings;
+        if (isDailyMode) {
+            base = base.filter(record => {
+                const key = dateKeyFromDate(new Date(record.closingDate));
+                return key === currentDailyKey;
+            });
+        } else if (fromFilter || toFilter) {
+            base = base.filter(record => {
+                const key = dateKeyFromDate(new Date(record.closingDate));
+                if (fromFilter && toFilter) return key >= fromFilter && key <= toFilter;
+                if (fromFilter && !toFilter) return key === fromFilter;
+                if (!fromFilter && toFilter) return key === toFilter;
+                return true;
+            });
+        }
+        return base;
+    }, [accountKey, dailyClosings, dailyClosingsHydrated, isDailyMode, currentDailyKey, fromFilter, toFilter]);
+    const totalDailyClosings = accountKey === 'FondoGeneral' ? dailyClosings.length : 0;
+    const dailyClosingsTitle = isDailyMode
+        ? `Cierres diarios — ${formatGroupLabel(currentDailyKey)}`
+        : 'Cierres diarios recientes';
+
     const companySelectId = `fg-company-select-${namespace}`;
     const showCompanySelector = isAdminUser && (ownerCompaniesLoading || sortedOwnerCompanies.length > 0 || !!ownerCompaniesError);
     const currentCompanyLabel = company || 'Sin empresa seleccionada';
@@ -3024,20 +3050,28 @@ export function FondoSection({
                         {accountKey === 'FondoGeneral' && (
                             <div className="px-4 py-4 rounded border border-[var(--input-border)] bg-[var(--card-bg)]">
                                 <div className="flex flex-wrap items-center justify-between gap-2">
-                                    <h3 className="text-sm font-semibold text-[var(--foreground)]">Cierres diarios recientes</h3>
-                                    {dailyClosings.length > 0 && (
+                                    <h3 className="text-sm font-semibold text-[var(--foreground)]">{dailyClosingsTitle}</h3>
+                                    {!closingsAreLoading && totalDailyClosings > 0 && (
                                         <span className="text-xs text-[var(--muted-foreground)]">
-                                            {dailyClosings.length >= 50 ? 'Mostrando los últimos 50 registros' : `Total: ${dailyClosings.length}`}
+                                            {isDailyMode
+                                                ? `${visibleDailyClosings.length} ${visibleDailyClosings.length === 1 ? 'cierre' : 'cierres'} en ${formatGroupLabel(currentDailyKey)}`
+                                                : totalDailyClosings >= 50
+                                                    ? 'Mostrando los últimos 50 registros'
+                                                    : `Total guardado: ${totalDailyClosings}`}
                                         </span>
                                     )}
                                 </div>
-                                {dailyClosings.length === 0 ? (
+                                {closingsAreLoading ? (
+                                    <p className="mt-3 text-sm text-[var(--muted-foreground)]">Cargando cierres...</p>
+                                ) : visibleDailyClosings.length === 0 ? (
                                     <p className="mt-3 text-sm text-[var(--muted-foreground)]">
-                                        Aún no has registrado cierres diarios para este fondo.
+                                        {isDailyMode
+                                            ? `No hay cierres registrados para ${formatGroupLabel(currentDailyKey)}.`
+                                            : 'Aún no has registrado cierres diarios para este fondo.'}
                                     </p>
                                 ) : (
                                     <div className="mt-4 space-y-4 max-h-[360px] overflow-y-auto pr-1">
-                                        {dailyClosings.map(record => {
+                                        {visibleDailyClosings.map(record => {
                                             const closingDate = new Date(record.closingDate);
                                             const closingDateLabel = Number.isNaN(closingDate.getTime())
                                                 ? record.closingDate
