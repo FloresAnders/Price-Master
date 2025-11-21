@@ -108,6 +108,7 @@ export default function ReportePage() {
     const [selectedCurrency, setSelectedCurrency] = useState<'CRC' | 'USD' | 'all'>('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [filterMode, setFilterMode] = useState<'all' | 'ingreso' | 'egreso'>('all');
+    const [reportType, setReportType] = useState<'all' | 'solo-gastos' | 'gastos-egresos'>('all');
 
     // Load companies for admin users
     useEffect(() => {
@@ -203,6 +204,18 @@ export default function ReportePage() {
             filtered = filtered.filter(m => !isIngresoType(m.paymentType));
         }
 
+        // Filter by report type
+        if (reportType === 'solo-gastos') {
+            // Solo gastos específicos (sin egresos bancarios)
+            filtered = filtered.filter(m => 
+                !isIngresoType(m.paymentType) && 
+                !['PAGO TIEMPOS', 'PAGO BANCA'].includes(m.paymentType)
+            );
+        } else if (reportType === 'gastos-egresos') {
+            // Todos los egresos (gastos + egresos)
+            filtered = filtered.filter(m => !isIngresoType(m.paymentType));
+        }
+
         // Search filter
         const query = searchQuery.trim().toLowerCase();
         if (query) {
@@ -240,12 +253,25 @@ export default function ReportePage() {
             .filter(m => m.currency === 'USD' && !isIngresoType(m.paymentType))
             .reduce(( sum, m) => sum + m.amountEgreso, 0);
 
+        // Calculate only expenses (gastos) total
+        const crcGastos = filteredMovements
+            .filter(m => m.currency === 'CRC' && !isIngresoType(m.paymentType) && 
+                !['PAGO TIEMPOS', 'PAGO BANCA'].includes(m.paymentType))
+            .reduce((sum, m) => sum + m.amountEgreso, 0);
+        
+        const usdGastos = filteredMovements
+            .filter(m => m.currency === 'USD' && !isIngresoType(m.paymentType) && 
+                !['PAGO TIEMPOS', 'PAGO BANCA'].includes(m.paymentType))
+            .reduce((sum, m) => sum + m.amountEgreso, 0);
+
         return {
             crcIngresos,
             crcEgresos,
+            crcGastos,
             crcBalance: crcIngresos - crcEgresos,
             usdIngresos,
             usdEgresos,
+            usdGastos,
             usdBalance: usdIngresos - usdEgresos,
         };
     }, [filteredMovements]);
@@ -289,6 +315,7 @@ export default function ReportePage() {
         setSelectedCurrency('all');
         setSearchQuery('');
         setFilterMode('all');
+        setReportType('all');
     };
 
     const activeFiltersCount = [
@@ -298,7 +325,8 @@ export default function ReportePage() {
         selectedAccount !== 'all',
         selectedCurrency !== 'all',
         searchQuery,
-        filterMode !== 'all'
+        filterMode !== 'all',
+        reportType !== 'all'
     ].filter(Boolean).length;
 
     if (loading) {
@@ -352,9 +380,58 @@ export default function ReportePage() {
                     )}
                 </div>
 
+                {/* Report Type Selector */}
+                <div className="mb-6">
+                    <div className="bg-[var(--muted)] border border-[var(--border)] rounded-lg p-4">
+                        <h2 className="text-sm font-semibold text-[var(--foreground)] mb-3">Tipo de Reporte</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <button
+                                onClick={() => setReportType('all')}
+                                className={`px-4 py-3 rounded-lg font-medium transition-all ${
+                                    reportType === 'all'
+                                        ? 'bg-[var(--accent)] text-white shadow-lg'
+                                        : 'bg-[var(--card-bg)] text-[var(--foreground)] border border-[var(--input-border)] hover:border-[var(--accent)]'
+                                }`}
+                            >
+                                <div className="text-left">
+                                    <div className="font-semibold">Todos los Movimientos</div>
+                                    <div className="text-xs opacity-80 mt-1">Ingresos y egresos completos</div>
+                                </div>
+                            </button>
+                            <button
+                                onClick={() => setReportType('solo-gastos')}
+                                className={`px-4 py-3 rounded-lg font-medium transition-all ${
+                                    reportType === 'solo-gastos'
+                                        ? 'bg-orange-600 text-white shadow-lg'
+                                        : 'bg-[var(--card-bg)] text-[var(--foreground)] border border-[var(--input-border)] hover:border-orange-600'
+                                }`}
+                            >
+                                <div className="text-left">
+                                    <div className="font-semibold">Solo Gastos</div>
+                                    <div className="text-xs opacity-80 mt-1">Gastos operativos únicamente</div>
+                                </div>
+                            </button>
+                            <button
+                                onClick={() => setReportType('gastos-egresos')}
+                                className={`px-4 py-3 rounded-lg font-medium transition-all ${
+                                    reportType === 'gastos-egresos'
+                                        ? 'bg-red-600 text-white shadow-lg'
+                                        : 'bg-[var(--card-bg)] text-[var(--foreground)] border border-[var(--input-border)] hover:border-red-600'
+                                }`}
+                            >
+                                <div className="text-left">
+                                    <div className="font-semibold">Gastos y Egresos</div>
+                                    <div className="text-xs opacity-80 mt-1">Total de salidas de dinero</div>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 {/* Summary Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                    <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
+                    {reportType === 'all' && (
+                        <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
                         <div className="flex items-center justify-between mb-2">
                             <span className="text-sm font-medium text-green-700 dark:text-green-400">Ingresos CRC</span>
                             <TrendingUp className="w-5 h-5 text-green-600 dark:text-green-400" />
@@ -363,28 +440,39 @@ export default function ReportePage() {
                             {formatCurrency(totals.crcIngresos, 'CRC')}
                         </p>
                     </div>
+                    )}
 
                     <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
                         <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium text-red-700 dark:text-red-400">Egresos CRC</span>
+                            <span className="text-sm font-medium text-red-700 dark:text-red-400">
+                                {reportType === 'solo-gastos' ? 'Gastos CRC' : 
+                                 reportType === 'gastos-egresos' ? 'Gastos y Egresos CRC' : 
+                                 'Egresos CRC'}
+                            </span>
                             <TrendingDown className="w-5 h-5 text-red-600 dark:text-red-400" />
                         </div>
                         <p className="text-2xl font-bold text-red-800 dark:text-red-300">
-                            {formatCurrency(totals.crcEgresos, 'CRC')}
+                            {formatCurrency(
+                                reportType === 'solo-gastos' ? totals.crcGastos : totals.crcEgresos, 
+                                'CRC'
+                            )}
                         </p>
                     </div>
 
-                    <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium text-blue-700 dark:text-blue-400">Balance CRC</span>
-                            <DollarSign className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    {reportType === 'all' && (
+                        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm font-medium text-blue-700 dark:text-blue-400">Balance CRC</span>
+                                <DollarSign className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                            </div>
+                            <p className="text-2xl font-bold text-blue-800 dark:text-blue-300">
+                                {formatCurrency(totals.crcBalance, 'CRC')}
+                            </p>
                         </div>
-                        <p className="text-2xl font-bold text-blue-800 dark:text-blue-300">
-                            {formatCurrency(totals.crcBalance, 'CRC')}
-                        </p>
-                    </div>
+                    )}
 
-                    <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
+                    {reportType === 'all' && (
+                        <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
                         <div className="flex items-center justify-between mb-2">
                             <span className="text-sm font-medium text-green-700 dark:text-green-400">Ingresos USD</span>
                             <TrendingUp className="w-5 h-5 text-green-600 dark:text-green-400" />
@@ -393,18 +481,27 @@ export default function ReportePage() {
                             {formatCurrency(totals.usdIngresos, 'USD')}
                         </p>
                     </div>
+                    )}
 
                     <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
                         <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium text-red-700 dark:text-red-400">Egresos USD</span>
+                            <span className="text-sm font-medium text-red-700 dark:text-red-400">
+                                {reportType === 'solo-gastos' ? 'Gastos USD' : 
+                                 reportType === 'gastos-egresos' ? 'Gastos y Egresos USD' : 
+                                 'Egresos USD'}
+                            </span>
                             <TrendingDown className="w-5 h-5 text-red-600 dark:text-red-400" />
                         </div>
                         <p className="text-2xl font-bold text-red-800 dark:text-red-300">
-                            {formatCurrency(totals.usdEgresos, 'USD')}
+                            {formatCurrency(
+                                reportType === 'solo-gastos' ? totals.usdGastos : totals.usdEgresos, 
+                                'USD'
+                            )}
                         </p>
                     </div>
 
-                    <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+                    {reportType === 'all' && (
+                        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
                         <div className="flex items-center justify-between mb-2">
                             <span className="text-sm font-medium text-blue-700 dark:text-blue-400">Balance USD</span>
                             <DollarSign className="w-5 h-5 text-blue-600 dark:text-blue-400" />
@@ -413,6 +510,7 @@ export default function ReportePage() {
                             {formatCurrency(totals.usdBalance, 'USD')}
                         </p>
                     </div>
+                    )}
                 </div>
 
                 {/* Filters Section */}
