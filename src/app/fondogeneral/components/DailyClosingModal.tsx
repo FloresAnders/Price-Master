@@ -41,7 +41,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     currentBalanceCRC,
     currentBalanceUSD,
 }) => {
-    const [closingDate, setClosingDate] = useState(() => new Date().toISOString().slice(0, 10));
+    const [closingDateISO, setClosingDateISO] = useState(() => new Date().toISOString());
     const [manager, setManager] = useState('');
     const [notes, setNotes] = useState('');
     const [crcCounts, setCrcCounts] = useState<CountState>(() => buildInitialCounts(CRC_DENOMINATIONS));
@@ -53,6 +53,10 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     );
     const usdFormatter = useMemo(
         () => new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }),
+        [],
+    );
+    const closingDateFormatter = useMemo(
+        () => new Intl.DateTimeFormat('es-CR', { dateStyle: 'long', timeStyle: 'short' }),
         [],
     );
 
@@ -81,7 +85,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
 
     useEffect(() => {
         if (!open) return;
-        setClosingDate(new Date().toISOString().slice(0, 10));
+        setClosingDateISO(new Date().toISOString());
         setNotes('');
         setCrcCounts(buildInitialCounts(CRC_DENOMINATIONS));
         setUsdCounts(buildInitialCounts(USD_DENOMINATIONS));
@@ -133,7 +137,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
         if (!trimmedManager) return;
 
         onConfirm({
-            closingDate,
+            closingDate: closingDateISO,
             manager: trimmedManager,
             notes,
             totalCRC,
@@ -242,12 +246,9 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                             <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
                                 Fecha de cierre
                             </label>
-                            <input
-                                type="date"
-                                value={closingDate}
-                                onChange={event => setClosingDate(event.target.value)}
-                                className="rounded border border-[var(--input-border)] bg-[var(--input-bg)] p-2 text-sm"
-                            />
+                            <div className="rounded border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--foreground)]">
+                                {closingDateFormatter.format(new Date(closingDateISO))}
+                            </div>
                         </div>
                         <div className="flex flex-col gap-1">
                             <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
