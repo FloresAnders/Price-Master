@@ -44,26 +44,52 @@ import {
 import AgregarMovimiento from './AgregarMovimiento';
 
 const FONDO_INGRESO_TYPES = ['VENTAS', 'OTROS INGRESOS'] as const;
-const FONDO_EGRESO_TYPES = [
-    'COMPRA INVENTARIO',
+
+const FONDO_GASTO_TYPES = [
     'SALARIOS',
-    'REPARACION EQUIPO',
+    'CARGAS SOCIALES',
+    'AGUINALDOS',
+    'VACACIONES',
+    'POLIZA RIESGOS DE TRABAJO',
+    'PAGO TIMBRE Y EDUCACION',
+    'PAGO IMPUESTOS A SOCIEDADES',
+    'PATENTES MUNICIPALES',
+    'ALQUILER LOCAL',
+    'ELECTRICIDAD',
+    'AGUA',
+    'INTERNET',
+    'MANTENIMIENTO INSTALACIONES',
+    'PAPELERIA Y UTILES',
+    'ASEO Y LIMPIEZA',
+    'REDES SOCIALES',
+    'MATERIALES DE EMPAQUE',
+    'CONTROL PLAGAS',
+    'MONITOREO DE ALARMAS',
+    'FACTURA ELECTRONICA',
+    'GASTOS VARIOS',
+] as const;
+
+const FONDO_EGRESO_TYPES = [
     'PAGO TIEMPOS',
     'PAGO BANCA',
-    'CARGAS SOCIALES',
-    'ELECTRICIDAD',
+    'COMPRA INVENTARIO',
+    'COMPRA ACTIVOS',
+    'PAGO IMPUESTO RENTA',
+    'PAGO IMPUESTO IVA',
+    'EGRESOS VARIOS',
 ] as const;
 
 // Opciones visibles en el selector
-const FONDO_TYPE_OPTIONS = [...FONDO_INGRESO_TYPES, ...FONDO_EGRESO_TYPES] as const;
+const FONDO_TYPE_OPTIONS = [...FONDO_INGRESO_TYPES, ...FONDO_GASTO_TYPES, ...FONDO_EGRESO_TYPES] as const;
 
-export type FondoMovementType = typeof FONDO_INGRESO_TYPES[number] | typeof FONDO_EGRESO_TYPES[number];
+export type FondoMovementType = typeof FONDO_INGRESO_TYPES[number] | typeof FONDO_GASTO_TYPES[number] | typeof FONDO_EGRESO_TYPES[number];
 
 const isFondoMovementType = (value: string): value is FondoMovementType =>
     FONDO_TYPE_OPTIONS.includes(value as FondoMovementType);
 
 const isIngresoType = (type: FondoMovementType) => (FONDO_INGRESO_TYPES as readonly string[]).includes(type);
-const isEgresoType = (type: FondoMovementType) => !isIngresoType(type);
+const isGastoType = (type: FondoMovementType) => (FONDO_GASTO_TYPES as readonly string[]).includes(type);
+const isEgresoType = (type: FondoMovementType) => (FONDO_EGRESO_TYPES as readonly string[]).includes(type);
 
 // Formatea en Titulo Caso cada palabra
 const formatMovementType = (type: FondoMovementType) =>
@@ -82,9 +108,10 @@ const normalizeStoredType = (value: unknown): FondoMovementType => {
         if (upper === 'INGRESO') return 'VENTAS';
         if (upper === 'EGRESO') return 'COMPRA INVENTARIO';
         if (upper === 'COMPRA') return 'COMPRA INVENTARIO';
-        if (upper === 'MANTENIMIENTO') return 'REPARACION EQUIPO';
+        if (upper === 'MANTENIMIENTO') return 'MANTENIMIENTO INSTALACIONES';
+        if (upper === 'REPARACION EQUIPO') return 'MANTENIMIENTO INSTALACIONES';
         if (upper === 'SALARIO' || upper === 'SALARIOS') return 'SALARIOS';
-        if (upper === 'GASTO') return 'ELECTRICIDAD'; // categoria generica de gasto
+        if (upper === 'GASTO') return 'GASTOS VARIOS';
     }
     return 'COMPRA INVENTARIO';
 };
@@ -226,7 +253,7 @@ const sanitizeFondoEntries = (
             paymentType,
             currency,
             accountId,
-            amountEgreso: isEgresoType(paymentType) ? amountEgreso : 0,
+            amountEgreso: isEgresoType(paymentType) || isGastoType(paymentType) ? amountEgreso : 0,
             amountIngreso: isIngresoType(paymentType) ? amountIngreso : 0,
             manager,
             notes: coerceNotes(entry.notes),
@@ -491,7 +518,15 @@ export function ProviderSection({ id }: { id?: string }) {
                             <li key={p.code} className="flex items-center justify-between bg-[var(--muted)] p-3 rounded">
                                 <div>
                                     <div className="text-[var(--foreground)] font-semibold">{p.name}</div>
-                                    <div className="text-xs text-[var(--muted-foreground)]">Codigo: {p.code}</div>
+                                    <div className="text-xs text-[var(--muted-foreground)]">Código: {p.code}</div>
+                                    {p.type && (
+                                        <div className="text-xs text-[var(--muted-foreground)] mt-1">
+                                            Tipo: {p.type}
+                                            {p.category && <span className="ml-2 px-2 py-0.5 rounded bg-[var(--input-bg)] text-[10px]">
+                                                {p.category}
+                                            </span>}
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="flex items-center gap-3">
                                     <div className="text-xs text-[var(--muted-foreground)]">Empresa: {p.company}</div>
@@ -594,10 +629,22 @@ export function ProviderSection({ id }: { id?: string }) {
                                 className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded"
                                 disabled={!company || saving}
                             >
-                                <option value="">Tipo</option>
-                                {FONDO_TYPE_OPTIONS.map(opt => (
-                                    <option key={opt} value={opt}>{formatMovementType(opt)}</option>
-                                ))}
+                                <option value="">Seleccione un tipo</option>
+                                <optgroup label="Ingresos">
+                                    {FONDO_INGRESO_TYPES.map(opt => (
+                                        <option key={opt} value={opt}>{formatMovementType(opt)}</option>
+                                    ))}
+                                </optgroup>
+                                <optgroup label="Gastos">
+                                    {FONDO_GASTO_TYPES.map(opt => (
+                                        <option key={opt} value={opt}>{formatMovementType(opt)}</option>
+                                    ))}
+                                </optgroup>
+                                <optgroup label="Egresos">
+                                    {FONDO_EGRESO_TYPES.map(opt => (
+                                        <option key={opt} value={opt}>{formatMovementType(opt)}</option>
+                                    ))}
+                                </optgroup>
                             </select>
                         </div>
 
@@ -1960,9 +2007,21 @@ export function FondoSection({
                         aria-label="Filtrar por tipo"
                     >
                         <option value="all">Todas las categorías</option>
-                        {FONDO_TYPE_OPTIONS.map(opt => (
-                            <option key={opt} value={opt}>{formatMovementType(opt)}</option>
-                        ))}
+                        <optgroup label="Ingresos">
+                            {FONDO_INGRESO_TYPES.map(opt => (
+                                <option key={opt} value={opt}>{formatMovementType(opt)}</option>
+                            ))}
+                        </optgroup>
+                        <optgroup label="Gastos">
+                            {FONDO_GASTO_TYPES.map(opt => (
+                                <option key={opt} value={opt}>{formatMovementType(opt)}</option>
+                            ))}
+                        </optgroup>
+                        <optgroup label="Egresos">
+                            {FONDO_EGRESO_TYPES.map(opt => (
+                                <option key={opt} value={opt}>{formatMovementType(opt)}</option>
+                            ))}
+                        </optgroup>
                     </select>
 
                     <input
