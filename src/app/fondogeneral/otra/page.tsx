@@ -93,7 +93,6 @@ export default function ReportePage() {
     // Company selection state
     const [selectedCompany, setSelectedCompany] = useState('');
     const [ownerCompanies, setOwnerCompanies] = useState<Empresas[]>([]);
-    const [companiesLoading, setCompaniesLoading] = useState(false);
 
     // Movements data
     const [allMovements, setAllMovements] = useState<FondoEntry[]>([]);
@@ -149,7 +148,6 @@ export default function ReportePage() {
             return;
         }
 
-        setCompaniesLoading(true);
         EmpresasService.getAllEmpresas()
             .then(empresas => {
                 const filtered = empresas.filter(emp => (emp.ownerId || '').trim() === ownerId);
@@ -157,8 +155,7 @@ export default function ReportePage() {
                     (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' })
                 ));
             })
-            .catch(err => console.error('Error loading companies:', err))
-            .finally(() => setCompaniesLoading(false));
+            .catch(err => console.error('Error loading companies:', err));
     }, [isAdminUser, ownerId]);
 
     const fetchCompanyStorage = useCallback(async (companyName: string) => {

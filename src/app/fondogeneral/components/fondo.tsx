@@ -218,6 +218,9 @@ const resolveCreatedAt = (value: unknown): string | undefined => {
     return undefined;
 };
 
+const dateKeyFromDate = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
 const sanitizeFondoEntries = (
     rawEntries: unknown,
     forcedCurrency?: MovementCurrencyKey,
@@ -1768,8 +1771,6 @@ export function FondoSection({
 
     const displayedEntries = useMemo(() => (sortAsc ? [...fondoEntries].slice().reverse() : fondoEntries), [fondoEntries, sortAsc]);
 
-    const dateKeyFromDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
     // days that have at least one movement (used to enable/disable dates in the calendar)
     const daysWithMovements = useMemo(() => {
         const s = new Set<string>();
@@ -1837,12 +1838,25 @@ export function FondoSection({
         return base;
     }, [displayedEntries, fromFilter, toFilter, filterProviderCode, filterPaymentType, filterEditedOnly, searchQuery, providersMap, mode]);
 
-    // Pagination: pageSize may be 5,10,15 or 'all'. Default to 10 visible items.
-    const [pageSize, setPageSize] = useState<number | 'all'>(10);
+    const [pageSize, setPageSize] = useState<'daily' | number | 'all'>('daily');
     const [pageIndex, setPageIndex] = useState(0);
+    const [currentDailyKey, setCurrentDailyKey] = useState(() => dateKeyFromDate(new Date()));
+
+    const todayKey = dateKeyFromDate(new Date());
+
+    const earliestEntryKey = useMemo<string | null>(() => {
+        let earliest: string | null = null;
+        filteredEntries.forEach(entry => {
+            const date = new Date(entry.createdAt);
+            if (Number.isNaN(date.getTime())) return;
+            const key = dateKeyFromDate(date);
+            if (!earliest || key < earliest) earliest = key;
+        });
+        return earliest;
+    }, [filteredEntries]);
 
     const totalPages = useMemo(() => {
-        if (pageSize === 'all') return 1;
+        if (pageSize === 'all' || pageSize === 'daily') return 1;
         return Math.max(1, Math.ceil(filteredEntries.length / pageSize));
     }, [filteredEntries.length, pageSize]);
 
@@ -1852,15 +1866,66 @@ export function FondoSection({
     }, [totalPages]);
 
     useEffect(() => {
+        if (pageSize === 'daily') {
+            setPageIndex(0);
+            setCurrentDailyKey(todayKey);
+            return;
+        }
         // whenever user changes pageSize, reset to first page
         setPageIndex(0);
-    }, [pageSize]);
+    }, [pageSize, todayKey]);
 
     const paginatedEntries = useMemo(() => {
         if (pageSize === 'all') return filteredEntries;
+        if (pageSize === 'daily') {
+            return filteredEntries.filter(entry => dateKeyFromDate(new Date(entry.createdAt)) === currentDailyKey);
+        }
         const start = pageIndex * pageSize;
         return filteredEntries.slice(start, start + pageSize);
-    }, [filteredEntries, pageIndex, pageSize]);
+    }, [filteredEntries, pageIndex, pageSize, currentDailyKey]);
+
+    const isDailyMode = pageSize === 'daily';
+
+    const shiftDateKey = useCallback((key: string, delta: number) => {
+        const [yearStr, monthStr, dayStr] = key.split('-');
+        const year = Number(yearStr);
+        const month = Number(monthStr);
+        const day = Number(dayStr);
+        if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return key;
+        const date = new Date(year, month - 1, day);
+        date.setDate(date.getDate() + delta);
+        return dateKeyFromDate(date);
+    }, []);
+
+    const disablePrevButton = isDailyMode ? currentDailyKey >= todayKey : pageIndex <= 0;
+    const disableNextButton = isDailyMode
+        ? (earliestEntryKey ? currentDailyKey <= earliestEntryKey : true)
+        : pageIndex >= totalPages - 1;
+
+    const handlePrevPage = useCallback(() => {
+        if (isDailyMode) {
+            setCurrentDailyKey(prev => {
+                if (prev >= todayKey) return todayKey;
+                const shifted = shiftDateKey(prev, 1);
+                return shifted > todayKey ? todayKey : shifted;
+            });
+            return;
+        }
+        setPageIndex(p => Math.max(0, p - 1));
+    }, [isDailyMode, shiftDateKey, todayKey]);
+
+    const handleNextPage = useCallback(() => {
+        if (isDailyMode) {
+            if (!earliestEntryKey) return;
+            setCurrentDailyKey(prev => {
+                if (prev <= earliestEntryKey) return prev;
+                const shifted = shiftDateKey(prev, -1);
+                return shifted < earliestEntryKey ? earliestEntryKey : shifted;
+            });
+            return;
+        }
+        setPageIndex(p => Math.min(totalPages - 1, p + 1));
+    }, [earliestEntryKey, isDailyMode, shiftDateKey, totalPages]);
 
     // Group visible entries by day (local date). We'll render a date header row per group.
     const groupedByDay = useMemo(() => {
@@ -2424,6 +2489,46 @@ export function FondoSection({
                     <p className="text-sm text-[var(--muted-foreground)] text-center">No hay movimientos aun.</p>
                 ) : (
                     <div className="overflow-x-auto rounded border border-[var(--input-border)] bg-[#1f262a] text-white">
+                        <div className="px-3 py-2 flex items-center justify-between bg-transparent text-sm text-[var(--muted-foreground)]">
+                            <div className="flex items-center gap-2">
+                                <span>Mostrar</span>
+                                <select
+                                    value={pageSize === 'all' ? 'all' : pageSize === 'daily' ? 'daily' : String(pageSize)}
+                                    onChange={e => {
+                                        const v = e.target.value;
+                                        if (v === 'all') setPageSize('all');
+                                        else if (v === 'daily') setPageSize('daily');
+                                        else setPageSize(Number.parseInt(v, 10) || 10);
+                                    }}
+                                    className="p-1 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm"
+                                >
+                                    <option value="daily">Mostrar diariamente</option>
+                                    <option value="5">5</option>
+                                    <option value="10">10</option>
+                                    <option value="15">15</option>
+                                    <option value="all">Todos</option>
+                                </select>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={handlePrevPage}
+                                    disabled={disablePrevButton}
+                                    className="px-2 py-1 border border-[var(--input-border)] rounded disabled:opacity-50"
+                                >
+                                    Anterior
+                                </button>
+                                <div className="px-2">{isDailyMode ? formatGroupLabel(currentDailyKey) : `Página ${Math.min(pageIndex + 1, totalPages)} de ${totalPages}`}</div>
+                                <button
+                                    type="button"
+                                    onClick={handleNextPage}
+                                    disabled={disableNextButton}
+                                    className="px-2 py-1 border border-[var(--input-border)] rounded disabled:opacity-50"
+                                >
+                                    Siguiente
+                                </button>
+                            </div>
+                        </div>
                         <div className="max-h-[36rem] overflow-y-auto">
                             {(fromFilter || toFilter) && (
                                 <div className="px-3 py-2">
@@ -2431,7 +2536,7 @@ export function FondoSection({
                                         Filtro: {fromFilter ? formatGroupLabel(fromFilter) : '—'}{toFilter ? ` → ${formatGroupLabel(toFilter)}` : ''}
                                         <button
                                             type="button"
-                                            onClick={() => { setFromFilter(null); setToFilter(null); setPageIndex(0); setPageSize(10); }}
+                                            onClick={() => { setFromFilter(null); setToFilter(null); setPageIndex(0); setPageSize('daily'); }}
                                             className="ml-3 px-2 py-1 border border-[var(--input-border)] rounded text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
                                         >
                                             Limpiar filtro
@@ -2680,44 +2785,6 @@ export function FondoSection({
                                     </tbody>
                                 ))}
                             </table>
-                        </div>
-                        <div className="px-3 py-2 flex items-center justify-between bg-transparent text-sm text-[var(--muted-foreground)]">
-                            <div className="flex items-center gap-2">
-                                <span>Mostrar</span>
-                                <select
-                                    value={pageSize === 'all' ? 'all' : String(pageSize)}
-                                    onChange={e => {
-                                        const v = e.target.value;
-                                        if (v === 'all') setPageSize('all');
-                                        else setPageSize(Number.parseInt(v, 10) || 10);
-                                    }}
-                                    className="p-1 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm"
-                                >
-                                    <option value="5">5</option>
-                                    <option value="10">10</option>
-                                    <option value="15">15</option>
-                                    <option value="all">Todos</option>
-                                </select>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setPageIndex(p => Math.max(0, p - 1))}
-                                    disabled={pageIndex <= 0}
-                                    className="px-2 py-1 border border-[var(--input-border)] rounded disabled:opacity-50"
-                                >
-                                    Anterior
-                                </button>
-                                <div className="px-2">Página {Math.min(pageIndex + 1, totalPages)} de {totalPages}</div>
-                                <button
-                                    type="button"
-                                    onClick={() => setPageIndex(p => Math.min(totalPages - 1, p + 1))}
-                                    disabled={pageIndex >= totalPages - 1}
-                                    className="px-2 py-1 border border-[var(--input-border)] rounded disabled:opacity-50"
-                                >
-                                    Siguiente
-                                </button>
-                            </div>
                         </div>
                     </div>
                 )}
