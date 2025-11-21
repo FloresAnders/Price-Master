@@ -990,7 +990,7 @@ export function FondoSection({
     }, [calendarFromOpen, calendarToOpen]);
 
     const isIngreso = isIngresoType(paymentType);
-    const isEgreso = isEgresoType(paymentType);
+    const isEgreso = isEgresoType(paymentType) || isGastoType(paymentType);
 
     const employeeOptions = useMemo(
         () => companyEmployees.filter(name => !!name && name.trim().length > 0),
@@ -2550,7 +2550,7 @@ export function FondoSection({
                                             // the newest entry is the first element in fondoEntries (inserted at index 0)
                                             const isMostRecent = fe.id === fondoEntries[0]?.id;
                                             const providerName = providersMap.get(fe.providerCode) ?? fe.providerCode;
-                                            const isEntryEgreso = isEgresoType(fe.paymentType);
+                                            const isEntryEgreso = isEgresoType(fe.paymentType) || isGastoType(fe.paymentType);
                                             const movementAmount = isEntryEgreso ? fe.amountEgreso : fe.amountIngreso;
                                             const entryCurrency = (fe.currency as 'CRC' | 'USD') || 'CRC';
                                             const balanceAfter = entryCurrency === 'USD' ? (balanceAfterByIdUSD.get(fe.id) ?? (Number(initialAmountUSD) || 0)) : (balanceAfterByIdCRC.get(fe.id) ?? (Number(initialAmount) || 0));
