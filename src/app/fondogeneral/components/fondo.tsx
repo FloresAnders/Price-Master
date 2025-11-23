@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import { useProviders } from '../../../hooks/useProviders';
+import { useEmail } from '../../../hooks/useEmail';
 import type { UserPermissions, Empresas } from '../../../types/firestore';
 import { getDefaultPermissions } from '../../../utils/permissions';
 import ConfirmModal from '../../../components/ui/ConfirmModal';
@@ -42,6 +43,7 @@ import {
     MovementStorageState,
 } from '../../../services/movimientos-fondos';
 import { DailyClosingsService, DailyClosingRecord, DailyClosingsDocument } from '../../../services/daily-closings';
+import { buildDailyClosingEmailTemplate } from '../../../services/email-templates/daily-closing';
 import AgregarMovimiento from './AgregarMovimiento';
 import DailyClosingModal, { DailyClosingFormValues } from './DailyClosingModal';
 
@@ -838,6 +840,7 @@ export function FondoSection({
     }, [assignedCompany]);
     const company = isAdminUser ? adminCompany : assignedCompany;
     const { providers, loading: providersLoading, error: providersError } = useProviders(company);
+    const { sendEmail } = useEmail();
     const [ownerCompanies, setOwnerCompanies] = useState<Empresas[]>([]);
     const [ownerCompaniesLoading, setOwnerCompaniesLoading] = useState(false);
     const [ownerCompaniesError, setOwnerCompaniesError] = useState<string | null>(null);
@@ -2092,6 +2095,38 @@ export function FondoSection({
             .finally(() => {
                 finishDailyClosingsRequest();
             });
+
+        const notificationRecipients = new Set<string>();
+        const primaryRecipient = 'chavesa698@gmail.com';
+        notificationRecipients.add(primaryRecipient);
+        const userEmail = user?.email?.trim();
+        if (userEmail) notificationRecipients.add(userEmail);
+
+        const emailTemplate = buildDailyClosingEmailTemplate({
+            company: normalizedCompany,
+            accountKey,
+            closingDateISO: record.closingDate,
+            manager: record.manager,
+            totalCRC: record.totalCRC,
+            totalUSD: record.totalUSD,
+            recordedBalanceCRC: record.recordedBalanceCRC,
+            recordedBalanceUSD: record.recordedBalanceUSD,
+            diffCRC: record.diffCRC,
+            diffUSD: record.diffUSD,
+            notes: record.notes,
+        });
+
+        notificationRecipients.forEach(recipient => {
+            if (!recipient) return;
+            void sendEmail({
+                to: recipient,
+                subject: emailTemplate.subject,
+                text: emailTemplate.text,
+                html: emailTemplate.html,
+            }).catch(err => {
+                console.error('Error sending daily closing email:', err);
+            });
+        });
     };
 
     const handleAdminCompanyChange = useCallback((value: string) => {
