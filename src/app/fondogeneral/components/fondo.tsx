@@ -21,7 +21,6 @@ import {
     ArrowUpDown,
     ArrowUpRight,
     ArrowDownRight,
-    Settings,
     Lock,
     LockOpen,
     CalendarDays,
@@ -139,8 +138,6 @@ export type FondoEntry = {
 };
 
 const FONDO_KEY_SUFFIX = '_fondos_v1';
-const ADMIN_CODE = '12345'; // TODO: Permitir configurar este codigo desde el perfil de un administrador.
-
 const buildStorageKey = (namespace: string, suffix: string) => `${namespace}${suffix}`;
 
 const DAILY_CLOSINGS_STORAGE_PREFIX = 'fg_daily_closings';
@@ -920,10 +917,6 @@ export function FondoSection({
     const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
     const [initialAmount, setInitialAmount] = useState('0');
     const [initialAmountUSD, setInitialAmountUSD] = useState('0');
-    const [settingsOpen, setSettingsOpen] = useState(false);
-    const [settingsUnlocked, setSettingsUnlocked] = useState(false);
-    const [adminCodeInput, setAdminCodeInput] = useState('');
-    const [settingsError, setSettingsError] = useState<string | null>(null);
     const [movementModalOpen, setMovementModalOpen] = useState(false);
     const [movementAutoCloseLocked, setMovementAutoCloseLocked] = useState(false);
     const [movementCurrency, setMovementCurrency] = useState<'CRC' | 'USD'>('CRC');
@@ -967,7 +960,6 @@ export function FondoSection({
         CRC: true,
         USD: true,
     });
-    const [currencyToggleWarning, setCurrencyToggleWarning] = useState<string | null>(null);
     const enabledBalanceCurrencies = useMemo(
         () => (['CRC', 'USD'] as MovementCurrencyKey[]).filter(currency => currencyEnabled[currency]),
         [currencyEnabled],
@@ -1043,7 +1035,6 @@ export function FondoSection({
 
             setInitialAmount(crcSettings.initialBalance.toString());
             setInitialAmountUSD(usdSettings.initialBalance.toString());
-            setCurrencyToggleWarning(null);
         },
         [accountKey],
     );
@@ -1072,7 +1063,6 @@ export function FondoSection({
     };
 
     useEffect(() => {
-        setCurrencyToggleWarning(null);
         setCurrencyEnabled({ CRC: true, USD: true });
         setMovementCurrency('CRC');
         setInitialAmount('0');
@@ -1544,53 +1534,6 @@ export function FondoSection({
 
     const normalizeMoneyInput = (value: string) => value.replace(/[^0-9]/g, '');
 
-    const handleInitialAmountChange = (value: string) => {
-        setInitialAmount(normalizeMoneyInput(value));
-    };
-
-    const handleInitialAmountBlur = () => {
-        setInitialAmount(prev => {
-            const normalized = prev.trim().length > 0 ? normalizeMoneyInput(prev) : '0';
-            return normalized.length > 0 ? normalized : '0';
-        });
-    };
-
-    const openSettings = () => {
-        setSettingsOpen(true);
-        setSettingsUnlocked(false);
-        setAdminCodeInput('');
-        setSettingsError(null);
-    };
-
-    const closeSettings = useCallback(() => {
-        setSettingsOpen(false);
-        setSettingsUnlocked(false);
-        setAdminCodeInput('');
-        setSettingsError(null);
-    }, []);
-
-    const handleAdminCodeSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        if (adminCodeInput.trim() === ADMIN_CODE) {
-            setSettingsUnlocked(true);
-            setSettingsError(null);
-            setAdminCodeInput('');
-            return;
-        }
-        setSettingsError('Codigo incorrecto.');
-    };
-
-    useEffect(() => {
-        if (!settingsOpen) return;
-        const handleEscape = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') {
-                closeSettings();
-            }
-        };
-        window.addEventListener('keydown', handleEscape);
-        return () => window.removeEventListener('keydown', handleEscape);
-    }, [settingsOpen, closeSettings]);
-
     const handleSubmitFondo = () => {
         if (!company) return;
         if (!selectedProvider) return;
@@ -1726,7 +1669,7 @@ export function FondoSection({
     const ingresoValid = isIngreso ? !Number.isNaN(ingresoValue) && ingresoValue > 0 : true;
     const requiredAmountProvided = isEgreso ? egreso.trim().length > 0 : ingreso.trim().length > 0;
 
-    const { totalIngresosCRC, totalEgresosCRC, currentBalanceCRC, totalIngresosUSD, totalEgresosUSD, currentBalanceUSD } = useMemo(() => {
+    const { currentBalanceCRC, currentBalanceUSD } = useMemo(() => {
         let ingresosCRC = 0;
         let egresosCRC = 0;
         let ingresosUSD = 0;
@@ -1744,11 +1687,7 @@ export function FondoSection({
         const balanceCRC = (Number(initialAmount) || 0) + ingresosCRC - egresosCRC;
         const balanceUSD = (Number(initialAmountUSD) || 0) + ingresosUSD - egresosUSD;
         return {
-            totalIngresosCRC: ingresosCRC,
-            totalEgresosCRC: egresosCRC,
             currentBalanceCRC: balanceCRC,
-            totalIngresosUSD: ingresosUSD,
-            totalEgresosUSD: egresosUSD,
             currentBalanceUSD: balanceUSD,
         };
     }, [fondoEntries, initialAmount, initialAmountUSD]);
@@ -1980,17 +1919,6 @@ export function FondoSection({
     const handleIngresoChange = (value: string) => setIngreso(normalizeMoneyInput(value));
     const handleNotesChange = (value: string) => setNotes(value);
     const handleManagerChange = (value: string) => setManager(value);
-    const toggleCurrencyAvailability = (currency: MovementCurrencyKey) => {
-        setCurrencyEnabled(prev => {
-            const nextState = { ...prev, [currency]: !prev[currency] } as Record<MovementCurrencyKey, boolean>;
-            if (!nextState.CRC && !nextState.USD) {
-                setCurrencyToggleWarning('Debe quedar al menos una moneda activa.');
-                return prev;
-            }
-            setCurrencyToggleWarning(null);
-            return nextState;
-        });
-    };
 
     const managerSelectDisabled = !company || employeesLoading || employeeOptions.length === 0;
     const invoiceDisabled = !company;
@@ -2416,16 +2344,6 @@ export function FondoSection({
                             </>
                         )}
                     </select>
-                    <button
-                        type="button"
-                        onClick={openSettings}
-                        title="Abrir configuracion del fondo"
-                        aria-label="Abrir configuracion del fondo"
-                        className="inline-flex items-center justify-center gap-2 rounded border border-[var(--input-border)] px-3 py-2 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] sm:self-start"
-                    >
-                        <Settings className="w-4 h-4" />
-                        <span className="hidden sm:inline">Configurar</span>
-                    </button>
                 </div>
             </div>
         );
@@ -3398,204 +3316,6 @@ export function FondoSection({
                     </div>
                 </div>
             )}
-            {settingsOpen && (
-                <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-gray-800/40 px-4"
-                    onClick={closeSettings}
-                >
-                    <div
-                        className="w-full max-w-2xl rounded border border-[var(--input-border)] bg-[#1f262a] p-6 shadow-lg text-white"
-                        onClick={event => event.stopPropagation()}
-                        role="dialog"
-                        aria-modal="true"
-                        aria-labelledby="fondo-settings-title"
-                    >
-                        <h3 id="fondo-settings-title" className="text-lg font-semibold text-[var(--foreground)]">
-                            Configuracion del fondo
-                        </h3>
-                        {!settingsUnlocked ? (
-                            <form onSubmit={handleAdminCodeSubmit} className="mt-4 space-y-4">
-                                <p className="text-sm text-[var(--muted-foreground)]">
-                                    Ingresa el codigo de administrador para acceder a la configuracion.
-                                </p>
-                                <input
-                                    type="password"
-                                    value={adminCodeInput}
-                                    onChange={e => {
-                                        setAdminCodeInput(e.target.value);
-                                        if (settingsError) setSettingsError(null);
-                                    }}
-                                    className={`w-full p-2 bg-[var(--input-bg)] border ${settingsError ? 'border-red-500' : 'border-[var(--input-border)]'} rounded`}
-                                    placeholder="Codigo de administrador"
-                                    autoFocus
-                                />
-                                {settingsError && <p className="text-sm text-red-500">{settingsError}</p>}
-                                <div className="flex justify-end gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={closeSettings}
-                                        className="px-4 py-2 border border-[var(--input-border)] rounded text-[var(--foreground)] hover:bg-[var(--muted)]"
-                                    >
-                                        Cancelar
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        className="px-4 py-2 bg-[var(--accent)] text-white rounded"
-                                    >
-                                        Validar
-                                    </button>
-                                </div>
-                            </form>
-                        ) : (
-                            <div className="mt-4 space-y-5">
-                                <div className="rounded border border-[var(--input-border)] bg-[var(--muted)] p-4">
-                                    <div className="flex flex-col gap-1">
-                                        <div className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
-                                            Monedas habilitadas
-                                        </div>
-                                        <p className="text-sm text-[var(--muted-foreground)]">
-                                            Define si esta empresa opera en colones, dólares o ambas monedas. Las monedas desactivadas no
-                                            estarán disponibles al registrar nuevos movimientos.
-                                        </p>
-                                    </div>
-                                    <div className="mt-3 flex flex-wrap gap-3">
-                                        {(['CRC', 'USD'] as MovementCurrencyKey[]).map(key => {
-                                            const isEnabled = currencyEnabled[key];
-                                            const label = key === 'CRC' ? 'Colones (₡)' : 'Dólares ($)';
-                                            return (
-                                                <button
-                                                    key={key}
-                                                    type="button"
-                                                    onClick={() => toggleCurrencyAvailability(key)}
-                                                    className={`flex-1 min-w-[200px] px-3 py-2 rounded border transition-colors text-left ${isEnabled ? 'bg-emerald-500/10 border-emerald-500 text-emerald-200' : 'bg-[var(--input-bg)] border-[var(--input-border)] text-[var(--muted-foreground)] hover:bg-[var(--muted)]'}`}
-                                                >
-                                                    <div className="text-sm font-semibold">{label}</div>
-                                                    <div className="text-xs uppercase tracking-wide">
-                                                        {isEnabled ? 'Activo' : 'Desactivado'}
-                                                    </div>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                    {currencyToggleWarning && (
-                                        <p className="mt-2 text-xs text-red-500">{currencyToggleWarning}</p>
-                                    )}
-                                </div>
-                                <div className="flex flex-col gap-4 md:flex-row md:items-start">
-                                    <div className="rounded border border-[var(--input-border)] bg-[var(--muted)] p-4 md:w-80">
-                                        <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)] mb-1">
-                                            Monto inicial del fondo (Colones)
-                                        </label>
-                                        <input
-                                            value={initialAmount.trim().length > 0 ? formatByCurrency('CRC', Number(initialAmount)) : ''}
-                                            onChange={e => handleInitialAmountChange(e.target.value)}
-                                            onBlur={() => handleInitialAmountBlur()}
-                                            className="w-full p-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded"
-                                            placeholder="0"
-                                            inputMode="numeric"
-                                            disabled={!company || !currencyEnabled.CRC}
-                                        />
-                                        <p className="mt-2 text-[11px] text-[var(--muted-foreground)]">
-                                            Se usa como base para calcular el saldo disponible tras cada movimiento (colones).
-                                        </p>
-                                    </div>
-                                    <div className="rounded border border-[var(--input-border)] bg-[var(--muted)] p-4 md:w-80">
-                                        <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)] mb-1">
-                                            Monto inicial del fondo (Dólares)
-                                        </label>
-                                        <input
-                                            value={initialAmountUSD.trim().length > 0 ? formatByCurrency('USD', Number(initialAmountUSD)) : ''}
-                                            onChange={e => {
-                                                const digits = normalizeMoneyInput(e.target.value);
-                                                setInitialAmountUSD(digits);
-                                            }}
-                                            onBlur={() => {
-                                                setInitialAmountUSD(prev => {
-                                                    const normalized = prev.trim().length > 0 ? normalizeMoneyInput(prev) : '0';
-                                                    return normalized.length > 0 ? normalized : '0';
-                                                });
-                                            }}
-                                            className="w-full p-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded"
-                                            placeholder="0"
-                                            inputMode="numeric"
-                                            disabled={!company || !currencyEnabled.USD}
-                                        />
-                                        <p className="mt-2 text-[11px] text-[var(--muted-foreground)]">
-                                            Monto inicial en dólares (saldo separado por moneda).
-                                        </p>
-                                    </div>
-                                </div>
-                                {currencyEnabled.CRC && (
-                                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                                        <div className="p-3 bg-[var(--muted)] border border-[var(--input-border)] rounded">
-                                            <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Saldo inicial (CRC)</div>
-                                            <div className="text-lg font-semibold text-[var(--foreground)]">
-                                                {formatByCurrency('CRC', Number(initialAmount) || 0)}
-                                            </div>
-                                        </div>
-                                        <div className="p-3 bg-[var(--muted)] border border-[var(--input-border)] rounded">
-                                            <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Total ingresos (CRC)</div>
-                                            <div className="text-lg font-semibold text-emerald-600">
-                                                {formatByCurrency('CRC', totalIngresosCRC)}
-                                            </div>
-                                        </div>
-                                        <div className="p-3 bg-[var(--muted)] border border-[var(--input-border)] rounded">
-                                            <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Total egresos (CRC)</div>
-                                            <div className="text-lg font-semibold text-red-600">
-                                                {formatByCurrency('CRC', totalEgresosCRC)}
-                                            </div>
-                                        </div>
-                                        <div className="p-3 bg-[var(--muted)] border border-[var(--input-border)] rounded">
-                                            <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Saldo actual (CRC)</div>
-                                            <div className="text-lg font-semibold text-[var(--foreground)]">
-                                                {formatByCurrency('CRC', currentBalanceCRC)}
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                                {currencyEnabled.USD && (
-                                    <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                                        <div className="p-3 bg-[var(--muted)] border border-[var(--input-border)] rounded">
-                                            <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Saldo inicial (USD)</div>
-                                            <div className="text-lg font-semibold text-[var(--foreground)]">
-                                                {formatByCurrency('USD', Number(initialAmountUSD) || 0)}
-                                            </div>
-                                        </div>
-                                        <div className="p-3 bg-[var(--muted)] border border-[var(--input-border)] rounded">
-                                            <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Total ingresos (USD)</div>
-                                            <div className="text-lg font-semibold text-emerald-600">
-                                                {formatByCurrency('USD', totalIngresosUSD)}
-                                            </div>
-                                        </div>
-                                        <div className="p-3 bg-[var(--muted)] border border-[var(--input-border)] rounded">
-                                            <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Total egresos (USD)</div>
-                                            <div className="text-lg font-semibold text-red-600">
-                                                {formatByCurrency('USD', totalEgresosUSD)}
-                                            </div>
-                                        </div>
-                                        <div className="p-3 bg-[var(--muted)] border border-[var(--input-border)] rounded">
-                                            <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Saldo actual (USD)</div>
-                                            <div className="text-lg font-semibold text-[var(--foreground)]">
-                                                {formatByCurrency('USD', currentBalanceUSD)}
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                                <div className="flex justify-end gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={closeSettings}
-                                        className="px-4 py-2 border border-[var(--input-border)] rounded text-[var(--foreground)] hover:bg-[var(--muted)]"
-                                    >
-                                        Cerrar
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
-
             {accountKey === 'FondoGeneral' && (
                 <DailyClosingModal
                     open={dailyClosingModalOpen}
