@@ -41,6 +41,7 @@ import {
     MovementStorage,
     MovementStorageState,
 } from '../../../services/movimientos-fondos';
+import { DailyClosingsService, DailyClosingRecord, DailyClosingsDocument } from '../../../services/daily-closings';
 import AgregarMovimiento from './AgregarMovimiento';
 import DailyClosingModal, { DailyClosingFormValues } from './DailyClosingModal';
 
@@ -135,22 +136,6 @@ export type FondoEntry = {
     auditDetails?: string;
 };
 
-type DailyClosingRecord = {
-    id: string;
-    createdAt: string;
-    closingDate: string;
-    manager: string;
-    totalCRC: number;
-    totalUSD: number;
-    recordedBalanceCRC: number;
-    recordedBalanceUSD: number;
-    diffCRC: number;
-    diffUSD: number;
-    notes: string;
-    breakdownCRC: Record<number, number>;
-    breakdownUSD: Record<number, number>;
-};
-
 const FONDO_KEY_SUFFIX = '_fondos_v1';
 const ADMIN_CODE = '12345'; // TODO: Permitir configurar este codigo desde el perfil de un administrador.
 
@@ -206,7 +191,50 @@ const sanitizeDailyClosings = (raw: unknown): DailyClosingRecord[] => {
         });
         return acc;
     }, []);
-    return sanitized.slice(0, 50);
+    return sanitized.slice(0, DailyClosingsService.MAX_RECORDS);
+};
+
+const dailyClosingSortValue = (record: DailyClosingRecord): number => {
+    const createdAtTimestamp = Date.parse(record.createdAt);
+    if (!Number.isNaN(createdAtTimestamp)) return createdAtTimestamp;
+    const closingAtTimestamp = Date.parse(record.closingDate);
+    if (!Number.isNaN(closingAtTimestamp)) return closingAtTimestamp;
+    return 0;
+};
+
+const mergeDailyClosingRecords = (
+    existing: DailyClosingRecord[],
+    incoming: DailyClosingRecord[],
+): DailyClosingRecord[] => {
+    if (incoming.length === 0 && existing.length <= DailyClosingsService.MAX_RECORDS) {
+        return existing;
+    }
+    const map = new Map<string, DailyClosingRecord>();
+    existing.forEach(record => map.set(record.id, record));
+    incoming.forEach(record => map.set(record.id, record));
+    const sorted = Array.from(map.values()).sort(
+        (a, b) => dailyClosingSortValue(b) - dailyClosingSortValue(a),
+    );
+    return sorted.slice(0, DailyClosingsService.MAX_RECORDS);
+};
+
+const flattenDailyClosingsDocument = (
+    document: DailyClosingsDocument,
+): { records: DailyClosingRecord[]; loadedKeys: Set<string> } => {
+    const loadedKeys = new Set<string>();
+    const aggregated: DailyClosingRecord[] = [];
+    Object.entries(document.closingsByDate).forEach(([dateKey, list]) => {
+        if (!Array.isArray(list) || list.length === 0) return;
+        loadedKeys.add(dateKey);
+        list.forEach(record => {
+            aggregated.push(record);
+        });
+    });
+    aggregated.sort((a, b) => dailyClosingSortValue(b) - dailyClosingSortValue(a));
+    return {
+        records: aggregated.slice(0, DailyClosingsService.MAX_RECORDS),
+        loadedKeys,
+    };
 };
 
 const NAMESPACE_PERMISSIONS: Record<string, keyof UserPermissions> = {
@@ -899,6 +927,36 @@ export function FondoSection({
     const [dailyClosingModalOpen, setDailyClosingModalOpen] = useState(false);
     const [dailyClosings, setDailyClosings] = useState<DailyClosingRecord[]>([]);
     const [dailyClosingsHydrated, setDailyClosingsHydrated] = useState(false);
+    const [dailyClosingsRefreshing, setDailyClosingsRefreshing] = useState(false);
+    const dailyClosingsRequestCountRef = useRef(0);
+    const isComponentMountedRef = useRef(true);
+    const loadedDailyClosingKeysRef = useRef<Set<string>>(new Set());
+    const loadingDailyClosingKeysRef = useRef<Set<string>>(new Set());
+
+    const [pageSize, setPageSize] = useState<'daily' | number | 'all'>('daily');
+    const [pageIndex, setPageIndex] = useState(0);
+    const [currentDailyKey, setCurrentDailyKey] = useState(() => dateKeyFromDate(new Date()));
+    const todayKey = useMemo(() => dateKeyFromDate(new Date()), []);
+
+    const beginDailyClosingsRequest = useCallback(() => {
+        dailyClosingsRequestCountRef.current += 1;
+        setDailyClosingsRefreshing(true);
+    }, []);
+
+    const finishDailyClosingsRequest = useCallback(() => {
+        dailyClosingsRequestCountRef.current = Math.max(0, dailyClosingsRequestCountRef.current - 1);
+        if (!isComponentMountedRef.current) return;
+        if (dailyClosingsRequestCountRef.current === 0) {
+            setDailyClosingsRefreshing(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        isComponentMountedRef.current = true;
+        return () => {
+            isComponentMountedRef.current = false;
+        };
+    }, []);
     const [entriesHydrated, setEntriesHydrated] = useState(false);
     const [hydratedCompany, setHydratedCompany] = useState('');
     const [hydratedAccountKey, setHydratedAccountKey] = useState<MovementAccountKey>(accountKey);
@@ -1299,33 +1357,81 @@ export function FondoSection({
     }, [providers, selectedProvider, editingEntryId, editingProviderCode]);
 
     useEffect(() => {
+        loadedDailyClosingKeysRef.current = new Set();
+        loadingDailyClosingKeysRef.current = new Set();
+        dailyClosingsRequestCountRef.current = 0;
+        setDailyClosingsRefreshing(false);
         setDailyClosingsHydrated(false);
+        setDailyClosings([]);
+
         if (accountKey !== 'FondoGeneral') {
-            setDailyClosings([]);
             setDailyClosingsHydrated(true);
             return;
         }
-        if (!closingsStorageKey) {
-            setDailyClosings([]);
+
+        const normalizedCompany = (company || '').trim();
+        if (normalizedCompany.length === 0) {
             setDailyClosingsHydrated(true);
             return;
         }
-        try {
-            const stored = localStorage.getItem(closingsStorageKey);
-            if (!stored) {
+
+        let isActive = true;
+        beginDailyClosingsRequest();
+
+        const loadClosings = async () => {
+            try {
+                const document = await DailyClosingsService.getDocument(normalizedCompany);
+                if (!isActive) return;
+                if (document) {
+                    const { records, loadedKeys } = flattenDailyClosingsDocument(document);
+                    setDailyClosings(records);
+                    loadedDailyClosingKeysRef.current = loadedKeys;
+                    return;
+                }
+
+                if (!closingsStorageKey) {
+                    setDailyClosings([]);
+                    return;
+                }
+
+                const stored = localStorage.getItem(closingsStorageKey);
+                if (!stored) {
+                    setDailyClosings([]);
+                    return;
+                }
+                const parsed = JSON.parse(stored) as unknown;
+                setDailyClosings(sanitizeDailyClosings(parsed));
+            } catch (err) {
+                console.error('Error reading daily closings from Firestore:', err);
+                if (!isActive) return;
+
+                if (closingsStorageKey) {
+                    try {
+                        const stored = localStorage.getItem(closingsStorageKey);
+                        if (stored) {
+                            const parsed = JSON.parse(stored) as unknown;
+                            setDailyClosings(sanitizeDailyClosings(parsed));
+                            return;
+                        }
+                    } catch (storageErr) {
+                        console.error('Error reading stored daily closings:', storageErr);
+                    }
+                }
                 setDailyClosings([]);
-                setDailyClosingsHydrated(true);
-                return;
+            } finally {
+                if (isActive) {
+                    setDailyClosingsHydrated(true);
+                }
+                finishDailyClosingsRequest();
             }
-            const parsed = JSON.parse(stored) as unknown;
-            setDailyClosings(sanitizeDailyClosings(parsed));
-            setDailyClosingsHydrated(true);
-        } catch (err) {
-            console.error('Error reading stored daily closings:', err);
-            setDailyClosings([]);
-            setDailyClosingsHydrated(true);
-        }
-    }, [closingsStorageKey, accountKey]);
+        };
+
+        void loadClosings();
+
+        return () => {
+            isActive = false;
+        };
+    }, [company, accountKey, closingsStorageKey, beginDailyClosingsRequest, finishDailyClosingsRequest]);
 
     useEffect(() => {
         if (!dailyClosingsHydrated || !closingsStorageKey || accountKey !== 'FondoGeneral') return;
@@ -1335,6 +1441,47 @@ export function FondoSection({
             console.error('Error storing daily closings:', err);
         }
     }, [closingsStorageKey, dailyClosings, accountKey, dailyClosingsHydrated]);
+
+    useEffect(() => {
+        if (accountKey !== 'FondoGeneral') return;
+        if (!dailyClosingsHydrated) return;
+        const normalizedCompany = (company || '').trim();
+        if (normalizedCompany.length === 0) return;
+        const targetKey = currentDailyKey;
+        if (!targetKey) return;
+        if (loadedDailyClosingKeysRef.current.has(targetKey)) return;
+        if (loadingDailyClosingKeysRef.current.has(targetKey)) return;
+
+        let isActive = true;
+        let shouldMarkLoaded = false;
+        loadingDailyClosingKeysRef.current.add(targetKey);
+        beginDailyClosingsRequest();
+
+        const loadByDay = async () => {
+            try {
+                const records = await DailyClosingsService.getClosingsForDate(normalizedCompany, targetKey);
+                if (!isActive) return;
+                if (records.length > 0) {
+                    setDailyClosings(prev => mergeDailyClosingRecords(prev, records));
+                }
+                shouldMarkLoaded = true;
+            } catch (err) {
+                console.error('Error loading daily closings for selected day:', err);
+            } finally {
+                loadingDailyClosingKeysRef.current.delete(targetKey);
+                if (isActive && shouldMarkLoaded) {
+                    loadedDailyClosingKeysRef.current.add(targetKey);
+                }
+                finishDailyClosingsRequest();
+            }
+        };
+
+        void loadByDay();
+
+        return () => {
+            isActive = false;
+        };
+    }, [accountKey, company, currentDailyKey, dailyClosingsHydrated, beginDailyClosingsRequest, finishDailyClosingsRequest]);
 
     useEffect(() => {
         let isActive = true;
@@ -1910,6 +2057,7 @@ export function FondoSection({
         const diffCRC = Math.trunc(closing.totalCRC) - Math.trunc(currentBalanceCRC);
         const diffUSD = Math.trunc(closing.totalUSD) - Math.trunc(currentBalanceUSD);
         const userNotes = closing.notes.trim();
+        const closingDateKey = dateKeyFromDate(closingDateValue);
 
         const record: DailyClosingRecord = {
             id: `${Date.now()}`,
@@ -1927,12 +2075,23 @@ export function FondoSection({
             breakdownUSD: closing.breakdownUSD ?? {},
         };
 
-        setDailyClosings(prev => {
-            const next = [record, ...prev];
-            return next.slice(0, 50);
-        });
+        setDailyClosings(prev => mergeDailyClosingRecords(prev, [record]));
+        loadedDailyClosingKeysRef.current.add(closingDateKey);
+        loadingDailyClosingKeysRef.current.delete(closingDateKey);
         setDailyClosingsHydrated(true);
         setDailyClosingModalOpen(false);
+
+        const normalizedCompany = (company || '').trim();
+        if (normalizedCompany.length === 0) return;
+
+        beginDailyClosingsRequest();
+        void DailyClosingsService.saveClosing(normalizedCompany, record)
+            .catch(err => {
+                console.error('Error saving daily closing to Firestore:', err);
+            })
+            .finally(() => {
+                finishDailyClosingsRequest();
+            });
     };
 
     const handleAdminCompanyChange = useCallback((value: string) => {
@@ -1946,6 +2105,10 @@ export function FondoSection({
         setInitialAmountUSD('0');
         setDailyClosingsHydrated(false);
         setDailyClosings([]);
+        setDailyClosingsRefreshing(false);
+        dailyClosingsRequestCountRef.current = 0;
+        loadedDailyClosingKeysRef.current = new Set();
+        loadingDailyClosingKeysRef.current = new Set();
         setCurrencyEnabled({ CRC: true, USD: true });
         setMovementModalOpen(false);
         resetFondoForm();
@@ -2035,12 +2198,6 @@ export function FondoSection({
 
         return base;
     }, [displayedEntries, fromFilter, toFilter, filterProviderCode, filterPaymentType, filterEditedOnly, searchQuery, providersMap, mode]);
-
-    const [pageSize, setPageSize] = useState<'daily' | number | 'all'>('daily');
-    const [pageIndex, setPageIndex] = useState(0);
-    const [currentDailyKey, setCurrentDailyKey] = useState(() => dateKeyFromDate(new Date()));
-
-    const todayKey = dateKeyFromDate(new Date());
 
     const earliestEntryKey = useMemo<string | null>(() => {
         let earliest: string | null = null;
@@ -2156,7 +2313,8 @@ export function FondoSection({
         return `${dd}/${mm}/${yyyy}`;
     };
 
-    const closingsAreLoading = accountKey === 'FondoGeneral' && !dailyClosingsHydrated;
+    const closingsAreLoading =
+        accountKey === 'FondoGeneral' && (!dailyClosingsHydrated || dailyClosingsRefreshing);
     const visibleDailyClosings = useMemo(() => {
         if (accountKey !== 'FondoGeneral') return [] as DailyClosingRecord[];
         if (!dailyClosingsHydrated) return [] as DailyClosingRecord[];
