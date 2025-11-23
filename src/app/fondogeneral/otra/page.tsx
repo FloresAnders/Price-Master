@@ -86,7 +86,7 @@ export default function ReportePage() {
     const { user, loading } = useAuth();
     const permissions = user?.permissions || getDefaultPermissions(user?.role || 'user');
     const hasGeneralAccess = Boolean(permissions.fondogeneral);
-    const isAdminUser = user?.role === 'admin';
+    const isAdminUser = user?.role === 'admin' || user?.role === 'superadmin';
     const assignedCompany = user?.ownercompanie?.trim() ?? '';
     const ownerId = (user?.ownerId || '').trim();
 
@@ -451,14 +451,14 @@ export default function ReportePage() {
         );
     }
 
-    if (!hasGeneralAccess) {
+    if (!hasGeneralAccess || !isAdminUser) {
         return (
             <div className="max-w-7xl mx-auto py-8 px-4">
                 <div className="flex flex-col items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)] text-center">
                     <Lock className="w-10 h-10 text-[var(--muted-foreground)] mb-4" />
                     <h3 className="text-lg font-semibold text-[var(--foreground)] mb-2">Acceso restringido</h3>
-                    <p className="text-[var(--muted-foreground)]">No tienes permisos para acceder a los reportes del Fondo General.</p>
-                    <p className="text-sm text-[var(--muted-foreground)] mt-2">Contacta a un administrador para obtener acceso.</p>
+                    <p className="text-[var(--muted-foreground)]">Esta sección está disponible únicamente para administradores del Fondo General.</p>
+                    <p className="text-sm text-[var(--muted-foreground)] mt-2">Contacta a un administrador principal si necesitas revisar los reportes.</p>
                 </div>
             </div>
         );

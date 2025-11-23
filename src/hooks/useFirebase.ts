@@ -4,6 +4,7 @@ import { UsersService } from '../services/users';
 import { CcssConfigService } from '../services/ccss-config';
 import { Sorteo, User, CcssConfig } from '../types/firestore';
 import { useAuth } from './useAuth';
+import { useActorOwnership } from './useActorOwnership';
 
 // Export the schedules hook
 export { useSchedules } from './useSchedules';
@@ -89,23 +90,36 @@ export function useSorteos() {
 
 export function useUsers() {
   const { user: currentUser } = useAuth();
+  const { ownerIds: actorOwnerIds } = useActorOwnership(currentUser);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const filterUsersByOwner = useCallback((list: User[]): User[] => {
+    if (!currentUser || currentUser.role === 'superadmin') return list;
+    const allowed = new Set(actorOwnerIds.map(id => String(id)));
+    if (allowed.size === 0) return list;
+    return list.filter(user => {
+      if (!user) return false;
+      if (user.id && currentUser.id && String(user.id) === String(currentUser.id)) return true;
+      if (!user.ownerId) return false;
+      return allowed.has(String(user.ownerId));
+    });
+  }, [actorOwnerIds, currentUser]);
 
   const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       const data = await UsersService.getAllUsersAs(currentUser);
-      setUsers(data);
+      setUsers(filterUsersByOwner(data));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error loading users');
       console.error('Error fetching users:', err);
     } finally {
       setLoading(false);
     }
-  }, [currentUser]);
+  }, [currentUser, filterUsersByOwner]);
 
   const addUser = useCallback(async (user: Omit<User, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
@@ -144,31 +158,34 @@ export function useUsers() {
   const searchUsers = useCallback(async (searchTerm: string) => {
     try {
       setError(null);
-      return await UsersService.searchUsersAs(currentUser, searchTerm);
+      const results = await UsersService.searchUsersAs(currentUser, searchTerm);
+      return filterUsersByOwner(results);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error searching users');
       throw err;
     }
-  }, [currentUser]);
+  }, [currentUser, filterUsersByOwner]);
 
   const getUsersByRole = useCallback(async (role: 'admin' | 'user' | 'superadmin') => {
     try {
       setError(null);
-      return await UsersService.findUsersByRole(currentUser, role);
+      const results = await UsersService.findUsersByRole(currentUser, role);
+      return filterUsersByOwner(results);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error getting users by role');
       throw err;
     }
-  }, [currentUser]);
+  }, [currentUser, filterUsersByOwner]);
   const getActiveUsers = useCallback(async () => {
     try {
       setError(null);
-      return await UsersService.getActiveUsersAs(currentUser);
+      const results = await UsersService.getActiveUsersAs(currentUser);
+      return filterUsersByOwner(results);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error getting active users');
       throw err;
     }
-  }, [currentUser]);
+  }, [currentUser, filterUsersByOwner]);
 
   useEffect(() => {
     fetchUsers();

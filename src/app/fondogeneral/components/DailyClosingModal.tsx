@@ -76,6 +76,8 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
 
     const diffCRC = totalCRC - Math.trunc(currentBalanceCRC);
     const diffUSD = totalUSD - Math.trunc(currentBalanceUSD);
+    const hasAnyCash = totalCRC > 0 || totalUSD > 0;
+    const submitDisabled = manager.trim().length === 0 || !hasAnyCash;
 
     const differenceLabel = (currency: 'CRC' | 'USD', diff: number) => {
         if (diff === 0) return 'sin diferencias';
@@ -134,7 +136,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
 
     const handleSubmit = () => {
         const trimmedManager = manager.trim();
-        if (!trimmedManager) return;
+        if (!trimmedManager || !hasAnyCash) return;
 
         onConfirm({
             closingDate: closingDateISO,
@@ -312,7 +314,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                         <button
                             type="button"
                             onClick={handleSubmit}
-                            disabled={manager.trim().length === 0}
+                            disabled={submitDisabled}
                             className="rounded bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:opacity-50"
                         >
                             Crear cierre

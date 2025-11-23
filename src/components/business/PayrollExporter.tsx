@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAuth } from '../../hooks/useAuth';
+import { useActorOwnership } from '../../hooks/useActorOwnership';
 import { Calculator, DollarSign, Image, Save, Calendar } from 'lucide-react';
 import { EmpresasService } from '../../services/empresas';
 import useToast from '../../hooks/useToast';
@@ -106,6 +107,8 @@ export default function PayrollExporter({
   onPeriodChange
 }: PayrollExporterProps) {
   const { user: currentUser } = useAuth();
+  const { ownerIds: actorOwnerIds, primaryOwnerId } = useActorOwnership(currentUser);
+  const actorOwnerIdSet = useMemo(() => new Set(actorOwnerIds.map(id => String(id))), [actorOwnerIds]);
   const [locations, setLocations] = useState<MappedEmpresa[]>([]);
   const [payrollData, setPayrollData] = useState<LocationPayrollData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -300,15 +303,24 @@ export default function PayrollExporter({
         } else if (currentUser.role === 'superadmin') {
           owned = empresas || [];
         } else {
-          owned = (empresas || []).filter((e: unknown) => {
-            const obj = e as Record<string, unknown>;
-            const ownerId = obj?.ownerId;
-            if (ownerId === undefined || ownerId === null) return false;
-            return (
-              String(ownerId) === String(currentUser.id) ||
-              (currentUser.ownerId && String(ownerId) === String(currentUser.ownerId))
-            );
-          });
+          if (actorOwnerIdSet.size > 0) {
+            owned = (empresas || []).filter((e: unknown) => {
+              const obj = e as Record<string, unknown>;
+              const ownerId = obj?.ownerId;
+              if (ownerId === undefined || ownerId === null) return false;
+              return actorOwnerIdSet.has(String(ownerId));
+            });
+          } else {
+            owned = (empresas || []).filter((e: unknown) => {
+              const obj = e as Record<string, unknown>;
+              const ownerId = obj?.ownerId;
+              if (ownerId === undefined || ownerId === null) return false;
+              return (
+                (currentUser.id && String(ownerId) === String(currentUser.id)) ||
+                (currentUser.ownerId && String(ownerId) === String(currentUser.ownerId))
+              );
+            });
+          }
         }
 
         const mapped = (owned || []).map(e => {
@@ -334,7 +346,7 @@ export default function PayrollExporter({
 
         // Cargar configuraciones CCSS para cada empresa
         if (currentUser) {
-          const userOwnerId = currentUser.ownerId || currentUser.id || '';
+          const userOwnerId = primaryOwnerId || currentUser.id || '';
           const ccssConfig = await CcssConfigService.getCcssConfig(userOwnerId);
           
           if (ccssConfig && ccssConfig.companie) {
@@ -359,7 +371,7 @@ export default function PayrollExporter({
       }
     };
     loadLocationsAndCcssConfigs();
-  }, [currentUser]);
+  }, [actorOwnerIdSet, actorOwnerIds, currentUser, primaryOwnerId]);
 
   // Limpiar timers al desmontar el componente
   useEffect(() => {

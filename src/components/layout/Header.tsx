@@ -285,6 +285,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   // Get user permissions or default if not available
   const userPermissions = user?.permissions || getDefaultPermissions(user?.role || 'user');
   const canManageFondoGeneral = Boolean(userPermissions.fondogeneral);
+  const isFondoPrivileged = user?.role === 'admin' || user?.role === 'superadmin';
 
   // Filter tabs based on user permissions
   const visibleTabs = allTabs.filter(tab => {
@@ -367,8 +368,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
             Time Master
           </button>
 
-          {/* If we're on hash #fondogeneral, #agregarproveedor, or #reportes, show fondo quick actions in the header */}
-          {(currentHash === '#fondogeneral' || currentHash === '#agregarproveedor' || currentHash === '#reportes') && canManageFondoGeneral && (
+          {/* If we're on fondo-related sections, show quick actions in the header */}
+          {(currentHash === '#fondogeneral' || currentHash === '#agregarproveedor' || currentHash === '#reportes' || currentHash === '#configuracion') && canManageFondoGeneral && (
             <nav className="hidden lg:flex items-center gap-1">
               {/* Agregar proveedor */}
               <button
@@ -409,23 +410,46 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               </button>
 
               {/* Reportes */}
-              <button
-                onClick={() => {
-                  window.location.hash = '#reportes';
-                }}
-                className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${
-                  currentHash === '#reportes'
-                    ? 'text-[var(--tab-text-active)] font-semibold'
-                    : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
-                }`}
-                title="Reportes"
-              >
-                <Layers className="w-4 h-4" />
-                <span className="hidden xl:inline">Reportes</span>
-                {currentHash === '#reportes' && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
-                )}
-              </button>
+              {isFondoPrivileged && (
+                <button
+                  onClick={() => {
+                    window.location.hash = '#reportes';
+                  }}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${
+                    currentHash === '#reportes'
+                      ? 'text-[var(--tab-text-active)] font-semibold'
+                      : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
+                  }`}
+                  title="Reportes"
+                >
+                  <Layers className="w-4 h-4" />
+                  <span className="hidden xl:inline">Reportes</span>
+                  {currentHash === '#reportes' && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
+                  )}
+                </button>
+              )}
+
+              {/* Configuración */}
+              {isFondoPrivileged && (
+                <button
+                  onClick={() => {
+                    window.location.hash = '#configuracion';
+                  }}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${
+                    currentHash === '#configuracion'
+                      ? 'text-[var(--tab-text-active)] font-semibold'
+                      : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
+                  }`}
+                  title="Configuración del fondo"
+                >
+                  <Settings className="w-4 h-4" />
+                  <span className="hidden xl:inline">Configuración</span>
+                  {currentHash === '#configuracion' && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
+                  )}
+                </button>
+              )}
             </nav>
           )}
 

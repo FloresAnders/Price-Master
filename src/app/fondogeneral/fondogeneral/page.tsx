@@ -93,8 +93,10 @@ export default function FondoPage() {
                             ))}
                         </div>
                         {companySelectorSlot && (
-                            <div className="ml-auto flex-1 min-w-[260px] text-right sm:text-left">
-                                {companySelectorSlot}
+                            <div className="ml-auto flex flex-wrap items-center gap-3">
+                                <div className="flex-1 min-w-[260px] text-right sm:text-left">
+                                    {companySelectorSlot}
+                                </div>
                             </div>
                         )}
                     </div>
