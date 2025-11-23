@@ -1,12 +1,13 @@
 // src/components/ScheduleReportTab.tsx
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Calendar, MapPin, FileText, Clock, Calculator, Eye } from 'lucide-react';
 import { EmpresasService } from '../../services/empresas';
 import { UsersService } from '../../services/users';
 import useToast from '../../hooks/useToast';
 import { useAuth } from '../../hooks/useAuth';
+import { useActorOwnership } from '../../hooks/useActorOwnership';
 import { SchedulesService, ScheduleEntry } from '../../services/schedules';
 import PayrollExporter from './PayrollExporter';
 import PayrollRecordsViewer from './PayrollRecordsViewer';
@@ -46,6 +47,8 @@ interface LocationSchedule {
 
 export default function ScheduleReportTab() {
   const { user: currentUser } = useAuth();
+  const { ownerIds: actorOwnerIds, primaryOwnerId } = useActorOwnership(currentUser);
+  const actorOwnerIdSet = useMemo(() => new Set(actorOwnerIds.map(id => String(id))), [actorOwnerIds]);
   const [locations, setLocations] = useState<MappedEmpresa[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
   const [currentPeriod, setCurrentPeriod] = useState<BiweeklyPeriod | null>(null);
@@ -144,30 +147,6 @@ export default function ScheduleReportTab() {
         const empresas = await EmpresasService.getAllEmpresas();
         let owned: typeof empresas = [];
 
-        // Resolve actor ownerId similarly to other actor-aware components.
-        const resolveOwnerIdForActor = () => {
-          // prefer explicit ownerId on currentUser
-          if (currentUser?.ownerId) return currentUser.ownerId;
-
-          // fallback to enriched session in browser
-          if (typeof window !== 'undefined') {
-            try {
-              const sessionRaw = localStorage.getItem('pricemaster_session');
-              if (sessionRaw) {
-                const session = JSON.parse(sessionRaw);
-                if (session && session.ownerId) return session.ownerId;
-                if (session && session.eliminate === false && session.id) return session.id;
-              }
-            } catch {
-              // ignore
-            }
-          }
-
-          // finally, if currentUser is present and not marked as delegated (eliminate === false), use its id
-          if (currentUser && (currentUser as any).eliminate === false && (currentUser as any).id) return (currentUser as any).id;
-          return '';
-        };
-
         // Si no hay usuario autenticado aún, mostrar vacío
         if (!currentUser) {
           owned = [];
@@ -175,45 +154,30 @@ export default function ScheduleReportTab() {
           // superadmin ve todas las empresas
           owned = empresas || [];
         } else {
-          const actorOwnerId = resolveOwnerIdForActor();
-          if (actorOwnerId) {
-            owned = (empresas || []).filter(e => e && e.ownerId && String(e.ownerId) === String(actorOwnerId));
+          if (actorOwnerIdSet.size > 0) {
+            owned = (empresas || []).filter(
+              e => e && e.ownerId && actorOwnerIdSet.has(String(e.ownerId))
+            );
           } else {
-            // fallback to previous behavior matching by currentUser.id or currentUser.ownerId
-            owned = (empresas || []).filter(e => e && e.ownerId && (
-              String(e.ownerId) === String(currentUser.id) ||
-              (currentUser.ownerId && String(e.ownerId) === String(currentUser.ownerId))
-            ));
+            owned = (empresas || []).filter(
+              e =>
+                e && e.ownerId && (
+                  (currentUser.id && String(e.ownerId) === String(currentUser.id)) ||
+                  (currentUser.ownerId && String(e.ownerId) === String(currentUser.ownerId))
+                )
+            );
           }
         }
 
         try {
           // If the current actor is an admin, exclude empresas owned by a superadmin user
           if (currentUser?.role === 'admin') {
-            // Also ensure admins see companies they themselves created (ownerId === currentUser.id)
-            const allowed = new Set<string>();
-            if (currentUser.id) allowed.add(String(currentUser.id));
-            if (currentUser.ownerId) allowed.add(String(currentUser.ownerId));
-            try {
-              if (typeof window !== 'undefined') {
-                const sessionRaw = localStorage.getItem('pricemaster_session');
-                if (sessionRaw) {
-                  const session = JSON.parse(sessionRaw);
-                  if (session && session.ownerId) allowed.add(String(session.ownerId));
-                }
-              }
-            } catch {}
-
-            // Merge with previously computed owned list: include empresas whose ownerId is in allowed
-            const merged = (empresas || []).filter((e: any) => e && e.ownerId && allowed.has(String(e.ownerId)));
-            // prefer merged if it has entries, otherwise keep existing 'owned'
-            if (merged.length > 0) owned = merged;
             const ownerIds = Array.from(new Set((owned || []).map((e: any) => e.ownerId).filter(Boolean)));
             const owners = await Promise.all(ownerIds.map(id => UsersService.getUserById(id)));
             const ownerRoleById = new Map<string, string | undefined>();
             ownerIds.forEach((id, idx) => ownerRoleById.set(id, owners[idx]?.role));
 
-            console.debug('[ScheduleReportTab] currentUser:', currentUser?.id, currentUser?.ownerId, 'owned count before:', (owned || []).length);
+            console.debug('[ScheduleReportTab] currentUser:', currentUser?.id, currentUser?.ownerId, 'resolved actorOwnerId:', primaryOwnerId, 'owned count before:', (owned || []).length);
             console.debug('[ScheduleReportTab] owner roles:', Array.from(ownerRoleById.entries()));
 
             owned = (owned || []).filter((e: any) => ownerRoleById.get(e.ownerId) !== 'superadmin');
@@ -242,7 +206,7 @@ export default function ScheduleReportTab() {
       }
     };
     loadLocations();
-  }, [currentUser]);
+  }, [actorOwnerIdSet, actorOwnerIds, currentUser, primaryOwnerId]);
   // Inicializar períodos disponibles
   useEffect(() => {
     const initializePeriods = async () => {
