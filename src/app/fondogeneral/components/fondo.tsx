@@ -45,6 +45,7 @@ import { DailyClosingsService, DailyClosingRecord, DailyClosingsDocument } from 
 import { buildDailyClosingEmailTemplate } from '../../../services/email-templates/daily-closing';
 import AgregarMovimiento from './AgregarMovimiento';
 import DailyClosingModal, { DailyClosingFormValues } from './DailyClosingModal';
+import { useActorOwnership } from '../../../hooks/useActorOwnership';
 
 const FONDO_INGRESO_TYPES = ['VENTAS', 'OTROS INGRESOS'] as const;
 
@@ -379,7 +380,19 @@ const AccessRestrictedMessage = ({ description }: { description: string }) => (
 export function ProviderSection({ id }: { id?: string }) {
     const { user, loading: authLoading } = useAuth();
     const assignedCompany = user?.ownercompanie?.trim() ?? '';
-    const ownerId = (user?.ownerId || '').trim();
+    const { ownerIds: actorOwnerIds } = useActorOwnership(user);
+    const allowedOwnerIds = useMemo(() => {
+        const set = new Set<string>();
+        actorOwnerIds.forEach(id => {
+            const normalized = typeof id === 'string' ? id.trim() : String(id || '').trim();
+            if (normalized) set.add(normalized);
+        });
+        if (user?.ownerId) {
+            const normalized = String(user.ownerId).trim();
+            if (normalized) set.add(normalized);
+        }
+        return set;
+    }, [actorOwnerIds, user?.ownerId]);
     const isAdminUser = user?.role === 'admin';
     const [adminCompany, setAdminCompany] = useState(assignedCompany);
     useEffect(() => {
@@ -406,7 +419,7 @@ export function ProviderSection({ id }: { id?: string }) {
             setOwnerCompaniesError(null);
             return;
         }
-        if (!ownerId) {
+        if (allowedOwnerIds.size === 0) {
             setOwnerCompanies([]);
             setOwnerCompaniesLoading(false);
             setOwnerCompaniesError('No se pudo determinar el ownerId asociado a tu cuenta.');
@@ -420,7 +433,11 @@ export function ProviderSection({ id }: { id?: string }) {
         EmpresasService.getAllEmpresas()
             .then(empresas => {
                 if (!isMounted) return;
-                const filtered = empresas.filter(emp => (emp.ownerId || '').trim() === ownerId);
+                const filtered = empresas.filter(emp => {
+                    const owner = (emp.ownerId || '').trim();
+                    if (!owner) return false;
+                    return allowedOwnerIds.has(owner);
+                });
                 setOwnerCompanies(filtered);
                 setAdminCompany(current => {
                     const normalizedCurrent = (current || '').trim().toLowerCase();
@@ -443,7 +460,7 @@ export function ProviderSection({ id }: { id?: string }) {
         return () => {
             isMounted = false;
         };
-    }, [isAdminUser, ownerId]);
+    }, [allowedOwnerIds, isAdminUser]);
 
     const [providerName, setProviderName] = useState('');
     const [providerType, setProviderType] = useState<FondoMovementType | ''>('');
@@ -829,7 +846,26 @@ export function FondoSection({
 }) {
     const { user, loading: authLoading } = useAuth();
     const assignedCompany = user?.ownercompanie?.trim() ?? '';
-    const ownerId = (user?.ownerId || '').trim();
+    const { ownerIds: actorOwnerIds, primaryOwnerId } = useActorOwnership(user);
+    const allowedOwnerIds = useMemo(() => {
+        const set = new Set<string>();
+        actorOwnerIds.forEach(id => {
+            const normalized = typeof id === 'string' ? id.trim() : String(id || '').trim();
+            if (normalized) set.add(normalized);
+        });
+        if (user?.ownerId) {
+            const normalized = String(user.ownerId).trim();
+            if (normalized) set.add(normalized);
+        }
+        return set;
+    }, [actorOwnerIds, user?.ownerId]);
+    const resolvedOwnerId = useMemo(() => {
+        const normalizedPrimary = (primaryOwnerId || '').trim();
+        if (normalizedPrimary) return normalizedPrimary;
+        const [firstAllowed] = Array.from(allowedOwnerIds);
+        if (firstAllowed) return firstAllowed;
+        return '';
+    }, [allowedOwnerIds, primaryOwnerId]);
     const isAdminUser = user?.role === 'admin';
     const [adminCompany, setAdminCompany] = useState(assignedCompany);
     useEffect(() => {
@@ -855,7 +891,7 @@ export function FondoSection({
             setOwnerCompaniesError(null);
             return;
         }
-        if (!ownerId) {
+        if (allowedOwnerIds.size === 0) {
             setOwnerCompanies([]);
             setOwnerCompaniesLoading(false);
             setOwnerCompaniesError('No se pudo determinar el ownerId asociado a tu cuenta.');
@@ -869,7 +905,11 @@ export function FondoSection({
         EmpresasService.getAllEmpresas()
             .then(empresas => {
                 if (!isMounted) return;
-                const filtered = empresas.filter(emp => (emp.ownerId || '').trim() === ownerId);
+                const filtered = empresas.filter(emp => {
+                    const owner = (emp.ownerId || '').trim();
+                    if (!owner) return false;
+                    return allowedOwnerIds.has(owner);
+                });
                 setOwnerCompanies(filtered);
                 setAdminCompany(current => {
                     const normalizedCurrent = (current || '').trim().toLowerCase();
@@ -892,7 +932,7 @@ export function FondoSection({
         return () => {
             isMounted = false;
         };
-    }, [isAdminUser, ownerId]);
+    }, [allowedOwnerIds, isAdminUser]);
     const permissions = user?.permissions || getDefaultPermissions(user?.role || 'user');
     const hasGeneralAccess = Boolean(permissions.fondogeneral);
     const requiredPermissionKey = NAMESPACE_PERMISSIONS[namespace] || 'fondogeneral';
@@ -1163,8 +1203,8 @@ export function FondoSection({
 
         const loadEntries = async () => {
             try {
-                const legacyOwnerKey = ownerId
-                    ? MovimientosFondosService.buildLegacyOwnerMovementsKey(ownerId)
+                const legacyOwnerKey = resolvedOwnerId
+                    ? MovimientosFondosService.buildLegacyOwnerMovementsKey(resolvedOwnerId)
                     : null;
                 const parseTime = (value: string) => {
                     const timestamp = Date.parse(value);
@@ -1338,7 +1378,7 @@ export function FondoSection({
         return () => {
             isMounted = false;
         };
-    }, [namespace, ownerId, company, applyLedgerStateFromStorage, accountKey]);
+    }, [namespace, resolvedOwnerId, company, applyLedgerStateFromStorage, accountKey]);
 
     useEffect(() => {
         if (!selectedProvider) return;
@@ -1802,8 +1842,8 @@ export function FondoSection({
                 const legacyKey = buildStorageKey(namespace, FONDO_KEY_SUFFIX);
                 localStorage.removeItem(legacyKey);
 
-                if (ownerId) {
-                    const legacyOwnerKey = MovimientosFondosService.buildLegacyOwnerMovementsKey(ownerId);
+                if (resolvedOwnerId) {
+                    const legacyOwnerKey = MovimientosFondosService.buildLegacyOwnerMovementsKey(resolvedOwnerId);
                     if (legacyOwnerKey !== companyKey) {
                         localStorage.removeItem(legacyOwnerKey);
                     }
@@ -1831,7 +1871,7 @@ export function FondoSection({
         entriesHydrated,
         company,
         hydratedCompany,
-        ownerId,
+        resolvedOwnerId,
         currencyEnabled,
         initialAmount,
         initialAmountUSD,
