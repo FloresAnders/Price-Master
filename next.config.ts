@@ -4,8 +4,7 @@ const useStaticExport = process.env.NEXT_ENABLE_STATIC_EXPORT === 'true';
 
 const nextConfig: NextConfig = {
   /* config options here */
-  ...(useStaticExport ? { output: 'export', trailingSlash: true } : {}),
-  distDir: 'out',
+  ...(useStaticExport ? { output: 'export', trailingSlash: true, distDir: 'out' } : {}),
   generateBuildId: async () => {
     return 'build-' + Date.now()
   },
