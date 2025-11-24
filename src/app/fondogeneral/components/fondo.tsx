@@ -47,9 +47,9 @@ import { UsersService } from '../../../services/users';
 import AgregarMovimiento from './AgregarMovimiento';
 import DailyClosingModal, { DailyClosingFormValues } from './DailyClosingModal';
 import { useActorOwnership } from '../../../hooks/useActorOwnership';
-const FONDO_INGRESO_TYPES = ['VENTAS', 'OTROS INGRESOS'] as const;
+export const FONDO_INGRESO_TYPES = ['VENTAS', 'OTROS INGRESOS'] as const;
 
-const FONDO_GASTO_TYPES = [
+export const FONDO_GASTO_TYPES = [
     'SALARIOS',
     'CARGAS SOCIALES',
     'AGUINALDOS',
@@ -73,7 +73,7 @@ const FONDO_GASTO_TYPES = [
     'GASTOS VARIOS',
 ] as const;
 
-const FONDO_EGRESO_TYPES = [
+export const FONDO_EGRESO_TYPES = [
     'PAGO TIEMPOS',
     'PAGO BANCA',
     'COMPRA INVENTARIO',
@@ -84,19 +84,19 @@ const FONDO_EGRESO_TYPES = [
 ] as const;
 
 // Opciones visibles en el selector
-const FONDO_TYPE_OPTIONS = [...FONDO_INGRESO_TYPES, ...FONDO_GASTO_TYPES, ...FONDO_EGRESO_TYPES] as const;
+export const FONDO_TYPE_OPTIONS = [...FONDO_INGRESO_TYPES, ...FONDO_GASTO_TYPES, ...FONDO_EGRESO_TYPES] as const;
 
 export type FondoMovementType = typeof FONDO_INGRESO_TYPES[number] | typeof FONDO_GASTO_TYPES[number] | typeof FONDO_EGRESO_TYPES[number];
 
-const isFondoMovementType = (value: string): value is FondoMovementType =>
+export const isFondoMovementType = (value: string): value is FondoMovementType =>
     FONDO_TYPE_OPTIONS.includes(value as FondoMovementType);
 
-const isIngresoType = (type: FondoMovementType) => (FONDO_INGRESO_TYPES as readonly string[]).includes(type);
-const isGastoType = (type: FondoMovementType) => (FONDO_GASTO_TYPES as readonly string[]).includes(type);
-const isEgresoType = (type: FondoMovementType) => (FONDO_EGRESO_TYPES as readonly string[]).includes(type);
+export const isIngresoType = (type: FondoMovementType) => (FONDO_INGRESO_TYPES as readonly string[]).includes(type);
+export const isGastoType = (type: FondoMovementType) => (FONDO_GASTO_TYPES as readonly string[]).includes(type);
+export const isEgresoType = (type: FondoMovementType) => (FONDO_EGRESO_TYPES as readonly string[]).includes(type);
 
 // Formatea en Titulo Caso cada palabra
-const formatMovementType = (type: FondoMovementType) =>
+export const formatMovementType = (type: FondoMovementType) =>
     type
         .toLowerCase()
         .split(' ')
@@ -319,7 +319,7 @@ const resolveCreatedAt = (value: unknown): string | undefined => {
 const dateKeyFromDate = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-const sanitizeFondoEntries = (
+export const sanitizeFondoEntries = (
     rawEntries: unknown,
     forcedCurrency?: MovementCurrencyKey,
     forcedAccount?: MovementAccountKey,
