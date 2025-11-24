@@ -77,20 +77,25 @@ export default function FondoPage() {
                 <div>
                     <div className="flex flex-wrap items-center gap-4 border-b border-[var(--input-border)] mb-4">
                         <div role="tablist" aria-label="Cuentas" className="flex flex-wrap items-center gap-2">
-                            {availableTabs.map(tab => (
-                                <button
-                                    key={tab.id}
-                                    role="tab"
-                                    aria-selected={active === tab.id}
-                                    onClick={() => setActive(tab.id)}
-                                    className={`py-2 px-4 -mb-px focus:outline-none ${active === tab.id
-                                        ? 'border-b-2 border-[var(--accent)] font-semibold'
-                                        : 'text-[var(--muted)]'
-                                        }`}
-                                >
-                                    {tab.label}
-                                </button>
-                            ))}
+                            {availableTabs.map(tab => {
+                                const isActive = active === tab.id;
+                                return (
+                                    <button
+                                        key={tab.id}
+                                        type="button"
+                                        role="tab"
+                                        tabIndex={isActive ? 0 : -1}
+                                        aria-selected={isActive}
+                                        onClick={() => setActive(tab.id)}
+                                        className={`relative -mb-px rounded-md  px-4 py-2 text-sm font-semibold transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--card-bg)] ${isActive
+                                                ? 'border-[var(--accent)] text-[var(--foreground)] bg-[var(--accent)]/15 shadow-md after:absolute after:bottom-[-2px] after:left-2 after:right-2 after:h-1 after:rounded-full after:bg-[var(--accent)] after:content-[""]'
+                                            : 'border-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--muted)]/10'
+                                            }`}
+                                    >
+                                        <span className="tracking-wide">{tab.label}</span>
+                                    </button>
+                                );
+                            })}
                         </div>
                         {companySelectorSlot && (
                             <div className="ml-auto flex flex-wrap items-center gap-3">

@@ -64,6 +64,46 @@ export class UsersService {
     return await FirestoreService.getById(this.COLLECTION_NAME, id);
   }
 
+  static async getPrimaryAdminByOwner(ownerId: string): Promise<User | null> {
+    const normalized = (ownerId ?? '').trim();
+    if (!normalized) return null;
+
+    let directCandidate: User | null = null;
+    try {
+      directCandidate = await this.getUserById(normalized);
+      if (directCandidate?.role === 'admin') {
+        const directEmail = typeof directCandidate.email === 'string' ? directCandidate.email.trim() : '';
+        if (directEmail.length > 0) {
+          return directCandidate;
+        }
+      }
+    } catch (error) {
+      console.error('Error retrieving owner admin by id:', error);
+    }
+
+    try {
+      const usersRaw = await FirestoreService.query(this.COLLECTION_NAME, [
+        { field: 'ownerId', operator: '==', value: normalized }
+      ]);
+      const adminCandidates = (usersRaw as User[]).filter(user => user.role === 'admin');
+      if (adminCandidates.length === 0) {
+        return directCandidate;
+      }
+
+      const hasEmail = (user: User | undefined): boolean => typeof user?.email === 'string' && user.email.trim().length > 0;
+
+      const preferred = adminCandidates.find(user => user.eliminate === false && hasEmail(user))
+        || adminCandidates.find(user => hasEmail(user))
+        || adminCandidates.find(user => user.eliminate === false)
+        || adminCandidates[0];
+
+      return preferred ?? directCandidate;
+    } catch (error) {
+      console.error('Error querying admin users by ownerId:', error);
+      return directCandidate;
+    }
+  }
+
   /**
    * Add a new user
    */

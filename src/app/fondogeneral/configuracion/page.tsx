@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Lock, Loader2, Pencil, RefreshCw, Save } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { useActorOwnership } from '@/hooks/useActorOwnership';
 import { getDefaultPermissions } from '@/utils/permissions';
 import { EmpresasService } from '@/services/empresas';
 import {
@@ -105,12 +106,25 @@ const buildStateFromStorage = (
 
 export default function FondoGeneralConfigurationPage() {
     const { user, loading } = useAuth();
+    const { ownerIds: actorOwnerIds } = useActorOwnership(user);
     const permissions = user?.permissions || getDefaultPermissions(user?.role || 'user');
     const hasFondogeneralAccess = Boolean(permissions.fondogeneral);
     const isPrivileged = user?.role === 'admin' || user?.role === 'superadmin';
     const canAccess = isPrivileged && hasFondogeneralAccess;
     const preferredCompany = user?.ownercompanie?.trim() ?? '';
-    const ownerId = (user?.ownerId || '').trim();
+    const allowedOwnerIds = useMemo(() => {
+        const set = new Set<string>();
+        actorOwnerIds.forEach(value => {
+            if (value === null || value === undefined) return;
+            const trimmed = String(value).trim();
+            if (trimmed.length > 0) set.add(trimmed);
+        });
+        if (user?.ownerId !== null && user?.ownerId !== undefined) {
+            const trimmed = String(user.ownerId).trim();
+            if (trimmed.length > 0) set.add(trimmed);
+        }
+        return Array.from(set).sort();
+    }, [actorOwnerIds, user?.ownerId]);
 
     const [companies, setCompanies] = useState<string[]>([]);
     const [companiesLoading, setCompaniesLoading] = useState(false);
@@ -167,8 +181,11 @@ export default function FondoGeneralConfigurationPage() {
         EmpresasService.getAllEmpresas()
             .then(list => {
                 if (!isActive) return;
-                const filteredByOwner = ownerId.length > 0
-                    ? list.filter(emp => (emp.ownerId || '').trim() === ownerId)
+                const ownerSet = new Set(
+                    allowedOwnerIds.map(id => id.trim()).filter(id => id.length > 0),
+                );
+                const filteredByOwner = ownerSet.size > 0
+                    ? list.filter(emp => ownerSet.has((emp.ownerId || '').trim()))
                     : list;
                 const uniqueNames = Array.from(
                     new Set(
@@ -196,7 +213,7 @@ export default function FondoGeneralConfigurationPage() {
         return () => {
             isActive = false;
         };
-    }, [canAccess, ownerId]);
+    }, [allowedOwnerIds, canAccess]);
 
     useEffect(() => {
         if (!canAccess) {

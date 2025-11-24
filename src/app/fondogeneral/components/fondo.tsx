@@ -43,10 +43,10 @@ import {
 } from '../../../services/movimientos-fondos';
 import { DailyClosingsService, DailyClosingRecord, DailyClosingsDocument } from '../../../services/daily-closings';
 import { buildDailyClosingEmailTemplate } from '../../../services/email-templates/daily-closing';
+import { UsersService } from '../../../services/users';
 import AgregarMovimiento from './AgregarMovimiento';
 import DailyClosingModal, { DailyClosingFormValues } from './DailyClosingModal';
 import { useActorOwnership } from '../../../hooks/useActorOwnership';
-
 const FONDO_INGRESO_TYPES = ['VENTAS', 'OTROS INGRESOS'] as const;
 
 const FONDO_GASTO_TYPES = [
@@ -874,6 +874,7 @@ export function FondoSection({
     const company = isAdminUser ? adminCompany : assignedCompany;
     const { providers, loading: providersLoading, error: providersError } = useProviders(company);
     const { sendEmail } = useEmail();
+    const [ownerAdminEmail, setOwnerAdminEmail] = useState<string | null>(null);
     const [ownerCompanies, setOwnerCompanies] = useState<Empresas[]>([]);
     const [ownerCompaniesLoading, setOwnerCompaniesLoading] = useState(false);
     const [ownerCompaniesError, setOwnerCompaniesError] = useState<string | null>(null);
@@ -933,6 +934,52 @@ export function FondoSection({
             isMounted = false;
         };
     }, [allowedOwnerIds, isAdminUser]);
+
+    const activeOwnerId = useMemo(() => {
+        if (isAdminUser) {
+            const normalizedCompany = (adminCompany || '').trim().toLowerCase();
+            if (normalizedCompany.length > 0) {
+                const match = ownerCompanies.find(emp => (emp.name || '').trim().toLowerCase() === normalizedCompany);
+                const ownerId = typeof match?.ownerId === 'string' ? match.ownerId.trim() : '';
+                if (ownerId) return ownerId;
+            }
+            const fallbackAdminOwner = typeof ownerCompanies[0]?.ownerId === 'string' ? ownerCompanies[0].ownerId.trim() : '';
+            if (fallbackAdminOwner) return fallbackAdminOwner;
+        }
+        return resolvedOwnerId;
+    }, [adminCompany, isAdminUser, ownerCompanies, resolvedOwnerId]);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        if (!activeOwnerId) {
+            setOwnerAdminEmail(null);
+            return () => {
+                cancelled = true;
+            };
+        }
+
+        setOwnerAdminEmail(null);
+
+        const loadAdminEmail = async () => {
+            try {
+                const admin = await UsersService.getPrimaryAdminByOwner(activeOwnerId);
+                if (cancelled) return;
+                const email = typeof admin?.email === 'string' ? admin.email.trim() : '';
+                setOwnerAdminEmail(email.length > 0 ? email : null);
+            } catch (error) {
+                if (cancelled) return;
+                console.error('Error loading owner admin email for daily closing notifications:', error);
+                setOwnerAdminEmail(null);
+            }
+        };
+
+        void loadAdminEmail();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [activeOwnerId]);
     const permissions = user?.permissions || getDefaultPermissions(user?.role || 'user');
     const hasGeneralAccess = Boolean(permissions.fondogeneral);
     const requiredPermissionKey = NAMESPACE_PERMISSIONS[namespace] || 'fondogeneral';
@@ -2065,8 +2112,15 @@ export function FondoSection({
             });
 
         const notificationRecipients = new Set<string>();
-        const primaryRecipient = 'chavesa698@gmail.com';
-        notificationRecipients.add(primaryRecipient);
+        const adminRecipient = ownerAdminEmail?.trim();
+        if (adminRecipient) {
+            notificationRecipients.add(adminRecipient);
+        } else if (activeOwnerId) {
+            console.warn('Daily closing email: missing admin recipient for owner.', {
+                ownerId: activeOwnerId,
+                company: normalizedCompany,
+            });
+        }
         const userEmail = user?.email?.trim();
         if (userEmail) notificationRecipients.add(userEmail);
 
@@ -2083,6 +2137,13 @@ export function FondoSection({
             diffUSD: record.diffUSD,
             notes: record.notes,
         });
+
+        if (notificationRecipients.size === 0 && activeOwnerId) {
+            console.warn('Daily closing email: skipped sending notification because no recipients were resolved.', {
+                ownerId: activeOwnerId,
+                company: normalizedCompany,
+            });
+        }
 
         notificationRecipients.forEach(recipient => {
             if (!recipient) return;
@@ -2255,12 +2316,27 @@ export function FondoSection({
         return dateKeyFromDate(date);
     }, []);
 
-    const disablePrevButton = isDailyMode ? currentDailyKey >= todayKey : pageIndex <= 0;
-    const disableNextButton = isDailyMode
+    const disablePrevButton = isDailyMode
         ? (earliestEntryKey ? currentDailyKey <= earliestEntryKey : true)
+        : pageIndex <= 0;
+    const disableNextButton = isDailyMode
+        ? currentDailyKey >= todayKey
         : pageIndex >= totalPages - 1;
 
     const handlePrevPage = useCallback(() => {
+        if (isDailyMode) {
+            if (!earliestEntryKey) return;
+            setCurrentDailyKey(prev => {
+                if (prev <= earliestEntryKey) return earliestEntryKey;
+                const shifted = shiftDateKey(prev, -1);
+                return shifted < earliestEntryKey ? earliestEntryKey : shifted;
+            });
+            return;
+        }
+        setPageIndex(p => Math.max(0, p - 1));
+    }, [earliestEntryKey, isDailyMode, shiftDateKey]);
+
+    const handleNextPage = useCallback(() => {
         if (isDailyMode) {
             setCurrentDailyKey(prev => {
                 if (prev >= todayKey) return todayKey;
@@ -2269,21 +2345,8 @@ export function FondoSection({
             });
             return;
         }
-        setPageIndex(p => Math.max(0, p - 1));
-    }, [isDailyMode, shiftDateKey, todayKey]);
-
-    const handleNextPage = useCallback(() => {
-        if (isDailyMode) {
-            if (!earliestEntryKey) return;
-            setCurrentDailyKey(prev => {
-                if (prev <= earliestEntryKey) return prev;
-                const shifted = shiftDateKey(prev, -1);
-                return shifted < earliestEntryKey ? earliestEntryKey : shifted;
-            });
-            return;
-        }
         setPageIndex(p => Math.min(totalPages - 1, p + 1));
-    }, [earliestEntryKey, isDailyMode, shiftDateKey, totalPages]);
+    }, [isDailyMode, shiftDateKey, todayKey, totalPages]);
 
     // Group visible entries by day (local date). We'll render a date header row per group.
     const groupedByDay = useMemo(() => {
