@@ -160,7 +160,7 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
             formData.email !== baseEmail ||
             formData.password.length > 0
         );
-    }, [formData, baseUser?.name, baseUser?.fullName, baseUser?.email]);
+    }, [formData, baseUser]);
 
     const handleChange = (field: keyof typeof formData) => (
         event: React.ChangeEvent<HTMLInputElement>

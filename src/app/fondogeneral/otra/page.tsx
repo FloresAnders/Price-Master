@@ -1,449 +1,493 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { 
-    FileText, 
-    Lock, 
-    Calendar,
-    Filter,
-    Search,
-    X,
-    TrendingUp,
-    TrendingDown,
-    DollarSign,
-    Building2,
-    RefreshCw
-} from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AlertCircle, ChevronDown, Loader2, Lock } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { useActorOwnership } from '@/hooks/useActorOwnership';
 import { getDefaultPermissions } from '@/utils/permissions';
-import { MovimientosFondosService, MovementAccountKey } from '@/services/movimientos-fondos';
-import { useProviders } from '@/hooks/useProviders';
 import { EmpresasService } from '@/services/empresas';
-import type { Empresas, ProviderEntry } from '@/types/firestore';
+import {
+    MovimientosFondosService,
+    type MovementAccountKey,
+    type MovementCurrencyKey,
+} from '@/services/movimientos-fondos';
+import {
+    sanitizeFondoEntries,
+    isGastoType,
+    isIngresoType,
+    formatMovementType,
+    type FondoEntry,
+    type FondoMovementType,
+} from '@/app/fondogeneral/components/fondo';
 
-const ACCOUNT_OPTIONS: Array<{ value: MovementAccountKey | 'all'; label: string }> = [
-    { value: 'all', label: 'Todas las cuentas' },
-    { value: 'FondoGeneral', label: 'Fondo General' },
-    { value: 'BCR', label: 'BCR' },
-    { value: 'BN', label: 'BN' },
-    { value: 'BAC', label: 'BAC' },
-];
+type Classification = 'ingreso' | 'gasto' | 'egreso';
 
-// Types from fondo.tsx
-const FONDO_INGRESO_TYPES = ['VENTAS', 'OTROS INGRESOS'] as const;
-const FONDO_EGRESO_TYPES = [
-    'COMPRA INVENTARIO',
-    'SALARIOS',
-    'REPARACION EQUIPO',
-    'PAGO TIEMPOS',
-    'PAGO BANCA',
-    'CARGAS SOCIALES',
-    'ELECTRICIDAD',
-] as const;
+type CurrencyBucket = {
+    ingreso: number;
+    gasto: number;
+    egreso: number;
+};
 
-type FondoMovementType = typeof FONDO_INGRESO_TYPES[number] | typeof FONDO_EGRESO_TYPES[number];
-
-type FondoEntry = {
-    id: string;
-    providerCode: string;
-    invoiceNumber: string;
+type SummaryRow = {
     paymentType: FondoMovementType;
-    amountEgreso: number;
-    amountIngreso: number;
-    manager: string;
-    notes: string;
-    createdAt: string;
-    accountId?: MovementAccountKey;
-    currency?: 'CRC' | 'USD';
-    isAudit?: boolean;
-    originalEntryId?: string;
-    auditDetails?: string;
+    label: string;
+    classification: Classification;
+    totals: Record<MovementCurrencyKey, CurrencyBucket>;
 };
 
-const isIngresoType = (type: FondoMovementType) => 
-    (FONDO_INGRESO_TYPES as readonly string[]).includes(type);
-
-const formatCurrency = (amount: number, currency: 'CRC' | 'USD') => {
-    const formatter = new Intl.NumberFormat('es-CR', {
-        style: 'currency',
-        currency: currency,
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-    });
-    return formatter.format(amount);
+const ACCOUNT_LABELS: Record<MovementAccountKey, string> = {
+    FondoGeneral: 'Fondo General',
+    BCR: 'Cuenta BCR',
+    BN: 'Cuenta BN',
+    BAC: 'Cuenta BAC',
 };
 
-const formatDate = (isoString: string) => {
-    const date = new Date(isoString);
-    return new Intl.DateTimeFormat('es-CR', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-    }).format(date);
+const ACCOUNT_ORDER: MovementAccountKey[] = ['FondoGeneral', 'BCR', 'BN', 'BAC'];
+const MOVEMENT_ACCOUNT_SET = new Set<MovementAccountKey>(ACCOUNT_ORDER);
+const ALL_COMPANIES_VALUE = '__all_companies__';
+const ALL_ACCOUNTS_VALUE = 'all';
+type AccountSelectValue = MovementAccountKey | typeof ALL_ACCOUNTS_VALUE;
+
+const isMovementAccountKey = (value: unknown): value is MovementAccountKey =>
+    typeof value === 'string' && MOVEMENT_ACCOUNT_SET.has(value as MovementAccountKey);
+
+const formatClassification = (classification: Classification) => {
+    if (classification === 'ingreso') return 'Ingreso';
+    if (classification === 'gasto') return 'Gasto';
+    return 'Egreso';
 };
 
-export default function ReportePage() {
-    const { user, loading } = useAuth();
+const buildDateString = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+export default function ReporteMovimientosPage() {
+    const { user, loading: authLoading } = useAuth();
+    const { ownerIds: actorOwnerIds } = useActorOwnership(user);
     const permissions = user?.permissions || getDefaultPermissions(user?.role || 'user');
     const hasGeneralAccess = Boolean(permissions.fondogeneral);
-    const isAdminUser = user?.role === 'admin' || user?.role === 'superadmin';
     const assignedCompany = user?.ownercompanie?.trim() ?? '';
-    const ownerId = (user?.ownerId || '').trim();
+    const isAdminUser = user?.role === 'admin' || user?.role === 'superadmin';
 
-    // Company selection state
-    const [selectedCompany, setSelectedCompany] = useState('');
-    const [ownerCompanies, setOwnerCompanies] = useState<Empresas[]>([]);
-
-    // Movements data
-    const [allMovements, setAllMovements] = useState<FondoEntry[]>([]);
-    const [movementsLoading, setMovementsLoading] = useState(false);
-    const [isRefreshing, setIsRefreshing] = useState(false);
-    
-    // Providers
-    const { providers } = useProviders(selectedCompany);
-    const providersMap = useMemo(() => {
-        const map = new Map<string, ProviderEntry>();
-        providers.forEach(provider => {
-            map.set(provider.code, provider);
+    const allowedOwnerIds = useMemo(() => {
+        const set = new Set<string>();
+        actorOwnerIds.forEach(id => {
+            if (id === undefined || id === null) return;
+            const normalized = String(id).trim();
+            if (normalized) set.add(normalized);
         });
-        return map;
-    }, [providers]);
-
-    // Filter states
-    const [dateFrom, setDateFrom] = useState<string>('');
-    const [dateTo, setDateTo] = useState<string>('');
-    const [selectedProvider, setSelectedProvider] = useState<string>('all');
-    const [selectedType, setSelectedType] = useState<FondoMovementType | 'all'>('all');
-    const [selectedAccount, setSelectedAccount] = useState<MovementAccountKey | 'all'>('all');
-    const [selectedCurrency, setSelectedCurrency] = useState<'CRC' | 'USD' | 'all'>('all');
-    const [searchQuery, setSearchQuery] = useState('');
-    const [filterMode, setFilterMode] = useState<'all' | 'ingreso' | 'egreso'>('all');
-    const [reportType, setReportType] = useState<'all' | 'solo-gastos' | 'gastos-egresos'>('all');
-
-    // Update selectedCompany when assignedCompany becomes available
-    useEffect(() => {
-        if (!isAdminUser && assignedCompany && !selectedCompany) {
-            setSelectedCompany(assignedCompany);
+        if (user?.ownerId !== undefined && user?.ownerId !== null) {
+            const normalized = String(user.ownerId).trim();
+            if (normalized) set.add(normalized);
         }
-    }, [assignedCompany, selectedCompany, isAdminUser]);
+        return set;
+    }, [actorOwnerIds, user?.ownerId]);
 
-    // Align selected company name with canonical owner company entry
-    useEffect(() => {
-        if (!selectedCompany || ownerCompanies.length === 0) return;
+    const accessibleAccountKeys = useMemo<MovementAccountKey[]>(() => {
+        const list: MovementAccountKey[] = [];
+        if (permissions.fondogeneral) list.push('FondoGeneral');
+        if (permissions.fondogeneralBCR) list.push('BCR');
+        if (permissions.fondogeneralBN) list.push('BN');
+        if (permissions.fondogeneralBAC) list.push('BAC');
+        return list;
+    }, [permissions]);
 
-        const normalizedSelected = selectedCompany.trim().toLowerCase();
-        const matchedCompany = ownerCompanies.find(company =>
-            (company.name || '').trim().toLowerCase() === normalizedSelected
-        );
-
-        if (matchedCompany?.name && matchedCompany.name !== selectedCompany) {
-            setSelectedCompany(matchedCompany.name.trim());
+    const accountSelectOptions = useMemo<(AccountSelectValue)[]>(() => {
+        if (accessibleAccountKeys.length > 1) {
+            return [ALL_ACCOUNTS_VALUE, ...accessibleAccountKeys];
         }
-    }, [selectedCompany, ownerCompanies]);
+        return accessibleAccountKeys;
+    }, [accessibleAccountKeys]);
 
-    // Load companies for admin users
-    useEffect(() => {
-        if (!isAdminUser || !ownerId) {
-            setOwnerCompanies([]);
-            return;
-        }
+    const [companies, setCompanies] = useState<string[]>([]);
+    const [companiesLoading, setCompaniesLoading] = useState(false);
+    const [companiesError, setCompaniesError] = useState<string | null>(null);
+    const [selectedCompany, setSelectedCompany] = useState('');
+    const [selectedAccount, setSelectedAccount] = useState<AccountSelectValue | ''>('');
+    const [entries, setEntries] = useState<FondoEntry[]>([]);
+    const [dataLoading, setDataLoading] = useState(false);
+    const [dataError, setDataError] = useState<string | null>(null);
+    const [classificationFilter, setClassificationFilter] = useState<'all' | 'gasto' | 'egreso' | 'ingreso'>('all');
+    const [selectedMovementTypes, setSelectedMovementTypes] = useState<FondoMovementType[]>([]);
+    const [movementTypeSelectorOpen, setMovementTypeSelectorOpen] = useState(false);
+    const [showUSD, setShowUSD] = useState(false);
+    const movementTypeSelectorRef = useRef<HTMLDivElement | null>(null);
 
-        EmpresasService.getAllEmpresas()
-            .then(empresas => {
-                const filtered = empresas.filter(emp => (emp.ownerId || '').trim() === ownerId);
-                setOwnerCompanies(filtered.sort((a, b) => 
-                    (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' })
-                ));
-            })
-            .catch(err => console.error('Error loading companies:', err));
-    }, [isAdminUser, ownerId]);
-
-    const fetchCompanyStorage = useCallback(async (companyName: string) => {
-        const normalized = (companyName || '').trim();
-        if (!normalized) {
-            return { storage: null, effectiveName: '' };
-        }
-
-        const variants = Array.from(new Set([
-            normalized,
-            normalized.toUpperCase(),
-            normalized.toLowerCase(),
-        ]));
-
-        for (const variant of variants) {
-            const companyKey = MovimientosFondosService.buildCompanyMovementsKey(variant);
-            try {
-                const storage = await MovimientosFondosService.getDocument<FondoEntry>(companyKey);
-                if (storage) {
-                    return { storage, effectiveName: variant };
-                }
-            } catch (err) {
-                console.error('Error loading movements:', err);
-            }
-        }
-
-        return { storage: null, effectiveName: normalized };
+    const handleClassificationToggle = useCallback((target: 'gasto' | 'egreso' | 'ingreso') => {
+        setClassificationFilter(prev => (prev === target ? 'all' : target));
     }, []);
 
-    // Load movements data
+    const movementTypeMetadata = useMemo(() => {
+        const registry = new Map<FondoMovementType, string>();
+        entries.forEach(entry => {
+            registry.set(entry.paymentType, formatMovementType(entry.paymentType));
+        });
+        const sorted = Array.from(registry.entries()).sort((a, b) => a[1].localeCompare(b[1], 'es', { sensitivity: 'base' }));
+        return {
+            options: sorted,
+            labelMap: Object.fromEntries(sorted) as Partial<Record<FondoMovementType, string>>,
+        };
+    }, [entries]);
+
+    const movementTypeOptions = movementTypeMetadata.options;
+    const movementTypeLabelMap = movementTypeMetadata.labelMap;
+
+    const toggleMovementType = useCallback((movementType: FondoMovementType) => {
+        setSelectedMovementTypes(prev => (prev.includes(movementType)
+            ? prev.filter(candidate => candidate !== movementType)
+            : [...prev, movementType]));
+    }, []);
+
+    const clearMovementTypeFilters = useCallback(() => {
+        setSelectedMovementTypes([]);
+        setMovementTypeSelectorOpen(false);
+    }, []);
+
+    const movementTypeSummaryLabel = useMemo(() => {
+        if (selectedMovementTypes.length === 0) return 'Todos los tipos';
+        if (selectedMovementTypes.length === 1) {
+            const type = selectedMovementTypes[0];
+            return movementTypeLabelMap[type] ?? formatMovementType(type);
+        }
+        return `${selectedMovementTypes.length} tipos seleccionados`;
+    }, [selectedMovementTypes, movementTypeLabelMap]);
+
+    const today = useMemo(() => new Date(), []);
+    const initialFrom = useMemo(() => {
+        const start = new Date(today.getFullYear(), today.getMonth(), 1);
+        return buildDateString(start);
+    }, [today]);
+    const initialTo = useMemo(() => buildDateString(today), [today]);
+
+    const [fromDate, setFromDate] = useState(initialFrom);
+    const [toDate, setToDate] = useState(initialTo);
+
+    const dateRangeInvalid = useMemo(() => {
+        if (!fromDate || !toDate) return false;
+        const from = Date.parse(`${fromDate}T00:00:00`);
+        const to = Date.parse(`${toDate}T23:59:59`);
+        if (Number.isNaN(from) || Number.isNaN(to)) return false;
+        return from > to;
+    }, [fromDate, toDate]);
+
+    const currencyFormatters = useMemo(() => ({
+        CRC: new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC', minimumFractionDigits: 0, maximumFractionDigits: 0 }),
+        USD: new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }),
+    }), []);
+
+    const formatAmount = useCallback(
+        (currency: MovementCurrencyKey, amount: number) => {
+            const normalized = Math.trunc(Number.isFinite(amount) ? amount : 0);
+            if (normalized === 0) return '—';
+            return currencyFormatters[currency].format(normalized);
+        },
+        [currencyFormatters],
+    );
+
     useEffect(() => {
-        const targetCompany = selectedCompany.trim();
-        if (!targetCompany) {
-            setAllMovements([]);
+        if (!hasGeneralAccess || authLoading) return;
+
+        if (!isAdminUser) {
+            setCompaniesError(null);
+            setCompaniesLoading(false);
+            if (assignedCompany) {
+                setCompanies([assignedCompany]);
+                setSelectedCompany(assignedCompany);
+            } else {
+                setCompanies([]);
+                setSelectedCompany('');
+            }
             return;
         }
 
-        let isActive = true;
+        if (allowedOwnerIds.size === 0) {
+            setCompanies([]);
+            setSelectedCompany('');
+            setCompaniesError('No se encontraron empresas disponibles para tu usuario.');
+            setCompaniesLoading(false);
+            return;
+        }
 
-        const loadMovements = async () => {
-            setMovementsLoading(true);
+        let cancelled = false;
+        setCompaniesLoading(true);
+        setCompaniesError(null);
+
+        const loadCompanies = async () => {
             try {
-                const { storage, effectiveName } = await fetchCompanyStorage(targetCompany);
-                if (!isActive) return;
-
-                if (effectiveName && effectiveName !== selectedCompany) {
-                    setSelectedCompany(effectiveName);
-                }
-
-                if (storage?.operations?.movements) {
-                    const movements = storage.operations.movements as FondoEntry[];
-                    setAllMovements(movements.sort((a, b) =>
-                        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-                    ));
-                } else {
-                    setAllMovements([]);
-                }
+                const list = await EmpresasService.getAllEmpresas();
+                if (cancelled) return;
+                const filtered = list.filter(emp => allowedOwnerIds.has((emp.ownerId || '').trim()));
+                const names = Array.from(
+                    new Set(
+                        filtered
+                            .map(emp => (emp.name || '').trim())
+                            .filter(name => name.length > 0),
+                    ),
+                ).sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
+                setCompanies(names);
+                setSelectedCompany(prev => {
+                    if (prev === ALL_COMPANIES_VALUE) {
+                        return names.length > 1 ? ALL_COMPANIES_VALUE : names[0] ?? '';
+                    }
+                    if (prev && names.includes(prev)) return prev;
+                    if (assignedCompany && names.includes(assignedCompany)) return assignedCompany;
+                    if (names.length > 1) return ALL_COMPANIES_VALUE;
+                    return names[0] ?? '';
+                });
             } catch (err) {
-                console.error('Error loading movements:', err);
-                if (isActive) {
-                    setAllMovements([]);
+                console.error('Error loading empresas for summary report:', err);
+                if (!cancelled) {
+                    setCompanies([]);
+                    setSelectedCompany('');
+                    setCompaniesError('No se pudieron cargar las empresas. Inténtalo más tarde.');
                 }
             } finally {
-                if (isActive) {
-                    setMovementsLoading(false);
+                if (!cancelled) {
+                    setCompaniesLoading(false);
                 }
             }
         };
 
-        void loadMovements();
+        void loadCompanies();
 
         return () => {
-            isActive = false;
+            cancelled = true;
         };
-    }, [selectedCompany, assignedCompany, fetchCompanyStorage]);
+    }, [hasGeneralAccess, authLoading, isAdminUser, assignedCompany, allowedOwnerIds]);
 
-    // Apply filters
-    const filteredMovements = useMemo(() => {
-        let filtered = allMovements.slice();
+    useEffect(() => {
+        if (isAdminUser) return;
+        if (!assignedCompany) return;
+        setSelectedCompany(assignedCompany);
+    }, [assignedCompany, isAdminUser]);
 
-        // Filter by date range
-        if (dateFrom) {
-            const fromDate = new Date(dateFrom);
-            fromDate.setHours(0, 0, 0, 0);
-            filtered = filtered.filter(m => new Date(m.createdAt) >= fromDate);
+    useEffect(() => {
+        if (accessibleAccountKeys.length === 0) {
+            setSelectedAccount('');
+            return;
         }
-        if (dateTo) {
-            const toDate = new Date(dateTo);
-            toDate.setHours(23, 59, 59, 999);
-            filtered = filtered.filter(m => new Date(m.createdAt) <= toDate);
-        }
+        setSelectedAccount(prev => {
+            if (prev === ALL_ACCOUNTS_VALUE) {
+                return accessibleAccountKeys.length > 1 ? ALL_ACCOUNTS_VALUE : accessibleAccountKeys[0];
+            }
+            if (prev && isMovementAccountKey(prev) && accessibleAccountKeys.includes(prev)) {
+                return prev;
+            }
+            if (accessibleAccountKeys.length > 1) return ALL_ACCOUNTS_VALUE;
+            return accessibleAccountKeys[0];
+        });
+    }, [accessibleAccountKeys]);
 
-        // Filter by provider
-        if (selectedProvider !== 'all') {
-            filtered = filtered.filter(m => m.providerCode === selectedProvider);
-        }
-
-        // Filter by movement type
-        if (selectedType !== 'all') {
-            filtered = filtered.filter(m => m.paymentType === selectedType);
-        }
-
-        // Filter by account
-        if (selectedAccount !== 'all') {
-            filtered = filtered.filter(m => m.accountId === selectedAccount);
-        }
-
-        // Filter by currency
-        if (selectedCurrency !== 'all') {
-            filtered = filtered.filter(m => m.currency === selectedCurrency);
+    useEffect(() => {
+        if (!hasGeneralAccess) {
+            setEntries([]);
+            setDataLoading(false);
+            return;
         }
 
-        // Filter by income/expense mode
-        if (filterMode === 'ingreso') {
-            filtered = filtered.filter(m => isIngresoType(m.paymentType));
-        } else if (filterMode === 'egreso') {
-            filtered = filtered.filter(m => !isIngresoType(m.paymentType));
+        const targetCompanies = selectedCompany === ALL_COMPANIES_VALUE
+            ? companies
+            : selectedCompany
+                ? [selectedCompany]
+                : [];
+
+        const targetAccounts: MovementAccountKey[] = selectedAccount === ALL_ACCOUNTS_VALUE
+            ? accessibleAccountKeys
+            : selectedAccount
+                ? [selectedAccount as MovementAccountKey]
+                : [];
+
+        if (targetCompanies.length === 0 || targetAccounts.length === 0) {
+            setEntries([]);
+            setDataLoading(false);
+            return;
         }
 
-        // Filter by report type
-        if (reportType === 'solo-gastos') {
-            // Solo gastos específicos (sin egresos bancarios)
-            filtered = filtered.filter(m => 
-                !isIngresoType(m.paymentType) && 
-                !['PAGO TIEMPOS', 'PAGO BANCA'].includes(m.paymentType)
-            );
-        } else if (reportType === 'gastos-egresos') {
-            // Todos los egresos (gastos + egresos)
-            filtered = filtered.filter(m => !isIngresoType(m.paymentType));
+        let cancelled = false;
+        setDataLoading(true);
+        setDataError(null);
+
+        const loadEntries = async () => {
+            try {
+                const accountSet = new Set<MovementAccountKey>(targetAccounts);
+                const aggregated: FondoEntry[] = [];
+
+                for (const companyName of targetCompanies) {
+                    const normalizedCompany = companyName.trim();
+                    if (!normalizedCompany) continue;
+
+                    const companyKey = MovimientosFondosService.buildCompanyMovementsKey(normalizedCompany);
+                    let storage = await MovimientosFondosService.getDocument<FondoEntry>(companyKey);
+                    if (!storage && typeof window !== 'undefined') {
+                        const raw = window.localStorage.getItem(companyKey);
+                        if (raw) {
+                            try {
+                                const parsed = JSON.parse(raw);
+                                storage = MovimientosFondosService.ensureMovementStorageShape<FondoEntry>(parsed, normalizedCompany);
+                            } catch (parseError) {
+                                console.error('Error parsing local Fondo General storage:', parseError);
+                            }
+                        }
+                    }
+
+                    if (!storage) {
+                        storage = MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(normalizedCompany);
+                    }
+
+                    const ensured = MovimientosFondosService.ensureMovementStorageShape<FondoEntry>(storage, normalizedCompany);
+                    const rawMovements = ensured.operations?.movements ?? [];
+                    const scoped = rawMovements.reduce<Partial<FondoEntry>[]>((acc, raw) => {
+                        if (!raw || typeof raw !== 'object') return acc;
+                        const candidate = raw as Partial<FondoEntry>;
+                        const movementAccount = isMovementAccountKey(candidate.accountId) ? candidate.accountId : 'FondoGeneral';
+                        if (!accountSet.has(movementAccount)) return acc;
+                        acc.push({ ...candidate, accountId: movementAccount });
+                        return acc;
+                    }, []);
+                    const sanitized = sanitizeFondoEntries(scoped);
+                    aggregated.push(...sanitized);
+                }
+
+                if (!cancelled) {
+                    const sorted = aggregated.sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
+                    setEntries(sorted);
+                }
+            } catch (err) {
+                console.error('Error loading Fondo General movements for summary:', err);
+                if (!cancelled) {
+                    setEntries([]);
+                    setDataError('No se pudieron cargar los movimientos.');
+                }
+            } finally {
+                if (!cancelled) {
+                    setDataLoading(false);
+                }
+            }
+        };
+
+        void loadEntries();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [selectedCompany, selectedAccount, hasGeneralAccess, companies, accessibleAccountKeys]);
+
+    useEffect(() => {
+        setSelectedMovementTypes(prev => {
+            if (prev.length === 0) return prev;
+            const allowed = new Set(movementTypeOptions.map(([value]) => value));
+            const filtered = prev.filter(type => allowed.has(type));
+            return filtered.length === prev.length ? prev : filtered;
+        });
+    }, [movementTypeOptions]);
+
+    useEffect(() => {
+        if (!movementTypeSelectorOpen) return;
+        const handlePointerDown = (event: MouseEvent) => {
+            const container = movementTypeSelectorRef.current;
+            if (!container) return;
+            if (container.contains(event.target as Node)) return;
+            setMovementTypeSelectorOpen(false);
+        };
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setMovementTypeSelectorOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handlePointerDown);
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.removeEventListener('mousedown', handlePointerDown);
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [movementTypeSelectorOpen]);
+
+    useEffect(() => {
+        if (movementTypeOptions.length === 0) {
+            setMovementTypeSelectorOpen(false);
         }
+    }, [movementTypeOptions]);
 
-        // Search filter
-        const query = searchQuery.trim().toLowerCase();
-        if (query) {
-            filtered = filtered.filter(m => {
-                const providerEntry = providersMap.get(m.providerCode);
-                const providerName = providerEntry?.name?.toLowerCase() ?? '';
-                const providerCategory = providerEntry?.category?.toLowerCase() ?? '';
-                return (
-                    m.invoiceNumber.toLowerCase().includes(query) ||
-                    m.notes.toLowerCase().includes(query) ||
-                    providerName.includes(query) ||
-                    providerCategory.includes(query) ||
-                    m.manager.toLowerCase().includes(query) ||
-                    m.paymentType.toLowerCase().includes(query)
-                );
-            });
-        }
+    const summaryRows = useMemo<SummaryRow[]>(() => {
+        if (dateRangeInvalid) return [];
+        if (!entries.length) return [];
 
-        return filtered;
-    }, [allMovements, dateFrom, dateTo, selectedProvider, selectedType, selectedAccount, 
-        selectedCurrency, filterMode, searchQuery, providersMap, reportType]);
+        const fromTimestamp = fromDate ? Date.parse(`${fromDate}T00:00:00`) : Number.NaN;
+        const toTimestamp = toDate ? Date.parse(`${toDate}T23:59:59.999`) : Number.NaN;
 
-    // Calculate totals
+        const buckets = new Map<FondoMovementType, SummaryRow>();
+
+        entries.forEach(entry => {
+            const created = Date.parse(entry.createdAt);
+            if (!Number.isNaN(fromTimestamp) && created < fromTimestamp) return;
+            if (!Number.isNaN(toTimestamp) && created > toTimestamp) return;
+
+            const classification: Classification = isIngresoType(entry.paymentType)
+                ? 'ingreso'
+                : isGastoType(entry.paymentType)
+                    ? 'gasto'
+                    : 'egreso';
+
+            if (classificationFilter !== 'all' && classification !== classificationFilter) return;
+            if (selectedMovementTypes.length > 0 && !selectedMovementTypes.includes(entry.paymentType)) return;
+
+            const currency: MovementCurrencyKey = entry.currency === 'USD' ? 'USD' : 'CRC';
+
+            if (!buckets.has(entry.paymentType)) {
+                buckets.set(entry.paymentType, {
+                    paymentType: entry.paymentType,
+                    label: formatMovementType(entry.paymentType),
+                    classification,
+                    totals: {
+                        CRC: { ingreso: 0, gasto: 0, egreso: 0 },
+                        USD: { ingreso: 0, gasto: 0, egreso: 0 },
+                    },
+                });
+            }
+
+            const bucket = buckets.get(entry.paymentType)!;
+            const currencyTotals = bucket.totals[currency];
+            if (classification === 'ingreso') {
+                currencyTotals.ingreso += entry.amountIngreso || 0;
+            } else if (classification === 'gasto') {
+                currencyTotals.gasto += entry.amountEgreso || 0;
+            } else {
+                currencyTotals.egreso += entry.amountEgreso || 0;
+            }
+        });
+
+        const orderMap: Record<Classification, number> = { ingreso: 0, gasto: 1, egreso: 2 };
+
+        return Array.from(buckets.values()).sort((a, b) => {
+            const byGroup = orderMap[a.classification] - orderMap[b.classification];
+            if (byGroup !== 0) return byGroup;
+            return a.label.localeCompare(b.label, 'es', { sensitivity: 'base' });
+        });
+    }, [entries, fromDate, toDate, dateRangeInvalid, classificationFilter, selectedMovementTypes]);
+
     const totals = useMemo(() => {
-        const crcIngresos = filteredMovements
-            .filter(m => m.currency === 'CRC' && isIngresoType(m.paymentType))
-            .reduce((sum, m) => sum + m.amountIngreso, 0);
-        
-        const crcEgresos = filteredMovements
-            .filter(m => m.currency === 'CRC' && !isIngresoType(m.paymentType))
-            .reduce((sum, m) => sum + m.amountEgreso, 0);
-        
-        const usdIngresos = filteredMovements
-            .filter(m => m.currency === 'USD' && isIngresoType(m.paymentType))
-            .reduce((sum, m) => sum + m.amountIngreso, 0);
-        
-        const usdEgresos = filteredMovements
-            .filter(m => m.currency === 'USD' && !isIngresoType(m.paymentType))
-            .reduce(( sum, m) => sum + m.amountEgreso, 0);
+        return summaryRows.reduce<Record<MovementCurrencyKey, CurrencyBucket>>(
+            (acc, row) => {
+                (['CRC', 'USD'] as MovementCurrencyKey[]).forEach(currency => {
+                    acc[currency].ingreso += row.totals[currency].ingreso;
+                    acc[currency].gasto += row.totals[currency].gasto;
+                    acc[currency].egreso += row.totals[currency].egreso;
+                });
+                return acc;
+            },
+            {
+                CRC: { ingreso: 0, gasto: 0, egreso: 0 },
+                USD: { ingreso: 0, gasto: 0, egreso: 0 },
+            },
+        );
+    }, [summaryRows]);
 
-        // Calculate only expenses (gastos) total
-        const crcGastos = filteredMovements
-            .filter(m => m.currency === 'CRC' && !isIngresoType(m.paymentType) && 
-                !['PAGO TIEMPOS', 'PAGO BANCA'].includes(m.paymentType))
-            .reduce((sum, m) => sum + m.amountEgreso, 0);
-        
-        const usdGastos = filteredMovements
-            .filter(m => m.currency === 'USD' && !isIngresoType(m.paymentType) && 
-                !['PAGO TIEMPOS', 'PAGO BANCA'].includes(m.paymentType))
-            .reduce((sum, m) => sum + m.amountEgreso, 0);
-
-        return {
-            crcIngresos,
-            crcEgresos,
-            crcGastos,
-            crcBalance: crcIngresos - crcEgresos,
-            usdIngresos,
-            usdEgresos,
-            usdGastos,
-            usdBalance: usdIngresos - usdEgresos,
-        };
-    }, [filteredMovements]);
-
-    const tableTotals = useMemo(() => {
-        const baseTotals = {
-            ingreso: { CRC: 0, USD: 0 } as Record<'CRC' | 'USD', number>,
-            gasto: { CRC: 0, USD: 0 } as Record<'CRC' | 'USD', number>,
-            egreso: { CRC: 0, USD: 0 } as Record<'CRC' | 'USD', number>,
-        };
-
-        filteredMovements.forEach(movement => {
-            const currency = (movement.currency ?? 'CRC') as 'CRC' | 'USD';
-
-            if (isIngresoType(movement.paymentType)) {
-                baseTotals.ingreso[currency] += movement.amountIngreso;
-                return;
-            }
-
-            const providerCategory = providersMap.get(movement.providerCode)?.category ?? 'Egreso';
-
-            if (providerCategory === 'Gasto') {
-                baseTotals.gasto[currency] += movement.amountEgreso;
-            } else {
-                baseTotals.egreso[currency] += movement.amountEgreso;
-            }
-        });
-
-        return baseTotals;
-    }, [filteredMovements, providersMap]);
-
-    const formatTotalsByCurrency = (values: Record<'CRC' | 'USD', number>) => {
-        const parts: string[] = [];
-        (['CRC', 'USD'] as const).forEach(currency => {
-            if (values[currency] > 0) {
-                parts.push(formatCurrency(values[currency], currency));
-            }
-        });
-        return parts.length > 0 ? parts.join(' · ') : '-';
-    };
-
-    // Refresh movements manually
-    const handleRefresh = async () => {
-        const targetCompany = selectedCompany.trim();
-        if (!targetCompany || movementsLoading) return;
-
-        setIsRefreshing(true);
-        setMovementsLoading(true);
-        try {
-            const { storage, effectiveName } = await fetchCompanyStorage(targetCompany);
-
-            if (effectiveName && effectiveName !== selectedCompany) {
-                setSelectedCompany(effectiveName);
-            }
-
-            if (storage?.operations?.movements) {
-                const movements = storage.operations.movements as FondoEntry[];
-                setAllMovements(movements.sort((a, b) =>
-                    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-                ));
-            } else {
-                setAllMovements([]);
-            }
-        } catch (err) {
-            console.error('Error refreshing movements:', err);
-        } finally {
-            setIsRefreshing(false);
-            setMovementsLoading(false);
-        }
-    };
-
-    // Clear all filters
-    const clearFilters = () => {
-        setDateFrom('');
-        setDateTo('');
-        setSelectedProvider('all');
-        setSelectedType('all');
-        setSelectedAccount('all');
-        setSelectedCurrency('all');
-        setSearchQuery('');
-        setFilterMode('all');
-        setReportType('all');
-    };
-
-    const activeFiltersCount = [
-        dateFrom, dateTo, 
-        selectedProvider !== 'all',
-        selectedType !== 'all',
-        selectedAccount !== 'all',
-        selectedCurrency !== 'all',
-        searchQuery,
-        filterMode !== 'all',
-        reportType !== 'all'
-    ].filter(Boolean).length;
-
-    if (loading) {
+    if (authLoading) {
         return (
-            <div className="max-w-7xl mx-auto py-8 px-4">
+            <div className="max-w-5xl mx-auto py-8 px-4">
                 <div className="flex items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)]">
                     <p className="text-[var(--muted-foreground)]">Cargando permisos...</p>
                 </div>
@@ -451,509 +495,317 @@ export default function ReportePage() {
         );
     }
 
-    if (!hasGeneralAccess || !isAdminUser) {
+    if (!hasGeneralAccess) {
         return (
-            <div className="max-w-7xl mx-auto py-8 px-4">
+            <div className="max-w-5xl mx-auto py-8 px-4">
                 <div className="flex flex-col items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)] text-center">
                     <Lock className="w-10 h-10 text-[var(--muted-foreground)] mb-4" />
                     <h3 className="text-lg font-semibold text-[var(--foreground)] mb-2">Acceso restringido</h3>
-                    <p className="text-[var(--muted-foreground)]">Esta sección está disponible únicamente para administradores del Fondo General.</p>
-                    <p className="text-sm text-[var(--muted-foreground)] mt-2">Contacta a un administrador principal si necesitas revisar los reportes.</p>
+                    <p className="text-[var(--muted-foreground)]">No tienes permisos para acceder al reporte del Fondo General.</p>
+                    <p className="text-sm text-[var(--muted-foreground)] mt-2">Contacta a un administrador si crees que es un error.</p>
                 </div>
             </div>
         );
     }
 
+    const noCompanyAvailable = !companiesLoading && !isAdminUser && !assignedCompany;
+    const accountUnavailable = accessibleAccountKeys.length === 0;
+
     return (
-        <div className="max-w-7xl mx-auto py-8 px-4">
+        <div className="max-w-6xl mx-auto py-8 px-4 space-y-6">
             <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl p-6">
-                {/* Header */}
-                <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center">
-                        <FileText className="w-8 h-8 mr-3 text-[var(--foreground)]" />
-                        <h1 className="text-2xl font-bold text-[var(--foreground)]">Reportes de Movimientos</h1>
-                    </div>
-                    
-                    <div className="flex items-center gap-3">
-                        <select
-                            value={selectedAccount}
-                            onChange={(e) => setSelectedAccount(e.target.value as MovementAccountKey | 'all')}
-                            className="px-3 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
-                            title="Filtrar por cuenta"
-                        >
-                            {ACCOUNT_OPTIONS.map(option => (
-                                <option key={option.value} value={option.value}>
-                                    {option.label}
-                                </option>
-                            ))}
-                        </select>
-                        {isAdminUser && ownerCompanies.length > 0 && (
-                            <div className="flex items-center gap-2">
-                                <Building2 className="w-5 h-5 text-[var(--muted-foreground)]" />
-                                <select
-                                    value={selectedCompany}
-                                    onChange={(e) => setSelectedCompany(e.target.value.trim())}
-                                    className="px-3 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
-                                >
-                                    <option value="" disabled>
-                                        Seleccionar empresa
-                                    </option>
-                                    {ownerCompanies.map(company => (
-                                        <option key={company.id} value={company.name}>
-                                            {company.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        )}
-                        
-                        <button
-                            onClick={handleRefresh}
-                            disabled={!selectedCompany || isRefreshing || movementsLoading}
-                            className="flex items-center gap-2 px-4 py-2 bg-[var(--accent)] text-white rounded-lg hover:bg-[var(--accent)]/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                            title="Actualizar movimientos"
-                        >
-                            <RefreshCw className={`w-4 h-4 ${(isRefreshing || movementsLoading) ? 'animate-spin' : ''}`} />
-                            <span className="font-medium">Actualizar</span>
-                        </button>
-                    </div>
-                </div>
+                <header className="mb-6">
+                    <h1 className="text-2xl font-semibold text-[var(--foreground)]">Resumen por tipo de movimiento</h1>
+                    <p className="text-sm text-[var(--muted-foreground)] mt-2">
+                        Consulta los movimientos agrupados por categoría dentro del rango de fechas seleccionado. Usa la casilla &quot;Solo gastos&quot; si deseas ocultar egresos bancarios u otros movimientos que no sean gastos operativos.
+                    </p>
+                </header>
 
-                {/* Report Type Selector */}
-                <div className="mb-6">
-                    <div className="bg-[var(--muted)] border border-[var(--border)] rounded-lg p-4">
-                        <h2 className="text-sm font-semibold text-[var(--foreground)] mb-3">Tipo de Reporte</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                            <button
-                                onClick={() => setReportType('all')}
-                                className={`px-4 py-3 rounded-lg font-medium transition-all ${
-                                    reportType === 'all'
-                                        ? 'bg-[var(--accent)] text-white shadow-lg'
-                                        : 'bg-[var(--card-bg)] text-[var(--foreground)] border border-[var(--input-border)] hover:border-[var(--accent)]'
-                                }`}
-                            >
-                                <div className="text-left">
-                                    <div className="font-semibold">Todos los Movimientos</div>
-                                    <div className="text-xs opacity-80 mt-1">Ingresos y egresos completos</div>
-                                </div>
-                            </button>
-                            <button
-                                onClick={() => setReportType('solo-gastos')}
-                                className={`px-4 py-3 rounded-lg font-medium transition-all ${
-                                    reportType === 'solo-gastos'
-                                        ? 'bg-orange-600 text-white shadow-lg'
-                                        : 'bg-[var(--card-bg)] text-[var(--foreground)] border border-[var(--input-border)] hover:border-orange-600'
-                                }`}
-                            >
-                                <div className="text-left">
-                                    <div className="font-semibold">Solo Gastos</div>
-                                    <div className="text-xs opacity-80 mt-1">Gastos operativos únicamente</div>
-                                </div>
-                            </button>
-                            <button
-                                onClick={() => setReportType('gastos-egresos')}
-                                className={`px-4 py-3 rounded-lg font-medium transition-all ${
-                                    reportType === 'gastos-egresos'
-                                        ? 'bg-red-600 text-white shadow-lg'
-                                        : 'bg-[var(--card-bg)] text-[var(--foreground)] border border-[var(--input-border)] hover:border-red-600'
-                                }`}
-                            >
-                                <div className="text-left">
-                                    <div className="font-semibold">Gastos y Egresos</div>
-                                    <div className="text-xs opacity-80 mt-1">Total de salidas de dinero</div>
-                                </div>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Summary Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                    {reportType === 'all' && (
-                        <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium text-green-700 dark:text-green-400">Ingresos CRC</span>
-                            <TrendingUp className="w-5 h-5 text-green-600 dark:text-green-400" />
-                        </div>
-                        <p className="text-2xl font-bold text-green-800 dark:text-green-300">
-                            {formatCurrency(totals.crcIngresos, 'CRC')}
-                        </p>
-                    </div>
-                    )}
-
-                    <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium text-red-700 dark:text-red-400">
-                                {reportType === 'solo-gastos' ? 'Gastos CRC' : 
-                                 reportType === 'gastos-egresos' ? 'Gastos y Egresos CRC' : 
-                                 'Egresos CRC'}
-                            </span>
-                            <TrendingDown className="w-5 h-5 text-red-600 dark:text-red-400" />
-                        </div>
-                        <p className="text-2xl font-bold text-red-800 dark:text-red-300">
-                            {formatCurrency(
-                                reportType === 'solo-gastos' ? totals.crcGastos : totals.crcEgresos, 
-                                'CRC'
-                            )}
-                        </p>
-                    </div>
-
-                    {reportType === 'all' && (
-                        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="text-sm font-medium text-blue-700 dark:text-blue-400">Balance CRC</span>
-                                <DollarSign className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                            </div>
-                            <p className="text-2xl font-bold text-blue-800 dark:text-blue-300">
-                                {formatCurrency(totals.crcBalance, 'CRC')}
-                            </p>
-                        </div>
-                    )}
-
-                    {reportType === 'all' && (
-                        <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium text-green-700 dark:text-green-400">Ingresos USD</span>
-                            <TrendingUp className="w-5 h-5 text-green-600 dark:text-green-400" />
-                        </div>
-                        <p className="text-2xl font-bold text-green-800 dark:text-green-300">
-                            {formatCurrency(totals.usdIngresos, 'USD')}
-                        </p>
-                    </div>
-                    )}
-
-                    <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium text-red-700 dark:text-red-400">
-                                {reportType === 'solo-gastos' ? 'Gastos USD' : 
-                                 reportType === 'gastos-egresos' ? 'Gastos y Egresos USD' : 
-                                 'Egresos USD'}
-                            </span>
-                            <TrendingDown className="w-5 h-5 text-red-600 dark:text-red-400" />
-                        </div>
-                        <p className="text-2xl font-bold text-red-800 dark:text-red-300">
-                            {formatCurrency(
-                                reportType === 'solo-gastos' ? totals.usdGastos : totals.usdEgresos, 
-                                'USD'
-                            )}
-                        </p>
-                    </div>
-
-                    {reportType === 'all' && (
-                        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium text-blue-700 dark:text-blue-400">Balance USD</span>
-                            <DollarSign className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                        </div>
-                        <p className="text-2xl font-bold text-blue-800 dark:text-blue-300">
-                            {formatCurrency(totals.usdBalance, 'USD')}
-                        </p>
-                    </div>
-                    )}
-                </div>
-
-                {/* Filters Section */}
-                <div className="bg-[var(--muted)] border border-[var(--border)] rounded-lg p-4 mb-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                            <Filter className="w-5 h-5 text-[var(--foreground)]" />
-                            <h2 className="text-lg font-semibold text-[var(--foreground)]">Filtros</h2>
-                            {activeFiltersCount > 0 && (
-                                <span className="px-2 py-1 bg-[var(--accent)] text-white text-xs rounded-full">
-                                    {activeFiltersCount}
-                                </span>
-                            )}
-                        </div>
-                        {activeFiltersCount > 0 && (
-                            <button
-                                onClick={clearFilters}
-                                className="flex items-center gap-1 px-3 py-1 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
-                            >
-                                <X className="w-4 h-4" />
-                                Limpiar filtros
-                            </button>
-                        )}
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-                        {/* Date From */}
-                        <div>
-                            <label className="block text-sm font-medium text-[var(--foreground)] mb-1">
-                                <Calendar className="w-4 h-4 inline mr-1" />
-                                Fecha Desde
-                            </label>
-                            <input
-                                type="date"
-                                value={dateFrom}
-                                onChange={(e) => setDateFrom(e.target.value)}
-                                className="w-full px-3 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
-                            />
-                        </div>
-
-                        {/* Date To */}
-                        <div>
-                            <label className="block text-sm font-medium text-[var(--foreground)] mb-1">
-                                <Calendar className="w-4 h-4 inline mr-1" />
-                                Fecha Hasta
-                            </label>
-                            <input
-                                type="date"
-                                value={dateTo}
-                                onChange={(e) => setDateTo(e.target.value)}
-                                className="w-full px-3 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
-                            />
-                        </div>
-
-                        {/* Provider Filter */}
-                        <div>
-                            <label className="block text-sm font-medium text-[var(--foreground)] mb-1">
-                                Proveedor
-                            </label>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+                    <div className="sm:col-span-2 lg:col-span-4">
+                        <label className="block text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide mb-2">
+                            Empresa
+                        </label>
+                        {isAdminUser ? (
                             <select
-                                value={selectedProvider}
-                                onChange={(e) => setSelectedProvider(e.target.value)}
-                                className="w-full px-3 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+                                value={selectedCompany}
+                                onChange={event => setSelectedCompany(event.target.value)}
+                                className="w-full rounded-md border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                                style={{ backgroundColor: 'var(--card-bg)', color: 'var(--foreground)' }}
+                                disabled={companiesLoading || companies.length === 0}
                             >
-                                <option value="all">Todos los proveedores</option>
-                                {providers.map(p => (
-                                    <option key={p.code} value={p.code}>
-                                        {p.name} ({p.code})
+                                {companies.length > 1 && (
+                                    <option
+                                        value={ALL_COMPANIES_VALUE}
+                                        className="text-[var(--foreground)] bg-[var(--card-bg)]"
+                                        style={{ backgroundColor: 'var(--card-bg)', color: 'var(--foreground)' }}
+                                    >
+                                        Todas las empresas
+                                    </option>
+                                )}
+                                {companies.map(name => (
+                                    <option
+                                        key={name}
+                                        value={name}
+                                        className="text-[var(--foreground)] bg-[var(--card-bg)]"
+                                        style={{ backgroundColor: 'var(--card-bg)', color: 'var(--foreground)' }}
+                                    >
+                                        {name}
                                     </option>
                                 ))}
                             </select>
-                        </div>
+                        ) : (
+                            <div className="rounded-md border border-[var(--input-border)] px-3 py-2 text-sm text-[var(--foreground)] bg-[var(--muted)]/10">
+                                {assignedCompany || 'Sin empresa asignada'}
+                            </div>
+                        )}
+                        {companiesError && (
+                            <p className="mt-2 text-xs text-red-500 flex items-center gap-2">
+                                <AlertCircle className="w-4 h-4" />
+                                <span>{companiesError}</span>
+                            </p>
+                        )}
+                    </div>
 
-                        {/* Type Filter */}
-                        <div>
-                            <label className="block text-sm font-medium text-[var(--foreground)] mb-1">
-                                Tipo de Movimiento
-                            </label>
-                            <select
-                                value={selectedType}
-                                onChange={(e) => setSelectedType(e.target.value as FondoMovementType | 'all')}
-                                className="w-full px-3 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
-                            >
-                                <option value="all">Todos los tipos</option>
-                                <optgroup label="Ingresos">
-                                    {FONDO_INGRESO_TYPES.map(type => (
-                                        <option key={type} value={type}>{type}</option>
-                                    ))}
-                                </optgroup>
-                                <optgroup label="Egresos">
-                                    {FONDO_EGRESO_TYPES.map(type => (
-                                        <option key={type} value={type}>{type}</option>
-                                    ))}
-                                </optgroup>
-                            </select>
-                        </div>
-
-                        {/* Account Filter */}
-                        <div>
-                            <label className="block text-sm font-medium text-[var(--foreground)] mb-1">
-                                Cuenta
-                            </label>
+                    <div className="sm:col-span-2 lg:col-span-4">
+                        <label className="block text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide mb-2">
+                            Cuenta
+                        </label>
+                        {accountUnavailable ? (
+                            <div className="rounded-md border border-[var(--input-border)] px-3 py-2 text-sm text-[var(--foreground)] bg-[var(--muted)]/10">
+                                Sin cuentas disponibles
+                            </div>
+                        ) : accessibleAccountKeys.length === 1 ? (
+                            <div className="rounded-md border border-[var(--input-border)] px-3 py-2 text-sm text-[var(--foreground)] bg-[var(--muted)]/10">
+                                {ACCOUNT_LABELS[accessibleAccountKeys[0]]}
+                            </div>
+                        ) : (
                             <select
                                 value={selectedAccount}
-                                onChange={(e) => setSelectedAccount(e.target.value as MovementAccountKey | 'all')}
-                                className="w-full px-3 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+                                onChange={event => setSelectedAccount(event.target.value as AccountSelectValue)}
+                                className="w-full rounded-md border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                                style={{ backgroundColor: 'var(--card-bg)', color: 'var(--foreground)' }}
                             >
-                                {ACCOUNT_OPTIONS.map(option => (
-                                    <option key={option.value} value={option.value}>
-                                        {option.label}
+                                {accountSelectOptions.map(option => (
+                                    <option
+                                        key={option}
+                                        value={option}
+                                        className="text-[var(--foreground)] bg-[var(--card-bg)]"
+                                        style={{ backgroundColor: 'var(--card-bg)', color: 'var(--foreground)' }}
+                                    >
+                                        {option === ALL_ACCOUNTS_VALUE ? 'Todas las cuentas' : ACCOUNT_LABELS[option]}
                                     </option>
                                 ))}
                             </select>
-                        </div>
-
-                        {/* Currency Filter */}
-                        <div>
-                            <label className="block text-sm font-medium text-[var(--foreground)] mb-1">
-                                Moneda
-                            </label>
-                            <select
-                                value={selectedCurrency}
-                                onChange={(e) => setSelectedCurrency(e.target.value as 'CRC' | 'USD' | 'all')}
-                                className="w-full px-3 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
-                            >
-                                <option value="all">Todas las monedas</option>
-                                <option value="CRC">CRC (Colones)</option>
-                                <option value="USD">USD (Dólares)</option>
-                            </select>
-                        </div>
+                        )}
                     </div>
 
-                    {/* Filter Mode and Search */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Filter Mode */}
-                        <div>
-                            <label className="block text-sm font-medium text-[var(--foreground)] mb-1">
-                                Filtrar por
-                            </label>
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={() => setFilterMode('all')}
-                                    className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
-                                        filterMode === 'all'
-                                            ? 'bg-[var(--accent)] text-white'
-                                            : 'bg-[var(--input-bg)] text-[var(--foreground)] border border-[var(--input-border)]'
-                                    }`}
-                                >
-                                    Todos
-                                </button>
-                                <button
-                                    onClick={() => setFilterMode('ingreso')}
-                                    className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
-                                        filterMode === 'ingreso'
-                                            ? 'bg-green-600 text-white'
-                                            : 'bg-[var(--input-bg)] text-[var(--foreground)] border border-[var(--input-border)]'
-                                    }`}
-                                >
-                                    Ingresos
-                                </button>
-                                <button
-                                    onClick={() => setFilterMode('egreso')}
-                                    className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
-                                        filterMode === 'egreso'
-                                            ? 'bg-red-600 text-white'
-                                            : 'bg-[var(--input-bg)] text-[var(--foreground)] border border-[var(--input-border)]'
-                                    }`}
-                                >
-                                    Egresos
-                                </button>
+                    <div className="sm:col-span-2 lg:col-span-4">
+                        <div className="flex flex-col gap-4 sm:flex-row">
+                            <div className="flex-1 min-w-[180px]">
+                                <label className="block text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide mb-2">
+                                    Desde
+                                </label>
+                                <input
+                                    type="date"
+                                    value={fromDate}
+                                    max={toDate || undefined}
+                                    onChange={event => setFromDate(event.target.value)}
+                                    className="w-full rounded-md border border-[var(--input-border)] bg-transparent px-3 py-2 text-sm text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                                />
+                            </div>
+                            <div className="flex-1 min-w-[180px]">
+                                <label className="block text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide mb-2">
+                                    Hasta
+                                </label>
+                                <input
+                                    type="date"
+                                    value={toDate}
+                                    min={fromDate || undefined}
+                                    onChange={event => setToDate(event.target.value)}
+                                    className="w-full rounded-md border border-[var(--input-border)] bg-transparent px-3 py-2 text-sm text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                                />
                             </div>
                         </div>
+                    </div>
 
-                        {/* Search */}
-                        <div>
-                            <label className="block text-sm font-medium text-[var(--foreground)] mb-1">
-                                <Search className="w-4 h-4 inline mr-1" />
-                                Buscar
+                    <div className="sm:col-span-2 lg:col-span-4">
+                        <div className="flex items-center justify-between">
+                            <label className="block text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">
+                                Tipos de movimiento
                             </label>
-                            <input
-                                type="text"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                placeholder="Factura, notas, proveedor, encargado..."
-                                className="w-full px-3 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg text-[var(--foreground)] placeholder-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
-                            />
+                            {selectedMovementTypes.length > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={clearMovementTypeFilters}
+                                    className="text-xs text-[var(--accent)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--card-bg)]"
+                                >
+                                    Limpiar filtros
+                                </button>
+                            )}
                         </div>
-                    </div>
-                </div>
-
-                {/* Export Summary */}
-                <div className="flex justify-between items-center mb-4">
-                    <p className="text-[var(--muted-foreground)]">
-                        Mostrando {filteredMovements.length} de {allMovements.length} movimientos
-                    </p>
-                </div>
-
-                {/* Movements Table */}
-                {movementsLoading ? (
-                    <div className="flex items-center justify-center py-12">
-                        <p className="text-[var(--muted-foreground)]">Cargando movimientos...</p>
-                    </div>
-                ) : filteredMovements.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-12 text-center">
-                        <FileText className="w-12 h-12 text-[var(--muted-foreground)] mb-3" />
-                        <p className="text-[var(--muted-foreground)]">
-                            {!selectedCompany
-                                ? 'Selecciona una empresa para ver los movimientos disponibles.'
-                                : allMovements.length === 0
-                                    ? 'No hay movimientos registrados para esta empresa'
-                                    : 'No se encontraron movimientos con los filtros aplicados'
-                            }
+                        {movementTypeOptions.length === 0 ? (
+                            <p className="mt-2 text-sm text-[var(--muted-foreground)]">
+                                No hay tipos de movimiento disponibles con los filtros seleccionados.
+                            </p>
+                        ) : (
+                            <div ref={movementTypeSelectorRef} className="relative mt-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setMovementTypeSelectorOpen(prev => !prev)}
+                                    className="flex w-full items-center justify-between rounded-md border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                                >
+                                    <span className="truncate pr-3">{movementTypeSummaryLabel}</span>
+                                    <ChevronDown className={`h-4 w-4 text-[var(--muted-foreground)] transition-transform ${movementTypeSelectorOpen ? 'rotate-180' : ''}`} />
+                                </button>
+                                {movementTypeSelectorOpen && (
+                                    <div className="absolute left-0 right-0 z-20 mt-2 max-h-64 overflow-y-auto rounded-md border border-[var(--input-border)] bg-[var(--card-bg)] p-3 shadow-lg">
+                                        <div className="flex flex-col gap-2">
+                                            {movementTypeOptions.map(([movementType, label]) => (
+                                                <label key={movementType} className="flex items-center gap-2 text-sm text-[var(--foreground)]">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedMovementTypes.includes(movementType)}
+                                                        onChange={() => toggleMovementType(movementType)}
+                                                        className="h-4 w-4 rounded border-[var(--input-border)] text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                                                    />
+                                                    <span>{label}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                            Usa el selector desplegable para filtrar la tabla por tipos específicos.
                         </p>
                     </div>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full border-collapse">
-                            <thead>
-                                <tr className="bg-[var(--muted)] border-b border-[var(--border)]">
-                                    <th className="px-4 py-3 text-left text-sm font-semibold text-[var(--foreground)]">Fecha</th>
-                                    <th className="px-4 py-3 text-left text-sm font-semibold text-[var(--foreground)]">Cuenta</th>
-                                    <th className="px-4 py-3 text-left text-sm font-semibold text-[var(--foreground)]">Moneda</th>
-                                    <th className="px-4 py-3 text-left text-sm font-semibold text-[var(--foreground)]">Proveedor</th>
-                                    <th className="px-4 py-3 text-left text-sm font-semibold text-[var(--foreground)]">Tipo</th>
-                                    <th className="px-4 py-3 text-right text-sm font-semibold text-[var(--foreground)]">Ingreso</th>
-                                    <th className="px-4 py-3 text-right text-sm font-semibold text-[var(--foreground)]">Gasto</th>
-                                    <th className="px-4 py-3 text-right text-sm font-semibold text-[var(--foreground)]">Egreso</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filteredMovements.map((movement) => {
-                                    const providerEntry = providersMap.get(movement.providerCode);
-                                    const providerName = providerEntry?.name ?? movement.providerCode;
-                                    const providerCategory = providerEntry?.category ?? (isIngresoType(movement.paymentType) ? 'Ingreso' : 'Egreso');
-                                    const gastoAmount = providerCategory === 'Gasto' ? movement.amountEgreso : 0;
-                                    const egresoAmount = providerCategory === 'Egreso' ? movement.amountEgreso : 0;
 
-                                    return (
-                                        <tr key={movement.id} className="border-b border-[var(--border)] hover:bg-[var(--muted)]/50 transition-colors">
-                                            <td className="px-4 py-3 text-sm text-[var(--foreground)]">
-                                                {formatDate(movement.createdAt)}
-                                            </td>
-                                            <td className="px-4 py-3 text-sm text-[var(--foreground)]">
-                                                {movement.accountId || 'FondoGeneral'}
-                                            </td>
-                                            <td className="px-4 py-3 text-sm text-[var(--foreground)]">
-                                                {movement.currency || 'CRC'}
-                                            </td>
-                                            <td className="px-4 py-3 text-sm text-[var(--foreground)]">
-                                                <div className="flex flex-col">
-                                                    <span>{providerName}</span>
-                                                    <span className="text-xs text-[var(--muted-foreground)] capitalize">{providerCategory.toLowerCase()}</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-3 text-sm text-[var(--foreground)]">
-                                                <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                                    isIngresoType(movement.paymentType)
-                                                        ? 'bg-green-500/20 text-green-700 dark:text-green-400'
-                                                        : 'bg-red-500/20 text-red-700 dark:text-red-400'
-                                                }`}>
-                                                    {movement.paymentType}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-3 text-sm text-right font-medium text-green-700 dark:text-green-400">
-                                                {movement.amountIngreso > 0
-                                                    ? formatCurrency(movement.amountIngreso, movement.currency || 'CRC')
-                                                    : '-'
-                                                }
-                                            </td>
-                                            <td className="px-4 py-3 text-sm text-right font-medium text-red-700 dark:text-red-400">
-                                                {gastoAmount > 0
-                                                    ? formatCurrency(gastoAmount, movement.currency || 'CRC')
-                                                    : '-'
-                                                }
-                                            </td>
-                                            <td className="px-4 py-3 text-sm text-right font-medium text-red-700 dark:text-red-400">
-                                                {egresoAmount > 0
-                                                    ? formatCurrency(egresoAmount, movement.currency || 'CRC')
-                                                    : '-'
-                                                }
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                            <tfoot>
-                                <tr className="bg-[var(--muted)] border-t border-[var(--border)]">
-                                    <td colSpan={5} className="px-4 py-3 text-sm font-semibold text-[var(--foreground)]">
-                                        Totales
-                                    </td>
-                                    <td className="px-4 py-3 text-sm text-right font-semibold text-green-700 dark:text-green-400">
-                                        {formatTotalsByCurrency(tableTotals.ingreso)}
-                                    </td>
-                                    <td className="px-4 py-3 text-sm text-right font-semibold text-red-700 dark:text-red-400">
-                                        {formatTotalsByCurrency(tableTotals.gasto)}
-                                    </td>
-                                    <td className="px-4 py-3 text-sm text-right font-semibold text-red-700 dark:text-red-400">
-                                        {formatTotalsByCurrency(tableTotals.egreso)}
-                                    </td>
-                                </tr>
-                            </tfoot>
-                        </table>
+                    <div className="flex flex-wrap items-center justify-between gap-4 rounded-md border border-[var(--input-border)] px-3 py-2 text-sm text-[var(--foreground)] sm:col-span-2 lg:col-span-4 bg-[var(--muted)]/5">
+                        <div className="flex flex-wrap items-center gap-4">
+                            <label className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    checked={classificationFilter === 'gasto'}
+                                    onChange={() => handleClassificationToggle('gasto')}
+                                    className="h-4 w-4 rounded border-[var(--input-border)] text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                                />
+                                <span>Solo mostrar gastos</span>
+                            </label>
+                            <label className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    checked={classificationFilter === 'egreso'}
+                                    onChange={() => handleClassificationToggle('egreso')}
+                                    className="h-4 w-4 rounded border-[var(--input-border)] text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                                />
+                                <span>Solo mostrar egresos</span>
+                            </label>
+                            <label className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    checked={classificationFilter === 'ingreso'}
+                                    onChange={() => handleClassificationToggle('ingreso')}
+                                    className="h-4 w-4 rounded border-[var(--input-border)] text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                                />
+                                <span>Solo mostrar ingresos</span>
+                            </label>
+                        </div>
+                        <label className="flex items-center gap-2">
+                            <input
+                                type="checkbox"
+                                checked={showUSD}
+                                onChange={event => setShowUSD(event.target.checked)}
+                                className="h-4 w-4 rounded border-[var(--input-border)] text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                            />
+                            <span>Mostrar dólares</span>
+                        </label>
+                    </div>
+                </div>
+
+                {dateRangeInvalid && (
+                    <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300">
+                        <AlertCircle className="h-4 w-4" />
+                        <span>El rango de fechas es inválido. Ajusta las fechas para continuar.</span>
                     </div>
                 )}
+
+                {noCompanyAvailable && (
+                    <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200">
+                        Tu usuario no tiene una empresa asignada. Solicita a un administrador que te asigne una antes de consultar el reporte.
+                    </div>
+                )}
+
+                {accountUnavailable && (
+                    <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200">
+                        No tienes permisos para ninguna cuenta del Fondo General. Pide acceso a un administrador.
+                    </div>
+                )}
+
+                {dataError && (
+                    <div className="mt-4 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300">
+                        <AlertCircle className="h-4 w-4" />
+                        <span>{dataError}</span>
+                    </div>
+                )}
+
+                <div className="mt-6">
+                    {dataLoading ? (
+                        <div className="flex items-center justify-center py-12 text-[var(--muted-foreground)]">
+                            <Loader2 className="h-5 w-5 animate-spin mr-3" />
+                            Cargando movimientos...
+                        </div>
+                    ) : summaryRows.length === 0 ? (
+                        <div className="rounded-md border border-[var(--input-border)] bg-[var(--muted)]/10 px-4 py-6 text-center text-sm text-[var(--muted-foreground)]">
+                            {dateRangeInvalid
+                                ? 'Ajusta el rango de fechas para ver resultados.'
+                                : 'No hay movimientos que coincidan con los filtros seleccionados.'}
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto rounded-lg border border-[var(--input-border)]">
+                            <table className="min-w-full divide-y divide-[var(--input-border)]">
+                                <thead className="bg-[var(--muted)]/10">
+                                    <tr className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">
+                                        <th className="px-4 py-3 text-left font-semibold">Tipo de movimiento</th>
+                                        <th className="px-4 py-3 text-left font-semibold">Clasificación</th>
+                                        <th className="px-4 py-3 text-right font-semibold">Ingresos ₡</th>
+                                        {showUSD && <th className="px-4 py-3 text-right font-semibold">Ingresos $</th>}
+                                        <th className="px-4 py-3 text-right font-semibold">Gastos ₡</th>
+                                        {showUSD && <th className="px-4 py-3 text-right font-semibold">Gastos $</th>}
+                                        <th className="px-4 py-3 text-right font-semibold">Egresos ₡</th>
+                                        {showUSD && <th className="px-4 py-3 text-right font-semibold">Egresos $</th>}
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-[var(--input-border)] bg-[var(--card-bg)]">
+                                    {summaryRows.map(row => (
+                                        <tr key={row.paymentType} className="text-sm text-[var(--foreground)]">
+                                            <td className="px-4 py-3 font-medium">{row.label}</td>
+                                            <td className="px-4 py-3 text-[var(--muted-foreground)]">{formatClassification(row.classification)}</td>
+                                            <td className="px-4 py-3 text-right">{formatAmount('CRC', row.totals.CRC.ingreso)}</td>
+                                            {showUSD && <td className="px-4 py-3 text-right">{formatAmount('USD', row.totals.USD.ingreso)}</td>}
+                                            <td className="px-4 py-3 text-right">{formatAmount('CRC', row.totals.CRC.gasto)}</td>
+                                            {showUSD && <td className="px-4 py-3 text-right">{formatAmount('USD', row.totals.USD.gasto)}</td>}
+                                            <td className="px-4 py-3 text-right">{formatAmount('CRC', row.totals.CRC.egreso)}</td>
+                                            {showUSD && <td className="px-4 py-3 text-right">{formatAmount('USD', row.totals.USD.egreso)}</td>}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                                <tfoot className="bg-white/10 border-t border-white/20">
+                                    <tr className="text-sm font-semibold text-[var(--foreground)]">
+                                        <td className="px-4 py-3" colSpan={2}>Totales</td>
+                                        <td className="px-4 py-3 text-right">{formatAmount('CRC', totals.CRC.ingreso)}</td>
+                                        {showUSD && <td className="px-4 py-3 text-right">{formatAmount('USD', totals.USD.ingreso)}</td>}
+                                        <td className="px-4 py-3 text-right">{formatAmount('CRC', totals.CRC.gasto)}</td>
+                                        {showUSD && <td className="px-4 py-3 text-right">{formatAmount('USD', totals.USD.gasto)}</td>}
+                                        <td className="px-4 py-3 text-right">{formatAmount('CRC', totals.CRC.egreso)}</td>
+                                        {showUSD && <td className="px-4 py-3 text-right">{formatAmount('USD', totals.USD.egreso)}</td>}
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );
