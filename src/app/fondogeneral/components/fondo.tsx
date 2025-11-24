@@ -2316,12 +2316,27 @@ export function FondoSection({
         return dateKeyFromDate(date);
     }, []);
 
-    const disablePrevButton = isDailyMode ? currentDailyKey >= todayKey : pageIndex <= 0;
-    const disableNextButton = isDailyMode
+    const disablePrevButton = isDailyMode
         ? (earliestEntryKey ? currentDailyKey <= earliestEntryKey : true)
+        : pageIndex <= 0;
+    const disableNextButton = isDailyMode
+        ? currentDailyKey >= todayKey
         : pageIndex >= totalPages - 1;
 
     const handlePrevPage = useCallback(() => {
+        if (isDailyMode) {
+            if (!earliestEntryKey) return;
+            setCurrentDailyKey(prev => {
+                if (prev <= earliestEntryKey) return earliestEntryKey;
+                const shifted = shiftDateKey(prev, -1);
+                return shifted < earliestEntryKey ? earliestEntryKey : shifted;
+            });
+            return;
+        }
+        setPageIndex(p => Math.max(0, p - 1));
+    }, [earliestEntryKey, isDailyMode, shiftDateKey]);
+
+    const handleNextPage = useCallback(() => {
         if (isDailyMode) {
             setCurrentDailyKey(prev => {
                 if (prev >= todayKey) return todayKey;
@@ -2330,21 +2345,8 @@ export function FondoSection({
             });
             return;
         }
-        setPageIndex(p => Math.max(0, p - 1));
-    }, [isDailyMode, shiftDateKey, todayKey]);
-
-    const handleNextPage = useCallback(() => {
-        if (isDailyMode) {
-            if (!earliestEntryKey) return;
-            setCurrentDailyKey(prev => {
-                if (prev <= earliestEntryKey) return prev;
-                const shifted = shiftDateKey(prev, -1);
-                return shifted < earliestEntryKey ? earliestEntryKey : shifted;
-            });
-            return;
-        }
         setPageIndex(p => Math.min(totalPages - 1, p + 1));
-    }, [earliestEntryKey, isDailyMode, shiftDateKey, totalPages]);
+    }, [isDailyMode, shiftDateKey, todayKey, totalPages]);
 
     // Group visible entries by day (local date). We'll render a date header row per group.
     const groupedByDay = useMemo(() => {
