@@ -26,6 +26,12 @@ type DailyClosingModalProps = {
     open: boolean;
     onClose: () => void;
     onConfirm: (values: DailyClosingFormValues) => void;
+    // When provided, the modal will prefill values for editing an existing closing.
+    initialValues?: DailyClosingFormValues | null;
+    // When present, the modal is in edit mode (label and behaviour adjusted).
+    editId?: string | null;
+    // Request parent to show the closings history
+    onShowHistory?: () => void;
     employees: string[];
     loadingEmployees: boolean;
     currentBalanceCRC: number;
@@ -36,6 +42,9 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     open,
     onClose,
     onConfirm,
+    initialValues,
+    editId,
+    onShowHistory,
     employees,
     loadingEmployees,
     currentBalanceCRC,
@@ -87,14 +96,42 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
 
     useEffect(() => {
         if (!open) return;
-        setClosingDateISO(new Date().toISOString());
-        setNotes('');
-        setCrcCounts(buildInitialCounts(CRC_DENOMINATIONS));
-        setUsdCounts(buildInitialCounts(USD_DENOMINATIONS));
-    }, [open]);
+        // If initialValues provided (edit mode), prefill the form; otherwise reset.
+        if (initialValues) {
+            setClosingDateISO(initialValues.closingDate || new Date().toISOString());
+            setNotes(initialValues.notes || '');
+            // populate counts from breakdowns
+            const crcInitial = buildInitialCounts(CRC_DENOMINATIONS);
+            Object.entries(initialValues.breakdownCRC || {}).forEach(([denom, count]) => {
+                const d = Number(denom);
+                if (Number.isFinite(d) && CRC_DENOMINATIONS.includes(d)) {
+                    crcInitial[d] = String(count ?? 0) || '';
+                }
+            });
+            setCrcCounts(crcInitial);
+
+            const usdInitial = buildInitialCounts(USD_DENOMINATIONS);
+            Object.entries(initialValues.breakdownUSD || {}).forEach(([denom, count]) => {
+                const d = Number(denom);
+                if (Number.isFinite(d) && USD_DENOMINATIONS.includes(d)) {
+                    usdInitial[d] = String(count ?? 0) || '';
+                }
+            });
+            setUsdCounts(usdInitial);
+        } else {
+            setClosingDateISO(new Date().toISOString());
+            setNotes('');
+            setCrcCounts(buildInitialCounts(CRC_DENOMINATIONS));
+            setUsdCounts(buildInitialCounts(USD_DENOMINATIONS));
+        }
+    }, [open, initialValues]);
 
     useEffect(() => {
         if (!open) return;
+        if (initialValues && initialValues.manager) {
+            setManager(initialValues.manager);
+            return;
+        }
         if (employees.length > 0) {
             setManager(prev => {
                 if (prev && employees.includes(prev)) {
@@ -124,6 +161,46 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
             setCrcCounts(prev => ({ ...prev, [denom]: sanitized }));
         } else {
             setUsdCounts(prev => ({ ...prev, [denom]: sanitized }));
+        }
+    };
+
+    const incrementCount = (currency: 'CRC' | 'USD', denom: number) => {
+        if (currency === 'CRC') {
+            setCrcCounts(prev => {
+                const curr = Number.parseInt(prev[denom] || '0', 10) || 0;
+                return { ...prev, [denom]: String(curr + 1) };
+            });
+        } else {
+            setUsdCounts(prev => {
+                const curr = Number.parseInt(prev[denom] || '0', 10) || 0;
+                return { ...prev, [denom]: String(curr + 1) };
+            });
+        }
+    };
+
+    const decrementCount = (currency: 'CRC' | 'USD', denom: number) => {
+        if (currency === 'CRC') {
+            setCrcCounts(prev => {
+                const curr = Number.parseInt(prev[denom] || '0', 10) || 0;
+                const next = Math.max(0, curr - 1);
+                return { ...prev, [denom]: String(next) };
+            });
+        } else {
+            setUsdCounts(prev => {
+                const curr = Number.parseInt(prev[denom] || '0', 10) || 0;
+                const next = Math.max(0, curr - 1);
+                return { ...prev, [denom]: String(next) };
+            });
+        }
+    };
+
+    const handleCountKeyDown = (event: React.KeyboardEvent<HTMLInputElement>, currency: 'CRC' | 'USD', denom: number) => {
+        if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            incrementCount(currency, denom);
+        } else if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            decrementCount(currency, denom);
         }
     };
 
@@ -162,7 +239,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
             onClick={onClose}
         >
             <div
-                className="w-full max-w-3xl rounded border border-[var(--input-border)] bg-[#1f262a] text-white shadow-lg max-h-[80vh] overflow-hidden flex flex-col"
+                className="w-full max-w-full sm:max-w-3xl rounded border border-[var(--input-border)] bg-[#1f262a] text-white shadow-lg max-h-[80vh] overflow-hidden flex flex-col"
                 onClick={event => event.stopPropagation()}
             >
                 <div className="flex items-start justify-between gap-4 p-5 pb-0">
@@ -177,7 +254,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                 </div>
 
                 <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
-                    <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
                         <section>
                             <h4 className="text-sm font-semibold text-[var(--foreground)] mb-3">Efectivo (colones)</h4>
                             <div className="space-y-2">
@@ -189,12 +266,34 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                                             <label className="w-20 text-xs text-[var(--muted-foreground)]">
                                                 {denom.toLocaleString('es-CR')}
                                             </label>
-                                            <input
-                                                value={crcCounts[denom] ?? ''}
-                                                onChange={event => handleCountChange('CRC', denom, event.target.value)}
-                                                className="w-24 rounded border border-[var(--input-border)] bg-[var(--input-bg)] p-2 text-sm"
-                                                inputMode="numeric"
-                                            />
+                                            <div className="relative">
+                                                <input
+                                                    value={crcCounts[denom] ?? ''}
+                                                    onChange={event => handleCountChange('CRC', denom, event.target.value)}
+                                                    onKeyDown={e => handleCountKeyDown(e, 'CRC', denom)}
+                                                    className="w-24 rounded border border-[var(--input-border)] bg-[var(--input-bg)] p-2 pr-8 text-sm text-center"
+                                                    inputMode="numeric"
+                                                    aria-label={`Cantidad ${denom} colones`}
+                                                />
+                                                <div className="absolute right-1 top-1/2 -translate-y-1/2 flex flex-col items-center select-none">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => incrementCount('CRC', denom)}
+                                                        className="w-5 h-4 leading-[10px] rounded-t bg-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                                                        aria-label={`Aumentar ${denom}`}
+                                                    >
+                                                        ▲
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => decrementCount('CRC', denom)}
+                                                        className="w-5 h-4 leading-[10px] rounded-b bg-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                                                        aria-label={`Disminuir ${denom}`}
+                                                    >
+                                                        ▼
+                                                    </button>
+                                                </div>
+                                            </div>
                                             <div className="flex-1 text-right text-xs text-[var(--muted-foreground)]">
                                                 {formatCurrency('CRC', lineTotal)}
                                             </div>
@@ -210,7 +309,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                             </div>
                         </section>
 
-                        <section>
+                        <section className="md:border-l md:border-[var(--input-border)] md:pl-6">
                             <h4 className="text-sm font-semibold text-[var(--foreground)] mb-3">Efectivo (dólares)</h4>
                             <div className="space-y-2">
                                 {USD_DENOMINATIONS.map(denom => {
@@ -221,12 +320,34 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                                             <label className="w-20 text-xs text-[var(--muted-foreground)]">
                                                 {denom}
                                             </label>
-                                            <input
-                                                value={usdCounts[denom] ?? ''}
-                                                onChange={event => handleCountChange('USD', denom, event.target.value)}
-                                                className="w-24 rounded border border-[var(--input-border)] bg-[var(--input-bg)] p-2 text-sm"
-                                                inputMode="numeric"
-                                            />
+                                            <div className="relative">
+                                                <input
+                                                    value={usdCounts[denom] ?? ''}
+                                                    onChange={event => handleCountChange('USD', denom, event.target.value)}
+                                                    onKeyDown={e => handleCountKeyDown(e, 'USD', denom)}
+                                                    className="w-24 rounded border border-[var(--input-border)] bg-[var(--input-bg)] p-2 pr-8 text-sm text-center"
+                                                    inputMode="numeric"
+                                                    aria-label={`Cantidad ${denom} dólares`}
+                                                />
+                                                <div className="absolute right-1 top-1/2 -translate-y-1/2 flex flex-col items-center select-none">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => incrementCount('USD', denom)}
+                                                        className="w-5 h-4 leading-[10px] rounded-t bg-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                                                        aria-label={`Aumentar ${denom}`}
+                                                    >
+                                                        ▲
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => decrementCount('USD', denom)}
+                                                        className="w-5 h-4 leading-[10px] rounded-b bg-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                                                        aria-label={`Disminuir ${denom}`}
+                                                    >
+                                                        ▼
+                                                    </button>
+                                                </div>
+                                            </div>
                                             <div className="flex-1 text-right text-xs text-[var(--muted-foreground)]">
                                                 {formatCurrency('USD', lineTotal)}
                                             </div>
@@ -296,13 +417,24 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                 </div>
 
                 <div className="px-5 pb-5 pt-3 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--input-border)]">
-                    <button
-                        type="button"
-                        onClick={handleClearCounts}
-                        className="rounded border border-[var(--input-border)] px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--muted)]"
-                    >
-                        Limpiar conteo
-                    </button>
+                    <div className="flex gap-2">
+                        <button
+                            type="button"
+                            onClick={handleClearCounts}
+                            className="rounded border border-[var(--input-border)] px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--muted)]"
+                        >
+                            Limpiar conteo
+                        </button>
+                        {onShowHistory && (
+                            <button
+                                type="button"
+                                onClick={() => onShowHistory()}
+                                className="rounded border border-[var(--input-border)] px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--muted)]"
+                            >
+                                Ver historial
+                            </button>
+                        )}
+                    </div>
                     <div className="flex gap-3">
                         <button
                             type="button"
@@ -317,7 +449,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                             disabled={submitDisabled}
                             className="rounded bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:opacity-50"
                         >
-                            Crear cierre
+                            {editId ? 'Actualizar cierre' : 'Crear cierre'}
                         </button>
                     </div>
                 </div>
