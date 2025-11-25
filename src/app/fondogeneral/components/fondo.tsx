@@ -135,6 +135,7 @@ export type FondoEntry = {
     createdAt: string;
     accountId?: MovementAccountKey;
     currency?: 'CRC' | 'USD';
+    breakdown?: Record<number, number>;
     // audit fields: when an edit is recorded, we create an audit movement
     isAudit?: boolean;
     originalEntryId?: string;
@@ -284,10 +285,11 @@ const coerceInvoice = (value: unknown): string => {
     if (typeof value === 'string') return value.trim();
     if (typeof value === 'number' && Number.isFinite(value)) return String(Math.trunc(value));
     return '';
+    
 };
 
 const coerceNotes = (value: unknown): string => {
-    if (typeof value === 'string') return value;
+    if (typeof value === 'string') return value.trim();
     if (typeof value === 'number' || typeof value === 'boolean') return String(value);
     return '';
 };
@@ -2286,6 +2288,7 @@ export function FondoSection({
                     notes: `AJUSTE FONDO GENERAL ${closingDateKey} (id: ${record.id}) — Diferencia CRC: ${diff}. ${userNotes ? `Notas: ${userNotes}` : ''}`,
                     createdAt,
                     currency: 'CRC',
+                    breakdown: closing.breakdownCRC ?? {},
                 } as FondoEntry;
                 newMovements.push(entry);
             }
@@ -2305,6 +2308,7 @@ export function FondoSection({
                     createdAt,
                     currency: 'USD',
                 } as FondoEntry;
+                if ((entry as any).currency === 'USD') (entry as any).breakdown = closing.breakdownUSD ?? {};
                 newMovements.push(entry);
             }
 
@@ -2335,6 +2339,7 @@ export function FondoSection({
                                     if (d.id !== record.id) return d;
                                     return { ...d, adjustmentResolution: resolution } as DailyClosingRecord;
                                 });
+                                try {
                                     const updatedRecord = updated.find(d => d.id === record.id);
                                     if (updatedRecord && normalizedCompany.length > 0) {
                                         void DailyClosingsService.saveClosing(normalizedCompany, updatedRecord).catch(saveErr => {
@@ -2381,6 +2386,7 @@ export function FondoSection({
                                     ...e,
                                     amountEgreso: match.amountEgreso,
                                     amountIngreso: match.amountIngreso,
+                                    breakdown: match.breakdown ?? e.breakdown,
                                     notes: match.notes,
                                     createdAt: match.createdAt,
                                     isAudit: true,
@@ -2419,11 +2425,23 @@ export function FondoSection({
                     });
                     const note = `Ajustes aplicados: ${addedParts.join(' / ')}`;
 
-                    // Persist a readable note on the daily closing record so the history UI shows it
+                    // Compute the net added contribution by currency and the previous contribution
+                    const totalNewCRC = newMovements.reduce((s, m) => s + ((m.currency === 'CRC') ? ((m.amountIngreso || 0) - (m.amountEgreso || 0)) : 0), 0);
+                    const totalNewUSD = newMovements.reduce((s, m) => s + ((m.currency === 'USD') ? ((m.amountIngreso || 0) - (m.amountEgreso || 0)) : 0), 0);
+
+                    // compute existing previous contribution linked to this closing (before we mutate fondoEntries)
+                    const prevCRCContributionExisting = fondoEntries.reduce((s, e) => s + ((e.originalEntryId === record.id && e.providerCode === 'AJUSTE FONDO GENERAL' && (e.currency === 'CRC')) ? ((e.amountIngreso || 0) - (e.amountEgreso || 0)) : 0), 0);
+                    const prevUSDContributionExisting = fondoEntries.reduce((s, e) => s + ((e.originalEntryId === record.id && e.providerCode === 'AJUSTE FONDO GENERAL' && (e.currency === 'USD')) ? ((e.amountIngreso || 0) - (e.amountEgreso || 0)) : 0), 0);
+
+                    // New recorded balance = currentBalance (which includes existing adjustments) - prevExisting + newAdded
+                    const newRecordedBalanceCRC = Math.trunc(currentBalanceCRC - prevCRCContributionExisting + totalNewCRC);
+                    const newRecordedBalanceUSD = Math.trunc(currentBalanceUSD - prevUSDContributionExisting + totalNewUSD);
+
+                    // Persist a readable note and update recordedBalance on the daily closing record so the history UI shows it
                     setDailyClosings(prevClosings => {
                         const updated = prevClosings.map(d => {
                             if (d.id !== record.id) return d;
-                            return { ...d, adjustmentResolution: { ...(d.adjustmentResolution || {}), note } } as DailyClosingRecord;
+                            return { ...d, adjustmentResolution: { ...(d.adjustmentResolution || {}), note }, recordedBalanceCRC: newRecordedBalanceCRC, recordedBalanceUSD: newRecordedBalanceUSD } as DailyClosingRecord;
                         });
 
                         try {
@@ -3790,6 +3808,12 @@ export function FondoSection({
                                                                                     <div className="font-semibold">{adj.currency} — {amt >= 0 ? '+' : '-'} {formatByCurrency(adj.currency as 'CRC' | 'USD', Math.abs(amt))}</div>
                                                                                     <div className="text-xs text-[var(--muted-foreground)]">{adj.manager || '—'} • {(() => { try { return dateTimeFormatter.format(new Date(adj.createdAt)); } catch { return adj.createdAt; } })()}</div>
                                                                                 </div>
+                                                                                    {adj.breakdown && Object.keys(adj.breakdown).length > 0 && (
+                                                                                        <div className="mt-2 text-xs text-[var(--muted-foreground)]">
+                                                                                            <div className="font-medium">Detalle de billetes:</div>
+                                                                                            <div className="text-xs mt-1">{buildBreakdownLines(adj.currency as 'CRC' | 'USD', adj.breakdown).join(', ')}</div>
+                                                                                        </div>
+                                                                                    )}
                                                                                 {lastChange ? (
                                                                                     <div className="mt-2 text-xs text-[var(--muted-foreground)]">
                                                                                         <div className="font-medium">Último cambio registrado:</div>
