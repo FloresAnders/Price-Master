@@ -26,6 +26,8 @@ import {
     CalendarDays,
         ChevronLeft,
         ChevronRight,
+        ChevronDown,
+        ChevronUp,
 } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import { useProviders } from '../../../hooks/useProviders';
@@ -1016,6 +1018,7 @@ export function FondoSection({
     const [dailyClosingsHydrated, setDailyClosingsHydrated] = useState(false);
     const [dailyClosingsRefreshing, setDailyClosingsRefreshing] = useState(false);
     const [dailyClosingHistoryOpen, setDailyClosingHistoryOpen] = useState(false);
+    const [expandedClosings, setExpandedClosings] = useState<Set<string>>(new Set());
     const dailyClosingsRequestCountRef = useRef(0);
     const isComponentMountedRef = useRef(true);
     const loadedDailyClosingKeysRef = useRef<Set<string>>(new Set());
@@ -2256,6 +2259,17 @@ export function FondoSection({
                 // update the record diffs so persistence reflects the adjusted values
                 record.diffCRC = adjustedDiffCRC;
                 record.diffUSD = adjustedDiffUSD;
+                // When editing a closing, the recorded balance should reflect the underlying
+                // account balance excluding previous automatic adjustments, so store the
+                // base balance instead of the currentBalance (which contains those adjustments).
+                try {
+                    record.recordedBalanceCRC = Math.trunc(baseBalanceCRC);
+                    record.recordedBalanceUSD = Math.trunc(baseBalanceUSD);
+                } catch (rbErr) {
+                    console.error('[FG-DEBUG] Error setting recordedBalance on edited closing:', rbErr);
+                }
+
+                console.info('[FG-DEBUG] Editing closing values', { closingTotalCRC: closing.totalCRC, currentBalanceCRC, prevCRCContribution, baseBalanceCRC, adjustedDiffCRC });
             }
 
             if (adjustedDiffCRC && adjustedDiffCRC !== 0) {
@@ -2298,8 +2312,45 @@ export function FondoSection({
                 // No diff now: remove previous adjustment movements linked to this closing
                 console.info('[FG-DEBUG] Removing previous adjustment movements for closing', record.id, { beforeCount: fondoEntries.length });
                 setFondoEntries(prev => {
+                    const toRemove = prev.filter(e => e.originalEntryId === record.id && e.providerCode === 'AJUSTE FONDO GENERAL');
                     const filtered = prev.filter(e => !(e.originalEntryId === record.id && e.providerCode === 'AJUSTE FONDO GENERAL'));
                     console.info('[FG-DEBUG] After remove, count:', filtered.length);
+                    if (toRemove.length > 0) {
+                        try {
+                            const resolution = {
+                                removedAdjustments: toRemove.map(r => ({
+                                    id: r.id,
+                                    currency: r.currency,
+                                    amount: (r.amountIngreso || 0) - (r.amountEgreso || 0),
+                                    amountIngreso: r.amountIngreso || 0,
+                                    amountEgreso: r.amountEgreso || 0,
+                                    manager: r.manager,
+                                    createdAt: r.createdAt,
+                                })),
+                                note: 'Ajustes eliminados manualmente al editar el cierre',
+                            } as any;
+
+                            setDailyClosings(prevClosings => {
+                                const updated = prevClosings.map(d => {
+                                    if (d.id !== record.id) return d;
+                                    return { ...d, adjustmentResolution: resolution } as DailyClosingRecord;
+                                });
+                                    const updatedRecord = updated.find(d => d.id === record.id);
+                                    if (updatedRecord && normalizedCompany.length > 0) {
+                                        void DailyClosingsService.saveClosing(normalizedCompany, updatedRecord).catch(saveErr => {
+                                            console.error('Error saving updated daily closing with resolution:', saveErr);
+                                        });
+                                    }
+                                } catch (saveErr) {
+                                    console.error('Error persisting daily closing resolution:', saveErr);
+                                }
+                                return updated;
+                            });
+                        } catch (err) {
+                            console.error('Error preparing adjustment resolution summary:', err);
+                        }
+                    }
+
                     return filtered;
                 });
             }
@@ -2357,6 +2408,39 @@ export function FondoSection({
                         console.info('[FG-DEBUG] fondoEntries count after prepend:', next.length);
                         return next;
                     });
+                }
+
+                // Build a human-readable summary of the adjustments we just applied
+                try {
+                    const addedParts: string[] = newMovements.map(m => {
+                        const amt = (m.amountIngreso || 0) - (m.amountEgreso || 0);
+                        const sign = amt >= 0 ? '+' : '-';
+                        return `${m.currency} ${sign} ${formatByCurrency(m.currency as 'CRC' | 'USD', Math.abs(amt))}`;
+                    });
+                    const note = `Ajustes aplicados: ${addedParts.join(' / ')}`;
+
+                    // Persist a readable note on the daily closing record so the history UI shows it
+                    setDailyClosings(prevClosings => {
+                        const updated = prevClosings.map(d => {
+                            if (d.id !== record.id) return d;
+                            return { ...d, adjustmentResolution: { ...(d.adjustmentResolution || {}), note } } as DailyClosingRecord;
+                        });
+
+                        try {
+                            const updatedRecord = updated.find(d => d.id === record.id);
+                            if (updatedRecord && normalizedCompany.length > 0) {
+                                void DailyClosingsService.saveClosing(normalizedCompany, updatedRecord).catch(saveErr => {
+                                    console.error('Error saving daily closing with adjustment note:', saveErr);
+                                });
+                            }
+                        } catch (saveErr) {
+                            console.error('Error persisting daily closing adjustment note:', saveErr);
+                        }
+
+                        return updated;
+                    });
+                } catch (noteErr) {
+                    console.error('Error building/persisting adjustment note:', noteErr);
                 }
             }
         } catch (err) {
@@ -3620,10 +3704,61 @@ export function FondoSection({
                                                 {(() => {
                                                     const relatedAdjustments = fondoEntries.filter(e => e.originalEntryId === record.id && e.providerCode === 'AJUSTE FONDO GENERAL');
                                                     if (relatedAdjustments.length === 0 && (record.diffCRC === 0 && record.diffUSD === 0)) {
+                                                        const isExpanded = expandedClosings.has(record.id);
                                                         return (
-                                                            <div className="mt-3 p-3 rounded border-l-4 border-green-500 bg-green-900/5 text-sm">
-                                                                <div className="font-medium">Cierre editado — diferencias resueltas</div>
-                                                                <div className="text-xs text-[var(--muted-foreground)]">Los ajustes previos fueron eliminados y el saldo quedó normalizado.</div>
+                                                            <div className="mt-3">
+                                                                <div className="flex items-center justify-between p-3 rounded border-l-4 border-green-500 bg-green-900/5 text-sm">
+                                                                    <div>
+                                                                        <div className="font-medium">Cierre editado — diferencias resueltas</div>
+                                                                        <div className="text-xs text-[var(--muted-foreground)]">Los ajustes previos fueron eliminados y el saldo quedó normalizado.</div>
+                                                                    </div>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            setExpandedClosings(prev => {
+                                                                                const next = new Set(prev);
+                                                                                if (next.has(record.id)) next.delete(record.id);
+                                                                                else next.add(record.id);
+                                                                                return next;
+                                                                            });
+                                                                        }}
+                                                                        aria-expanded={isExpanded}
+                                                                        aria-controls={`closing-resolved-${record.id}`}
+                                                                        className="ml-4 p-1 rounded border border-transparent hover:border-[var(--input-border)]"
+                                                                        title={isExpanded ? 'Ocultar detalles' : 'Mostrar detalles'}
+                                                                    >
+                                                                        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                                                    </button>
+                                                                </div>
+
+                                                                {isExpanded && (
+                                                                    <div id={`closing-resolved-${record.id}`} className="mt-2 p-3 rounded border border-[var(--input-border)] bg-[var(--muted)]/5 text-sm text-[var(--muted-foreground)]">
+                                                                        <div className="mb-2">
+                                                                            <div><strong>Conteo:</strong> {formatByCurrency('CRC', record.totalCRC)} / {formatByCurrency('USD', record.totalUSD)}</div>
+                                                                            <div><strong>Saldo registrado:</strong> {formatByCurrency('CRC', record.recordedBalanceCRC)} / {formatByCurrency('USD', record.recordedBalanceUSD)}</div>
+                                                                            <div><strong>Diferencia:</strong> {record.diffCRC === 0 && record.diffUSD === 0 ? 'Sin diferencias' : `${formatDailyClosingDiff('CRC', record.diffCRC)} / ${formatDailyClosingDiff('USD', record.diffUSD)}`}</div>
+                                                                        </div>
+                                                                        <div className="text-xs text-[var(--input-border)]">
+                                                                            <div className="mb-1 font-medium">Resumen de resolución:</div>
+                                                                            {record.adjustmentResolution?.removedAdjustments && record.adjustmentResolution.removedAdjustments.length > 0 ? (
+                                                                                <ul className="list-disc pl-5 text-[var(--muted-foreground)]">
+                                                                                    {record.adjustmentResolution.removedAdjustments.map((adj, idx) => (
+                                                                                        <li key={idx}>
+                                                                                            {adj.currency}: {adj.amount && adj.amount !== 0 ? (adj.amount > 0 ? `+ ${formatByCurrency(adj.currency as 'CRC' | 'USD', adj.amount)}` : `- ${formatByCurrency(adj.currency as 'CRC' | 'USD', Math.abs(adj.amount))}`) : `${formatByCurrency(adj.currency as 'CRC' | 'USD', (adj.amountIngreso || 0) - (adj.amountEgreso || 0))}`}
+                                                                                            {adj.manager ? ` — ${adj.manager}` : ''}
+                                                                                            {adj.createdAt ? ` • ${(() => { try { return dateTimeFormatter.format(new Date(adj.createdAt)); } catch { return adj.createdAt; } })()}` : ''}
+                                                                                        </li>
+                                                                                    ))}
+                                                                                </ul>
+                                                                            ) : (
+                                                                                <ul className="list-disc pl-5 text-[var(--muted-foreground)]">
+                                                                                    <li>Los ajustes asociados a este cierre fueron eliminados manualmente.</li>
+                                                                                    <li>El saldo del fondo quedó normalizado contra el conteo proporcionado.</li>
+                                                                                </ul>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         );
                                                     }

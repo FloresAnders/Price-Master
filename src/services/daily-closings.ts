@@ -14,6 +14,18 @@ export type DailyClosingRecord = {
     notes: string;
     breakdownCRC: Record<number, number>;
     breakdownUSD: Record<number, number>;
+    adjustmentResolution?: {
+        removedAdjustments?: Array<{
+            id?: string;
+            currency?: 'CRC' | 'USD';
+            amount?: number;
+            amountIngreso?: number;
+            amountEgreso?: number;
+            manager?: string;
+            createdAt?: string;
+        }>;
+        note?: string;
+    };
 };
 
 export type DailyClosingsDocument = {
@@ -116,7 +128,7 @@ const sanitizeRecord = (raw: unknown): DailyClosingRecord | null => {
     const manager = typeof candidate.manager === 'string' ? candidate.manager.trim() : '';
     const notes = typeof candidate.notes === 'string' ? candidate.notes.trim() : '';
 
-    return {
+    const record: DailyClosingRecord = {
         id,
         createdAt,
         closingDate,
@@ -130,7 +142,32 @@ const sanitizeRecord = (raw: unknown): DailyClosingRecord | null => {
         notes,
         breakdownCRC: sanitizeBreakdown(candidate.breakdownCRC),
         breakdownUSD: sanitizeBreakdown(candidate.breakdownUSD),
-    };
+    } as DailyClosingRecord;
+
+    // sanitize optional adjustmentResolution if present
+    if (candidate.adjustmentResolution && typeof candidate.adjustmentResolution === 'object') {
+        try {
+            const ar = candidate.adjustmentResolution as any;
+            const removed: Array<any> = Array.isArray(ar.removedAdjustments) ? ar.removedAdjustments.map((it: any) => {
+                return {
+                    id: typeof it?.id === 'string' ? it.id : undefined,
+                    currency: it?.currency === 'USD' ? 'USD' : 'CRC',
+                    amount: sanitizeMoney(it?.amount),
+                    amountIngreso: sanitizeMoney(it?.amountIngreso),
+                    amountEgreso: sanitizeMoney(it?.amountEgreso),
+                    manager: typeof it?.manager === 'string' ? it.manager : undefined,
+                    createdAt: typeof it?.createdAt === 'string' ? it.createdAt : undefined,
+                };
+            }) : undefined;
+            record.adjustmentResolution = {};
+            if (removed && removed.length > 0) record.adjustmentResolution.removedAdjustments = removed;
+            if (typeof ar.note === 'string') record.adjustmentResolution.note = ar.note;
+        } catch {
+            // ignore malformed resolution
+        }
+    }
+
+    return record;
 };
 
 const sortValueForRecord = (record: DailyClosingRecord): number => {
