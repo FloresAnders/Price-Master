@@ -378,8 +378,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                   window.location.hash = '#agregarproveedor';
                 }}
                 className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${currentHash === '#agregarproveedor'
-                    ? 'text-[var(--tab-text-active)] font-semibold'
-                    : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
+                  ? 'text-[var(--tab-text-active)] font-semibold'
+                  : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
                   }`}
                 title="Agregar proveedor"
               >
@@ -396,8 +396,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                   window.location.hash = '#fondogeneral';
                 }}
                 className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${currentHash === '#fondogeneral'
-                    ? 'text-[var(--tab-text-active)] font-semibold'
-                    : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
+                  ? 'text-[var(--tab-text-active)] font-semibold'
+                  : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
                   }`}
                 title={fondoMenuLabel}
               >
@@ -415,8 +415,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                     window.location.hash = '#reportes';
                   }}
                   className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${currentHash === '#reportes'
-                      ? 'text-[var(--tab-text-active)] font-semibold'
-                      : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
+                    ? 'text-[var(--tab-text-active)] font-semibold'
+                    : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
                     }`}
                   title="Reportes"
                 >
@@ -435,8 +435,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                     window.location.hash = '#configuracion';
                   }}
                   className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${currentHash === '#configuracion'
-                      ? 'text-[var(--tab-text-active)] font-semibold'
-                      : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
+                    ? 'text-[var(--tab-text-active)] font-semibold'
+                    : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
                     }`}
                   title="Configuración del fondo"
                 >
