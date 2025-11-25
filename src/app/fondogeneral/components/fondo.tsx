@@ -91,6 +91,9 @@ export const FONDO_TYPE_OPTIONS = [...FONDO_INGRESO_TYPES, ...FONDO_GASTO_TYPES,
 
 export type FondoMovementType = typeof FONDO_INGRESO_TYPES[number] | typeof FONDO_GASTO_TYPES[number] | typeof FONDO_EGRESO_TYPES[number];
 
+const AUTO_ADJUSTMENT_PROVIDER_CODE = 'AJUSTE FONDO GENERAL';
+const AUTO_ADJUSTMENT_MANAGER = 'SISTEMA';
+
 export const isFondoMovementType = (value: string): value is FondoMovementType =>
     FONDO_TYPE_OPTIONS.includes(value as FondoMovementType);
 
@@ -169,6 +172,60 @@ const sanitizeBreakdown = (input: unknown): Record<number, number> => {
     }, {});
 };
 
+type AdjustmentResolutionRemoval = NonNullable<
+    NonNullable<DailyClosingRecord['adjustmentResolution']>['removedAdjustments']
+>[number];
+
+const sanitizeAdjustmentResolution = (
+    input: unknown,
+): DailyClosingRecord['adjustmentResolution'] | undefined => {
+    if (!input || typeof input !== 'object') return undefined;
+    const candidate = input as Record<string, unknown>;
+    const resolution: DailyClosingRecord['adjustmentResolution'] = {};
+
+    if (Array.isArray(candidate.removedAdjustments)) {
+        const removed = (candidate.removedAdjustments as unknown[])
+            .map((item): AdjustmentResolutionRemoval | undefined => {
+                if (!item || typeof item !== 'object') return undefined;
+                const raw = item as Record<string, unknown>;
+                const cleaned: Partial<AdjustmentResolutionRemoval> = {};
+                if (typeof raw.id === 'string' && raw.id.trim().length > 0) cleaned.id = raw.id.trim();
+                if (raw.currency === 'USD') cleaned.currency = 'USD';
+                else if (raw.currency === 'CRC') cleaned.currency = 'CRC';
+                if (raw.amount !== undefined) cleaned.amount = sanitizeMoneyNumber(raw.amount);
+                if (raw.amountIngreso !== undefined) cleaned.amountIngreso = sanitizeMoneyNumber(raw.amountIngreso);
+                if (raw.amountEgreso !== undefined) cleaned.amountEgreso = sanitizeMoneyNumber(raw.amountEgreso);
+                if (typeof raw.manager === 'string' && raw.manager.trim().length > 0) cleaned.manager = raw.manager.trim();
+                if (typeof raw.createdAt === 'string' && raw.createdAt.trim().length > 0) cleaned.createdAt = raw.createdAt.trim();
+                return Object.keys(cleaned).length > 0 ? (cleaned as AdjustmentResolutionRemoval) : undefined;
+            })
+            .filter(
+                (item): item is AdjustmentResolutionRemoval =>
+                    Boolean(item),
+            );
+        if (removed.length > 0) {
+            resolution.removedAdjustments = removed;
+        }
+    }
+
+    if (typeof candidate.note === 'string') {
+        const trimmed = candidate.note.trim();
+        if (trimmed.length > 0) {
+            resolution.note = trimmed;
+        }
+    }
+
+    if (candidate.postAdjustmentBalanceCRC !== undefined) {
+        resolution.postAdjustmentBalanceCRC = sanitizeMoneyNumber(candidate.postAdjustmentBalanceCRC);
+    }
+
+    if (candidate.postAdjustmentBalanceUSD !== undefined) {
+        resolution.postAdjustmentBalanceUSD = sanitizeMoneyNumber(candidate.postAdjustmentBalanceUSD);
+    }
+
+    return Object.keys(resolution).length > 0 ? resolution : undefined;
+};
+
 const sanitizeDailyClosings = (raw: unknown): DailyClosingRecord[] => {
     if (!Array.isArray(raw)) return [];
     const sanitized = raw.reduce<DailyClosingRecord[]>((acc, candidate) => {
@@ -178,6 +235,7 @@ const sanitizeDailyClosings = (raw: unknown): DailyClosingRecord[] => {
         const manager = typeof record.manager === 'string' ? record.manager : '';
         const closingDate = typeof record.closingDate === 'string' ? record.closingDate : new Date().toISOString();
         const createdAt = typeof record.createdAt === 'string' ? record.createdAt : closingDate;
+        const adjustmentResolution = sanitizeAdjustmentResolution(record.adjustmentResolution);
         acc.push({
             id,
             createdAt,
@@ -192,6 +250,7 @@ const sanitizeDailyClosings = (raw: unknown): DailyClosingRecord[] => {
             notes: typeof record.notes === 'string' ? record.notes : '',
             breakdownCRC: sanitizeBreakdown(record.breakdownCRC),
             breakdownUSD: sanitizeBreakdown(record.breakdownUSD),
+            ...(adjustmentResolution ? { adjustmentResolution } : {}),
         });
         return acc;
     }, []);
@@ -1768,15 +1827,15 @@ export function FondoSection({
     };
 
     const handleEditMovement = (entry: FondoEntry) => {
+        if (entry.providerCode === AUTO_ADJUSTMENT_PROVIDER_CODE) {
+            showToast('Los ajustes automáticos no se pueden editar.', 'info', 5000);
+            return;
+        }
+
         // If this movement was generated from a daily closing, open the daily-closing modal
         // prefilled with that closing's values so the user edits the closing (not the generic movement).
-        if (entry.originalEntryId || entry.providerCode === 'AJUSTE FONDO GENERAL') {
-            const closingId = entry.originalEntryId ?? (entry.providerCode === 'AJUSTE FONDO GENERAL' ? entry.originalEntryId ?? null : null);
-            if (!closingId) {
-                // fallback to generic editor
-                startEditingEntry(entry);
-                return;
-            }
+        if (entry.originalEntryId) {
+            const closingId = entry.originalEntryId;
             const record = dailyClosings.find(d => d.id === closingId);
             if (!record) {
                 // If we don't have the closing record locally, fall back to the generic editor.
@@ -2279,13 +2338,13 @@ export function FondoSection({
                 const isPositive = diff > 0;
                 const entry: FondoEntry = {
                     id: makeId(),
-                    providerCode: 'AJUSTE FONDO GENERAL',
+                    providerCode: AUTO_ADJUSTMENT_PROVIDER_CODE,
                     invoiceNumber: String(Math.abs(diff)).padStart(4, '0'),
                     paymentType: isPositive ? FONDO_INGRESO_TYPES[1] : FONDO_EGRESO_TYPES[FONDO_EGRESO_TYPES.length - 1],
                     amountEgreso: isPositive ? 0 : Math.abs(diff),
                     amountIngreso: isPositive ? diff : 0,
-                    manager: managerName,
-                    notes: `AJUSTE FONDO GENERAL ${closingDateKey} (id: ${record.id}) — Diferencia CRC: ${diff}. ${userNotes ? `Notas: ${userNotes}` : ''}`,
+                    manager: AUTO_ADJUSTMENT_MANAGER,
+                    notes: `AJUSTE FONDO GENERAL ${closingDateKey} — Diferencia CRC: ${diff}. ${userNotes ? `Notas: ${userNotes}` : ''}`,
                     createdAt,
                     currency: 'CRC',
                     breakdown: closing.breakdownCRC ?? {},
@@ -2298,13 +2357,13 @@ export function FondoSection({
                 const isPositive = diff > 0;
                 const entry: FondoEntry = {
                     id: makeId(),
-                    providerCode: 'AJUSTE FONDO GENERAL',
+                    providerCode: AUTO_ADJUSTMENT_PROVIDER_CODE,
                     invoiceNumber: String(Math.abs(diff)).padStart(4, '0'),
                     paymentType: isPositive ? FONDO_INGRESO_TYPES[1] : FONDO_EGRESO_TYPES[FONDO_EGRESO_TYPES.length - 1],
                     amountEgreso: isPositive ? 0 : Math.abs(diff),
                     amountIngreso: isPositive ? diff : 0,
-                    manager: managerName,
-                    notes: `AJUSTE FONDO GENERAL ${closingDateKey} (id: ${record.id}) — Diferencia USD: ${diff}. ${userNotes ? `Notas: ${userNotes}` : ''}`,
+                    manager: AUTO_ADJUSTMENT_MANAGER,
+                    notes: `AJUSTE FONDO GENERAL ${closingDateKey} — Diferencia USD: ${diff}. ${userNotes ? `Notas: ${userNotes}` : ''}`,
                     createdAt,
                     currency: 'USD',
                 } as FondoEntry;
@@ -2380,7 +2439,7 @@ export function FondoSection({
                                 } catch {
                                     history = [];
                                 }
-                                const newRecord = { at: new Date().toISOString(), before: { ...e }, after: { providerCode: e.providerCode, invoiceNumber: match.invoiceNumber, paymentType: match.paymentType, amountEgreso: match.amountEgreso, amountIngreso: match.amountIngreso, manager: match.manager, notes: match.notes } };
+                                const newRecord = { at: new Date().toISOString(), before: { ...e }, after: { providerCode: e.providerCode, invoiceNumber: match.invoiceNumber, paymentType: match.paymentType, amountEgreso: match.amountEgreso, amountIngreso: match.amountIngreso, manager: AUTO_ADJUSTMENT_MANAGER, notes: match.notes } };
                                 history.push(newRecord);
                                 return {
                                     ...e,
@@ -2389,6 +2448,7 @@ export function FondoSection({
                                     breakdown: match.breakdown ?? e.breakdown,
                                     notes: match.notes,
                                     createdAt: match.createdAt,
+                                    manager: AUTO_ADJUSTMENT_MANAGER,
                                     isAudit: true,
                                     originalEntryId: e.originalEntryId ?? e.id,
                                     auditDetails: JSON.stringify({ history }),
@@ -2407,7 +2467,7 @@ export function FondoSection({
                         return updated;
                     });
                 } else {
-                    // Prepend so the most recent movement appears first (consistent with createdAt)
+                    // Prepend so the most recent movement appears first (consistent with createdAt) 
                     console.info('[FG-DEBUG] Prepending new adjustment movements', newMovements);
                     setFondoEntries(prev => {
                         const next = [...newMovements, ...prev];
@@ -2434,14 +2494,26 @@ export function FondoSection({
                     const prevUSDContributionExisting = fondoEntries.reduce((s, e) => s + ((e.originalEntryId === record.id && e.providerCode === 'AJUSTE FONDO GENERAL' && (e.currency === 'USD')) ? ((e.amountIngreso || 0) - (e.amountEgreso || 0)) : 0), 0);
 
                     // New recorded balance = currentBalance (which includes existing adjustments) - prevExisting + newAdded
-                    const newRecordedBalanceCRC = Math.trunc(currentBalanceCRC - prevCRCContributionExisting + totalNewCRC);
-                    const newRecordedBalanceUSD = Math.trunc(currentBalanceUSD - prevUSDContributionExisting + totalNewUSD);
+                    const postAdjustmentBalanceCRC = Math.trunc(currentBalanceCRC - prevCRCContributionExisting + totalNewCRC);
+                    const postAdjustmentBalanceUSD = Math.trunc(currentBalanceUSD - prevUSDContributionExisting + totalNewUSD);
+                    const hasCRCAdjustments = totalNewCRC !== 0 || prevCRCContributionExisting !== 0;
+                    const hasUSDAdjustments = totalNewUSD !== 0 || prevUSDContributionExisting !== 0;
 
-                    // Persist a readable note and update recordedBalance on the daily closing record so the history UI shows it
+                    // Persist a readable note and store the balance after adjustments under adjustmentResolution
                     setDailyClosings(prevClosings => {
                         const updated = prevClosings.map(d => {
                             if (d.id !== record.id) return d;
-                            return { ...d, adjustmentResolution: { ...(d.adjustmentResolution || {}), note }, recordedBalanceCRC: newRecordedBalanceCRC, recordedBalanceUSD: newRecordedBalanceUSD } as DailyClosingRecord;
+                            const existingResolution = d.adjustmentResolution || {};
+                            const updatedResolution: DailyClosingRecord['adjustmentResolution'] = {
+                                ...(existingResolution.removedAdjustments ? { removedAdjustments: existingResolution.removedAdjustments } : {}),
+                                note,
+                                ...(hasCRCAdjustments ? { postAdjustmentBalanceCRC } : {}),
+                                ...(hasUSDAdjustments ? { postAdjustmentBalanceUSD } : {}),
+                            };
+                            return {
+                                ...d,
+                                adjustmentResolution: updatedResolution,
+                            } as DailyClosingRecord;
                         });
 
                         try {
@@ -3447,6 +3519,7 @@ export function FondoSection({
                                                 ? 'Sin fecha'
                                                 : dateTimeFormatter.format(recordedAt);
                                             const amountPrefix = isEntryEgreso ? '-' : '+';
+                                            const isAutoAdjustment = fe.providerCode === AUTO_ADJUSTMENT_PROVIDER_CODE;
                                             // prepare tooltip text for edited entries
                                             let auditTooltip: string | undefined;
                                             let parsedAudit: any | null = null;
@@ -3554,11 +3627,11 @@ export function FondoSection({
                                                             type="button"
                                                             className="inline-flex items-center gap-2 rounded border border-[var(--input-border)] px-3 py-1 text-xs font-medium text-[var(--muted-foreground)] hover:bg-[var(--muted)] disabled:opacity-50"
                                                             onClick={() => handleEditMovement(fe)}
-                                                            disabled={editingEntryId === fe.id}
-                                                            title={'Editar movimiento'}
+                                                            disabled={editingEntryId === fe.id || isAutoAdjustment}
+                                                            title={isAutoAdjustment ? 'Los ajustes automáticos no se pueden editar' : 'Editar movimiento'}
                                                         >
                                                             <Pencil className="w-4 h-4" />
-                                                            {editingEntryId === fe.id ? 'Editando' : 'Editar'}
+                                                            {editingEntryId === fe.id ? 'Editando' : isAutoAdjustment ? 'Bloqueado' : 'Editar'}
                                                         </button>
                                                     </td>
                                                 </tr>
@@ -3782,6 +3855,10 @@ export function FondoSection({
                                                     }
 
                                                     if (relatedAdjustments.length > 0) {
+                                                        const postAdjBalanceCRC = record.adjustmentResolution?.postAdjustmentBalanceCRC;
+                                                        const postAdjBalanceUSD = record.adjustmentResolution?.postAdjustmentBalanceUSD;
+                                                        const showPostAdjustmentBalances =
+                                                            typeof postAdjBalanceCRC === 'number' || typeof postAdjBalanceUSD === 'number';
                                                         return (
                                                             <div className="mt-3">
                                                                 <div className="text-sm font-medium mb-2">Ajustes relacionados</div>
@@ -3834,6 +3911,17 @@ export function FondoSection({
                                                                         );
                                                                     })}
                                                                 </div>
+                                                                {showPostAdjustmentBalances && (
+                                                                    <div className="mt-3 text-xs text-[var(--muted-foreground)]">
+                                                                        <div className="font-medium text-[var(--muted-foreground)]">Saldo posterior a ajustes</div>
+                                                                        {typeof postAdjBalanceCRC === 'number' && (
+                                                                            <div>CRC: {formatByCurrency('CRC', postAdjBalanceCRC)}</div>
+                                                                        )}
+                                                                        {typeof postAdjBalanceUSD === 'number' && (
+                                                                            <div>USD: {formatByCurrency('USD', postAdjBalanceUSD)}</div>
+                                                                        )}
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         );
                                                     }
