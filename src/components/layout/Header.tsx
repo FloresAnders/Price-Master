@@ -286,6 +286,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const userPermissions = user?.permissions || getDefaultPermissions(user?.role || 'user');
   const canManageFondoGeneral = Boolean(userPermissions.fondogeneral);
   const isFondoPrivileged = user?.role === 'admin' || user?.role === 'superadmin';
+  const fondoMenuLabel = isFondoPrivileged ? 'FG/Cuentas' : 'Fondo General';
 
   // Filter tabs based on user permissions
   const visibleTabs = allTabs.filter(tab => {
@@ -376,11 +377,10 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                 onClick={() => {
                   window.location.hash = '#agregarproveedor';
                 }}
-                className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${
-                  currentHash === '#agregarproveedor'
+                className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${currentHash === '#agregarproveedor'
                     ? 'text-[var(--tab-text-active)] font-semibold'
                     : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
-                }`}
+                  }`}
                 title="Agregar proveedor"
               >
                 <UserPlus className="w-4 h-4" />
@@ -395,15 +395,14 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                 onClick={() => {
                   window.location.hash = '#fondogeneral';
                 }}
-                className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${
-                  currentHash === '#fondogeneral'
+                className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${currentHash === '#fondogeneral'
                     ? 'text-[var(--tab-text-active)] font-semibold'
                     : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
-                }`}
-                title="Fondo"
+                  }`}
+                title={fondoMenuLabel}
               >
                 <Banknote className="w-4 h-4" />
-                <span className="hidden xl:inline">Fondo</span>
+                <span className="hidden xl:inline">{fondoMenuLabel}</span>
                 {currentHash === '#fondogeneral' && (
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
                 )}
@@ -415,11 +414,10 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                   onClick={() => {
                     window.location.hash = '#reportes';
                   }}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${
-                    currentHash === '#reportes'
+                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${currentHash === '#reportes'
                       ? 'text-[var(--tab-text-active)] font-semibold'
                       : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
-                  }`}
+                    }`}
                   title="Reportes"
                 >
                   <Layers className="w-4 h-4" />
@@ -436,11 +434,10 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                   onClick={() => {
                     window.location.hash = '#configuracion';
                   }}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${
-                    currentHash === '#configuracion'
+                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${currentHash === '#configuracion'
                       ? 'text-[var(--tab-text-active)] font-semibold'
                       : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
-                  }`}
+                    }`}
                   title="Configuración del fondo"
                 >
                   <Settings className="w-4 h-4" />
