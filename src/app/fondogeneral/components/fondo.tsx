@@ -24,8 +24,8 @@ import {
     Lock,
     LockOpen,
     CalendarDays,
-    ChevronLeft,
-    ChevronRight,
+        ChevronLeft,
+        ChevronRight,
 } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import { useProviders } from '../../../hooks/useProviders';
@@ -1658,36 +1658,61 @@ export function FondoSection({
             if (manager !== original.manager) changes.push(`Encargado: ${original.manager} → ${manager}`);
             if (trimmedNotes !== (original.notes ?? '')) changes.push(`Notas: "${original.notes}" → "${trimmedNotes}"`);
 
-            setFondoEntries(prev => prev.map(e => {
-                if (e.id !== editingEntryId) return e;
-                // append to existing history if present
-                let history: any[] = [];
+            setFondoEntries(prev => {
+                const next = prev.map(e => {
+                    if (e.id !== editingEntryId) return e;
+                    // append to existing history if present
+                    let history: any[] = [];
+                    try {
+                        const existing = e.auditDetails ? JSON.parse(e.auditDetails) as any : null;
+                        if (existing && Array.isArray(existing.history)) history = existing.history.slice();
+                        else if (existing && existing.before && existing.after) history = [{ at: existing.at ?? e.createdAt, before: existing.before, after: existing.after }];
+                    } catch {
+                        history = [];
+                    }
+                    const newRecord = { at: new Date().toISOString(), before: { ...e }, after: { providerCode: selectedProvider, invoiceNumber: paddedInvoice, paymentType, amountEgreso: isEgreso ? egresoValue : 0, amountIngreso: isEgreso ? 0 : ingresoValue, manager, notes: trimmedNotes } };
+                    history.push(newRecord);
+                    // keep original createdAt so chronological order and balances are preserved
+                    return {
+                        ...e,
+                        providerCode: selectedProvider,
+                        invoiceNumber: paddedInvoice,
+                        paymentType,
+                        amountEgreso: isEgreso ? egresoValue : 0,
+                        amountIngreso: isEgreso ? 0 : ingresoValue,
+                        manager,
+                        notes: trimmedNotes,
+                        // mark as edited/audited and preserve originalEntryId (point to initial id)
+                        isAudit: true,
+                        originalEntryId: e.originalEntryId ?? e.id,
+                        auditDetails: JSON.stringify({ history }),
+                        currency: movementCurrency,
+                    } as FondoEntry;
+                });
+
                 try {
-                    const existing = e.auditDetails ? JSON.parse(e.auditDetails) as any : null;
-                    if (existing && Array.isArray(existing.history)) history = existing.history.slice();
-                    else if (existing && existing.before && existing.after) history = [{ at: existing.at ?? e.createdAt, before: existing.before, after: existing.after }];
+                    // compute simple before/after CRC balances to help debug balance update issues
+                    const sumBalance = (entries: FondoEntry[]) => {
+                        let ingresosCRC = 0;
+                        let egresosCRC = 0;
+                        entries.forEach(en => {
+                            const cur = (en.currency as 'CRC' | 'USD') || 'CRC';
+                            if (cur === 'CRC') {
+                                ingresosCRC += en.amountIngreso || 0;
+                                egresosCRC += en.amountEgreso || 0;
+                            }
+                        });
+                        return (Number(initialAmount) || 0) + ingresosCRC - egresosCRC;
+                    };
+                    const beforeBalance = sumBalance(prev);
+                    const afterBalance = sumBalance(next);
+                    console.info('[FG-DEBUG] Edited movement saved', editingEntryId, { prevCount: prev.length, nextCount: next.length, beforeBalanceCRC: beforeBalance, afterBalanceCRC: afterBalance });
                 } catch {
-                    history = [];
+                    console.info('[FG-DEBUG] Edited movement saved (error computing debug balances)', editingEntryId);
                 }
-                const newRecord = { at: new Date().toISOString(), before: { ...e }, after: { providerCode: selectedProvider, invoiceNumber: paddedInvoice, paymentType, amountEgreso: isEgreso ? egresoValue : 0, amountIngreso: isEgreso ? 0 : ingresoValue, manager, notes: trimmedNotes } };
-                history.push(newRecord);
-                // keep original createdAt so chronological order and balances are preserved
-                return {
-                    ...e,
-                    providerCode: selectedProvider,
-                    invoiceNumber: paddedInvoice,
-                    paymentType,
-                    amountEgreso: isEgreso ? egresoValue : 0,
-                    amountIngreso: isEgreso ? 0 : ingresoValue,
-                    manager,
-                    notes: trimmedNotes,
-                    // mark as edited/audited and preserve originalEntryId (point to initial id)
-                    isAudit: true,
-                    originalEntryId: e.originalEntryId ?? e.id,
-                    auditDetails: JSON.stringify({ history }),
-                    currency: movementCurrency,
-                } as FondoEntry;
-            }));
+
+                return next;
+            });
 
             resetFondoForm();
             if (!movementAutoCloseLocked) {
@@ -2611,10 +2636,7 @@ export function FondoSection({
         }
         return base;
     }, [accountKey, dailyClosings, dailyClosingsHydrated, isDailyMode, currentDailyKey, fromFilter, toFilter]);
-    const totalDailyClosings = accountKey === 'FondoGeneral' ? dailyClosings.length : 0;
-    const dailyClosingsTitle = isDailyMode
-        ? `Cierres diarios — ${formatGroupLabel(currentDailyKey)}`
-        : 'Cierres diarios recientes';
+    
 
     const companySelectId = `fg-company-select-${namespace}`;
     const showCompanySelector = isAdminUser && (ownerCompaniesLoading || sortedOwnerCompanies.length > 0 || !!ownerCompaniesError);
@@ -3593,6 +3615,72 @@ export function FondoSection({
                                                     </div>
                                                 </div>
                                                 {record.notes && record.notes.length > 0 && <div className="mt-3 text-xs text-[var(--muted-foreground)]">Notas: {record.notes}</div>}
+
+                                                {/* Show related adjustment movements or an edited/resolved indicator */}
+                                                {(() => {
+                                                    const relatedAdjustments = fondoEntries.filter(e => e.originalEntryId === record.id && e.providerCode === 'AJUSTE FONDO GENERAL');
+                                                    if (relatedAdjustments.length === 0 && (record.diffCRC === 0 && record.diffUSD === 0)) {
+                                                        return (
+                                                            <div className="mt-3 p-3 rounded border-l-4 border-green-500 bg-green-900/5 text-sm">
+                                                                <div className="font-medium">Cierre editado — diferencias resueltas</div>
+                                                                <div className="text-xs text-[var(--muted-foreground)]">Los ajustes previos fueron eliminados y el saldo quedó normalizado.</div>
+                                                            </div>
+                                                        );
+                                                    }
+
+                                                    if (relatedAdjustments.length > 0) {
+                                                        return (
+                                                            <div className="mt-3">
+                                                                <div className="text-sm font-medium mb-2">Ajustes relacionados</div>
+                                                                <div className="space-y-2">
+                                                                    {relatedAdjustments.map(adj => {
+                                                                        // determine displayed amount and sign
+                                                                        const amt = (adj.amountIngreso || 0) - (adj.amountEgreso || 0);
+                                                                        let auditHistory: any[] = [];
+                                                                        try {
+                                                                            const parsed = adj.auditDetails ? JSON.parse(adj.auditDetails) as any : null;
+                                                                            if (parsed) {
+                                                                                if (Array.isArray(parsed.history)) auditHistory = parsed.history.slice();
+                                                                                else if (parsed.before && parsed.after) auditHistory = [{ at: parsed.at ?? adj.createdAt, before: parsed.before, after: parsed.after }];
+                                                                            }
+                                                                        } catch {
+                                                                            auditHistory = [];
+                                                                        }
+
+                                                                        const lastChange = auditHistory.length > 0 ? auditHistory[auditHistory.length - 1] : null;
+
+                                                                        return (
+                                                                            <div key={adj.id} className="p-3 rounded border border-[var(--input-border)] bg-[var(--muted)]/10">
+                                                                                <div className="flex items-center justify-between">
+                                                                                    <div className="font-semibold">{adj.currency} — {amt >= 0 ? '+' : '-'} {formatByCurrency(adj.currency as 'CRC' | 'USD', Math.abs(amt))}</div>
+                                                                                    <div className="text-xs text-[var(--muted-foreground)]">{adj.manager || '—'} • {(() => { try { return dateTimeFormatter.format(new Date(adj.createdAt)); } catch { return adj.createdAt; } })()}</div>
+                                                                                </div>
+                                                                                {lastChange ? (
+                                                                                    <div className="mt-2 text-xs text-[var(--muted-foreground)]">
+                                                                                        <div className="font-medium">Último cambio registrado:</div>
+                                                                                        <div>Antes: {(() => {
+                                                                                            const beforeAmt = lastChange.before ? ((lastChange.before.amountIngreso || 0) - (lastChange.before.amountEgreso || 0)) : undefined;
+                                                                                            return typeof beforeAmt === 'number' ? formatByCurrency(adj.currency as 'CRC' | 'USD', Math.abs(beforeAmt)) : '—';
+                                                                                        })()}</div>
+                                                                                        <div>Después: {(() => {
+                                                                                            const afterAmt = lastChange.after ? ((lastChange.after.amountIngreso || 0) - (lastChange.after.amountEgreso || 0)) : undefined;
+                                                                                            return typeof afterAmt === 'number' ? formatByCurrency(adj.currency as 'CRC' | 'USD', Math.abs(afterAmt)) : '—';
+                                                                                        })()}</div>
+                                                                                        {lastChange.at && <div className="text-[11px] text-[var(--muted-foreground)] mt-1">Registro: {dateTimeFormatter.format(new Date(lastChange.at))}</div>}
+                                                                                    </div>
+                                                                                ) : (
+                                                                                    <div className="mt-2 text-xs text-[var(--muted-foreground)]">Movimiento sin historial de edición.</div>
+                                                                                )}
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    }
+
+                                                    return null;
+                                                })()}
                                             </div>
                                         );
                                     })}

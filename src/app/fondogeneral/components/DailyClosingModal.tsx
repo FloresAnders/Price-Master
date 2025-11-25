@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 
-const CRC_DENOMINATIONS = [20000, 10000, 5000, 2000, 1000, 500, 100, 50, 25] as const;
-const USD_DENOMINATIONS = [100, 50, 20, 10, 5, 1] as const;
+const CRC_DENOMINATIONS: readonly number[] = [20000, 10000, 5000, 2000, 1000, 500, 100, 50, 25];
+const USD_DENOMINATIONS: readonly number[] = [100, 50, 20, 10, 5, 1];
 
 type CountState = Record<number, string>;
 
@@ -142,7 +142,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
         } else {
             setManager('');
         }
-    }, [open, employees]);
+    }, [open, employees, initialValues]);
 
     useEffect(() => {
         if (!open) return;
