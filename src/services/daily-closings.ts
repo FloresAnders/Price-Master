@@ -14,6 +14,20 @@ export type DailyClosingRecord = {
     notes: string;
     breakdownCRC: Record<number, number>;
     breakdownUSD: Record<number, number>;
+    adjustmentResolution?: {
+        removedAdjustments?: Array<{
+            id?: string;
+            currency?: 'CRC' | 'USD';
+            amount?: number;
+            amountIngreso?: number;
+            amountEgreso?: number;
+            manager?: string;
+            createdAt?: string;
+        }>;
+        note?: string;
+        postAdjustmentBalanceCRC?: number;
+        postAdjustmentBalanceUSD?: number;
+    };
 };
 
 export type DailyClosingsDocument = {
@@ -91,6 +105,10 @@ const sanitizeBreakdown = (input: unknown): Record<number, number> => {
     }, {});
 };
 
+type AdjustmentResolutionRemoval = NonNullable<
+    NonNullable<DailyClosingRecord['adjustmentResolution']>['removedAdjustments']
+>[number];
+
 const buildDateKeyFromISO = (isoString: string): string => {
     const parsed = Date.parse(isoString);
     if (!Number.isNaN(parsed)) {
@@ -116,7 +134,7 @@ const sanitizeRecord = (raw: unknown): DailyClosingRecord | null => {
     const manager = typeof candidate.manager === 'string' ? candidate.manager.trim() : '';
     const notes = typeof candidate.notes === 'string' ? candidate.notes.trim() : '';
 
-    return {
+    const record: DailyClosingRecord = {
         id,
         createdAt,
         closingDate,
@@ -130,7 +148,61 @@ const sanitizeRecord = (raw: unknown): DailyClosingRecord | null => {
         notes,
         breakdownCRC: sanitizeBreakdown(candidate.breakdownCRC),
         breakdownUSD: sanitizeBreakdown(candidate.breakdownUSD),
-    };
+    } as DailyClosingRecord;
+
+    // sanitize optional adjustmentResolution if present
+    if (candidate.adjustmentResolution && typeof candidate.adjustmentResolution === 'object') {
+        try {
+            const ar = candidate.adjustmentResolution as Record<string, unknown>;
+            const resolution: DailyClosingRecord['adjustmentResolution'] = {};
+            const removed = Array.isArray(ar.removedAdjustments)
+                ? (ar.removedAdjustments as unknown[])
+                      .map((it): AdjustmentResolutionRemoval | undefined => {
+                          if (!it || typeof it !== 'object') return undefined;
+                          const candidateItem = it as Record<string, unknown>;
+                          const item: Partial<AdjustmentResolutionRemoval> = {};
+                          if (typeof candidateItem.id === 'string' && candidateItem.id.trim().length > 0) {
+                              item.id = candidateItem.id.trim();
+                          }
+                          if (candidateItem.currency === 'USD') item.currency = 'USD';
+                          else if (candidateItem.currency === 'CRC') item.currency = 'CRC';
+                          if (candidateItem.amount !== undefined) item.amount = sanitizeMoney(candidateItem.amount);
+                          if (candidateItem.amountIngreso !== undefined) item.amountIngreso = sanitizeMoney(candidateItem.amountIngreso);
+                          if (candidateItem.amountEgreso !== undefined) item.amountEgreso = sanitizeMoney(candidateItem.amountEgreso);
+                          if (typeof candidateItem.manager === 'string' && candidateItem.manager.trim().length > 0) {
+                              item.manager = candidateItem.manager.trim();
+                          }
+                          if (typeof candidateItem.createdAt === 'string' && candidateItem.createdAt.trim().length > 0) {
+                              item.createdAt = candidateItem.createdAt.trim();
+                          }
+                          return Object.keys(item).length > 0 ? (item as AdjustmentResolutionRemoval) : undefined;
+                      })
+                      .filter((entry): entry is AdjustmentResolutionRemoval => Boolean(entry))
+                : undefined;
+            if (removed && removed.length > 0) {
+                resolution.removedAdjustments = removed;
+            }
+            if (typeof ar.note === 'string') {
+                const trimmedNote = ar.note.trim();
+                if (trimmedNote.length > 0) {
+                    resolution.note = trimmedNote;
+                }
+            }
+            if (ar.postAdjustmentBalanceCRC !== undefined) {
+                resolution.postAdjustmentBalanceCRC = sanitizeMoney(ar.postAdjustmentBalanceCRC);
+            }
+            if (ar.postAdjustmentBalanceUSD !== undefined) {
+                resolution.postAdjustmentBalanceUSD = sanitizeMoney(ar.postAdjustmentBalanceUSD);
+            }
+            if (Object.keys(resolution).length > 0) {
+                record.adjustmentResolution = resolution;
+            }
+        } catch {
+            // ignore malformed resolution
+        }
+    }
+
+    return record;
 };
 
 const sortValueForRecord = (record: DailyClosingRecord): number => {
