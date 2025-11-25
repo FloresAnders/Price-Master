@@ -1,11 +1,11 @@
 'use client'
 
-import { User, X } from 'lucide-react';
-import React, { useEffect } from 'react';
+import { Eye, EyeOff, Info, Loader2, User as UserIcon, X } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import useToast from '../../hooks/useToast';
 import { useAuth } from '../../hooks/useAuth';
-import UserProfileView from './UserProfileView';
-import AdminProfileView from './AdminProfileView';
-import SuperAdminProfileView from './SuperAdminProfileView';
+import { UsersService } from '../../services/users';
+import type { User as UserRecord } from '../../types/firestore';
 
 interface EditProfileModalProps {
     isOpen: boolean;
@@ -13,6 +13,7 @@ interface EditProfileModalProps {
 }
 
 export default function EditProfileModal({ isOpen, onClose }: EditProfileModalProps) {
+    const { showToast } = useToast();
     // Close on ESC
     useEffect(() => {
         if (!isOpen) return;
@@ -24,17 +25,246 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
         document.addEventListener('keydown', handleEsc);
         return () => document.removeEventListener('keydown', handleEsc);
     }, [isOpen, onClose]);
-
     const { user } = useAuth();
+
+    const [profile, setProfile] = useState<UserRecord | null>(null);
+    const [profileLoading, setProfileLoading] = useState(false);
+    const [profileError, setProfileError] = useState<string | null>(null);
+
+    const [formData, setFormData] = useState({
+        name: '',
+        fullName: '',
+        email: '',
+        password: '',
+        passwordConfirm: ''
+    });
+    const [showPassword, setShowPassword] = useState(false);
+    const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [ownerInfo, setOwnerInfo] = useState<UserRecord | null>(null);
+    const [ownerLoading, setOwnerLoading] = useState(false);
+
+    const baseUser = profile ?? user ?? null;
+
+    const loadProfile = useCallback(async () => {
+        if (!user?.id) {
+            setProfile(null);
+            setFormData({
+                name: '',
+                fullName: '',
+                email: '',
+                password: '',
+                passwordConfirm: ''
+            });
+            setProfileError('No se encontró el usuario en la sesión actual.');
+            return;
+        }
+
+        setProfileLoading(true);
+        setProfileError(null);
+
+        try {
+            const record = await UsersService.getUserById(user.id);
+            const source = record ?? user;
+
+            setProfile(record ?? null);
+            setFormData({
+                name: source?.name ?? '',
+                fullName: source?.fullName ?? '',
+                email: source?.email ?? '',
+                password: '',
+                passwordConfirm: ''
+            });
+        } catch (err) {
+            console.error('Error fetching user profile', err);
+            const fallback = user ?? null;
+            setProfile(null);
+            setFormData({
+                name: fallback?.name ?? '',
+                fullName: fallback?.fullName ?? '',
+                email: fallback?.email ?? '',
+                password: '',
+                passwordConfirm: ''
+            });
+            setProfileError('No se pudo cargar la información desde la base de datos.');
+        } finally {
+            setProfileLoading(false);
+        }
+    }, [user]);
+
+    useEffect(() => {
+        if (!isOpen) {
+            setProfile(null);
+            setProfileError(null);
+            setFormData({
+                name: '',
+                fullName: '',
+                email: '',
+                password: '',
+                passwordConfirm: ''
+            });
+            return;
+        }
+
+        loadProfile();
+        setError(null);
+    }, [isOpen, loadProfile]);
+
+    const ownerId = baseUser?.ownerId ?? null;
+
+    useEffect(() => {
+        if (!isOpen) return;
+        if (!ownerId) {
+            setOwnerInfo(null);
+            setOwnerLoading(false);
+            return;
+        }
+
+        let isMounted = true;
+        setOwnerLoading(true);
+        setOwnerInfo(null);
+
+        UsersService.getUserById(ownerId)
+            .then((owner) => {
+                if (isMounted && owner) {
+                    setOwnerInfo(owner);
+                }
+            })
+            .catch((err) => {
+                console.error('Error fetching owner user', err);
+                if (isMounted) {
+                    setOwnerInfo(null);
+                }
+            })
+            .finally(() => {
+                if (isMounted) {
+                    setOwnerLoading(false);
+                }
+            });
+
+        return () => {
+            isMounted = false;
+        };
+    }, [isOpen, ownerId]);
+
+    const hasChanges = useMemo(() => {
+        if (!baseUser) return false;
+        const baseName = baseUser.name ?? '';
+        const baseFullName = baseUser.fullName ?? '';
+        const baseEmail = baseUser.email ?? '';
+
+        return (
+            formData.name !== baseName ||
+            formData.fullName !== baseFullName ||
+            formData.email !== baseEmail ||
+            formData.password.length > 0
+        );
+    }, [formData, baseUser]);
+
+    const handleChange = (field: keyof typeof formData) => (
+        event: React.ChangeEvent<HTMLInputElement>
+    ) => {
+        const value = event.target.value;
+        setFormData((prev) => ({ ...prev, [field]: value }));
+    };
+
+    useEffect(() => {
+        if (!formData.password && formData.passwordConfirm) {
+            setFormData((prev) => ({ ...prev, passwordConfirm: '' }));
+        }
+    }, [formData.password, formData.passwordConfirm]);
+
+    useEffect(() => {
+        if (!formData.password) {
+            setShowPasswordConfirm(false);
+        }
+    }, [formData.password]);
+
+    const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        if (!user) {
+            setError('No hay una sesión activa.');
+            return;
+        }
+
+        const targetId = baseUser?.id ?? user.id;
+        if (!targetId) {
+            setError('No se encontró el identificador del usuario actual.');
+            return;
+        }
+
+        const trimmedName = formData.name.trim();
+        const trimmedFullName = formData.fullName.trim();
+        const trimmedEmail = formData.email.trim();
+        const trimmedPassword = formData.password;
+
+        if (!trimmedName) {
+            setError('El nombre es obligatorio.');
+            return;
+        }
+
+        if (trimmedPassword !== formData.passwordConfirm) {
+            setError('Las contraseñas no coinciden.');
+            return;
+        }
+
+        setIsSaving(true);
+        setError(null);
+
+        try {
+            const payload: Partial<UserRecord> = {
+                name: trimmedName,
+                fullName: trimmedFullName || undefined,
+                email: trimmedEmail || undefined
+            };
+
+            if (trimmedPassword) {
+                payload.password = trimmedPassword;
+            }
+
+            await UsersService.updateUserAs(user, targetId, payload);
+
+            try {
+                if (typeof window !== 'undefined') {
+                    const sessionRaw = window.localStorage.getItem('pricemaster_session');
+                    if (sessionRaw) {
+                        const sessionData = JSON.parse(sessionRaw);
+                        sessionData.name = payload.name ?? sessionData.name;
+                        if (payload.fullName !== undefined) {
+                            sessionData.fullName = payload.fullName;
+                        }
+                        if (payload.email !== undefined) {
+                            sessionData.email = payload.email;
+                        }
+                        window.localStorage.setItem('pricemaster_session', JSON.stringify(sessionData));
+                    }
+                }
+            } catch (storageError) {
+                console.warn('No se pudo sincronizar la sesión local', storageError);
+            }
+
+            await loadProfile();
+            showToast('Perfil actualizado correctamente.', 'success');
+        } catch (err) {
+            console.error('Error updating profile', err);
+            const message = err instanceof Error ? err.message : 'No se pudo actualizar el perfil.';
+            setError(message);
+            showToast(message, 'error');
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     if (!isOpen) return null;
 
-    const renderByRole = () => {
-        const role = user?.role || 'user';
-        if (role === 'superadmin') return <SuperAdminProfileView />;
-        if (role === 'admin') return <AdminProfileView />;
-        return <UserProfileView />;
-    };
+    const isFormLocked = profileLoading || isSaving;
+
+    const role = baseUser?.role || 'user';
+    const roleLabel = role === 'superadmin' ? 'Superadmin' : role === 'admin' ? 'Administrador' : 'Usuario';
+    const ownerDisplayName = ownerInfo?.fullName || ownerInfo?.name || baseUser?.ownercompanie || 'Sin asignar';
+    const ownerEmail = ownerInfo?.email;
+    const showOwnerInfo = Boolean(ownerId || baseUser?.ownercompanie);
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
@@ -42,7 +272,7 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
                 <div className="p-6">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-xl font-semibold text-[var(--foreground)] flex items-center gap-3">
-                            <User className="w-5 h-5 text-blue-600" />
+                            <UserIcon className="w-5 h-5 text-blue-600" />
                             Editar Perfil
                         </h2>
                         <button
@@ -53,18 +283,182 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
                         </button>
                     </div>
 
-                                    <div className="p-4 bg-[var(--hover-bg)] rounded">
-                                        {/* Render role specific content */}
-                                        {renderByRole()}
-                                    </div>
+                    <div className="p-4 bg-[var(--hover-bg)] rounded">
+                        {!user ? (
+                            <p className="text-sm text-[var(--muted-foreground)]">No se pudo cargar la información del usuario.</p>
+                        ) : profileLoading ? (
+                            <div className="flex items-center justify-center py-10">
+                                <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+                            </div>
+                        ) : (
+                            <form onSubmit={handleSubmit} className="space-y-4">
+                                <div className="space-y-2">
+                                    <p className="text-sm font-medium text-[var(--foreground)]">Datos del usuario</p>
+                                    <p className="text-xs text-[var(--muted-foreground)]">
+                                        Rol actual: <span className="capitalize">{roleLabel}</span>
+                                    </p>
+                                </div>
 
-                    <div className="mt-6 flex justify-end">
-                        <button
-                            onClick={onClose}
-                            className="px-4 py-2 bg-[var(--hover-bg)] text-[var(--foreground)] rounded-lg hover:bg-[var(--muted)] transition-colors"
-                        >
-                            Cerrar
-                        </button>
+                                {profileError && (
+                                    <div className="rounded-md border border-yellow-500/40 bg-yellow-500/10 px-3 py-2 text-sm text-yellow-700">
+                                        {profileError}
+                                    </div>
+                                )}
+
+                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                    <label className="flex flex-col gap-1 text-sm text-[var(--foreground)]">
+                                        Nombre de usuario
+                                        <input
+                                            type="text"
+                                            value={formData.name}
+                                            onChange={handleChange('name')}
+                                            required
+                                            autoComplete="username"
+                                            disabled={isFormLocked}
+                                            className="w-full rounded-md border border-[var(--input-border)] bg-[var(--background)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+                                        />
+                                    </label>
+
+                                    <label className="flex flex-col gap-1 text-sm text-[var(--foreground)]">
+                                        Nombre completo
+                                        <input
+                                            type="text"
+                                            value={formData.fullName}
+                                            onChange={handleChange('fullName')}
+                                            autoComplete="name"
+                                            disabled={isFormLocked}
+                                            className="w-full rounded-md border border-[var(--input-border)] bg-[var(--background)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+                                        />
+                                    </label>
+                                </div>
+
+                                <label className="flex flex-col gap-1 text-sm text-[var(--foreground)]">
+                                    Correo electrónico
+                                    <input
+                                        type="email"
+                                        value={formData.email}
+                                        onChange={handleChange('email')}
+                                        autoComplete="email"
+                                        disabled={isFormLocked}
+                                        className="w-full rounded-md border border-[var(--input-border)] bg-[var(--background)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+                                    />
+                                </label>
+
+                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                    <label className="flex flex-col gap-1 text-sm text-[var(--foreground)]">
+                                        Contraseña
+                                        <div className="relative">
+                                            <input
+                                                type={showPassword ? 'text' : 'password'}
+                                                value={formData.password}
+                                                onChange={handleChange('password')}
+                                                autoComplete="new-password"
+                                                disabled={isFormLocked}
+                                                className="w-full rounded-md border border-[var(--input-border)] bg-[var(--background)] px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+                                                placeholder="••••••••"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPassword((prev) => !prev)}
+                                                disabled={isFormLocked}
+                                                className="absolute inset-y-0 right-0 flex items-center px-3 text-[var(--muted-foreground)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
+                                                aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                                            >
+                                                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                            </button>
+                                        </div>
+                                        <span className="text-xs text-[var(--muted-foreground)]">Déjalo en blanco para mantener la contraseña actual.</span>
+                                    </label>
+
+                                    {formData.password.length > 0 && (
+                                        <label className="flex flex-col gap-1 text-sm text-[var(--foreground)]">
+                                            Confirmar contraseña
+                                            <div className="relative">
+                                                <input
+                                                    type={showPasswordConfirm ? 'text' : 'password'}
+                                                    value={formData.passwordConfirm}
+                                                    onChange={handleChange('passwordConfirm')}
+                                                    autoComplete="new-password"
+                                                    disabled={isFormLocked}
+                                                    className="w-full rounded-md border border-[var(--input-border)] bg-[var(--background)] px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+                                                    placeholder="••••••••"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowPasswordConfirm((prev) => !prev)}
+                                                    disabled={isFormLocked}
+                                                    className="absolute inset-y-0 right-0 flex items-center px-3 text-[var(--muted-foreground)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
+                                                    aria-label={showPasswordConfirm ? 'Ocultar confirmación' : 'Mostrar confirmación'}
+                                                >
+                                                    {showPasswordConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                                </button>
+                                            </div>
+                                        </label>
+                                    )}
+                                </div>
+
+                                {showOwnerInfo && (
+                                    <div className="rounded-md border border-dashed border-[var(--input-border)] bg-[var(--background)]/60 px-3 py-3 text-sm">
+                                        <div className="flex items-start gap-2">
+                                            <Info className="mt-0.5 h-4 w-4 text-blue-500" />
+                                            <div>
+                                                <p className="font-medium text-[var(--foreground)]">Usuario Encargado</p>
+                                                {ownerLoading ? (
+                                                    <p className="text-[var(--muted-foreground)]">Cargando información…</p>
+                                                ) : (
+                                                    <>
+                                                        <p className="text-[var(--muted-foreground)]">
+                                                            {ownerDisplayName}
+                                                            {ownerEmail ? ` · ${ownerEmail}` : ''}
+                                                        </p>
+                                                        {baseUser?.ownercompanie && ownerDisplayName !== baseUser.ownercompanie && (
+                                                            <p className="text-xs text-[var(--muted-foreground)] mt-1">
+                                                                Empresa asignada: <span className="font-medium text-[var(--foreground)]">{baseUser.ownercompanie}</span>
+                                                            </p>
+                                                        )}
+                                                        {baseUser?.ownercompanie && ownerDisplayName === baseUser.ownercompanie && (
+                                                            <p className="text-xs text-[var(--muted-foreground)] mt-1">
+                                                                Empresa asignada vinculada a este usuario.
+                                                            </p>
+                                                        )}
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {error && (
+                                    <div className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-600">
+                                        {error}
+                                    </div>
+                                )}
+
+                                <div className="flex justify-end gap-2 pt-2">
+                                    <button
+                                        type="button"
+                                        onClick={onClose}
+                                        className="rounded-lg border border-[var(--input-border)] px-4 py-2 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={!hasChanges || isSaving || profileLoading}
+                                        className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                        {isSaving ? (
+                                            <>
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                                Guardando…
+                                            </>
+                                        ) : (
+                                            'Guardar cambios'
+                                        )}
+                                    </button>
+                                </div>
+                            </form>
+                        )}
                     </div>
                 </div>
             </div>

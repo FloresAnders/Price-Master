@@ -1,10 +1,47 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { TestTube, Beaker, FlaskConical, Zap, Code, Database, Upload, Image, CheckCircle, AlertCircle, Calendar, Mail } from 'lucide-react';
 import { storage } from '@/config/firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { useEmail } from '@/hooks/useEmail';
+import type { MovementCurrencyKey, MovementStorage } from '@/services/movimientos-fondos';
+
+type MovimientosCompanyRecord = MovementStorage<unknown> & { id: string };
+
+const summarizeCompanyMovements = (storage?: MovementStorage<unknown> | null) => {
+    if (!storage) {
+        return { totalCRC: 0, totalUSD: 0, totalMovements: 0 };
+    }
+
+    const movements = storage.operations?.movements ?? [];
+    let totalCRC = 0;
+    let totalUSD = 0;
+
+    movements.forEach(movement => {
+        const currency = (movement as { currency?: MovementCurrencyKey }).currency === 'USD' ? 'USD' : 'CRC';
+        if (currency === 'USD') {
+            totalUSD += 1;
+        } else {
+            totalCRC += 1;
+        }
+    });
+
+    return {
+        totalCRC,
+        totalUSD,
+        totalMovements: movements.length,
+    };
+};
+
+const createMovementsFilename = (label: string) => {
+    const normalized = (label || 'movimientos')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    return `movimientos-${normalized || 'sin-nombre'}-${timestamp}.json`;
+};
 
 export default function Pruebas() {
     const [activeTest, setActiveTest] = useState<string | null>(null);
@@ -14,9 +51,80 @@ export default function Pruebas() {
     const [uploadedImageUrl, setUploadedImageUrl] = useState<string>('');
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [movimientosCompanies, setMovimientosCompanies] = useState<MovimientosCompanyRecord[]>([]);
+    const [movimientosLoading, setMovimientosLoading] = useState<boolean>(false);
+    const [movimientosError, setMovimientosError] = useState<string | null>(null);
+    const [exportingCompanyId, setExportingCompanyId] = useState<string | null>(null);
 
     // Hook para funcionalidad de correo
     const { sendEmail, checkEmailConfig, error: emailError } = useEmail();
+
+    const fetchMovimientosCompanies = useCallback(async () => {
+        setMovimientosLoading(true);
+        setMovimientosError(null);
+
+        try {
+            const { MovimientosFondosService } = await import('@/services/movimientos-fondos');
+            const docs = await MovimientosFondosService.getAllDocuments();
+            setMovimientosCompanies(docs);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Error desconocido';
+            setMovimientosError(message);
+            setTestResults(prev => ({
+                ...prev,
+                'movimientos-load-error': `❌ Error al cargar MovimientosFondos: ${message}`
+            }));
+        } finally {
+            setMovimientosLoading(false);
+        }
+    }, [setTestResults]);
+
+    useEffect(() => {
+        fetchMovimientosCompanies();
+    }, [fetchMovimientosCompanies]);
+
+    const handleExportMovimientos = useCallback(async (docId: string, companyLabel: string) => {
+        setExportingCompanyId(docId);
+        const readableLabel = companyLabel && companyLabel.trim().length > 0 ? companyLabel : docId;
+
+        setTestResults(prev => ({
+            ...prev,
+            [`movimientos-export-${docId}`]: `🔄 Preparando exportación de ${readableLabel}`
+        }));
+
+        try {
+            const { MovimientosFondosService } = await import('@/services/movimientos-fondos');
+            const storageDoc = await MovimientosFondosService.getDocument(docId);
+
+            if (!storageDoc) {
+                throw new Error('Documento no encontrado en Firebase');
+            }
+
+            const summary = summarizeCompanyMovements(storageDoc);
+            const blob = new Blob([JSON.stringify(storageDoc, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const anchor = document.createElement('a');
+            anchor.href = url;
+            anchor.download = createMovementsFilename(readableLabel);
+            document.body.appendChild(anchor);
+            anchor.click();
+            document.body.removeChild(anchor);
+            URL.revokeObjectURL(url);
+
+            setTestResults(prev => ({
+                ...prev,
+                [`movimientos-export-${docId}`]: `✅ Exportación completada (${summary.totalMovements} movimientos)`
+            }));
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Error desconocido';
+            setTestResults(prev => ({
+                ...prev,
+                [`movimientos-export-${docId}`]: `❌ Error al exportar ${readableLabel}: ${message}`
+            }));
+        } finally {
+            setExportingCompanyId(null);
+        }
+    }, [setTestResults]);
 
     const handleRunTest = (testId: string, testName: string) => {
         setActiveTest(testId);
@@ -1566,6 +1674,78 @@ export default function Pruebas() {
                         </div>
                     </div>
                 </div>
+            </div>
+
+            {/* MovimientosFondos Export Section */}
+            <div className="bg-[var(--input-bg)] rounded-lg border border-[var(--border)] p-6 mb-8">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+                    <div>
+                        <h3 className="text-lg font-semibold text-[var(--foreground)] flex items-center">
+                            <Database className="w-5 h-5 mr-2 text-amber-600" />
+                            Exportar Movimientos por Empresa
+                        </h3>
+                        <p className="text-sm text-[var(--muted-foreground)]">
+                            Consulta la colección MovimientosFondos y descarga los movimientos en formato JSON por cada empresa.
+                        </p>
+                    </div>
+                    <button
+                        onClick={fetchMovimientosCompanies}
+                        disabled={movimientosLoading}
+                        className={`px-4 py-2 rounded-lg font-medium border transition-colors duration-200 ${movimientosLoading
+                            ? 'bg-gray-400 text-gray-700 cursor-not-allowed border-transparent'
+                            : 'bg-amber-600 hover:bg-amber-700 text-white border-amber-700'
+                            }`}
+                    >
+                        {movimientosLoading ? 'Actualizando...' : 'Actualizar lista'}
+                    </button>
+                </div>
+
+                {movimientosError && (
+                    <div className="p-3 mb-4 rounded-lg border border-red-200 bg-red-50 text-sm text-red-700">
+                        ⚠️ {movimientosError}
+                    </div>
+                )}
+
+                {movimientosLoading && movimientosCompanies.length === 0 ? (
+                    <div className="text-sm text-[var(--muted-foreground)]">Cargando empresas...</div>
+                ) : movimientosCompanies.length === 0 ? (
+                    <div className="text-sm text-[var(--muted-foreground)]">
+                        No se encontraron documentos en MovimientosFondos.
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {movimientosCompanies.map(company => {
+                            const summary = summarizeCompanyMovements(company);
+                            return (
+                                <div key={company.id} className="p-4 rounded-lg border border-[var(--border)] bg-[var(--background)] flex flex-col">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div>
+                                            <p className="text-sm font-semibold text-[var(--foreground)]">{company.company || 'Sin nombre'}</p>
+                                            <p className="text-xs text-[var(--muted-foreground)] break-all">ID: {company.id}</p>
+                                        </div>
+                                        <span className="text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded-full">
+                                            {summary.totalMovements} movs
+                                        </span>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2 text-xs text-[var(--muted-foreground)] mb-4">
+                                        <p>CRC: {summary.totalCRC}</p>
+                                        <p>USD: {summary.totalUSD}</p>
+                                    </div>
+                                    <button
+                                        onClick={() => handleExportMovimientos(company.id, company.company || company.id)}
+                                        disabled={exportingCompanyId === company.id}
+                                        className={`mt-auto px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center ${exportingCompanyId === company.id
+                                            ? 'bg-gray-400 text-gray-700 cursor-not-allowed'
+                                            : 'bg-amber-600 hover:bg-amber-700 text-white'
+                                            }`}
+                                    >
+                                        {exportingCompanyId === company.id ? 'Exportando...' : 'Exportar JSON'}
+                                    </button>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
 
             {/* Schedule Management Help Section */}

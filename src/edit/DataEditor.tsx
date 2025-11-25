@@ -1,13 +1,14 @@
 // src/edit/DataEditor.tsx
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import useToast from '../hooks/useToast';
 import { Save, Download, FileText, Users, Clock, DollarSign, Eye, EyeOff, Settings } from 'lucide-react';
 import { EmpresasService } from '../services/empresas';
 import { SorteosService } from '../services/sorteos';
 import { UsersService } from '../services/users';
 import { useAuth } from '../hooks/useAuth';
+import { useActorOwnership } from '../hooks/useActorOwnership';
 import { CcssConfigService } from '../services/ccss-config';
 import { Sorteo, User, CcssConfig, UserPermissions, companies } from '../types/firestore';
 import { getDefaultPermissions, getNoPermissions, hasPermission } from '../utils/permissions';
@@ -31,32 +32,15 @@ export default function DataEditor() {
     const [hasChanges, setHasChanges] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const { showToast } = useToast();
-    // Resolve ownerId for created entities: prefer explicit provided value, then
-    // currentUser.ownerId (when admin has an assigned owner), then try session
-    // stored in localStorage, then fall back to currentUser.id when actor is
-    // an admin with eliminate === false, otherwise empty string.
-    const resolveOwnerIdForActor = useCallback((provided?: string) => {
-        if (provided) return provided;
-        // prefer explicit ownerId on currentUser
-        if (currentUser?.ownerId) return currentUser.ownerId;
-        // fallback to enriched session in browser
-        if (typeof window !== 'undefined') {
-            try {
-                const sessionRaw = localStorage.getItem('pricemaster_session');
-                if (sessionRaw) {
-                    const session = JSON.parse(sessionRaw);
-                    if (session && session.ownerId) return session.ownerId;
-                    // if session indicates actor is not a delegated admin, use session.id
-                    if (session && session.eliminate === false && session.id) return session.id;
-                }
-            } catch {
-                // ignore parsing errors
-            }
-        }
-        // finally, if currentUser is present and not marked as delegated (eliminate === false), use its id
-        if (currentUser && currentUser.eliminate === false && currentUser.id) return currentUser.id;
-        return '';
-    }, [currentUser]);
+    const { ownerIds: actorOwnerIds, primaryOwnerId } = useActorOwnership(currentUser);
+    const actorOwnerIdSet = useMemo(() => new Set(actorOwnerIds.map(id => String(id))), [actorOwnerIds]);
+    const resolveOwnerIdForActor = useCallback(
+        (provided?: string) => {
+            if (provided) return provided;
+            return primaryOwnerId;
+        },
+        [primaryOwnerId]
+    );
     const [passwordVisibility, setPasswordVisibility] = useState<{ [key: string]: boolean }>({});
     const [savingUserKey, setSavingUserKey] = useState<string | null>(null);
     const [showPermissions, setShowPermissions] = useState<{ [key: string]: boolean }>({});
@@ -128,40 +112,23 @@ export default function DataEditor() {
                 const empresas = await EmpresasService.getAllEmpresas();
 
                 // Si el actor autenticado tiene permiso de mantenimiento, solo mostrar
-                // las empresas cuyo ownerId coincide con el ownerId/resolved del actor.
+                // las empresas cuyo ownerId coincide con los ownerIds permitidos del actor.
                 empresasToShow = empresas;
                 try {
                     if (currentUser && hasPermission(currentUser.permissions, 'mantenimiento')) {
-                        const actorOwnerId = resolveOwnerIdForActor();
-                        // Si se pudo resolver ownerId del actor, filtrar por ese ownerId.
-                        if (actorOwnerId) {
-                            empresasToShow = (empresas || []).filter((e: any) => e && e.ownerId === actorOwnerId);
+                        if (actorOwnerIdSet.size > 0) {
+                            empresasToShow = (empresas || []).filter(
+                                (e: any) => e && e.ownerId && actorOwnerIdSet.has(String(e.ownerId))
+                            );
                         } else {
-                            // Fallback: usar currentUser.id or currentUser.ownerId if present
-                            empresasToShow = (empresas || []).filter((e: any) => e && (e.ownerId === currentUser.id || e.ownerId === currentUser.ownerId));
-                        }
-
-                        // Additionally ensure admins see companies they created (ownerId === currentUser.id)
-                        if (currentUser.role === 'admin') {
-                            try {
-                                const allowed = new Set<string>();
-                                if (currentUser.id) allowed.add(String(currentUser.id));
-                                if (currentUser.ownerId) allowed.add(String(currentUser.ownerId));
-                                try {
-                                    if (typeof window !== 'undefined') {
-                                        const sessionRaw = localStorage.getItem('pricemaster_session');
-                                        if (sessionRaw) {
-                                            const session = JSON.parse(sessionRaw);
-                                            if (session && session.ownerId) allowed.add(String(session.ownerId));
-                                        }
-                                    }
-                                } catch {}
-
-                                // merge: include any empresas whose ownerId is in allowed
-                                empresasToShow = (empresas || []).filter((e: any) => e && allowed.has(String(e.ownerId)));
-                            } catch (err) {
-                                console.warn('Error ensuring admin-owned empresas visible:', err);
-                            }
+                            // Fallback: usar currentUser.id u ownerId si no se pudo resolver un ownerId válido
+                            empresasToShow = (empresas || []).filter(
+                                (e: any) =>
+                                    e && (
+                                        (currentUser.id && String(e.ownerId) === String(currentUser.id)) ||
+                                        (currentUser.ownerId && String(e.ownerId) === String(currentUser.ownerId))
+                                    )
+                            );
                         }
                     }
                 } catch (err) {
@@ -180,7 +147,7 @@ export default function DataEditor() {
                         ownerIds.forEach((id, idx) => ownerRoleById.set(id, owners[idx]?.role));
 
                         // Debug info to help diagnose missing empresas
-                        console.debug('[DataEditor] currentUser:', currentUser?.id, currentUser?.ownerId, 'resolved actorOwnerId:', resolveOwnerIdForActor());
+                        console.debug('[DataEditor] currentUser:', currentUser?.id, currentUser?.ownerId, 'resolved actorOwnerId:', primaryOwnerId);
                         console.debug('[DataEditor] empresas fetched:', (empresas || []).length, 'ownerIds:', ownerIds);
                         console.debug('[DataEditor] owner roles:', Array.from(ownerRoleById.entries()));
 
@@ -221,33 +188,17 @@ export default function DataEditor() {
                 let usersToShow = users;
                 try {
                     if (currentUser.role !== 'superadmin') {
-                        // Construir un conjunto de ownerIds permitidos basados en el actor:
-                        // - currentUser.id (si el admin actúa en su propio id)
-                        // - currentUser.ownerId (cuando es delegado)
-                        // - session.ownerId si existe en localStorage
-                        const allowed = new Set<string>();
-                        if (currentUser.id) allowed.add(String(currentUser.id));
-                        if (currentUser.ownerId) allowed.add(String(currentUser.ownerId));
-
-                        try {
-                            if (typeof window !== 'undefined') {
-                                const sessionRaw = localStorage.getItem('pricemaster_session');
-                                if (sessionRaw) {
-                                    const session = JSON.parse(sessionRaw);
-                                    if (session && session.ownerId) allowed.add(String(session.ownerId));
-                                }
-                            }
-                        } catch {}
-
-                        // Si el actor tiene eliminate === false, su id debe permitirse también
-                        if (currentUser.eliminate === false && currentUser.id) allowed.add(String(currentUser.id));
-
                         usersToShow = (users || []).filter(u => {
                             if (!u) return false;
-                            // siempre mostrar al propio actor
                             if (u.id && currentUser.id && String(u.id) === String(currentUser.id)) return true;
-                            if (u.ownerId && allowed.has(String(u.ownerId))) return true;
-                            return false;
+                            if (!u.ownerId) return false;
+                            if (actorOwnerIdSet.size > 0) {
+                                return actorOwnerIdSet.has(String(u.ownerId));
+                            }
+                            return (
+                                (currentUser.id && String(u.ownerId) === String(currentUser.id)) ||
+                                (currentUser.ownerId && String(u.ownerId) === String(currentUser.ownerId))
+                            );
                         });
                     }
                 } catch (err) {
@@ -296,7 +247,7 @@ export default function DataEditor() {
             showToast('Error al cargar los datos de Firebase', 'error');
             console.error('Error loading data from Firebase:', error);
         }
-    }, [currentUser, resolveOwnerIdForActor, showToast]);
+    }, [actorOwnerIdSet, currentUser, primaryOwnerId, resolveOwnerIdForActor, showToast]);
 
     // Cargar datos al montar el componente o cuando cambie el usuario autenticado
     useEffect(() => {
@@ -757,9 +708,8 @@ export default function DataEditor() {
                             {empresasData
                                 .filter((empresa) => {
                                     // Mostrar solo empresas dentro del alcance del actor (ownerId match)
-                                    const actorOwnerId = resolveOwnerIdForActor();
-                                    if (!actorOwnerId) return true; // si no hay ownerId resuelto, mostrar todas
-                                    return empresa.ownerId === actorOwnerId;
+                                    if (actorOwnerIdSet.size === 0) return true;
+                                    return empresa.ownerId && actorOwnerIdSet.has(String(empresa.ownerId));
                                 })
                                 .map((empresa) => (
                                     <label
@@ -1706,29 +1656,26 @@ export default function DataEditor() {
                                             >
                                                 <option value="">Seleccionar empresa...</option>
                                                 {(() => {
-                                                    // Build allowed ownerId set: currentUser.id, currentUser.ownerId and session.ownerId
                                                     if (!currentUser || currentUser.role === 'superadmin') {
                                                         return (empresasData || []).map((empresa, idx) => (
                                                             <option key={empresa.id || idx} value={empresa.name}>{empresa.name}</option>
                                                         ));
                                                     }
 
-                                                    const allowed = new Set<string>();
-                                                    if (currentUser.id) allowed.add(String(currentUser.id));
-                                                    if (currentUser.ownerId) allowed.add(String(currentUser.ownerId));
-                                                    try {
-                                                        if (typeof window !== 'undefined') {
-                                                            const sessionRaw = localStorage.getItem('pricemaster_session');
-                                                            if (sessionRaw) {
-                                                                const session = JSON.parse(sessionRaw);
-                                                                if (session && session.ownerId) allowed.add(String(session.ownerId));
+                                                    return (empresasData || [])
+                                                        .filter(empresa => {
+                                                            if (!empresa || !empresa.ownerId) return false;
+                                                            if (actorOwnerIdSet.size > 0) {
+                                                                return actorOwnerIdSet.has(String(empresa.ownerId));
                                                             }
-                                                        }
-                                                    } catch {}
-
-                                                    return (empresasData || []).filter(empresa => empresa && empresa.ownerId && allowed.has(String(empresa.ownerId))).map((empresa, idx) => (
-                                                        <option key={empresa.id || idx} value={empresa.name}>{empresa.name}</option>
-                                                    ));
+                                                            return (
+                                                                (currentUser.id && String(empresa.ownerId) === String(currentUser.id)) ||
+                                                                (currentUser.ownerId && String(empresa.ownerId) === String(currentUser.ownerId))
+                                                            );
+                                                        })
+                                                        .map((empresa, idx) => (
+                                                            <option key={empresa.id || idx} value={empresa.name}>{empresa.name}</option>
+                                                        ));
                                                 })()}
                                             </select>
 

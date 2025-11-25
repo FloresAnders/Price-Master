@@ -13,6 +13,16 @@ export interface Empresas {
   empleados: EmpresaEmpleado[];
 }
 
+export interface ProviderEntry {
+  code: string;
+  name: string;
+  company: string;
+  type?: string;
+  category?: 'Ingreso' | 'Gasto' | 'Egreso';
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface Sorteo {
   id?: string;
   name: string;
@@ -26,6 +36,10 @@ export interface UserPermissions {
   controlhorario: boolean; // Control Horario - Registro de horarios de trabajo
   supplierorders: boolean; // Órdenes Proveedor - Gestión de órdenes de proveedores
   mantenimiento: boolean;  // Mantenimiento - Nueva sección de mantenimiento
+  fondogeneral?: boolean; // Fondo General - Acceso a administración del fondo general
+  fondogeneralBCR?: boolean; // Fondo General - Acceso a la cuenta BCR
+  fondogeneralBN?: boolean; // Fondo General - Acceso a la cuenta BN
+  fondogeneralBAC?: boolean; // Fondo General - Acceso a la cuenta BAC
   solicitud?: boolean; // Solicitud - Permiso extra en sección de Mantenimiento
   scanhistory: boolean;    // Historial General de Escaneos - Ver historial completo de escaneos
   scanhistoryEmpresas?: string[]; // Empresas específicas para historial de escaneos (almacena company names)

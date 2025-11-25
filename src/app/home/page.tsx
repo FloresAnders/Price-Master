@@ -13,6 +13,7 @@ const menuItems = [
   { id: 'calculator', name: 'Calculadora', icon: Calculator, description: 'Calcular precios con descuentos', permission: 'calculator' as keyof UserPermissions },
   { id: 'converter', name: 'Conversor', icon: Type, description: 'Convertir y transformar texto', permission: 'converter' as keyof UserPermissions },
   { id: 'cashcounter', name: 'Contador Efectivo', icon: Banknote, description: 'Contar billetes y monedas (CRC/USD)', permission: 'cashcounter' as keyof UserPermissions },
+  { id: 'fondogeneral', name: 'Fondo General', icon: Banknote, description: 'Administrar el fondo general', permission: 'fondogeneral' as keyof UserPermissions },
   { id: 'timingcontrol', name: 'Control Tiempos', icon: Smartphone, description: 'Registro de venta de tiempos', permission: 'timingcontrol' as keyof UserPermissions },
   { id: 'controlhorario', name: 'Control Horario', icon: Clock, description: 'Registro de horarios de trabajo', permission: 'controlhorario' as keyof UserPermissions },
   { id: 'supplierorders', name: 'Órdenes Proveedor', icon: Truck, description: 'Gestión de órdenes de proveedores', permission: 'supplierorders' as keyof UserPermissions },
@@ -34,7 +35,7 @@ export default function HomePage() {
   useEffect(() => {
     // Verificar si ya existe una sesión
     const existingSession = localStorage.getItem('pricemaster_session');
-    
+
     if (!existingSession) {
       // Si no hay sesión, algo salió mal - redirigir al login
       router.push('/');
@@ -43,7 +44,7 @@ export default function HomePage() {
 
     try {
       const session = JSON.parse(existingSession);
-      
+
       // Verificar que sea la sesión del usuario especial SEBASTIAN
       if (session.isSpecialUser && session.id === 'special-user-sebastian') {
         // Crear el objeto de usuario desde la sesión
@@ -56,7 +57,7 @@ export default function HomePage() {
           ownerId: session.id,
           eliminate: false
         };
-        
+
         setCurrentUser(specialUser);
         setIsLoading(false);
       } else {
@@ -87,9 +88,18 @@ export default function HomePage() {
 
   const visibleMenuItems = getVisibleMenuItems();
 
-  const handleCardClick = (toolName: string) => {
-    // Mostrar modal de mantenimiento en lugar de navegar
-    setSelectedTool(toolName);
+  const handleCardClick = (id: string, name: string) => {
+    // Si es la tarjeta Fondo General, navegar a su página
+    if (id === 'fondogeneral') {
+      // Use hash navigation so header/tab system picks it up (/#fondogeneral)
+      if (typeof window !== 'undefined') {
+        window.location.hash = '#fondogeneral';
+      }
+      return;
+    }
+
+    // Mostrar modal de mantenimiento en lugar de navegar para las demás
+    setSelectedTool(name);
     setShowMaintenanceModal(true);
   };
 
@@ -162,13 +172,15 @@ export default function HomePage() {
           {visibleMenuItems.map(item => (
             <button
               key={item.id}
-              onClick={() => handleCardClick(item.name)}
+              onClick={() => handleCardClick(item.id, item.name)}
               className="bg-[var(--card-bg)] dark:bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl shadow-md p-6 flex flex-col items-center transition hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 group"
               style={{ minHeight: 160 }}
             >
               <item.icon className="w-10 h-10 mb-3 text-[var(--foreground)] group-hover:scale-110 transition-transform" />
               <span className="text-lg font-semibold mb-1 text-[var(--foreground)] dark:text-[var(--foreground)]">{item.name}</span>
               <span className="text-sm text-[var(--tab-text)] text-center">{item.description}</span>
+
+              {/* No badge - clicking navigates to the Fondo General page */}
             </button>
           ))}
         </div>

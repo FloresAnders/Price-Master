@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
+import { useActorOwnership } from '../../hooks/useActorOwnership';
 import { User, UserPermissions } from '../../types/firestore';
 import { UsersService } from '../../services/users';
 import { EmpresasService } from '../../services/empresas';
@@ -21,6 +22,10 @@ const PERMISSION_LABELS = {
   controlhorario: 'Control Horario',
   supplierorders: 'Órdenes Proveedor',
   mantenimiento: 'Mantenimiento',
+  fondogeneral: 'Fondo General',
+  fondogeneralBCR: 'Fondo General - BCR',
+  fondogeneralBN: 'Fondo General - BN',
+  fondogeneralBAC: 'Fondo General - BAC',
   solicitud: 'Solicitud',
   scanhistory: 'Historial de Escaneos',
 };
@@ -34,6 +39,10 @@ const PERMISSION_DESCRIPTIONS = {
   controlhorario: 'Registro de horarios de trabajo',
   supplierorders: 'Gestión de órdenes de proveedores',
   mantenimiento: 'Acceso al panel de administración',
+  fondogeneral: 'Permiso para ver y administrar el fondo general de la compañía',
+  fondogeneralBCR: 'Permite registrar movimientos del fondo general para la cuenta BCR',
+  fondogeneralBN: 'Permite registrar movimientos del fondo general para la cuenta BN',
+  fondogeneralBAC: 'Permite registrar movimientos del fondo general para la cuenta BAC',
   solicitud: 'Permite gestionar solicitudes dentro del módulo de mantenimiento',
   scanhistory: 'Ver historial completo de escaneos realizados',
 };
@@ -47,11 +56,25 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const { user: currentUser } = useAuth();
+  const { ownerIds: actorOwnerIds } = useActorOwnership(currentUser);
 
   const loadUsers = React.useCallback(async () => {
     setLoading(true);
     try {
       const allUsers = await UsersService.getAllUsersAs(currentUser);
+      if (currentUser && currentUser.role !== 'superadmin') {
+        const allowed = new Set(actorOwnerIds.map(id => String(id)));
+        if (allowed.size > 0) {
+          const filtered = allUsers.filter(user => {
+            if (!user) return false;
+            if (user.id && currentUser.id && String(user.id) === String(currentUser.id)) return true;
+            if (!user.ownerId) return false;
+            return allowed.has(String(user.ownerId));
+          });
+          setUsers(filtered);
+          return;
+        }
+      }
       setUsers(allUsers);
     } catch (error) {
       console.error('Error loading users:', error);
@@ -59,12 +82,19 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
     } finally {
       setLoading(false);
     }
-  }, [currentUser]);
+  }, [actorOwnerIds, currentUser]);
 
   const loadLocations = React.useCallback(async () => {
     try {
       const empresasData = await EmpresasService.getAllEmpresas();
-      setEmpresas(empresasData.map(empresa => ({
+      let filtered = empresasData;
+      if (currentUser && currentUser.role !== 'superadmin') {
+        const allowed = new Set(actorOwnerIds.map(id => String(id)));
+        if (allowed.size > 0) {
+          filtered = empresasData.filter(empresa => empresa && empresa.ownerId && allowed.has(String(empresa.ownerId)));
+        }
+      }
+      setEmpresas(filtered.map(empresa => ({
         label: empresa.name,
         value: empresa.name.toLowerCase(),
         names: []
@@ -80,17 +110,24 @@ export default function UserPermissionsManager({ userId, onClose }: UserPermissi
         { label: 'DELIFOOD TEST', value: 'delifood test', names: [] }
       ]);
     }
-  }, []);
+  }, [actorOwnerIds, currentUser]);
 
   const loadEmpresas = React.useCallback(async () => {
     try {
       const empresasData = await EmpresasService.getAllEmpresas();
+      if (currentUser && currentUser.role !== 'superadmin') {
+        const allowed = new Set(actorOwnerIds.map(id => String(id)));
+        if (allowed.size > 0) {
+          setEmpresas(empresasData.filter(empresa => empresa && empresa.ownerId && allowed.has(String(empresa.ownerId))));
+          return;
+        }
+      }
       setEmpresas(empresasData);
     } catch (error) {
       console.error('Error loading empresas, using fallback empty list:', error);
       setEmpresas([]);
     }
-  }, []);
+  }, [actorOwnerIds, currentUser]);
 
   useEffect(() => {
     loadUsers();
