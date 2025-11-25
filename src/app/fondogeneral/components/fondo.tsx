@@ -30,6 +30,7 @@ import {
 import { useAuth } from '../../../hooks/useAuth';
 import { useProviders } from '../../../hooks/useProviders';
 import { useEmail } from '../../../hooks/useEmail';
+import useToast from '../../../hooks/useToast';
 import type { UserPermissions, Empresas } from '../../../types/firestore';
 import { getDefaultPermissions } from '../../../utils/permissions';
 import ConfirmModal from '../../../components/ui/ConfirmModal';
@@ -874,6 +875,7 @@ export function FondoSection({
     const company = isAdminUser ? adminCompany : assignedCompany;
     const { providers, loading: providersLoading, error: providersError } = useProviders(company);
     const { sendEmail } = useEmail();
+    const { showToast } = useToast();
     const [ownerAdminEmail, setOwnerAdminEmail] = useState<string | null>(null);
     const [ownerCompanies, setOwnerCompanies] = useState<Empresas[]>([]);
     const [ownerCompaniesLoading, setOwnerCompaniesLoading] = useState(false);
@@ -1008,9 +1010,12 @@ export function FondoSection({
     const [movementAutoCloseLocked, setMovementAutoCloseLocked] = useState(false);
     const [movementCurrency, setMovementCurrency] = useState<'CRC' | 'USD'>('CRC');
     const [dailyClosingModalOpen, setDailyClosingModalOpen] = useState(false);
+    const [editingDailyClosingId, setEditingDailyClosingId] = useState<string | null>(null);
+    const [dailyClosingInitialValues, setDailyClosingInitialValues] = useState<DailyClosingFormValues | null>(null);
     const [dailyClosings, setDailyClosings] = useState<DailyClosingRecord[]>([]);
     const [dailyClosingsHydrated, setDailyClosingsHydrated] = useState(false);
     const [dailyClosingsRefreshing, setDailyClosingsRefreshing] = useState(false);
+    const [dailyClosingHistoryOpen, setDailyClosingHistoryOpen] = useState(false);
     const dailyClosingsRequestCountRef = useRef(0);
     const isComponentMountedRef = useRef(true);
     const loadedDailyClosingKeysRef = useRef<Set<string>>(new Set());
@@ -1732,6 +1737,42 @@ export function FondoSection({
         setMovementModalOpen(true);
     };
 
+    const handleEditMovement = (entry: FondoEntry) => {
+        // If this movement was generated from a daily closing, open the daily-closing modal
+        // prefilled with that closing's values so the user edits the closing (not the generic movement).
+        if (entry.originalEntryId || entry.providerCode === 'AJUSTE FONDO GENERAL') {
+            const closingId = entry.originalEntryId ?? (entry.providerCode === 'AJUSTE FONDO GENERAL' ? entry.originalEntryId ?? null : null);
+            if (!closingId) {
+                // fallback to generic editor
+                startEditingEntry(entry);
+                return;
+            }
+            const record = dailyClosings.find(d => d.id === closingId);
+            if (!record) {
+                // If we don't have the closing record locally, fall back to the generic editor.
+                startEditingEntry(entry);
+                return;
+            }
+
+            const initial: DailyClosingFormValues = {
+                closingDate: record.closingDate,
+                manager: record.manager,
+                notes: record.notes ?? '',
+                totalCRC: record.totalCRC ?? 0,
+                totalUSD: record.totalUSD ?? 0,
+                breakdownCRC: record.breakdownCRC ?? {},
+                breakdownUSD: record.breakdownUSD ?? {},
+            };
+            setEditingDailyClosingId(record.id);
+            setDailyClosingInitialValues(initial);
+            setDailyClosingModalOpen(true);
+            return;
+        }
+
+        // Default: open generic movement editor
+        startEditingEntry(entry);
+    };
+
     const cancelEditing = () => {
         resetFondoForm();
     };
@@ -2045,11 +2086,15 @@ export function FondoSection({
 
     const handleOpenDailyClosing = () => {
         if (accountKey !== 'FondoGeneral') return;
+        setEditingDailyClosingId(null);
+        setDailyClosingInitialValues(null);
         setDailyClosingModalOpen(true);
     };
 
     const handleCloseDailyClosing = () => {
         setDailyClosingModalOpen(false);
+        setEditingDailyClosingId(null);
+        setDailyClosingInitialValues(null);
     };
 
     const handleConfirmDailyClosing = (closing: DailyClosingFormValues) => {
@@ -2078,8 +2123,8 @@ export function FondoSection({
         const closingDateKey = dateKeyFromDate(closingDateValue);
 
         const record: DailyClosingRecord = {
-            id: `${Date.now()}`,
-            createdAt,
+            id: editingDailyClosingId ?? `${Date.now()}`,
+            createdAt: editingDailyClosingId ? (dailyClosings.find(d => d.id === editingDailyClosingId)?.createdAt ?? createdAt) : createdAt,
             closingDate: closingDateValue.toISOString(),
             manager: managerName,
             totalCRC: Math.trunc(closing.totalCRC),
@@ -2156,6 +2201,171 @@ export function FondoSection({
                 console.error('Error sending daily closing email:', err);
             });
         });
+
+        // Create or update movement(s) that reflect the difference so the balance updates accordingly.
+        // We create one FondoEntry per currency where diff != 0. These are regular movements (editable)
+        // and will appear in the movements list so users can later edit them (and edits will be audited
+        // using the existing edit flow which marks entries as 'Editado').
+        try {
+            const newMovements: FondoEntry[] = [];
+            const makeId = () => String(Date.now()) + Math.floor(Math.random() * 900 + 100).toString();
+            // If we're editing an existing closing, compute diffs relative to the balance
+            // excluding the previous generated adjustment(s). This avoids flipping an
+            // existing entry from egreso -> ingreso and double-counting.
+            let adjustedDiffCRC = record.diffCRC;
+            let adjustedDiffUSD = record.diffUSD;
+            if (editingDailyClosingId) {
+                let prevCRCContribution = 0;
+                let prevUSDContribution = 0;
+                fondoEntries.forEach(e => {
+                    if (e.originalEntryId === record.id && e.providerCode === 'AJUSTE FONDO GENERAL') {
+                        const contrib = (e.amountIngreso || 0) - (e.amountEgreso || 0);
+                        if (e.currency === 'USD') prevUSDContribution += contrib;
+                        else prevCRCContribution += contrib;
+                    }
+                });
+                const baseBalanceCRC = currentBalanceCRC - prevCRCContribution;
+                const baseBalanceUSD = currentBalanceUSD - prevUSDContribution;
+                adjustedDiffCRC = Math.trunc(closing.totalCRC) - Math.trunc(baseBalanceCRC);
+                adjustedDiffUSD = Math.trunc(closing.totalUSD) - Math.trunc(baseBalanceUSD);
+                // update the record diffs so persistence reflects the adjusted values
+                record.diffCRC = adjustedDiffCRC;
+                record.diffUSD = adjustedDiffUSD;
+            }
+
+            if (adjustedDiffCRC && adjustedDiffCRC !== 0) {
+                const diff = Math.trunc(adjustedDiffCRC);
+                const isPositive = diff > 0;
+                const entry: FondoEntry = {
+                    id: makeId(),
+                    providerCode: 'AJUSTE FONDO GENERAL',
+                    invoiceNumber: String(Math.abs(diff)).padStart(4, '0'),
+                    paymentType: isPositive ? FONDO_INGRESO_TYPES[1] : FONDO_EGRESO_TYPES[FONDO_EGRESO_TYPES.length - 1],
+                    amountEgreso: isPositive ? 0 : Math.abs(diff),
+                    amountIngreso: isPositive ? diff : 0,
+                    manager: managerName,
+                    notes: `AJUSTE FONDO GENERAL ${closingDateKey} (id: ${record.id}) — Diferencia CRC: ${diff}. ${userNotes ? `Notas: ${userNotes}` : ''}`,
+                    createdAt,
+                    currency: 'CRC',
+                } as FondoEntry;
+                newMovements.push(entry);
+            }
+
+            if (adjustedDiffUSD && adjustedDiffUSD !== 0) {
+                const diff = Math.trunc(adjustedDiffUSD);
+                const isPositive = diff > 0;
+                const entry: FondoEntry = {
+                    id: makeId(),
+                    providerCode: 'AJUSTE FONDO GENERAL',
+                    invoiceNumber: String(Math.abs(diff)).padStart(4, '0'),
+                    paymentType: isPositive ? FONDO_INGRESO_TYPES[1] : FONDO_EGRESO_TYPES[FONDO_EGRESO_TYPES.length - 1],
+                    amountEgreso: isPositive ? 0 : Math.abs(diff),
+                    amountIngreso: isPositive ? diff : 0,
+                    manager: managerName,
+                    notes: `AJUSTE FONDO GENERAL ${closingDateKey} (id: ${record.id}) — Diferencia USD: ${diff}. ${userNotes ? `Notas: ${userNotes}` : ''}`,
+                    createdAt,
+                    currency: 'USD',
+                } as FondoEntry;
+                newMovements.push(entry);
+            }
+
+            if (editingDailyClosingId && newMovements.length === 0) {
+                // No diff now: remove previous adjustment movements linked to this closing
+                console.info('[FG-DEBUG] Removing previous adjustment movements for closing', record.id, { beforeCount: fondoEntries.length });
+                setFondoEntries(prev => {
+                    const filtered = prev.filter(e => !(e.originalEntryId === record.id && e.providerCode === 'AJUSTE FONDO GENERAL'));
+                    console.info('[FG-DEBUG] After remove, count:', filtered.length);
+                    return filtered;
+                });
+            }
+
+            if (newMovements.length > 0) {
+                // link movements to the daily closing via originalEntryId
+                newMovements.forEach(m => (m.originalEntryId = record.id));
+                if (editingDailyClosingId) {
+                    // update existing related movement(s), preserve audit history
+                    setFondoEntries(prev => {
+                        console.info('[FG-DEBUG] Updating existing related adjustment movements for closing', record.id, { prevCount: prev.length, newMovements });
+                        const updated = prev.map(e => {
+                            if (e.originalEntryId === record.id && e.providerCode === 'AJUSTE FONDO GENERAL') {
+                                const match = newMovements.find(nm => nm.currency === e.currency);
+                                if (!match) return e;
+                                // build audit history
+                                let history: any[] = [];
+                                try {
+                                    const existing = e.auditDetails ? JSON.parse(e.auditDetails) as any : null;
+                                    if (existing && Array.isArray(existing.history)) history = existing.history.slice();
+                                    else if (existing && existing.before && existing.after) history = [{ at: existing.at ?? e.createdAt, before: existing.before, after: existing.after }];
+                                } catch {
+                                    history = [];
+                                }
+                                const newRecord = { at: new Date().toISOString(), before: { ...e }, after: { providerCode: e.providerCode, invoiceNumber: match.invoiceNumber, paymentType: match.paymentType, amountEgreso: match.amountEgreso, amountIngreso: match.amountIngreso, manager: match.manager, notes: match.notes } };
+                                history.push(newRecord);
+                                return {
+                                    ...e,
+                                    amountEgreso: match.amountEgreso,
+                                    amountIngreso: match.amountIngreso,
+                                    notes: match.notes,
+                                    createdAt: match.createdAt,
+                                    isAudit: true,
+                                    originalEntryId: e.originalEntryId ?? e.id,
+                                    auditDetails: JSON.stringify({ history }),
+                                } as FondoEntry;
+                            }
+                            return e;
+                        });
+                        // If some newMovements have no existing entry, prepend them
+                        newMovements.forEach(nm => {
+                            const exists = updated.some(u => u.originalEntryId === record.id && u.currency === nm.currency && u.providerCode === 'AJUSTE FONDO GENERAL');
+                            if (!exists) {
+                                updated.unshift(nm);
+                            }
+                        });
+                        console.info('[FG-DEBUG] Updated fondoEntries count after merge:', updated.length);
+                        return updated;
+                    });
+                } else {
+                    // Prepend so the most recent movement appears first (consistent with createdAt)
+                    console.info('[FG-DEBUG] Prepending new adjustment movements', newMovements);
+                    setFondoEntries(prev => {
+                        const next = [...newMovements, ...prev];
+                        console.info('[FG-DEBUG] fondoEntries count after prepend:', next.length);
+                        return next;
+                    });
+                }
+            }
+        } catch (err) {
+            console.error('Error creating movement(s) for daily closing difference:', err);
+        }
+
+        // Show toast: success when no diffs, warning when there are diffs
+        try {
+            const crcDiff = record.diffCRC ?? 0;
+            const usdDiff = record.diffUSD ?? 0;
+            if (crcDiff === 0 && usdDiff === 0) {
+                try {
+                    showToast('Cierre completo — sin diferencias', 'success', 4000);
+                } catch {
+                    // swallow toast errors to avoid breaking flow
+                }
+            } else {
+                try {
+                    const parts: string[] = [];
+                    if (crcDiff !== 0) parts.push(`CRC ${formatDailyClosingDiff('CRC', crcDiff)}`);
+                    if (usdDiff !== 0) parts.push(`USD ${formatDailyClosingDiff('USD', usdDiff)}`);
+                    const message = `Cierre con diferencias — ${parts.join(' / ')}`;
+                    showToast(message, 'warning', 6000);
+                } catch {
+                    // swallow toast errors
+                }
+            }
+        } catch {
+            // defensive: ignore
+        }
+
+        // Reset editing state after confirm
+        setEditingDailyClosingId(null);
+        setDailyClosingInitialValues(null);
     };
 
     const handleAdminCompanyChange = useCallback((value: string) => {
@@ -2806,14 +3016,24 @@ export function FondoSection({
                         </div>
                     </div>
 
-                    <button
-                        type="button"
-                        onClick={handleOpenCreateMovement}
-                        className="flex w-full items-center justify-center gap-2 rounded fg-add-mov-btn px-4 py-2 text-white sm:w-auto"
-                    >
-                        <Plus className="w-4 h-4" />
-                        Agregar movimiento
-                    </button>
+                    <div className="flex w-full items-center justify-center gap-2 sm:w-auto">
+                        <button
+                            type="button"
+                            onClick={handleOpenDailyClosing}
+                            className="flex items-center justify-center gap-2 rounded fg-add-mov-btn px-4 py-2 text-white"
+                        >
+                            <Banknote className="w-4 h-4" />
+                            Registrar cierre
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleOpenCreateMovement}
+                            className="flex items-center justify-center gap-2 rounded fg-add-mov-btn px-4 py-2 text-white"
+                        >
+                            <Plus className="w-4 h-4" />
+                            Agregar movimiento
+                        </button>
+                    </div>
                 </div>
             </section>
 
@@ -3209,7 +3429,7 @@ export function FondoSection({
                                                         <button
                                                             type="button"
                                                             className="inline-flex items-center gap-2 rounded border border-[var(--input-border)] px-3 py-1 text-xs font-medium text-[var(--muted-foreground)] hover:bg-[var(--muted)] disabled:opacity-50"
-                                                            onClick={() => startEditingEntry(fe)}
+                                                            onClick={() => handleEditMovement(fe)}
                                                             disabled={editingEntryId === fe.id}
                                                             title={'Editar movimiento'}
                                                         >
@@ -3248,131 +3468,10 @@ export function FondoSection({
                                         );
                                     })}
                                 </div>
-                                {accountKey === 'FondoGeneral' && (
-                                    <div className="mt-4 flex justify-center">
-                                        <button
-                                            type="button"
-                                            onClick={handleOpenDailyClosing}
-                                            className="px-4 py-2 rounded border border-[var(--input-border)] text-sm text-[var(--foreground)] hover:bg-[var(--muted)]"
-                                        >
-                                            Registrar cierre diario
-                                        </button>
-                                    </div>
-                                )}
+                                {/* Registrar cierre moved next to 'Agregar movimiento' per UI changes */}
                             </div>
                         )}
-                        {accountKey === 'FondoGeneral' && (
-                            <div className="px-4 py-4 rounded border border-[var(--input-border)] bg-[var(--card-bg)]">
-                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                    <h3 className="text-sm font-semibold text-[var(--foreground)]">{dailyClosingsTitle}</h3>
-                                    {!closingsAreLoading && totalDailyClosings > 0 && (
-                                        <span className="text-xs text-[var(--muted-foreground)]">
-                                            {isDailyMode
-                                                ? `${visibleDailyClosings.length} ${visibleDailyClosings.length === 1 ? 'cierre' : 'cierres'} en ${formatGroupLabel(currentDailyKey)}`
-                                                : totalDailyClosings >= 50
-                                                    ? 'Mostrando los últimos 50 registros'
-                                                    : `Total guardado: ${totalDailyClosings}`}
-                                        </span>
-                                    )}
-                                </div>
-                                {closingsAreLoading ? (
-                                    <p className="mt-3 text-sm text-[var(--muted-foreground)]">Cargando cierres...</p>
-                                ) : visibleDailyClosings.length === 0 ? (
-                                    <p className="mt-3 text-sm text-[var(--muted-foreground)]">
-                                        {isDailyMode
-                                            ? `No hay cierres registrados para ${formatGroupLabel(currentDailyKey)}.`
-                                            : 'Aún no has registrado cierres diarios para este fondo.'}
-                                    </p>
-                                ) : (
-                                    <div className="mt-4 space-y-4 max-h-[360px] overflow-y-auto pr-1">
-                                        {visibleDailyClosings.map(record => {
-                                            const closingDate = new Date(record.closingDate);
-                                            const closingDateLabel = Number.isNaN(closingDate.getTime())
-                                                ? record.closingDate
-                                                : dailyClosingDateFormatter.format(closingDate);
-                                            const createdAtDate = new Date(record.createdAt);
-                                            const createdAtLabel = Number.isNaN(createdAtDate.getTime())
-                                                ? record.createdAt
-                                                : dateTimeFormatter.format(createdAtDate);
-                                            const crcLines = buildBreakdownLines('CRC', record.breakdownCRC);
-                                            const usdLines = buildBreakdownLines('USD', record.breakdownUSD);
-                                            const showCRC =
-                                                record.totalCRC !== 0 ||
-                                                record.recordedBalanceCRC !== 0 ||
-                                                record.diffCRC !== 0 ||
-                                                crcLines.length > 0;
-                                            const showUSD =
-                                                record.totalUSD !== 0 ||
-                                                record.recordedBalanceUSD !== 0 ||
-                                                record.diffUSD !== 0 ||
-                                                usdLines.length > 0;
-                                            return (
-                                                <div
-                                                    key={record.id}
-                                                    className="rounded border border-[var(--input-border)] bg-[var(--muted)]/10 p-4"
-                                                >
-                                                    <div className="flex flex-wrap items-start justify-between gap-3">
-                                                        <div>
-                                                            <div className="text-sm font-semibold text-[var(--foreground)]">{closingDateLabel}</div>
-                                                            <div className="text-xs text-[var(--muted-foreground)]">Registrado: {createdAtLabel}</div>
-                                                        </div>
-                                                        <div className="text-xs text-[var(--muted-foreground)]">
-                                                            Encargado:{' '}
-                                                            <span className="font-medium text-[var(--foreground)]">{record.manager || '—'}</span>
-                                                        </div>
-                                                    </div>
-                                                    <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                                        <div className="rounded border border-[var(--input-border)]/60 bg-[var(--muted)]/10 p-3">
-                                                            <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Colones</div>
-                                                            {showCRC ? (
-                                                                <div className="mt-2 space-y-1 text-sm text-[var(--foreground)]">
-                                                                    <div>Conteo: {formatByCurrency('CRC', record.totalCRC)}</div>
-                                                                    <div>Saldo registrado: {formatByCurrency('CRC', record.recordedBalanceCRC)}</div>
-                                                                    <div className={getDailyClosingDiffClass(record.diffCRC)}>
-                                                                        Diferencia: {formatDailyClosingDiff('CRC', record.diffCRC)}
-                                                                    </div>
-                                                                    {crcLines.length > 0 && (
-                                                                        <div className="pt-1 text-xs text-[var(--muted-foreground)]">
-                                                                            Detalle: {crcLines.join(', ')}
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            ) : (
-                                                                <div className="mt-2 text-xs text-[var(--muted-foreground)]">Sin datos en CRC</div>
-                                                            )}
-                                                        </div>
-                                                        <div className="rounded border border-[var(--input-border)]/60 bg-[var(--muted)]/10 p-3">
-                                                            <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Dólares</div>
-                                                            {showUSD ? (
-                                                                <div className="mt-2 space-y-1 text-sm text-[var(--foreground)]">
-                                                                    <div>Conteo: {formatByCurrency('USD', record.totalUSD)}</div>
-                                                                    <div>Saldo registrado: {formatByCurrency('USD', record.recordedBalanceUSD)}</div>
-                                                                    <div className={getDailyClosingDiffClass(record.diffUSD)}>
-                                                                        Diferencia: {formatDailyClosingDiff('USD', record.diffUSD)}
-                                                                    </div>
-                                                                    {usdLines.length > 0 && (
-                                                                        <div className="pt-1 text-xs text-[var(--muted-foreground)]">
-                                                                            Detalle: {usdLines.join(', ')}
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            ) : (
-                                                                <div className="mt-2 text-xs text-[var(--muted-foreground)]">Sin datos en USD</div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                    {record.notes && record.notes.length > 0 && (
-                                                        <div className="mt-3 text-xs text-[var(--muted-foreground)]">
-                                                            Notas: {record.notes}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </div>
-                        )}
+                        {/* Daily closings list intentionally hidden from below-balance area per UX request. Use the "Ver historial" button inside the cierre modal to view history. */}
                     </div>
                 </div>
             </div>
@@ -3419,16 +3518,89 @@ export function FondoSection({
                     </div>
                 </div>
             )}
-            {accountKey === 'FondoGeneral' && (
-                <DailyClosingModal
-                    open={dailyClosingModalOpen}
-                    onClose={handleCloseDailyClosing}
-                    onConfirm={handleConfirmDailyClosing}
-                    employees={employeeOptions}
-                    loadingEmployees={employeesLoading}
-                    currentBalanceCRC={currentBalanceCRC}
-                    currentBalanceUSD={currentBalanceUSD}
-                />
+            {/* daily closings block removed from inline view */}
+            <DailyClosingModal
+                open={dailyClosingModalOpen}
+                onClose={handleCloseDailyClosing}
+                onConfirm={handleConfirmDailyClosing}
+                initialValues={dailyClosingInitialValues}
+                editId={editingDailyClosingId}
+                onShowHistory={() => setDailyClosingHistoryOpen(true)}
+                employees={employeeOptions}
+                loadingEmployees={employeesLoading}
+                currentBalanceCRC={currentBalanceCRC}
+                currentBalanceUSD={currentBalanceUSD}
+            />
+
+            {dailyClosingHistoryOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4" onClick={() => setDailyClosingHistoryOpen(false)}>
+                    <div className="w-full max-w-3xl rounded border border-[var(--input-border)] bg-[#1f262a] p-6 shadow-lg text-white max-h-[80vh] overflow-auto" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="daily-closing-history-title">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 id="daily-closing-history-title" className="text-lg font-semibold">Historial de cierres diarios</h3>
+                            <button type="button" onClick={() => setDailyClosingHistoryOpen(false)} className="rounded border border-[var(--input-border)] px-2 py-1 text-sm">Cerrar</button>
+                        </div>
+                        <div className="space-y-4">
+                            {closingsAreLoading ? (
+                                <p className="text-sm text-[var(--muted-foreground)]">Cargando cierres...</p>
+                            ) : dailyClosings.length === 0 ? (
+                                <p className="text-sm text-[var(--muted-foreground)]">Aún no has registrado cierres diarios para este fondo.</p>
+                            ) : (
+                                <div className="space-y-4">
+                                    {visibleDailyClosings.map(record => {
+                                        const closingDate = new Date(record.closingDate);
+                                        const closingDateLabel = Number.isNaN(closingDate.getTime()) ? record.closingDate : dailyClosingDateFormatter.format(closingDate);
+                                        const createdAtDate = new Date(record.createdAt);
+                                        const createdAtLabel = Number.isNaN(createdAtDate.getTime()) ? record.createdAt : dateTimeFormatter.format(createdAtDate);
+                                        const crcLines = buildBreakdownLines('CRC', record.breakdownCRC);
+                                        const usdLines = buildBreakdownLines('USD', record.breakdownUSD);
+                                        const showCRC = record.totalCRC !== 0 || record.recordedBalanceCRC !== 0 || record.diffCRC !== 0 || crcLines.length > 0;
+                                        const showUSD = record.totalUSD !== 0 || record.recordedBalanceUSD !== 0 || record.diffUSD !== 0 || usdLines.length > 0;
+                                        return (
+                                            <div key={record.id} className="rounded border border-[var(--input-border)] bg-[var(--muted)]/10 p-4">
+                                                <div className="flex items-start justify-between">
+                                                    <div>
+                                                        <div className="text-sm font-semibold text-[var(--foreground)]">{closingDateLabel}</div>
+                                                        <div className="text-xs text-[var(--muted-foreground)]">Registrado: {createdAtLabel}</div>
+                                                    </div>
+                                                    <div className="text-xs text-[var(--muted-foreground)]">Encargado: <span className="font-medium text-[var(--foreground)]">{record.manager || '—'}</span></div>
+                                                </div>
+                                                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                                    <div className="rounded border border-[var(--input-border)]/60 bg-[var(--muted)]/10 p-3">
+                                                        <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Colones</div>
+                                                        {showCRC ? (
+                                                            <div className="mt-2 space-y-1 text-sm text-[var(--foreground)]">
+                                                                <div>Conteo: {formatByCurrency('CRC', record.totalCRC)}</div>
+                                                                <div>Saldo registrado: {formatByCurrency('CRC', record.recordedBalanceCRC)}</div>
+                                                                <div className={getDailyClosingDiffClass(record.diffCRC)}>Diferencia: {formatDailyClosingDiff('CRC', record.diffCRC)}</div>
+                                                                {crcLines.length > 0 && <div className="pt-1 text-xs text-[var(--muted-foreground)]">Detalle: {crcLines.join(', ')}</div>}
+                                                            </div>
+                                                        ) : (
+                                                            <div className="mt-2 text-xs text-[var(--muted-foreground)]">Sin datos en CRC</div>
+                                                        )}
+                                                    </div>
+                                                    <div className="rounded border border-[var(--input-border)]/60 bg-[var(--muted)]/10 p-3">
+                                                        <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Dólares</div>
+                                                        {showUSD ? (
+                                                            <div className="mt-2 space-y-1 text-sm text-[var(--foreground)]">
+                                                                <div>Conteo: {formatByCurrency('USD', record.totalUSD)}</div>
+                                                                <div>Saldo registrado: {formatByCurrency('USD', record.recordedBalanceUSD)}</div>
+                                                                <div className={getDailyClosingDiffClass(record.diffUSD)}>Diferencia: {formatDailyClosingDiff('USD', record.diffUSD)}</div>
+                                                                {usdLines.length > 0 && <div className="pt-1 text-xs text-[var(--muted-foreground)]">Detalle: {usdLines.join(', ')}</div>}
+                                                            </div>
+                                                        ) : (
+                                                            <div className="mt-2 text-xs text-[var(--muted-foreground)]">Sin datos en USD</div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                {record.notes && record.notes.length > 0 && <div className="mt-3 text-xs text-[var(--muted-foreground)]">Notas: {record.notes}</div>}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );
