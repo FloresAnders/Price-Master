@@ -24,10 +24,10 @@ import {
     Lock,
     LockOpen,
     CalendarDays,
-        ChevronLeft,
-        ChevronRight,
-        ChevronDown,
-        ChevronUp,
+    ChevronLeft,
+    ChevronRight,
+    ChevronDown,
+    ChevronUp,
 } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import { useProviders } from '../../../hooks/useProviders';
@@ -75,6 +75,8 @@ export const FONDO_GASTO_TYPES = [
     'FACTURA ELECTRONICA',
     'GASTOS VARIOS',
 ] as const;
+
+const AUTO_ADJUSTMENT_MOVEMENT_TYPE = (FONDO_GASTO_TYPES as readonly string[]).find(t => t.toUpperCase() === 'GASTOS VARIOS') ?? FONDO_GASTO_TYPES[FONDO_GASTO_TYPES.length - 1];
 
 export const FONDO_EGRESO_TYPES = [
     'PAGO TIEMPOS',
@@ -344,7 +346,7 @@ const coerceInvoice = (value: unknown): string => {
     if (typeof value === 'string') return value.trim();
     if (typeof value === 'number' && Number.isFinite(value)) return String(Math.trunc(value));
     return '';
-    
+
 };
 
 const coerceNotes = (value: unknown): string => {
@@ -2340,7 +2342,7 @@ export function FondoSection({
                     id: makeId(),
                     providerCode: AUTO_ADJUSTMENT_PROVIDER_CODE,
                     invoiceNumber: String(Math.abs(diff)).padStart(4, '0'),
-                    paymentType: isPositive ? FONDO_INGRESO_TYPES[1] : FONDO_EGRESO_TYPES[FONDO_EGRESO_TYPES.length - 1],
+                    paymentType: AUTO_ADJUSTMENT_MOVEMENT_TYPE,
                     amountEgreso: isPositive ? 0 : Math.abs(diff),
                     amountIngreso: isPositive ? diff : 0,
                     manager: AUTO_ADJUSTMENT_MANAGER,
@@ -2359,7 +2361,7 @@ export function FondoSection({
                     id: makeId(),
                     providerCode: AUTO_ADJUSTMENT_PROVIDER_CODE,
                     invoiceNumber: String(Math.abs(diff)).padStart(4, '0'),
-                    paymentType: isPositive ? FONDO_INGRESO_TYPES[1] : FONDO_EGRESO_TYPES[FONDO_EGRESO_TYPES.length - 1],
+                    paymentType: AUTO_ADJUSTMENT_MOVEMENT_TYPE,
                     amountEgreso: isPositive ? 0 : Math.abs(diff),
                     amountIngreso: isPositive ? diff : 0,
                     manager: AUTO_ADJUSTMENT_MANAGER,
@@ -2810,7 +2812,7 @@ export function FondoSection({
         }
         return base;
     }, [accountKey, dailyClosings, dailyClosingsHydrated, isDailyMode, currentDailyKey, fromFilter, toFilter]);
-    
+
 
     const companySelectId = `fg-company-select-${namespace}`;
     const showCompanySelector = isAdminUser && (ownerCompaniesLoading || sortedOwnerCompanies.length > 0 || !!ownerCompaniesError);
@@ -3885,12 +3887,12 @@ export function FondoSection({
                                                                                     <div className="font-semibold">{adj.currency} — {amt >= 0 ? '+' : '-'} {formatByCurrency(adj.currency as 'CRC' | 'USD', Math.abs(amt))}</div>
                                                                                     <div className="text-xs text-[var(--muted-foreground)]">{adj.manager || '—'} • {(() => { try { return dateTimeFormatter.format(new Date(adj.createdAt)); } catch { return adj.createdAt; } })()}</div>
                                                                                 </div>
-                                                                                    {adj.breakdown && Object.keys(adj.breakdown).length > 0 && (
-                                                                                        <div className="mt-2 text-xs text-[var(--muted-foreground)]">
-                                                                                            <div className="font-medium">Detalle de billetes:</div>
-                                                                                            <div className="text-xs mt-1">{buildBreakdownLines(adj.currency as 'CRC' | 'USD', adj.breakdown).join(', ')}</div>
-                                                                                        </div>
-                                                                                    )}
+                                                                                {adj.breakdown && Object.keys(adj.breakdown).length > 0 && (
+                                                                                    <div className="mt-2 text-xs text-[var(--muted-foreground)]">
+                                                                                        <div className="font-medium">Detalle de billetes:</div>
+                                                                                        <div className="text-xs mt-1">{buildBreakdownLines(adj.currency as 'CRC' | 'USD', adj.breakdown).join(', ')}</div>
+                                                                                    </div>
+                                                                                )}
                                                                                 {lastChange ? (
                                                                                     <div className="mt-2 text-xs text-[var(--muted-foreground)]">
                                                                                         <div className="font-medium">Último cambio registrado:</div>
