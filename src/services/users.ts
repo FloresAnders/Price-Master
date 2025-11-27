@@ -2,6 +2,7 @@ import { FirestoreService } from './firestore';
 import { User } from '../types/firestore';
 import { getDefaultPermissions } from '../utils/permissions';
 import { hashPassword } from '../lib/auth/password';
+import { getFirestore, onSnapshot, doc } from 'firebase/firestore';
 
 const ARGON2_HASH_PREFIX = '$argon2';
 
@@ -23,6 +24,42 @@ async function preparePasswordForStorage(password?: string | null): Promise<stri
 
 export class UsersService {
   private static readonly COLLECTION_NAME = 'users';
+
+  /**
+   * Subscribe to real-time updates for a specific user
+   * Returns an unsubscribe function to clean up the listener
+   */
+  static subscribeToUser(
+    userId: string,
+    callback: (userData: User | null) => void,
+    onError?: (error: Error) => void
+  ): () => void {
+    try {
+      const db = getFirestore();
+      const userDocRef = doc(db, this.COLLECTION_NAME, userId);
+
+      const unsubscribe = onSnapshot(
+        userDocRef,
+        (snapshot) => {
+          if (snapshot.exists()) {
+            callback({ id: snapshot.id, ...snapshot.data() } as User);
+          } else {
+            callback(null);
+          }
+        },
+        (error) => {
+          console.error('Error in user subscription:', error);
+          if (onError) onError(error);
+        }
+      );
+
+      return unsubscribe;
+    } catch (err) {
+      console.error('Error setting up user subscription:', err);
+      if (onError) onError(err as Error);
+      return () => {}; // Return empty cleanup function
+    }
+  }
 
   /**
    * Get all users

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { User, UserPermissions } from '../types/firestore';
 import { TokenService } from '../services/tokenService';
+import { UsersService } from '../services/users';
 
 interface SessionData {
   id?: string;
@@ -269,7 +270,71 @@ export function useAuth() {
     }
   }, [checkInactivity, logout, user, isAuthenticated, sessionWarning, logAuditEvent]);
   useEffect(() => {
+    let unsubscribeUser: (() => void) | null = null;
+
     checkExistingSession();
+
+    // Configurar listener en tiempo real para actualizaciones de usuario (permisos, etc.)
+    if (isAuthenticated && user?.id) {
+      unsubscribeUser = UsersService.subscribeToUser(
+        user.id,
+        (updatedUserData) => {
+          if (updatedUserData) {
+            setUser((prevUser) => {
+              if (!prevUser) return prevUser;
+
+              // Actualizar solo si hay cambios relevantes (especialmente permisos)
+              const hasPermissionsChanged = JSON.stringify(prevUser.permissions) !== JSON.stringify(updatedUserData.permissions);
+              const hasDataChanged = 
+                prevUser.name !== updatedUserData.name ||
+                prevUser.ownercompanie !== updatedUserData.ownercompanie ||
+                prevUser.role !== updatedUserData.role ||
+                hasPermissionsChanged;
+
+              if (!hasDataChanged) return prevUser;
+
+              console.log('🔄 Actualizando permisos del usuario en tiempo real');
+
+              // Actualizar también en localStorage para mantener sincronizado
+              if (useTokenAuth) {
+                // Actualizar token con nuevos datos
+                const tokenData = TokenService.getTokenInfo();
+                if (tokenData.isValid) {
+                  TokenService.createTokenSession(updatedUserData);
+                }
+              } else {
+                // Actualizar sesión tradicional
+                const sessionData = localStorage.getItem('pricemaster_session');
+                if (sessionData) {
+                  try {
+                    const session = JSON.parse(sessionData);
+                    session.permissions = updatedUserData.permissions;
+                    session.name = updatedUserData.name;
+                    session.role = updatedUserData.role;
+                    localStorage.setItem('pricemaster_session', JSON.stringify(session));
+                  } catch (err) {
+                    console.error('Error updating session with new permissions:', err);
+                  }
+                }
+              }
+
+              if (hasPermissionsChanged) {
+                logAuditEvent('PERMISSIONS_UPDATED', 'User permissions updated in real-time', prevUser.id);
+              }
+
+              return {
+                ...prevUser,
+                ...updatedUserData,
+                permissions: updatedUserData.permissions
+              };
+            });
+          }
+        },
+        (error) => {
+          console.error('Error en listener de usuario:', error);
+        }
+      );
+    }
 
     // Configurar listener para actividad del usuario
     const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
@@ -290,12 +355,15 @@ export function useAuth() {
 
     // Cleanup
     return () => {
+      if (unsubscribeUser) {
+        unsubscribeUser();
+      }
       activityEvents.forEach(event => {
         document.removeEventListener(event, handleActivity);
       });
       clearInterval(sessionInterval);
     };
-  }, [checkExistingSession, updateActivity]);
+  }, [checkExistingSession, updateActivity, isAuthenticated, user?.id, useTokenAuth, logAuditEvent]);
   const login = (userData: User, keepActive: boolean = false, useTokens: boolean = false) => {
     if (useTokens) {
       // Usar autenticación por tokens (una semana automáticamente)
