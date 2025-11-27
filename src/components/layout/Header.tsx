@@ -367,7 +367,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
             className="flex items-center gap-3 text-xl font-bold tracking-tight text-[var(--foreground)] hover:text-[var(--tab-text-active)] transition-colors cursor-pointer bg-transparent border-none p-0"
           >
             <Image
-              src="/favicon-32x32.png"
+              src="/android-chrome-512x512.png"
               alt="Time Master Logo"
               width={32}
               height={32}
