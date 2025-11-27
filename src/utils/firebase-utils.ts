@@ -1,7 +1,7 @@
 import { SorteosService } from '../services/sorteos';
 import { UsersService } from '../services/users';
 import { CcssConfigService } from '../services/ccss-config';
-import { Sorteo, User} from '../types/firestore';
+import { Sorteo, User } from '../types/firestore';
 
 /**
  * Firebase helper utilities

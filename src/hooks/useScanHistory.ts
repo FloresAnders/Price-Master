@@ -33,8 +33,8 @@ export function useScanHistory() {
       setError(null);
 
       const scans = await ScanningService.getAllScans();
-  // Filtrar DELIFOOD_TEST desde el inicio (ownercompanie)
-  const filteredScans = scans.filter(scan => scan.ownercompanie !== 'DELIFOOD_TEST');
+      // Filtrar DELIFOOD_TEST desde el inicio (ownercompanie)
+      const filteredScans = scans.filter(scan => scan.ownercompanie !== 'DELIFOOD_TEST');
 
       // Check which codes have images (optimized batch operation)
       const scansWithImageInfo = await checkCodesHaveImages(filteredScans);
@@ -61,8 +61,8 @@ export function useScanHistory() {
       ScanningService.forceRefreshCache();
 
       const scans = await ScanningService.getAllScans();
-  // Filtrar DELIFOOD_TEST al actualizar (ownercompanie)
-  const filteredScans = scans.filter(scan => scan.ownercompanie !== 'DELIFOOD_TEST');
+      // Filtrar DELIFOOD_TEST al actualizar (ownercompanie)
+      const filteredScans = scans.filter(scan => scan.ownercompanie !== 'DELIFOOD_TEST');
 
       // Obtener códigos existentes para comparar
       const existingCodes = new Set(scanHistory.map(scan => scan.code));

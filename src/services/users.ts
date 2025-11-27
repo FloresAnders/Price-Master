@@ -43,7 +43,7 @@ export class UsersService {
   }
   static async getAllUsersAs(actor: User | { role?: string } | null): Promise<User[]> {
     const allUsers = await this.getAllUsers();
-    
+
     // If actor is admin or user, filter out superadmin users
     if (actor?.role === 'admin' || actor?.role === 'user') {
       return allUsers.filter(user => user.role !== 'superadmin');
@@ -109,10 +109,10 @@ export class UsersService {
    */
   static async addUser(user: Omit<User, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
     const userWithTimestamps = {
-  ...user,
-  isActive: user.isActive ?? true,
-  // ensure eliminate defaults to false when not provided
-  eliminate: user.eliminate ?? false,
+      ...user,
+      isActive: user.isActive ?? true,
+      // ensure eliminate defaults to false when not provided
+      eliminate: user.eliminate ?? false,
       // Add default permissions based on role if not provided
       permissions: user.permissions || getDefaultPermissions(user.role),
       createdAt: new Date(),
@@ -175,11 +175,11 @@ export class UsersService {
       ...user,
       ownerId: ownerIdToUse,
       eliminate: actor?.role === 'admin' ? true : (user.eliminate ?? false),
-  // If an admin actor creates another admin, set maxCompanies to -1 so the created admin
-  // cannot create companies. A numeric maxCompanies is enforced by EmpresasService when
-  // typeof owner.maxCompanies === 'number'. Using -1 will make the owner check fail
-  // (currentCount >= -1) and therefore prevent company creation.
-  maxCompanies: (enrichedActor?.role === 'admin' && user.role === 'admin') ? -1 : user.maxCompanies,
+      // If an admin actor creates another admin, set maxCompanies to -1 so the created admin
+      // cannot create companies. A numeric maxCompanies is enforced by EmpresasService when
+      // typeof owner.maxCompanies === 'number'. Using -1 will make the owner check fail
+      // (currentCount >= -1) and therefore prevent company creation.
+      maxCompanies: (enrichedActor?.role === 'admin' && user.role === 'admin') ? -1 : user.maxCompanies,
       permissions: user.permissions || getDefaultPermissions(user.role)
     };
 
@@ -317,7 +317,7 @@ export class UsersService {
 
     return users.filter(user =>
       user.name.toLowerCase().includes(searchTermLower) ||
-  (user.ownercompanie && user.ownercompanie.toLowerCase().includes(searchTermLower))
+      (user.ownercompanie && user.ownercompanie.toLowerCase().includes(searchTermLower))
     );
   }
 
@@ -330,7 +330,7 @@ export class UsersService {
 
     return users.filter(user =>
       user.name.toLowerCase().includes(searchTermLower) ||
-  (user.ownercompanie && user.ownercompanie.toLowerCase().includes(searchTermLower))
+      (user.ownercompanie && user.ownercompanie.toLowerCase().includes(searchTermLower))
     );
   }
 

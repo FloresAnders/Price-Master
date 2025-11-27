@@ -18,8 +18,8 @@ export const DEFAULT_PERMISSIONS: Record<string, UserPermissions> = {
     fondogeneralBN: true,
     fondogeneralBAC: true,
     solicitud: true,
-  scanhistory: true,
-  scanhistoryEmpresas: [],
+    scanhistory: true,
+    scanhistoryEmpresas: [],
   },
   // Admins now receive the same default configuration as SuperAdmins
   admin: {
@@ -36,15 +36,15 @@ export const DEFAULT_PERMISSIONS: Record<string, UserPermissions> = {
     fondogeneralBN: true,
     fondogeneralBAC: true,
     solicitud: true,
-  scanhistory: true,
-  scanhistoryEmpresas: [],
+    scanhistory: true,
+    scanhistoryEmpresas: [],
   },
   user: {
     scanner: false,
     calculator: true,
     converter: false,
     cashcounter: true,
-    timingcontrol:  true,
+    timingcontrol: true,
     controlhorario: true,
     supplierorders: false,
     mantenimiento: false,
@@ -53,8 +53,8 @@ export const DEFAULT_PERMISSIONS: Record<string, UserPermissions> = {
     fondogeneralBN: false,
     fondogeneralBAC: false,
     solicitud: false,
-  scanhistory: false,
-  scanhistoryEmpresas: [],
+    scanhistory: false,
+    scanhistoryEmpresas: [],
   },
 };
 
@@ -83,8 +83,8 @@ export function getAllPermissions(): UserPermissions {
     fondogeneralBN: true,
     fondogeneralBAC: true,
     solicitud: true,
-  scanhistory: true,
-  scanhistoryEmpresas: [],
+    scanhistory: true,
+    scanhistoryEmpresas: [],
   };
 }
 
@@ -106,8 +106,8 @@ export function getNoPermissions(): UserPermissions {
     fondogeneralBN: false,
     fondogeneralBAC: false,
     solicitud: false,
-  scanhistory: false,
-  scanhistoryEmpresas: [],
+    scanhistory: false,
+    scanhistoryEmpresas: [],
   };
 }
 

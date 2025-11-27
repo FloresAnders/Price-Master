@@ -147,7 +147,7 @@ export class SchedulesService {
   ): Promise<void> {
     try {
       // Find existing entry first
-  const existingEntry = await this.findScheduleEntry(locationValue, employeeName, year, month, day);
+      const existingEntry = await this.findScheduleEntry(locationValue, employeeName, year, month, day);
 
       if (shift === '' || shift.trim() === '') {
         // If setting to empty and document exists, DELETE it

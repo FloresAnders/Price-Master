@@ -21,7 +21,7 @@ export function PermissionsManager({ children }: { children: React.ReactNode }) 
   const handleRequestPermissions = async () => {
     setHasRequestedPermissions(true);
     const granted = await requestCameraPermissions();
-    
+
     if (granted) {
       setShowPermissionDialog(false);
     } else {

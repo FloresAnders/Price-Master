@@ -235,10 +235,10 @@ export default function ScanHistoryTable() {
         document.execCommand('copy');
         document.body.removeChild(textArea);
       }
-  notify('¡Código copiado!', 'green');
+      notify('¡Código copiado!', 'green');
     } catch (error) {
       console.error('Error copying to clipboard:', error);
-  notify('Error al copiar código', 'red');
+      notify('Error al copiar código', 'red');
     }
   };
 
@@ -247,10 +247,10 @@ export default function ScanHistoryTable() {
     if (window.confirm('¿Estás seguro de que deseas eliminar todo el historial? Esta acción no se puede deshacer.')) {
       try {
         await clearHistoryService();
-  notify('Historial eliminado', 'red');
+        notify('Historial eliminado', 'red');
       } catch (error) {
         console.error('Error clearing history:', error);
-  notify('Error al eliminar el historial', 'red');
+        notify('Error al eliminar el historial', 'red');
       }
     }
   };
@@ -262,10 +262,10 @@ export default function ScanHistoryTable() {
       try {
         await deleteScanService(scanId);
         setShowProcessModal({ code, open: true });
-  notify('Código procesado y eliminado', 'green');
+        notify('Código procesado y eliminado', 'green');
       } catch (error) {
         console.error('Error deleting scan:', error);
-  notify('Error al eliminar el código', 'red');
+        notify('Error al eliminar el código', 'red');
       } finally {
         setProcessingId(null);
       }
@@ -285,13 +285,13 @@ export default function ScanHistoryTable() {
     try {
       const result = await refreshHistory();
       if (result.newCount > 0) {
-  notify(`Historial actualizado - ${result.newCount} código${result.newCount > 1 ? 's' : ''} nuevo${result.newCount > 1 ? 's' : ''}`, 'green');
+        notify(`Historial actualizado - ${result.newCount} código${result.newCount > 1 ? 's' : ''} nuevo${result.newCount > 1 ? 's' : ''}`, 'green');
       } else {
-  notify('Historial actualizado - Sin cambios', 'green');
+        notify('Historial actualizado - Sin cambios', 'green');
       }
     } catch (error) {
       console.error('Error refreshing history:', error);
-  notify('Error al actualizar el historial', 'red');
+      notify('Error al actualizar el historial', 'red');
     }
   };
 
@@ -330,10 +330,10 @@ export default function ScanHistoryTable() {
       link.click();
       document.body.removeChild(link);
 
-  notify('Descarga iniciada', 'green');
+      notify('Descarga iniciada', 'green');
     } catch (error) {
       console.error('Error downloading image:', error);
-  notify('Error al descargar la imagen', 'red');
+      notify('Error al descargar la imagen', 'red');
     }
   };
 
@@ -363,10 +363,10 @@ export default function ScanHistoryTable() {
         }
       }
 
-  notify(`${codeImages.length} descargas iniciadas`, 'green');
+      notify(`${codeImages.length} descargas iniciadas`, 'green');
     } catch (error) {
       console.error('Error downloading images:', error);
-  notify('Error al descargar las imágenes', 'red');
+      notify('Error al descargar las imágenes', 'red');
     }
   };
 

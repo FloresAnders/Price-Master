@@ -97,10 +97,10 @@ export default function TokenInfo({ isOpen, onClose, inline = false }: TokenInfo
   const TokenContent = () => (
     <>
       <div className={`p-4 rounded-lg mb-4 ${isCritical
-          ? 'bg-red-50 border border-red-200 dark:bg-red-900/20 dark:border-red-800'
-          : isWarning
-            ? 'bg-yellow-50 border border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-800'
-            : 'bg-green-50 border border-green-200 dark:bg-green-900/20 dark:border-green-800'
+        ? 'bg-red-50 border border-red-200 dark:bg-red-900/20 dark:border-red-800'
+        : isWarning
+          ? 'bg-yellow-50 border border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-800'
+          : 'bg-green-50 border border-green-200 dark:bg-green-900/20 dark:border-green-800'
         }`}>
         <div className="flex items-center gap-3 mb-2">
           {isCritical ? (
@@ -111,8 +111,8 @@ export default function TokenInfo({ isOpen, onClose, inline = false }: TokenInfo
             <CheckCircle2 className="w-5 h-5 text-green-600" />
           )}
           <span className={`font-medium ${isCritical ? 'text-red-800 dark:text-red-200' :
-              isWarning ? 'text-yellow-800 dark:text-yellow-200' :
-                'text-green-800 dark:text-green-200'
+            isWarning ? 'text-yellow-800 dark:text-yellow-200' :
+              'text-green-800 dark:text-green-200'
             }`}>
             {isCritical ? 'Token por expirar' : isWarning ? 'Token expirando pronto' : 'Token activo'}
           </span>
@@ -240,7 +240,7 @@ export default function TokenInfo({ isOpen, onClose, inline = false }: TokenInfo
             >
               <Plus className={`w-4 h-4 ${extending ? 'animate-spin' : ''}`} />
               {extending ? 'Extendiendo...' : `Extender ${extensionAmount} ${extensionUnit === 'hours' ? 'hora(s)' :
-                  extensionUnit === 'days' ? 'día(s)' : 'semana(s)'
+                extensionUnit === 'days' ? 'día(s)' : 'semana(s)'
                 }`}
             </button>
           </div>

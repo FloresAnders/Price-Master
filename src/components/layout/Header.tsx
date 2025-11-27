@@ -339,7 +339,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
 
   const isAdminUser = Boolean(user && (user.role === 'admin' || user.role === 'superadmin'));
   const userInitials = (user && ((user.fullName || user.name || '') as string))
-    ? ((user.fullName || user.name || '').trim().split(/\s+/).filter(Boolean).map(p => p[0]).slice(0,2).join('') || 'U').toUpperCase()
+    ? ((user.fullName || user.name || '').trim().split(/\s+/).filter(Boolean).map(p => p[0]).slice(0, 2).join('') || 'U').toUpperCase()
     : 'U';
   const roleLabel = user?.role
     ? (user.role === 'superadmin' ? 'Superadmin' : user.role === 'admin' ? 'Administrador' : (user.role || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()))

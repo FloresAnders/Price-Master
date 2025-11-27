@@ -99,8 +99,8 @@ export default function ConfigurationModal({
                         className="sr-only"
                       />
                       <div className={`block w-12 h-6 rounded-full transition-colors duration-200 ease-in-out ${showSessionTimer
-                          ? 'bg-blue-600 shadow-lg'
-                          : 'bg-gray-300 dark:bg-gray-600'
+                        ? 'bg-blue-600 shadow-lg'
+                        : 'bg-gray-300 dark:bg-gray-600'
                         }`}>
                       </div>
                       <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-200 ease-in-out shadow-sm ${showSessionTimer ? 'translate-x-6' : 'translate-x-0'
@@ -140,8 +140,8 @@ export default function ConfigurationModal({
                         className="sr-only"
                       />
                       <div className={`block w-12 h-6 rounded-full transition-colors duration-200 ease-in-out ${showCalculator
-                          ? 'bg-green-600 shadow-lg'
-                          : 'bg-gray-300 dark:bg-gray-600'
+                        ? 'bg-green-600 shadow-lg'
+                        : 'bg-gray-300 dark:bg-gray-600'
                         }`}>
                       </div>
                       <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-200 ease-in-out shadow-sm ${showCalculator ? 'translate-x-6' : 'translate-x-0'

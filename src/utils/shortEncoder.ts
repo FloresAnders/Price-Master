@@ -54,7 +54,7 @@ export function decodeData(encoded: string): {
   try {
     // Decode from Base62
     const buffer = base62.decode(encoded);
-    
+
     // Convert Uint8Array to base64 string (browser-compatible)
     let binary = '';
     for (let i = 0; i < buffer.length; i++) {

@@ -5,7 +5,7 @@ import { useAuth } from '../../hooks/useAuth';
 
 export default function ExportCcssConfig() {
     const { user } = useAuth();
-    
+
     const handleExport = async () => {
         try {
             const userOwnerId = user?.ownerId || user?.id || '';

@@ -68,7 +68,7 @@ export default function PayrollRecordsViewer({ selectedLocation = 'all' }: Payro
         setRecords(recordsData);
       } catch (error) {
         console.error('Error loading payroll records:', error);
-  showToast('Error al cargar los registros de planilla', 'error');
+        showToast('Error al cargar los registros de planilla', 'error');
       } finally {
         setLoading(false);
       }
@@ -111,7 +111,7 @@ export default function PayrollRecordsViewer({ selectedLocation = 'all' }: Payro
     setConfirmModal(prev => ({ ...prev, loading: true }));
 
     try {
-    const { locationValue, employeeName, year, month, period } = confirmModal.periodToDelete;
+      const { locationValue, employeeName, year, month, period } = confirmModal.periodToDelete;
 
       await PayrollRecordsService.deletePeriodFromRecord(
         locationValue,
@@ -147,7 +147,7 @@ export default function PayrollRecordsViewer({ selectedLocation = 'all' }: Payro
   };
 
   // Obtener nombre de empresa
-    const getLocationName = (locationValue: string) => {
+  const getLocationName = (locationValue: string) => {
     const empresa = locations.find(emp => emp.name.toLowerCase() === locationValue.toLowerCase());
     return empresa ? empresa.name : locationValue;
   }

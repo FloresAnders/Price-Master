@@ -30,7 +30,7 @@ export default function NotFound() {
         } catch (error) {
           console.error('Error decoding short URL:', error);
         }
-        
+
         // Si la decodificación falla, usar el código como parámetro directo
         router.replace(`/mobile-scan?code=${encodeURIComponent(code)}`);
         return;

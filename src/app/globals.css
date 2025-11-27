@@ -4,7 +4,8 @@
 
 @layer base {
 
-  /* Variables modo claro */  :root {
+  /* Variables modo claro */
+  :root {
     --background: #F5F5F5;
     --foreground: #1F2937;
     --font-base: Arial, Helvetica, sans-serif;
@@ -64,6 +65,7 @@
     --shift-libre-text: #6B7280;
     /* Gris medio */
   }
+
   /* Variables modo oscuro */
   .dark :root,
   :root.dark {
@@ -286,6 +288,7 @@
   0% {
     transform: translateX(-20px);
   }
+
   100% {
     transform: translateX(100vw);
   }
@@ -295,6 +298,7 @@
   0%, 100% {
     transform: rotate(-10deg);
   }
+
   50% {
     transform: rotate(10deg);
   }
@@ -304,9 +308,11 @@
   0%, 100% {
     transform: rotate(0deg);
   }
+
   25% {
     transform: rotate(-15deg);
   }
+
   75% {
     transform: rotate(15deg);
   }
@@ -316,9 +322,11 @@
   0%, 100% {
     transform: rotate(0deg);
   }
+
   25% {
     transform: rotate(15deg);
   }
+
   75% {
     transform: rotate(-15deg);
   }
@@ -347,13 +355,17 @@
 .fg-add-mov-btn {
   transition: background-color 0.2s ease, transform 0.1s ease, border-color 0.2s ease;
   background-color: transparent;
-  color: #FFFFFF; /* ensure text is white */
-  border: 3px solid #b2b6bf; /* bone */
+  color: #FFFFFF;
+  /* ensure text is white */
+  border: 3px solid #b2b6bf;
+  /* bone */
 }
 
 .fg-add-mov-btn:hover {
-  background-color: #3B82F6; /* fill with blue on hover */
-  border-color: #F2E9DA; /* bone */
+  background-color: #3B82F6;
+  /* fill with blue on hover */
+  border-color: #F2E9DA;
+  /* bone */
   transform: translateY(-1px);
 }
 
@@ -361,17 +373,20 @@
 .fg-balance-card {
   background-color: transparent;
   color: #FFFFFF;
-  border: 3px solid #F2E9DA; /* bone */
+  border: 3px solid #F2E9DA;
+  /* bone */
 }
 
 .fg-balance-card {
   /* Make the balance card visible on dark backgrounds by using
      the standard card background and input border color. */
-  background-color: #1f262a; /* same as other cards in the app */
+  background-color: #1f262a;
+  /* same as other cards in the app */
   color: #FFFFFF;
   border: 3px solid var(--input-border);
-  box-shadow: 0 4px 10px rgba(0,0,0,0.35);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
 }
+
 .fg-balance-card * {
   color: #FFFFFF !important;
 }

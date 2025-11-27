@@ -259,11 +259,11 @@ export default function SolicitudForm() {
                                         </div>
                                         <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-[var(--input-border)]">
                                             <label className="flex items-center gap-2 flex-1">
-                                                <input 
-                                                    type="checkbox" 
-                                                    className="form-checkbox h-4 w-4" 
-                                                    checked={Boolean(s.listo)} 
-                                                    onChange={(e) => toggleListo(s.id, e.target.checked)} 
+                                                <input
+                                                    type="checkbox"
+                                                    className="form-checkbox h-4 w-4"
+                                                    checked={Boolean(s.listo)}
+                                                    onChange={(e) => toggleListo(s.id, e.target.checked)}
                                                 />
                                                 <span className="text-sm text-[var(--muted-foreground)]">Marcar como listo</span>
                                             </label>

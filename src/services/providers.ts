@@ -13,14 +13,14 @@ interface ProvidersDocument {
  */
 const getCategoryFromType = (type?: string): 'Ingreso' | 'Gasto' | 'Egreso' | undefined => {
 	if (!type || typeof type !== 'string') return undefined;
-	
+
 	const normalizedType = type.trim().toUpperCase();
-	
+
 	// Ingresos
 	if (normalizedType === 'VENTAS' || normalizedType === 'OTROS INGRESOS') {
 		return 'Ingreso';
 	}
-	
+
 	// Gastos
 	const gastos = [
 		'SALARIOS',
@@ -45,11 +45,11 @@ const getCategoryFromType = (type?: string): 'Ingreso' | 'Gasto' | 'Egreso' | un
 		'FACTURA ELECTRONICA',
 		'GASTOS VARIOS'
 	];
-	
+
 	if (gastos.includes(normalizedType)) {
 		return 'Gasto';
 	}
-	
+
 	// Egresos
 	const egresos = [
 		'PAGO TIEMPOS',
@@ -60,11 +60,11 @@ const getCategoryFromType = (type?: string): 'Ingreso' | 'Gasto' | 'Egreso' | un
 		'PAGO IMPUESTO IVA',
 		'EGRESOS VARIOS'
 	];
-	
+
 	if (egresos.includes(normalizedType)) {
 		return 'Egreso';
 	}
-	
+
 	return undefined;
 };
 
@@ -105,12 +105,12 @@ const normalizeProviderEntry = (raw: unknown, fallbackCompany: string): Provider
 
 	const companyCandidate = typeof data.company === 'string' ? data.company.trim() : '';
 	const typeCandidate = typeof data.type === 'string' ? data.type.trim().toUpperCase() : undefined;
-	
+
 	// Si hay una categoría guardada, la usamos; si no, la determinamos del tipo
-	const categoryCandidate = typeof data.category === 'string' 
+	const categoryCandidate = typeof data.category === 'string'
 		? data.category.trim() as 'Ingreso' | 'Gasto' | 'Egreso'
 		: getCategoryFromType(typeCandidate);
-	
+
 	const createdAt = typeof data.createdAt === 'string' ? data.createdAt : undefined;
 	const updatedAt = typeof data.updatedAt === 'string' ? data.updatedAt : undefined;
 
@@ -201,7 +201,7 @@ export class ProvidersService {
 			throw new Error('No se pudo determinar la empresa del usuario.');
 		}
 
-			const trimmedName = (providerName || '').trim();
+		const trimmedName = (providerName || '').trim();
 		if (!trimmedName) {
 			throw new Error('El nombre del proveedor es obligatorio.');
 		}
@@ -213,29 +213,29 @@ export class ProvidersService {
 			const document = snapshot.exists()
 				? normalizeProvidersDocument(snapshot.data(), trimmedCompany)
 				: {
-						company: trimmedCompany,
-						nextCode: 0,
-						providers: [] as ProviderEntry[]
-					};
+					company: trimmedCompany,
+					nextCode: 0,
+					providers: [] as ProviderEntry[]
+				};
 
-				const normalizedName = trimmedName.toUpperCase();
-				const normalizedType = typeof providerType === 'string' && providerType.trim().length > 0
-					? providerType.trim().toUpperCase()
-					: undefined;
-				const duplicate = document.providers.some(
-					provider => provider.name.toUpperCase() === normalizedName
-				);
+			const normalizedName = trimmedName.toUpperCase();
+			const normalizedType = typeof providerType === 'string' && providerType.trim().length > 0
+				? providerType.trim().toUpperCase()
+				: undefined;
+			const duplicate = document.providers.some(
+				provider => provider.name.toUpperCase() === normalizedName
+			);
 
-				if (duplicate) {
-					throw new Error('Ya existe un proveedor con ese nombre.');
-				}
+			if (duplicate) {
+				throw new Error('Ya existe un proveedor con ese nombre.');
+			}
 
 			const nextNumericCode = deriveNextCode(document.nextCode, document.providers);
 			const category = getCategoryFromType(normalizedType);
 			const now = new Date().toISOString();
 			const createdProvider: ProviderEntry = {
 				code: String(nextNumericCode).padStart(4, '0'),
-					name: normalizedName,
+				name: normalizedName,
 				company: document.company,
 				type: normalizedType,
 				category,
@@ -275,146 +275,146 @@ export class ProvidersService {
 		return newProvider;
 	}
 
-			static async removeProvider(company: string, providerCode: string): Promise<ProviderEntry> {
-				const trimmedCompany = (company || '').trim();
-				if (!trimmedCompany) {
-					throw new Error('No se pudo determinar la empresa del usuario.');
-				}
+	static async removeProvider(company: string, providerCode: string): Promise<ProviderEntry> {
+		const trimmedCompany = (company || '').trim();
+		if (!trimmedCompany) {
+			throw new Error('No se pudo determinar la empresa del usuario.');
+		}
 
-				const normalizedCode = padCode(providerCode);
-				if (!normalizedCode) {
-					throw new Error('Código de proveedor no válido.');
-				}
+		const normalizedCode = padCode(providerCode);
+		if (!normalizedCode) {
+			throw new Error('Código de proveedor no válido.');
+		}
 
-				const docRef = doc(db, this.COLLECTION_NAME, trimmedCompany);
+		const docRef = doc(db, this.COLLECTION_NAME, trimmedCompany);
 
-				const removedProvider = await runTransaction(db, async transaction => {
-					const snapshot = await transaction.get(docRef);
-					if (!snapshot.exists()) {
-						throw new Error('El proveedor no existe.');
-					}
-
-					const document = normalizeProvidersDocument(snapshot.data(), trimmedCompany);
-					const targetIndex = document.providers.findIndex(p => p.code === normalizedCode);
-
-					if (targetIndex === -1) {
-						throw new Error('El proveedor no existe.');
-					}
-
-					const providerToRemove = document.providers[targetIndex];
-					const updatedProviders = document.providers.filter((_, idx) => idx !== targetIndex);
-					const highestRemaining = highestCode(updatedProviders);
-
-					const updatedDocument: ProvidersDocument = {
-						company: document.company,
-						nextCode: Math.max(document.nextCode, highestRemaining + 1, 0),
-						providers: updatedProviders
-					};
-
-				// Sanitize before writing to Firestore to avoid `undefined` values.
-				const firestoreDoc: Record<string, unknown> = {
-					company: updatedDocument.company,
-					nextCode: updatedDocument.nextCode,
-					providers: updatedDocument.providers.map(p => {
-						const out: Record<string, unknown> = {
-							code: p.code,
-							name: p.name,
-							company: p.company,
-						};
-						if (typeof p.type === 'string' && p.type.length > 0) out.type = p.type;
-						if (typeof p.category === 'string' && p.category.length > 0) out.category = p.category;
-						if (typeof p.createdAt === 'string' && p.createdAt.length > 0) out.createdAt = p.createdAt;
-						if (typeof p.updatedAt === 'string' && p.updatedAt.length > 0) out.updatedAt = p.updatedAt;
-						return out;
-					}),
-				};
-
-				transaction.set(docRef, firestoreDoc);
-				return providerToRemove;
-				});
-
-				return removedProvider;
+		const removedProvider = await runTransaction(db, async transaction => {
+			const snapshot = await transaction.get(docRef);
+			if (!snapshot.exists()) {
+				throw new Error('El proveedor no existe.');
 			}
 
-			static async updateProvider(company: string, providerCode: string, providerName: string, providerType?: string): Promise<ProviderEntry> {
-				const trimmedCompany = (company || '').trim();
-				if (!trimmedCompany) {
-					throw new Error('No se pudo determinar la empresa del usuario.');
-				}
+			const document = normalizeProvidersDocument(snapshot.data(), trimmedCompany);
+			const targetIndex = document.providers.findIndex(p => p.code === normalizedCode);
 
-				const code = padCode(providerCode);
-				if (!code) {
-					throw new Error('Codigo de proveedor no valido.');
-				}
-
-				const trimmedName = (providerName || '').trim();
-				if (!trimmedName) {
-					throw new Error('El nombre del proveedor es obligatorio.');
-				}
-
-				const docRef = doc(db, this.COLLECTION_NAME, trimmedCompany);
-
-				const updated = await runTransaction(db, async transaction => {
-					const snapshot = await transaction.get(docRef);
-					if (!snapshot.exists()) {
-						throw new Error('El proveedor no existe.');
-					}
-
-					const document = normalizeProvidersDocument(snapshot.data(), trimmedCompany);
-					const targetIndex = document.providers.findIndex(p => p.code === code);
-					if (targetIndex === -1) {
-						throw new Error('El proveedor no existe.');
-					}
-
-					// Prevent duplicate name with other providers
-					const normalizedName = trimmedName.toUpperCase();
-					const duplicate = document.providers.some((p, idx) => idx !== targetIndex && p.name.toUpperCase() === normalizedName);
-					if (duplicate) {
-						throw new Error('Ya existe un proveedor con ese nombre.');
-					}
-
-				const normalizedType = typeof providerType === 'string' && providerType.trim().length > 0
-					? providerType.trim().toUpperCase()
-					: undefined;
-
-				const category = getCategoryFromType(normalizedType);
-				const updatedProvider: ProviderEntry = {
-					...document.providers[targetIndex],
-					name: normalizedName,
-					type: normalizedType,
-					category,
-					updatedAt: new Date().toISOString()
-				};					const updatedProviders = [...document.providers];
-					updatedProviders[targetIndex] = updatedProvider;
-
-					const updatedDocument: ProvidersDocument = {
-						company: document.company,
-						nextCode: document.nextCode,
-						providers: updatedProviders,
-					};
-
-				const firestoreDoc: Record<string, unknown> = {
-					company: updatedDocument.company,
-					nextCode: updatedDocument.nextCode,
-					providers: updatedDocument.providers.map(p => {
-						const out: Record<string, unknown> = {
-							code: p.code,
-							name: p.name,
-							company: p.company,
-						};
-						if (typeof p.type === 'string' && p.type.length > 0) out.type = p.type;
-						if (typeof p.category === 'string' && p.category.length > 0) out.category = p.category;
-						if (typeof p.createdAt === 'string' && p.createdAt.length > 0) out.createdAt = p.createdAt;
-						if (typeof p.updatedAt === 'string' && p.updatedAt.length > 0) out.updatedAt = p.updatedAt;
-						return out;
-					}),
-				};
-
-				transaction.set(docRef, firestoreDoc);
-					return updatedProvider;
-				});
-
-				return updated;
+			if (targetIndex === -1) {
+				throw new Error('El proveedor no existe.');
 			}
+
+			const providerToRemove = document.providers[targetIndex];
+			const updatedProviders = document.providers.filter((_, idx) => idx !== targetIndex);
+			const highestRemaining = highestCode(updatedProviders);
+
+			const updatedDocument: ProvidersDocument = {
+				company: document.company,
+				nextCode: Math.max(document.nextCode, highestRemaining + 1, 0),
+				providers: updatedProviders
+			};
+
+			// Sanitize before writing to Firestore to avoid `undefined` values.
+			const firestoreDoc: Record<string, unknown> = {
+				company: updatedDocument.company,
+				nextCode: updatedDocument.nextCode,
+				providers: updatedDocument.providers.map(p => {
+					const out: Record<string, unknown> = {
+						code: p.code,
+						name: p.name,
+						company: p.company,
+					};
+					if (typeof p.type === 'string' && p.type.length > 0) out.type = p.type;
+					if (typeof p.category === 'string' && p.category.length > 0) out.category = p.category;
+					if (typeof p.createdAt === 'string' && p.createdAt.length > 0) out.createdAt = p.createdAt;
+					if (typeof p.updatedAt === 'string' && p.updatedAt.length > 0) out.updatedAt = p.updatedAt;
+					return out;
+				}),
+			};
+
+			transaction.set(docRef, firestoreDoc);
+			return providerToRemove;
+		});
+
+		return removedProvider;
+	}
+
+	static async updateProvider(company: string, providerCode: string, providerName: string, providerType?: string): Promise<ProviderEntry> {
+		const trimmedCompany = (company || '').trim();
+		if (!trimmedCompany) {
+			throw new Error('No se pudo determinar la empresa del usuario.');
+		}
+
+		const code = padCode(providerCode);
+		if (!code) {
+			throw new Error('Codigo de proveedor no valido.');
+		}
+
+		const trimmedName = (providerName || '').trim();
+		if (!trimmedName) {
+			throw new Error('El nombre del proveedor es obligatorio.');
+		}
+
+		const docRef = doc(db, this.COLLECTION_NAME, trimmedCompany);
+
+		const updated = await runTransaction(db, async transaction => {
+			const snapshot = await transaction.get(docRef);
+			if (!snapshot.exists()) {
+				throw new Error('El proveedor no existe.');
+			}
+
+			const document = normalizeProvidersDocument(snapshot.data(), trimmedCompany);
+			const targetIndex = document.providers.findIndex(p => p.code === code);
+			if (targetIndex === -1) {
+				throw new Error('El proveedor no existe.');
+			}
+
+			// Prevent duplicate name with other providers
+			const normalizedName = trimmedName.toUpperCase();
+			const duplicate = document.providers.some((p, idx) => idx !== targetIndex && p.name.toUpperCase() === normalizedName);
+			if (duplicate) {
+				throw new Error('Ya existe un proveedor con ese nombre.');
+			}
+
+			const normalizedType = typeof providerType === 'string' && providerType.trim().length > 0
+				? providerType.trim().toUpperCase()
+				: undefined;
+
+			const category = getCategoryFromType(normalizedType);
+			const updatedProvider: ProviderEntry = {
+				...document.providers[targetIndex],
+				name: normalizedName,
+				type: normalizedType,
+				category,
+				updatedAt: new Date().toISOString()
+			}; const updatedProviders = [...document.providers];
+			updatedProviders[targetIndex] = updatedProvider;
+
+			const updatedDocument: ProvidersDocument = {
+				company: document.company,
+				nextCode: document.nextCode,
+				providers: updatedProviders,
+			};
+
+			const firestoreDoc: Record<string, unknown> = {
+				company: updatedDocument.company,
+				nextCode: updatedDocument.nextCode,
+				providers: updatedDocument.providers.map(p => {
+					const out: Record<string, unknown> = {
+						code: p.code,
+						name: p.name,
+						company: p.company,
+					};
+					if (typeof p.type === 'string' && p.type.length > 0) out.type = p.type;
+					if (typeof p.category === 'string' && p.category.length > 0) out.category = p.category;
+					if (typeof p.createdAt === 'string' && p.createdAt.length > 0) out.createdAt = p.createdAt;
+					if (typeof p.updatedAt === 'string' && p.updatedAt.length > 0) out.updatedAt = p.updatedAt;
+					return out;
+				}),
+			};
+
+			transaction.set(docRef, firestoreDoc);
+			return updatedProvider;
+		});
+
+		return updated;
+	}
 
 }

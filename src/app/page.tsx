@@ -113,7 +113,7 @@ export default function HomePage() {
   }, [checkCodeHasImages])
 
   // Use global toast
-  
+
   // Handler: copiar
   const handleCopy = async (code: string) => {
     try {
@@ -133,16 +133,16 @@ export default function HomePage() {
         document.execCommand('copy');
         document.body.removeChild(textArea);
       }
-  notify('¡Código copiado!', 'green');
+      notify('¡Código copiado!', 'green');
     } catch (error) {
       console.error('Error copying to clipboard:', error);
-  notify('Error al copiar código', 'red');
+      notify('Error al copiar código', 'red');
     }
   }
   // Handler: eliminar
   const handleDelete = (code: string) => {
     setScanHistory(prev => prev.filter(e => e.code !== code));
-  notify('Código eliminado', 'red');
+    notify('Código eliminado', 'red');
   }
   // Handler: eliminar primer dígito
   const handleRemoveLeadingZero = (code: string) => {
@@ -151,14 +151,14 @@ export default function HomePage() {
         ? { ...e, code: code.slice(1) }
         : e
     ));
-  notify('Primer dígito eliminado', 'blue');
+    notify('Primer dígito eliminado', 'blue');
   }
   // Handler: renombrar
   const handleRename = (code: string, name: string) => {
     setScanHistory(prev => prev.map(e =>
       e.code === code ? { ...e, name } : e
     ));
-  notify('Nombre actualizado', 'indigo');
+    notify('Nombre actualizado', 'indigo');
   }
 
   // Handler: mostrar imágenes

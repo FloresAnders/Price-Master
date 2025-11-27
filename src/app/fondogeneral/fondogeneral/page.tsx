@@ -88,7 +88,7 @@ export default function FondoPage() {
                                         aria-selected={isActive}
                                         onClick={() => setActive(tab.id)}
                                         className={`relative -mb-px rounded-md  px-4 py-2 text-sm font-semibold transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--card-bg)] ${isActive
-                                                ? 'border-[var(--accent)] text-[var(--foreground)] bg-[var(--accent)]/15 shadow-md after:absolute after:bottom-[-2px] after:left-2 after:right-2 after:h-1 after:rounded-full after:bg-[var(--accent)] after:content-[""]'
+                                            ? 'border-[var(--accent)] text-[var(--foreground)] bg-[var(--accent)]/15 shadow-md after:absolute after:bottom-[-2px] after:left-2 after:right-2 after:h-1 after:rounded-full after:bg-[var(--accent)] after:content-[""]'
                                             : 'border-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--muted)]/10'
                                             }`}
                                     >

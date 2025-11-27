@@ -113,11 +113,11 @@ ${notesSection}`.trim();
                 <li>Dólares: ${formatDiff('USD', context.diffUSD)}</li>
             </ul>
             ${context.notes && context.notes.trim().length > 0
-                ? `<div style="border-left: 4px solid #0366d6; background: #f1f8ff; padding: 12px 16px; border-radius: 6px;">
+            ? `<div style="border-left: 4px solid #0366d6; background: #f1f8ff; padding: 12px 16px; border-radius: 6px;">
                         <strong>Notas:</strong>
                         <p style="margin: 8px 0 0 0; white-space: pre-line;">${context.notes.trim()}</p>
                     </div>`
-                : ''}
+            : ''}
         </div>
     `;
 

@@ -39,13 +39,13 @@ export function ClipboardWithHookExample() {
   return (
     <div className="space-y-4 p-4">
       <h2 className="text-xl font-bold">Ejemplo con Hook</h2>
-      <button 
+      <button
         onClick={handleCopy}
         className="px-4 py-2 bg-blue-500 text-white rounded"
       >
         Copiar texto
       </button>
-      <button 
+      <button
         onClick={handlePaste}
         className="px-4 py-2 bg-green-500 text-white rounded"
       >
@@ -61,8 +61,8 @@ export function ClipboardWithHookExample() {
 
 export async function directClipboardExamples() {
   // Copiar texto simple
-  await Clipboard.write({ 
-    string: 'Hola Álvaro desde Time Master' 
+  await Clipboard.write({
+    string: 'Hola Álvaro desde Time Master'
   });
   console.log('✅ Texto copiado');
 
@@ -117,7 +117,7 @@ export function ClipboardManagerComponent() {
   return (
     <div className="max-w-md mx-auto p-6 space-y-4">
       <h2 className="text-2xl font-bold">Gestor de Portapapeles</h2>
-      
+
       {/* Copiar */}
       <div className="space-y-2">
         <label className="block text-sm font-medium">

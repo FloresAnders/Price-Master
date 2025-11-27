@@ -27,7 +27,7 @@ export function usePermissions() {
       }
 
       const cameraPermissions = await Camera.checkPermissions();
-      
+
       setPermissions({
         camera: cameraPermissions.camera,
         isLoading: false,
@@ -46,7 +46,7 @@ export function usePermissions() {
       }
 
       const result = await Camera.requestPermissions();
-      
+
       setPermissions({
         ...permissions,
         camera: result.camera,
@@ -66,7 +66,7 @@ export function usePermissions() {
         await Clipboard.write({ string: text });
         return true;
       }
-      
+
       // Fallback para web
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(text);
@@ -80,7 +80,7 @@ export function usePermissions() {
         document.body.appendChild(textArea);
         textArea.focus();
         textArea.select();
-        
+
         try {
           const successful = document.execCommand('copy');
           document.body.removeChild(textArea);
@@ -104,7 +104,7 @@ export function usePermissions() {
         const result = await Clipboard.read();
         return result.value || null;
       }
-      
+
       // Fallback para web
       if (navigator.clipboard && navigator.clipboard.readText) {
         const text = await navigator.clipboard.readText();

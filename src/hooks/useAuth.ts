@@ -215,8 +215,8 @@ export function useAuth() {
 
         if (hoursElapsed < maxHours && !isInactive) {
           // Only update user if the data has actually changed
-            const sessionObj = session as unknown as Record<string, unknown>;
-            const newUserData = {
+          const sessionObj = session as unknown as Record<string, unknown>;
+          const newUserData = {
             id: session.id,
             name: session.name,
             ownercompanie: (sessionObj.ownercompanie as string) || session.ownercompanie,
@@ -230,9 +230,9 @@ export function useAuth() {
           // Check if user data has changed to prevent unnecessary re-renders
           const hasUserChanged = !user ||
             user.id !== newUserData.id ||
-              user.name !== newUserData.name ||
-              user.ownercompanie !== newUserData.ownercompanie ||
-              user.role !== newUserData.role ||
+            user.name !== newUserData.name ||
+            user.ownercompanie !== newUserData.ownercompanie ||
+            user.role !== newUserData.role ||
             JSON.stringify(user.permissions) !== JSON.stringify(newUserData.permissions);
 
           if (hasUserChanged) {
@@ -297,7 +297,7 @@ export function useAuth() {
     };
   }, [checkExistingSession, updateActivity]);
   const login = (userData: User, keepActive: boolean = false, useTokens: boolean = false) => {
-      if (useTokens) {
+    if (useTokens) {
       // Usar autenticación por tokens (una semana automáticamente)
       TokenService.createTokenSession(userData);
       const userObj = userData as unknown as Record<string, unknown>;
@@ -419,8 +419,8 @@ export function useAuth() {
   }, [user?.role]);
   // Función para verificar si el usuario necesita autenticación de dos factores
   const requiresTwoFactor = useCallback(() => {
-  // Require two-factor for both SuperAdmins and Admins
-  return user?.role === 'superadmin' || user?.role === 'admin';
+    // Require two-factor for both SuperAdmins and Admins
+    return user?.role === 'superadmin' || user?.role === 'admin';
   }, [user?.role]);
 
   // Función para obtener información del tipo de sesión
@@ -457,7 +457,7 @@ export function useAuth() {
     logout,
     isAdmin,
     isSuperAdmin,
-  canChangeOwnercompanie,
+    canChangeOwnercompanie,
     requiresTwoFactor,
     getSessionTimeLeft,
     getAuditLogs,

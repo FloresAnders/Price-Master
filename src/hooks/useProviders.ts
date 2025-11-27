@@ -32,7 +32,7 @@ export function useProviders(company?: string) {
 		}
 	}, [company]);
 
-		const addProvider = useCallback(async (name: string, type?: string) => {
+	const addProvider = useCallback(async (name: string, type?: string) => {
 		const trimmedCompany = (company || '').trim();
 		if (!trimmedCompany) {
 			const message = 'No se pudo determinar la empresa del usuario.';
@@ -42,7 +42,7 @@ export function useProviders(company?: string) {
 
 		try {
 			setError(null);
-				await ProvidersService.addProvider(trimmedCompany, name, type);
+			await ProvidersService.addProvider(trimmedCompany, name, type);
 			await fetchProviders();
 		} catch (err) {
 			const message = err instanceof Error ? err.message : 'No se pudo guardar el proveedor.';
@@ -52,45 +52,45 @@ export function useProviders(company?: string) {
 		}
 	}, [company, fetchProviders]);
 
-		const removeProvider = useCallback(async (code: string) => {
-			const trimmedCompany = (company || '').trim();
-			if (!trimmedCompany) {
-				const message = 'No se pudo determinar la empresa del usuario.';
-				setError(message);
-				throw new Error(message);
-			}
+	const removeProvider = useCallback(async (code: string) => {
+		const trimmedCompany = (company || '').trim();
+		if (!trimmedCompany) {
+			const message = 'No se pudo determinar la empresa del usuario.';
+			setError(message);
+			throw new Error(message);
+		}
 
-			try {
-				setError(null);
-				await ProvidersService.removeProvider(trimmedCompany, code);
-				await fetchProviders();
-			} catch (err) {
-				const message = err instanceof Error ? err.message : 'No se pudo eliminar el proveedor.';
-				setError(message);
-				console.error('Error removing provider:', err);
-				throw err instanceof Error ? err : new Error(message);
-			}
-		}, [company, fetchProviders]);
+		try {
+			setError(null);
+			await ProvidersService.removeProvider(trimmedCompany, code);
+			await fetchProviders();
+		} catch (err) {
+			const message = err instanceof Error ? err.message : 'No se pudo eliminar el proveedor.';
+			setError(message);
+			console.error('Error removing provider:', err);
+			throw err instanceof Error ? err : new Error(message);
+		}
+	}, [company, fetchProviders]);
 
-		const updateProvider = useCallback(async (code: string, name: string, type?: string) => {
-			const trimmedCompany = (company || '').trim();
-			if (!trimmedCompany) {
-				const message = 'No se pudo determinar la empresa del usuario.';
-				setError(message);
-				throw new Error(message);
-			}
+	const updateProvider = useCallback(async (code: string, name: string, type?: string) => {
+		const trimmedCompany = (company || '').trim();
+		if (!trimmedCompany) {
+			const message = 'No se pudo determinar la empresa del usuario.';
+			setError(message);
+			throw new Error(message);
+		}
 
-			try {
-				setError(null);
-				await ProvidersService.updateProvider(trimmedCompany, code, name, type);
-				await fetchProviders();
-			} catch (err) {
-				const message = err instanceof Error ? err.message : 'No se pudo actualizar el proveedor.';
-				setError(message);
-				console.error('Error updating provider:', err);
-				throw err instanceof Error ? err : new Error(message);
-			}
-		}, [company, fetchProviders]);
+		try {
+			setError(null);
+			await ProvidersService.updateProvider(trimmedCompany, code, name, type);
+			await fetchProviders();
+		} catch (err) {
+			const message = err instanceof Error ? err.message : 'No se pudo actualizar el proveedor.';
+			setError(message);
+			console.error('Error updating provider:', err);
+			throw err instanceof Error ? err : new Error(message);
+		}
+	}, [company, fetchProviders]);
 
 	useEffect(() => {
 		void fetchProviders();

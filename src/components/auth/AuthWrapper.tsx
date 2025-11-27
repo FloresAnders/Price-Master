@@ -26,7 +26,7 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
   if (isPublicRoute) {
     return <>{children}</>;
   }
-//---------------------------------------------
+  //---------------------------------------------
   // Mostrar loading mientras se verifica la sesión
   if (loading) {
     return (

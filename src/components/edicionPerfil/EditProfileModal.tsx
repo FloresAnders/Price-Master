@@ -279,10 +279,10 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
             <div className="bg-[var(--card-bg)] text-[var(--foreground)] rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto border border-[var(--input-border)]">
-                    <div className="p-6">
+                <div className="p-6">
                     <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-xl font-semibold text-[var(--foreground)] flex items-center gap-3">
-                                <UserIcon className="w-5 h-5 text-[var(--primary)]" />
+                        <h2 className="text-xl font-semibold text-[var(--foreground)] flex items-center gap-3">
+                            <UserIcon className="w-5 h-5 text-[var(--primary)]" />
                             Editar Perfil
                         </h2>
                         <button

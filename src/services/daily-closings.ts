@@ -157,27 +157,27 @@ const sanitizeRecord = (raw: unknown): DailyClosingRecord | null => {
             const resolution: DailyClosingRecord['adjustmentResolution'] = {};
             const removed = Array.isArray(ar.removedAdjustments)
                 ? (ar.removedAdjustments as unknown[])
-                      .map((it): AdjustmentResolutionRemoval | undefined => {
-                          if (!it || typeof it !== 'object') return undefined;
-                          const candidateItem = it as Record<string, unknown>;
-                          const item: Partial<AdjustmentResolutionRemoval> = {};
-                          if (typeof candidateItem.id === 'string' && candidateItem.id.trim().length > 0) {
-                              item.id = candidateItem.id.trim();
-                          }
-                          if (candidateItem.currency === 'USD') item.currency = 'USD';
-                          else if (candidateItem.currency === 'CRC') item.currency = 'CRC';
-                          if (candidateItem.amount !== undefined) item.amount = sanitizeMoney(candidateItem.amount);
-                          if (candidateItem.amountIngreso !== undefined) item.amountIngreso = sanitizeMoney(candidateItem.amountIngreso);
-                          if (candidateItem.amountEgreso !== undefined) item.amountEgreso = sanitizeMoney(candidateItem.amountEgreso);
-                          if (typeof candidateItem.manager === 'string' && candidateItem.manager.trim().length > 0) {
-                              item.manager = candidateItem.manager.trim();
-                          }
-                          if (typeof candidateItem.createdAt === 'string' && candidateItem.createdAt.trim().length > 0) {
-                              item.createdAt = candidateItem.createdAt.trim();
-                          }
-                          return Object.keys(item).length > 0 ? (item as AdjustmentResolutionRemoval) : undefined;
-                      })
-                      .filter((entry): entry is AdjustmentResolutionRemoval => Boolean(entry))
+                    .map((it): AdjustmentResolutionRemoval | undefined => {
+                        if (!it || typeof it !== 'object') return undefined;
+                        const candidateItem = it as Record<string, unknown>;
+                        const item: Partial<AdjustmentResolutionRemoval> = {};
+                        if (typeof candidateItem.id === 'string' && candidateItem.id.trim().length > 0) {
+                            item.id = candidateItem.id.trim();
+                        }
+                        if (candidateItem.currency === 'USD') item.currency = 'USD';
+                        else if (candidateItem.currency === 'CRC') item.currency = 'CRC';
+                        if (candidateItem.amount !== undefined) item.amount = sanitizeMoney(candidateItem.amount);
+                        if (candidateItem.amountIngreso !== undefined) item.amountIngreso = sanitizeMoney(candidateItem.amountIngreso);
+                        if (candidateItem.amountEgreso !== undefined) item.amountEgreso = sanitizeMoney(candidateItem.amountEgreso);
+                        if (typeof candidateItem.manager === 'string' && candidateItem.manager.trim().length > 0) {
+                            item.manager = candidateItem.manager.trim();
+                        }
+                        if (typeof candidateItem.createdAt === 'string' && candidateItem.createdAt.trim().length > 0) {
+                            item.createdAt = candidateItem.createdAt.trim();
+                        }
+                        return Object.keys(item).length > 0 ? (item as AdjustmentResolutionRemoval) : undefined;
+                    })
+                    .filter((entry): entry is AdjustmentResolutionRemoval => Boolean(entry))
                 : undefined;
             if (removed && removed.length > 0) {
                 resolution.removedAdjustments = removed;

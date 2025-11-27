@@ -6,7 +6,7 @@ import { useAuth } from '../../hooks/useAuth';
 
 export default function ImportCcssConfig() {
     const { user } = useAuth();
-    
+
     const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -15,7 +15,7 @@ export default function ImportCcssConfig() {
             const parsed = JSON.parse(text) as CcssConfig;
             // For safety, ask user before applying
             if (!confirm('Aplicar configuración CCSS desde archivo?')) return;
-            
+
             // Actualizar con la nueva estructura
             const userOwnerId = user?.ownerId || user?.id || '';
             const payload: Omit<CcssConfig, 'id' | 'updatedAt'> = {

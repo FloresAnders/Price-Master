@@ -15,7 +15,7 @@ export class MigrationService {
     try {
       // Load sorteos JSON at runtime if available to avoid build-time module resolution errors
       const sorteosJsonPath = path.resolve(process.cwd(), 'src', 'data', 'sorteos.json');
-  let sorteosData: string[] = [];
+      let sorteosData: string[] = [];
       if (fs.existsSync(sorteosJsonPath)) {
         try {
           const raw = fs.readFileSync(sorteosJsonPath, 'utf8');
