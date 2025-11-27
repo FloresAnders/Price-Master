@@ -856,6 +856,52 @@ export default function DataEditor() {
                     const refreshedPassword = typeof refreshed.password === 'string' ? refreshed.password : '';
                     setPasswordStore(prev => ({ ...prev, [key]: refreshedPassword }));
                     setPasswordBaseline(prev => ({ ...prev, [key]: refreshedPassword }));
+                    // Si el usuario guardado es el usuario actual, actualizar la sesión en localStorage
+                    try {
+                        if (currentUser && refreshed.id && currentUser.id === refreshed.id) {
+                            // Actualizar sesión tradicional si existe
+                            const sessionRaw = localStorage.getItem('pricemaster_session');
+                            if (sessionRaw) {
+                                try {
+                                    const session = JSON.parse(sessionRaw);
+                                    session.name = sanitizedRefreshed.name || session.name;
+                                    session.role = sanitizedRefreshed.role || session.role;
+                                    session.ownercompanie = sanitizedRefreshed.ownercompanie || session.ownercompanie;
+                                    session.ownerId = sanitizedRefreshed.ownerId || session.ownerId;
+                                    session.permissions = sanitizedRefreshed.permissions || session.permissions;
+                                    localStorage.setItem('pricemaster_session', JSON.stringify(session));
+                                } catch (err) {
+                                    console.warn('Error updating pricemaster_session in localStorage:', err);
+                                }
+                            }
+
+                            // Actualizar sesión por token si existe
+                            try {
+                                const tokenRaw = localStorage.getItem('pricemaster_token_session');
+                                if (tokenRaw) {
+                                    try {
+                                        const tokenSession = JSON.parse(tokenRaw);
+                                        if (tokenSession && tokenSession.user) {
+                                            tokenSession.user = { ...tokenSession.user, ...sanitizedRefreshed };
+                                            tokenSession.user.password = undefined;
+                                            localStorage.setItem('pricemaster_token_session', JSON.stringify(tokenSession));
+                                        }
+                                    } catch (err) {
+                                        console.warn('Error updating pricemaster_token_session in localStorage:', err);
+                                    }
+                                }
+                            } catch { /* ignore */ }
+
+                            // Notificar a la app que la sesión cambió para que useAuth recargue inmediatamente
+                            try {
+                                window.dispatchEvent(new Event('pricemaster_session_updated'));
+                            } catch (err) {
+                                console.warn('Error dispatching session updated event:', err);
+                            }
+                        }
+                    } catch (err) {
+                        console.warn('Error while synchronizing updated user into session:', err);
+                    }
                 } else {
                     setUsersData(prev => {
                         const updated = [...prev];

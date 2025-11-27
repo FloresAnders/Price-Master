@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { User, UserPermissions } from '../types/firestore';
 import { TokenService } from '../services/tokenService';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '../config/firebase';
 
 interface SessionData {
   id?: string;
@@ -51,6 +53,7 @@ export function useAuth() {
   const [loading, setLoading] = useState(true);
   const [sessionWarning, setSessionWarning] = useState(false);
   const [useTokenAuth, setUseTokenAuth] = useState(false); // Estado para controlar el tipo de autenticación
+  const userListenerRef = useRef<(() => void) | null>(null);
 
   // Función para generar ID de sesión único (short format)
   const generateSessionId = () => {
@@ -130,6 +133,16 @@ export function useAuth() {
     // Log de auditoría antes del logout
     if (currentUser) {
       logAuditEvent('LOGOUT', reason || 'Manual logout', currentUser.id);
+    }
+
+    // Unsubscribe realtime listener si existe
+    try {
+      if (userListenerRef.current) {
+        userListenerRef.current();
+        userListenerRef.current = null;
+      }
+    } catch (err) {
+      console.warn('Error unsubscribing user listener on logout:', err);
     }
 
     // Limpiar datos de sesión según el tipo de autenticación
@@ -288,14 +301,129 @@ export function useAuth() {
       checkExistingSession();
     }, 5 * 60 * 1000);
 
+    // Escuchar actualizaciones explícitas de sesión (emitidas por otras partes de la app)
+    const handleSessionUpdated = () => {
+      try {
+        checkExistingSession();
+      } catch (err) {
+        console.error('Error handling session updated event:', err);
+      }
+    };
+
+    // Escuchar cambios en localStorage desde otras pestañas
+    const handleStorage = (e: StorageEvent) => {
+      if (!e.key) return;
+      if (e.key === 'pricemaster_session' || e.key === 'pricemaster_token_session' || e.key === 'pricemaster_session_id') {
+        checkExistingSession();
+      }
+    };
+
+    window.addEventListener('pricemaster_session_updated', handleSessionUpdated);
+    window.addEventListener('storage', handleStorage as any);
+
     // Cleanup
     return () => {
       activityEvents.forEach(event => {
         document.removeEventListener(event, handleActivity);
       });
       clearInterval(sessionInterval);
+      window.removeEventListener('pricemaster_session_updated', handleSessionUpdated);
+      window.removeEventListener('storage', handleStorage as any);
     };
   }, [checkExistingSession, updateActivity]);
+
+    // Listen to realtime updates for the current user's Firestore document so
+    // changes made from other devices are reflected after reload/automatically.
+    useEffect(() => {
+      // unsubscribe previous listener if any
+      try {
+        if (userListenerRef.current) {
+          userListenerRef.current();
+          userListenerRef.current = null;
+        }
+      } catch (err) {
+        console.warn('Error clearing previous user listener:', err);
+      }
+
+      if (!user || !user.id) return;
+
+      // Helper to attach the onSnapshot listener
+      const attachListener = () => {
+        try {
+          if (userListenerRef.current) return; // already attached
+          const docRef = doc(db, 'users', user.id);
+          const unsub = onSnapshot(docRef, (snapshot) => {
+            if (!snapshot.exists()) return;
+            const data = snapshot.data() as Partial<User>;
+
+            // If permissions changed, update the local user state and localStorage
+            const newPermissions = (data.permissions as unknown) as UserPermissions | undefined;
+            if (typeof newPermissions !== 'undefined' && JSON.stringify(newPermissions) !== JSON.stringify(user.permissions)) {
+              const updated = { ...user, permissions: newPermissions } as User;
+              setUser(updated);
+
+              // keep localStorage session in sync so reloads reflect new permissions
+              try {
+                const sessionRaw = localStorage.getItem('pricemaster_session');
+                if (sessionRaw) {
+                  const session = JSON.parse(sessionRaw);
+                  session.permissions = newPermissions;
+                  localStorage.setItem('pricemaster_session', JSON.stringify(session));
+                }
+              } catch (err) {
+                console.warn('Error syncing pricemaster_session into localStorage:', err);
+              }
+            }
+          }, (err) => {
+            console.warn('User onSnapshot error:', err);
+          });
+
+          userListenerRef.current = unsub;
+        } catch (err) {
+          console.warn('Error attaching user realtime listener:', err);
+        }
+      };
+
+      // Helper to detach the listener
+      const detachListener = () => {
+        try {
+          if (userListenerRef.current) {
+            userListenerRef.current();
+            userListenerRef.current = null;
+          }
+        } catch (err) {
+          console.warn('Error detaching user listener:', err);
+        }
+      };
+
+      // Attach only if the page is visible. This reduces idle connections and reads
+      // for background tabs while preserving real-time updates when the user is
+      // actively using the app.
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        attachListener();
+      }
+
+      const onVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+          attachListener();
+        } else {
+          // detach when in background
+          detachListener();
+        }
+      };
+
+      document.addEventListener('visibilitychange', onVisibilityChange);
+
+      return () => {
+        // cleanup visibility listener and any attached firestore listener
+        try {
+          document.removeEventListener('visibilitychange', onVisibilityChange);
+        } catch (err) {
+          // ignore
+        }
+        detachListener();
+      };
+    }, [user?.id]);
   const login = (userData: User, keepActive: boolean = false, useTokens: boolean = false) => {
     if (useTokens) {
       // Usar autenticación por tokens (una semana automáticamente)
