@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image';
-import { Settings, LogOut, Menu, X, Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck, History, User, ChevronDown, Bell, UserPlus, Layers } from 'lucide-react';
+import { Settings, LogOut, Menu, X, Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck, History, User, ChevronDown, Bell, UserPlus, Layers, Shield, Star } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { collection, query as fbQuery, where as fbWhere, orderBy as fbOrderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../../config/firebase';
@@ -55,7 +55,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const [showNotifModal, setShowNotifModal] = useState(false);
   const [hasNewSolicitudes, setHasNewSolicitudes] = useState(false);
   const [isClient, setIsClient] = useState(false);
-  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, right: 0 });
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
   const [showSessionTimer, setShowSessionTimer] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
   const [showCalculatorModal, setShowCalculatorModal] = useState(false);
@@ -331,11 +331,19 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       const rect = button.getBoundingClientRect();
       setDropdownPosition({
         top: rect.bottom + 8, // 8px gap below button
-        right: window.innerWidth - rect.right // Distance from right edge
+        left: rect.left // align to button's left edge
       });
     }
     setShowUserDropdown(!showUserDropdown);
   };
+
+  const isAdminUser = Boolean(user && (user.role === 'admin' || user.role === 'superadmin'));
+  const userInitials = (user && ((user.fullName || user.name || '') as string))
+    ? ((user.fullName || user.name || '').trim().split(/\s+/).filter(Boolean).map(p => p[0]).slice(0,2).join('') || 'U').toUpperCase()
+    : 'U';
+  const roleLabel = user?.role
+    ? (user.role === 'superadmin' ? 'Superadmin' : user.role === 'admin' ? 'Administrador' : (user.role || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()))
+    : '';
 
   const handleConfirmLogout = async () => {
     if (!isClient) return;
@@ -483,14 +491,37 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                 {/* User button with dropdown - solo si hay usuario autenticado */}
                 {user && (
                   <div className="relative" style={{ zIndex: 'auto' }}>
-                    <button
-                      onClick={handleUserDropdownClick}
-                      className="flex items-center gap-2 px-3 py-1 bg-transparent rounded-lg border border-[var(--input-border)] hover:bg-[var(--hover-bg)] transition-colors"
-                    >
-                      <User className="w-4 h-4 text-[var(--muted-foreground)]" />
-                      <span className="text-sm font-sans font-bold text-[var(--foreground)]">{user.name}</span>
-                      <ChevronDown className={`w-4 h-4 text-[var(--muted-foreground)] transition-transform ${showUserDropdown ? 'rotate-180' : ''}`} />
-                    </button>
+                    <div className="relative inline-block">
+                      <button
+                        onClick={handleUserDropdownClick}
+                        className={`flex items-center gap-3 px-3 py-2 bg-transparent rounded-lg border border-[var(--input-border)] hover:bg-[var(--hover-bg)] transition-colors`}
+                      >
+                        <div className="w-9 h-9 rounded-full flex items-center justify-center overflow-hidden" style={{ backgroundColor: 'var(--primary)' }}>
+                          {(user as any)?.photoUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={(user as any).photoUrl} alt="avatar" className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-sm font-semibold text-[var(--button-text)]">{userInitials}</span>
+                          )}
+                        </div>
+
+                        <div className="flex flex-col items-start leading-tight">
+                          <span className="text-sm font-semibold text-[var(--foreground)]">{user.name}</span>
+                          <div className="flex items-center gap-2 mt-0.5 text-xs text-[var(--muted-foreground)]">
+                            {user?.role === 'superadmin' ? (
+                              <Star className="w-3 h-3 text-[var(--muted-foreground)]" />
+                            ) : user?.role === 'admin' ? (
+                              <Shield className="w-3 h-3 text-[var(--muted-foreground)]" />
+                            ) : (
+                              <User className="w-3 h-3 text-[var(--muted-foreground)]" />
+                            )}
+                            <span>{roleLabel}</span>
+                          </div>
+                        </div>
+
+                        <ChevronDown className={`w-4 h-4 text-[var(--muted-foreground)] ml-2 transition-transform ${showUserDropdown ? 'rotate-180' : ''}`} />
+                      </button>
+                    </div>
 
                     {/* Dropdown menu - rendered in portal */}
                     {showUserDropdown && isClient && createPortal(
@@ -504,19 +535,19 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
 
                         {/* Dropdown content */}
                         <div
-                          className="w-48 bg-[var(--background)] border border-[var(--input-border)] rounded-lg shadow-xl"
+                          className="min-w-[12rem] bg-transparent backdrop-blur-sm border border-[var(--input-border)] rounded-lg shadow-lg overflow-hidden"
                           style={{
                             position: 'fixed',
                             top: dropdownPosition.top,
-                            right: dropdownPosition.right,
-                            zIndex: 2147483647, // Maximum z-index value
+                            left: dropdownPosition.left,
+                            zIndex: 2147483647,
                             isolation: 'isolate',
-                            transform: 'translateZ(0)', // Force hardware acceleration
-                            willChange: 'transform', // Optimize for changes
-                            pointerEvents: 'auto' // Ensure it can be clicked
+                            transform: 'translateZ(0)',
+                            willChange: 'transform',
+                            pointerEvents: 'auto'
                           }}
                         >
-                          <div className="py-2">
+                          <div className="flex flex-col py-1">
                             <button
                               onClick={() => {
                                 setShowEditProfileModal(true);
@@ -525,7 +556,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                               className="flex items-center gap-3 w-full px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--hover-bg)] transition-colors"
                             >
                               <User className="w-4 h-4 text-[var(--muted-foreground)]" />
-                              Editar Perfil
+                              <span className="truncate">Editar Perfil</span>
                             </button>
 
                             <button
@@ -536,7 +567,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                               className="flex items-center gap-3 w-full px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--hover-bg)] transition-colors"
                             >
                               <Settings className="w-4 h-4 text-[var(--muted-foreground)]" />
-                              Configuración de Sesión
+                              <span className="truncate">Configuración de Sesión</span>
                             </button>
                           </div>
                         </div>
@@ -621,11 +652,32 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
             {/* Mobile user section */}
             {user && (
               <div className="mt-4 pt-4 border-t border-[var(--input-border)]">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <User className="w-5 h-5 text-[var(--muted-foreground)]" />
-                    <div className="font-medium text-[var(--foreground)]">{user.name}</div>
+                <div className="flex items-start justify-between">
+                  <div className="flex gap-3 items-center">
+                    <div className="w-9 h-9 rounded-full flex items-center justify-center overflow-hidden" style={{ backgroundColor: 'var(--primary)' }}>
+                      {(user as any)?.photoUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={(user as any).photoUrl} alt="avatar" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-sm font-semibold text-[var(--button-text)]">{userInitials}</span>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col">
+                      <span className="font-medium text-[var(--foreground)]">{user.name}</span>
+                      <div className="flex items-center gap-2 mt-1 text-xs text-[var(--muted-foreground)]">
+                        {user?.role === 'superadmin' ? (
+                          <Star className="w-3 h-3 text-[var(--muted-foreground)]" />
+                        ) : user?.role === 'admin' ? (
+                          <Shield className="w-3 h-3 text-[var(--muted-foreground)]" />
+                        ) : (
+                          <User className="w-3 h-3 text-[var(--muted-foreground)]" />
+                        )}
+                        <span>{roleLabel}</span>
+                      </div>
+                    </div>
                   </div>
+
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => {

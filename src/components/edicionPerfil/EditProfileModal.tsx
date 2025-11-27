@@ -1,6 +1,6 @@
 'use client'
 
-import { Eye, EyeOff, Info, Loader2, User as UserIcon, X } from 'lucide-react';
+import { Eye, EyeOff, Info, Loader2, User as UserIcon, X, Check, Camera } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import useToast from '../../hooks/useToast';
 import { useAuth } from '../../hooks/useAuth';
@@ -256,9 +256,17 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
         }
     };
 
-    if (!isOpen) return null;
-
     const isFormLocked = profileLoading || isSaving;
+
+    const initials = useMemo(() => {
+        const source = profile ?? user ?? null;
+        const name = source?.fullName || source?.name || '';
+        const parts = name.trim().split(/\s+/).filter(Boolean);
+        if (parts.length === 0) return 'U';
+        const first = parts[0]?.[0] ?? '';
+        const second = parts.length > 1 ? parts[1]?.[0] ?? '' : parts[0]?.[1] ?? '';
+        return (first + second).toUpperCase();
+    }, [profile, user]);
 
     const role = baseUser?.role || 'user';
     const roleLabel = role === 'superadmin' ? 'Superadmin' : role === 'admin' ? 'Administrador' : 'Usuario';
@@ -266,13 +274,15 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
     const ownerEmail = ownerInfo?.email;
     const showOwnerInfo = Boolean(ownerId || baseUser?.ownercompanie);
 
+    if (!isOpen) return null;
+
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-            <div className="bg-[var(--background)] rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-                <div className="p-6">
+            <div className="bg-[var(--card-bg)] text-[var(--foreground)] rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto border border-[var(--input-border)]">
+                    <div className="p-6">
                     <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-xl font-semibold text-[var(--foreground)] flex items-center gap-3">
-                            <UserIcon className="w-5 h-5 text-blue-600" />
+                            <h2 className="text-xl font-semibold text-[var(--foreground)] flex items-center gap-3">
+                                <UserIcon className="w-5 h-5 text-[var(--primary)]" />
                             Editar Perfil
                         </h2>
                         <button
@@ -283,7 +293,7 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
                         </button>
                     </div>
 
-                    <div className="p-4 bg-[var(--hover-bg)] rounded">
+                    <div className="p-4 bg-[var(--card-bg)] rounded">
                         {!user ? (
                             <p className="text-sm text-[var(--muted-foreground)]">No se pudo cargar la información del usuario.</p>
                         ) : profileLoading ? (
@@ -292,6 +302,29 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
                             </div>
                         ) : (
                             <form onSubmit={handleSubmit} className="space-y-4">
+                                <div className="flex flex-col items-center gap-3">
+                                    <div className="w-24 h-24 rounded-full bg-[var(--input-bg)] border border-[var(--input-border)] flex items-center justify-center overflow-hidden">
+                                        {(baseUser as any)?.photoUrl ? (
+                                            // placeholder: if real photo exists, show it (rare); otherwise show initials
+                                            // functionality to upload is not implemented yet
+                                            // eslint-disable-next-line @next/next/no-img-element
+                                            <img src={(baseUser as any).photoUrl} alt="Foto de perfil" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <span className="text-xl font-semibold text-[var(--foreground)]">{initials}</span>
+                                        )}
+                                    </div>
+                                    <div className="text-xs text-[var(--muted-foreground)]">Foto de perfil (próximamente funcional)</div>
+                                    <div className="flex gap-2">
+                                        <button disabled className="inline-flex items-center gap-2 rounded-md border border-[var(--input-border)] px-3 py-1 text-sm text-[var(--foreground)] bg-transparent opacity-60 cursor-not-allowed">
+                                            <Camera className="w-4 h-4 text-[var(--muted-foreground)]" />
+                                            Cambiar
+                                        </button>
+                                        <button disabled className="inline-flex items-center gap-2 rounded-md border border-[var(--input-border)] px-3 py-1 text-sm text-[var(--foreground)] bg-transparent opacity-60 cursor-not-allowed">
+                                            Eliminar
+                                        </button>
+                                    </div>
+                                </div>
+
                                 <div className="space-y-2">
                                     <p className="text-sm font-medium text-[var(--foreground)]">Datos del usuario</p>
                                     <p className="text-xs text-[var(--muted-foreground)]">
@@ -315,7 +348,7 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
                                             required
                                             autoComplete="username"
                                             disabled={isFormLocked}
-                                            className="w-full rounded-md border border-[var(--input-border)] bg-[var(--background)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+                                            className="w-full rounded-md border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
                                         />
                                     </label>
 
@@ -327,7 +360,7 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
                                             onChange={handleChange('fullName')}
                                             autoComplete="name"
                                             disabled={isFormLocked}
-                                            className="w-full rounded-md border border-[var(--input-border)] bg-[var(--background)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+                                            className="w-full rounded-md border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
                                         />
                                     </label>
                                 </div>
@@ -340,7 +373,7 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
                                         onChange={handleChange('email')}
                                         autoComplete="email"
                                         disabled={isFormLocked}
-                                        className="w-full rounded-md border border-[var(--input-border)] bg-[var(--background)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+                                        className="w-full rounded-md border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
                                     />
                                 </label>
 
@@ -354,7 +387,7 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
                                                 onChange={handleChange('password')}
                                                 autoComplete="new-password"
                                                 disabled={isFormLocked}
-                                                className="w-full rounded-md border border-[var(--input-border)] bg-[var(--background)] px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+                                                className="w-full rounded-md border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
                                                 placeholder="••••••••"
                                             />
                                             <button
@@ -380,7 +413,7 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
                                                     onChange={handleChange('passwordConfirm')}
                                                     autoComplete="new-password"
                                                     disabled={isFormLocked}
-                                                    className="w-full rounded-md border border-[var(--input-border)] bg-[var(--background)] px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+                                                    className="w-full rounded-md border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
                                                     placeholder="••••••••"
                                                 />
                                                 <button
@@ -398,9 +431,9 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
                                 </div>
 
                                 {showOwnerInfo && (
-                                    <div className="rounded-md border border-dashed border-[var(--input-border)] bg-[var(--background)]/60 px-3 py-3 text-sm">
+                                    <div className="rounded-md border border-dashed border-[var(--input-border)] bg-[var(--card-bg)]/60 px-3 py-3 text-sm">
                                         <div className="flex items-start gap-2">
-                                            <Info className="mt-0.5 h-4 w-4 text-blue-500" />
+                                            <Info className="mt-0.5 h-4 w-4 text-[var(--primary)]" />
                                             <div>
                                                 <p className="font-medium text-[var(--foreground)]">Usuario Encargado</p>
                                                 {ownerLoading ? (
@@ -434,26 +467,30 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
                                     </div>
                                 )}
 
-                                <div className="flex justify-end gap-2 pt-2">
+                                <div className="flex justify-center gap-4 pt-4">
                                     <button
                                         type="button"
                                         onClick={onClose}
-                                        className="rounded-lg border border-[var(--input-border)] px-4 py-2 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]"
+                                        className="inline-flex items-center gap-2 rounded-lg border border-[var(--input-border)] px-4 py-2 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]"
                                     >
+                                        <X className="w-4 h-4 text-[var(--muted-foreground)]" />
                                         Cancelar
                                     </button>
                                     <button
                                         type="submit"
                                         disabled={!hasChanges || isSaving || profileLoading}
-                                        className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                        className="inline-flex items-center gap-2 rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-medium text-[var(--button-text)] transition-colors hover:bg-[var(--button-hover)] disabled:cursor-not-allowed disabled:opacity-60"
                                     >
                                         {isSaving ? (
                                             <>
-                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                                <Loader2 className="h-4 w-4 animate-spin text-[var(--button-text)]" />
                                                 Guardando…
                                             </>
                                         ) : (
-                                            'Guardar cambios'
+                                            <>
+                                                <Check className="w-4 h-4 text-[var(--button-text)]" />
+                                                Guardar cambios
+                                            </>
                                         )}
                                     </button>
                                 </div>
