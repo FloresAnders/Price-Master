@@ -1,6 +1,6 @@
 {
-    "name": "Price Master",
-    "short_name": "PriceMaster",
+    "name": "Time Master",
+    "short_name": "TimeMaster",
     "description": "Plataforma para gestión de precios, escaneo de códigos de barras, control de inventario y horarios laborales",
     "icons": [
         {
