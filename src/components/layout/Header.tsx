@@ -337,7 +337,6 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     setShowUserDropdown(!showUserDropdown);
   };
 
-  const isAdminUser = Boolean(user && (user.role === 'admin' || user.role === 'superadmin'));
   const userInitials = (user && ((user.fullName || user.name || '') as string))
     ? ((user.fullName || user.name || '').trim().split(/\s+/).filter(Boolean).map(p => p[0]).slice(0, 2).join('') || 'U').toUpperCase()
     : 'U';

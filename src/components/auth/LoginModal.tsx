@@ -2,8 +2,9 @@
 
 import React, { useState } from 'react';
 import { Lock, User, Eye, EyeOff } from 'lucide-react';
-import { UsersService } from '../../services/users';
-import type { User as UserType } from '../../types/firestore';
+import { UsersService } from '@/services/users';
+import type { User as UserType } from '@/types/firestore';
+import { hashPassword, verifyPassword } from '@/lib/auth/password';
 
 
 interface LoginModalProps {
@@ -68,14 +69,39 @@ export default function LoginModal({ isOpen, onLoginSuccess, onClose, title, can
       // Obtener todos los usuarios activos
       const users = await UsersService.getActiveUsers();
 
-      // Buscar usuario por nombre y contraseña
+      // Buscar usuario por nombre
       const user = users.find(u =>
-        u.name.toLowerCase() === username.toLowerCase() &&
-        u.password === password
+        u.name.toLowerCase() === username.toLowerCase()
       );
 
-      if (user) {
-        onLoginSuccess(user, keepSessionActive, useTokenAuth);
+      let isValid = false;
+
+      if (user?.password) {
+        try {
+          if (user.password.startsWith('$argon2')) {
+            isValid = await verifyPassword(password, user.password);
+          } else {
+            isValid = user.password === password;
+
+            if (isValid && user.id) {
+              try {
+                const passwordHash = await hashPassword(password);
+                await UsersService.updateUser(user.id, { password: passwordHash });
+                user.password = passwordHash;
+              } catch (upgradeError) {
+                console.warn('No se pudo actualizar el hash de la contraseña legacy:', upgradeError);
+              }
+            }
+          }
+        } catch (verifyError) {
+          console.error('Error verifying password hash:', verifyError);
+          isValid = false;
+        }
+      }
+
+      if (user && isValid) {
+        const safeUser = { ...user, password: undefined };
+        onLoginSuccess(safeUser as UserType, keepSessionActive, useTokenAuth);
 
         // Limpiar formulario
         setUsername('');

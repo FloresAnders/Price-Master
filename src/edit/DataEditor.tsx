@@ -42,6 +42,8 @@ export default function DataEditor() {
         [primaryOwnerId]
     );
     const [passwordVisibility, setPasswordVisibility] = useState<{ [key: string]: boolean }>({});
+    const [passwordStore, setPasswordStore] = useState<Record<string, string>>({});
+    const [passwordBaseline, setPasswordBaseline] = useState<Record<string, string>>({});
     const [savingUserKey, setSavingUserKey] = useState<string | null>(null);
     const [showPermissions, setShowPermissions] = useState<{ [key: string]: boolean }>({});
     const [permissionsEditable, setPermissionsEditable] = useState<{ [key: string]: boolean }>({});
@@ -206,8 +208,22 @@ export default function DataEditor() {
                     usersToShow = users;
                 }
 
-                setUsersData(usersToShow);
-                setOriginalUsersData(JSON.parse(JSON.stringify(usersToShow)));
+                const passwordMap: Record<string, string> = {};
+                const baselineMap: Record<string, string> = {};
+                const sanitizedUsers = usersToShow.map((user, index) => {
+                    const sanitized = { ...user } as User;
+                    const key = user.id ?? (user as unknown as { __localId?: string }).__localId ?? `tmp-${index}`;
+                    const storedPassword = typeof user.password === 'string' ? user.password : '';
+                    passwordMap[key] = storedPassword;
+                    baselineMap[key] = storedPassword;
+                    sanitized.password = '';
+                    return sanitized;
+                });
+
+                setUsersData(sanitizedUsers);
+                setOriginalUsersData(JSON.parse(JSON.stringify(sanitizedUsers)));
+                setPasswordStore(passwordMap);
+                setPasswordBaseline(baselineMap);
 
                 // Re-apply empresa filtering so admins see empresas owned by users they can see.
                 try {
@@ -303,12 +319,15 @@ export default function DataEditor() {
             // Guardar usuarios
             const existingUsers = await UsersService.getAllUsers();
             for (const u of existingUsers) { if (u.id) { try { await UsersService.deleteUserAs(currentUser, u.id); } catch { } } }
-            for (const u of usersData) {
+            for (let index = 0; index < usersData.length; index++) {
+                const u = usersData[index];
+                const key = getUserKey(u, index);
+                const storedPassword = passwordStore[key] ?? u.password;
                 const perms = { ...(u.permissions || {}) } as Record<string, unknown>;
                 await UsersService.createUserAs(currentUser, {
                     name: u.name,
                     ownercompanie: u.ownercompanie,
-                    password: u.password,
+                    password: storedPassword,
                     role: u.role,
                     isActive: u.isActive,
                     permissions: perms as any,
@@ -342,10 +361,7 @@ export default function DataEditor() {
             localStorage.setItem('editedSorteos', JSON.stringify(sorteosData));
             localStorage.setItem('editedUsers', JSON.stringify(usersData));
 
-            setOriginalSorteosData(JSON.parse(JSON.stringify(sorteosData)));
-            setOriginalUsersData(JSON.parse(JSON.stringify(usersData)));
-            setOriginalCcssConfigsData(JSON.parse(JSON.stringify(ccssConfigsData)));
-            setOriginalEmpresasData(JSON.parse(JSON.stringify(empresasData)));
+            await loadData();
 
             setHasChanges(false);
             showToast('¡Datos actualizados exitosamente en Firebase!', 'success');
@@ -417,9 +433,26 @@ export default function DataEditor() {
         setPasswordVisibility(prev => ({ ...prev, [localId]: false }));
         setPermissionsEditable(prev => ({ ...prev, [localId]: true }));
         setShowPermissions(prev => ({ ...prev, [localId]: true }));
+        setPasswordStore(prev => ({ ...prev, [localId]: '' }));
+        setPasswordBaseline(prev => ({ ...prev, [localId]: '' }));
     };
 
     const updateUser = (index: number, field: keyof User, value: unknown) => {
+        if (field === 'password') {
+            const key = getUserKey(usersData[index], index);
+            const newValue = typeof value === 'string' ? value : '';
+            const updated = [...usersData];
+            updated[index] = { ...updated[index], password: newValue };
+            setUsersData(updated);
+
+            if (newValue.length > 0) {
+                setPasswordStore(prev => ({ ...prev, [key]: newValue }));
+            } else {
+                setPasswordStore(prev => ({ ...prev, [key]: passwordBaseline[key] ?? '' }));
+            }
+            return;
+        }
+
         const updated = [...usersData];
 
         // No cambiar permisos automáticamente al cambiar rol. Solo actualizar campo.
@@ -449,6 +482,18 @@ export default function DataEditor() {
 
                     // Actualizar originalUsersData para eliminarlo también
                     setOriginalUsersData(prev => prev.filter(u => u.id !== user.id && (u as unknown as { __localId?: string }).__localId !== (user as unknown as { __localId?: string }).__localId));
+
+                    const keyToRemove = getUserKey(user, index);
+                    setPasswordStore(prev => {
+                        const copy = { ...prev };
+                        delete copy[keyToRemove];
+                        return copy;
+                    });
+                    setPasswordBaseline(prev => {
+                        const copy = { ...prev };
+                        delete copy[keyToRemove];
+                        return copy;
+                    });
 
                     showToast(`Usuario ${userName} eliminado exitosamente`, 'success');
                 } catch (error: unknown) {
@@ -760,9 +805,13 @@ export default function DataEditor() {
                 // Actualizar usuario existente (actor-aware)
                 // Clean stale properties before saving
                 const permissionsToSave = { ...(user.permissions || {}) } as Record<string, unknown>;
-                await UsersService.updateUserAs(currentUser, user.id, {
+                const storedPassword = passwordStore[key] ?? '';
+                const baselinePassword = passwordBaseline[key] ?? '';
+                const passwordHasInput = typeof user.password === 'string' && user.password.length > 0;
+                const shouldUpdatePassword = passwordHasInput || (storedPassword.length > 0 && storedPassword !== baselinePassword);
+
+                const updatePayload: Partial<User> = {
                     name: user.name,
-                    password: user.password,
                     role: user.role,
                     isActive: user.isActive,
                     permissions: permissionsToSave as any,
@@ -772,20 +821,53 @@ export default function DataEditor() {
                     eliminate: user.eliminate ?? false,
                     ownerId: user.ownerId,
                     ownercompanie: user.ownercompanie
-                });
-                // Actualizar originalUsersData para este usuario para reflejar que ya no hay cambios pendientes
-                setOriginalUsersData(prev => {
-                    try {
-                        const copy = JSON.parse(JSON.stringify(prev)) as User[];
-                        const idx = copy.findIndex(u => u.id === user.id);
-                        if (idx !== -1) {
-                            copy[idx] = JSON.parse(JSON.stringify(user));
+                };
+
+                if (shouldUpdatePassword) {
+                    updatePayload.password = storedPassword;
+                }
+
+                await UsersService.updateUserAs(currentUser, user.id, updatePayload);
+
+                const refreshed = await UsersService.getUserById(user.id);
+
+                if (refreshed) {
+                    const sanitizedRefreshed = { ...refreshed, password: '' } as User;
+
+                    setUsersData(prev => {
+                        const updated = [...prev];
+                        updated[index] = { ...updated[index], ...sanitizedRefreshed };
+                        return updated;
+                    });
+
+                    setOriginalUsersData(prev => {
+                        try {
+                            const copy = JSON.parse(JSON.stringify(prev)) as User[];
+                            const idx = copy.findIndex(u => u.id === user.id);
+                            if (idx !== -1) {
+                                copy[idx] = JSON.parse(JSON.stringify(sanitizedRefreshed));
+                            }
+                            return copy;
+                        } catch {
+                            return prev;
                         }
-                        return copy;
-                    } catch {
-                        return prev;
+                    });
+
+                    const refreshedPassword = typeof refreshed.password === 'string' ? refreshed.password : '';
+                    setPasswordStore(prev => ({ ...prev, [key]: refreshedPassword }));
+                    setPasswordBaseline(prev => ({ ...prev, [key]: refreshedPassword }));
+                } else {
+                    setUsersData(prev => {
+                        const updated = [...prev];
+                        updated[index] = { ...updated[index], password: '' };
+                        return updated;
+                    });
+
+                    if (shouldUpdatePassword) {
+                        setPasswordStore(prev => ({ ...prev, [key]: storedPassword }));
+                        setPasswordBaseline(prev => ({ ...prev, [key]: storedPassword }));
                     }
-                });
+                }
 
                 // Bloquear edición de permisos para este usuario después de guardar
                 setPermissionsEditable(prev => ({ ...prev, [key]: false }));
@@ -794,7 +876,7 @@ export default function DataEditor() {
                 const permissionsToCreate = { ...(user.permissions || {}) } as Record<string, unknown>;
                 await UsersService.createUserAs(currentUser, {
                     name: user.name,
-                    password: user.password,
+                    password: passwordStore[key] ?? user.password,
                     role: user.role,
                     isActive: user.isActive,
                     permissions: permissionsToCreate as any,

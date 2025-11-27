@@ -1,6 +1,25 @@
 import { FirestoreService } from './firestore';
 import { User } from '../types/firestore';
 import { getDefaultPermissions } from '../utils/permissions';
+import { hashPassword } from '../lib/auth/password';
+
+const ARGON2_HASH_PREFIX = '$argon2';
+
+async function preparePasswordForStorage(password?: string | null): Promise<string | undefined> {
+  if (typeof password !== 'string') {
+    return undefined;
+  }
+
+  if (password.length === 0 || password.trim().length === 0) {
+    return undefined;
+  }
+
+  if (password.startsWith(ARGON2_HASH_PREFIX)) {
+    return password;
+  }
+
+  return hashPassword(password);
+}
 
 export class UsersService {
   private static readonly COLLECTION_NAME = 'users';
@@ -108,8 +127,11 @@ export class UsersService {
    * Add a new user
    */
   static async addUser(user: Omit<User, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+    const passwordForStorage = await preparePasswordForStorage(user.password);
+
     const userWithTimestamps = {
       ...user,
+      password: passwordForStorage,
       isActive: user.isActive ?? true,
       // ensure eliminate defaults to false when not provided
       eliminate: user.eliminate ?? false,
@@ -195,8 +217,19 @@ export class UsersService {
    * Update a user
    */
   static async updateUser(id: string, user: Partial<User>): Promise<void> {
+    const updatePayload: Partial<User> = { ...user };
+
+    if (Object.prototype.hasOwnProperty.call(updatePayload, 'password')) {
+      const passwordForStorage = await preparePasswordForStorage(updatePayload.password as string | undefined);
+      if (passwordForStorage) {
+        updatePayload.password = passwordForStorage;
+      } else {
+        delete updatePayload.password;
+      }
+    }
+
     const updateDataRaw: Partial<User & { updatedAt: Date }> = {
-      ...user,
+      ...updatePayload,
       updatedAt: new Date()
     };
 
