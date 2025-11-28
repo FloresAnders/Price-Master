@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   // Solo aplicar middleware a la ruta /edit y sus sub-rutas
   if (request.nextUrl.pathname.startsWith('/edit')) {
     // En el cliente, la verificación de autenticación se hará en el componente

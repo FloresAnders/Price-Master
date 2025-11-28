@@ -4,7 +4,15 @@ import path from 'path';
 
 const useStaticExport = process.env.NEXT_ENABLE_STATIC_EXPORT === 'true';
 
-const nextConfig: NextConfig = {
+// NOTE: `turbopack.root` helps Next.js/Turbopack detect the correct project root
+// when there are multiple lockfiles (e.g. monorepo-style layout). This avoids
+// the warning about inferring the workspace root and ensures builds/logging
+// work from the intended project directory.
+const nextConfig: NextConfig & { turbopack?: { root?: string } } = {
+  turbopack: {
+    // Use absolute path to this project's directory (next.config.ts resides here).
+    root: path.resolve(__dirname),
+  },
   /* config options here */
   ...(useStaticExport ? { output: 'export', trailingSlash: true, distDir: 'out' } : {}),
   generateBuildId: async () => {
