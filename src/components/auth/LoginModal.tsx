@@ -79,7 +79,10 @@ export default function LoginModal({ isOpen, onLoginSuccess, onClose, title, can
       if (user?.password) {
         try {
           if (user.password.startsWith('$argon2')) {
+           // const start = performance.now();
             isValid = await verifyPassword(password, user.password);
+            //const end = performance.now();
+           // console.log(`Password verification took ${end - start} milliseconds.`);
           } else {
             isValid = user.password === password;
 
