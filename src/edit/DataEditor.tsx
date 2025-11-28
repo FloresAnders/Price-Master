@@ -1532,10 +1532,8 @@ export default function DataEditor() {
                                         )}
                                     </select>
                                 </div>
-                                {/* If role is admin and not delegated (eliminate === false), show maxCompanies field
-                                    But if the current authenticated actor is an admin and this is a newly-created user (no id),
-                                    hide the input per requirement. */}
-                                {user.role === 'admin' && user.eliminate === false && !(currentUser?.role === 'admin' && !user.id) && (
+                                {/* Only show maxCompanies field if current user is superadmin */}
+                                {user.role === 'admin' && user.eliminate === false && currentUser?.role === 'superadmin' && (
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Máx. Empresas:</label>
                                         <input
@@ -1546,7 +1544,7 @@ export default function DataEditor() {
                                             className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
                                             style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
                                             placeholder="Cantidad máxima de empresas"
-                                        />
+                                        />  
                                     </div>
                                 )}
                             </div>
