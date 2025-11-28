@@ -96,7 +96,10 @@ export class EmailService {
     expiresAt: number
   ): Promise<void> {
     const expiryTime = new Date(expiresAt).toLocaleString('es-ES');
-    const recoveryUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
+                    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 
+                    'http://localhost:3000';
+    const recoveryUrl = `${baseUrl}/reset-password?token=${token}`;
 
     const htmlContent = `
       <!DOCTYPE html>
