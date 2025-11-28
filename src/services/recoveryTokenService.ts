@@ -107,7 +107,7 @@ export class RecoveryTokenService {
   }
 
   /**
-   * Marca un token como usado
+   * Marca un token como usado y lo elimina
    */
   static async markTokenAsUsed(token: string): Promise<void> {
     const hashedToken = this.hashToken(token);
@@ -118,12 +118,13 @@ export class RecoveryTokenService {
 
     if (!querySnapshot.empty) {
       const tokenDoc = querySnapshot.docs[0];
-      await updateDoc(tokenDoc.ref, { used: true });
+      // Elimina el token en lugar de marcarlo como usado
+      await deleteDoc(tokenDoc.ref);
     }
   }
 
   /**
-   * Invalida todos los tokens anteriores de un usuario
+   * Invalida y elimina todos los tokens anteriores de un usuario
    */
   private static async invalidatePreviousTokens(email: string): Promise<void> {
     const tokensRef = collection(db, this.COLLECTION);
@@ -135,8 +136,9 @@ export class RecoveryTokenService {
     
     const querySnapshot = await getDocs(q);
     
+    // Elimina todos los tokens anteriores
     const deletePromises = querySnapshot.docs.map(doc => 
-      updateDoc(doc.ref, { used: true })
+      deleteDoc(doc.ref)
     );
     
     await Promise.all(deletePromises);
