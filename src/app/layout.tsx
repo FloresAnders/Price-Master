@@ -72,7 +72,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <PermissionsManager>
               <ToastProvider>
                 <HeaderWrapper />
-                <main className="flex-1 flex flex-col w-full">
+                <main role="main" className="flex-1 flex flex-col w-full">
                   <div className="w-full" suppressHydrationWarning>
                     {children}
                   </div>

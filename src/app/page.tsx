@@ -259,7 +259,7 @@ export default function HomePage() {
   }, [isSuperAdmin])
   return (
     <>
-      <main className="flex-1 max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="flex-1 max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* notifications are rendered globally by ToastProvider */}
         {activeTab === null ? (
           <ClientOnlyHomeMenu />
@@ -379,7 +379,7 @@ export default function HomePage() {
             </div>
           </>
         )}
-      </main>
+      </div>
     </>
   )
 }
