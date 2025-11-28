@@ -66,50 +66,30 @@ export default function LoginModal({ isOpen, onLoginSuccess, onClose, title, can
         return;
       }
 
-      // Obtener todos los usuarios activos
-      const users = await UsersService.getActiveUsers();
+      // Use server-side login endpoint that validates credentials and returns user
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
 
-      // Buscar usuario por nombre
-      const user = users.find(u =>
-        u.name.toLowerCase() === username.toLowerCase()
-      );
-
-      let isValid = false;
-
-      if (user?.password) {
-        try {
-          if (user.password.startsWith('$argon2')) {
-            isValid = await verifyPassword(password, user.password);
-          } else {
-            isValid = user.password === password;
-
-            if (isValid && user.id) {
-              try {
-                const passwordHash = await hashPassword(password);
-                await UsersService.updateUser(user.id, { password: passwordHash });
-                user.password = passwordHash;
-              } catch (upgradeError) {
-                console.warn('No se pudo actualizar el hash de la contraseña legacy:', upgradeError);
-              }
-            }
-          }
-        } catch (verifyError) {
-          console.error('Error verifying password hash:', verifyError);
-          isValid = false;
-        }
+      const respJson = await response.json();
+      if (!response.ok || !respJson.ok) {
+        setError(respJson?.error || 'Credenciales incorrectas');
+        setLoading(false);
+        return;
       }
 
-      if (user && isValid) {
-        const safeUser = { ...user, password: undefined };
+      const safeUser = respJson.user;
+      if (safeUser) {
         onLoginSuccess(safeUser as UserType, keepSessionActive, useTokenAuth);
-
         // Limpiar formulario
         setUsername('');
         setPassword('');
         setKeepSessionActive(false);
         setUseTokenAuth(false);
       } else {
-        setError('Credenciales incorrectas');
+        setError('Credenciales invalidas');
       }
     } catch (error) {
       console.error('Error during login:', error);
