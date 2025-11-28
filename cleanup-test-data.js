@@ -1,14 +1,14 @@
 // Script para limpiar datos de usuarios de prueba del localStorage
 // Ejecutar en la consola del navegador si es necesario
 
-console.log('🧹 Limpiando datos de usuarios de prueba...');
+//('🧹 Limpiando datos de usuarios de prueba...');
 
 // Limpiar datos de usuarios de prueba
 if (localStorage.getItem('test_users')) {
   localStorage.removeItem('test_users');
-  console.log('✅ Datos de test_users eliminados');
+  //('✅ Datos de test_users eliminados');
 } else {
-  console.log('ℹ️ No se encontraron datos de test_users');
+  //('ℹ️ No se encontraron datos de test_users');
 }
 
 // Verificar otros datos relacionados
@@ -23,13 +23,13 @@ for (let i = 0; i < localStorage.length; i++) {
 }
 
 if (foundKeys.length > 0) {
-  console.log('🔍 Encontradas otras claves relacionadas:', foundKeys);
+  //('🔍 Encontradas otras claves relacionadas:', foundKeys);
   foundKeys.forEach(key => {
     localStorage.removeItem(key);
-    console.log(`✅ Eliminado: ${key}`);
+    //(`✅ Eliminado: ${key}`);
   });
 } else {
-  console.log('✅ No se encontraron otros datos de prueba');
+  //('✅ No se encontraron otros datos de prueba');
 }
 
-console.log('🎉 Limpieza completada. El sistema ahora usa solo datos de Firestore.');
+//('🎉 Limpieza completada. El sistema ahora usa solo datos de Firestore.');

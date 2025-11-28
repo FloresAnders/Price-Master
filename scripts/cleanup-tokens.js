@@ -7,21 +7,21 @@
 const { TokenService } = require('../src/services/tokenService');
 
 function cleanupTokens() {
-  console.log('🧹 Iniciando limpieza de tokens...');
+  //('🧹 Iniciando limpieza de tokens...');
 
   try {
     // Limpiar tokens expirados y revocados antiguos
     TokenService.cleanupExpiredTokens();
     
-    console.log('✅ Limpieza de tokens completada');
+    //('✅ Limpieza de tokens completada');
     
     // Mostrar estadísticas
     const tokenInfo = TokenService.getTokenInfo();
     if (tokenInfo.isValid) {
-      console.log(`📊 Token activo válido para usuario: ${tokenInfo.user?.name}`);
-      console.log(`⏰ Tiempo restante: ${TokenService.formatTokenTimeLeft()}`);
+      //(`📊 Token activo válido para usuario: ${tokenInfo.user?.name}`);
+      //(`⏰ Tiempo restante: ${TokenService.formatTokenTimeLeft()}`);
     } else {
-      console.log('❌ No hay tokens activos válidos');
+      //('❌ No hay tokens activos válidos');
     }
     
   } catch (error) {

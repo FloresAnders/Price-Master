@@ -4,7 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 
-console.log('🔍 Testing Mobile Scanning System Setup...\n');
+//('🔍 Testing Mobile Scanning System Setup...\n');
 
 // Check required files
 const requiredFiles = [
@@ -21,9 +21,9 @@ let allFilesExist = true;
 requiredFiles.forEach(file => {
   const filePath = path.join(__dirname, file);
   if (fs.existsSync(filePath)) {
-    console.log('✅', file);
+    //('✅', file);
   } else {
-    console.log('❌', file, '- MISSING');
+    //('❌', file, '- MISSING');
     allFilesExist = false;
   }
 });
@@ -31,9 +31,9 @@ requiredFiles.forEach(file => {
 // Check Firebase configuration
 const firebaseConfigPath = path.join(__dirname, 'src/config/firebase.ts');
 if (fs.existsSync(firebaseConfigPath)) {
-  console.log('✅ Firebase configuration exists');
+  //('✅ Firebase configuration exists');
 } else {
-  console.log('❌ Firebase configuration missing');
+  //('❌ Firebase configuration missing');
   allFilesExist = false;
 }
 
@@ -45,30 +45,30 @@ if (fs.existsSync(packageJsonPath)) {
   
   requiredDeps.forEach(dep => {
     if (packageJson.dependencies && packageJson.dependencies[dep]) {
-      console.log('✅ Dependency:', dep);
+      //('✅ Dependency:', dep);
     } else {
-      console.log('❌ Missing dependency:', dep);
+      //('❌ Missing dependency:', dep);
       allFilesExist = false;
     }
   });
 }
 
-console.log('\n📋 System Status:');
+//('\n📋 System Status:');
 if (allFilesExist) {
-  console.log('🎉 All components are properly configured!');
-  console.log('\n🚀 To start testing:');
-  console.log('1. Run: npm run dev');
-  console.log('2. Open: http://localhost:3000/mobile-scan');
-  console.log('3. Test: http://localhost:3000/scan-test');
+  //('🎉 All components are properly configured!');
+  //('\n🚀 To start testing:');
+  //('1. Run: npm run dev');
+  //('2. Open: http://localhost:3000/mobile-scan');
+  //('3. Test: http://localhost:3000/scan-test');
 } else {
-  console.log('⚠️  Some components are missing. Please check the output above.');
+  //('⚠️  Some components are missing. Please check the output above.');
 }
 
-console.log('\n📱 Mobile Scanning Features:');
-console.log('• Real-time barcode scanning with camera');
-console.log('• Manual barcode entry');
-console.log('• QR code generation for easy mobile access');
-console.log('• Session-based synchronization');
-console.log('• Offline detection and fallback');
-console.log('• Firebase Firestore integration');
-console.log('• Responsive mobile-first design');
+//('\n📱 Mobile Scanning Features:');
+//('• Real-time barcode scanning with camera');
+//('• Manual barcode entry');
+//('• QR code generation for easy mobile access');
+//('• Session-based synchronization');
+//('• Offline detection and fallback');
+//('• Firebase Firestore integration');
+//('• Responsive mobile-first design');

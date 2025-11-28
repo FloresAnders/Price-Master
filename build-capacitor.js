@@ -3,20 +3,20 @@ const path = require('path');
 const { execSync } = require('child_process');
 
 async function buildForCapacitor() {
-  console.log('Building for Capacitor...');
+  //('Building for Capacitor...');
   
   // 0. Check environment variables
-  console.log('Checking environment variables...');
+  //('Checking environment variables...');
   const envPath = path.join('.env.local');
   if (!fs.existsSync(envPath)) {
     console.warn('.env.local not found. Firebase may not work correctly.');
-    console.log('Please create .env.local with your Firebase configuration');
+    //('Please create .env.local with your Firebase configuration');
   } else {
     const envContent = fs.readFileSync(envPath, 'utf8');
     if (envContent.includes('your-api-key-here') || envContent.includes('your-project')) {
       console.warn('.env.local contains placeholder values. Update with real Firebase config.');
     } else {
-      console.log('Environment variables configured');
+      //('Environment variables configured');
     }
   }
   
@@ -24,13 +24,13 @@ async function buildForCapacitor() {
   const dynamicRoutePath = path.join('src', 'app', 'mobile-scan', '[code]');
   
   if (fs.existsSync(dynamicRoutePath)) {
-    console.log('Removing old dynamic route...');
+    //('Removing old dynamic route...');
     fs.rmSync(dynamicRoutePath, { recursive: true, force: true });
   }
   
   try {
     // 2. Clean previous builds
-    console.log('Cleaning previous builds...');
+    //('Cleaning previous builds...');
     if (fs.existsSync('out')) {
       fs.rmSync('out', { recursive: true, force: true });
     }
@@ -39,11 +39,11 @@ async function buildForCapacitor() {
     }
     
     // 3. Run Next.js build
-    console.log('Building Next.js app...');
+    //('Building Next.js app...');
     execSync('npm run build', { stdio: 'inherit' });
     
     // 4. Create fallback for dynamic routes (simple redirect)
-    console.log('Creating fallback for dynamic routes...');
+    //('Creating fallback for dynamic routes...');
     const fallbackHTML = `
 <!DOCTYPE html>
 <html>
@@ -81,7 +81,7 @@ async function buildForCapacitor() {
     // Write fallback file
     fs.writeFileSync(path.join(mobileScanOutDir, 'fallback.html'), fallbackHTML);
 
-    console.log('Build completed successfully!');
+    //('Build completed successfully!');
 
   } catch (error) {
     console.error('Build failed:', error.message);

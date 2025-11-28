@@ -363,7 +363,6 @@ export default function PayrollExporter({
             });
 
             setCcssConfigs(configMap);
-            console.log('🔧 PayrollExporter CCSS configs loaded:', configMap);
           }
         }
       } catch (error) {

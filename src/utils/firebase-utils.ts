@@ -14,7 +14,6 @@ export class FirebaseUtils {
       const sorteos = await SorteosService.getAllSorteos();
 
       if (sorteos.length === 0) {
-        console.log('Collections are empty, running migration...');
         const { MigrationService } = await import('./migration');
         await MigrationService.runAllMigrations();
       }

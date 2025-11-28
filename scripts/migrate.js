@@ -9,13 +9,13 @@ const { MigrationService } = require('./src/utils/migration');
 
 async function main() {
   try {
-    console.log('🚀 Starting Time Master data migration...');
-    console.log('📁 Migrating from JSON files to Firestore...\n');
+    //('🚀 Starting Time Master data migration...');
+    //('📁 Migrating from JSON files to Firestore...\n');
     
     await MigrationService.runAllMigrations();
     
-    console.log('\n✅ Migration completed successfully!');
-    console.log('🎉 Your data is now available in Firestore');
+    //('\n✅ Migration completed successfully!');
+    //('🎉 Your data is now available in Firestore');
     
   } catch (error) {
     console.error('\n❌ Migration failed:', error.message);

@@ -6,6 +6,7 @@ import { UsersService } from '@/services/users';
 import type { User as UserType } from '@/types/firestore';
 import { hashPassword, verifyPassword } from '@/lib/auth/password';
 import { PasswordRecoveryModal } from './PasswordRecoveryModal';
+import Image from 'next/image';
 
 
 interface LoginModalProps {
@@ -41,12 +42,10 @@ export default function LoginModal({ isOpen, onLoginSuccess, onClose, title, can
       });
       const respJson = await response.json();
       const isSuperAdmin = respJson.isSuperAdmin; // Extraer la bandera
-      console.log('¿Es superadmin?:', isSuperAdmin);
       if (!response.ok || !respJson.ok) {
         const newAttempts = failedAttempts + 1;
         setFailedAttempts(newAttempts);
         setError(respJson?.error || 'Credenciales incorrectas');
-        console.log('Intentos fallidos:', newAttempts);
         if (newAttempts >= 4 && isSuperAdmin) {
           setShowRecoveryModal(true);
           setFailedAttempts(0);
@@ -87,7 +86,7 @@ export default function LoginModal({ isOpen, onLoginSuccess, onClose, title, can
       <div className="w-full flex flex-col items-center justify-center pt-4 z-20 relative">
         <div className="bg-[var(--card-bg)] rounded-lg shadow-xl p-4 sm:p-6 w-full max-w-xs sm:max-w-md mx-2 sm:mx-4">
           <div className="text-center mb-6">
-            <Lock className="w-12 h-12 mx-auto mb-4 text-blue-600" />
+            <Image src="/Logos/LogoBlanco2.png" alt="Logo" width={48} height={48} className="mx-auto mb-4" />
             <h2 className="text-2xl font-semibold mb-2">Iniciar Sesión</h2>
             <p className="text-[var(--tab-text)]">
               Acceso requerido para {title}
@@ -165,7 +164,7 @@ export default function LoginModal({ isOpen, onLoginSuccess, onClose, title, can
                 </div>
                 <div className="ml-3">
                   <span className="text-sm font-medium text-[var(--foreground)]">
-                    🔐 Mantener sesión activa
+                    Mantener sesión activa
                   </span>
                   <div className="text-xs text-[var(--muted-foreground)] mt-1">
                     Autenticación más segura con renovación automática

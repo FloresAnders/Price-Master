@@ -21,7 +21,6 @@ async function eliminarDocumentoPorHorario() {
       ''                // shift vacío = ELIMINAR DOCUMENTO
     );
 
-    console.log('Documento eliminado exitosamente');
   } catch (error) {
     console.error('Error al eliminar documento:', error);
   }
@@ -44,10 +43,10 @@ async function eliminarDocumentoPorHorario() {
 async function verificarDocumentosExistentes() {
   try {
     const schedules = await SchedulesService.getAllSchedules();
-    console.log('Documentos en la colección schedules:', schedules.length);
+    //('Documentos en la colección schedules:', schedules.length);
 
     schedules.forEach(schedule => {
-      console.log(`ID: ${schedule.id}, Empleado: ${schedule.employeeName}, Día: ${schedule.day}, Turno: ${schedule.shift}`);
+      //(`ID: ${schedule.id}, Empleado: ${schedule.employeeName}, Día: ${schedule.day}, Turno: ${schedule.shift}`);
     });
   } catch (error) {
     console.error('Error al consultar documentos:', error);
@@ -58,7 +57,7 @@ async function verificarDocumentosExistentes() {
 async function eliminarDocumentoPorID(documentId: string) {
   try {
     await SchedulesService.deleteSchedule(documentId);
-    console.log('Documento eliminado exitosamente');
+    //('Documento eliminado exitosamente');
   } catch (error) {
     console.error('Error al eliminar documento:', error);
   }

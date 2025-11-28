@@ -111,9 +111,6 @@ function MobileScanContent() {
   useEffect(() => {
     const codeParam = searchParams.get('code');
     if (codeParam && isClient) {
-      // This is a direct barcode code (not an encoded session URL)
-      // Auto-submit the code as a barcode scan
-      console.log('Direct barcode code from URL:', codeParam);
       submitCode(codeParam);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -301,7 +298,6 @@ function MobileScanContent() {
 
           // Get download URL (optional, for verification)
           const downloadURL = await getDownloadURL(storageRef);
-          console.log('Imagen subida exitosamente:', downloadURL);
 
           // Update images count
           setUploadedImagesCount(prev => prev + 1);

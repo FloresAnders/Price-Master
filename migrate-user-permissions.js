@@ -3,7 +3,7 @@
  * Run this script after deploying the permissions system
  */
 
-console.log('🔄 Starting user permissions migration...\n');
+//('🔄 Starting user permissions migration...\n');
 
 // Simple migration that can be run in the browser console
 const migrateUsers = async () => {
@@ -12,21 +12,21 @@ const migrateUsers = async () => {
     const { collection, getDocs, doc, updateDoc } = await import('firebase/firestore');
     const { db } = await import('./src/config/firebase');
     
-    console.log('📊 Fetching existing users...');
+    //('📊 Fetching existing users...');
     const usersRef = collection(db, 'users');
     const snapshot = await getDocs(usersRef);
     
     let updated = 0;
     let skipped = 0;
     
-    console.log(`Found ${snapshot.size} users to process\n`);
+    //(`Found ${snapshot.size} users to process\n`);
     
     for (const userDoc of snapshot.docs) {
       const userData = userDoc.data();
       
       // Skip if user already has permissions
       if (userData.permissions) {
-        console.log(`⏭️  Skipping ${userData.name} - already has permissions`);
+        //(`⏭️  Skipping ${userData.name} - already has permissions`);
         skipped++;
         continue;
       }
@@ -70,13 +70,13 @@ const migrateUsers = async () => {
         updatedAt: new Date()
       });
       
-      console.log(`✅ Updated ${userData.name} (${role}) with default permissions`);
+      //(`✅ Updated ${userData.name} (${role}) with default permissions`);
       updated++;
     }
     
-    console.log(`\n🎉 Migration completed!`);
-    console.log(`📈 Users updated: ${updated}`);
-    console.log(`⏭️  Users skipped: ${skipped}`);
+    //(`\n🎉 Migration completed!`);
+    //(`📈 Users updated: ${updated}`);
+    //(`⏭️  Users skipped: ${skipped}`);
     
     return { updated, skipped };
     
@@ -87,7 +87,7 @@ const migrateUsers = async () => {
 };
 
 // Manual migration instructions
-console.log(`
+//(`
 📋 MIGRATION INSTRUCTIONS:
 
 Option 1 - Using the application:

@@ -78,7 +78,7 @@ Ejecutar manualmente:
 import { RecoveryTokenService } from '@/services/recoveryTokenService';
 
 const count = await RecoveryTokenService.cleanupExpiredTokens();
-console.log(`Tokens eliminados: ${count}`);
+//(`Tokens eliminados: ${count}`);
 ```
 
 ### Verificar Logs de Seguridad

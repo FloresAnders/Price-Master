@@ -1,6 +1,6 @@
 // Test script para comparar el tamaño de los session IDs
 function testSessionIdSizes() {
-  console.log('🧪 Comparando tamaños de Session ID...\n');
+  //('🧪 Comparando tamaños de Session ID...\n');
 
   // Función original (larga)
   function generateLongSessionId() {
@@ -18,35 +18,35 @@ function testSessionIdSizes() {
   const longId = generateLongSessionId();
   const shortId = generateShortSessionId();
 
-  console.log('📏 Session ID Original (largo):');
-  console.log(`   ${longId}`);
-  console.log(`   Longitud: ${longId.length} caracteres\n`);
+  //('📏 Session ID Original (largo):');
+  //(`   ${longId}`);
+  //(`   Longitud: ${longId.length} caracteres\n`);
 
-  console.log('✨ Session ID Nuevo (corto):');
-  console.log(`   ${shortId}`);
-  console.log(`   Longitud: ${shortId.length} caracteres\n`);
+  //('✨ Session ID Nuevo (corto):');
+  //(`   ${shortId}`);
+  //(`   Longitud: ${shortId.length} caracteres\n`);
 
   // Calcular reducción
   const reduction = ((longId.length - shortId.length) / longId.length * 100).toFixed(1);
-  console.log(`📊 Reducción de tamaño: ${reduction}%`);
-  console.log(`🎯 Caracteres ahorrados: ${longId.length - shortId.length}\n`);
+  //(`📊 Reducción de tamaño: ${reduction}%`);
+  //(`🎯 Caracteres ahorrados: ${longId.length - shortId.length}\n`);
 
   // Test de URLs completas
-  console.log('🔗 Impacto en URLs completas:');
+  //('🔗 Impacto en URLs completas:');
   
   const baseUrl = 'http://localhost:3000/mobile-scan?session=';
   const longUrl = `${baseUrl}${longId}&rpn=t`;
   const shortUrl = `${baseUrl}${shortId}&rpn=t`;
 
-  console.log(`   URL con ID largo: ${longUrl}`);
-  console.log(`   Longitud: ${longUrl.length} caracteres\n`);
+  //(`   URL con ID largo: ${longUrl}`);
+  //(`   Longitud: ${longUrl.length} caracteres\n`);
   
-  console.log(`   URL con ID corto: ${shortUrl}`);
-  console.log(`   Longitud: ${shortUrl.length} caracteres\n`);
+  //(`   URL con ID corto: ${shortUrl}`);
+  //(`   Longitud: ${shortUrl.length} caracteres\n`);
 
   const urlReduction = ((longUrl.length - shortUrl.length) / longUrl.length * 100).toFixed(1);
-  console.log(`📈 Reducción total en URL: ${urlReduction}%`);
-  console.log(`🎉 Caracteres ahorrados en URL: ${longUrl.length - shortUrl.length}`);
+  //(`📈 Reducción total en URL: ${urlReduction}%`);
+  //(`🎉 Caracteres ahorrados en URL: ${longUrl.length - shortUrl.length}`);
 }
 
 testSessionIdSizes();

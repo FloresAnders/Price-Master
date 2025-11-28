@@ -28,11 +28,6 @@ export const ZBAR_PRIORITY_CONFIG = {
 export const logZbarPriority = (type: string, message: string, data?: unknown) => {
   if (ZBAR_PRIORITY_CONFIG.ENABLE_PRIORITY_LOGS) {
     const logMessage = ZBAR_PRIORITY_CONFIG.LOGS[type as keyof typeof ZBAR_PRIORITY_CONFIG.LOGS] || message;
-    if (data) {
-      console.log(`${logMessage}:`, data);
-    } else {
-      console.log(logMessage);
-    }
   }
 };
 

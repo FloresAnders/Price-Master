@@ -16,12 +16,10 @@ export async function initializeFirebase(): Promise<{
   };
 }> {
   try {
-    console.log('Initializing Firebase collections...');
 
     // Check if collections need initialization
     const stats = await FirebaseUtils.getCollectionStats();
     if (stats.sorteos === 0 || !stats.ccssConfigExists) {
-      console.log('Collections are empty or CCSS config missing, running migration...');
       await MigrationService.runAllMigrations();
 
       // Get updated stats

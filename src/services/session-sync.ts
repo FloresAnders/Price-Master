@@ -84,7 +84,6 @@ export class SessionSyncService {
         try {
             const docRef = doc(db, this.COLLECTION_NAME, sessionDocId);
             await deleteDoc(docRef);
-            console.log('Session document deleted:', sessionDocId);
         } catch (error) {
             console.error('Error deleting inactive session:', error);
             throw error;

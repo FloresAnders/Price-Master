@@ -19,7 +19,7 @@ export function ClipboardWithHookExample() {
   const handleCopy = async () => {
     const success = await copyToClipboard('¡Hola Álvaro!');
     if (success) {
-      console.log('✅ Texto copiado al portapapeles');
+      //('✅ Texto copiado al portapapeles');
       alert('✅ Texto copiado');
     } else {
       console.error('❌ Error al copiar');
@@ -29,7 +29,7 @@ export function ClipboardWithHookExample() {
   const handlePaste = async () => {
     const text = await readFromClipboard();
     if (text) {
-      console.log('📋 Texto del portapapeles:', text);
+      //('📋 Texto del portapapeles:', text);
       alert(`📋 Contenido: ${text}`);
     } else {
       alert('⚠️ No hay texto en el portapapeles');
@@ -64,12 +64,12 @@ export async function directClipboardExamples() {
   await Clipboard.write({
     string: 'Hola Álvaro desde Time Master'
   });
-  console.log('✅ Texto copiado');
+  //('✅ Texto copiado');
 
   // Leer texto del portapapeles
   const { value, type } = await Clipboard.read();
-  console.log('📋 Contenido:', value);
-  console.log('📋 Tipo:', type);
+  //('📋 Contenido:', value);
+  //('📋 Tipo:', type);
 
   // Copiar URL
   await Clipboard.write({

@@ -199,7 +199,7 @@ export class TokenService {
 
     // Verificar si el refresh token aún es válido
     if (now > sessionData.refreshExpiresAt) {
-      console.log('Refresh token expired');
+      //('Refresh token expired');
       return null;
     }
 
@@ -213,7 +213,7 @@ export class TokenService {
         newTokenSession.refreshExpiresAt = sessionData.refreshExpiresAt;
       }
 
-      console.log('Token refreshed successfully');
+      //('Token refreshed successfully');
       return newTokenSession;
     } catch (error) {
       console.error('Error refreshing token:', error);
@@ -267,7 +267,7 @@ export class TokenService {
       // Crear nuevo token con tiempo extendido
       this.createTokenSession(sessionData.user);
 
-      console.log('Token extended for one more week');
+      //('Token extended for one more week');
       return true;
     } catch (error) {
       console.error('Error extending token:', error);
@@ -317,7 +317,7 @@ export class TokenService {
 
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(updatedSession));
 
-      console.log(`Token extended by ${extensionMs / (1000 * 60 * 60)} hours`);
+      //(`Token extended by ${extensionMs / (1000 * 60 * 60)} hours`);
       return true;
     } catch (error) {
       console.error('Error extending token with custom duration:', error);

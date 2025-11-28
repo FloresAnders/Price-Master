@@ -190,7 +190,7 @@ import { RecoveryTokenService } from '@/services/recoveryTokenService';
 
 // Ejecutar manualmente
 const deletedCount = await RecoveryTokenService.cleanupExpiredTokens();
-console.log(`Tokens eliminados: ${deletedCount}`);
+//(`Tokens eliminados: ${deletedCount}`);
 ```
 
 **Recomendación:** Ejecutar mediante cron job o Cloud Function cada hora.

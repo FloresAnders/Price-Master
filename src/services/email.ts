@@ -211,7 +211,6 @@ Time Master System
       html: htmlContent
     });
 
-    console.log(`✅ Email de recuperación enviado a: ${email}`);
   }
 
   /**
@@ -277,6 +276,5 @@ Time Master System
       html: htmlContent
     });
 
-    console.log(`✅ Notificación de cambio de contraseña enviada a: ${email}`);
   }
 }

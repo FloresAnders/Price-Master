@@ -3,41 +3,41 @@
 // Abrir Developer Tools y ejecutar este código en la consola
 
 async function testCcssConfig() {
-  console.log('🧪 Iniciando test de configuración CCSS...');
+  //('🧪 Iniciando test de configuración CCSS...');
   
   try {
     // Importar el servicio (solo funciona si está disponible globalmente)
     const { CcssConfigService } = await import('../src/services/ccss-config');
     
-    console.log('✅ Servicio CcssConfigService importado correctamente');
+    //('✅ Servicio CcssConfigService importado correctamente');
     
     // Test 1: Obtener configuración actual
-    console.log('📥 Test 1: Obteniendo configuración actual...');
+    //('📥 Test 1: Obteniendo configuración actual...');
     const currentConfig = await CcssConfigService.getCcssConfig();
-    console.log('Configuración actual:', currentConfig);
+    //('Configuración actual:', currentConfig);
     
     // Test 2: Actualizar configuración
-    console.log('📤 Test 2: Actualizando configuración...');
+    //('📤 Test 2: Actualizando configuración...');
     await CcssConfigService.updateCcssConfig({
       mt: 3700.00,
       tc: 11100.00
     });
-    console.log('✅ Configuración actualizada');
+    //('✅ Configuración actualizada');
     
     // Test 3: Verificar actualización
-    console.log('🔍 Test 3: Verificando actualización...');
+    //('🔍 Test 3: Verificando actualización...');
     const updatedConfig = await CcssConfigService.getCcssConfig();
-    console.log('Configuración actualizada:', updatedConfig);
+    //('Configuración actualizada:', updatedConfig);
     
     // Test 4: Restaurar valores por defecto
-    console.log('🔄 Test 4: Restaurando valores por defecto...');
+    //('🔄 Test 4: Restaurando valores por defecto...');
     await CcssConfigService.updateCcssConfig({
       mt: 3672.46,
       tc: 11017.39
     });
-    console.log('✅ Valores por defecto restaurados');
+    //('✅ Valores por defecto restaurados');
     
-    console.log('🎉 ¡Todos los tests pasaron exitosamente!');
+    //('🎉 ¡Todos los tests pasaron exitosamente!');
     
   } catch (error) {
     console.error('❌ Error en test:', error);
@@ -45,7 +45,7 @@ async function testCcssConfig() {
 }
 
 // Instrucciones para ejecutar
-console.log(`
+//(`
 🧪 Test de Configuración CCSS - Time Master
 
 Para ejecutar los tests:

@@ -66,18 +66,11 @@ export function useEmployeeData(
           e.ubicacion === locationValue || e.name === locationValue || e.id === locationValue
         );
         const empresaName = currentEmpresa?.name || locationValue;
-
-        console.log('🔍 CCSS Matching Debug:', {
-          locationValue,
-          currentEmpresa: currentEmpresa ? { name: currentEmpresa.name, ubicacion: currentEmpresa.ubicacion } : null,
-          empresaName
-        });
-
         // Obtener configuración de CCSS
         const userOwnerId = user?.ownerId || user?.id || '';
         const config = await CcssConfigService.getCcssConfig(userOwnerId);
 
-        console.log('📋 CCSS Config available:', {
+        //('📋 CCSS Config available:', {
           configExists: !!config,
           companieCount: config?.companie?.length || 0,
           companieList: config?.companie?.map(comp => comp.ownerCompanie) || []
@@ -86,7 +79,7 @@ export function useEmployeeData(
         // Buscar la configuración específica para esta empresa por nombre
         const companyConfig = config?.companie?.find(comp => comp.ownerCompanie === empresaName);
 
-        console.log('✅ CCSS Match Result:', {
+        //('✅ CCSS Match Result:', {
           empresaName,
           companyConfig: companyConfig ? { ownerCompanie: companyConfig.ownerCompanie, mt: companyConfig.mt, tc: companyConfig.tc } : null,
           matched: !!companyConfig

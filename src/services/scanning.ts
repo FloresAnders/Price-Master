@@ -280,7 +280,6 @@ export class ScanningService {
                 try {
                     const fileRef = ref(storage, `barcode-images/${fileName}`);
                     await deleteObject(fileRef);
-                    console.log(`Deleted image: ${fileName}`);
                 } catch (error) {
                     console.error(`Error deleting image ${fileName}:`, error);
                     throw error;
@@ -292,7 +291,7 @@ export class ScanningService {
             // Invalidar caché después de eliminar
             ScanningCache.invalidateImageCache();
 
-            console.log(`Deleted ${matchingFilenames.length} images for code: ${barcodeCode}`);
+          
             return matchingFilenames.length;
         } catch (error) {
             console.error('Error deleting associated images:', error);
@@ -324,7 +323,6 @@ export class ScanningService {
             // Delete associated images from Firebase Storage
             try {
                 const deletedImagesCount = await this.deleteAssociatedImages(barcodeCode);
-                console.log(`Deleted scan ${scanId} and ${deletedImagesCount} associated images for code: ${barcodeCode}`);
             } catch (imageError) {
                 console.warn(`Scan deleted but failed to delete images for code ${barcodeCode}:`, imageError);
                 // Don't throw here - the scan was successfully deleted

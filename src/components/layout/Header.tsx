@@ -749,7 +749,6 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
         onClose={() => setShowNotifModal(false)}
         onSave={async (payload) => {
           // Default behaviour for now: just log the payload. You can replace with any action.
-          console.log('NotificationModal saved:', payload)
         }}
       />
 
