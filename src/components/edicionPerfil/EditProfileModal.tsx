@@ -1,11 +1,12 @@
 'use client'
 
-import { Eye, EyeOff, Info, Loader2, User as UserIcon, X, Check, Camera } from 'lucide-react';
+import { Eye, EyeOff, Info, Loader2, User as UserIcon, X, Check, Camera, ChevronDown, ChevronUp, Lock } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import useToast from '../../hooks/useToast';
 import { useAuth } from '../../hooks/useAuth';
 import { UsersService } from '../../services/users';
 import type { User as UserRecord } from '../../types/firestore';
+import { verifyPassword } from '../../lib/auth/password';
 
 interface EditProfileModalProps {
     isOpen: boolean;
@@ -35,15 +36,19 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
         name: '',
         fullName: '',
         email: '',
+        currentPassword: '',
         password: '',
         passwordConfirm: ''
     });
+    const [showCurrentPassword, setShowCurrentPassword] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [ownerInfo, setOwnerInfo] = useState<UserRecord | null>(null);
     const [ownerLoading, setOwnerLoading] = useState(false);
+    const [showChangePassword, setShowChangePassword] = useState(false);
+    const [hasPassword, setHasPassword] = useState(false);
 
     const baseUser = profile ?? user ?? null;
 
@@ -54,6 +59,7 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
                 name: '',
                 fullName: '',
                 email: '',
+                currentPassword: '',
                 password: '',
                 passwordConfirm: ''
             });
@@ -69,10 +75,12 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
             const source = record ?? user;
 
             setProfile(record ?? null);
+            setHasPassword(Boolean(source?.password));
             setFormData({
                 name: source?.name ?? '',
                 fullName: source?.fullName ?? '',
                 email: source?.email ?? '',
+                currentPassword: '',
                 password: '',
                 passwordConfirm: ''
             });
@@ -80,10 +88,12 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
             console.error('Error fetching user profile', err);
             const fallback = user ?? null;
             setProfile(null);
+            setHasPassword(Boolean(fallback?.password));
             setFormData({
                 name: fallback?.name ?? '',
                 fullName: fallback?.fullName ?? '',
                 email: fallback?.email ?? '',
+                currentPassword: '',
                 password: '',
                 passwordConfirm: ''
             });
@@ -101,9 +111,11 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
                 name: '',
                 fullName: '',
                 email: '',
+                currentPassword: '',
                 password: '',
                 passwordConfirm: ''
             });
+            setShowChangePassword(false);
             return;
         }
 
@@ -181,6 +193,20 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
         }
     }, [formData.password]);
 
+    useEffect(() => {
+        if (!showChangePassword) {
+            setFormData((prev) => ({
+                ...prev,
+                currentPassword: '',
+                password: '',
+                passwordConfirm: ''
+            }));
+            setShowCurrentPassword(false);
+            setShowPassword(false);
+            setShowPasswordConfirm(false);
+        }
+    }, [showChangePassword]);
+
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         if (!user) {
@@ -204,9 +230,27 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
             return;
         }
 
-        if (trimmedPassword !== formData.passwordConfirm) {
-            setError('Las contraseñas no coinciden.');
-            return;
+        // Si está intentando cambiar la contraseña
+        if (trimmedPassword) {
+            if (!formData.currentPassword) {
+                setError('Debes ingresar tu contraseña actual.');
+                return;
+            }
+
+            if (trimmedPassword !== formData.passwordConfirm) {
+                setError('Las contraseñas nuevas no coinciden.');
+                return;
+            }
+
+            // Verificar la contraseña actual
+            const storedPassword = baseUser?.password;
+            if (storedPassword) {
+                const isValid = await verifyPassword(formData.currentPassword, storedPassword);
+                if (!isValid) {
+                    setError('La contraseña actual es incorrecta.');
+                    return;
+                }
+            }
         }
 
         setIsSaving(true);
@@ -245,6 +289,7 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
             }
 
             await loadProfile();
+            setShowChangePassword(false);
             showToast('Perfil actualizado correctamente.', 'success');
         } catch (err) {
             console.error('Error updating profile', err);
@@ -377,56 +422,121 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
                                     />
                                 </label>
 
-                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                    <label className="flex flex-col gap-1 text-sm text-[var(--foreground)]">
-                                        Contraseña
-                                        <div className="relative">
-                                            <input
-                                                type={showPassword ? 'text' : 'password'}
-                                                value={formData.password}
-                                                onChange={handleChange('password')}
-                                                autoComplete="new-password"
-                                                disabled={isFormLocked}
-                                                className="w-full rounded-md border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
-                                                placeholder="••••••••"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowPassword((prev) => !prev)}
-                                                disabled={isFormLocked}
-                                                className="absolute inset-y-0 right-0 flex items-center px-3 text-[var(--muted-foreground)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
-                                                aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                                            >
-                                                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                            </button>
+                                {/* Sección de contraseña */}
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <Lock className="w-4 h-4 text-[var(--primary)]" />
+                                            <span className="text-sm font-medium text-[var(--foreground)]">Contraseña</span>
                                         </div>
-                                        <span className="text-xs text-[var(--muted-foreground)]">Déjalo en blanco para mantener la contraseña actual.</span>
-                                    </label>
+                                        {hasPassword && (
+                                            <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                                                <Check className="w-3 h-3" />
+                                                Contraseña configurada
+                                            </span>
+                                        )}
+                                    </div>
 
-                                    {formData.password.length > 0 && (
-                                        <label className="flex flex-col gap-1 text-sm text-[var(--foreground)]">
-                                            Confirmar contraseña
-                                            <div className="relative">
-                                                <input
-                                                    type={showPasswordConfirm ? 'text' : 'password'}
-                                                    value={formData.passwordConfirm}
-                                                    onChange={handleChange('passwordConfirm')}
-                                                    autoComplete="new-password"
-                                                    disabled={isFormLocked}
-                                                    className="w-full rounded-md border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
-                                                    placeholder="••••••••"
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setShowPasswordConfirm((prev) => !prev)}
-                                                    disabled={isFormLocked}
-                                                    className="absolute inset-y-0 right-0 flex items-center px-3 text-[var(--muted-foreground)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
-                                                    aria-label={showPasswordConfirm ? 'Ocultar confirmación' : 'Mostrar confirmación'}
-                                                >
-                                                    {showPasswordConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                                </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowChangePassword(!showChangePassword)}
+                                        disabled={isFormLocked}
+                                        className="w-full flex items-center justify-between px-4 py-3 rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] hover:bg-[var(--muted)] transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                        <span className="text-sm text-[var(--foreground)]">
+                                            {showChangePassword ? 'Ocultar cambio de contraseña' : 'Cambiar contraseña'}
+                                        </span>
+                                        {showChangePassword ? (
+                                            <ChevronUp className="w-4 h-4 text-[var(--muted-foreground)]" />
+                                        ) : (
+                                            <ChevronDown className="w-4 h-4 text-[var(--muted-foreground)]" />
+                                        )}
+                                    </button>
+
+                                    {showChangePassword && (
+                                        <div className="space-y-4 p-4 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/50">
+                                            <label className="flex flex-col gap-1 text-sm text-[var(--foreground)]">
+                                                Contraseña actual
+                                                <div className="relative">
+                                                    <input
+                                                        type={showCurrentPassword ? 'text' : 'password'}
+                                                        value={formData.currentPassword}
+                                                        onChange={handleChange('currentPassword')}
+                                                        autoComplete="current-password"
+                                                        disabled={isFormLocked}
+                                                        className="w-full rounded-md border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
+                                                        placeholder="Ingresa tu contraseña actual"
+                                                        required={showChangePassword}
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowCurrentPassword((prev) => !prev)}
+                                                        disabled={isFormLocked}
+                                                        className="absolute inset-y-0 right-0 flex items-center px-3 text-[var(--muted-foreground)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
+                                                        aria-label={showCurrentPassword ? 'Ocultar contraseña actual' : 'Mostrar contraseña actual'}
+                                                    >
+                                                        {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                                    </button>
+                                                </div>
+                                            </label>
+
+                                            <label className="flex flex-col gap-1 text-sm text-[var(--foreground)]">
+                                                Nueva contraseña
+                                                <div className="relative">
+                                                    <input
+                                                        type={showPassword ? 'text' : 'password'}
+                                                        value={formData.password}
+                                                        onChange={handleChange('password')}
+                                                        autoComplete="new-password"
+                                                        disabled={isFormLocked}
+                                                        className="w-full rounded-md border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
+                                                        placeholder="Ingresa tu nueva contraseña"
+                                                        required={showChangePassword}
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowPassword((prev) => !prev)}
+                                                        disabled={isFormLocked}
+                                                        className="absolute inset-y-0 right-0 flex items-center px-3 text-[var(--muted-foreground)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
+                                                        aria-label={showPassword ? 'Ocultar nueva contraseña' : 'Mostrar nueva contraseña'}
+                                                    >
+                                                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                                    </button>
+                                                </div>
+                                            </label>
+
+                                            <label className="flex flex-col gap-1 text-sm text-[var(--foreground)]">
+                                                Confirmar nueva contraseña
+                                                <div className="relative">
+                                                    <input
+                                                        type={showPasswordConfirm ? 'text' : 'password'}
+                                                        value={formData.passwordConfirm}
+                                                        onChange={handleChange('passwordConfirm')}
+                                                        autoComplete="new-password"
+                                                        disabled={isFormLocked}
+                                                        className="w-full rounded-md border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
+                                                        placeholder="Confirma tu nueva contraseña"
+                                                        required={showChangePassword}
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowPasswordConfirm((prev) => !prev)}
+                                                        disabled={isFormLocked}
+                                                        className="absolute inset-y-0 right-0 flex items-center px-3 text-[var(--muted-foreground)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
+                                                        aria-label={showPasswordConfirm ? 'Ocultar confirmación' : 'Mostrar confirmación'}
+                                                    >
+                                                        {showPasswordConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                                    </button>
+                                                </div>
+                                            </label>
+
+                                            <div className="text-xs text-[var(--muted-foreground)] flex items-start gap-2 mt-2">
+                                                <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                                                <span>
+                                                    Asegúrate de que tu nueva contraseña sea segura y diferente a la actual.
+                                                </span>
                                             </div>
-                                        </label>
+                                        </div>
                                     )}
                                 </div>
 

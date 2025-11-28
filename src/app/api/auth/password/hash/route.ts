@@ -10,7 +10,6 @@ export async function POST(request: Request) {
     if (typeof password !== 'string' || password.length === 0) {
       return NextResponse.json({ error: 'Invalid password' }, { status: 400 });
     }
-
     const hash = await hashPasswordServer(password);
     return NextResponse.json({ hash });
   } catch (error) {

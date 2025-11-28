@@ -10,7 +10,6 @@ export async function hashPasswordServer(plainPassword: string): Promise<string>
   if (typeof plainPassword !== 'string' || plainPassword.length === 0) {
     throw new Error('Password must be a non-empty string');
   }
-
   return argon2.hash(plainPassword, {
     type: argon2.argon2id,
     memoryCost: MEMORY_COST,
