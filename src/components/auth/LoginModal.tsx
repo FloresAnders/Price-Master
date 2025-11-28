@@ -30,42 +30,6 @@ export default function LoginModal({ isOpen, onLoginSuccess, onClose, title, can
     setError('');
 
     try {
-      // Verificar si es el usuario especial SEBASTIAN
-      if (username.toUpperCase() === 'SEBASTIAN' && password === '12345') {
-        // Crear sesión especial para SEBASTIAN antes de redirigir
-        if (typeof window !== 'undefined') {
-          const specialSession = {
-            id: 'special-user-sebastian',
-            name: 'SEBASTIAN',
-            ownercompanie: 'Special Access',
-            role: 'admin' as const,
-            permissions: {
-              scanner: true,
-              calculator: true,
-              converter: true,
-              cashcounter: true,
-              timingcontrol: true,
-              controlhorario: true,
-              supplierorders: true,
-              scanhistory: true,
-              mantenimiento: true,
-            },
-            loginTime: new Date().toISOString(),
-            lastActivity: new Date().toISOString(),
-            sessionId: `special-session-${Date.now()}`,
-            keepActive: true,
-            isSpecialUser: true
-          };
-
-          localStorage.setItem('pricemaster_session', JSON.stringify(specialSession));
-          localStorage.setItem('pricemaster_session_id', specialSession.sessionId);
-
-          // Redirigir a /home después de crear la sesión
-          window.location.href = '/home';
-        }
-        return;
-      }
-
       // Use server-side login endpoint that validates credentials and returns user
       const response = await fetch('/api/auth/login', {
         method: 'POST',
