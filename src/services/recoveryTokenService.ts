@@ -5,7 +5,7 @@ import crypto from 'crypto';
 
 export class RecoveryTokenService {
   private static readonly COLLECTION = 'recovery_tokens';
-  private static readonly TOKEN_EXPIRY = 3600000; // 1 hora en ms
+  private static readonly TOKEN_EXPIRY = 1800000; // 30 minutos en ms
 
   /**
    * Genera un token criptográficamente seguro

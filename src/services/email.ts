@@ -144,7 +144,7 @@ export class EmailService {
       <body>
         <div class="container">
           <div class="header">
-            <h1 style="margin: 0;">🔐 Recuperación de Contraseña</h1>
+            <h1 style="margin: 0;">Recuperación de Contraseña</h1>
           </div>
           
           <div class="content">
@@ -163,7 +163,7 @@ export class EmailService {
             </div>
             
             <div class="warning">
-              <strong>⚠️ Importante:</strong>
+              <strong>Importante:</strong>
               <ul style="margin: 10px 0;">
                 <li>Este enlace expira el: <strong>${expiryTime}</strong></li>
                 <li>Solo puede ser usado una vez</li>
@@ -206,7 +206,7 @@ Time Master System
 
     await this.sendEmail({
       to: email,
-      subject: '🔐 Recuperación de Contraseña - Time Master',
+      subject: 'Recuperación de Contraseña - Time Master',
       text: textContent,
       html: htmlContent
     });
@@ -234,18 +234,18 @@ Time Master System
       <body>
         <div class="container">
           <div class="header">
-            <h1 style="margin: 0;">✅ Contraseña Actualizada</h1>
+            <h1 style="margin: 0;">Contraseña Actualizada</h1>
           </div>
           
           <div class="content">
             <p>Tu contraseña ha sido actualizada exitosamente en Time Master.</p>
             
             <div class="info-box">
-              <strong>📅 Fecha:</strong> ${new Date().toLocaleString('es-ES')}<br>
-              <strong>👤 Cuenta:</strong> ${email}
+              <strong>Fecha:</strong> ${new Date().toLocaleString('es-ES')}<br>
+              <strong>Cuenta:</strong> ${email}
             </div>
             
-            <p class="warning-text">⚠️ Si no realizaste este cambio, contacta inmediatamente al administrador del sistema.</p>
+            <p class="warning-text">Si no realizaste este cambio, contacta inmediatamente al administrador del sistema.</p>
             
             <p style="margin-top: 30px; color: #6b7280; font-size: 14px;">
               Este es un email automático de seguridad. Por favor, no respondas a este mensaje.
@@ -272,7 +272,7 @@ Time Master System
 
     await this.sendEmail({
       to: email,
-      subject: '✅ Contraseña Actualizada - Time Master',
+      subject: 'Contraseña Actualizada - Time Master',
       text: textContent,
       html: htmlContent
     });
