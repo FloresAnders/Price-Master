@@ -46,7 +46,7 @@ async function testCcssConfig() {
 
 // Instrucciones para ejecutar
 console.log(`
-🧪 Test de Configuración CCSS - Price Master
+🧪 Test de Configuración CCSS - Time Master
 
 Para ejecutar los tests:
 1. Asegúrate de estar en la página /edit

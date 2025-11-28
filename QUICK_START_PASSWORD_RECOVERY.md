@@ -4,7 +4,7 @@
 
 ### ¿Olvidaste tu contraseña?
 
-1. **Ve al login** de Price Master
+1. **Ve al login** de Time Master
 2. Click en **"¿Olvidaste tu contraseña?"**
 3. **Ingresa tu email** de superadministrador
 4. Click en **"Enviar Enlace"**

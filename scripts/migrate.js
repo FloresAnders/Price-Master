@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Migration script for Price Master
+ * Migration script for Time Master
  * This script migrates data from JSON files to Firestore
  */
 
@@ -9,7 +9,7 @@ const { MigrationService } = require('./src/utils/migration');
 
 async function main() {
   try {
-    console.log('🚀 Starting Price Master data migration...');
+    console.log('🚀 Starting Time Master data migration...');
     console.log('📁 Migrating from JSON files to Firestore...\n');
     
     await MigrationService.runAllMigrations();

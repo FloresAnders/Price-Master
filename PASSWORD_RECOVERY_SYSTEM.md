@@ -1,4 +1,4 @@
-# Sistema de Recuperación de Contraseña - Price Master
+# Sistema de Recuperación de Contraseña - Time Master
 
 ## 📋 Resumen
 

@@ -35,7 +35,7 @@ export class EmailService {
 
     return {
       from: {
-        name: 'Price Master System',
+        name: 'Time Master System',
         address: process.env.GMAIL_USER || '',
       },
       to,
@@ -44,13 +44,13 @@ export class EmailService {
       html: html || `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
-            <h2 style="color: #333; margin-bottom: 20px;">Price Master System</h2>
+            <h2 style="color: #333; margin-bottom: 20px;">Time Master System</h2>
             <div style="background-color: white; padding: 20px; border-radius: 6px; border-left: 4px solid #007bff;">
               ${text.replace(/\n/g, '<br>')}
             </div>
             <div style="margin-top: 20px; padding: 15px; background-color: #e9ecef; border-radius: 6px;">
               <p style="margin: 0; font-size: 12px; color: #6c757d;">
-                Este correo fue enviado desde el sistema Price Master. 
+                Este correo fue enviado desde el sistema Time Master. 
                 Si no esperabas recibir este mensaje, por favor ignóralo.
               </p>
             </div>
@@ -62,7 +62,7 @@ export class EmailService {
         'X-Priority': '3',
         'X-MSMail-Priority': 'Normal',
         'Importance': 'Normal',
-        'X-Mailer': 'Price Master System',
+        'X-Mailer': 'Time Master System',
         'Reply-To': process.env.GMAIL_USER || '',
       },
       messageId: `<${Date.now()}.${Math.random().toString(36).substr(2, 9)}@pricemaster.local>`,
@@ -149,7 +149,7 @@ export class EmailService {
           
           <div class="content">
             <h2>Hola,</h2>
-            <p>Recibimos una solicitud para restablecer la contraseña de tu cuenta de <strong>SuperAdmin</strong> en Price Master.</p>
+            <p>Recibimos una solicitud para restablecer la contraseña de tu cuenta de <strong>SuperAdmin</strong> en Time Master.</p>
             
             <p>Para restablecer tu contraseña, haz clic en el siguiente botón:</p>
             
@@ -180,7 +180,7 @@ export class EmailService {
           </div>
           
           <div class="footer">
-            <p>Este es un email automático de Price Master System</p>
+            <p>Este es un email automático de Time Master System</p>
             <p>© ${new Date().getFullYear()} Todos los derechos reservados</p>
           </div>
         </div>
@@ -189,7 +189,7 @@ export class EmailService {
     `;
 
     const textContent = `
-Recuperación de Contraseña - Price Master
+Recuperación de Contraseña - Time Master
 
 Recibimos una solicitud para restablecer tu contraseña.
 
@@ -201,12 +201,12 @@ Este enlace expira el: ${expiryTime}
 Si no solicitaste este cambio, ignora este email.
 
 ---
-Price Master System
+Time Master System
     `;
 
     await this.sendEmail({
       to: email,
-      subject: '🔐 Recuperación de Contraseña - Price Master',
+      subject: '🔐 Recuperación de Contraseña - Time Master',
       text: textContent,
       html: htmlContent
     });
@@ -238,7 +238,7 @@ Price Master System
           </div>
           
           <div class="content">
-            <p>Tu contraseña ha sido actualizada exitosamente en Price Master.</p>
+            <p>Tu contraseña ha sido actualizada exitosamente en Time Master.</p>
             
             <div class="info-box">
               <strong>📅 Fecha:</strong> ${new Date().toLocaleString('es-ES')}<br>
@@ -257,7 +257,7 @@ Price Master System
     `;
 
     const textContent = `
-Contraseña Actualizada - Price Master
+Contraseña Actualizada - Time Master
 
 Tu contraseña ha sido actualizada exitosamente.
 
@@ -267,12 +267,12 @@ Cuenta: ${email}
 ⚠️ Si no realizaste este cambio, contacta inmediatamente al administrador del sistema.
 
 ---
-Price Master System
+Time Master System
     `;
 
     await this.sendEmail({
       to: email,
-      subject: '✅ Contraseña Actualizada - Price Master',
+      subject: '✅ Contraseña Actualizada - Time Master',
       text: textContent,
       html: htmlContent
     });

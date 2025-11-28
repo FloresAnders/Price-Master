@@ -113,7 +113,7 @@ export default function FirebaseMigration() {
   };
   return (
     <div className="container mx-auto p-6 max-w-4xl">
-      <h1 className="text-3xl font-bold mb-6">Migración Firebase - Price Master</h1>
+      <h1 className="text-3xl font-bold mb-6">Migración Firebase - Time Master</h1>
 
       <div className="space-y-4 mb-8">
         <button

@@ -61,7 +61,7 @@ ${context.notes.trim()}
 `
         : '';
 
-    const text = `Se registró un nuevo cierre diario en Price Master.
+    const text = `Se registró un nuevo cierre diario en Time Master.
 
 Empresa: ${context.company}
 Cuenta: ${context.accountKey}
