@@ -1,7 +1,6 @@
 // ...existing code...
 
 'use client'
-'use client'
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
@@ -150,7 +149,6 @@ export default function ScanHistoryTable() {
   const [showMobileScannerModal, setShowMobileScannerModal] = useState(false);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const [requestProductNameModal, setRequestProductNameModal] = useState<boolean>(true);
-  const [currentSessionId, setCurrentSessionId] = useState<string>('');
 
   // Function to generate QR Code for mobile scanner
   const generateQRCode = useCallback(async (sessionId: string, requestProductName: boolean) => {
@@ -440,18 +438,18 @@ export default function ScanHistoryTable() {
   // Generate QR code when modal opens
   useEffect(() => {
     if (showMobileScannerModal && typeof window !== 'undefined') {
-      const sessionId = `scan-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      setCurrentSessionId(sessionId);
-      generateQRCode(sessionId, requestProductNameModal);
+      // sessionId no longer needed, pass empty string
+      generateQRCode('', requestProductNameModal);
     }
   }, [showMobileScannerModal, generateQRCode, requestProductNameModal]);
 
   // Regenerate QR code when requestProductNameModal changes
   useEffect(() => {
-    if (showMobileScannerModal && currentSessionId && typeof window !== 'undefined') {
-      generateQRCode(currentSessionId, requestProductNameModal);
+    if (showMobileScannerModal && typeof window !== 'undefined') {
+      // sessionId no longer needed, pass empty string
+      generateQRCode('', requestProductNameModal);
     }
-  }, [requestProductNameModal, currentSessionId, showMobileScannerModal, generateQRCode]);
+  }, [requestProductNameModal, showMobileScannerModal, generateQRCode]);
 
   // Filter history based on search term, location, dates, and user permissions
   const filteredHistory = scanHistory.filter(entry => {
@@ -1161,7 +1159,6 @@ export default function ScanHistoryTable() {
                     onClick={() => {
                       setShowMobileScannerModal(false);
                       setQrCodeDataUrl('');
-                      setCurrentSessionId('');
                       setRequestProductNameModal(true);
                     }}
                     className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
@@ -1211,8 +1208,8 @@ export default function ScanHistoryTable() {
                       {(() => {
                         const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
 
-                        // Use short URL format only
-                        const mobileScanUrl = generateShortMobileUrl(baseUrl, currentSessionId, requestProductNameModal);
+                        // Use short URL format only (no session parameter)
+                        const mobileScanUrl = generateShortMobileUrl(baseUrl, '', requestProductNameModal);
 
                         return (
                           <div className="space-y-4">
@@ -1296,7 +1293,6 @@ export default function ScanHistoryTable() {
                     onClick={() => {
                       setShowMobileScannerModal(false);
                       setQrCodeDataUrl('');
-                      setCurrentSessionId('');
                       setRequestProductNameModal(true);
                     }}
                     className="w-full bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 px-6 py-3 rounded-lg text-white font-medium text-lg transition-colors"

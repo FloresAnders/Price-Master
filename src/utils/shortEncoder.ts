@@ -104,7 +104,7 @@ export function decodeData(encoded: string): {
 /**
  * Generate a short mobile URL
  * @param baseUrl - Base URL (e.g., http://localhost:3000)
- * @param session - Session ID
+ * @param session - Session ID (deprecated, no longer used)
  * @param requestProductName - Request product name parameter (optional)
  * @returns Short mobile URL
  */
@@ -113,6 +113,9 @@ export function generateShortMobileUrl(
   session: string,
   requestProductName?: boolean
 ): string {
-  const encoded = encodeData(session, requestProductName);
-  return `${baseUrl}/mobile-scan/${encoded}`;
+  // Simplified URL generation without session parameter
+  if (requestProductName) {
+    return `${baseUrl}/mobile-scan?rpn=t`;
+  }
+  return `${baseUrl}/mobile-scan`;
 }

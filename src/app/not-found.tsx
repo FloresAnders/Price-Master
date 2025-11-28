@@ -3,7 +3,6 @@
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { decodeData } from '../utils/shortEncoder';
 
 export default function NotFound() {
   const router = useRouter();
@@ -14,24 +13,7 @@ export default function NotFound() {
     if (pathname && pathname.startsWith('/mobile-scan/')) {
       const code = pathname.split('/mobile-scan/')[1]?.replace(/\/$/, '');
       if (code) {
-        try {
-          // Intentar decodificar el código corto
-          const decoded = decodeData(code);
-          if (decoded && decoded.session) {
-            // Es un código corto válido, construir la URL con los parámetros decodificados
-            const params = new URLSearchParams();
-            params.set('session', decoded.session);
-            if (decoded.requestProductName) {
-              params.set('rpn', 't');
-            }
-            router.replace(`/mobile-scan?${params.toString()}`);
-            return;
-          }
-        } catch (error) {
-          console.error('Error decoding short URL:', error);
-        }
-
-        // Si la decodificación falla, usar el código como parámetro directo
+        // Usar el código como parámetro directo (sin decodificación de sesión)
         router.replace(`/mobile-scan?code=${encodeURIComponent(code)}`);
         return;
       }
