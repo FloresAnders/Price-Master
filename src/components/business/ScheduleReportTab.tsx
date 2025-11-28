@@ -311,7 +311,7 @@ export default function ScheduleReportTab() {
       setScheduleData(scheduleDataArray);
     } catch (error) {
       console.error('Error loading schedule data:', error);
-  showToast('Error al cargar los datos de planilla', 'error');
+      showToast('Error al cargar los datos de planilla', 'error');
     } finally {
       setLoading(false);
     }
@@ -384,9 +384,9 @@ export default function ScheduleReportTab() {
         shift
       );
 
-  // Recargar datos
-  await loadScheduleData();
-  showToast('Horario actualizado exitosamente', 'success');
+      // Recargar datos
+      await loadScheduleData();
+      showToast('Horario actualizado exitosamente', 'success');
     } catch (error) {
       console.error('Error updating schedule:', error);
       showToast('Error al actualizar el horario', 'error');
@@ -408,7 +408,7 @@ export default function ScheduleReportTab() {
     const newValue = editableSchedules[cellKey];
 
     if (newValue !== undefined) {
-  updateSchedule(companieValue, employeeName, day, newValue);
+      updateSchedule(companieValue, employeeName, day, newValue);
       // Limpiar el estado temporal
       setEditableSchedules(prev => {
         const newState = { ...prev };
@@ -486,7 +486,7 @@ export default function ScheduleReportTab() {
           {/* Controles específicos del tab de horarios */}
           <div className="mb-6 flex flex-col lg:flex-row gap-4 items-center justify-between">
             <div className="flex items-center gap-4">
-                {/* Selector de empresa (usar empresas en lugar de ubicaciones) */}
+              {/* Selector de empresa (usar empresas en lugar de ubicaciones) */}
               <div className="flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-[var(--tab-text)]" />
                 <select

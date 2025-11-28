@@ -1212,7 +1212,6 @@ export default function CashCounterTabs() {
       };
       window.localStorage.setItem('cashCounters', JSON.stringify(saveData));
       setLastSaved(new Date().toLocaleTimeString());
-      console.log('✅ Datos guardados en localStorage:', saveData);
 
       // Simular un pequeño delay para mostrar el indicador de guardado
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -1257,7 +1256,6 @@ export default function CashCounterTabs() {
 
         setTabsData(normalized);
         setActiveTab(Math.min(activeTabIndex, normalized.length - 1));
-        console.log('✅ Datos cargados desde localStorage:', { counters: normalized, activeTab: activeTabIndex });
       } else {
         // Datos por defecto si no hay nada guardado
         const defaultData = [{

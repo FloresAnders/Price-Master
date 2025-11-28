@@ -199,7 +199,7 @@ export class TokenService {
 
     // Verificar si el refresh token aún es válido
     if (now > sessionData.refreshExpiresAt) {
-      console.log('Refresh token expired');
+      //('Refresh token expired');
       return null;
     }
 
@@ -213,7 +213,7 @@ export class TokenService {
         newTokenSession.refreshExpiresAt = sessionData.refreshExpiresAt;
       }
 
-      console.log('Token refreshed successfully');
+      //('Token refreshed successfully');
       return newTokenSession;
     } catch (error) {
       console.error('Error refreshing token:', error);
@@ -267,7 +267,7 @@ export class TokenService {
       // Crear nuevo token con tiempo extendido
       this.createTokenSession(sessionData.user);
 
-      console.log('Token extended for one more week');
+      //('Token extended for one more week');
       return true;
     } catch (error) {
       console.error('Error extending token:', error);
@@ -288,11 +288,11 @@ export class TokenService {
       const newExp = Math.max(currentExp, now) + extensionMs;
 
       // Crear payload actualizado
-  const userRec = sessionData.user as unknown as Record<string, unknown>;
-  const newPayload: TokenPayload = {
-  userId: ((sessionData.user as unknown) as Record<string, unknown>).id as string || '',
-  name: ((sessionData.user as unknown) as Record<string, unknown>).name as string,
-  ownercompanie: (userRec.ownercompanie as string | undefined),
+      const userRec = sessionData.user as unknown as Record<string, unknown>;
+      const newPayload: TokenPayload = {
+        userId: ((sessionData.user as unknown) as Record<string, unknown>).id as string || '',
+        name: ((sessionData.user as unknown) as Record<string, unknown>).name as string,
+        ownercompanie: (userRec.ownercompanie as string | undefined),
         role: sessionData.user.role as 'admin' | 'user' | 'superadmin',
         permissions: sessionData.user.permissions,
         sessionId: sessionData.sessionId,
@@ -317,7 +317,7 @@ export class TokenService {
 
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(updatedSession));
 
-      console.log(`Token extended by ${extensionMs / (1000 * 60 * 60)} hours`);
+      //(`Token extended by ${extensionMs / (1000 * 60 * 60)} hours`);
       return true;
     } catch (error) {
       console.error('Error extending token with custom duration:', error);

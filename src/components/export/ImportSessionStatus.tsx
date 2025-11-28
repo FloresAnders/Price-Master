@@ -8,7 +8,6 @@ export default function ImportSessionStatus() {
         try {
             const text = await file.text();
             const parsed = JSON.parse(text);
-            console.log('Parsed session_status', parsed);
             alert('session_status file parsed (no write performed)');
         } catch (err) {
             console.error(err);

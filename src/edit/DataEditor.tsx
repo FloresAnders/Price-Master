@@ -42,9 +42,12 @@ export default function DataEditor() {
         [primaryOwnerId]
     );
     const [passwordVisibility, setPasswordVisibility] = useState<{ [key: string]: boolean }>({});
+    const [passwordStore, setPasswordStore] = useState<Record<string, string>>({});
+    const [passwordBaseline, setPasswordBaseline] = useState<Record<string, string>>({});
     const [savingUserKey, setSavingUserKey] = useState<string | null>(null);
     const [showPermissions, setShowPermissions] = useState<{ [key: string]: boolean }>({});
     const [permissionsEditable, setPermissionsEditable] = useState<{ [key: string]: boolean }>({});
+    const [changePasswordMode, setChangePasswordMode] = useState<{ [key: string]: boolean }>({});
 
     // Estado para trackear cambios individuales de ubicaciones (removed)
 
@@ -206,8 +209,22 @@ export default function DataEditor() {
                     usersToShow = users;
                 }
 
-                setUsersData(usersToShow);
-                setOriginalUsersData(JSON.parse(JSON.stringify(usersToShow)));
+                const passwordMap: Record<string, string> = {};
+                const baselineMap: Record<string, string> = {};
+                const sanitizedUsers = usersToShow.map((user, index) => {
+                    const sanitized = { ...user } as User;
+                    const key = user.id ?? (user as unknown as { __localId?: string }).__localId ?? `tmp-${index}`;
+                    const storedPassword = typeof user.password === 'string' ? user.password : '';
+                    passwordMap[key] = storedPassword;
+                    baselineMap[key] = storedPassword;
+                    sanitized.password = '';
+                    return sanitized;
+                });
+
+                setUsersData(sanitizedUsers);
+                setOriginalUsersData(JSON.parse(JSON.stringify(sanitizedUsers)));
+                setPasswordStore(passwordMap);
+                setPasswordBaseline(baselineMap);
 
                 // Re-apply empresa filtering so admins see empresas owned by users they can see.
                 try {
@@ -303,12 +320,15 @@ export default function DataEditor() {
             // Guardar usuarios
             const existingUsers = await UsersService.getAllUsers();
             for (const u of existingUsers) { if (u.id) { try { await UsersService.deleteUserAs(currentUser, u.id); } catch { } } }
-            for (const u of usersData) {
+            for (let index = 0; index < usersData.length; index++) {
+                const u = usersData[index];
+                const key = getUserKey(u, index);
+                const storedPassword = passwordStore[key] ?? u.password;
                 const perms = { ...(u.permissions || {}) } as Record<string, unknown>;
                 await UsersService.createUserAs(currentUser, {
                     name: u.name,
                     ownercompanie: u.ownercompanie,
-                    password: u.password,
+                    password: storedPassword,
                     role: u.role,
                     isActive: u.isActive,
                     permissions: perms as any,
@@ -342,10 +362,7 @@ export default function DataEditor() {
             localStorage.setItem('editedSorteos', JSON.stringify(sorteosData));
             localStorage.setItem('editedUsers', JSON.stringify(usersData));
 
-            setOriginalSorteosData(JSON.parse(JSON.stringify(sorteosData)));
-            setOriginalUsersData(JSON.parse(JSON.stringify(usersData)));
-            setOriginalCcssConfigsData(JSON.parse(JSON.stringify(ccssConfigsData)));
-            setOriginalEmpresasData(JSON.parse(JSON.stringify(empresasData)));
+            await loadData();
 
             setHasChanges(false);
             showToast('¡Datos actualizados exitosamente en Firebase!', 'success');
@@ -417,9 +434,27 @@ export default function DataEditor() {
         setPasswordVisibility(prev => ({ ...prev, [localId]: false }));
         setPermissionsEditable(prev => ({ ...prev, [localId]: true }));
         setShowPermissions(prev => ({ ...prev, [localId]: true }));
+        setPasswordStore(prev => ({ ...prev, [localId]: '' }));
+        setPasswordBaseline(prev => ({ ...prev, [localId]: '' }));
+        setChangePasswordMode(prev => ({ ...prev, [localId]: false }));
     };
 
     const updateUser = (index: number, field: keyof User, value: unknown) => {
+        if (field === 'password') {
+            const key = getUserKey(usersData[index], index);
+            const newValue = typeof value === 'string' ? value : '';
+            const updated = [...usersData];
+            updated[index] = { ...updated[index], password: newValue };
+            setUsersData(updated);
+
+            if (newValue.length > 0) {
+                setPasswordStore(prev => ({ ...prev, [key]: newValue }));
+            } else {
+                setPasswordStore(prev => ({ ...prev, [key]: passwordBaseline[key] ?? '' }));
+            }
+            return;
+        }
+
         const updated = [...usersData];
 
         // No cambiar permisos automáticamente al cambiar rol. Solo actualizar campo.
@@ -449,6 +484,18 @@ export default function DataEditor() {
 
                     // Actualizar originalUsersData para eliminarlo también
                     setOriginalUsersData(prev => prev.filter(u => u.id !== user.id && (u as unknown as { __localId?: string }).__localId !== (user as unknown as { __localId?: string }).__localId));
+
+                    const keyToRemove = getUserKey(user, index);
+                    setPasswordStore(prev => {
+                        const copy = { ...prev };
+                        delete copy[keyToRemove];
+                        return copy;
+                    });
+                    setPasswordBaseline(prev => {
+                        const copy = { ...prev };
+                        delete copy[keyToRemove];
+                        return copy;
+                    });
 
                     showToast(`Usuario ${userName} eliminado exitosamente`, 'success');
                 } catch (error: unknown) {
@@ -760,9 +807,13 @@ export default function DataEditor() {
                 // Actualizar usuario existente (actor-aware)
                 // Clean stale properties before saving
                 const permissionsToSave = { ...(user.permissions || {}) } as Record<string, unknown>;
-                await UsersService.updateUserAs(currentUser, user.id, {
+                const storedPassword = passwordStore[key] ?? '';
+                const baselinePassword = passwordBaseline[key] ?? '';
+                const passwordHasInput = typeof user.password === 'string' && user.password.length > 0;
+                const shouldUpdatePassword = passwordHasInput || (storedPassword.length > 0 && storedPassword !== baselinePassword);
+
+                const updatePayload: Partial<User> = {
                     name: user.name,
-                    password: user.password,
                     role: user.role,
                     isActive: user.isActive,
                     permissions: permissionsToSave as any,
@@ -772,29 +823,64 @@ export default function DataEditor() {
                     eliminate: user.eliminate ?? false,
                     ownerId: user.ownerId,
                     ownercompanie: user.ownercompanie
-                });
-                // Actualizar originalUsersData para este usuario para reflejar que ya no hay cambios pendientes
-                setOriginalUsersData(prev => {
-                    try {
-                        const copy = JSON.parse(JSON.stringify(prev)) as User[];
-                        const idx = copy.findIndex(u => u.id === user.id);
-                        if (idx !== -1) {
-                            copy[idx] = JSON.parse(JSON.stringify(user));
+                };
+
+                if (shouldUpdatePassword) {
+                    updatePayload.password = storedPassword;
+                }
+
+                await UsersService.updateUserAs(currentUser, user.id, updatePayload);
+
+                const refreshed = await UsersService.getUserById(user.id);
+
+                if (refreshed) {
+                    const sanitizedRefreshed = { ...refreshed, password: '' } as User;
+
+                    setUsersData(prev => {
+                        const updated = [...prev];
+                        updated[index] = { ...updated[index], ...sanitizedRefreshed };
+                        return updated;
+                    });
+
+                    setOriginalUsersData(prev => {
+                        try {
+                            const copy = JSON.parse(JSON.stringify(prev)) as User[];
+                            const idx = copy.findIndex(u => u.id === user.id);
+                            if (idx !== -1) {
+                                copy[idx] = JSON.parse(JSON.stringify(sanitizedRefreshed));
+                            }
+                            return copy;
+                        } catch {
+                            return prev;
                         }
-                        return copy;
-                    } catch {
-                        return prev;
+                    });
+
+                    const refreshedPassword = typeof refreshed.password === 'string' ? refreshed.password : '';
+                    setPasswordStore(prev => ({ ...prev, [key]: refreshedPassword }));
+                    setPasswordBaseline(prev => ({ ...prev, [key]: refreshedPassword }));
+                } else {
+                    setUsersData(prev => {
+                        const updated = [...prev];
+                        updated[index] = { ...updated[index], password: '' };
+                        return updated;
+                    });
+
+                    if (shouldUpdatePassword) {
+                        setPasswordStore(prev => ({ ...prev, [key]: storedPassword }));
+                        setPasswordBaseline(prev => ({ ...prev, [key]: storedPassword }));
                     }
-                });
+                }
 
                 // Bloquear edición de permisos para este usuario después de guardar
                 setPermissionsEditable(prev => ({ ...prev, [key]: false }));
+                // Resetear modo de cambio de contraseña
+                setChangePasswordMode(prev => ({ ...prev, [key]: false }));
             } else {
                 // Crear nuevo usuario (actor-aware)
                 const permissionsToCreate = { ...(user.permissions || {}) } as Record<string, unknown>;
                 await UsersService.createUserAs(currentUser, {
                     name: user.name,
-                    password: user.password,
+                    password: passwordStore[key] ?? user.password,
                     role: user.role,
                     isActive: user.isActive,
                     permissions: permissionsToCreate as any,
@@ -809,6 +895,8 @@ export default function DataEditor() {
                 await loadData();
                 // Después de recargar datos, asegurar que el control de edición de permisos está bloqueado
                 setPermissionsEditable(prev => ({ ...prev, [key]: false }));
+                // Resetear modo de cambio de contraseña
+                setChangePasswordMode(prev => ({ ...prev, [key]: false }));
             }
             showToast(`Usuario ${user.name} guardado exitosamente`, 'success');
             // Clear global changes flag so UI removes "Cambios pendientes" badges
@@ -1410,28 +1498,73 @@ export default function DataEditor() {
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Contraseña:</label>
-                                    <div className="relative">
+                                    {!user.id ? (
+                                        // Usuario nuevo: mostrar campo de contraseña sin ocultar
                                         <input
-                                            type={passwordVisibility[getUserKey(user, index)] ? 'text' : 'password'}
+                                            type="text"
                                             value={user.password || ''}
                                             onChange={(e) => updateUser(index, 'password', e.target.value)}
-                                            className="w-full px-3 py-2 pr-10 border border-[var(--input-border)] rounded-md"
+                                            className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
                                             style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
                                             placeholder="Contraseña del usuario"
                                         />
-                                        <button
-                                            type="button"
-                                            onClick={() => togglePasswordVisibility(user, index)}
-                                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
-                                            title={passwordVisibility[getUserKey(user, index)] ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                                        >
-                                            {passwordVisibility[getUserKey(user, index)] ? (
-                                                <EyeOff className="w-4 h-4" />
-                                            ) : (
-                                                <Eye className="w-4 h-4" />
-                                            )}
-                                        </button>
-                                    </div>
+                                    ) : changePasswordMode[getUserKey(user, index)] ? (
+                                        // Usuario existente en modo cambio de contraseña
+                                        <div className="space-y-2">
+                                            <div className="relative">
+                                                <input
+                                                    type={passwordVisibility[getUserKey(user, index)] ? 'text' : 'password'}
+                                                    value={user.password || ''}
+                                                    onChange={(e) => updateUser(index, 'password', e.target.value)}
+                                                    className="w-full px-3 py-2 pr-10 border border-[var(--input-border)] rounded-md"
+                                                    style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                                    placeholder="Nueva contraseña"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => togglePasswordVisibility(user, index)}
+                                                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+                                                    title={passwordVisibility[getUserKey(user, index)] ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                                                >
+                                                    {passwordVisibility[getUserKey(user, index)] ? (
+                                                        <EyeOff className="w-4 h-4" />
+                                                    ) : (
+                                                        <Eye className="w-4 h-4" />
+                                                    )}
+                                                </button>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const key = getUserKey(user, index);
+                                                    setChangePasswordMode(prev => ({ ...prev, [key]: false }));
+                                                    // Restaurar contraseña original
+                                                    const updated = [...usersData];
+                                                    updated[index] = { ...updated[index], password: '' };
+                                                    setUsersData(updated);
+                                                    setPasswordStore(prev => ({ ...prev, [key]: passwordBaseline[key] ?? '' }));
+                                                }}
+                                                className="text-xs px-2 py-1 text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+                                            >
+                                                Cancelar cambio de contraseña
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        // Usuario existente: mostrar mensaje informativo
+                                        <div className="flex items-center justify-between px-3 py-2 border border-[var(--input-border)] rounded-md" style={{ background: 'var(--muted)', color: 'var(--foreground)' }}>
+                                            <span className="text-sm">Contraseña configurada</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const key = getUserKey(user, index);
+                                                    setChangePasswordMode(prev => ({ ...prev, [key]: true }));
+                                                }}
+                                                className="text-xs px-2 py-1 bg-[var(--primary)] text-white rounded hover:bg-[var(--button-hover)] transition-colors"
+                                            >
+                                                Cambiar contraseña
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Rol:</label>
@@ -1450,10 +1583,8 @@ export default function DataEditor() {
                                         )}
                                     </select>
                                 </div>
-                                {/* If role is admin and not delegated (eliminate === false), show maxCompanies field
-                                    But if the current authenticated actor is an admin and this is a newly-created user (no id),
-                                    hide the input per requirement. */}
-                                {user.role === 'admin' && user.eliminate === false && !(currentUser?.role === 'admin' && !user.id) && (
+                                {/* Only show maxCompanies field if current user is superadmin */}
+                                {user.role === 'admin' && user.eliminate === false && currentUser?.role === 'superadmin' && (
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Máx. Empresas:</label>
                                         <input
@@ -1464,7 +1595,7 @@ export default function DataEditor() {
                                             className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
                                             style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
                                             placeholder="Cantidad máxima de empresas"
-                                        />
+                                        />  
                                     </div>
                                 )}
                             </div>

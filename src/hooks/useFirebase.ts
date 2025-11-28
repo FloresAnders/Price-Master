@@ -124,7 +124,7 @@ export function useUsers() {
   const addUser = useCallback(async (user: Omit<User, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
       setError(null);
-  const id = await UsersService.createUserAs(currentUser, user);
+      const id = await UsersService.createUserAs(currentUser, user);
       await fetchUsers(); // Refresh list
       return id;
     } catch (err) {
@@ -136,7 +136,7 @@ export function useUsers() {
   const updateUser = useCallback(async (id: string, user: Partial<User>) => {
     try {
       setError(null);
-  await UsersService.updateUserAs(currentUser, id, user);
+      await UsersService.updateUserAs(currentUser, id, user);
       await fetchUsers(); // Refresh list
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error updating user');
@@ -147,7 +147,7 @@ export function useUsers() {
   const deleteUser = useCallback(async (id: string) => {
     try {
       setError(null);
-  await UsersService.deleteUserAs(currentUser, id);
+      await UsersService.deleteUserAs(currentUser, id);
       await fetchUsers(); // Refresh list
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error deleting user');
@@ -206,15 +206,15 @@ export function useUsers() {
 }
 
 export function useCcssConfig() {
-  const [ccssConfig, setCcssConfig] = useState<CcssConfig>({ 
-    ownerId: '', 
-    companie: [{ 
-      ownerCompanie: '', 
-      mt: 3672.46, 
-      tc: 11017.39, 
-      valorhora: 1441, 
-      horabruta: 1529.62 
-    }] 
+  const [ccssConfig, setCcssConfig] = useState<CcssConfig>({
+    ownerId: '',
+    companie: [{
+      ownerCompanie: '',
+      mt: 3672.46,
+      tc: 11017.39,
+      valorhora: 1441,
+      horabruta: 1529.62
+    }]
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

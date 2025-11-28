@@ -191,8 +191,8 @@ export default function SecurityNotifications() {
                     key={index}
                     onClick={action.action}
                     className={`px-3 py-1 text-xs rounded font-medium transition-colors ${action.type === 'primary' ? 'bg-blue-600 text-white hover:bg-blue-700' :
-                        action.type === 'danger' ? 'bg-red-600 text-white hover:bg-red-700' :
-                          'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                      action.type === 'danger' ? 'bg-red-600 text-white hover:bg-red-700' :
+                        'bg-gray-200 text-gray-800 hover:bg-gray-300'
                       }`}
                   >
                     {action.label}
@@ -274,8 +274,8 @@ export default function SecurityNotifications() {
                                 key={index}
                                 onClick={action.action}
                                 className={`px-2 py-1 text-xs rounded transition-colors ${action.type === 'primary' ? 'bg-blue-100 text-blue-800 hover:bg-blue-200' :
-                                    action.type === 'danger' ? 'bg-red-100 text-red-800 hover:bg-red-200' :
-                                      'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                                  action.type === 'danger' ? 'bg-red-100 text-red-800 hover:bg-red-200' :
+                                    'bg-gray-100 text-gray-800 hover:bg-gray-200'
                                   }`}
                               >
                                 {action.label}

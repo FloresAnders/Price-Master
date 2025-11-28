@@ -28,10 +28,10 @@ export default function NotificationModal({ isOpen, onClose }: NotificationModal
           setSolicitudes([]);
           return;
         }
-  const rows = await SolicitudesService.getSolicitudesByEmpresa(company);
-  // Only show solicitudes that are not marked 'listo'
-  const visible = (rows || []).filter((r: any) => !r?.listo);
-  setSolicitudes(visible);
+        const rows = await SolicitudesService.getSolicitudesByEmpresa(company);
+        // Only show solicitudes that are not marked 'listo'
+        const visible = (rows || []).filter((r: any) => !r?.listo);
+        setSolicitudes(visible);
       } catch (err) {
         console.error('Error loading solicitudes for notification modal:', err);
         setSolicitudes([]);
@@ -57,7 +57,7 @@ export default function NotificationModal({ isOpen, onClose }: NotificationModal
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-  <div className="bg-[var(--background)] rounded-lg shadow-xl w-full sm:max-w-md md:max-w-lg max-h-[80vh] overflow-auto">
+      <div className="bg-[var(--background)] rounded-lg shadow-xl w-full sm:max-w-md md:max-w-lg max-h-[80vh] overflow-auto">
         <div className="p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-[var(--foreground)]">Solicitudes de tu empresa</h2>
@@ -74,39 +74,39 @@ export default function NotificationModal({ isOpen, onClose }: NotificationModal
             <div className="p-4 bg-[var(--card-bg)] border border-[var(--input-border)] rounded">No hay solicitudes para {user.ownercompanie || 'tu empresa'}.</div>
           ) : (
             <div className="space-y-3">
-                {solicitudes.map((s) => (
-                  <div key={s.id} className="p-3 border border-[var(--input-border)] rounded bg-[var(--card-bg)]">
-                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3">
-                        <label className="inline-flex items-center gap-2 mr-2">
-                          <input
-                            type="checkbox"
-                            className="form-checkbox h-4 w-4"
-                            checked={Boolean(s.listo)}
-                            onChange={async (e) => {
-                              const checked = e.target.checked;
-                              try {
-                                // optimistic: remove from list if marked listo
-                                if (checked) setSolicitudes(prev => prev.filter(p => p.id !== s.id));
-                                await SolicitudesService.setListo(s.id, checked);
-                              } catch (err) {
-                                console.error('Error updating listo from modal:', err);
-                                // revert optimistic if needed by reloading
-                                const rows2 = await SolicitudesService.getSolicitudesByEmpresa((user as any)?.ownercompanie || (user as any)?.ownerCompanie || '');
-                                setSolicitudes((rows2 || []).filter((r: any) => !r?.listo));
-                              }
-                            }}
-                          />
-                          <span className="text-sm text-[var(--muted-foreground)]">Listo</span>
-                        </label>
+              {solicitudes.map((s) => (
+                <div key={s.id} className="p-3 border border-[var(--input-border)] rounded bg-[var(--card-bg)]">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3">
+                      <label className="inline-flex items-center gap-2 mr-2">
+                        <input
+                          type="checkbox"
+                          className="form-checkbox h-4 w-4"
+                          checked={Boolean(s.listo)}
+                          onChange={async (e) => {
+                            const checked = e.target.checked;
+                            try {
+                              // optimistic: remove from list if marked listo
+                              if (checked) setSolicitudes(prev => prev.filter(p => p.id !== s.id));
+                              await SolicitudesService.setListo(s.id, checked);
+                            } catch (err) {
+                              console.error('Error updating listo from modal:', err);
+                              // revert optimistic if needed by reloading
+                              const rows2 = await SolicitudesService.getSolicitudesByEmpresa((user as any)?.ownercompanie || (user as any)?.ownerCompanie || '');
+                              setSolicitudes((rows2 || []).filter((r: any) => !r?.listo));
+                            }
+                          }}
+                        />
+                        <span className="text-sm text-[var(--muted-foreground)]">Listo</span>
+                      </label>
 
-                        <div className="font-semibold text-[var(--foreground)] break-words">{s.productName || s.name || 'Sin nombre'}</div>
-                      </div>
-
-                      <div className="text-xs text-[var(--muted-foreground)]">{formatDate(s.createdAt)}</div>
+                      <div className="font-semibold text-[var(--foreground)] break-words">{s.productName || s.name || 'Sin nombre'}</div>
                     </div>
+
+                    <div className="text-xs text-[var(--muted-foreground)]">{formatDate(s.createdAt)}</div>
                   </div>
-                ))}
+                </div>
+              ))}
             </div>
           )}
 

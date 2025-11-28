@@ -13,7 +13,7 @@ const HomeMenu = dynamic(() => import('./HomeMenu'), {
         <div className="w-14 h-14 mr-2 bg-gray-200 rounded animate-pulse"></div>
       </div>
       <div className="h-8 bg-gray-200 rounded w-64 mb-8 animate-pulse"></div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 w-full max-w-4xl">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 w-full max-w-screen-xl">
         {[...Array(8)].map((_, index) => (
           <div
             key={index}

@@ -5,7 +5,7 @@ import { ToastProvider } from '../components/ui/ToastProvider';
 import { AuthWrapper } from '../components/auth';
 
 export const metadata = {
-  title: 'Price Master',
+  title: 'Time Master',
   description: 'Plataforma para gestión de precios, escaneo de códigos de barras, control de inventario y horarios laborales',
   icons: {
     icon: [
@@ -29,7 +29,7 @@ export const metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'Price Master',
+    title: 'Time Master',
   },
   verification: {
     google: '9TNvqvQrFhVHvPtQR01Du1GhCiG1yjPPvCgJTGf09w0',
@@ -41,11 +41,11 @@ export const metadata = {
   creator: 'AndersFloresM',
   robots: 'index, follow',
   generator: 'Next.js',
-  applicationName: 'Price Master',
-  keywords: ['price master', 'calculadora', 'contador', 'escaner', 'precio', 'codigo barras', 'horarios laborales', 'inventario'],
+  applicationName: 'Time Master',
+  keywords: ['Time Master', 'calculadora', 'contador', 'escaner', 'precio', 'codigo barras', 'horarios laborales', 'inventario'],
   category: 'business',
   other: {
-    copyright: '2025 Price Master - AndersFloresM & AlvaroChavesC',
+    copyright: '2025 Time Master - AndersFloresM & AlvaroChavesC',
     'mobile-web-app-capable': 'yes',
     'msapplication-TileColor': '#2563eb',
   }
@@ -60,6 +60,12 @@ export const viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning className="min-h-full bg-white dark:bg-zinc-900">
+      <head>
+        <link rel="preconnect" href="https://firebasestorage.googleapis.com" />
+        <link rel="preconnect" href="https://www.googleapis.com" />
+        <link rel="dns-prefetch" href="https://firebasestorage.googleapis.com" />
+        <link rel="dns-prefetch" href="https://www.googleapis.com" />
+      </head>
       <body className="bg-background text-foreground transition-colors duration-500 min-h-screen flex flex-col" suppressHydrationWarning>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <AuthWrapper>

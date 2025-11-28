@@ -174,7 +174,7 @@ export class ScanningService {
       const deletePromises = matchingFiles.map(async (fileRef) => {
         try {
           await deleteObject(fileRef);
-          console.log(`Deleted image: ${fileRef.name}`);
+          //(`Deleted image: ${fileRef.name}`);
         } catch (error) {
           console.error(`Error deleting image ${fileRef.name}:`, error);
           throw error;
@@ -183,7 +183,7 @@ export class ScanningService {
 
       await Promise.all(deletePromises);
 
-      console.log(`Deleted ${matchingFiles.length} images for code: ${barcodeCode}`);
+      //(`Deleted ${matchingFiles.length} images for code: ${barcodeCode}`);
       return matchingFiles.length;
     } catch (error) {
       console.error('Error deleting associated images:', error);
@@ -213,7 +213,7 @@ export class ScanningService {
       // Delete associated images from Firebase Storage
       try {
         const deletedImagesCount = await this.deleteAssociatedImages(barcodeCode);
-        console.log(`Deleted scan ${scanId} and ${deletedImagesCount} associated images for code: ${barcodeCode}`);
+        //(`Deleted scan ${scanId} and ${deletedImagesCount} associated images for code: ${barcodeCode}`);
       } catch (imageError) {
         console.warn(`Scan deleted but failed to delete images for code ${barcodeCode}:`, imageError);
         // Don't throw here - the scan was successfully deleted

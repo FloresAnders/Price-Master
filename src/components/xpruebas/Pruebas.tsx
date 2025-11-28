@@ -1212,7 +1212,7 @@ export default function Pruebas() {
                             📝 Componer correo personalizado
                         </p>
                         <p style="margin: 8px 0 0 0; color: #6d28d9; font-size: 14px;">
-                            Envía un correo con contenido personalizado desde el sistema Price Master.
+                            Envía un correo con contenido personalizado desde el sistema Time Master.
                         </p>
                     </div>
                     

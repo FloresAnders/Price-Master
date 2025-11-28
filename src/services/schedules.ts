@@ -147,13 +147,13 @@ export class SchedulesService {
   ): Promise<void> {
     try {
       // Find existing entry first
-  const existingEntry = await this.findScheduleEntry(locationValue, employeeName, year, month, day);
+      const existingEntry = await this.findScheduleEntry(locationValue, employeeName, year, month, day);
 
       if (shift === '' || shift.trim() === '') {
         // If setting to empty and document exists, DELETE it
         if (existingEntry && existingEntry.id) {
           await this.deleteSchedule(existingEntry.id);
-          console.log(`Documento eliminado exitosamente: ${existingEntry.id}`);
+          //(`Documento eliminado exitosamente: ${existingEntry.id}`);
         }
         // If no existing document, do nothing (already "empty")
       } else {
@@ -167,14 +167,14 @@ export class SchedulesService {
             const empresa = empresas.find(emp => emp.name.toLowerCase() === locationValue.toLowerCase());
             const employee = empresa?.empleados?.find(emp => emp.Empleado === employeeName);
             horasPorDia = employee?.hoursPerShift || 8; // Default to 8 hours if not specified
-            console.log(`🔄 Adding horasPorDia for ${employeeName} (${shift}): ${horasPorDia} hours`);
+            //(`🔄 Adding horasPorDia for ${employeeName} (${shift}): ${horasPorDia} hours`);
           } catch (error) {
             console.warn('Error getting employee hoursPerShift, using default 8:', error);
             horasPorDia = 8; // Fallback to 8 hours
           }
         } else {
           // For shifts other than D or N (like L), don't add horasPorDia
-          console.log(`ℹ️ Shift "${shift}" for ${employeeName}: no horasPorDia added`);
+          //(`ℹ️ Shift "${shift}" for ${employeeName}: no horasPorDia added`);
         }
 
         // If setting a value
@@ -227,7 +227,7 @@ export class SchedulesService {
         // If hours is 0 or negative, delete the document if it exists
         if (existingEntry && existingEntry.id) {
           await this.deleteSchedule(existingEntry.id);
-          console.log(`Documento eliminado (0 horas): ${existingEntry.id}`);
+          //(`Documento eliminado (0 horas): ${existingEntry.id}`);
         }
         // If no existing document, do nothing (already "empty")
       } else {

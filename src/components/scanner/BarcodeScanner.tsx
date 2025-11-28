@@ -163,8 +163,8 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
         <div className="flex bg-[var(--muted)] rounded-lg p-1 mb-6">
           <button
             className={`flex-1 px-4 py-2 rounded-md font-medium transition-all duration-200 flex items-center justify-center gap-2 ${activeTab === 'image'
-                ? 'bg-[var(--card-bg)] text-[var(--tab-text-active)] shadow-sm border border-[var(--input-border)]'
-                : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)]'
+              ? 'bg-[var(--card-bg)] text-[var(--tab-text-active)] shadow-sm border border-[var(--input-border)]'
+              : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)]'
               }`}
             onClick={() => setActiveTab('image')}
           >
@@ -173,8 +173,8 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
           </button>
           <button
             className={`flex-1 px-4 py-2 rounded-md font-medium transition-all duration-200 flex items-center justify-center gap-2 ${activeTab === 'camera'
-                ? 'bg-[var(--card-bg)] text-[var(--tab-text-active)] shadow-sm border border-[var(--input-border)]'
-                : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)]'
+              ? 'bg-[var(--card-bg)] text-[var(--tab-text-active)] shadow-sm border border-[var(--input-border)]'
+              : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)]'
               }`}
             onClick={() => setActiveTab('camera')}
           >

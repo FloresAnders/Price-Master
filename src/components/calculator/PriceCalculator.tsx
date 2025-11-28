@@ -238,12 +238,12 @@ export default function PriceCalculator() {
   const handleIvaPersonalizadoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const valor = e.target.value;
     setIvaPersonalizado(valor);
-    
+
     const ivaNum = parseFloat(valor);
     if (!isNaN(ivaNum) && ivaNum >= 0 && ivaNum <= 100) {
       setIvaSeleccionado(ivaNum);
       setUsandoIvaPersonalizado(true);
-      
+
       if (precioSinIVA && actualizandoDesde === 'sinIVA') {
         setActualizandoDesde('sinIVA');
       } else if (precioConIVA && actualizandoDesde === 'conIVA') {
@@ -285,15 +285,15 @@ export default function PriceCalculator() {
               key={opcion.value}
               onClick={() => handleIVAChange(opcion.value)}
               className={`px-4 py-2 rounded-md border transition-colors ${ivaSeleccionado === opcion.value && !usandoIvaPersonalizado
-                  ? 'bg-[var(--primary)] text-white border-[var(--primary)]'
-                  : 'bg-transparent border-[var(--border)] hover:border-[var(--primary)]'
+                ? 'bg-[var(--primary)] text-white border-[var(--primary)]'
+                : 'bg-transparent border-[var(--border)] hover:border-[var(--primary)]'
                 }`}
             >
               {opcion.label}
             </button>
           ))}
         </div>
-        
+
         {/* Campo para IVA personalizado */}
         <div className="flex items-center gap-2">
           <label className="text-sm font-medium whitespace-nowrap">IVA personalizado (%):</label>
@@ -301,9 +301,8 @@ export default function PriceCalculator() {
             type="number"
             value={ivaPersonalizado}
             onChange={handleIvaPersonalizadoChange}
-            className={`w-24 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--primary)] text-black ${
-              usandoIvaPersonalizado ? 'border-[var(--primary)] bg-[var(--muted)]' : 'border-[var(--border)]'
-            }`}
+            className={`w-24 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--primary)] text-black ${usandoIvaPersonalizado ? 'border-[var(--primary)] bg-[var(--muted)]' : 'border-[var(--border)]'
+              }`}
             placeholder="0"
             step="0.01"
             min="0"

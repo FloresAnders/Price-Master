@@ -14,7 +14,7 @@ const firebaseConfig = {
 };
 
 // Validar que la configuración no esté vacía
-const isConfigValid = Object.values(firebaseConfig).every(value => 
+const isConfigValid = Object.values(firebaseConfig).every(value =>
   value && !value.includes('your-') && !value.includes('123456789')
 );
 

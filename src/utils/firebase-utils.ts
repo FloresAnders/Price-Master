@@ -1,7 +1,7 @@
 import { SorteosService } from '../services/sorteos';
 import { UsersService } from '../services/users';
 import { CcssConfigService } from '../services/ccss-config';
-import { Sorteo, User} from '../types/firestore';
+import { Sorteo, User } from '../types/firestore';
 
 /**
  * Firebase helper utilities
@@ -14,7 +14,6 @@ export class FirebaseUtils {
       const sorteos = await SorteosService.getAllSorteos();
 
       if (sorteos.length === 0) {
-        console.log('Collections are empty, running migration...');
         const { MigrationService } = await import('./migration');
         await MigrationService.runAllMigrations();
       }

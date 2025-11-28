@@ -1,7 +1,7 @@
 // app/home/layout.tsx
 export const metadata = {
-  title: 'Home - Price Master',
-  description: 'Acceso especial a Price Master',
+  title: 'Home - Time Master',
+  description: 'Acceso especial a Time Master',
 };
 
 export default function HomeLayout({ children }: { children: React.ReactNode }) {

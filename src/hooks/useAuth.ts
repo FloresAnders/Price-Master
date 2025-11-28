@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { User, UserPermissions } from '../types/firestore';
 import { TokenService } from '../services/tokenService';
+import { UsersService } from '../services/users';
 
 interface SessionData {
   id?: string;
@@ -51,7 +52,6 @@ export function useAuth() {
   const [loading, setLoading] = useState(true);
   const [sessionWarning, setSessionWarning] = useState(false);
   const [useTokenAuth, setUseTokenAuth] = useState(false); // Estado para controlar el tipo de autenticación
-
   // Función para generar ID de sesión único (short format)
   const generateSessionId = () => {
     // Generate a short session ID: timestamp base36 + random string
@@ -215,8 +215,8 @@ export function useAuth() {
 
         if (hoursElapsed < maxHours && !isInactive) {
           // Only update user if the data has actually changed
-            const sessionObj = session as unknown as Record<string, unknown>;
-            const newUserData = {
+          const sessionObj = session as unknown as Record<string, unknown>;
+          const newUserData = {
             id: session.id,
             name: session.name,
             ownercompanie: (sessionObj.ownercompanie as string) || session.ownercompanie,
@@ -230,9 +230,9 @@ export function useAuth() {
           // Check if user data has changed to prevent unnecessary re-renders
           const hasUserChanged = !user ||
             user.id !== newUserData.id ||
-              user.name !== newUserData.name ||
-              user.ownercompanie !== newUserData.ownercompanie ||
-              user.role !== newUserData.role ||
+            user.name !== newUserData.name ||
+            user.ownercompanie !== newUserData.ownercompanie ||
+            user.role !== newUserData.role ||
             JSON.stringify(user.permissions) !== JSON.stringify(newUserData.permissions);
 
           if (hasUserChanged) {
@@ -269,7 +269,68 @@ export function useAuth() {
     }
   }, [checkInactivity, logout, user, isAuthenticated, sessionWarning, logAuditEvent]);
   useEffect(() => {
+    let unsubscribeUser: (() => void) | null = null;
+
     checkExistingSession();
+
+    // Configurar listener en tiempo real para actualizaciones de usuario (permisos, etc.)
+    if (isAuthenticated && user?.id) {
+      unsubscribeUser = UsersService.subscribeToUser(
+        user.id,
+        (updatedUserData) => {
+          if (updatedUserData) {
+            setUser((prevUser) => {
+              if (!prevUser) return prevUser;
+
+              // Actualizar solo si hay cambios relevantes (especialmente permisos)
+              const hasPermissionsChanged = JSON.stringify(prevUser.permissions) !== JSON.stringify(updatedUserData.permissions);
+              const hasDataChanged = 
+                prevUser.name !== updatedUserData.name ||
+                prevUser.ownercompanie !== updatedUserData.ownercompanie ||
+                prevUser.role !== updatedUserData.role ||
+                hasPermissionsChanged;
+
+              if (!hasDataChanged) return prevUser;
+              // Actualizar también en localStorage para mantener sincronizado
+              if (useTokenAuth) {
+                // Actualizar token con nuevos datos
+                const tokenData = TokenService.getTokenInfo();
+                if (tokenData.isValid) {
+                  TokenService.createTokenSession(updatedUserData);
+                }
+              } else {
+                // Actualizar sesión tradicional
+                const sessionData = localStorage.getItem('pricemaster_session');
+                if (sessionData) {
+                  try {
+                    const session = JSON.parse(sessionData);
+                    session.permissions = updatedUserData.permissions;
+                    session.name = updatedUserData.name;
+                    session.role = updatedUserData.role;
+                    localStorage.setItem('pricemaster_session', JSON.stringify(session));
+                  } catch (err) {
+                    console.error('Error updating session with new permissions:', err);
+                  }
+                }
+              }
+
+              if (hasPermissionsChanged) {
+                logAuditEvent('PERMISSIONS_UPDATED', 'User permissions updated in real-time', prevUser.id);
+              }
+
+              return {
+                ...prevUser,
+                ...updatedUserData,
+                permissions: updatedUserData.permissions
+              };
+            });
+          }
+        },
+        (error) => {
+          console.error('Error en listener de usuario:', error);
+        }
+      );
+    }
 
     // Configurar listener para actividad del usuario
     const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
@@ -290,14 +351,17 @@ export function useAuth() {
 
     // Cleanup
     return () => {
+      if (unsubscribeUser) {
+        unsubscribeUser();
+      }
       activityEvents.forEach(event => {
         document.removeEventListener(event, handleActivity);
       });
       clearInterval(sessionInterval);
     };
-  }, [checkExistingSession, updateActivity]);
+  }, [checkExistingSession, updateActivity, isAuthenticated, user?.id, useTokenAuth, logAuditEvent]);
   const login = (userData: User, keepActive: boolean = false, useTokens: boolean = false) => {
-      if (useTokens) {
+    if (useTokens) {
       // Usar autenticación por tokens (una semana automáticamente)
       TokenService.createTokenSession(userData);
       const userObj = userData as unknown as Record<string, unknown>;
@@ -419,8 +483,8 @@ export function useAuth() {
   }, [user?.role]);
   // Función para verificar si el usuario necesita autenticación de dos factores
   const requiresTwoFactor = useCallback(() => {
-  // Require two-factor for both SuperAdmins and Admins
-  return user?.role === 'superadmin' || user?.role === 'admin';
+    // Require two-factor for both SuperAdmins and Admins
+    return user?.role === 'superadmin' || user?.role === 'admin';
   }, [user?.role]);
 
   // Función para obtener información del tipo de sesión
@@ -457,7 +521,7 @@ export function useAuth() {
     logout,
     isAdmin,
     isSuperAdmin,
-  canChangeOwnercompanie,
+    canChangeOwnercompanie,
     requiresTwoFactor,
     getSessionTimeLeft,
     getAuditLogs,

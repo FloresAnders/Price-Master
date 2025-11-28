@@ -205,8 +205,8 @@ export class SupplierOrdersService {
     userId: string | undefined,
     timestamp: string
   ): SupplierOrderEntry {
-  const sourceProducts = Array.isArray(order.products) ? order.products : []
-  const products = sourceProducts.map(product => ({
+    const sourceProducts = Array.isArray(order.products) ? order.products : []
+    const products = sourceProducts.map(product => ({
       id: product.id,
       name: product.name,
       quantity: product.quantity,

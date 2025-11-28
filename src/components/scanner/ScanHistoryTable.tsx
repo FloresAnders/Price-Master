@@ -1,7 +1,6 @@
 // ...existing code...
 
 'use client'
-'use client'
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
@@ -63,18 +62,6 @@ export default function ScanHistoryTable() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [showProcessModal, setShowProcessModal] = useState<{ code: string; open: boolean } | null>(null);
   const [confirmProcess, setConfirmProcess] = useState<{ id: string; code: string } | null>(null);
-
-  // Temporary visual selection: show checkbox checked for 2 seconds when user selects it
-  const [tempSelectedId, setTempSelectedId] = useState<string | null>(null);
-  const tempSelectionTimers = useRef<Record<string, number>>({});
-
-  // Clear any pending timers on unmount
-  useEffect(() => {
-    return () => {
-      Object.values(tempSelectionTimers.current).forEach((t) => window.clearTimeout(t));
-      tempSelectionTimers.current = {};
-    };
-  }, []);
 
   // Auto-close the "Código procesado" modal 2 seconds after it opens
   useEffect(() => {
@@ -162,7 +149,6 @@ export default function ScanHistoryTable() {
   const [showMobileScannerModal, setShowMobileScannerModal] = useState(false);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const [requestProductNameModal, setRequestProductNameModal] = useState<boolean>(true);
-  const [currentSessionId, setCurrentSessionId] = useState<string>('');
 
   // Function to generate QR Code for mobile scanner
   const generateQRCode = useCallback(async (sessionId: string, requestProductName: boolean) => {
@@ -235,10 +221,10 @@ export default function ScanHistoryTable() {
         document.execCommand('copy');
         document.body.removeChild(textArea);
       }
-  notify('¡Código copiado!', 'green');
+      notify('¡Código copiado!', 'green');
     } catch (error) {
       console.error('Error copying to clipboard:', error);
-  notify('Error al copiar código', 'red');
+      notify('Error al copiar código', 'red');
     }
   };
 
@@ -247,10 +233,10 @@ export default function ScanHistoryTable() {
     if (window.confirm('¿Estás seguro de que deseas eliminar todo el historial? Esta acción no se puede deshacer.')) {
       try {
         await clearHistoryService();
-  notify('Historial eliminado', 'red');
+        notify('Historial eliminado', 'red');
       } catch (error) {
         console.error('Error clearing history:', error);
-  notify('Error al eliminar el historial', 'red');
+        notify('Error al eliminar el historial', 'red');
       }
     }
   };
@@ -262,10 +248,10 @@ export default function ScanHistoryTable() {
       try {
         await deleteScanService(scanId);
         setShowProcessModal({ code, open: true });
-  notify('Código procesado y eliminado', 'green');
+        notify('Código procesado y eliminado', 'green');
       } catch (error) {
         console.error('Error deleting scan:', error);
-  notify('Error al eliminar el código', 'red');
+        notify('Error al eliminar el código', 'red');
       } finally {
         setProcessingId(null);
       }
@@ -285,13 +271,13 @@ export default function ScanHistoryTable() {
     try {
       const result = await refreshHistory();
       if (result.newCount > 0) {
-  notify(`Historial actualizado - ${result.newCount} código${result.newCount > 1 ? 's' : ''} nuevo${result.newCount > 1 ? 's' : ''}`, 'green');
+        notify(`Historial actualizado - ${result.newCount} código${result.newCount > 1 ? 's' : ''} nuevo${result.newCount > 1 ? 's' : ''}`, 'green');
       } else {
-  notify('Historial actualizado - Sin cambios', 'green');
+        notify('Historial actualizado - Sin cambios', 'green');
       }
     } catch (error) {
       console.error('Error refreshing history:', error);
-  notify('Error al actualizar el historial', 'red');
+      notify('Error al actualizar el historial', 'red');
     }
   };
 
@@ -330,10 +316,10 @@ export default function ScanHistoryTable() {
       link.click();
       document.body.removeChild(link);
 
-  notify('Descarga iniciada', 'green');
+      notify('Descarga iniciada', 'green');
     } catch (error) {
       console.error('Error downloading image:', error);
-  notify('Error al descargar la imagen', 'red');
+      notify('Error al descargar la imagen', 'red');
     }
   };
 
@@ -363,10 +349,10 @@ export default function ScanHistoryTable() {
         }
       }
 
-  notify(`${codeImages.length} descargas iniciadas`, 'green');
+      notify(`${codeImages.length} descargas iniciadas`, 'green');
     } catch (error) {
       console.error('Error downloading images:', error);
-  notify('Error al descargar las imágenes', 'red');
+      notify('Error al descargar las imágenes', 'red');
     }
   };
 
@@ -452,18 +438,18 @@ export default function ScanHistoryTable() {
   // Generate QR code when modal opens
   useEffect(() => {
     if (showMobileScannerModal && typeof window !== 'undefined') {
-      const sessionId = `scan-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      setCurrentSessionId(sessionId);
-      generateQRCode(sessionId, requestProductNameModal);
+      // sessionId no longer needed, pass empty string
+      generateQRCode('', requestProductNameModal);
     }
   }, [showMobileScannerModal, generateQRCode, requestProductNameModal]);
 
   // Regenerate QR code when requestProductNameModal changes
   useEffect(() => {
-    if (showMobileScannerModal && currentSessionId && typeof window !== 'undefined') {
-      generateQRCode(currentSessionId, requestProductNameModal);
+    if (showMobileScannerModal && typeof window !== 'undefined') {
+      // sessionId no longer needed, pass empty string
+      generateQRCode('', requestProductNameModal);
     }
-  }, [requestProductNameModal, currentSessionId, showMobileScannerModal, generateQRCode]);
+  }, [requestProductNameModal, showMobileScannerModal, generateQRCode]);
 
   // Filter history based on search term, location, dates, and user permissions
   const filteredHistory = scanHistory.filter(entry => {
@@ -543,7 +529,7 @@ export default function ScanHistoryTable() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-6 barcode-mobile">
+    <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-3 sm:p-4 md:p-6 barcode-mobile">
       {/* notifications are rendered globally by ToastProvider */}
 
       {/* Verificar permisos del usuario */}
@@ -560,42 +546,43 @@ export default function ScanHistoryTable() {
       ) : (
         <>
           {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <History className="w-6 h-6 text-blue-600" />
-              <h2 className="text-2xl font-bold text-[var(--foreground)]">Historial de Escaneos</h2>
+          <div className="mb-6">
+            <div className="flex items-center gap-2 sm:gap-3 mb-4 flex-wrap">
+              <History className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+              <h2 className="text-xl sm:text-2xl font-bold text-[var(--foreground)]">Historial de Escaneos</h2>
               {user.permissions.scanhistoryEmpresas && user.permissions.scanhistoryEmpresas.length > 0 && (
-                <span className="text-sm bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded">
+                <span className="text-xs sm:text-sm bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded">
                   Limitado a: {user.permissions.scanhistoryEmpresas.join(', ')}
                 </span>
               )}
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setShowMobileScannerModal(true)}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+                className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
                 title="Abrir Escáner Móvil"
               >
                 <Smartphone className="w-4 h-4" />
-                Escáner Móvil
+                <span className="hidden sm:inline">Escáner Móvil</span>
+                <span className="sm:hidden">Escáner</span>
               </button>
               <button
                 onClick={handleRefreshHistory}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
                 disabled={loading}
               >
                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                Actualizar
+                <span className="hidden sm:inline">Actualizar</span>
               </button>
               {scanHistory.length > 0 && (
                 <>
                   <button
                     onClick={clearHistory}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
+                    className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
                   >
-                    {/* Eliminado Trash2, ya no se usa ícono de eliminar aquí */}
-                    Limpiar Todo
+                    <span className="hidden sm:inline">Limpiar Todo</span>
+                    <span className="sm:hidden">Limpiar</span>
                   </button>
                 </>
               )}
@@ -675,46 +662,48 @@ export default function ScanHistoryTable() {
                   </div>
 
                   {/* Quick date filters */}
-                  <div className="flex flex-wrap gap-2">
-                    <span className="text-sm text-[var(--muted-foreground)] flex items-center">
+                  <div className="space-y-2">
+                    <span className="text-xs sm:text-sm text-[var(--muted-foreground)] block">
                       Filtros rápidos:
                     </span>
-                    <button
-                      onClick={() => setDateRange(0)}
-                      className="px-3 py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors"
-                    >
-                      Hoy
-                    </button>
-                    <button
-                      onClick={() => setDateRange(1)}
-                      className="px-3 py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors"
-                    >
-                      Ayer
-                    </button>
-                    <button
-                      onClick={() => setDateRange(7)}
-                      className="px-3 py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors"
-                    >
-                      Últimos 7 días
-                    </button>
-                    <button
-                      onClick={() => setThisWeek()}
-                      className="px-3 py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors"
-                    >
-                      Esta semana
-                    </button>
-                    <button
-                      onClick={() => setDateRange(30)}
-                      className="px-3 py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors"
-                    >
-                      Últimos 30 días
-                    </button>
-                    <button
-                      onClick={() => setThisMonth()}
-                      className="px-3 py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors"
-                    >
-                      Este mes
-                    </button>
+                    <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
+                      <button
+                        onClick={() => setDateRange(0)}
+                        className="px-3 py-1.5 sm:py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors"
+                      >
+                        Hoy
+                      </button>
+                      <button
+                        onClick={() => setDateRange(1)}
+                        className="px-3 py-1.5 sm:py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors"
+                      >
+                        Ayer
+                      </button>
+                      <button
+                        onClick={() => setDateRange(7)}
+                        className="px-3 py-1.5 sm:py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors"
+                      >
+                        Últimos 7 días
+                      </button>
+                      <button
+                        onClick={() => setThisWeek()}
+                        className="px-3 py-1.5 sm:py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors"
+                      >
+                        Esta semana
+                      </button>
+                      <button
+                        onClick={() => setDateRange(30)}
+                        className="px-3 py-1.5 sm:py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors"
+                      >
+                        Últimos 30 días
+                      </button>
+                      <button
+                        onClick={() => setThisMonth()}
+                        className="px-3 py-1.5 sm:py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors"
+                      >
+                        Este mes
+                      </button>
+                    </div>
                   </div>
 
                   {/* Clear filters button */}
@@ -739,49 +728,49 @@ export default function ScanHistoryTable() {
 
               {/* Stats */}
               {scanHistory.length > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
-                    <div className="flex items-center gap-2">
-                      <Eye className="w-5 h-5 text-blue-600" />
-                      <span className="text-sm font-medium text-blue-800 dark:text-blue-300">Total Escaneos</span>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6">
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-3 sm:p-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                      <Eye className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+                      <span className="text-xs sm:text-sm font-medium text-blue-800 dark:text-blue-300">Total Escaneos</span>
                     </div>
-                    <p className="text-2xl font-bold text-blue-600 mt-1">{scanHistory.length}</p>
+                    <p className="text-xl sm:text-2xl font-bold text-blue-600 mt-1">{scanHistory.length}</p>
                   </div>
 
-                  <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-4">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-5 h-5 text-green-600" />
-                      <span className="text-sm font-medium text-green-800 dark:text-green-300">Con Nombre</span>
+                  <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-3 sm:p-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                      <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
+                      <span className="text-xs sm:text-sm font-medium text-green-800 dark:text-green-300">Con Nombre</span>
                     </div>
-                    <p className="text-2xl font-bold text-green-600 mt-1">
+                    <p className="text-xl sm:text-2xl font-bold text-green-600 mt-1">
                       {scanHistory.filter(entry => entry.productName).length}
                     </p>
                   </div>
 
-                  <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 rounded-lg p-4">
-                    <div className="flex items-center gap-2">
-                      <ImageIcon className="w-5 h-5 text-purple-600" />
-                      <span className="text-sm font-medium text-purple-800 dark:text-purple-300">Con Imágenes</span>
+                  <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 rounded-lg p-3 sm:p-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                      <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
+                      <span className="text-xs sm:text-sm font-medium text-purple-800 dark:text-purple-300">Con Imágenes</span>
                     </div>
-                    <p className="text-2xl font-bold text-purple-600 mt-1">
+                    <p className="text-xl sm:text-2xl font-bold text-purple-600 mt-1">
                       {scanHistory.filter(entry => entry.hasImages).length}
                     </p>
                   </div>
 
-                  <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-4">
-                    <div className="flex items-center gap-2">
-                      <Search className="w-5 h-5 text-amber-600" />
-                      <span className="text-sm font-medium text-amber-800 dark:text-amber-300">Filtrados</span>
+                  <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-3 sm:p-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                      <Search className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" />
+                      <span className="text-xs sm:text-sm font-medium text-amber-800 dark:text-amber-300">Filtrados</span>
                     </div>
-                    <p className="text-2xl font-bold text-amber-600 mt-1">{filteredHistory.length}</p>
+                    <p className="text-xl sm:text-2xl font-bold text-amber-600 mt-1">{filteredHistory.length}</p>
                   </div>
 
-                  <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-lg p-4">
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-5 h-5 text-orange-600" />
-                      <span className="text-sm font-medium text-orange-800 dark:text-orange-300">Con Ubicación</span>
+                  <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-lg p-3 sm:p-4 col-span-2 sm:col-span-1">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                      <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600" />
+                      <span className="text-xs sm:text-sm font-medium text-orange-800 dark:text-orange-300">Con Ubicación</span>
                     </div>
-                    <p className="text-2xl font-bold text-orange-600 mt-1">
+                    <p className="text-xl sm:text-2xl font-bold text-orange-600 mt-1">
                       {scanHistory.filter(entry => entry.ownercompanie).length}
                     </p>
                   </div>
@@ -807,171 +796,111 @@ export default function ScanHistoryTable() {
                   {filteredHistory.map((entry, index) => (
                     <div
                       key={`${entry.code}-${entry.id || index}`}
-                      className="scan-history-row flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 bg-[var(--muted)] hover:bg-[var(--hover-bg)] rounded-lg border border-[var(--input-border)] transition-colors"
+                      className="scan-history-row flex flex-col p-3 sm:p-4 bg-[var(--muted)] hover:bg-[var(--hover-bg)] rounded-lg border border-[var(--input-border)] transition-colors space-y-3"
                     >
                       <div className="flex-1 min-w-0 w-full">
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2 w-full">
-                          <span className="font-mono text-lg font-medium text-[var(--foreground)] break-words w-full block">
-                            {entry.code}
-                          </span>
-                          <div className="flex flex-wrap gap-2 w-full">
-                            {entry.hasImages && (
-                              <span className="text-xs text-[var(--muted-foreground)] bg-purple-100 dark:bg-purple-900/30 px-2 py-1 rounded flex items-center gap-1">
-                                <ImageIcon className="w-3 h-3" />
-                                Imágenes
-                              </span>
-                            )}
+                        <div className="flex flex-col gap-2 mb-2 w-full">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-mono text-base sm:text-lg font-medium text-[var(--foreground)] break-all">
+                              {entry.code}
+                            </span>
+                            <button
+                              onClick={() => handleCopy(entry.code)}
+                              className="p-2 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-md transition-colors flex-shrink-0"
+                              title="Copiar código"
+                            >
+                              <Copy className="w-4 h-4" />
+                            </button>
+
+                            {/* Nombre del producto - junto al botón copiar */}
                             {entry.productName && (
                               <button
                                 onClick={() => {
                                   navigator.clipboard.writeText((entry.productName || '').toUpperCase());
                                   notify('¡Nombre copiado!', 'blue');
                                 }}
-                                className="text-sm text-[var(--muted-foreground)] bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors cursor-pointer uppercase"
+                                className="text-sm sm:text-base text-[var(--foreground)] font-medium bg-blue-100 dark:bg-blue-900/30 px-3 py-2 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors cursor-pointer uppercase text-left break-words whitespace-normal leading-relaxed"
                                 title="Clic para copiar nombre"
                               >
                                 {entry.productName.toUpperCase()}
                               </button>
                             )}
+
+                            {/* Ubicación - en la misma línea */}
                             {entry.ownercompanie && (
-                              <span className="text-sm text-[var(--muted-foreground)] bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded flex items-center gap-1">
-                                <MapPin className="w-3 h-3" />
-                                {entry.ownercompanie}
+                              <span className="text-sm sm:text-base text-[var(--foreground)] bg-green-100 dark:bg-green-900/30 px-3 py-2 rounded flex items-center gap-2 flex-shrink-0">
+                                <MapPin className="w-4 h-4 flex-shrink-0" />
+                                <span className="font-medium whitespace-nowrap">{entry.ownercompanie}</span>
                               </span>
                             )}
+                            <div className="flex items-center gap-2">
+                              {entry.hasImages && (
+                                <button
+                                  onClick={() => handleShowImages(entry.code)}
+                                  className="p-2 text-purple-600 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded-md transition-colors"
+                                  title="Ver imágenes"
+                                >
+                                  <ImageIcon className="w-4 h-4" />
+                                </button>
+                              )}
+                              {entry.id && (
+                                <label className="flex items-center gap-2 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={processingId === entry.id}
+                                    disabled={processingId === entry.id}
+                                    onChange={() => {
+                                      // Mostrar confirmación antes de procesar
+                                      setConfirmProcess({ id: entry.id!, code: entry.code });
+                                    }}
+                                    className="w-5 h-5 text-green-600 bg-gray-100 border-gray-300 rounded focus:ring-green-500 dark:focus:ring-green-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                                    title="Procesar y eliminar código"
+                                  />
+                                  <span className="text-xs text-green-700 dark:text-green-300">Procesar</span>
+                                </label>
+                              )}
+                            </div>
+                            {confirmProcess && (
+                                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 px-2 sm:px-0">
+                                  <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg w-full max-w-sm flex flex-col items-center p-4 sm:p-8 gap-4 mx-2 sm:mx-auto">
+                                    <div className="mb-2 sm:mb-4 w-full flex justify-center">
+                                      <span className="inline-block bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 rounded-full px-3 py-1 text-sm font-semibold">Confirmar procesamiento</span>
+                                    </div>
+                                    <div className="text-center mb-4 sm:mb-6 break-words w-full">
+                                      <p className="text-base sm:text-lg font-medium text-gray-800 dark:text-gray-100 mb-2">¿Procesar el código <span className="font-mono text-green-700 dark:text-green-300 break-all">{confirmProcess.code}</span>?</p>
+                                      <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Esta acción eliminará el código y sus imágenes asociadas.</p>
+                                    </div>
+                                    <div className="flex flex-col sm:flex-row gap-2 w-full">
+                                      <button
+                                        type="button"
+                                        ref={confirmProcessButtonRef}
+                                        onClick={() => {
+                                          deleteScan(confirmProcess.id, confirmProcess.code);
+                                          setConfirmProcess(null);
+                                        }}
+                                        className="w-full sm:w-auto px-4 sm:px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+                                      >
+                                        Procesar
+                                      </button>
+                                      <button
+                                        onClick={() => setConfirmProcess(null)}
+                                        className="w-full sm:w-auto px-4 sm:px-6 py-2 bg-gray-400 hover:bg-gray-500 text-white rounded-lg font-medium transition-colors"
+                                      >
+                                        Cancelar
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
                           </div>
                         </div>
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-[var(--muted-foreground)] w-full">
-                          <span>
-                            Fuente: {entry.source === 'mobile' ? '📱 Móvil' : '💻 Web'}
-                          </span>
-                          {entry.userName && (
-                            <span>Usuario: {entry.userName}</span>
-                          )}
-                          <span>
-                            {entry.timestamp.toLocaleDateString()} {entry.timestamp.toLocaleTimeString()}
-                          </span>
-                          <span className={`px-2 py-1 rounded text-xs ${entry.processed
-                            ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
-                            : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300'
-                            }`}>
-                            {entry.processed ? 'Procesado' : 'Pendiente'}
-                          </span>
+                        <div className="actions flex flex-row flex-wrap items-center gap-2 pt-2 border-t border-[var(--input-border)]">
+                          <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-[var(--muted-foreground)] w-full">
+                            <span className="text-xs">
+                              {entry.timestamp.toLocaleDateString()} {entry.timestamp.toLocaleTimeString()}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-
-                      <div className="actions flex flex-row flex-wrap items-center gap-2 mt-2 sm:mt-0">
-                        <button
-                          onClick={() => handleCopy(entry.code)}
-                          className="p-2 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-md transition-colors"
-                          title="Copiar código"
-                        >
-                          <Copy className="w-4 h-4" />
-                        </button>
-                        {entry.hasImages && (
-                          <button
-                            onClick={() => handleShowImages(entry.code)}
-                            className="p-2 text-purple-600 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded-md transition-colors"
-                            title="Ver imágenes"
-                          >
-                            <ImageIcon className="w-4 h-4" />
-                          </button>
-                        )}
-                        <button
-                          onClick={handleRefreshHistory}
-                          className="p-2 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30 rounded-md transition-colors"
-                          title="Actualizar historial"
-                          disabled={loading}
-                        >
-                          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                        </button>
-                        {entry.id && (
-                          <label className="flex items-center gap-2 cursor-pointer select-none">
-                            <input
-                              type="checkbox"
-                              checked={processingId === entry.id || tempSelectedId === entry.id}
-                              disabled={processingId === entry.id}
-                              onChange={() => {
-                                // show temporary selection for 2 seconds
-                                setTempSelectedId(entry.id!);
-                                // clear existing timer for this id
-                                if (tempSelectionTimers.current[entry.id!]) {
-                                  window.clearTimeout(tempSelectionTimers.current[entry.id!]);
-                                }
-                                // start timer to unset after 2s
-                                const t = window.setTimeout(() => {
-                                  if (tempSelectedId === entry.id) setTempSelectedId(null);
-                                  delete tempSelectionTimers.current[entry.id!];
-                                }, 2000);
-                                tempSelectionTimers.current[entry.id!] = t as unknown as number;
-
-                                // open confirm modal
-                                setConfirmProcess({ id: entry.id!, code: entry.code });
-                              }}
-                              className="w-5 h-5 text-green-600 bg-gray-100 border-gray-300 rounded focus:ring-green-500 dark:focus:ring-green-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                              title="Procesar y eliminar código"
-                            />
-                            <span className="text-xs text-green-700 dark:text-green-300">Procesar</span>
-                            {processingId === entry.id && (
-                              <span className="ml-2 text-xs text-yellow-600 animate-pulse">Procesando...</span>
-                            )}
-                          </label>
-                        )}
-                        {/* Modal de confirmación de procesamiento */}
-                        {confirmProcess && (
-                          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 px-2 sm:px-0">
-                            <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg w-full max-w-sm flex flex-col items-center p-4 sm:p-8 gap-4 mx-2 sm:mx-auto">
-                              <div className="mb-2 sm:mb-4 w-full flex justify-center">
-                                <span className="inline-block bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 rounded-full px-3 py-1 text-sm font-semibold">Confirmar procesamiento</span>
-                              </div>
-                              <div className="text-center mb-4 sm:mb-6 break-words w-full">
-                                <p className="text-base sm:text-lg font-medium text-gray-800 dark:text-gray-100 mb-2">¿Procesar el código <span className="font-mono text-green-700 dark:text-green-300 break-all">{confirmProcess.code}</span>?</p>
-                                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Esta acción eliminará el código y sus imágenes asociadas.</p>
-                              </div>
-                              <div className="flex flex-col sm:flex-row gap-2 w-full">
-                                <button
-                                  type="button"
-                                  ref={confirmProcessButtonRef}
-                                  onClick={() => {
-                                    deleteScan(confirmProcess.id, confirmProcess.code);
-                                    setConfirmProcess(null);
-                                  }}
-                                  className="w-full sm:w-auto px-4 sm:px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
-                                >
-                                  Procesar
-                                </button>
-                                <button
-                                  onClick={() => setConfirmProcess(null)}
-                                  className="w-full sm:w-auto px-4 sm:px-6 py-2 bg-gray-400 hover:bg-gray-500 text-white rounded-lg font-medium transition-colors"
-                                >
-                                  Cancelar
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        {/* Modal de procesamiento y eliminación */}
-                        {showProcessModal?.open && (
-                          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 px-2 sm:px-0">
-                            <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg w-full max-w-sm flex flex-col items-center p-4 sm:p-8 gap-4">
-                              <div className="mb-2 sm:mb-4 w-full flex justify-center">
-                                <span className="inline-block bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full px-3 py-1 text-sm font-semibold">Código procesado</span>
-                              </div>
-                              <div className="text-center mb-4 sm:mb-6 break-words w-full">
-                                <p className="text-base sm:text-lg font-medium text-gray-800 dark:text-gray-100 mb-2">El código <span className="font-mono text-green-700 dark:text-green-300 break-all">{showProcessModal.code}</span> fue procesado.</p>
-                                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Las imágenes asociadas también han sido eliminadas.</p>
-                              </div>
-                              <button
-                                type="button"
-                                ref={showProcessCloseRef}
-                                onClick={() => setShowProcessModal(null)}
-                                className="w-full sm:w-auto px-4 sm:px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
-                              >
-                                Cerrar
-                              </button>
-                            </div>
-                          </div>
-                        )}
                       </div>
                     </div>
                   ))}
@@ -1046,7 +975,7 @@ export default function ScanHistoryTable() {
                     </div>
                   </div>
                 ) : codeImages.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
                     {codeImages.map((imageUrl, index) => (
                       <div key={index} className="relative group">
                         <div className="aspect-square overflow-hidden rounded-lg bg-black bg-opacity-30">
@@ -1230,7 +1159,6 @@ export default function ScanHistoryTable() {
                     onClick={() => {
                       setShowMobileScannerModal(false);
                       setQrCodeDataUrl('');
-                      setCurrentSessionId('');
                       setRequestProductNameModal(true);
                     }}
                     className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
@@ -1280,8 +1208,8 @@ export default function ScanHistoryTable() {
                       {(() => {
                         const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
 
-                        // Use short URL format only
-                        const mobileScanUrl = generateShortMobileUrl(baseUrl, currentSessionId, requestProductNameModal);
+                        // Use short URL format only (no session parameter)
+                        const mobileScanUrl = generateShortMobileUrl(baseUrl, '', requestProductNameModal);
 
                         return (
                           <div className="space-y-4">
@@ -1365,7 +1293,6 @@ export default function ScanHistoryTable() {
                     onClick={() => {
                       setShowMobileScannerModal(false);
                       setQrCodeDataUrl('');
-                      setCurrentSessionId('');
                       setRequestProductNameModal(true);
                     }}
                     className="w-full bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 px-6 py-3 rounded-lg text-white font-medium text-lg transition-colors"

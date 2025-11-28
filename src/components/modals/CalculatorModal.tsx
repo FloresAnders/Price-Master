@@ -83,11 +83,11 @@ export default function CalculatorModal({ isOpen, onClose }: CalculatorModalProp
             <X className="w-5 h-5" />
           </button>
         </div>
-        
+
         <div className="border rounded-lg mb-3 h-10 flex items-center justify-end px-2 bg-[var(--input-bg)]">
           <span className="text-lg text-[var(--foreground)]">{display || '0'}</span>
         </div>
-        
+
         <div className="grid grid-cols-4 gap-1">
           {[
             '7',
@@ -123,7 +123,7 @@ export default function CalculatorModal({ isOpen, onClose }: CalculatorModalProp
           </button>
         </div>
       </div>
-      
+
       {/* Click outside to close */}
       <div
         className="absolute inset-0 -z-10"

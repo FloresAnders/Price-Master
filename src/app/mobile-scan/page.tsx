@@ -111,9 +111,6 @@ function MobileScanContent() {
   useEffect(() => {
     const codeParam = searchParams.get('code');
     if (codeParam && isClient) {
-      // This is a direct barcode code (not an encoded session URL)
-      // Auto-submit the code as a barcode scan
-      console.log('Direct barcode code from URL:', codeParam);
       submitCode(codeParam);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -237,11 +234,11 @@ function MobileScanContent() {
             reader.onload = async (ev) => {
               try {
                 const dataUrl = ev.target?.result as string;
-                
+
                 // Create isolated image processing without affecting main scanner state
                 const img = new window.Image();
                 img.crossOrigin = 'anonymous';
-                
+
                 img.onload = async () => {
                   try {
                     const canvas = document.createElement('canvas');
@@ -250,16 +247,16 @@ function MobileScanContent() {
                       resolve(null);
                       return;
                     }
-                    
+
                     canvas.width = img.naturalWidth;
                     canvas.height = img.naturalHeight;
                     ctx.drawImage(img, 0, 0);
                     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                    
+
                     // Use ZBar for isolated detection
                     const { scanImageData } = await import('@undecaf/zbar-wasm');
                     const symbols = await scanImageData(imageData);
-                    
+
                     if (symbols && symbols.length > 0) {
                       const code = symbols[0].decode();
                       resolve(code || null);
@@ -270,22 +267,22 @@ function MobileScanContent() {
                     resolve(null);
                   }
                 };
-                
+
                 img.onerror = () => resolve(null);
                 img.src = dataUrl;
               } catch {
                 resolve(null);
               }
             };
-            
+
             reader.onerror = () => resolve(null);
             reader.readAsDataURL(file);
           });
 
           // Only keep numeric-only value for codeBU, but ignore codes starting with "BASIC"
           // Only update if there's no previous codeBU (first valid image wins)
-          const numericCodeBU = detectedFromPhoto && 
-            !detectedFromPhoto.startsWith('BASIC') && 
+          const numericCodeBU = detectedFromPhoto &&
+            !detectedFromPhoto.startsWith('BASIC') &&
             /^\d+$/.test(detectedFromPhoto)
             ? detectedFromPhoto
             : null;
@@ -301,7 +298,6 @@ function MobileScanContent() {
 
           // Get download URL (optional, for verification)
           const downloadURL = await getDownloadURL(storageRef);
-          console.log('Imagen subida exitosamente:', downloadURL);
 
           // Update images count
           setUploadedImagesCount(prev => prev + 1);

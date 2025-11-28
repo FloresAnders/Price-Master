@@ -14,8 +14,8 @@ export class CcssConfigService {
       // Find config by ownerId and optionally by ownerCompanie
       const config = configs.find((config: CcssConfig) => {
         if (ownerCompanie) {
-          return config.ownerId === ownerId && 
-                 config.companie?.some(company => company.ownerCompanie === ownerCompanie);
+          return config.ownerId === ownerId &&
+            config.companie?.some(company => company.ownerCompanie === ownerCompanie);
         }
         return config.ownerId === ownerId;
       });

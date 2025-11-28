@@ -42,9 +42,8 @@ export const ToastProvider = ({ children }: { children: React.ReactNode }) => {
         {toasts.map(t => (
           <div
             key={t.id}
-            className={`max-w-sm w-full shadow-lg rounded-md px-4 py-2 flex items-start gap-3 transition-all ${
-              t.type === 'success' ? 'bg-green-600 text-white' : t.type === 'warning' ? 'bg-yellow-500 text-white' : 'bg-white dark:bg-zinc-800 text-foreground'
-            }`}
+            className={`max-w-sm w-full shadow-lg rounded-md px-4 py-2 flex items-start gap-3 transition-all ${t.type === 'success' ? 'bg-green-600 text-white' : t.type === 'warning' ? 'bg-yellow-500 text-white' : 'bg-white dark:bg-zinc-800 text-foreground'
+              }`}
             role="status"
             aria-live={t.type === 'error' ? 'assertive' : 'polite'}
           >

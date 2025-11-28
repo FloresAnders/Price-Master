@@ -62,39 +62,18 @@ export function useEmployeeData(
 
         // Obtener información de la empresa
         const empresas = await EmpresasService.getAllEmpresas();
-        const currentEmpresa = empresas.find(e => 
+        const currentEmpresa = empresas.find(e =>
           e.ubicacion === locationValue || e.name === locationValue || e.id === locationValue
         );
         const empresaName = currentEmpresa?.name || locationValue;
-
-        console.log('🔍 CCSS Matching Debug:', {
-          locationValue,
-          currentEmpresa: currentEmpresa ? { name: currentEmpresa.name, ubicacion: currentEmpresa.ubicacion } : null,
-          empresaName
-        });
-
         // Obtener configuración de CCSS
         const userOwnerId = user?.ownerId || user?.id || '';
         const config = await CcssConfigService.getCcssConfig(userOwnerId);
-        
-        console.log('📋 CCSS Config available:', {
-          configExists: !!config,
-          companieCount: config?.companie?.length || 0,
-          companieList: config?.companie?.map(comp => comp.ownerCompanie) || []
-        });
-        
         // Buscar la configuración específica para esta empresa por nombre
         const companyConfig = config?.companie?.find(comp => comp.ownerCompanie === empresaName);
-        
-        console.log('✅ CCSS Match Result:', {
-          empresaName,
-          companyConfig: companyConfig ? { ownerCompanie: companyConfig.ownerCompanie, mt: companyConfig.mt, tc: companyConfig.tc } : null,
-          matched: !!companyConfig
-        });
-
-        setCcssConfig({ 
-          mt: companyConfig?.mt || 3672.46, 
-          tc: companyConfig?.tc || 11017.39 
+        setCcssConfig({
+          mt: companyConfig?.mt || 3672.46,
+          tc: companyConfig?.tc || 11017.39
         });
 
         // Obtener horarios del empleado para el mes específico
@@ -213,7 +192,7 @@ export default function EmployeeSummaryCalculator({
   showFullDetails = true
 }: EmployeeSummaryCalculatorProps) {
   const { user } = useAuth();
-  
+
   // Obtener información del empleado desde la ubicación
   const { employee, loading: employeeLoading, error: employeeError } = useEmployeeInfo(employeeName, locationValue);
 
@@ -402,7 +381,7 @@ export async function calculateEmployeeSummaryFromDB(
 
     // Buscar la configuración específica para esta empresa
     const companyConfig = ccssConfig?.companie?.find(comp => comp.ownerCompanie === locationValue);
-    
+
     // Calcular tarifa por hora basada en el tipo de CCSS
     const ccssAmount = ccssType === 'TC' ? (companyConfig?.tc || 11017.39) : (companyConfig?.mt || 3672.46);
     const totalColones = ccssAmount + extraAmount;

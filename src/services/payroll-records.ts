@@ -55,7 +55,7 @@ export class PayrollRecordsService {
       // Try to get existing record
       const existingRecord = await FirestoreService.getById(this.COLLECTION_NAME, docId);
 
-  const periodData = {
+      const periodData = {
         DiasLaborados: diasLaborados,
         hoursPerDay,
         totalHours,
@@ -70,12 +70,12 @@ export class PayrollRecordsService {
           updatedRecords[year] = {};
         }
 
-          if (!updatedRecords[year][month]) {
-            updatedRecords[year][month] = {};
-          }
+        if (!updatedRecords[year][month]) {
+          updatedRecords[year][month] = {};
+        }
 
-          const quincenaKey = period === 'first' ? 'NumeroQuincena1' : 'NumeroQuincena2';
-          updatedRecords[year][month][quincenaKey] = periodData;
+        const quincenaKey = period === 'first' ? 'NumeroQuincena1' : 'NumeroQuincena2';
+        updatedRecords[year][month][quincenaKey] = periodData;
 
         await FirestoreService.update(this.COLLECTION_NAME, docId, {
           records: updatedRecords,
@@ -168,7 +168,7 @@ export class PayrollRecordsService {
     period: 'first' | 'second'
   ): Promise<void> {
     try {
-    const docId = this.getEmployeeDocId(companieValue, employeeName);
+      const docId = this.getEmployeeDocId(companieValue, employeeName);
       const existingRecord = await FirestoreService.getById(this.COLLECTION_NAME, docId);
 
       if (!existingRecord) {

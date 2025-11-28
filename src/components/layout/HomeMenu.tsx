@@ -111,7 +111,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 w-full max-w-4xl">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 w-full max-w-screen-xl">
           {visibleMenuItems.map(item => (
             <button
               key={item.id}

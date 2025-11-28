@@ -19,7 +19,7 @@ export function ClipboardWithHookExample() {
   const handleCopy = async () => {
     const success = await copyToClipboard('¡Hola Álvaro!');
     if (success) {
-      console.log('✅ Texto copiado al portapapeles');
+      //('✅ Texto copiado al portapapeles');
       alert('✅ Texto copiado');
     } else {
       console.error('❌ Error al copiar');
@@ -29,7 +29,7 @@ export function ClipboardWithHookExample() {
   const handlePaste = async () => {
     const text = await readFromClipboard();
     if (text) {
-      console.log('📋 Texto del portapapeles:', text);
+      //('📋 Texto del portapapeles:', text);
       alert(`📋 Contenido: ${text}`);
     } else {
       alert('⚠️ No hay texto en el portapapeles');
@@ -39,13 +39,13 @@ export function ClipboardWithHookExample() {
   return (
     <div className="space-y-4 p-4">
       <h2 className="text-xl font-bold">Ejemplo con Hook</h2>
-      <button 
+      <button
         onClick={handleCopy}
         className="px-4 py-2 bg-blue-500 text-white rounded"
       >
         Copiar texto
       </button>
-      <button 
+      <button
         onClick={handlePaste}
         className="px-4 py-2 bg-green-500 text-white rounded"
       >
@@ -61,15 +61,15 @@ export function ClipboardWithHookExample() {
 
 export async function directClipboardExamples() {
   // Copiar texto simple
-  await Clipboard.write({ 
-    string: 'Hola Álvaro desde Time Master' 
+  await Clipboard.write({
+    string: 'Hola Álvaro desde Time Master'
   });
-  console.log('✅ Texto copiado');
+  //('✅ Texto copiado');
 
   // Leer texto del portapapeles
   const { value, type } = await Clipboard.read();
-  console.log('📋 Contenido:', value);
-  console.log('📋 Tipo:', type);
+  //('📋 Contenido:', value);
+  //('📋 Tipo:', type);
 
   // Copiar URL
   await Clipboard.write({
@@ -117,7 +117,7 @@ export function ClipboardManagerComponent() {
   return (
     <div className="max-w-md mx-auto p-6 space-y-4">
       <h2 className="text-2xl font-bold">Gestor de Portapapeles</h2>
-      
+
       {/* Copiar */}
       <div className="space-y-2">
         <label className="block text-sm font-medium">

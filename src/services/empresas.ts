@@ -91,7 +91,7 @@ export class EmpresasService {
                     ]);
                     const currentCount = existing.length;
                     if (currentCount >= owner.maxCompanies) {
-                        throw new Error(`El dueño de tu empresa ha alcanzado el máximo de empresas permitidas, max: (${owner.maxCompanies + 1})`);
+                        throw new Error(`El dueño de tu empresa ha alcanzado el máximo de empresas permitidas, max: (${owner.maxCompanies})`);
                     }
                 }
             } catch (err) {
