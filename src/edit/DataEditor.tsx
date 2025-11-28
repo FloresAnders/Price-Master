@@ -47,6 +47,7 @@ export default function DataEditor() {
     const [savingUserKey, setSavingUserKey] = useState<string | null>(null);
     const [showPermissions, setShowPermissions] = useState<{ [key: string]: boolean }>({});
     const [permissionsEditable, setPermissionsEditable] = useState<{ [key: string]: boolean }>({});
+    const [changePasswordMode, setChangePasswordMode] = useState<{ [key: string]: boolean }>({});
 
     // Estado para trackear cambios individuales de ubicaciones (removed)
 
@@ -435,6 +436,7 @@ export default function DataEditor() {
         setShowPermissions(prev => ({ ...prev, [localId]: true }));
         setPasswordStore(prev => ({ ...prev, [localId]: '' }));
         setPasswordBaseline(prev => ({ ...prev, [localId]: '' }));
+        setChangePasswordMode(prev => ({ ...prev, [localId]: false }));
     };
 
     const updateUser = (index: number, field: keyof User, value: unknown) => {
@@ -871,6 +873,8 @@ export default function DataEditor() {
 
                 // Bloquear edición de permisos para este usuario después de guardar
                 setPermissionsEditable(prev => ({ ...prev, [key]: false }));
+                // Resetear modo de cambio de contraseña
+                setChangePasswordMode(prev => ({ ...prev, [key]: false }));
             } else {
                 // Crear nuevo usuario (actor-aware)
                 const permissionsToCreate = { ...(user.permissions || {}) } as Record<string, unknown>;
@@ -891,6 +895,8 @@ export default function DataEditor() {
                 await loadData();
                 // Después de recargar datos, asegurar que el control de edición de permisos está bloqueado
                 setPermissionsEditable(prev => ({ ...prev, [key]: false }));
+                // Resetear modo de cambio de contraseña
+                setChangePasswordMode(prev => ({ ...prev, [key]: false }));
             }
             showToast(`Usuario ${user.name} guardado exitosamente`, 'success');
             // Clear global changes flag so UI removes "Cambios pendientes" badges
@@ -1492,28 +1498,73 @@ export default function DataEditor() {
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Contraseña:</label>
-                                    <div className="relative">
+                                    {!user.id ? (
+                                        // Usuario nuevo: mostrar campo de contraseña sin ocultar
                                         <input
-                                            type={passwordVisibility[getUserKey(user, index)] ? 'text' : 'password'}
+                                            type="text"
                                             value={user.password || ''}
                                             onChange={(e) => updateUser(index, 'password', e.target.value)}
-                                            className="w-full px-3 py-2 pr-10 border border-[var(--input-border)] rounded-md"
+                                            className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
                                             style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
                                             placeholder="Contraseña del usuario"
                                         />
-                                        <button
-                                            type="button"
-                                            onClick={() => togglePasswordVisibility(user, index)}
-                                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
-                                            title={passwordVisibility[getUserKey(user, index)] ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                                        >
-                                            {passwordVisibility[getUserKey(user, index)] ? (
-                                                <EyeOff className="w-4 h-4" />
-                                            ) : (
-                                                <Eye className="w-4 h-4" />
-                                            )}
-                                        </button>
-                                    </div>
+                                    ) : changePasswordMode[getUserKey(user, index)] ? (
+                                        // Usuario existente en modo cambio de contraseña
+                                        <div className="space-y-2">
+                                            <div className="relative">
+                                                <input
+                                                    type={passwordVisibility[getUserKey(user, index)] ? 'text' : 'password'}
+                                                    value={user.password || ''}
+                                                    onChange={(e) => updateUser(index, 'password', e.target.value)}
+                                                    className="w-full px-3 py-2 pr-10 border border-[var(--input-border)] rounded-md"
+                                                    style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                                    placeholder="Nueva contraseña"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => togglePasswordVisibility(user, index)}
+                                                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+                                                    title={passwordVisibility[getUserKey(user, index)] ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                                                >
+                                                    {passwordVisibility[getUserKey(user, index)] ? (
+                                                        <EyeOff className="w-4 h-4" />
+                                                    ) : (
+                                                        <Eye className="w-4 h-4" />
+                                                    )}
+                                                </button>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const key = getUserKey(user, index);
+                                                    setChangePasswordMode(prev => ({ ...prev, [key]: false }));
+                                                    // Restaurar contraseña original
+                                                    const updated = [...usersData];
+                                                    updated[index] = { ...updated[index], password: '' };
+                                                    setUsersData(updated);
+                                                    setPasswordStore(prev => ({ ...prev, [key]: passwordBaseline[key] ?? '' }));
+                                                }}
+                                                className="text-xs px-2 py-1 text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+                                            >
+                                                Cancelar cambio de contraseña
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        // Usuario existente: mostrar mensaje informativo
+                                        <div className="flex items-center justify-between px-3 py-2 border border-[var(--input-border)] rounded-md" style={{ background: 'var(--muted)', color: 'var(--foreground)' }}>
+                                            <span className="text-sm">Contraseña configurada</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const key = getUserKey(user, index);
+                                                    setChangePasswordMode(prev => ({ ...prev, [key]: true }));
+                                                }}
+                                                className="text-xs px-2 py-1 bg-[var(--primary)] text-white rounded hover:bg-[var(--button-hover)] transition-colors"
+                                            >
+                                                Cambiar contraseña
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Rol:</label>
