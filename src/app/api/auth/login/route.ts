@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     const user = users.find(u => (u.name ?? '').toLowerCase() === username.toLowerCase());
 
     if (!user) {
-      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
+      return NextResponse.json({ ok: false, error: 'Acceso denegado' }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
     }
 
     let isValid = false;
