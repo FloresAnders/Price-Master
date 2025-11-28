@@ -25,6 +25,7 @@ export default function LoginModal({ isOpen, onLoginSuccess, onClose, title, can
   const [keepSessionActive, setKeepSessionActive] = useState(false);
   const [useTokenAuth, setUseTokenAuth] = useState(false); // Nueva opción para tokens
   const [showRecoveryModal, setShowRecoveryModal] = useState(false);
+  const [failedAttempts, setFailedAttempts] = useState(0); // Contador de intentos fallidos
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,7 +43,15 @@ export default function LoginModal({ isOpen, onLoginSuccess, onClose, title, can
       const isSuperAdmin = respJson.isSuperAdmin; // Extraer la bandera
       console.log('¿Es superadmin?:', isSuperAdmin);
       if (!response.ok || !respJson.ok) {
+        const newAttempts = failedAttempts + 1;
+        setFailedAttempts(newAttempts);
         setError(respJson?.error || 'Credenciales incorrectas');
+        console.log('Intentos fallidos:', newAttempts);
+        if (newAttempts >= 4 && isSuperAdmin) {
+          setShowRecoveryModal(true);
+          setFailedAttempts(0);
+        }
+
         setLoading(false);
         return;
       }
@@ -55,6 +64,7 @@ export default function LoginModal({ isOpen, onLoginSuccess, onClose, title, can
         setPassword('');
         setKeepSessionActive(false);
         setUseTokenAuth(false);
+        setFailedAttempts(0); // Resetear contador en login exitoso
       } else {
         setError('Credenciales invalidas');
       }
@@ -168,19 +178,6 @@ export default function LoginModal({ isOpen, onLoginSuccess, onClose, title, can
                 {error}
               </div>
             )}
-
-            {/* Enlace de recuperación de contraseña */}
-            <div className="text-center">
-              <button
-                type="button"
-                onClick={() => setShowRecoveryModal(true)}
-                className="text-sm text-blue-600 hover:text-blue-700 hover:underline"
-                disabled={loading}
-              >
-                ¿Olvidaste tu contraseña?
-              </button>
-            </div>
-
             <div className={`flex gap-3 ${canClose ? '' : 'justify-center'}`}>
               {canClose && (
                 <button
