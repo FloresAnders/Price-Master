@@ -69,22 +69,8 @@ export function useEmployeeData(
         // Obtener configuración de CCSS
         const userOwnerId = user?.ownerId || user?.id || '';
         const config = await CcssConfigService.getCcssConfig(userOwnerId);
-
-        //('📋 CCSS Config available:', {
-          configExists: !!config,
-          companieCount: config?.companie?.length || 0,
-          companieList: config?.companie?.map(comp => comp.ownerCompanie) || []
-        });
-
         // Buscar la configuración específica para esta empresa por nombre
         const companyConfig = config?.companie?.find(comp => comp.ownerCompanie === empresaName);
-
-        //('✅ CCSS Match Result:', {
-          empresaName,
-          companyConfig: companyConfig ? { ownerCompanie: companyConfig.ownerCompanie, mt: companyConfig.mt, tc: companyConfig.tc } : null,
-          matched: !!companyConfig
-        });
-
         setCcssConfig({
           mt: companyConfig?.mt || 3672.46,
           tc: companyConfig?.tc || 11017.39
