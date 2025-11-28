@@ -22,6 +22,7 @@ export async function POST(request: Request) {
 
     let isValid = false;
     if (user.password) {
+
       if (user.password.startsWith('$argon2')) {
         isValid = await verifyPasswordServer(password, user.password);
       } else {
@@ -38,15 +39,21 @@ export async function POST(request: Request) {
         }
       }
     }
-
+    const safeUser = { ...user } as any;
+    // Agregar bandera para superadmin
+    const isSuperAdmin = safeUser.role === 'superadmin';
     if (!isValid) {
-      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
+      return NextResponse.json({ ok: false, error: 'Unauthorized', isSuperAdmin }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
     }
 
-    const safeUser = { ...user } as any;
+
     delete safeUser.password;
 
-    return NextResponse.json({ ok: true, user: safeUser }, { headers: { 'Cache-Control': 'no-store' } });
+
+    return NextResponse.json({
+      ok: true,
+      user: safeUser,
+    }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error('Login error:', error);
     return NextResponse.json({ ok: false, error: 'Internal Server Error' }, { status: 500, headers: { 'Cache-Control': 'no-store' } });

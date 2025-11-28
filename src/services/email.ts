@@ -86,4 +86,191 @@ export class EmailService {
       throw new Error('Failed to send email: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
   }
+
+  /**
+   * Envía email de recuperación de contraseña
+   */
+  static async sendPasswordRecoveryEmail(
+    email: string,
+    token: string,
+    expiresAt: number
+  ): Promise<void> {
+    const expiryTime = new Date(expiresAt).toLocaleString('es-ES');
+    const recoveryUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #2563eb; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
+          .button { 
+            display: inline-block; 
+            background: #2563eb; 
+            color: white !important; 
+            padding: 12px 30px; 
+            text-decoration: none; 
+            border-radius: 5px; 
+            margin: 20px 0;
+            font-weight: bold;
+          }
+          .token-box {
+            background: white;
+            border: 2px dashed #2563eb;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: center;
+            font-size: 14px;
+            word-break: break-all;
+          }
+          .warning { 
+            background: #fef3c7; 
+            border-left: 4px solid #f59e0b; 
+            padding: 15px; 
+            margin: 20px 0; 
+          }
+          .footer { text-align: center; color: #6b7280; font-size: 12px; margin-top: 30px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1 style="margin: 0;">🔐 Recuperación de Contraseña</h1>
+          </div>
+          
+          <div class="content">
+            <h2>Hola,</h2>
+            <p>Recibimos una solicitud para restablecer la contraseña de tu cuenta de <strong>SuperAdmin</strong> en Price Master.</p>
+            
+            <p>Para restablecer tu contraseña, haz clic en el siguiente botón:</p>
+            
+            <div style="text-align: center;">
+              <a href="${recoveryUrl}" class="button">Restablecer Contraseña</a>
+            </div>
+            
+            <p>O copia y pega este enlace en tu navegador:</p>
+            <div class="token-box">
+              ${recoveryUrl}
+            </div>
+            
+            <div class="warning">
+              <strong>⚠️ Importante:</strong>
+              <ul style="margin: 10px 0;">
+                <li>Este enlace expira el: <strong>${expiryTime}</strong></li>
+                <li>Solo puede ser usado una vez</li>
+                <li>Si no solicitaste este cambio, ignora este email</li>
+              </ul>
+            </div>
+            
+            <p><strong>Por tu seguridad:</strong></p>
+            <ul>
+              <li>Nunca compartas este enlace con nadie</li>
+              <li>No respondas a este email</li>
+              <li>Asegúrate de estar en el sitio oficial antes de ingresar datos</li>
+            </ul>
+          </div>
+          
+          <div class="footer">
+            <p>Este es un email automático de Price Master System</p>
+            <p>© ${new Date().getFullYear()} Todos los derechos reservados</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const textContent = `
+Recuperación de Contraseña - Price Master
+
+Recibimos una solicitud para restablecer tu contraseña.
+
+Ingresa al siguiente enlace para continuar:
+${recoveryUrl}
+
+Este enlace expira el: ${expiryTime}
+
+Si no solicitaste este cambio, ignora este email.
+
+---
+Price Master System
+    `;
+
+    await this.sendEmail({
+      to: email,
+      subject: '🔐 Recuperación de Contraseña - Price Master',
+      text: textContent,
+      html: htmlContent
+    });
+
+    console.log(`✅ Email de recuperación enviado a: ${email}`);
+  }
+
+  /**
+   * Envía notificación de cambio de contraseña exitoso
+   */
+  static async sendPasswordChangedNotification(email: string): Promise<void> {
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #10b981; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { padding: 30px; background: #f9fafb; border-radius: 0 0 8px 8px; }
+          .info-box { background: #dbeafe; border-left: 4px solid #2563eb; padding: 15px; margin: 20px 0; }
+          .warning-text { color: #dc2626; font-weight: bold; margin-top: 15px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1 style="margin: 0;">✅ Contraseña Actualizada</h1>
+          </div>
+          
+          <div class="content">
+            <p>Tu contraseña ha sido actualizada exitosamente en Price Master.</p>
+            
+            <div class="info-box">
+              <strong>📅 Fecha:</strong> ${new Date().toLocaleString('es-ES')}<br>
+              <strong>👤 Cuenta:</strong> ${email}
+            </div>
+            
+            <p class="warning-text">⚠️ Si no realizaste este cambio, contacta inmediatamente al administrador del sistema.</p>
+            
+            <p style="margin-top: 30px; color: #6b7280; font-size: 14px;">
+              Este es un email automático de seguridad. Por favor, no respondas a este mensaje.
+            </p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const textContent = `
+Contraseña Actualizada - Price Master
+
+Tu contraseña ha sido actualizada exitosamente.
+
+Fecha: ${new Date().toLocaleString('es-ES')}
+Cuenta: ${email}
+
+⚠️ Si no realizaste este cambio, contacta inmediatamente al administrador del sistema.
+
+---
+Price Master System
+    `;
+
+    await this.sendEmail({
+      to: email,
+      subject: '✅ Contraseña Actualizada - Price Master',
+      text: textContent,
+      html: htmlContent
+    });
+
+    console.log(`✅ Notificación de cambio de contraseña enviada a: ${email}`);
+  }
 }

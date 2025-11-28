@@ -19,7 +19,7 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
   const pathname = usePathname();
 
   // Rutas públicas que no requieren autenticación
-  const publicRoutes = ['/home'];
+  const publicRoutes = ['/home', '/reset-password'];
   const isPublicRoute = publicRoutes.includes(pathname);
 
   // Si es ruta pública, renderizar sin autenticación

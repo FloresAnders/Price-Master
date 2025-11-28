@@ -5,6 +5,7 @@ import { Lock, User, Eye, EyeOff } from 'lucide-react';
 import { UsersService } from '@/services/users';
 import type { User as UserType } from '@/types/firestore';
 import { hashPassword, verifyPassword } from '@/lib/auth/password';
+import { PasswordRecoveryModal } from './PasswordRecoveryModal';
 
 
 interface LoginModalProps {
@@ -23,6 +24,7 @@ export default function LoginModal({ isOpen, onLoginSuccess, onClose, title, can
   const [showPassword, setShowPassword] = useState(false);
   const [keepSessionActive, setKeepSessionActive] = useState(false);
   const [useTokenAuth, setUseTokenAuth] = useState(false); // Nueva opción para tokens
+  const [showRecoveryModal, setShowRecoveryModal] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,8 +38,9 @@ export default function LoginModal({ isOpen, onLoginSuccess, onClose, title, can
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
       });
-
       const respJson = await response.json();
+      const isSuperAdmin = respJson.isSuperAdmin; // Extraer la bandera
+      console.log('¿Es superadmin?:', isSuperAdmin);
       if (!response.ok || !respJson.ok) {
         setError(respJson?.error || 'Credenciales incorrectas');
         setLoading(false);
@@ -165,6 +168,19 @@ export default function LoginModal({ isOpen, onLoginSuccess, onClose, title, can
                 {error}
               </div>
             )}
+
+            {/* Enlace de recuperación de contraseña */}
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => setShowRecoveryModal(true)}
+                className="text-sm text-blue-600 hover:text-blue-700 hover:underline"
+                disabled={loading}
+              >
+                ¿Olvidaste tu contraseña?
+              </button>
+            </div>
+
             <div className={`flex gap-3 ${canClose ? '' : 'justify-center'}`}>
               {canClose && (
                 <button
@@ -187,6 +203,12 @@ export default function LoginModal({ isOpen, onLoginSuccess, onClose, title, can
           </form>
         </div>
       </div>
+
+      {/* Modal de recuperación de contraseña */}
+      <PasswordRecoveryModal
+        isOpen={showRecoveryModal}
+        onClose={() => setShowRecoveryModal(false)}
+      />
     </div>
   );
 }

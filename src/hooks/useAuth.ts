@@ -52,7 +52,6 @@ export function useAuth() {
   const [loading, setLoading] = useState(true);
   const [sessionWarning, setSessionWarning] = useState(false);
   const [useTokenAuth, setUseTokenAuth] = useState(false); // Estado para controlar el tipo de autenticación
-
   // Función para generar ID de sesión único (short format)
   const generateSessionId = () => {
     // Generate a short session ID: timestamp base36 + random string
@@ -292,9 +291,6 @@ export function useAuth() {
                 hasPermissionsChanged;
 
               if (!hasDataChanged) return prevUser;
-
-              console.log('🔄 Actualizando permisos del usuario en tiempo real');
-
               // Actualizar también en localStorage para mantener sincronizado
               if (useTokenAuth) {
                 // Actualizar token con nuevos datos
