@@ -1,4 +1,5 @@
-'use client';
+"use client";
+import Image from 'next/image';
 
 import React, { useState, useEffect } from 'react';
 import { Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck, Settings, History } from 'lucide-react';
@@ -85,15 +86,21 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] py-8">
       <div className="mb-2 flex items-center justify-center">
-        <Calculator
-          className={`w-14 h-14 mr-2 transition-transform duration-300 ${hovered ? 'scale-110 rotate-12 text-[var(--foreground)]' : 'scale-100 text-[var(--tab-text-active)]'}`}
+        <Image
+          src="/Logos/LogoBlanco2.png"
+          alt="Time Master logo"
+          className={`w-28 h-28 mr-2 transition-transform duration-300 ${hovered ? 'scale-110 rotate-12' : 'scale-100'}`}
+          width={56}
+          height={56}
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
           onClick={handleLogoClick}
           style={{ cursor: 'pointer', filter: hovered ? 'drop-shadow(0 0 8px var(--foreground))' : 'none' }}
         />
       </div>
-      <h1 className="text-3xl font-bold mb-2 text-center">Bienvenido a Time Master</h1>
+      <h1 className="text-3xl font-bold mb-8 text-center">
+        {currentUser ? `¡Qué gusto verte, ${currentUser.name ?? currentUser.email ?? 'Usuario'} !` : '¡Qué gusto verte!'}
+      </h1>
 
       {visibleMenuItems.length === 0 ? (
         <div className="text-center py-12">
@@ -111,7 +118,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 w-full max-w-screen-xl">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 w-full max-w-screen-xl pt-4">
           {visibleMenuItems.map(item => (
             <button
               key={item.id}

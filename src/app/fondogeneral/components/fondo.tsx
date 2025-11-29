@@ -1092,7 +1092,23 @@ export function FondoSection({
     const loadedDailyClosingKeysRef = useRef<Set<string>>(new Set());
     const loadingDailyClosingKeysRef = useRef<Set<string>>(new Set());
 
-    const [pageSize, setPageSize] = useState<'daily' | number | 'all'>('daily');
+    const [pageSize, setPageSize] = useState<'daily' | number | 'all'>(() => {
+        if (typeof window !== 'undefined') {
+            try {
+                const remember = localStorage.getItem('fondogeneral-rememberFilters');
+                if (remember === 'true') {
+                    const saved = localStorage.getItem('fondogeneral-pageSize');
+                    if (saved === null) return 'daily';
+                    if (saved === 'daily' || saved === 'all') return saved as any;
+                    const n = Number.parseInt(saved, 10);
+                    if (!Number.isNaN(n) && n > 0) return n;
+                }
+            } catch {
+                // ignore storage errors
+            }
+        }
+        return 'daily';
+    });
     const [pageIndex, setPageIndex] = useState(0);
     const [currentDailyKey, setCurrentDailyKey] = useState(() => dateKeyFromDate(new Date()));
     const todayKey = useMemo(() => dateKeyFromDate(new Date()), []);
@@ -1138,8 +1154,18 @@ export function FondoSection({
     const [auditModalData, setAuditModalData] = useState<{ history?: any[] } | null>(null);
     // sortAsc: when true we show oldest first (so newest appears at the bottom).
     // Default true per UX: the most recent movement should appear below.
-    const [sortAsc, setSortAsc] = useState(true);
+    const [sortAsc, setSortAsc] = useState(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('fondogeneral-sortAsc');
+            return saved !== null ? JSON.parse(saved) : true;
+        }
+        return true;
+    });
     const storageSnapshotRef = useRef<MovementStorage<FondoEntry> | null>(null);
+
+    useEffect(() => {
+        localStorage.setItem('fondogeneral-sortAsc', JSON.stringify(sortAsc));
+    }, [sortAsc]);
 
     // Calendar / day-filtering states (Desde / Hasta)
     const [calendarFromOpen, setCalendarFromOpen] = useState(false);
@@ -1157,16 +1183,59 @@ export function FondoSection({
         return d;
     });
     // fromFilter / toFilter hold YYYY-MM-DD keys when a date is selected
-    const [fromFilter, setFromFilter] = useState<string | null>(null);
-    const [toFilter, setToFilter] = useState<string | null>(null);
+    const [fromFilter, setFromFilter] = useState<string | null>(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('fondogeneral-fromFilter');
+            return saved !== null ? saved : null;
+        }
+        return null;
+    });
+    const [toFilter, setToFilter] = useState<string | null>(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('fondogeneral-toFilter');
+            return saved !== null ? saved : null;
+        }
+        return null;
+    });
 
     // Advanced filters
-    const [filterProviderCode, setFilterProviderCode] = useState<string | 'all'>('all');
+    const [filterProviderCode, setFilterProviderCode] = useState<string | 'all'>(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('fondogeneral-filterProviderCode');
+            return saved !== null ? saved : 'all';
+        }
+        return 'all';
+    });
     const initialFilterPaymentType: FondoEntry['paymentType'] | 'all' =
         mode === 'all' ? 'all' : mode === 'ingreso' ? FONDO_INGRESO_TYPES[0] : FONDO_EGRESO_TYPES[0];
-    const [filterPaymentType, setFilterPaymentType] = useState<FondoEntry['paymentType'] | 'all'>(initialFilterPaymentType);
-    const [filterEditedOnly, setFilterEditedOnly] = useState(false);
-    const [searchQuery, setSearchQuery] = useState('');
+    const [filterPaymentType, setFilterPaymentType] = useState<FondoEntry['paymentType'] | 'all'>(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('fondogeneral-filterPaymentType');
+            return saved !== null ? (saved as FondoEntry['paymentType'] | 'all') : initialFilterPaymentType;
+        }
+        return initialFilterPaymentType;
+    });
+    const [filterEditedOnly, setFilterEditedOnly] = useState(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('fondogeneral-filterEditedOnly');
+            return saved !== null ? JSON.parse(saved) : false;
+        }
+        return false;
+    });
+    const [searchQuery, setSearchQuery] = useState(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('fondogeneral-searchQuery');
+            return saved !== null ? saved : '';
+        }
+        return '';
+    });
+    const [rememberFilters, setRememberFilters] = useState(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('fondogeneral-rememberFilters');
+            return saved !== null ? JSON.parse(saved) : false;
+        }
+        return false;
+    });
 
     const applyLedgerStateFromStorage = useCallback(
         (state?: MovementStorageState | null) => {
@@ -1224,6 +1293,55 @@ export function FondoSection({
         const startWidth = parseInt(columnWidths[key] || '100', 10) || 100;
         resizingRef.current = { key, startX: event.clientX, startWidth };
     };
+
+    // Save rememberFilters. If disabled, clear saved filters from storage.
+    useEffect(() => {
+        localStorage.setItem('fondogeneral-rememberFilters', JSON.stringify(rememberFilters));
+        if (!rememberFilters && typeof window !== 'undefined') {
+            try {
+                const keysToClear = [
+                    'fondogeneral-fromFilter',
+                    'fondogeneral-toFilter',
+                    'fondogeneral-filterProviderCode',
+                    'fondogeneral-filterPaymentType',
+                    'fondogeneral-filterEditedOnly',
+                    'fondogeneral-searchQuery',
+                    'fondogeneral-pageSize',
+                    'fondogeneral-sortAsc',
+                ];
+                for (const k of keysToClear) localStorage.removeItem(k);
+            } catch {
+                // ignore storage errors
+            }
+        }
+    }, [rememberFilters]);
+
+    // Save filters if rememberFilters is true
+    useEffect(() => {
+        if (rememberFilters) {
+            localStorage.setItem('fondogeneral-fromFilter', fromFilter || '');
+            localStorage.setItem('fondogeneral-toFilter', toFilter || '');
+            localStorage.setItem('fondogeneral-filterProviderCode', filterProviderCode);
+            localStorage.setItem('fondogeneral-filterPaymentType', filterPaymentType);
+            localStorage.setItem('fondogeneral-filterEditedOnly', JSON.stringify(filterEditedOnly));
+            localStorage.setItem('fondogeneral-searchQuery', searchQuery);
+            localStorage.setItem('fondogeneral-pageSize', String(pageSize));
+        }
+    }, [rememberFilters, fromFilter, toFilter, filterProviderCode, filterPaymentType, filterEditedOnly, searchQuery, pageSize]);
+
+    // When rememberFilters is enabled, load pageSize from storage (if present)
+    useEffect(() => {
+        if (!rememberFilters) return;
+        if (typeof window === 'undefined') return;
+        const saved = localStorage.getItem('fondogeneral-pageSize');
+        if (saved === null) return;
+        if (saved === 'daily' || saved === 'all') {
+            setPageSize(saved as any);
+            return;
+        }
+        const n = Number.parseInt(saved, 10);
+        if (!Number.isNaN(n) && n > 0) setPageSize(n);
+    }, [rememberFilters]);
 
     useEffect(() => {
         setCurrencyEnabled({ CRC: true, USD: true });
@@ -2821,6 +2939,23 @@ export function FondoSection({
         return base;
     }, [accountKey, dailyClosings, dailyClosingsHydrated, isDailyMode, currentDailyKey, fromFilter, toFilter]);
 
+    // Totals computed from the filtered entries (not only the current page)
+    const isFilterActive = useMemo(() => {
+        return Boolean(fromFilter || toFilter || (filterProviderCode && filterProviderCode !== 'all') || (filterPaymentType && filterPaymentType !== 'all') || filterEditedOnly || (searchQuery || '').trim().length > 0);
+    }, [fromFilter, toFilter, filterProviderCode, filterPaymentType, filterEditedOnly, searchQuery]);
+
+    const totalsByCurrency = useMemo(() => {
+        const acc: Record<'CRC' | 'USD', { ingreso: number; egreso: number } > = { CRC: { ingreso: 0, egreso: 0 }, USD: { ingreso: 0, egreso: 0 } };
+        for (const e of filteredEntries) {
+            const cur = (e.currency as 'CRC' | 'USD') || 'CRC';
+            const ing = Math.trunc(e.amountIngreso || 0);
+            const eg = Math.trunc(e.amountEgreso || 0);
+            if (ing > 0) acc[cur].ingreso += ing;
+            if (eg > 0) acc[cur].egreso += eg;
+        }
+        return acc;
+    }, [filteredEntries]);
+
 
     const companySelectId = `fg-company-select-${namespace}`;
     const showCompanySelector = isAdminUser && (ownerCompaniesLoading || sortedOwnerCompanies.length > 0 || !!ownerCompaniesError);
@@ -2925,7 +3060,7 @@ export function FondoSection({
                         title="Filtrar por tipo"
                         aria-label="Filtrar por tipo"
                     >
-                        <option value="all">Todas las categorías</option>
+                        <option value="all">Todos los tipos</option>
                         <optgroup label="Ingresos">
                             {FONDO_INGRESO_TYPES.map(opt => (
                                 <option key={opt} value={opt}>{formatMovementType(opt)}</option>
@@ -2952,26 +3087,31 @@ export function FondoSection({
                         aria-label="Buscar movimientos"
                     />
 
-                    <div className="flex items-center justify-between gap-3 rounded border border-dashed border-[var(--input-border)] px-3 py-2 text-sm text-[var(--muted-foreground)]">
-                        <label className="flex items-center gap-2">
-                            <input type="checkbox" checked={filterEditedOnly} onChange={e => setFilterEditedOnly(e.target.checked)} />
-                            Editados
-                        </label>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setFilterProviderCode('all');
-                                setFilterPaymentType('all');
-                                setFilterEditedOnly(false);
-                                setSearchQuery('');
-                                setFromFilter(null);
-                                setToFilter(null);
-                            }}
-                            className="px-3 py-1 text-xs font-semibold uppercase tracking-wide border border-[var(--input-border)] rounded hover:bg-[var(--muted)]"
-                            title="Limpiar filtros"
-                        >
-                            Limpiar
-                        </button>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded border border-dashed border-[var(--input-border)] px-4 py-3 text-sm text-[var(--muted-foreground)]">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
+                            <div>
+                                <label className="flex items-center gap-2 ml-1">
+                                    <input type="checkbox" checked={filterEditedOnly} onChange={e => setFilterEditedOnly(e.target.checked)} />
+                                    <span className="ml-1">Editados</span>
+                                </label>
+                                {/* Moved 'Recordar filtros' next to pagination controls */}
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setFilterProviderCode('all');
+                                    setFilterPaymentType('all');
+                                    setFilterEditedOnly(false);
+                                    setSearchQuery('');
+                                    setFromFilter(null);
+                                    setToFilter(null);
+                                }}
+                                className="self-start sm:self-center px-3 py-1 text-xs font-semibold uppercase tracking-wide border border-[var(--input-border)] rounded hover:bg-[var(--muted)]"
+                                title="Limpiar filtros"
+                            >
+                                Limpiar
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -3374,6 +3514,12 @@ export function FondoSection({
                                 </select>
                             </div>
                             <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-3 mr-2 text-[var(--muted-foreground)]">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input aria-label="Recordar filtros" title="Recordar filtros" className="cursor-pointer" type="checkbox" checked={rememberFilters} onChange={e => setRememberFilters(e.target.checked)} />
+                                        <span className="text-sm ml-1">Recordar filtros</span>
+                                    </label>
+                                </div>
                                 <button
                                     type="button"
                                     onClick={handlePrevPage}
@@ -3495,7 +3641,7 @@ export function FondoSection({
                                                 <div className="flex items-center justify-end gap-2">
                                                     <button
                                                         type="button"
-                                                        onClick={() => setSortAsc(prev => !prev)}
+                                                        onClick={() => setSortAsc((prev: boolean) => !prev)}
                                                         title={sortAsc ? 'Mostrar más reciente arriba' : 'Mostrar más reciente abajo'}
                                                         aria-label="Invertir orden de movimientos"
                                                         className="p-1 border border-[var(--input-border)] rounded hover:bg-[var(--muted)]"
@@ -3661,6 +3807,44 @@ export function FondoSection({
                     </div>
                 )}
             </div>
+
+            {/* Totals for the current search / filters */}
+            {isFilterActive && filteredEntries.length > 0 && (
+                <div className="mt-4">
+                    <div className="flex justify-center">
+                        <div className="w-full max-w-2xl">
+                            <div className="px-4 py-3 rounded min-w-[220px] fg-balance-card">
+                                <div className="mb-2 text-center font-semibold text-sm text-[var(--muted-foreground)]">Totales (según búsqueda)</div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    {(['CRC', 'USD'] as ('CRC'|'USD')[]).map(currency => {
+                                        const ingreso = totalsByCurrency[currency].ingreso;
+                                        const egreso = totalsByCurrency[currency].egreso;
+                                        const neto = ingreso - egreso;
+                                        return (
+                                            <div key={currency} className="rounded border border-[var(--input-border)] bg-[var(--card-bg)] p-3">
+                                                <div className="text-xs uppercase tracking-wide">{currency === 'CRC' ? 'Colones' : 'Dólares'}</div>
+                                                <div className="mt-2 text-[var(--foreground)]">
+                                                    <div className="flex items-center gap-2">
+                                                        <ArrowDownRight className="w-4 h-4 text-green-500" />
+                                                        <div>Ingresos: <span className="font-semibold text-green-500">{formatByCurrency(currency, ingreso)}</span></div>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        <ArrowUpRight className="w-4 h-4 text-red-500" />
+                                                        <div>Egresos: <span className="font-semibold text-red-500">{formatByCurrency(currency, egreso)}</span></div>
+                                                    </div>
+                                                    <div className="pt-2">
+                                                        <div>Neto: <span className={`font-semibold ${neto > 0 ? 'text-green-500' : neto < 0 ? 'text-red-500' : ''}`}>{formatByCurrency(currency, neto)}</span></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="mt-5">
                 <div className="flex justify-center">

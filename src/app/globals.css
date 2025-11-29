@@ -387,7 +387,7 @@
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
 }
 
-.fg-balance-card * {
+.fg-balance-card *:not([class*="text-"]) {
   color: #FFFFFF !important;
 }
 

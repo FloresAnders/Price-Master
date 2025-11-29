@@ -4,6 +4,9 @@ import React, { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { SolicitudesService } from '@/services/solicitudes'
+import CameraScanner from '../scanner/CameraScanner'
+import { useBarcodeScanner } from '../../hooks/useBarcodeScanner'
+import { ScanningService } from '@/services/scanning'
 
 interface NotificationModalProps {
   isOpen: boolean
@@ -16,6 +19,16 @@ export default function NotificationModal({ isOpen, onClose }: NotificationModal
   const { user } = useAuth();
   const [solicitudes, setSolicitudes] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
+  const [selectedSolicitud, setSelectedSolicitud] = useState<any>(null);
+  const [scannedCode, setScannedCode] = useState<string>('');
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+
+  const { code: detectedCode, error: scannerError, cameraActive, liveStreamRef, toggleCamera, handleClear: clearScanner, handleCopyCode, detectionMethod } = useBarcodeScanner((foundCode) => {
+    setScannedCode(foundCode);
+    setShowScanner(false);
+    setShowVerificationModal(true);
+  });
 
   useEffect(() => {
     if (!isOpen) return;
@@ -103,7 +116,18 @@ export default function NotificationModal({ isOpen, onClose }: NotificationModal
                       <div className="font-semibold text-[var(--foreground)] break-words">{s.productName || s.name || 'Sin nombre'}</div>
                     </div>
 
-                    <div className="text-xs text-[var(--muted-foreground)]">{formatDate(s.createdAt)}</div>
+                    <div className="flex flex-col gap-2">
+                      <div className="text-xs text-[var(--muted-foreground)]">{formatDate(s.createdAt)}</div>
+                      <button
+                        onClick={() => {
+                          setSelectedSolicitud(s);
+                          setShowScanner(true);
+                        }}
+                        className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
+                      >
+                        Abrir Escáner
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -122,4 +146,81 @@ export default function NotificationModal({ isOpen, onClose }: NotificationModal
       </div>
     </div>
   )
+
+  // Scanner Modal
+  if (showScanner) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div className="bg-[var(--background)] rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-auto">
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-[var(--foreground)]">Escanear Código para {selectedSolicitud?.productName || 'Producto'}</h2>
+              <button onClick={() => setShowScanner(false)} className="text-[var(--muted-foreground)] hover:text-[var(--foreground)]">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <CameraScanner
+              code={detectedCode}
+              error={scannerError}
+              detectionMethod={detectionMethod}
+              cameraActive={cameraActive}
+              liveStreamRef={liveStreamRef}
+              toggleCamera={toggleCamera}
+              handleClear={clearScanner}
+              handleCopyCode={handleCopyCode}
+              onRemoveLeadingZero={() => {}}
+            />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Verification Modal
+  if (showVerificationModal) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div className="bg-[var(--background)] rounded-lg shadow-xl w-full sm:max-w-md">
+          <div className="p-6">
+            <h2 className="text-xl font-semibold text-[var(--foreground)] mb-4">Verificar Código Escaneado</h2>
+            <div className="mb-4">
+              <p className="text-[var(--foreground)]"><strong>Producto:</strong> {selectedSolicitud?.productName || 'Sin nombre'}</p>
+              <p className="text-[var(--foreground)]"><strong>Código:</strong> {scannedCode}</p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowVerificationModal(false)}
+                className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    await ScanningService.addScan({
+                      code: scannedCode,
+                      productName: selectedSolicitud?.productName || '',
+                      source: 'web',
+                      userName: user?.name || 'Usuario',
+                      processed: false,
+                      ownercompanie: user?.ownercompanie
+                    });
+                    setShowVerificationModal(false);
+                    // Optionally reload solicitudes or mark as listo
+                  } catch (err) {
+                    console.error('Error enviando código:', err);
+                  }
+                }}
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              >
+                Enviar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return null;
 }
