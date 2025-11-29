@@ -171,9 +171,9 @@ export default function Footer() {
           </div>
         )}
         {/* Copyright */}
-        <div className="w-full text-center text-xs text-[var(--tab-text)] border-t border-[var(--input-border)] pt-2 pb-1">
+        <div className="w-full text-center text-xs text-[var(--foreground)] opacity-80 border-t border-[var(--input-border)] pt-2 pb-1">
           <div className="mb-1">Copyright ©{new Date().getFullYear()}; Designed by <span className="font-semibold tracking-wide">Time Master</span></div>
-          <div className="text-[var(--tab-text)] opacity-80">{'v' + data.version}</div>
+          <div className="opacity-90">{'v' + data.version}</div>
         </div>
       </div>
     </footer>

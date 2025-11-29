@@ -15,7 +15,7 @@
     --card-bg: #ececec;
     --border: #D1D5DB;
     --muted: #F5F5F5;
-    --muted-foreground: #6B7280;
+    --muted-foreground: #4B5563;
     --input-bg: #FFFFFF;
     --input-border: #D1D5DB;
     --button-bg: #2C5F6F;
@@ -81,7 +81,7 @@
     /* gray-800 */
     --border: #4b5563;
     --muted: #374151;
-    --muted-foreground: #9ca3af;
+    --muted-foreground: #D1D5DB;
     --input-bg: #374151;
     /* gray-700 */
     --input-border: #4b5563;
@@ -95,8 +95,8 @@
     --hover-bg: #374151;
 
     /* Navegación de pestañas */
-    --tab-text: #9ca3af;
-    /* gray-400 */
+    --tab-text: #D1D5DB;
+    /* gray-300 for better contrast */
     --tab-text-active: #a5b4fc;
     /* indigo-300 */
     --tab-border: transparent;
