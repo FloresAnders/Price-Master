@@ -60,13 +60,19 @@ export const viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning className="min-h-full bg-white dark:bg-zinc-900">
+      <head>
+        <link rel="preconnect" href="https://firebasestorage.googleapis.com" />
+        <link rel="preconnect" href="https://www.googleapis.com" />
+        <link rel="dns-prefetch" href="https://firebasestorage.googleapis.com" />
+        <link rel="dns-prefetch" href="https://www.googleapis.com" />
+      </head>
       <body className="bg-background text-foreground transition-colors duration-500 min-h-screen flex flex-col" suppressHydrationWarning>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <AuthWrapper>
             <PermissionsManager>
               <ToastProvider>
                 <HeaderWrapper />
-                <main className="flex-1 flex flex-col w-full">
+                <main role="main" className="flex-1 flex flex-col w-full">
                   <div className="w-full" suppressHydrationWarning>
                     {children}
                   </div>

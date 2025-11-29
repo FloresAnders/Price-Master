@@ -244,6 +244,7 @@ export default function LoginModal({ isOpen, onLoginSuccess, onClose, title, can
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-blue-500 transition-all duration-200 hover:scale-110 active:scale-95 hover:shadow-[0_0_8px_rgba(59,130,246,0.3)] rounded-full p-1"
                   disabled={loading}
+                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
                 >
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>

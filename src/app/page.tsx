@@ -2,28 +2,35 @@
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react'
-import { BarcodeScanner } from '@/components/scanner'
-import { PriceCalculator, TextConversion } from '@/components/calculator'
-import { ScanHistory } from '@/components/scanner'
-import { CashCounterTabs, ControlHorario, TimingControl, SupplierOrders } from '@/components/business'
+import dynamic from 'next/dynamic'
 import { useAuth } from '@/hooks/useAuth'
 import useToast from '@/hooks/useToast';
 /*import { Calculator, Smartphone, Type, Banknote, Scan, Clock, Truck, Settings, History, } from lucide-react'*/
 import type { ScanHistoryEntry } from '@/types/barcode'
 import { ClientOnlyHomeMenu } from '@/components/layout'
-import { Mantenimiento } from '@/components/admin'
-import { ScanHistoryTable } from '@/components/scanner'
 import { storage } from '@/config/firebase'
 import { ref, listAll } from 'firebase/storage'
 import Pruebas from '@/components/xpruebas/Pruebas'
 
+// Dynamic imports for code splitting
+const BarcodeScanner = dynamic(() => import('@/components/scanner').then(mod => ({ default: mod.BarcodeScanner })), { ssr: false })
+const PriceCalculator = dynamic(() => import('@/components/calculator').then(mod => ({ default: mod.PriceCalculator })), { ssr: false })
+const TextConversion = dynamic(() => import('@/components/calculator').then(mod => ({ default: mod.TextConversion })), { ssr: false })
+const ScanHistory = dynamic(() => import('@/components/scanner').then(mod => ({ default: mod.ScanHistory })), { ssr: false })
+const CashCounterTabs = dynamic(() => import('@/components/business').then(mod => ({ default: mod.CashCounterTabs })), { ssr: false })
+const ControlHorario = dynamic(() => import('@/components/business').then(mod => ({ default: mod.ControlHorario })), { ssr: false })
+const TimingControl = dynamic(() => import('@/components/business').then(mod => ({ default: mod.TimingControl })), { ssr: false })
+const SupplierOrders = dynamic(() => import('@/components/business').then(mod => ({ default: mod.SupplierOrders })), { ssr: false })
+const Mantenimiento = dynamic(() => import('@/components/admin').then(mod => ({ default: mod.Mantenimiento })), { ssr: false })
+const ScanHistoryTable = dynamic(() => import('@/components/scanner').then(mod => ({ default: mod.ScanHistoryTable })), { ssr: false })
+const FondoPage = dynamic(() => import('@/app/fondogeneral/fondogeneral/page'), { ssr: false })
+const AgregarProveedorPage = dynamic(() => import('@/app/fondogeneral/agregarproveedor/page'), { ssr: false })
+const ReportesPage = dynamic(() => import('@/app/fondogeneral/otra/page'), { ssr: false })
+const ConfiguracionFondoGeneralPage = dynamic(() => import('@/app/fondogeneral/configuracion/page'), { ssr: false })
+const SolicitudForm = dynamic(() => import('@/components/solicitud/SolicitudForm'), { ssr: false })
+
 // 1) Ampliamos ActiveTab para incluir "cashcounter", "controlhorario", "supplierorders", "edit", "scanhistory", "solicitud", "agregarproveedor", "reportes"
 type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'supplierorders' | 'scanhistory' | 'edit' | 'solicitud' | 'fondogeneral' | 'agregarproveedor' | 'reportes' | 'configuracion' | 'pruebas'
-import FondoPage from '@/app/fondogeneral/fondogeneral/page';
-import AgregarProveedorPage from '@/app/fondogeneral/agregarproveedor/page';
-import ReportesPage from '@/app/fondogeneral/otra/page';
-import ConfiguracionFondoGeneralPage from '@/app/fondogeneral/configuracion/page';
-import SolicitudForm from '@/components/solicitud/SolicitudForm'
 
 export default function HomePage() {
   // Hook para obtener el usuario autenticado
@@ -252,7 +259,7 @@ export default function HomePage() {
   }, [isSuperAdmin])
   return (
     <>
-      <main className="flex-1 max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="flex-1 max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* notifications are rendered globally by ToastProvider */}
         {activeTab === null ? (
           <ClientOnlyHomeMenu />
@@ -372,7 +379,7 @@ export default function HomePage() {
             </div>
           </>
         )}
-      </main>
+      </div>
     </>
   )
 }

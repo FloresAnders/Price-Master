@@ -15,6 +15,10 @@ const nextConfig: NextConfig & { turbopack?: { root?: string } } = {
   },
   /* config options here */
   ...(useStaticExport ? { output: 'export', trailingSlash: true, distDir: 'out' } : {}),
+  // Optimize CSS in production
+  experimental: {
+    optimizeCss: true,
+  },
   generateBuildId: async () => {
     return 'build-' + Date.now()
   },
@@ -29,7 +33,7 @@ const nextConfig: NextConfig & { turbopack?: { root?: string } } = {
     NEXT_PUBLIC_FIREBASE_APP_ID: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
   },
   images: {
-    unoptimized: true,
+    unoptimized: false,
     remotePatterns: [
       {
         protocol: 'https',
