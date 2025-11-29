@@ -121,10 +121,10 @@ function ResetPasswordContent() {
 
   if (validating) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--background)] flex items-center justify-center">
         <div className="text-center">
-          <Loader className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Validando token...</p>
+          <Loader className="w-12 h-12 text-[var(--primary)] animate-spin mx-auto mb-4" />
+          <p className="text-[var(--muted-foreground)]">Validando token...</p>
         </div>
       </div>
     );
@@ -132,16 +132,16 @@ function ResetPasswordContent() {
 
   if (!tokenValid) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full text-center">
-          <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+      <div className="min-h-screen bg-[var(--background)] flex items-center justify-center p-4">
+        <div className="bg-[var(--card-bg)] p-8 rounded-lg shadow-lg max-w-md w-full text-center border border-[var(--border)]">
+          <XCircle className="w-16 h-16 text-[var(--error)] mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-[var(--foreground)] mb-2">
             Token Inválido
           </h2>
-          <p className="text-gray-600 mb-6">{error}</p>
+          <p className="text-[var(--muted-foreground)] mb-6">{error}</p>
           <button
             onClick={() => router.push('/')}
-            className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center space-x-2"
+            className="w-full px-4 py-2 bg-[var(--button-bg)] text-[var(--button-text)] rounded-lg hover:bg-[var(--button-hover)] flex items-center justify-center space-x-2"
           >
             <ArrowLeft className="w-5 h-5" />
             <span>Volver al Login</span>
@@ -153,16 +153,16 @@ function ResetPasswordContent() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full text-center">
-          <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+      <div className="min-h-screen bg-[var(--background)] flex items-center justify-center p-4">
+        <div className="bg-[var(--card-bg)] p-8 rounded-lg shadow-lg max-w-md w-full text-center border border-[var(--border)]">
+          <CheckCircle className="w-16 h-16 text-[var(--success)] mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-[var(--foreground)] mb-2">
             ¡Contraseña Actualizada!
           </h2>
-          <p className="text-gray-600 mb-4">
+          <p className="text-[var(--muted-foreground)] mb-4">
             Tu contraseña ha sido restablecida exitosamente.
           </p>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-[var(--muted-foreground)]">
             Redirigiendo al login...
           </p>
         </div>
@@ -171,15 +171,15 @@ function ResetPasswordContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4">
-      <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full">
+    <div className="min-h-screen bg-[var(--background)] flex items-center justify-center py-12 px-4">
+      <div className="bg-[var(--card-bg)] p-8 rounded-lg shadow-lg max-w-md w-full border border-[var(--border)]">
         {/* Header */}
         <div className="text-center mb-8">
-          <Key className="w-12 h-12 text-blue-600 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900">
+          <Key className="w-12 h-12 text-[var(--primary)] mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-[var(--foreground)]">
             Restablecer Contraseña
           </h2>
-          <p className="text-gray-600 mt-2">
+          <p className="text-[var(--muted-foreground)] mt-2">
             Ingresa tu nueva contraseña
           </p>
         </div>
@@ -187,15 +187,15 @@ function ResetPasswordContent() {
         {/* Form */}
         <form onSubmit={handleSubmit}>
           {error && (
-            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start space-x-2">
-              <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-              <span className="text-red-700 text-sm">{error}</span>
+            <div className="mb-4 p-4 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg flex items-start space-x-2">
+              <AlertCircle className="w-5 h-5 text-[var(--error)] flex-shrink-0 mt-0.5" />
+              <span className="text-red-700 dark:text-red-400 text-sm">{error}</span>
             </div>
           )}
 
           {/* Nueva Contraseña */}
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
               Nueva Contraseña
             </label>
             <div className="relative">
@@ -203,14 +203,14 @@ function ResetPasswordContent() {
                 type={showPassword ? 'text' : 'password'}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 pr-10"
+                className="w-full px-4 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] text-[var(--foreground)] rounded-lg focus:ring-2 focus:ring-[var(--primary)] pr-10"
                 required
                 disabled={loading}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
                 aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
               >
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
@@ -220,22 +220,22 @@ function ResetPasswordContent() {
 
           {/* Confirmar Contraseña */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
               Confirmar Contraseña
             </label>
             <input
               type={showPassword ? 'text' : 'password'}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] text-[var(--foreground)] rounded-lg focus:ring-2 focus:ring-[var(--primary)]"
               required
               disabled={loading}
             />
           </div>
 
           {/* Requisitos de Contraseña */}
-          <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-            <p className="text-sm font-medium text-gray-700 mb-2">
+          <div className="mb-6 p-4 bg-[var(--muted)] rounded-lg border border-[var(--border)]">
+            <p className="text-sm font-medium text-[var(--foreground)] mb-2">
               Requisitos de contraseña:
             </p>
             <div className="space-y-1">
@@ -248,14 +248,14 @@ function ResetPasswordContent() {
               ].map(({ key, label }) => (
                 <div key={key} className="flex items-center space-x-2">
                   {passwordChecks[key as keyof typeof passwordChecks] ? (
-                    <CheckCircle className="w-4 h-4 text-green-500" />
+                    <CheckCircle className="w-4 h-4 text-[var(--success)]" />
                   ) : (
-                    <XCircle className="w-4 h-4 text-gray-300" />
+                    <XCircle className="w-4 h-4 text-[var(--muted-foreground)] opacity-30" />
                   )}
                   <span className={`text-sm ${
                     passwordChecks[key as keyof typeof passwordChecks]
-                      ? 'text-green-700'
-                      : 'text-gray-500'
+                      ? 'text-[var(--success)]'
+                      : 'text-[var(--muted-foreground)]'
                   }`}>
                     {label}
                   </span>
@@ -268,7 +268,7 @@ function ResetPasswordContent() {
           <div className="space-y-3">
             <button
               type="submit"
-              className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+              className="w-full px-4 py-3 bg-[var(--primary)] text-[var(--button-text)] rounded-lg hover:bg-[var(--button-hover)] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
               disabled={loading || !Object.values(passwordChecks).every(check => check)}
             >
               {loading ? (
@@ -287,7 +287,7 @@ function ResetPasswordContent() {
             <button
               type="button"
               onClick={() => router.push('/')}
-              className="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center justify-center space-x-2"
+              className="w-full px-4 py-2 border border-[var(--border)] text-[var(--foreground)] rounded-lg hover:bg-[var(--hover-bg)] flex items-center justify-center space-x-2"
               disabled={loading}
             >
               <ArrowLeft className="w-5 h-5" />
@@ -303,10 +303,10 @@ function ResetPasswordContent() {
 export default function ResetPasswordPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--background)] flex items-center justify-center">
         <div className="text-center">
-          <Loader className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Cargando...</p>
+          <Loader className="w-12 h-12 text-[var(--primary)] animate-spin mx-auto mb-4" />
+          <p className="text-[var(--muted-foreground)]">Cargando...</p>
         </div>
       </div>
     }>
