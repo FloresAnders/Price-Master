@@ -81,8 +81,12 @@ function EmployeeTooltipSummary({
           name: rawEmp.Empleado,
           ccssType: rawEmp.ccssType || 'TC',
           extraAmount: rawEmp.extraAmount || 0,
-          hoursPerShift: rawEmp.hoursPerShift || 8
+          hoursPerShift: rawEmp.hoursPerShift ?? 8 // Usar ?? en lugar de || para permitir valores falsy pero no null/undefined
         } : undefined;
+        
+        // Debug: Verificar hoursPerShift del empleado
+        console.log(`[Tooltip] Empleado: ${employeeName}, hoursPerShift: ${employee?.hoursPerShift}`);
+
 
         // Obtener horarios del empleado para este mes - usar JavaScript month (0-11)
         const schedules = await SchedulesService.getSchedulesByLocationEmployeeMonth(
@@ -136,10 +140,12 @@ function EmployeeTooltipSummary({
               // Usar horasPorDia de la BD si está disponible, sino usar hoursPerShift del empleado
               if (daySchedule.horasPorDia && daySchedule.horasPorDia > 0) {
                 totalHours += daySchedule.horasPorDia;
+                console.log(`[Tooltip] Día ${day}: usando horasPorDia=${daySchedule.horasPorDia}`);
               } else {
                 // Fallback: usar hoursPerShift configurado en el empleado
-                const hoursPerDay = employee?.hoursPerShift || 8;
+                const hoursPerDay = employee?.hoursPerShift ?? 8; // Usar ?? en lugar de ||
                 totalHours += hoursPerDay;
+                console.log(`[Tooltip] Día ${day}: usando hoursPerShift=${hoursPerDay} (fallback)`);
               }
             }
           });
@@ -328,7 +334,7 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
           employees: (e.empleados || []).map(emp => ({
             name: emp.Empleado || '',
             ccssType: emp.ccssType || 'TC',
-            hoursPerShift: emp.hoursPerShift || 8,
+            hoursPerShift: emp.hoursPerShift ?? 8, // Usar ?? para permitir valores falsy
             extraAmount: emp.extraAmount || 0
           }))
         }));
@@ -579,7 +585,9 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
       return Array.from({ length: daysInMonth - 15 }, (_, i) => i + 16);
     }
   };
-  const daysToShow = getDaysToShow();  // Función para actualizar un horario específico
+  const daysToShow = getDaysToShow();
+  
+  // Función para actualizar un horario específico
   const updateScheduleCell = async (employeeName: string, day: string, newValue: string) => {
     const currentValue = scheduleData[employeeName]?.[day] || '';
 

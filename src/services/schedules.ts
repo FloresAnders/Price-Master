@@ -164,17 +164,22 @@ export class SchedulesService {
           try {
             const { EmpresasService } = await import('./empresas');
             const empresas = await EmpresasService.getAllEmpresas();
-            const empresa = empresas.find(emp => emp.name.toLowerCase() === locationValue.toLowerCase());
+            // Buscar empresa por ubicacion, name o id para mayor flexibilidad
+            const empresa = empresas.find(emp => 
+              emp.ubicacion?.toLowerCase() === locationValue.toLowerCase() ||
+              emp.name?.toLowerCase() === locationValue.toLowerCase() ||
+              emp.id === locationValue
+            );
             const employee = empresa?.empleados?.find(emp => emp.Empleado === employeeName);
-            horasPorDia = employee?.hoursPerShift || 8; // Default to 8 hours if not specified
-            //(`🔄 Adding horasPorDia for ${employeeName} (${shift}): ${horasPorDia} hours`);
+            horasPorDia = employee?.hoursPerShift ?? 8; // Default to 8 hours if not specified, use ?? to allow 0 values
+            console.log(`🔄 Adding horasPorDia for ${employeeName} (${shift}): ${horasPorDia} hours from employee config`);
           } catch (error) {
             console.warn('Error getting employee hoursPerShift, using default 8:', error);
             horasPorDia = 8; // Fallback to 8 hours
           }
         } else {
           // For shifts other than D or N (like L), don't add horasPorDia
-          //(`ℹ️ Shift "${shift}" for ${employeeName}: no horasPorDia added`);
+          console.log(`ℹ️ Shift "${shift}" for ${employeeName}: no horasPorDia added`);
         }
 
         // If setting a value
@@ -253,6 +258,90 @@ export class SchedulesService {
       }
     } catch (error) {
       console.error('Error al actualizar horas trabajadas:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Migración: Actualizar horasPorDia de todos los turnos existentes basándose en la configuración del empleado
+   */
+  static async migrateHorasPorDia(locationValue?: string, employeeName?: string): Promise<{ updated: number; errors: number }> {
+    let updated = 0;
+    let errors = 0;
+
+    try {
+      // Obtener todas las empresas para acceder a la configuración de empleados
+      const { EmpresasService } = await import('./empresas');
+      const empresas = await EmpresasService.getAllEmpresas();
+
+      // Obtener todos los horarios o filtrados por empresa/empleado
+      let schedules: ScheduleEntry[];
+      if (locationValue && employeeName) {
+        schedules = await FirestoreService.query(this.COLLECTION_NAME, [
+          { field: 'companieValue', operator: '==', value: locationValue },
+          { field: 'employeeName', operator: '==', value: employeeName }
+        ]);
+      } else if (locationValue) {
+        schedules = await FirestoreService.query(this.COLLECTION_NAME, [
+          { field: 'companieValue', operator: '==', value: locationValue }
+        ]);
+      } else {
+        schedules = await this.getAllSchedules();
+      }
+
+      console.log(`🔄 Iniciando migración de ${schedules.length} registros de horarios...`);
+
+      for (const schedule of schedules) {
+        try {
+          // Solo procesar turnos de trabajo (D o N)
+          if (schedule.shift !== 'D' && schedule.shift !== 'N') {
+            continue;
+          }
+
+          // Buscar la empresa correspondiente
+          const empresa = empresas.find(emp => 
+            emp.ubicacion?.toLowerCase() === schedule.companieValue.toLowerCase() ||
+            emp.name?.toLowerCase() === schedule.companieValue.toLowerCase() ||
+            emp.id === schedule.companieValue
+          );
+
+          if (!empresa) {
+            console.warn(`⚠️ Empresa no encontrada para: ${schedule.companieValue}`);
+            errors++;
+            continue;
+          }
+
+          // Buscar el empleado
+          const employee = empresa.empleados?.find(emp => emp.Empleado === schedule.employeeName);
+          if (!employee) {
+            console.warn(`⚠️ Empleado ${schedule.employeeName} no encontrado en ${schedule.companieValue}`);
+            errors++;
+            continue;
+          }
+
+          // Obtener hoursPerShift del empleado
+          const correctHorasPorDia = employee.hoursPerShift ?? 8;
+
+          // Solo actualizar si el valor es diferente o no existe
+          if (schedule.horasPorDia !== correctHorasPorDia) {
+            if (schedule.id) {
+              await this.updateSchedule(schedule.id, {
+                horasPorDia: correctHorasPorDia
+              });
+              console.log(`✅ Actualizado: ${schedule.employeeName} (${schedule.year}-${schedule.month + 1}-${schedule.day}): ${schedule.horasPorDia || 'undefined'} → ${correctHorasPorDia} horas`);
+              updated++;
+            }
+          }
+        } catch (error) {
+          console.error(`❌ Error procesando horario ID ${schedule.id}:`, error);
+          errors++;
+        }
+      }
+
+      console.log(`✅ Migración completada: ${updated} actualizados, ${errors} errores`);
+      return { updated, errors };
+    } catch (error) {
+      console.error('Error en migración de horasPorDia:', error);
       throw error;
     }
   }
