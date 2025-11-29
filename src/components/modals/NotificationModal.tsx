@@ -75,7 +75,10 @@ export default function NotificationModal({ isOpen, onClose }: NotificationModal
           <div className="p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-[var(--foreground)]">Escanear Código para {selectedSolicitud?.productName || 'Producto'}</h2>
-              <button onClick={() => setShowScanner(false)} className="text-[var(--muted-foreground)] hover:text-[var(--foreground)]">
+              <button onClick={() => {
+                setShowScanner(false);
+                setSelectedSolicitud(null);
+              }} className="text-[var(--muted-foreground)] hover:text-[var(--foreground)]">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -102,7 +105,11 @@ export default function NotificationModal({ isOpen, onClose }: NotificationModal
             </div>
             <div className="flex justify-end gap-2">
               <button
-                onClick={() => setShowVerificationModal(false)}
+                onClick={() => {
+                  setShowVerificationModal(false);
+                  setSelectedSolicitud(null);
+                  setScannedCode('');
+                }}
                 className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
               >
                 Cancelar
@@ -118,8 +125,14 @@ export default function NotificationModal({ isOpen, onClose }: NotificationModal
                       processed: false,
                       ownercompanie: user?.ownercompanie
                     });
+                    // Mark the solicitud as listo
+                    await SolicitudesService.setListo(selectedSolicitud.id, true);
+                    // Remove from local list
+                    setSolicitudes(prev => prev.filter(s => s.id !== selectedSolicitud.id));
+                    // Close modal and reset states
                     setShowVerificationModal(false);
-                    // Optionally reload solicitudes or mark as listo
+                    setSelectedSolicitud(null);
+                    setScannedCode('');
                   } catch (err) {
                     console.error('Error enviando código:', err);
                   }
