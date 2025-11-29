@@ -28,6 +28,7 @@ import {
     ChevronRight,
     ChevronDown,
     ChevronUp,
+    Search,
 } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import { useProviders } from '../../../hooks/useProviders';
@@ -545,8 +546,35 @@ export function ProviderSection({ id }: { id?: string }) {
         code: '',
         name: '',
     });
+    const [searchTerm, setSearchTerm] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
     const companySelectId = `provider-company-select-${id ?? 'default'}`;
     const showCompanySelector = isAdminUser && (ownerCompaniesLoading || sortedOwnerCompanies.length > 0 || !!ownerCompaniesError);
+
+    const filteredProviders = useMemo(() => {
+        return providers.filter(p =>
+            p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            p.code.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    }, [providers, searchTerm]);
+
+    const totalPages = useMemo(() => {
+        if (itemsPerPage === 'all') return 1;
+        return Math.ceil(filteredProviders.length / itemsPerPage);
+    }, [filteredProviders.length, itemsPerPage]);
+
+    const paginatedProviders = useMemo(() => {
+        if (itemsPerPage === 'all') return filteredProviders;
+        return filteredProviders.slice(
+            (currentPage - 1) * itemsPerPage,
+            currentPage * itemsPerPage
+        );
+    }, [filteredProviders, currentPage, itemsPerPage]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, itemsPerPage]);
 
     const handleAdminCompanyChange = useCallback((value: string) => {
         if (!isAdminUser) return;
@@ -558,6 +586,9 @@ export function ProviderSection({ id }: { id?: string }) {
         setEditingProviderCode(null);
         setDeletingCode(null);
         setConfirmState({ open: false, code: '', name: '' });
+        setCurrentPage(1);
+        setSearchTerm('');
+        setItemsPerPage(10);
     }, [isAdminUser]);
 
     // provider creation is handled from the drawer UI below
@@ -697,49 +728,107 @@ export function ProviderSection({ id }: { id?: string }) {
 
             <div>
                 <h3 className="text-sm font-medium text-[var(--foreground)] mb-2">Lista de Proveedores</h3>
+                {!isLoading && (
+                    <div className="mb-4 space-y-4">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
+                            <input
+                                type="text"
+                                placeholder="Buscar proveedores..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full pl-10 pr-4 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-[var(--foreground)]"
+                            />
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <label htmlFor="items-per-page" className="text-sm text-[var(--foreground)]">Mostrar:</label>
+                                <select
+                                    id="items-per-page"
+                                    value={itemsPerPage === 'all' ? 'all' : itemsPerPage.toString()}
+                                    onChange={(e) => {
+                                        const value = e.target.value;
+                                        setItemsPerPage(value === 'all' ? 'all' : parseInt(value));
+                                        setCurrentPage(1);
+                                    }}
+                                    className="px-3 py-1 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
+                                >
+                                    <option value="all">Todos</option>
+                                    <option value="5">5</option>
+                                    <option value="10">10</option>
+                                    <option value="15">15</option>
+                                    <option value="20">20</option>
+                                </select>
+                            </div>
+                            {itemsPerPage !== 'all' && totalPages > 1 && (
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                        disabled={currentPage === 1}
+                                        className="px-3 py-1 bg-[var(--accent)] text-white rounded disabled:opacity-50"
+                                    >
+                                        <ChevronLeft className="w-4 h-4" />
+                                    </button>
+                                    <span className="text-[var(--foreground)] text-sm">
+                                        Página {currentPage} de {totalPages}
+                                    </span>
+                                    <button
+                                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                        disabled={currentPage === totalPages}
+                                        className="px-3 py-1 bg-[var(--accent)] text-white rounded disabled:opacity-50"
+                                    >
+                                        <ChevronRight className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
                 {isLoading ? (
                     <p className="text-[var(--muted-foreground)]">Cargando proveedores...</p>
                 ) : (
-                    <ul className="space-y-2">
-                        {providers.length === 0 && <li className="text-[var(--muted-foreground)]">Aun no hay proveedores.</li>}
-                        {providers.map(p => (
-                            <li key={p.code} className="flex items-center justify-between bg-[var(--muted)] p-3 rounded">
-                                <div>
-                                    <div className="text-[var(--foreground)] font-semibold">{p.name}</div>
-                                    <div className="text-xs text-[var(--muted-foreground)]">Código: {p.code}</div>
-                                    {p.type && (
-                                        <div className="text-xs text-[var(--muted-foreground)] mt-1">
-                                            Tipo: {p.type}
-                                            {p.category && <span className="ml-2 px-2 py-0.5 rounded bg-[var(--input-bg)] text-[10px]">
-                                                {p.category}
-                                            </span>}
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <div className="text-xs text-[var(--muted-foreground)]">Empresa: {p.company}</div>
-                                    <button
-                                        type="button"
-                                        className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] disabled:opacity-50"
-                                        onClick={() => openEditProvider(p.code)}
-                                        disabled={saving || deletingCode !== null}
-                                        title="Editar proveedor"
-                                    >
-                                        <Pencil className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="text-red-500 hover:text-red-600 disabled:opacity-50"
-                                        onClick={() => openRemoveModal(p.code, p.name)}
-                                        disabled={deletingCode === p.code || saving || deletingCode !== null}
-                                        title="Eliminar proveedor"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            </li>
-                        ))}
-                    </ul>
+                    <div>
+                        <ul className="space-y-2">
+                            {filteredProviders.length === 0 && <li className="text-[var(--muted-foreground)]">{searchTerm ? 'No se encontraron proveedores que coincidan con la búsqueda.' : 'Aun no hay proveedores.'}</li>}
+                            {paginatedProviders.map(p => (
+                                <li key={p.code} className="flex items-center justify-between bg-[var(--muted)] p-3 rounded">
+                                    <div>
+                                        <div className="text-[var(--foreground)] font-semibold">{p.name}</div>
+                                        <div className="text-xs text-[var(--muted-foreground)]">Código: {p.code}</div>
+                                        {p.type && (
+                                            <div className="text-xs text-[var(--muted-foreground)] mt-1">
+                                                Tipo: {p.type}
+                                                {p.category && <span className="ml-2 px-2 py-0.5 rounded bg-[var(--input-bg)] text-[10px]">
+                                                    {p.category}
+                                                </span>}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <div className="text-xs text-[var(--muted-foreground)]">Empresa: {p.company}</div>
+                                        <button
+                                            type="button"
+                                            className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] disabled:opacity-50"
+                                            onClick={() => openEditProvider(p.code)}
+                                            disabled={saving || deletingCode !== null}
+                                            title="Editar proveedor"
+                                        >
+                                            <Pencil className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="text-red-500 hover:text-red-600 disabled:opacity-50"
+                                            onClick={() => openRemoveModal(p.code, p.name)}
+                                            disabled={deletingCode === p.code || saving || deletingCode !== null}
+                                            title="Eliminar proveedor"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
                 )}
             </div>
 
