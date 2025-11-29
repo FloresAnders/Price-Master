@@ -1,0 +1,9 @@
+# https://www.robotstxt.org/robotstxt.html
+User-agent: *
+Allow: /
+
+# Disallow private routes
+Disallow: /api/
+Disallow: /firebase-test
+
+Sitemap: https://price-master-peach.vercel.app/sitemap.xml

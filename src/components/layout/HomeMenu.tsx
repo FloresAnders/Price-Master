@@ -93,7 +93,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
           style={{ cursor: 'pointer', filter: hovered ? 'drop-shadow(0 0 8px var(--foreground))' : 'none' }}
         />
       </div>
-      <h1 className="text-3xl font-bold mb-8 text-center">Bienvenido a Time Master</h1>
+      <h1 className="text-3xl font-bold mb-2 text-center">Bienvenido a Time Master</h1>
 
       {visibleMenuItems.length === 0 ? (
         <div className="text-center py-12">
