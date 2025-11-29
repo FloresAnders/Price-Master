@@ -1092,7 +1092,23 @@ export function FondoSection({
     const loadedDailyClosingKeysRef = useRef<Set<string>>(new Set());
     const loadingDailyClosingKeysRef = useRef<Set<string>>(new Set());
 
-    const [pageSize, setPageSize] = useState<'daily' | number | 'all'>('daily');
+    const [pageSize, setPageSize] = useState<'daily' | number | 'all'>(() => {
+        if (typeof window !== 'undefined') {
+            try {
+                const remember = localStorage.getItem('fondogeneral-rememberFilters');
+                if (remember === 'true') {
+                    const saved = localStorage.getItem('fondogeneral-pageSize');
+                    if (saved === null) return 'daily';
+                    if (saved === 'daily' || saved === 'all') return saved as any;
+                    const n = Number.parseInt(saved, 10);
+                    if (!Number.isNaN(n) && n > 0) return n;
+                }
+            } catch {
+                // ignore storage errors
+            }
+        }
+        return 'daily';
+    });
     const [pageIndex, setPageIndex] = useState(0);
     const [currentDailyKey, setCurrentDailyKey] = useState(() => dateKeyFromDate(new Date()));
     const todayKey = useMemo(() => dateKeyFromDate(new Date()), []);
@@ -1278,9 +1294,26 @@ export function FondoSection({
         resizingRef.current = { key, startX: event.clientX, startWidth };
     };
 
-    // Save rememberFilters
+    // Save rememberFilters. If disabled, clear saved filters from storage.
     useEffect(() => {
         localStorage.setItem('fondogeneral-rememberFilters', JSON.stringify(rememberFilters));
+        if (!rememberFilters && typeof window !== 'undefined') {
+            try {
+                const keysToClear = [
+                    'fondogeneral-fromFilter',
+                    'fondogeneral-toFilter',
+                    'fondogeneral-filterProviderCode',
+                    'fondogeneral-filterPaymentType',
+                    'fondogeneral-filterEditedOnly',
+                    'fondogeneral-searchQuery',
+                    'fondogeneral-pageSize',
+                    'fondogeneral-sortAsc',
+                ];
+                for (const k of keysToClear) localStorage.removeItem(k);
+            } catch {
+                // ignore storage errors
+            }
+        }
     }, [rememberFilters]);
 
     // Save filters if rememberFilters is true
@@ -1292,8 +1325,23 @@ export function FondoSection({
             localStorage.setItem('fondogeneral-filterPaymentType', filterPaymentType);
             localStorage.setItem('fondogeneral-filterEditedOnly', JSON.stringify(filterEditedOnly));
             localStorage.setItem('fondogeneral-searchQuery', searchQuery);
+            localStorage.setItem('fondogeneral-pageSize', String(pageSize));
         }
-    }, [rememberFilters, fromFilter, toFilter, filterProviderCode, filterPaymentType, filterEditedOnly, searchQuery]);
+    }, [rememberFilters, fromFilter, toFilter, filterProviderCode, filterPaymentType, filterEditedOnly, searchQuery, pageSize]);
+
+    // When rememberFilters is enabled, load pageSize from storage (if present)
+    useEffect(() => {
+        if (!rememberFilters) return;
+        if (typeof window === 'undefined') return;
+        const saved = localStorage.getItem('fondogeneral-pageSize');
+        if (saved === null) return;
+        if (saved === 'daily' || saved === 'all') {
+            setPageSize(saved as any);
+            return;
+        }
+        const n = Number.parseInt(saved, 10);
+        if (!Number.isNaN(n) && n > 0) setPageSize(n);
+    }, [rememberFilters]);
 
     useEffect(() => {
         setCurrencyEnabled({ CRC: true, USD: true });
@@ -2891,6 +2939,23 @@ export function FondoSection({
         return base;
     }, [accountKey, dailyClosings, dailyClosingsHydrated, isDailyMode, currentDailyKey, fromFilter, toFilter]);
 
+    // Totals computed from the filtered entries (not only the current page)
+    const isFilterActive = useMemo(() => {
+        return Boolean(fromFilter || toFilter || (filterProviderCode && filterProviderCode !== 'all') || (filterPaymentType && filterPaymentType !== 'all') || filterEditedOnly || (searchQuery || '').trim().length > 0);
+    }, [fromFilter, toFilter, filterProviderCode, filterPaymentType, filterEditedOnly, searchQuery]);
+
+    const totalsByCurrency = useMemo(() => {
+        const acc: Record<'CRC' | 'USD', { ingreso: number; egreso: number } > = { CRC: { ingreso: 0, egreso: 0 }, USD: { ingreso: 0, egreso: 0 } };
+        for (const e of filteredEntries) {
+            const cur = (e.currency as 'CRC' | 'USD') || 'CRC';
+            const ing = Math.trunc(e.amountIngreso || 0);
+            const eg = Math.trunc(e.amountEgreso || 0);
+            if (ing > 0) acc[cur].ingreso += ing;
+            if (eg > 0) acc[cur].egreso += eg;
+        }
+        return acc;
+    }, [filteredEntries]);
+
 
     const companySelectId = `fg-company-select-${namespace}`;
     const showCompanySelector = isAdminUser && (ownerCompaniesLoading || sortedOwnerCompanies.length > 0 || !!ownerCompaniesError);
@@ -3029,10 +3094,7 @@ export function FondoSection({
                                     <input type="checkbox" checked={filterEditedOnly} onChange={e => setFilterEditedOnly(e.target.checked)} />
                                     <span className="ml-1">Editados</span>
                                 </label>
-                                <label className="flex items-center gap-2 ml-1">
-                                    <input type="checkbox" checked={rememberFilters} onChange={e => setRememberFilters(e.target.checked)} />
-                                    <span className="ml-1">Recordar filtros</span>
-                                </label>
+                                {/* Moved 'Recordar filtros' next to pagination controls */}
                             </div>
                             <button
                                 type="button"
@@ -3452,6 +3514,12 @@ export function FondoSection({
                                 </select>
                             </div>
                             <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-3 mr-2 text-[var(--muted-foreground)]">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input aria-label="Recordar filtros" title="Recordar filtros" className="cursor-pointer" type="checkbox" checked={rememberFilters} onChange={e => setRememberFilters(e.target.checked)} />
+                                        <span className="text-sm ml-1">Recordar filtros</span>
+                                    </label>
+                                </div>
                                 <button
                                     type="button"
                                     onClick={handlePrevPage}
@@ -3739,6 +3807,44 @@ export function FondoSection({
                     </div>
                 )}
             </div>
+
+            {/* Totals for the current search / filters */}
+            {isFilterActive && filteredEntries.length > 0 && (
+                <div className="mt-4">
+                    <div className="flex justify-center">
+                        <div className="w-full max-w-2xl">
+                            <div className="px-4 py-3 rounded min-w-[220px] fg-balance-card">
+                                <div className="mb-2 text-center font-semibold text-sm text-[var(--muted-foreground)]">Totales (según búsqueda)</div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    {(['CRC', 'USD'] as ('CRC'|'USD')[]).map(currency => {
+                                        const ingreso = totalsByCurrency[currency].ingreso;
+                                        const egreso = totalsByCurrency[currency].egreso;
+                                        const neto = ingreso - egreso;
+                                        return (
+                                            <div key={currency} className="rounded border border-[var(--input-border)] bg-[var(--card-bg)] p-3">
+                                                <div className="text-xs uppercase tracking-wide">{currency === 'CRC' ? 'Colones' : 'Dólares'}</div>
+                                                <div className="mt-2 text-[var(--foreground)]">
+                                                    <div className="flex items-center gap-2">
+                                                        <ArrowDownRight className="w-4 h-4 text-green-500" />
+                                                        <div>Ingresos: <span className="font-semibold text-green-500">{formatByCurrency(currency, ingreso)}</span></div>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        <ArrowUpRight className="w-4 h-4 text-red-500" />
+                                                        <div>Egresos: <span className="font-semibold text-red-500">{formatByCurrency(currency, egreso)}</span></div>
+                                                    </div>
+                                                    <div className="pt-2">
+                                                        <div>Neto: <span className={`font-semibold ${neto > 0 ? 'text-green-500' : neto < 0 ? 'text-red-500' : ''}`}>{formatByCurrency(currency, neto)}</span></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="mt-5">
                 <div className="flex justify-center">
