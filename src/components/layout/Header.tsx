@@ -63,7 +63,6 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const initializedSolicitudesRef = useRef(false);
   const knownSolicitudesRef = useRef<Set<string>>(new Set());
   const [currentHash, setCurrentHash] = useState('');
-
   // Ensure component is mounted on client
   useEffect(() => {
     setIsClient(true);
@@ -297,23 +296,15 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const handleLogoutClick = () => {
     // Si estamos en /home, limpiar sesión especial y redirigir
     if (pathname === '/home') {
-      if (typeof window !== 'undefined') {
-        // Limpiar la sesión especial del usuario SEBASTIAN
-        localStorage.removeItem('pricemaster_session');
-        localStorage.removeItem('pricemaster_session_id');
-        window.location.href = '/';
-      }
+      // Limpiar la sesión especial del usuario SEBASTIAN
+      localStorage.removeItem('pricemaster_session');
+      localStorage.removeItem('pricemaster_session_id');
+      window.location.href = '/';
+
     } else {
       // Para usuarios autenticados, mostrar modal de confirmación
       setShowLogoutConfirm(true);
     }
-  };
-
-  const handleLogoClick = () => {
-    if (!isClient) return;
-
-    // Redirigir a la página principal
-    window.location.href = '/';
   };
 
   const handleTabClick = (tabId: ActiveTab) => {
@@ -362,8 +353,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
         {/* Main header row */}
         <div className="flex items-center justify-between p-4" suppressHydrationWarning>
           {/* Logo and title */}
-          <button
-            onClick={handleLogoClick}
+          <a
+            href="#"
             className="flex items-center gap-3 text-xl font-bold tracking-tight text-[var(--foreground)] hover:text-[var(--tab-text-active)] transition-colors cursor-pointer bg-transparent border-none p-0"
           >
             <Image
@@ -374,7 +365,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               className="rounded"
             />
             Time Master
-          </button>
+          </a>
 
           {/* If we're on fondo-related sections, show quick actions in the header */}
           {(currentHash === '#fondogeneral' || currentHash === '#agregarproveedor' || currentHash === '#reportes' || currentHash === '#configuracion') && canManageFondoGeneral && (
