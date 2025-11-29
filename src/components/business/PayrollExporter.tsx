@@ -7,6 +7,7 @@ import { useActorOwnership } from '../../hooks/useActorOwnership';
 import { Calculator, DollarSign, Image, Save, Calendar } from 'lucide-react';
 import { EmpresasService } from '../../services/empresas';
 import useToast from '../../hooks/useToast';
+import ConfirmModal from '../ui/ConfirmModal';
 import { SchedulesService, ScheduleEntry } from '../../services/schedules';
 import { PayrollRecordsService } from '../../services/payroll-records';
 import { CcssConfigService } from '../../services/ccss-config';
@@ -812,6 +813,104 @@ export default function PayrollExporter({
     }
   };
 
+  // Función para guardar todos los registros de una ubicación/empresa
+  const savePayrollRecordsForLocation = async (locationValue: string, employees: EnhancedEmployeePayrollData[]) => {
+    // Abrir modal de confirmación antes de guardar en lote
+    if (!currentPeriod) {
+      showToast('No hay período seleccionado', 'error');
+      return;
+    }
+
+    if (!employees || employees.length === 0) {
+      showToast('No hay empleados para guardar en esta empresa', 'error');
+      return;
+    }
+
+    const year = currentPeriod.year;
+    const month = currentPeriod.month;
+    const period = currentPeriod.period;
+
+    const doSaveAll = async () => {
+      let success = 0;
+      let errors = 0;
+
+      showToast(`💾 Guardando ${employees.length} registros...`, 'success');
+
+      for (const emp of employees) {
+        try {
+          await PayrollRecordsService.saveRecord(
+            locationValue,
+            emp.employeeName,
+            year,
+            month,
+            period,
+            emp.totalWorkDays,
+            emp.hoursPerDay,
+            emp.totalHours
+          );
+          success++;
+        } catch (err) {
+          console.error('Error saving payroll record for', emp.employeeName, err);
+          errors++;
+        }
+      }
+
+      if (errors === 0) {
+        showToast(`✅ ${success} registros guardados para la empresa`, 'success');
+      } else {
+        showToast(`⚠️ ${success} guardados, ${errors} errores`, 'error');
+      }
+    };
+
+    openConfirmModal(
+      'Guardar Registros',
+      `¿Deseas guardar ${employees.length} registro(s) para ${locationValue}?`,
+      doSaveAll
+    );
+  };
+
+  // Estado para modal de confirmación
+  const [confirmModal, setConfirmModal] = useState<{
+    open: boolean;
+    title: string;
+    message: string;
+    onConfirm: (() => void) | null;
+    loading: boolean;
+    singleButton?: boolean;
+    singleButtonText?: string;
+  }>({
+    open: false,
+    title: '',
+    message: '',
+    onConfirm: null,
+    loading: false,
+    singleButton: false,
+    singleButtonText: undefined
+  });
+
+  const openConfirmModal = (title: string, message: string, onConfirm: () => void, opts?: { singleButton?: boolean; singleButtonText?: string }) => {
+    setConfirmModal({ open: true, title, message, onConfirm, loading: false, singleButton: opts?.singleButton, singleButtonText: opts?.singleButtonText });
+  };
+
+  const closeConfirmModal = () => {
+    setConfirmModal({ open: false, title: '', message: '', onConfirm: null, loading: false, singleButton: false, singleButtonText: undefined });
+  };
+
+  const handleConfirm = async () => {
+    if (confirmModal.onConfirm) {
+      try {
+        setConfirmModal(prev => ({ ...prev, loading: true }));
+        await Promise.resolve(confirmModal.onConfirm());
+      } catch (error: unknown) {
+        console.error('Error in confirm action:', error);
+        const msg = error instanceof Error ? error.message : String(error || 'Error');
+        showToast(msg.includes('Forbidden') ? 'No tienes permisos para realizar esta acción' : 'Error al ejecutar la acción', 'error');
+      } finally {
+        closeConfirmModal();
+      }
+    }
+  };
+
   const exportPayroll = async () => {
     if (!currentPeriod || memoizedPayrollCalculations.length === 0) {
       showToast('No hay datos para exportar', 'error');
@@ -971,6 +1070,14 @@ export default function PayrollExporter({
                 <span className="text-sm text-[var(--tab-text)]">
                   {locationData.employees.length} empleado{locationData.employees.length !== 1 ? 's' : ''}
                 </span>
+                <button
+                  onClick={() => savePayrollRecordsForLocation(locationData.location.value, locationData.employees as EnhancedEmployeePayrollData[])}
+                  className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md flex items-center gap-2 transition-colors"
+                  title={`Guardar todos los registros de ${locationData.location.label}`}
+                >
+                  <Save className="w-4 h-4" />
+                  Guardar Registros
+                </button>
               </div>
             </div>
 
@@ -1263,6 +1370,19 @@ export default function PayrollExporter({
         height={540}
         style={{ display: 'none' }}
       />
+        <ConfirmModal
+          open={confirmModal.open}
+          title={confirmModal.title}
+          message={confirmModal.message}
+          confirmText="Guardar"
+          cancelText="Cancelar"
+          singleButton={confirmModal.singleButton}
+          singleButtonText={confirmModal.singleButtonText}
+          loading={confirmModal.loading}
+          onConfirm={handleConfirm}
+          onCancel={closeConfirmModal}
+          actionType="assign"
+        />
     </div>
   );
 };
