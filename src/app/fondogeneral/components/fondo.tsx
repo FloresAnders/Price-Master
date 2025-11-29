@@ -3060,7 +3060,7 @@ export function FondoSection({
                         title="Filtrar por tipo"
                         aria-label="Filtrar por tipo"
                     >
-                        <option value="all">Todas las categorías</option>
+                        <option value="all">Todos los tipos</option>
                         <optgroup label="Ingresos">
                             {FONDO_INGRESO_TYPES.map(opt => (
                                 <option key={opt} value={opt}>{formatMovementType(opt)}</option>
