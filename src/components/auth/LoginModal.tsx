@@ -183,7 +183,7 @@ export default function LoginModal({ isOpen, onLoginSuccess, onClose, title, can
         >
           <div className="text-center mb-6">
             <div className="relative w-[120px] h-[120px] mx-auto mb-4">
-              <Image src="/Logos/LogoBlanco.png" alt="Logo" fill className="object-contain" />
+              <Image src="/Logos/LogoBlanco.png" alt="Logo" fill sizes="120px" className="object-contain" />
             </div>
             <h2 className="text-2xl font-semibold mb-2">Bienvenido</h2>
           </div>
