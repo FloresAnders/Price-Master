@@ -420,63 +420,72 @@ export default function ScheduleReportTab() {
 
   if (loading) {
     return (
-      <div className="max-w-full mx-auto bg-[var(--card-bg)] rounded-lg shadow p-6">
-        <div className="text-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-          <div className="text-lg text-[var(--foreground)]">Cargando planillas...</div>
+      <div className="max-w-full mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4 sm:p-6">
+        <div className="text-center py-8 sm:py-12">
+          <div className="animate-spin rounded-full h-8 w-8 sm:h-12 sm:w-12 border-b-2 border-blue-600 mx-auto mb-3 sm:mb-4"></div>
+          <div className="text-base sm:text-lg text-[var(--foreground)]">Cargando planillas...</div>
+          <div className="text-sm text-[var(--tab-text)] mt-2">Obteniendo datos de horarios y empleados</div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-full mx-auto bg-[var(--card-bg)] rounded-lg shadow p-6">
+    <div className="max-w-full mx-auto bg-[var(--card-bg)] rounded-lg shadow p-3 sm:p-6">
       {/* notifications are rendered globally by ToastProvider */}
 
       {/* Header con controles */}
-      <div className="mb-6 flex flex-col lg:flex-row gap-4 items-center justify-between">
-        <div className="flex items-center gap-4">
-          <FileText className="w-8 h-8 text-blue-600" />
-          <div>
-            <h3 className="text-xl font-semibold">Planilla de Horarios</h3>
-            <p className="text-sm text-[var(--tab-text)]">
-              Control de horarios y planilla de pago por quincena
-            </p>
+      <div className="mb-4 sm:mb-6">
+        <div className="flex flex-col gap-4">
+          {/* Título y descripción */}
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-start sm:items-center justify-between">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600 flex-shrink-0" />
+              <div>
+                <h3 className="text-lg sm:text-xl font-semibold">Planilla de Horarios</h3>
+                <p className="text-sm text-[var(--tab-text)]">
+                  Control de horarios y planilla de pago por quincena
+                </p>
+              </div>
+            </div>
           </div>
-        </div>
 
-        {/* Tabs de navegación */}
-        <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-          <button
-            onClick={() => setActiveTab('schedule')}
-            className={`px-4 py-2 rounded-md flex items-center gap-2 transition-colors ${activeTab === 'schedule'
-              ? 'bg-blue-600 text-white'
-              : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-              }`}
-          >
-            <FileText className="w-4 h-4" />
-            Horarios
-          </button>
-          <button
-            onClick={() => setActiveTab('payroll')}
-            className={`px-4 py-2 rounded-md flex items-center gap-2 transition-colors ${activeTab === 'payroll'
-              ? 'bg-green-600 text-white'
-              : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-              }`}
-          >
-            <Calculator className="w-4 h-4" />
-            Planilla de Pago
-          </button>
-          <button
-            onClick={() => setActiveTab('records')}
-            className={`px-4 py-2 rounded-md flex items-center gap-2 transition-colors ${activeTab === 'records'
-              ? 'bg-purple-600 text-white'
-              : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-              }`}
-          >
-            <Eye className="w-4 h-4" />
-            Registros Guardados
-          </button>
+          {/* Tabs de navegación - más compactos en móvil */}
+          <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1 w-full sm:w-auto sm:self-end">
+            <button
+              onClick={() => setActiveTab('schedule')}
+              className={`flex-1 sm:flex-none px-2 sm:px-4 py-2 rounded-md flex items-center justify-center gap-1 sm:gap-2 transition-colors text-xs sm:text-sm ${activeTab === 'schedule'
+                ? 'bg-blue-600 text-white'
+                : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                }`}
+            >
+              <FileText className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="hidden xs:inline">Horarios</span>
+              <span className="xs:hidden">Hor.</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('payroll')}
+              className={`flex-1 sm:flex-none px-2 sm:px-4 py-2 rounded-md flex items-center justify-center gap-1 sm:gap-2 transition-colors text-xs sm:text-sm ${activeTab === 'payroll'
+                ? 'bg-green-600 text-white'
+                : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                }`}
+            >
+              <Calculator className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="hidden xs:inline">Planilla</span>
+              <span className="xs:hidden">Plan.</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('records')}
+              className={`flex-1 sm:flex-none px-2 sm:px-4 py-2 rounded-md flex items-center justify-center gap-1 sm:gap-2 transition-colors text-xs sm:text-sm ${activeTab === 'records'
+                ? 'bg-purple-600 text-white'
+                : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                }`}
+            >
+              <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="hidden xs:inline">Registros</span>
+              <span className="xs:hidden">Reg.</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -484,33 +493,36 @@ export default function ScheduleReportTab() {
       {activeTab === 'schedule' ? (
         <>
           {/* Controles específicos del tab de horarios */}
-          <div className="mb-6 flex flex-col lg:flex-row gap-4 items-center justify-between">
-            <div className="flex items-center gap-4">
-              {/* Selector de empresa (usar empresas en lugar de ubicaciones) */}
-              <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-[var(--tab-text)]" />
-                <select
-                  value={selectedLocation}
-                  onChange={(e) => setSelectedLocation(e.target.value)}
-                  className="px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  style={{
-                    background: 'var(--input-bg)',
-                    border: '1px solid var(--input-border)',
-                    color: 'var(--foreground)',
-                  }}
-                >
-                  <option value="all">Todas las empresas</option>
-                  {locations.filter(location => location.value !== 'DELIFOOD').map(location => (
-                    <option key={location.value} value={location.value}>
-                      {location.label}
-                    </option>
-                  ))}
-                </select>
-              </div>              {/* Botones de exportación y modo edición */}
-              <div className="flex items-center gap-2">
+          <div className="mb-4 sm:mb-6 space-y-3 sm:space-y-4">
+            {/* Primera fila: Selector de empresa y botón de edición */}
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-start sm:items-center justify-between">
+              <div className="flex flex-col xs:flex-row gap-2 xs:gap-4 items-start xs:items-center w-full sm:w-auto">
+                {/* Selector de empresa */}
+                <div className="flex items-center gap-2 min-w-0 flex-1 sm:flex-none">
+                  <MapPin className="w-4 h-4 text-[var(--tab-text)] flex-shrink-0" />
+                  <select
+                    value={selectedLocation}
+                    onChange={(e) => setSelectedLocation(e.target.value)}
+                    className="px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm min-w-0 flex-1 sm:flex-none sm:min-w-[200px]"
+                    style={{
+                      background: 'var(--input-bg)',
+                      border: '1px solid var(--input-border)',
+                      color: 'var(--foreground)',
+                    }}
+                  >
+                    <option value="all">Todas las empresas</option>
+                    {locations.filter(location => location.value !== 'DELIFOOD').map(location => (
+                      <option key={location.value} value={location.value}>
+                        {location.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Botón de edición */}
                 <button
                   onClick={() => setIsEditing(!isEditing)}
-                  className={`px-4 py-2 rounded-md flex items-center gap-2 transition-colors ${isEditing
+                  className={`px-3 sm:px-4 py-2 rounded-md flex items-center justify-center gap-2 transition-colors text-sm whitespace-nowrap ${isEditing
                     ? 'bg-red-600 hover:bg-red-700 text-white'
                     : 'bg-blue-600 hover:bg-blue-700 text-white'
                     }`}
@@ -520,19 +532,22 @@ export default function ScheduleReportTab() {
                   <span className="hidden sm:inline">
                     {isEditing ? 'Salir Edición' : 'Editar Horarios'}
                   </span>
+                  <span className="sm:hidden">
+                    {isEditing ? 'Salir' : 'Editar'}
+                  </span>
                 </button>
               </div>
             </div>
           </div>
 
           {/* Controles de navegación de período */}
-          <div className="mb-6 flex flex-col gap-4">
+          <div className="mb-4 sm:mb-6 space-y-3 sm:space-y-4">
             {/* Selector de quincena específica */}
-            <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-3 sm:gap-4">
+              <div className="flex flex-col xs:flex-row gap-3 xs:gap-4 items-start xs:items-center">
+                <div className="flex items-center gap-2 flex-shrink-0">
                   <Calendar className="w-4 h-4 text-[var(--tab-text)]" />
-                  <label className="text-sm font-medium text-[var(--foreground)]">
+                  <label className="text-sm font-medium text-[var(--foreground)] whitespace-nowrap">
                     Seleccionar Quincena:
                   </label>
                 </div>
@@ -551,30 +566,31 @@ export default function ScheduleReportTab() {
                       }
                     }
                   }}
-                  className="px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 min-w-[250px]"
+                  className="px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm flex-1 min-w-0"
                   style={{
                     background: 'var(--input-bg)',
                     border: '1px solid var(--input-border)',
                     color: 'var(--foreground)',
                   }}
-                >                  {availablePeriods.length === 0 ? (
-                  <option value="">Cargando quincenas...</option>
-                ) : (
-                  availablePeriods.map((period) => (
-                    <option
-                      key={`${period.year}-${period.month}-${period.period}`}
-                      value={`${period.year}-${period.month}-${period.period}`}
-                    >
-                      {period.label}
-                    </option>
-                  ))
-                )}
+                >
+                  {availablePeriods.length === 0 ? (
+                    <option value="">Cargando quincenas...</option>
+                  ) : (
+                    availablePeriods.map((period) => (
+                      <option
+                        key={`${period.year}-${period.month}-${period.period}`}
+                        value={`${period.year}-${period.month}-${period.period}`}
+                      >
+                        {period.label}
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
             </div>
 
             {/* Navegación con botones */}
-            <div className="flex items-center justify-center gap-2">
+            <div className="flex items-center justify-center gap-2 bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 sm:p-4">
               <button
                 onClick={() => navigatePeriod('prev')}
                 disabled={!currentPeriod || availablePeriods.findIndex(p =>
@@ -587,7 +603,7 @@ export default function ScheduleReportTab() {
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
-              <h4 className="text-lg font-semibold capitalize min-w-[200px] text-center">
+              <h4 className="text-base sm:text-lg font-semibold capitalize min-w-0 flex-1 text-center px-2">
                 {currentPeriod?.label || 'Cargando...'}
               </h4>
               <button
@@ -606,120 +622,141 @@ export default function ScheduleReportTab() {
           </div>
 
           {/* Leyenda de colores */}
-          <div className="mb-6 flex flex-wrap gap-4 justify-center">
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded" style={{ backgroundColor: '#FFFF00' }}></div>
-              <span className="text-sm">D - Diurno</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded" style={{ backgroundColor: '#87CEEB' }}></div>
-              <span className="text-sm">N - Nocturno</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded" style={{ backgroundColor: '#FF00FF' }}></div>
-              <span className="text-sm">L - Libre</span>
+          <div className="mb-4 sm:mb-6">
+            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 sm:p-4">
+              <h5 className="text-sm font-medium text-[var(--foreground)] mb-3 text-center sm:text-left">
+                Leyenda de Turnos:
+              </h5>
+              <div className="flex flex-wrap gap-3 sm:gap-4 justify-center sm:justify-start">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded border border-gray-300" style={{ backgroundColor: '#FFFF00' }}></div>
+                  <span className="text-sm font-medium">D - Diurno</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded border border-gray-300" style={{ backgroundColor: '#87CEEB' }}></div>
+                  <span className="text-sm font-medium">N - Nocturno</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded border border-gray-300" style={{ backgroundColor: '#FF00FF' }}></div>
+                  <span className="text-sm font-medium">L - Libre</span>
+                </div>
+              </div>
             </div>
           </div>
 
           {/* Contenido de horarios */}
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {scheduleData.map((locationData, locationIndex) => (
-              <div key={locationIndex} className="border border-[var(--input-border)] rounded-lg p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="text-lg font-semibold flex items-center gap-2">
-                    <MapPin className="w-5 h-5" />
-                    {locationData.location.label}
-                  </h4>
-                  <div className="flex items-center gap-2">
-                    {locationData.employees.length > 0 && (
-                      <span className="text-sm text-[var(--tab-text)]">
-                        {locationData.employees.length} empleado{locationData.employees.length !== 1 ? 's' : ''}
-                      </span>
-                    )}
+              <div key={locationIndex} className="border border-[var(--input-border)] rounded-lg overflow-hidden">
+                <div className="bg-gray-50 dark:bg-gray-800/50 px-4 py-3 sm:px-6 sm:py-4 border-b border-[var(--input-border)]">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
+                    <h4 className="text-base sm:text-lg font-semibold flex items-center gap-2">
+                      <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+                      <span className="truncate">{locationData.location.label}</span>
+                    </h4>
+                    <div className="flex items-center gap-2 text-sm text-[var(--tab-text)]">
+                      {locationData.employees.length > 0 && (
+                        <span>
+                          {locationData.employees.length} empleado{locationData.employees.length !== 1 ? 's' : ''}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
 
                 {locationData.employees.length === 0 ? (
-                  <div className="text-center py-8 text-[var(--tab-text)]">
-                    <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                    <p>No hay horarios registrados para este período</p>
+                  <div className="text-center py-8 sm:py-12 text-[var(--tab-text)]">
+                    <FileText className="w-8 h-8 sm:w-12 sm:h-12 mx-auto mb-3 opacity-50" />
+                    <p className="text-sm sm:text-base">No hay horarios registrados para este período</p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">                    <table className="w-full border-collapse border border-[var(--input-border)]">
-                    <thead><tr>
-                      <th
-                        className="border border-[var(--input-border)] p-2 font-semibold text-center"
-                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)', minWidth: '100px' }}
-                      >
-                        Empleado
-                      </th>
-                      {getDaysInPeriod().map(day => (
-                        <th
-                          key={day}
-                          className="border border-[var(--input-border)] p-2 font-semibold text-center"
-                          style={{ background: 'var(--input-bg)', color: 'var(--foreground)', minWidth: '35px' }}
-                        >
-                          {day}
-                        </th>
-                      ))}
-                      <th
-                        className="border border-[var(--input-border)] p-2 font-semibold text-center"
-                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)', minWidth: '50px' }}
-                      >
-                        Total                          </th>
-                    </tr></thead>
-                    <tbody>{locationData.employees.map((employee, empIndex) => (
-                      <tr key={empIndex}><td
-                        className="border border-[var(--input-border)] p-2 font-medium"
-                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                      >
-                        {employee.employeeName}
-                      </td>
-                        {getDaysInPeriod().map(day => {
-                          const cellKey = getCellKey(locationData.location.value, employee.employeeName, day);
-                          const currentValue = editableSchedules[cellKey] !== undefined
-                            ? editableSchedules[cellKey]
-                            : employee.days[day] || '';
+                  <div className="overflow-x-auto">
+                    <div className="min-w-full">
+                      <table className="w-full border-collapse">
+                        <thead>
+                          <tr>
+                            <th
+                              className="border-b border-r border-[var(--input-border)] p-2 sm:p-3 font-semibold text-left bg-gray-50 dark:bg-gray-800/50 sticky left-0 z-10"
+                              style={{ color: 'var(--foreground)', minWidth: '120px' }}
+                            >
+                              Empleado
+                            </th>
+                            {getDaysInPeriod().map(day => (
+                              <th
+                                key={day}
+                                className="border-b border-r border-[var(--input-border)] p-1 sm:p-2 font-semibold text-center bg-gray-50 dark:bg-gray-800/50 min-w-[35px]"
+                                style={{ color: 'var(--foreground)' }}
+                              >
+                                <span className="text-xs sm:text-sm">{day}</span>
+                              </th>
+                            ))}
+                            <th
+                              className="border-b border-[var(--input-border)] p-2 sm:p-3 font-semibold text-center bg-gray-50 dark:bg-gray-800/50 min-w-[50px]"
+                              style={{ color: 'var(--foreground)' }}
+                            >
+                              <span className="text-xs sm:text-sm">Total</span>
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {locationData.employees.map((employee, empIndex) => (
+                            <tr key={empIndex} className="hover:bg-gray-50 dark:hover:bg-gray-800/30">
+                              <td
+                                className="border-b border-r border-[var(--input-border)] p-2 sm:p-3 font-medium sticky left-0 z-10 bg-inherit"
+                                style={{ color: 'var(--foreground)' }}
+                              >
+                                <span className="text-sm sm:text-base truncate block max-w-[120px]" title={employee.employeeName}>
+                                  {employee.employeeName}
+                                </span>
+                              </td>
+                              {getDaysInPeriod().map(day => {
+                                const cellKey = getCellKey(locationData.location.value, employee.employeeName, day);
+                                const currentValue = editableSchedules[cellKey] !== undefined
+                                  ? editableSchedules[cellKey]
+                                  : employee.days[day] || '';
 
-                          return (
-                            <td key={day} className="border border-[var(--input-border)] p-0">
-                              {isEditing ? (
-                                <select
-                                  value={currentValue}
-                                  onChange={(e) => handleCellChange(locationData.location.value, employee.employeeName, day, e.target.value)}
-                                  onBlur={() => handleCellBlur(locationData.location.value, employee.employeeName, day)}
-                                  className="w-full h-full p-1 text-center font-semibold text-sm border-none focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                  style={{
-                                    ...getCellStyle(currentValue),
-                                    minHeight: '28px'
-                                  }}
-                                >
-                                  <option value="">-</option>
-                                  <option value="D">D</option>
-                                  <option value="N">N</option>
-                                  <option value="L">L</option>
-                                </select>
-                              ) : (
-                                <div
-                                  className="w-full h-full p-1 text-center font-semibold text-sm"
-                                  style={getCellStyle(currentValue)}
-                                >
-                                  {currentValue || ''}
-                                </div>
-                              )}
-                            </td>
-                          );
-                        })}
-                        <td
-                          className="border border-[var(--input-border)] p-2 text-center font-medium"
-                          style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                        >
-                          {Object.values(employee.days).filter(shift => shift === 'D' || shift === 'N').length}
-                        </td>
-                      </tr>
-                    ))}
-                    </tbody>
-                  </table>
+                                return (
+                                  <td key={day} className="border-b border-r border-[var(--input-border)] p-0 min-w-[35px]">
+                                    {isEditing ? (
+                                      <select
+                                        value={currentValue}
+                                        onChange={(e) => handleCellChange(locationData.location.value, employee.employeeName, day, e.target.value)}
+                                        onBlur={() => handleCellBlur(locationData.location.value, employee.employeeName, day)}
+                                        className="w-full h-full p-1 text-center font-semibold text-xs sm:text-sm border-none focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                        style={{
+                                          ...getCellStyle(currentValue),
+                                          minHeight: '32px'
+                                        }}
+                                      >
+                                        <option value="">-</option>
+                                        <option value="D">D</option>
+                                        <option value="N">N</option>
+                                        <option value="L">L</option>
+                                      </select>
+                                    ) : (
+                                      <div
+                                        className="w-full h-full p-1 text-center font-semibold text-xs sm:text-sm flex items-center justify-center"
+                                        style={getCellStyle(currentValue)}
+                                      >
+                                        {currentValue || '-'}
+                                      </div>
+                                    )}
+                                  </td>
+                                );
+                              })}
+                              <td
+                                className="border-b border-[var(--input-border)] p-2 sm:p-3 text-center font-medium bg-gray-50 dark:bg-gray-800/50"
+                                style={{ color: 'var(--foreground)' }}
+                              >
+                                <span className="text-sm sm:text-base">
+                                  {Object.values(employee.days).filter(shift => shift === 'D' || shift === 'N').length}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )}
               </div>
