@@ -617,27 +617,103 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
         {/* Mobile navigation menu */}
         {showMobileMenu && (
           <div className="lg:hidden border-t border-[var(--input-border)] bg-[var(--background)] p-4">
-            <div className="grid grid-cols-2 gap-2">
-              {visibleTabs.map((tab) => {
-                const IconComponent = tab.icon;
-                return (
+            {/* Main tabs - only show when NOT in fondo sections */}
+            {!(currentHash === '#fondogeneral' || currentHash === '#agregarproveedor' || currentHash === '#reportes' || currentHash === '#configuracion') && (
+              <div className="grid grid-cols-2 gap-2">
+                {visibleTabs.map((tab) => {
+                  const IconComponent = tab.icon;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => {
+                        handleTabClick(tab.id);
+                        setShowMobileMenu(false);
+                      }}
+                      className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${activeTab === tab.id
+                        ? 'bg-[var(--accent)] text-[var(--accent-foreground)]'
+                        : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]'
+                        }`}
+                    >
+                      <IconComponent className="w-4 h-4" />
+                      <span>{tab.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Mobile fondo general navigation */}
+            {(currentHash === '#fondogeneral' || currentHash === '#agregarproveedor' || currentHash === '#reportes' || currentHash === '#configuracion') && canManageFondoGeneral && (
+              <div className="grid grid-cols-2 gap-2">
+                {/* Agregar proveedor */}
+                <button
+                  onClick={() => {
+                    window.location.hash = '#agregarproveedor';
+                    setShowMobileMenu(false);
+                  }}
+                  className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${currentHash === '#agregarproveedor'
+                    ? 'bg-[var(--accent)] text-[var(--accent-foreground)]'
+                    : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]'
+                    }`}
+                  title="Agregar proveedor"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>Agregar proveedor</span>
+                </button>
+
+                {/* Fondo */}
+                <button
+                  onClick={() => {
+                    window.location.hash = '#fondogeneral';
+                    setShowMobileMenu(false);
+                  }}
+                  className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${currentHash === '#fondogeneral'
+                    ? 'bg-[var(--accent)] text-[var(--accent-foreground)]'
+                    : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]'
+                    }`}
+                  title={fondoMenuLabel}
+                >
+                  <Banknote className="w-4 h-4" />
+                  <span>{fondoMenuLabel}</span>
+                </button>
+
+                {/* Reportes */}
+                {isFondoPrivileged && (
                   <button
-                    key={tab.id}
                     onClick={() => {
-                      handleTabClick(tab.id);
+                      window.location.hash = '#reportes';
                       setShowMobileMenu(false);
                     }}
-                    className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${activeTab === tab.id
+                    className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${currentHash === '#reportes'
                       ? 'bg-[var(--accent)] text-[var(--accent-foreground)]'
                       : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]'
                       }`}
+                    title="Reportes"
                   >
-                    <IconComponent className="w-4 h-4" />
-                    <span>{tab.name}</span>
+                    <Layers className="w-4 h-4" />
+                    <span>Reportes</span>
                   </button>
-                );
-              })}
-            </div>
+                )}
+
+                {/* Configuración */}
+                {isFondoPrivileged && (
+                  <button
+                    onClick={() => {
+                      window.location.hash = '#configuracion';
+                      setShowMobileMenu(false);
+                    }}
+                    className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${currentHash === '#configuracion'
+                      ? 'bg-[var(--accent)] text-[var(--accent-foreground)]'
+                      : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]'
+                      }`}
+                    title="Configuración del fondo"
+                  >
+                    <Settings className="w-4 h-4" />
+                    <span>Configuración</span>
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Mobile user section */}
             {user && (
