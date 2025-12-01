@@ -1072,7 +1072,7 @@ export default function DataEditor() {
     };
 
     return (
-        <div className="max-w-7xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-3 sm:p-4 md:p-6 lg:p-8">            {/* Loading Modal */}
+        <div className="max-w-7xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-3 sm:p-4 md:p-6">            {/* Loading Modal */}
             {isSaving && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-fade-in">
                     <div className="bg-[var(--card-bg)] rounded-xl p-8 flex flex-col items-center justify-center shadow-2xl border border-[var(--input-border)] max-w-sm mx-4 animate-scale-in">

@@ -352,38 +352,38 @@ export default function ScheduleReportTab() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header y controles */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <div>
-          <h3 className="text-xl font-semibold">Planilla de Horarios</h3>
-          <p className="text-sm text-[var(--tab-text)] mt-1">
-            Control de horarios por ubicación y quincena
-          </p>
-        </div>
+      <div className="flex flex-col gap-3 sm:gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 className="text-lg sm:text-xl font-semibold">Planilla de Horarios</h3>
+            <p className="text-xs sm:text-sm text-[var(--tab-text)] mt-1">
+              Control de horarios por ubicación y quincena
+            </p>
+          </div>
 
-        <div className="flex gap-2">
           <button
             onClick={exportData}
             disabled={scheduleData.length === 0}
-            className="px-4 py-2 bg-[var(--success)] hover:bg-[var(--button-hover)] disabled:opacity-50 text-white rounded-md flex items-center gap-2 transition-colors"
+            className="px-3 py-2 sm:px-4 bg-[var(--success)] hover:bg-[var(--button-hover)] disabled:opacity-50 text-white rounded-md flex items-center justify-center gap-2 transition-colors text-sm sm:text-base whitespace-nowrap w-full sm:w-auto"
           >
             <Download className="w-4 h-4" />
-            Exportar
+            <span>Exportar</span>
           </button>
         </div>
       </div>
 
       {/* Selector de empresa */}
-      <div className="flex items-center gap-4">
-        <label className="flex items-center gap-2 text-sm font-medium">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+        <label className="flex items-center gap-2 text-xs sm:text-sm font-medium whitespace-nowrap">
           <MapPin className="w-4 h-4" />
           Empresa:
         </label>
         <select
           value={selectedLocation}
           onChange={(e) => setSelectedLocation(e.target.value)}
-          className="px-3 py-2 border border-[var(--input-border)] rounded-md bg-[var(--input-bg)] text-[var(--text-color)]"
+          className="w-full sm:w-auto px-3 py-2 border border-[var(--input-border)] rounded-md bg-[var(--input-bg)] text-[var(--text-color)] text-sm"
         >
           <option value="all">Todas las empresas</option>
           {locations.filter(location => location.value !== 'DELIFOOD').map(location => (<option key={location.value} value={location.value}>
@@ -394,40 +394,63 @@ export default function ScheduleReportTab() {
       </div>
 
       {/* Navegación de períodos */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
         <div className="flex items-center gap-2">
-          <Calendar className="w-5 h-5 text-[var(--tab-text)]" />
-          <span className="text-sm text-[var(--tab-text)]">Período:</span>
+          <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--tab-text)]" />
+          <span className="text-xs sm:text-sm text-[var(--tab-text)] font-medium">Seleccionar Quincena:</span>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => navigatePeriod('prev')}
-            disabled={!currentPeriod || availablePeriods.findIndex(p =>
-              p.year === currentPeriod.year &&
-              p.month === currentPeriod.month &&
-              p.period === currentPeriod.period
-            ) >= availablePeriods.length - 1}
-            className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        <div className="flex items-center gap-2 flex-1">
+          <select
+            value={currentPeriod ? `${currentPeriod.year}-${currentPeriod.month}-${currentPeriod.period}` : ''}
+            onChange={(e) => {
+              const [year, month, period] = e.target.value.split('-');
+              const selected = availablePeriods.find(p =>
+                p.year === parseInt(year) &&
+                p.month === parseInt(month) &&
+                p.period === period
+              );
+              if (selected) setCurrentPeriod(selected);
+            }}
+            className="flex-1 sm:flex-none sm:min-w-[250px] px-3 py-2 border border-[var(--input-border)] rounded-md bg-[var(--input-bg)] text-[var(--text-color)] text-sm"
           >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
+            {availablePeriods.map((period) => (
+              <option
+                key={`${period.year}-${period.month}-${period.period}`}
+                value={`${period.year}-${period.month}-${period.period}`}
+              >
+                {period.label}
+              </option>
+            ))}
+          </select>
 
-          <span className="text-lg font-medium min-w-[200px] text-center">
-            {currentPeriod?.label || 'Cargando...'}
-          </span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => navigatePeriod('prev')}
+              disabled={!currentPeriod || availablePeriods.findIndex(p =>
+                p.year === currentPeriod.year &&
+                p.month === currentPeriod.month &&
+                p.period === currentPeriod.period
+              ) >= availablePeriods.length - 1}
+              className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              aria-label="Período anterior"
+            >
+              <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
 
-          <button
-            onClick={() => navigatePeriod('next')}
-            disabled={!currentPeriod || availablePeriods.findIndex(p =>
-              p.year === currentPeriod.year &&
-              p.month === currentPeriod.month &&
-              p.period === currentPeriod.period
-            ) <= 0}
-            className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <ChevronRight className="w-5 h-5" />
-          </button>
+            <button
+              onClick={() => navigatePeriod('next')}
+              disabled={!currentPeriod || availablePeriods.findIndex(p =>
+                p.year === currentPeriod.year &&
+                p.month === currentPeriod.month &&
+                p.period === currentPeriod.period
+              ) <= 0}
+              className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              aria-label="Período siguiente"
+            >
+              <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -443,68 +466,98 @@ export default function ScheduleReportTab() {
           </p>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {scheduleData.map((locationData, locationIndex) => (
-            <div key={locationIndex} className="border border-[var(--input-border)] rounded-lg p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="text-lg font-semibold flex items-center gap-2">
-                  <MapPin className="w-5 h-5" />
-                  {locationData.location.label}
+            <div key={locationIndex} className="border border-[var(--input-border)] rounded-lg p-3 sm:p-4 md:p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0 mb-3 sm:mb-4">
+                <h4 className="text-base sm:text-lg font-semibold flex items-center gap-2">
+                  <MapPin className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="truncate">{locationData.location.label}</span>
                 </h4>
-                <span className="text-sm text-[var(--tab-text)]">
-                  Total días laborados: {locationData.totalWorkDays}
+                <span className="text-xs sm:text-sm text-[var(--tab-text)] whitespace-nowrap">
+                  Total días: <span className="font-semibold">{locationData.totalWorkDays}</span>
                 </span>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr className="border-b border-[var(--input-border)]">
-                      <th className="text-left p-2 font-medium">Empleado</th>
-                      {getDaysInPeriod().map(day => (
-                        <th key={day} className="text-center p-2 font-medium min-w-[40px]">
-                          {day}
-                        </th>
-                      ))}
-                      <th className="text-center p-2 font-medium">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {locationData.employees.map((employee, empIndex) => (
-                      <tr key={empIndex} className="border-b border-[var(--input-border)] hover:bg-gray-50 dark:hover:bg-gray-800">
-                        <td className="p-2 font-medium">{employee.employeeName}</td>
-                        {getDaysInPeriod().map(day => (
-                          <td key={day} className="text-center p-2">
-                            <span className={`w-6 h-6 rounded text-xs font-medium flex items-center justify-center ${employee.days[day] === 'D' ? 'bg-[var(--shift-diurno-bg)] text-[var(--shift-diurno-text)]' :
-                              employee.days[day] === 'N' ? 'bg-[var(--shift-nocturno-bg)] text-[var(--shift-nocturno-text)]' :
-                                employee.days[day] === 'L' ? 'bg-[var(--shift-libre-bg)] text-[var(--shift-libre-text)]' :
-                                  'bg-transparent'
-                              }`}>
-                              {employee.days[day] || ''}
-                            </span>
-                          </td>
-                        ))}
-                        <td className="text-center p-2 font-medium">
-                          {Object.keys(employee.days).length}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              {/* Leyenda móvil (arriba en móvil) */}
+              <div className="flex flex-wrap gap-2 sm:gap-3 mb-3 sm:hidden text-xs">
+                <div className="flex items-center gap-1">
+                  <span className="inline-block w-3 h-3 rounded bg-[var(--shift-diurno-bg)] border border-[var(--shift-diurno-text)]"></span>
+                  <span>Día</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="inline-block w-3 h-3 rounded bg-[var(--shift-nocturno-bg)] border border-[var(--shift-nocturno-text)]"></span>
+                  <span>Noche</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="inline-block w-3 h-3 rounded bg-[var(--shift-libre-bg)] border border-[var(--shift-libre-text)]"></span>
+                  <span>Libre</span>
+                </div>
               </div>
 
-              {/* Leyenda */}
-              <div className="flex gap-4 mt-4 text-xs">
-                <div className="flex items-center gap-1">
-                  <span className="inline-block w-4 h-4 rounded bg-[var(--shift-diurno-bg)] border border-[var(--shift-diurno-text)]"></span>
+              <div className="overflow-x-auto -mx-3 sm:mx-0">
+                <div className="inline-block min-w-full align-middle">
+                  <div className="overflow-hidden">
+                    <table className="min-w-full border-collapse">
+                      <thead>
+                        <tr className="border-b border-[var(--input-border)] bg-gray-50 dark:bg-gray-800/50">
+                          <th className="sticky left-0 z-10 bg-gray-50 dark:bg-gray-800/50 text-left p-2 sm:p-3 font-medium text-xs sm:text-sm min-w-[120px] sm:min-w-[150px]">
+                            Empleado
+                          </th>
+                          {getDaysInPeriod().map(day => (
+                            <th key={day} className="text-center p-1 sm:p-2 font-medium text-xs sm:text-sm min-w-[28px] sm:min-w-[40px]">
+                              {day}
+                            </th>
+                          ))}
+                          <th className="text-center p-2 sm:p-3 font-medium text-xs sm:text-sm min-w-[50px] sm:min-w-[60px]">
+                            Total
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {locationData.employees.map((employee, empIndex) => (
+                          <tr key={empIndex} className="border-b border-[var(--input-border)] hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+                            <td className="sticky left-0 z-10 bg-white dark:bg-gray-900 p-2 sm:p-3 font-medium text-xs sm:text-sm">
+                              <span className="block truncate max-w-[100px] sm:max-w-none">
+                                {employee.employeeName}
+                              </span>
+                            </td>
+                            {getDaysInPeriod().map(day => (
+                              <td key={day} className="text-center p-1 sm:p-2">
+                                <div className="flex items-center justify-center">
+                                  <span className={`w-5 h-5 sm:w-6 sm:h-6 rounded text-[10px] sm:text-xs font-medium flex items-center justify-center ${employee.days[day] === 'D' ? 'bg-[var(--shift-diurno-bg)] text-[var(--shift-diurno-text)]' :
+                                    employee.days[day] === 'N' ? 'bg-[var(--shift-nocturno-bg)] text-[var(--shift-nocturno-text)]' :
+                                      employee.days[day] === 'L' ? 'bg-[var(--shift-libre-bg)] text-[var(--shift-libre-text)]' :
+                                        'bg-transparent'
+                                    }`}>
+                                    {employee.days[day] || ''}
+                                  </span>
+                                </div>
+                              </td>
+                            ))}
+                            <td className="text-center p-2 sm:p-3 font-semibold text-xs sm:text-sm">
+                              {Object.keys(employee.days).length}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              {/* Leyenda desktop */}
+              <div className="hidden sm:flex gap-3 sm:gap-4 mt-4 text-xs sm:text-sm">
+                <div className="flex items-center gap-1 sm:gap-2">
+                  <span className="inline-block w-3 h-3 sm:w-4 sm:h-4 rounded bg-[var(--shift-diurno-bg)] border border-[var(--shift-diurno-text)]"></span>
                   <span>D = Día</span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <span className="inline-block w-4 h-4 rounded bg-[var(--shift-nocturno-bg)] border border-[var(--shift-nocturno-text)]"></span>
+                <div className="flex items-center gap-1 sm:gap-2">
+                  <span className="inline-block w-3 h-3 sm:w-4 sm:h-4 rounded bg-[var(--shift-nocturno-bg)] border border-[var(--shift-nocturno-text)]"></span>
                   <span>N = Noche</span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <span className="inline-block w-4 h-4 rounded bg-[var(--shift-libre-bg)] border border-[var(--shift-libre-text)]"></span>
+                <div className="flex items-center gap-1 sm:gap-2">
+                  <span className="inline-block w-3 h-3 sm:w-4 sm:h-4 rounded bg-[var(--shift-libre-bg)] border border-[var(--shift-libre-text)]"></span>
                   <span>L = Libre</span>
                 </div>
               </div>

@@ -57,6 +57,43 @@ export default function ScheduleReportTab() {
   const [loading, setLoading] = useState(true);
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<'schedule' | 'payroll' | 'records'>('schedule');
+  const optionStyle = {
+    backgroundColor: 'var(--card-bg)',
+    color: 'var(--foreground)'
+  };
+  const tabConfigurations: Array<{
+    id: 'schedule' | 'payroll' | 'records';
+    label: string;
+    shortLabel: string;
+    helper: string;
+    icon: typeof FileText;
+    activeClasses: string;
+  }> = [
+    {
+      id: 'schedule',
+      label: 'Horarios',
+      shortLabel: 'Hor.',
+      helper: 'Turnos y asistencia',
+      icon: FileText,
+      activeClasses: 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg border-transparent'
+    },
+    {
+      id: 'payroll',
+      label: 'Planilla',
+      shortLabel: 'Plan.',
+      helper: 'Pagos por quincena',
+      icon: Calculator,
+      activeClasses: 'bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-lg border-transparent'
+    },
+    {
+      id: 'records',
+      label: 'Registros',
+      shortLabel: 'Reg.',
+      helper: 'Historial guardado',
+      icon: Eye,
+      activeClasses: 'bg-gradient-to-r from-purple-500 to-fuchsia-600 text-white shadow-lg border-transparent'
+    }
+  ];
 
   // Estado para manejar horarios editables
   const [editableSchedules, setEditableSchedules] = useState<{ [key: string]: string }>({});
@@ -450,41 +487,37 @@ export default function ScheduleReportTab() {
             </div>
           </div>
 
-          {/* Tabs de navegación - más compactos en móvil */}
-          <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1 w-full sm:w-auto sm:self-end">
-            <button
-              onClick={() => setActiveTab('schedule')}
-              className={`flex-1 sm:flex-none px-2 sm:px-4 py-2 rounded-md flex items-center justify-center gap-1 sm:gap-2 transition-colors text-xs sm:text-sm ${activeTab === 'schedule'
-                ? 'bg-blue-600 text-white'
-                : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-                }`}
-            >
-              <FileText className="w-3 h-3 sm:w-4 sm:h-4" />
-              <span className="hidden xs:inline">Horarios</span>
-              <span className="xs:hidden">Hor.</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('payroll')}
-              className={`flex-1 sm:flex-none px-2 sm:px-4 py-2 rounded-md flex items-center justify-center gap-1 sm:gap-2 transition-colors text-xs sm:text-sm ${activeTab === 'payroll'
-                ? 'bg-green-600 text-white'
-                : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-                }`}
-            >
-              <Calculator className="w-3 h-3 sm:w-4 sm:h-4" />
-              <span className="hidden xs:inline">Planilla</span>
-              <span className="xs:hidden">Plan.</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('records')}
-              className={`flex-1 sm:flex-none px-2 sm:px-4 py-2 rounded-md flex items-center justify-center gap-1 sm:gap-2 transition-colors text-xs sm:text-sm ${activeTab === 'records'
-                ? 'bg-purple-600 text-white'
-                : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-                }`}
-            >
-              <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
-              <span className="hidden xs:inline">Registros</span>
-              <span className="xs:hidden">Reg.</span>
-            </button>
+          {/* Tabs de navegación - estilo pills */}
+          <div className="flex flex-wrap gap-2 bg-gray-100 dark:bg-gray-800/60 border border-[var(--input-border)] rounded-2xl p-2 w-full sm:w-auto sm:self-end">
+            {tabConfigurations.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`relative flex-1 sm:flex-none min-w-[110px] px-3 py-2 sm:px-4 rounded-xl border text-left transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 ${isActive
+                    ? tab.activeClasses
+                    : 'bg-white/40 dark:bg-gray-900/40 text-[var(--tab-text)] border-transparent hover:border-[var(--input-border)] hover:bg-white dark:hover:bg-gray-900'
+                    }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${isActive ? 'bg-white/20 text-white' : 'bg-gray-200 dark:bg-gray-700 text-[var(--tab-text)]'}`}>
+                      <Icon className="w-4 h-4" />
+                    </span>
+                    <div className="flex flex-col leading-tight">
+                      <span className="text-sm font-semibold">
+                        <span className="hidden sm:inline">{tab.label}</span>
+                        <span className="sm:hidden">{tab.shortLabel}</span>
+                      </span>
+                      <span className={`text-[10px] uppercase tracking-wide ${isActive ? 'text-white/90' : 'text-gray-500 dark:text-gray-400'} hidden sm:inline`}>
+                        {tab.helper}
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -493,131 +526,125 @@ export default function ScheduleReportTab() {
       {activeTab === 'schedule' ? (
         <>
           {/* Controles específicos del tab de horarios */}
-          <div className="mb-4 sm:mb-6 space-y-3 sm:space-y-4">
-            {/* Primera fila: Selector de empresa y botón de edición */}
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-start sm:items-center justify-between">
-              <div className="flex flex-col xs:flex-row gap-2 xs:gap-4 items-start xs:items-center w-full sm:w-auto">
-                {/* Selector de empresa */}
-                <div className="flex items-center gap-2 min-w-0 flex-1 sm:flex-none">
-                  <MapPin className="w-4 h-4 text-[var(--tab-text)] flex-shrink-0" />
-                  <select
-                    value={selectedLocation}
-                    onChange={(e) => setSelectedLocation(e.target.value)}
-                    className="px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm min-w-0 flex-1 sm:flex-none sm:min-w-[200px]"
-                    style={{
-                      background: 'var(--input-bg)',
-                      border: '1px solid var(--input-border)',
-                      color: 'var(--foreground)',
-                    }}
-                  >
-                    <option value="all">Todas las empresas</option>
-                    {locations.filter(location => location.value !== 'DELIFOOD').map(location => (
-                      <option key={location.value} value={location.value}>
-                        {location.label}
-                      </option>
-                    ))}
-                  </select>
+          <div className="mb-4 sm:mb-6">
+            <div className="bg-gray-50/80 dark:bg-gray-900/30 border border-[var(--input-border)] rounded-2xl p-4 sm:p-5 space-y-4 transition-colors">
+              {/* Fila 1: Empresa + modo edición */}
+              <div className="flex flex-col lg:flex-row gap-3 lg:gap-4 items-stretch">
+                <div className="flex items-center gap-3 flex-1 w-full bg-white/80 dark:bg-gray-900/60 border border-[var(--input-border)] rounded-xl px-3 py-2">
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200">
+                    <MapPin className="w-5 h-5" />
+                  </span>
+                  <div className="flex-1">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--tab-text)]">Empresa</p>
+                    <select
+                      value={selectedLocation}
+                      onChange={(e) => setSelectedLocation(e.target.value)}
+                      className="w-full bg-transparent text-sm font-medium text-[var(--foreground)] focus:outline-none appearance-none"
+                      style={{ backgroundColor: 'transparent' }}
+                    >
+                      <option value="all" style={optionStyle}>Todas las empresas</option>
+                      {locations.filter(location => location.value !== 'DELIFOOD').map(location => (
+                        <option key={location.value} value={location.value} style={optionStyle}>
+                          {location.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
-                {/* Botón de edición */}
                 <button
                   onClick={() => setIsEditing(!isEditing)}
-                  className={`px-3 sm:px-4 py-2 rounded-md flex items-center justify-center gap-2 transition-colors text-sm whitespace-nowrap ${isEditing
-                    ? 'bg-red-600 hover:bg-red-700 text-white'
-                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                  className={`flex items-center justify-between gap-3 px-4 py-3 rounded-xl text-sm font-semibold shadow-sm transition-all w-full lg:w-auto ${isEditing
+                    ? 'bg-gradient-to-r from-rose-500 to-red-600 text-white'
+                    : 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white'
                     }`}
-                  title={isEditing ? "Salir del modo edición" : "Activar modo edición"}
+                  title={isEditing ? 'Salir del modo edición' : 'Activar modo edición'}
                 >
-                  <Clock className="w-4 h-4" />
-                  <span className="hidden sm:inline">
-                    {isEditing ? 'Salir Edición' : 'Editar Horarios'}
+                  <span className="flex items-center gap-2">
+                    <Clock className="w-4 h-4" />
+                    <span className="hidden sm:inline">{isEditing ? 'Modo edición activo' : 'Editar horarios'}</span>
+                    <span className="sm:hidden">{isEditing ? 'Edición' : 'Editar'}</span>
                   </span>
-                  <span className="sm:hidden">
-                    {isEditing ? 'Salir' : 'Editar'}
-                  </span>
+                  <span className={`h-2.5 w-2.5 rounded-full ${isEditing ? 'bg-green-300 shadow-[0_0_0_4px_rgba(134,239,172,0.35)]' : 'bg-white/70'}`}></span>
                 </button>
               </div>
-            </div>
-          </div>
 
-          {/* Controles de navegación de período */}
-          <div className="mb-4 sm:mb-6 space-y-3 sm:space-y-4">
-            {/* Selector de quincena específica */}
-            <div className="flex flex-col gap-3 sm:gap-4">
-              <div className="flex flex-col xs:flex-row gap-3 xs:gap-4 items-start xs:items-center">
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <Calendar className="w-4 h-4 text-[var(--tab-text)]" />
-                  <label className="text-sm font-medium text-[var(--foreground)] whitespace-nowrap">
-                    Seleccionar Quincena:
-                  </label>
+              {/* Fila 2: Período */}
+              <div className="flex flex-col xl:flex-row gap-3 xl:gap-4 items-stretch">
+                <div className="flex items-center gap-3 flex-1 w-full bg-white/80 dark:bg-gray-900/60 border border-[var(--input-border)] rounded-xl px-3 py-2">
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200">
+                    <Calendar className="w-5 h-5" />
+                  </span>
+                  <div className="flex-1">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--tab-text)]">Seleccionar quincena</p>
+                    <select
+                      value={currentPeriod ? `${currentPeriod.year}-${currentPeriod.month}-${currentPeriod.period}` : ''}
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          const [year, month, period] = e.target.value.split('-');
+                          const selectedPeriod = availablePeriods.find(p =>
+                            p.year === parseInt(year) &&
+                            p.month === parseInt(month) &&
+                            p.period === period
+                          );
+                          if (selectedPeriod) {
+                            setCurrentPeriod(selectedPeriod);
+                          }
+                        }
+                      }}
+                      className="w-full bg-transparent text-sm font-medium text-[var(--foreground)] focus:outline-none appearance-none"
+                      style={{ backgroundColor: 'transparent' }}
+                    >
+                      {availablePeriods.length === 0 ? (
+                        <option value="" style={optionStyle}>Cargando quincenas...</option>
+                      ) : (
+                        availablePeriods.map((period) => (
+                          <option
+                            key={`${period.year}-${period.month}-${period.period}`}
+                            value={`${period.year}-${period.month}-${period.period}`}
+                            style={optionStyle}
+                          >
+                            {period.label}
+                          </option>
+                        ))
+                      )}
+                    </select>
+                  </div>
                 </div>
-                <select
-                  value={currentPeriod ? `${currentPeriod.year}-${currentPeriod.month}-${currentPeriod.period}` : ''}
-                  onChange={(e) => {
-                    if (e.target.value) {
-                      const [year, month, period] = e.target.value.split('-');
-                      const selectedPeriod = availablePeriods.find(p =>
-                        p.year === parseInt(year) &&
-                        p.month === parseInt(month) &&
-                        p.period === period
-                      );
-                      if (selectedPeriod) {
-                        setCurrentPeriod(selectedPeriod);
-                      }
-                    }
-                  }}
-                  className="px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm flex-1 min-w-0"
-                  style={{
-                    background: 'var(--input-bg)',
-                    border: '1px solid var(--input-border)',
-                    color: 'var(--foreground)',
-                  }}
-                >
-                  {availablePeriods.length === 0 ? (
-                    <option value="">Cargando quincenas...</option>
-                  ) : (
-                    availablePeriods.map((period) => (
-                      <option
-                        key={`${period.year}-${period.month}-${period.period}`}
-                        value={`${period.year}-${period.month}-${period.period}`}
-                      >
-                        {period.label}
-                      </option>
-                    ))
-                  )}
-                </select>
-              </div>
-            </div>
 
-            {/* Navegación con botones */}
-            <div className="flex items-center justify-center gap-2 bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 sm:p-4">
-              <button
-                onClick={() => navigatePeriod('prev')}
-                disabled={!currentPeriod || availablePeriods.findIndex(p =>
-                  p.year === currentPeriod.year &&
-                  p.month === currentPeriod.month &&
-                  p.period === currentPeriod.period
-                ) >= availablePeriods.length - 1}
-                className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                title="Quincena anterior"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              <h4 className="text-base sm:text-lg font-semibold capitalize min-w-0 flex-1 text-center px-2">
-                {currentPeriod?.label || 'Cargando...'}
-              </h4>
-              <button
-                onClick={() => navigatePeriod('next')}
-                disabled={!currentPeriod || availablePeriods.findIndex(p =>
-                  p.year === currentPeriod.year &&
-                  p.month === currentPeriod.month &&
-                  p.period === currentPeriod.period
-                ) <= 0}
-                className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                title="Quincena siguiente"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
+                <div className="flex items-center justify-between gap-3 bg-white dark:bg-gray-900/70 border border-[var(--input-border)] rounded-xl px-3 py-3 w-full xl:w-auto">
+                  <button
+                    onClick={() => navigatePeriod('prev')}
+                    disabled={!currentPeriod || availablePeriods.findIndex(p =>
+                      p.year === currentPeriod.year &&
+                      p.month === currentPeriod.month &&
+                      p.period === currentPeriod.period
+                    ) >= availablePeriods.length - 1}
+                    className="h-10 w-10 rounded-full border border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-500/50 dark:text-blue-200 dark:hover:bg-blue-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                    title="Quincena anterior"
+                  >
+                    <ChevronLeft className="w-5 h-5 mx-auto" />
+                  </button>
+                  <div className="text-center">
+                    <p className="text-[11px] uppercase tracking-wide text-[var(--tab-text)]">Período activo</p>
+                    <p className="text-sm sm:text-base font-semibold text-[var(--foreground)]">
+                      {currentPeriod?.label || 'Cargando...'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => navigatePeriod('next')}
+                    disabled={!currentPeriod || availablePeriods.findIndex(p =>
+                      p.year === currentPeriod.year &&
+                      p.month === currentPeriod.month &&
+                      p.period === currentPeriod.period
+                    ) <= 0}
+                    className="h-10 w-10 rounded-full border border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-500/50 dark:text-blue-200 dark:hover:bg-blue-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                    title="Quincena siguiente"
+                  >
+                    <ChevronRight className="w-5 h-5 mx-auto" />
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 

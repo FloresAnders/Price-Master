@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { useActorOwnership } from '../../hooks/useActorOwnership';
-import { Calculator, DollarSign, Image, Save, Calendar } from 'lucide-react';
+import { Calculator, DollarSign, Image, Save, Calendar, MapPin, Building2, Users, Filter } from 'lucide-react';
 import { EmpresasService } from '../../services/empresas';
 import useToast from '../../hooks/useToast';
 import ConfirmModal from '../ui/ConfirmModal';
@@ -118,6 +118,16 @@ export default function PayrollExporter({
   const [tempInputValues, setTempInputValues] = useState<{ [key: string]: string }>({});
   const [debounceTimers, setDebounceTimers] = useState<{ [key: string]: NodeJS.Timeout }>({});
   const [ccssConfigs, setCcssConfigs] = useState<{ [empresaName: string]: { tc: number; mt: number; horabruta: number } }>({});
+  const optionStyle = {
+    backgroundColor: 'var(--card-bg)',
+    color: 'var(--foreground)'
+  };
+  const selectedLocationLabel = useMemo(() => {
+    if (selectedLocation === 'all') {
+      return 'Todas las empresas';
+    }
+    return locations.find(loc => loc.value === selectedLocation)?.label || selectedLocation;
+  }, [selectedLocation, locations]);
 
   // Constantes de salario por defecto (fallback)
   const REGULAR_HOURLY_RATE = 1529.62;
@@ -509,6 +519,8 @@ export default function PayrollExporter({
       })
     }));
   }, [payrollData, getEmployeeDeductions, getCcssConfigForEmpresa]);
+  const totalEmployees = useMemo(() => memoizedPayrollCalculations.reduce((sum, loc) => sum + loc.employees.length, 0), [memoizedPayrollCalculations]);
+  const totalCompanies = memoizedPayrollCalculations.length;
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -988,87 +1000,130 @@ export default function PayrollExporter({
             </div>
           </div>
 
-          {/* Controles - más responsive */}
-          <div className="flex flex-col gap-3 sm:gap-4">
-            {/* Primera fila: Selectores */}
-            <div className="flex flex-col xs:flex-row gap-3 xs:gap-4 items-start xs:items-center">
-              {/* Selector de ubicación */}
-              <div className="flex items-center gap-2 min-w-0 flex-1 sm:flex-none">
-                <DollarSign className="w-4 h-4 text-[var(--tab-text)] flex-shrink-0" />
-                <select
-                  value={selectedLocation}
-                  onChange={(e) => onLocationChange?.(e.target.value)}
-                  className="px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm min-w-0 flex-1 sm:flex-none sm:min-w-[200px]"
-                  style={{
-                    background: 'var(--input-bg)',
-                    border: '1px solid var(--input-border)',
-                    color: 'var(--foreground)',
-                  }}
-                >
-                  <option value="all">Todas las empresas</option>
-                  {locations.filter(location => location.value !== 'DELIFOOD').map(location => (
-                    <option key={location.value} value={location.value}>
-                      {location.label}
-                    </option>
-                  ))}
-                </select>
+          {/* Controles - diseño unificado con la pestaña de horarios */}
+          <div className="bg-gray-50/80 dark:bg-gray-900/30 border border-[var(--input-border)] rounded-2xl p-4 sm:p-5 space-y-4 transition-colors">
+            <div className="flex flex-col xl:flex-row gap-3 xl:gap-4 items-stretch">
+              <div className="flex items-center gap-3 flex-1 w-full bg-white/80 dark:bg-gray-900/60 border border-[var(--input-border)] rounded-xl px-3 py-2">
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
+                  <MapPin className="w-5 h-5" />
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--tab-text)]">Empresa</p>
+                  <select
+                    value={selectedLocation}
+                    onChange={(e) => onLocationChange?.(e.target.value)}
+                    disabled={!onLocationChange}
+                    className="w-full bg-transparent text-sm font-medium text-[var(--foreground)] focus:outline-none disabled:text-gray-400 appearance-none"
+                    title={onLocationChange ? 'Seleccionar empresa para la planilla' : 'Selector controlado desde la pestaña principal'}
+                    style={{ backgroundColor: 'transparent' }}
+                  >
+                    <option value="all" style={optionStyle}>Todas las empresas</option>
+                    {locations.filter(location => location.value !== 'DELIFOOD').map(location => (
+                      <option key={location.value} value={location.value} style={optionStyle}>
+                        {location.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
-              {/* Selector de período */}
-              <div className="flex items-center gap-2 min-w-0 flex-1 sm:flex-none">
-                <Calendar className="w-4 h-4 text-[var(--tab-text)] flex-shrink-0" />
-                <select
-                  value={currentPeriod ? `${currentPeriod.year}-${currentPeriod.month}-${currentPeriod.period}` : ''}
-                  onChange={(e) => {
-                    if (e.target.value && onPeriodChange) {
-                      const [year, month, period] = e.target.value.split('-');
-                      const selectedPeriod = availablePeriods.find(p =>
-                        p.year === parseInt(year) &&
-                        p.month === parseInt(month) &&
-                        p.period === period
-                      );
-                      if (selectedPeriod) {
-                        onPeriodChange(selectedPeriod);
-                      }
-                    }
-                  }}
-                  className="px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm min-w-0 flex-1 sm:flex-none sm:min-w-[200px]"
-                  style={{
-                    background: 'var(--input-bg)',
-                    border: '1px solid var(--input-border)',
-                    color: 'var(--foreground)',
-                  }}
-                  disabled={!onPeriodChange || availablePeriods.length === 0}
-                  title={onPeriodChange ? "Seleccionar quincena para la planilla" : "Período controlado desde la pestaña Horarios"}
-                >
-                  {availablePeriods.length === 0 ? (
-                    <option value="">Cargando quincenas...</option>
-                  ) : (
-                    availablePeriods.map((period) => (
-                      <option
-                        key={`${period.year}-${period.month}-${period.period}`}
-                        value={`${period.year}-${period.month}-${period.period}`}
-                      >
-                        {period.label}
-                      </option>
-                    ))
-                  )}
-                </select>
+              <div className="grid grid-cols-2 gap-3 w-full xl:w-auto">
+                <div className="flex items-center justify-between bg-white dark:bg-gray-900/60 border border-[var(--input-border)] rounded-xl px-4 py-3">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide font-semibold text-[var(--tab-text)]">Empresas activas</p>
+                    <p className="text-lg font-semibold text-[var(--foreground)]">{totalCompanies}</p>
+                    <p className="text-[11px] text-[var(--tab-text)]">Con datos en la quincena</p>
+                  </div>
+                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-200">
+                    <Building2 className="w-4 h-4" />
+                  </span>
+                </div>
+                <div className="flex items-center justify-between bg-white dark:bg-gray-900/60 border border-[var(--input-border)] rounded-xl px-4 py-3">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide font-semibold text-[var(--tab-text)]">Colaboradores</p>
+                    <p className="text-lg font-semibold text-[var(--foreground)]">{totalEmployees}</p>
+                    <p className="text-[11px] text-[var(--tab-text)]">Listos para exportar</p>
+                  </div>
+                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-100">
+                    <Users className="w-4 h-4" />
+                  </span>
+                </div>
               </div>
             </div>
 
-            {/* Segunda fila: Botón de exportar */}
-            <div className="flex justify-start sm:justify-end">
-              <button
-                onClick={exportPayroll}
-                disabled={memoizedPayrollCalculations.length === 0}
-                className="px-3 sm:px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-md flex items-center justify-center gap-2 transition-colors text-sm whitespace-nowrap"
-                title="Exportar planillas como imágenes"
-              >
-                <Image className="w-4 h-4" />
-                <span className="hidden sm:inline">Exportar Imágenes</span>
-                <span className="sm:hidden">Exportar</span>
-              </button>
+            <div className="flex flex-col xl:flex-row gap-3 xl:gap-4 items-stretch">
+              <div className="flex items-center gap-3 flex-1 w-full bg-white/80 dark:bg-gray-900/60 border border-[var(--input-border)] rounded-xl px-3 py-2">
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200">
+                  <Calendar className="w-5 h-5" />
+                </span>
+                <div className="flex-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--tab-text)]">Seleccionar quincena</p>
+                  <select
+                    value={currentPeriod ? `${currentPeriod.year}-${currentPeriod.month}-${currentPeriod.period}` : ''}
+                    onChange={(e) => {
+                      if (e.target.value && onPeriodChange) {
+                        const [year, month, period] = e.target.value.split('-');
+                        const selectedPeriod = availablePeriods.find(p =>
+                          p.year === parseInt(year) &&
+                          p.month === parseInt(month) &&
+                          p.period === period
+                        );
+                        if (selectedPeriod) {
+                          onPeriodChange(selectedPeriod);
+                        }
+                      }
+                    }}
+                    className="w-full bg-transparent text-sm font-medium text-[var(--foreground)] focus:outline-none disabled:text-gray-400 appearance-none"
+                    disabled={!onPeriodChange || availablePeriods.length === 0}
+                    title={onPeriodChange ? 'Seleccionar quincena para la planilla' : 'Período controlado desde la pestaña Horarios'}
+                    style={{ backgroundColor: 'transparent' }}
+                  >
+                    {availablePeriods.length === 0 ? (
+                      <option value="" style={optionStyle}>Cargando quincenas...</option>
+                    ) : (
+                      availablePeriods.map((period) => (
+                        <option
+                          key={`${period.year}-${period.month}-${period.period}`}
+                          value={`${period.year}-${period.month}-${period.period}`}
+                          style={optionStyle}
+                        >
+                          {period.label}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 bg-white dark:bg-gray-900/70 border border-[var(--input-border)] rounded-xl px-4 py-3 w-full xl:w-auto">
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-100">
+                  <Filter className="w-5 h-5" />
+                </span>
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--tab-text)]">Resumen del filtro</p>
+                  <p className="text-sm font-semibold text-[var(--foreground)]">
+                    {selectedLocation === 'all' ? 'Mostrando todas las empresas' : selectedLocationLabel}
+                  </p>
+                  <p className="text-xs text-[var(--tab-text)]">
+                    {currentPeriod?.label ? `Período ${currentPeriod.label}` : 'Selecciona una quincena para ver datos'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col lg:flex-row gap-3 lg:gap-4 items-stretch">
+              <div className="flex flex-wrap justify-end gap-2 w-full lg:w-auto">
+                <button
+                  onClick={exportPayroll}
+                  disabled={memoizedPayrollCalculations.length === 0}
+                  className="flex-1 sm:flex-none px-4 py-3 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 transition-all shadow-sm flex items-center justify-center gap-2 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed"
+                  title="Exportar planillas como imágenes"
+                >
+                  <Image className="w-4 h-4" />
+                  <span className="hidden sm:inline">Exportar Imágenes</span>
+                  <span className="sm:hidden">Exportar</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1375,19 +1430,19 @@ export default function PayrollExporter({
         height={540}
         style={{ display: 'none' }}
       />
-        <ConfirmModal
-          open={confirmModal.open}
-          title={confirmModal.title}
-          message={confirmModal.message}
-          confirmText="Guardar"
-          cancelText="Cancelar"
-          singleButton={confirmModal.singleButton}
-          singleButtonText={confirmModal.singleButtonText}
-          loading={confirmModal.loading}
-          onConfirm={handleConfirm}
-          onCancel={closeConfirmModal}
-          actionType="assign"
-        />
+      <ConfirmModal
+        open={confirmModal.open}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText="Guardar"
+        cancelText="Cancelar"
+        singleButton={confirmModal.singleButton}
+        singleButtonText={confirmModal.singleButtonText}
+        loading={confirmModal.loading}
+        onConfirm={handleConfirm}
+        onCancel={closeConfirmModal}
+        actionType="assign"
+      />
     </div>
   );
 };
