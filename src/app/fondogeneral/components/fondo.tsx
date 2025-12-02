@@ -1477,7 +1477,6 @@ export function FondoSection({
                     'fondogeneral-filterEditedOnly',
                     'fondogeneral-searchQuery',
                     'fondogeneral-pageSize',
-                    'fondogeneral-sortAsc',
                 ];
                 for (const k of keysToClear) localStorage.removeItem(k);
             } catch {
