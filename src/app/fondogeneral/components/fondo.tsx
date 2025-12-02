@@ -1571,10 +1571,19 @@ export function FondoSection({
     const isIngreso = isIngresoType(paymentType);
     const isEgreso = isEgresoType(paymentType) || isGastoType(paymentType);
 
-    const employeeOptions = useMemo(
-        () => companyEmployees.filter(name => !!name && name.trim().length > 0),
-        [companyEmployees],
-    );
+    const employeeOptions = useMemo(() => {
+        const employees = companyEmployees.filter(name => !!name && name.trim().length > 0);
+        
+        // Si el usuario actual es admin, agregarlo a la lista de empleados
+        if (user?.role === 'admin' && user?.name) {
+            const adminName = user.name.trim();
+            if (!employees.includes(adminName)) {
+                return [adminName, ...employees];
+            }
+        }
+        
+        return employees;
+    }, [companyEmployees, user]);
 
     const editingEntry = useMemo(
         () => (editingEntryId ? fondoEntries.find(entry => entry.id === editingEntryId) ?? null : null),
