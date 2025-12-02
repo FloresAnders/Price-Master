@@ -47,6 +47,7 @@ export type MovementAccountBalance = MovementCurrencySettings & {
 export type MovementStorageState = {
   balancesByAccount: MovementAccountBalance[];
   updatedAt: string;
+  lockedUntil?: string; // ISO timestamp del último cierre registrado
 };
 
 type LegacyMovementMetadata = {
@@ -260,10 +261,17 @@ export class MovimientosFondosService {
     );
     const updatedAt = this.resolveTimestamp(state?.updatedAt ?? legacyMetadata?.updatedAt ?? defaults.updatedAt);
 
-    return {
+    const result: MovementStorageState = {
       balancesByAccount,
       updatedAt,
     };
+
+    // Preservar lockedUntil si existe
+    if (state?.lockedUntil) {
+      result.lockedUntil = state.lockedUntil;
+    }
+
+    return result;
   }
 
   private static sanitizeAccountBalances(

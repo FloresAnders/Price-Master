@@ -64,6 +64,7 @@ export interface User {
   // Campo para marcar eliminación lógica; por defecto false
   eliminate?: boolean;
   permissions?: UserPermissions;
+  photoUrl?: string;
   createdAt?: Date;
   updatedAt?: Date;
 }

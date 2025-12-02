@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import useToast from '../hooks/useToast';
-import { Save, Download, FileText, Users, Clock, DollarSign, Eye, EyeOff, Settings } from 'lucide-react';
+import { Save, Download, FileText, Users, Clock, DollarSign, Eye, EyeOff, Settings, Check, X, Lock, Edit, Smartphone, Clipboard, Trash2, Plus, UserPlus, Building, Info } from 'lucide-react';
 import { EmpresasService } from '../services/empresas';
 import { SorteosService } from '../services/sorteos';
 import { UsersService } from '../services/users';
@@ -621,54 +621,78 @@ export default function DataEditor() {
         const isDisabled = savingUserKey === key;
 
         return (
-            <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>Permisos de Usuario:</span>
-                    <div className="flex gap-2 items-center">
+            <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
+                    <span className="text-sm sm:text-base font-medium" style={{ color: 'var(--foreground)' }}>Permisos de Usuario:</span>
+                    <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
                         {savingUserKey === key && (
-                            <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
-                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600 dark:border-blue-400"></div>
+                            <div className="flex items-center gap-2 text-xs sm:text-sm text-blue-600 dark:text-blue-400 order-first sm:order-none">
+                                <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-blue-600 dark:border-blue-400"></div>
                                 <span>Guardando...</span>
                             </div>
                         )}
-                        <button
-                            onClick={() => setAllUserPermissions(index, true)}
-                            disabled={isDisabled}
-                            className="text-xs px-2 py-1 bg-[var(--success)] text-white rounded hover:bg-[var(--button-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            Habilitar Todo
-                        </button>
-                        <button
-                            onClick={() => setAllUserPermissions(index, false)}
-                            disabled={isDisabled}
-                            className="text-xs px-2 py-1 bg-[var(--error)] text-white rounded hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            Deshabilitar Todo
-                        </button>
-                        <button
-                            onClick={() => setPermissionsEditable(prev => ({ ...prev, [key]: !prev[key] }))}
-                            className="text-xs px-2 py-1 bg-[var(--secondary)] text-white rounded hover:opacity-90"
-                        >
-                            {permissionsEditable[key] ? 'Bloquear Permisos' : 'Editar Permisos'}
-                        </button>
-                        <button
-                            onClick={() => setShowPermissions(prev => ({ ...prev, [key]: !prev[key] }))}
-                            className="text-xs px-2 py-1 bg-[var(--primary)] text-white rounded hover:bg-[var(--button-hover)]"
-                        >
-                            {showPermissions[key] ? 'Vista Compacta' : 'Vista Detallada'}
-                        </button>
+                        <div className="flex flex-wrap gap-2">
+                            <button
+                                onClick={() => setAllUserPermissions(index, true)}
+                                disabled={isDisabled}
+                                className="text-xs sm:text-sm px-3 py-2 bg-[var(--success)] text-white rounded-md hover:bg-[var(--button-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                            >
+                                <span className="hidden sm:inline">Habilitar Todo</span>
+                                <span className="sm:hidden flex items-center gap-1">
+                                    <Check className="w-3 h-3" />
+                                    Todo
+                                </span>
+                            </button>
+                            <button
+                                onClick={() => setAllUserPermissions(index, false)}
+                                disabled={isDisabled}
+                                className="text-xs sm:text-sm px-3 py-2 bg-[var(--error)] text-white rounded-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                            >
+                                <span className="hidden sm:inline">Deshabilitar Todo</span>
+                                <span className="sm:hidden flex items-center gap-1">
+                                    <X className="w-3 h-3" />
+                                    Todo
+                                </span>
+                            </button>
+                            <button
+                                onClick={() => setPermissionsEditable(prev => ({ ...prev, [key]: !prev[key] }))}
+                                className="text-xs sm:text-sm px-3 py-2 bg-[var(--secondary)] text-white rounded-md hover:opacity-90 transition-colors whitespace-nowrap"
+                            >
+                                {permissionsEditable[key] ? (
+                                    <span className="hidden sm:inline">Bloquear Permisos</span>
+                                ) : (
+                                    <span className="hidden sm:inline">Editar Permisos</span>
+                                )}
+                                <span className="sm:hidden flex items-center gap-1">
+                                    {permissionsEditable[key] ? <Lock className="w-3 h-3" /> : <Edit className="w-3 h-3" />}
+                                </span>
+                            </button>
+                            <button
+                                onClick={() => setShowPermissions(prev => ({ ...prev, [key]: !prev[key] }))}
+                                className="text-xs sm:text-sm px-3 py-2 bg-[var(--primary)] text-white rounded-md hover:bg-[var(--button-hover)] transition-colors whitespace-nowrap"
+                            >
+                                {showPermissions[key] ? (
+                                    <span className="hidden sm:inline">Vista Compacta</span>
+                                ) : (
+                                    <span className="hidden sm:inline">Vista Detallada</span>
+                                )}
+                                <span className="sm:hidden flex items-center gap-1">
+                                    {showPermissions[key] ? <Smartphone className="w-3 h-3" /> : <Clipboard className="w-3 h-3" />}
+                                </span>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
                 {showPermissions[key] ? (
                     // Vista detallada con checkboxes editables
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
                         {Object.entries(userPermissions)
                             .filter(([permission]) => permission !== 'scanhistoryEmpresas' && permission !== 'scanhistoryLocations')
                             .map(([permission, hasAccess]) => (
                                 <div
                                     key={permission}
-                                    className={`flex items-center gap-3 p-3 border-2 rounded-lg transition-all ${hasAccess
+                                    className={`flex items-center gap-2 sm:gap-3 p-2 sm:p-3 border-2 rounded-lg transition-all ${hasAccess
                                         ? 'border-[var(--success)] bg-[var(--muted)] hover:opacity-90'
                                         : 'border-[var(--border)] bg-[var(--card-bg)] hover:opacity-90'
                                         }`}
@@ -687,7 +711,7 @@ export default function DataEditor() {
                                             (updated[index].permissions as unknown as Record<string, unknown>)[permission] = e.target.checked;
                                             setUsersData(updated);
                                         }}
-                                        className="w-5 h-5 text-[var(--success)] border-2 rounded focus:ring-[var(--success)] focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--success)] border-2 rounded focus:ring-[var(--success)] focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                         style={{
                                             backgroundColor: 'var(--input-bg)',
                                             borderColor: 'var(--input-border)'
@@ -697,27 +721,28 @@ export default function DataEditor() {
                                         htmlFor={`${index}-${permission}`}
                                         className="cursor-pointer flex-1"
                                     >
-                                        <div className="font-medium" style={{ color: 'var(--foreground)' }}>{getPermissionLabel(permission)}</div>
-                                        <div className="text-sm" style={{ color: 'var(--muted-foreground)' }}>{getPermissionDescription(permission)}</div>
+                                        <div className="font-medium text-sm" style={{ color: 'var(--foreground)' }}>{getPermissionLabel(permission)}</div>
+                                        <div className="text-xs sm:text-sm" style={{ color: 'var(--muted-foreground)' }}>{getPermissionDescription(permission)}</div>
                                     </label>
-                                    <div className={`px-2 py-1 rounded text-xs font-medium ${hasAccess
+                                    <div className={`px-1 sm:px-2 py-1 rounded text-xs font-medium whitespace-nowrap ${hasAccess
                                         ? 'bg-[var(--success)] text-white'
                                         : 'bg-[var(--muted)] text-[var(--muted-foreground)]'
                                         }`}>
-                                        {hasAccess ? 'Activo' : 'Inactivo'}
+                                        <span className="hidden sm:inline">{hasAccess ? 'Activo' : 'Inactivo'}</span>
+                                        <span className="sm:hidden">{hasAccess ? 'On' : 'Off'}</span>
                                     </div>
                                 </div>
                             ))}
                     </div>
                 ) : (
                     // Vista compacta con indicadores
-                    <div className="flex flex-wrap gap-1">
+                    <div className="flex flex-wrap gap-1 sm:gap-2">
                         {Object.entries(userPermissions)
                             .filter(([permission]) => permission !== 'scanhistoryEmpresas' && permission !== 'scanhistoryLocations')
                             .map(([permission, hasAccess]) => (
                                 <label
                                     key={permission}
-                                    className={`flex items-center gap-1 text-xs px-2 py-1 rounded cursor-pointer border transition-colors ${hasAccess
+                                    className={`flex items-center gap-1 text-xs sm:text-sm px-2 py-1 rounded cursor-pointer border transition-colors ${hasAccess
                                         ? 'bg-[var(--success)] text-white border-[var(--success)] hover:opacity-90'
                                         : 'bg-[var(--error)] text-white border-[var(--error)] hover:opacity-90'
                                         }`}
@@ -736,7 +761,8 @@ export default function DataEditor() {
                                         }}
                                         className="w-3 h-3 disabled:opacity-50"
                                     />
-                                    <span>{getPermissionLabel(permission)}</span>
+                                    <span className="hidden sm:inline">{getPermissionLabel(permission)}</span>
+                                    <span className="sm:hidden">{getPermissionLabel(permission).split(' ')[0]}</span>
                                 </label>
                             ))}
                     </div>
@@ -744,14 +770,16 @@ export default function DataEditor() {
 
                 {/* Selector de empresas para scanhistory */}
                 {userPermissions.scanhistory && (
-                    <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
-                        <h4 className="font-medium mb-2" style={{ color: 'var(--foreground)' }}>
-                            Empresas para Historial de Escaneos
-                        </h4>
-                        <p className="text-xs mb-3" style={{ color: 'var(--muted-foreground)' }}>
-                            Selecciona las empresas específicas a las que este usuario tendrá acceso en el historial de escaneos.
-                        </p>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                    <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+                        <div className="mb-3 sm:mb-4">
+                            <h4 className="font-medium text-sm sm:text-base mb-2" style={{ color: 'var(--foreground)' }}>
+                                Empresas para Historial de Escaneos
+                            </h4>
+                            <p className="text-xs sm:text-sm" style={{ color: 'var(--muted-foreground)' }}>
+                                Selecciona las empresas específicas a las que este usuario tendrá acceso en el historial de escaneos.
+                            </p>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
                             {empresasData
                                 .filter((empresa) => {
                                     // Mostrar solo empresas dentro del alcance del actor (ownerId match)
@@ -761,7 +789,7 @@ export default function DataEditor() {
                                 .map((empresa) => (
                                     <label
                                         key={empresa.id || empresa.name}
-                                        className="flex items-center gap-2 p-2 border border-gray-300 dark:border-gray-600 rounded cursor-pointer text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
+                                        className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 border border-gray-300 dark:border-gray-600 rounded-md cursor-pointer text-sm hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
                                     >
                                         <input
                                             type="checkbox"
@@ -780,14 +808,17 @@ export default function DataEditor() {
                                             }}
                                             className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50"
                                         />
-                                        <span style={{ color: 'var(--foreground)' }}>{empresa.name}</span>
+                                        <span className="flex-1 truncate" style={{ color: 'var(--foreground)' }}>{empresa.name}</span>
                                     </label>
                                 ))}
                         </div>
                         {userPermissions.scanhistoryEmpresas && userPermissions.scanhistoryEmpresas.length > 0 && (
-                            <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded">
-                                <p className="text-xs" style={{ color: 'var(--foreground)' }}>
-                                    <strong>Empresas seleccionadas:</strong> {userPermissions.scanhistoryEmpresas.join(', ')}
+                            <div className="mt-3 sm:mt-4 p-2 sm:p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-md">
+                                <p className="text-xs sm:text-sm" style={{ color: 'var(--foreground)' }}>
+                                    <strong className="text-green-700 dark:text-green-300">Empresas seleccionadas:</strong>
+                                    <span className="ml-1 text-green-600 dark:text-green-400">
+                                        {userPermissions.scanhistoryEmpresas.join(', ')}
+                                    </span>
                                 </p>
                             </div>
                         )}
@@ -1041,7 +1072,7 @@ export default function DataEditor() {
     };
 
     return (
-        <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-2 sm:p-4 md:p-6">            {/* Loading Modal */}
+        <div className="max-w-7xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-3 sm:p-4 md:p-6">            {/* Loading Modal */}
             {isSaving && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-fade-in">
                     <div className="bg-[var(--card-bg)] rounded-xl p-8 flex flex-col items-center justify-center shadow-2xl border border-[var(--input-border)] max-w-sm mx-4 animate-scale-in">
@@ -1075,67 +1106,77 @@ export default function DataEditor() {
 
 
             {/* File Tabs */}
-            <div className="mb-6 overflow-x-auto">
+            <div className="mb-6">
                 <div className="border-b border-[var(--input-border)]">
-                    <nav className="-mb-px flex flex-nowrap space-x-2 sm:space-x-4 md:space-x-8">
+                    <nav className="flex flex-wrap gap-1 sm:gap-2 md:flex-nowrap md:overflow-x-auto md:space-x-2 lg:space-x-4 xl:space-x-8 -mb-px">
                         <button
                             onClick={() => setActiveFile('users')}
-                            className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeFile === 'users'
+                            className={`py-2 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-1 sm:gap-2 whitespace-nowrap ${activeFile === 'users'
                                 ? 'border-blue-500 text-blue-600'
                                 : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-[var(--border)]'
                                 }`}
                         >
-                            <Users className="w-4 h-4" />
-                            Usuarios ({usersData.length})
+                            <Users className="w-3 h-3 sm:w-4 sm:h-4" />
+                            <span className="hidden xs:inline">Usuarios</span>
+                            <span className="xs:hidden">Users</span>
+                            ({usersData.length})
                         </button>
                         <button
                             onClick={() => setActiveFile('sorteos')}
-                            className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeFile === 'sorteos'
+                            className={`py-2 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-1 sm:gap-2 whitespace-nowrap ${activeFile === 'sorteos'
                                 ? 'border-blue-500 text-blue-600'
                                 : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-[var(--border)]'
                                 }`}
                         >
-                            <FileText className="w-4 h-4" />
-                            Sorteos ({sorteosData.length})
+                            <FileText className="w-3 h-3 sm:w-4 sm:h-4" />
+                            <span className="hidden xs:inline">Sorteos</span>
+                            <span className="xs:hidden">Draws</span>
+                            ({sorteosData.length})
                         </button>
                         <button
                             onClick={() => setActiveFile('schedules')}
-                            className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeFile === 'schedules'
+                            className={`py-2 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-1 sm:gap-2 whitespace-nowrap ${activeFile === 'schedules'
                                 ? 'border-blue-500 text-blue-600'
                                 : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-[var(--border)]'
                                 }`}
                         >
-                            <Clock className="w-4 h-4" />
-                            Planilla
+                            <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
+                            <span className="hidden xs:inline">Planilla</span>
+                            <span className="xs:hidden">Payroll</span>
                         </button>
                         <button
                             onClick={() => setActiveFile('ccss')}
-                            className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeFile === 'ccss'
+                            className={`py-2 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-1 sm:gap-2 whitespace-nowrap ${activeFile === 'ccss'
                                 ? 'border-blue-500 text-blue-600'
                                 : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-[var(--border)]'
                                 }`}
                         >
-                            <DollarSign className="w-4 h-4" />
-                            Pago CCSS ({ccssConfigsData.length})
+                            <DollarSign className="w-3 h-3 sm:w-4 sm:h-4" />
+                            <span className="hidden xs:inline">Pago CCSS</span>
+                            <span className="xs:hidden">CCSS</span>
+                            ({ccssConfigsData.length})
                         </button>
                         <button
                             onClick={() => setActiveFile('empresas')}
-                            className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeFile === 'empresas'
+                            className={`py-2 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-1 sm:gap-2 whitespace-nowrap ${activeFile === 'empresas'
                                 ? 'border-blue-500 text-blue-600'
                                 : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-[var(--border)]'
                                 }`}
                         >
-                            <Users className="w-4 h-4" />
-                            Empresas ({empresasData.length})
+                            <Users className="w-3 h-3 sm:w-4 sm:h-4" />
+                            <span className="hidden xs:inline">Empresas</span>
+                            <span className="xs:hidden">Companies</span>
+                            ({empresasData.length})
                         </button>
-                        <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto justify-end">
+                        <div className="flex flex-wrap items-center gap-1 sm:gap-2 w-full sm:w-auto justify-end md:justify-start md:ml-auto">
 
                             <button
                                 onClick={openExportModal}
-                                className="px-3 py-2 sm:px-4 rounded-md bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 transition-colors text-sm sm:text-base"
+                                className="px-2 py-1 sm:px-3 sm:py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1 sm:gap-2 transition-colors text-xs sm:text-sm whitespace-nowrap"
                             >
-                                <Download className="w-4 h-4" />
-                                Exportar
+                                <Download className="w-3 h-3 sm:w-4 sm:h-4" />
+                                <span className="hidden sm:inline">Exportar</span>
+                                <span className="sm:hidden">Export</span>
                             </button>
                         </div>
                     </nav>
@@ -1149,20 +1190,27 @@ export default function DataEditor() {
 
             {activeFile === 'empresas' && (
                 <div className="space-y-4">
-                    <div className="flex flex-col sm:flex-row justify-between items-center gap-2 sm:gap-0">
-                        <h4 className="text-base sm:text-lg font-semibold">Configuración de Empresas</h4>
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mb-4 sm:mb-6">
+                        <div>
+                            <h4 className="text-lg sm:text-xl font-semibold">Configuración de Empresas</h4>
+                            <p className="text-sm text-[var(--muted-foreground)] mt-1">
+                                Gestiona las empresas y sus configuraciones
+                            </p>
+                        </div>
                         <button
                             onClick={() => setEmpresasData(prev => [...prev, { ownerId: currentUser && currentUser.eliminate === false ? currentUser.id : '', name: '', ubicacion: '', empleados: [{ Empleado: '', hoursPerShift: 8, extraAmount: 0, ccssType: 'TC' }] }])}
-                            className="px-3 py-2 sm:px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm sm:text-base"
+                            className="px-4 py-2 sm:px-6 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm sm:text-base w-full sm:w-auto flex items-center justify-center gap-2"
                         >
-                            Agregar Empresa
+                            <Plus className="w-4 h-4" />
+                            <span className="hidden sm:inline">Agregar Empresa</span>
+                            <span className="sm:hidden">Empresa</span>
                         </button>
                     </div>
 
                     {empresasData.map((empresa, idx) => (
-                        <div key={empresa.id || idx} className="border border-[var(--input-border)] rounded-lg p-2 sm:p-4 relative">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                                <div>
+                        <div key={empresa.id || idx} className="border border-[var(--input-border)] rounded-lg p-3 sm:p-4 md:p-6 relative">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
+                                <div className="md:col-span-2">
                                     <label className="block text-sm font-medium mb-1">Nombre de la empresa:</label>
                                     <input
                                         type="text"
@@ -1176,7 +1224,7 @@ export default function DataEditor() {
                                         style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
                                     />
                                 </div>
-                                <div>
+                                <div className="md:col-span-2">
                                     <label className="block text-sm font-medium mb-1">Ubicación:</label>
                                     <input
                                         type="text"
@@ -1192,9 +1240,9 @@ export default function DataEditor() {
                                 </div>
                             </div>
 
-                            <div>
-                                <div className="flex justify-between items-center mb-2">
-                                    <label className="block text-sm font-medium">Empleados:</label>
+                            <div className="mt-6">
+                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
+                                    <label className="block text-sm sm:text-base font-medium">Empleados:</label>
                                     <button
                                         onClick={() => {
                                             const copy = [...empresasData];
@@ -1202,90 +1250,100 @@ export default function DataEditor() {
                                             copy[idx].empleados.push({ Empleado: '', 'Horas por turno': 8, 'Monto extra': 0, 'ccssType ': '' });
                                             setEmpresasData(copy);
                                         }}
-                                        className="text-sm bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700 transition-colors"
+                                        className="text-sm bg-green-600 text-white px-3 py-2 rounded-md hover:bg-green-700 transition-colors w-full sm:w-auto flex items-center justify-center gap-2"
                                     >
-                                        Agregar Empleado
+                                        <Plus className="w-4 h-4" />
+                                        <span className="hidden sm:inline">Agregar Empleado</span>
+                                        <span className="sm:hidden">Empleado</span>
                                     </button>
                                 </div>
 
-                                <div className="space-y-3">
+                                <div className="space-y-4">
                                     {empresa.empleados?.map((emp: any, eIdx: number) => (
-                                        <div key={eIdx} className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 items-center p-2 sm:p-3 border border-[var(--input-border)] rounded-md">
-                                            <div className="col-span-2 sm:flex-1 min-w-[120px]">
-                                                <label className="block text-xs mb-1">Empleado</label>
-                                                <input
-                                                    type="text"
-                                                    value={emp.Empleado}
-                                                    onChange={(ev) => {
-                                                        const copy = [...empresasData];
-                                                        copy[idx].empleados[eIdx].Empleado = ev.target.value;
-                                                        setEmpresasData(copy);
-                                                    }}
-                                                    className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
-                                                    style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                                />
-                                            </div>
-                                            <div className="col-span-1 sm:w-32">
-                                                <label className="block text-xs mb-1">Horas por turno</label>
-                                                <input
-                                                    type="number"
-                                                    value={emp.hoursPerShift ?? 8}
-                                                    onChange={(ev) => {
-                                                        const copy = [...empresasData];
-                                                        copy[idx].empleados[eIdx].hoursPerShift = parseInt(ev.target.value) || 0;
-                                                        setEmpresasData(copy);
-                                                    }}
-                                                    className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md text-sm"
-                                                    style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                                />
-                                            </div>
-                                            <div className="col-span-1 sm:w-32">
-                                                <label className="block text-xs mb-1">Monto extra</label>
-                                                <input
-                                                    type="number"
-                                                    value={emp.extraAmount ?? 0}
-                                                    onChange={(ev) => {
-                                                        const copy = [...empresasData];
-                                                        copy[idx].empleados[eIdx].extraAmount = parseFloat(ev.target.value) || 0;
-                                                        setEmpresasData(copy);
-                                                    }}
-                                                    className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md text-sm"
-                                                    style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                                />
-                                            </div>
-                                            <div className="col-span-1 sm:w-40">
-                                                <label className="block text-xs mb-1">Tipo CCSS</label>
-                                                <select
-                                                    value={emp.ccssType || 'TC'}
-                                                    onChange={(ev) => {
-                                                        const copy = [...empresasData];
-                                                        copy[idx].empleados[eIdx].ccssType = ev.target.value;
-                                                        setEmpresasData(copy);
-                                                    }}
-                                                    className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md text-sm"
-                                                    style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                                >
-                                                    <option value="TC">Tiempo Completo</option>
-                                                    <option value="MT">Medio Tiempo</option>
-                                                </select>
-                                            </div>
-                                            <div className="col-span-2 sm:w-10 flex justify-end">
-                                                <button
-                                                    onClick={() => {
-                                                        openConfirmModal(
-                                                            'Eliminar Empleado',
-                                                            `¿Desea eliminar al empleado ${emp.Empleado || eIdx + 1}?`,
-                                                            () => {
-                                                                const copy = [...empresasData];
-                                                                copy[idx].empleados = copy[idx].empleados.filter((_: unknown, i: number) => i !== eIdx);
-                                                                setEmpresasData(copy);
-                                                            }
-                                                        );
-                                                    }}
-                                                    className="px-2 sm:px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-                                                >
-                                                    X
-                                                </button>
+                                        <div key={eIdx} className="p-3 sm:p-4 border border-[var(--input-border)] rounded-lg bg-[var(--card-bg)]">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 items-end">
+                                                <div className="sm:col-span-2 lg:col-span-2">
+                                                    <label className="block text-xs sm:text-sm font-medium mb-1">Empleado</label>
+                                                    <input
+                                                        type="text"
+                                                        value={emp.Empleado}
+                                                        onChange={(ev) => {
+                                                            const copy = [...empresasData];
+                                                            copy[idx].empleados[eIdx].Empleado = ev.target.value;
+                                                            setEmpresasData(copy);
+                                                        }}
+                                                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md text-sm"
+                                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                                        placeholder="Nombre del empleado"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs sm:text-sm font-medium mb-1">Horas por turno</label>
+                                                    <input
+                                                        type="number"
+                                                        value={emp.hoursPerShift ?? 8}
+                                                        onChange={(ev) => {
+                                                            const copy = [...empresasData];
+                                                            copy[idx].empleados[eIdx].hoursPerShift = parseInt(ev.target.value) || 0;
+                                                            setEmpresasData(copy);
+                                                        }}
+                                                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md text-sm"
+                                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                                        min="0"
+                                                        step="0.5"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs sm:text-sm font-medium mb-1">Monto extra</label>
+                                                    <input
+                                                        type="number"
+                                                        value={emp.extraAmount ?? 0}
+                                                        onChange={(ev) => {
+                                                            const copy = [...empresasData];
+                                                            copy[idx].empleados[eIdx].extraAmount = parseFloat(ev.target.value) || 0;
+                                                            setEmpresasData(copy);
+                                                        }}
+                                                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md text-sm"
+                                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                                        min="0"
+                                                        step="0.01"
+                                                    />
+                                                </div>
+                                                <div className="sm:col-span-2 lg:col-span-1">
+                                                    <label className="block text-xs sm:text-sm font-medium mb-1">Tipo CCSS</label>
+                                                    <select
+                                                        value={emp.ccssType || 'TC'}
+                                                        onChange={(ev) => {
+                                                            const copy = [...empresasData];
+                                                            copy[idx].empleados[eIdx].ccssType = ev.target.value;
+                                                            setEmpresasData(copy);
+                                                        }}
+                                                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md text-sm"
+                                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                                    >
+                                                        <option value="TC">Tiempo Completo</option>
+                                                        <option value="MT">Medio Tiempo</option>
+                                                    </select>
+                                                </div>
+                                                <div className="flex justify-end mt-3 pt-3 border-t border-[var(--input-border)]">
+                                                    <button
+                                                        onClick={() => {
+                                                            openConfirmModal(
+                                                                'Eliminar Empleado',
+                                                                `¿Desea eliminar al empleado ${emp.Empleado || `N°${eIdx + 1}`}?`,
+                                                                () => {
+                                                                    const copy = [...empresasData];
+                                                                    copy[idx].empleados = copy[idx].empleados.filter((_: unknown, i: number) => i !== eIdx);
+                                                                    setEmpresasData(copy);
+                                                                }
+                                                            );
+                                                        }}
+                                                        className="text-xs sm:text-sm px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors flex items-center gap-1"
+                                                    >
+                                                        <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                                                        <span className="hidden sm:inline">Eliminar</span>
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                     ))}
@@ -1355,19 +1413,25 @@ export default function DataEditor() {
 
             {activeFile === 'sorteos' && (
                 <div className="space-y-4">
-                    <div className="flex flex-col sm:flex-row justify-between items-center gap-2 sm:gap-0">
-                        <h4 className="text-base sm:text-lg font-semibold">Configuración de Sorteos</h4>
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mb-4 sm:mb-6">
+                        <div>
+                            <h4 className="text-lg sm:text-xl font-semibold">Configuración de Sorteos</h4>
+                            <p className="text-sm text-[var(--muted-foreground)] mt-1">
+                                Gestiona los sorteos disponibles en el sistema
+                            </p>
+                        </div>
                         <button
                             onClick={addSorteo}
-                            className="px-3 py-2 sm:px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm sm:text-base"
+                            className="px-4 py-2 sm:px-6 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm sm:text-base w-full sm:w-auto"
                         >
-                            Agregar Sorteo
+                            <span className="hidden sm:inline">Agregar Sorteo</span>
+                            <span className="sm:hidden">+ Sorteo</span>
                         </button>
                     </div>
 
                     {sorteosData.map((sorteo, index) => (
-                        <div key={sorteo.id || index} className="border border-[var(--input-border)] rounded-lg p-2 sm:p-4">
-                            <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 items-center">
+                        <div key={sorteo.id || index} className="border border-[var(--input-border)] rounded-lg p-3 sm:p-4 md:p-6">
+                            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-start sm:items-center">
                                 <div className="flex-1 w-full">
                                     <label className="block text-sm font-medium mb-1">Nombre del Sorteo:</label>
                                     <input
@@ -1382,9 +1446,10 @@ export default function DataEditor() {
 
                                 <button
                                     onClick={() => removeSorteo(index)}
-                                    className="px-3 py-2 sm:px-4 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm sm:text-base w-full sm:w-auto mt-2 sm:mt-0"
+                                    className="px-3 py-2 sm:px-4 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm sm:text-base w-full sm:w-auto mt-2 sm:mt-0 whitespace-nowrap"
                                 >
-                                    Eliminar
+                                    <span className="hidden sm:inline">Eliminar</span>
+                                    <span className="sm:hidden">Delete</span>
                                 </button>
                             </div>
                         </div>
@@ -1394,46 +1459,65 @@ export default function DataEditor() {
 
             {activeFile === 'users' && (
                 <div className="space-y-4">
-                    <div className="flex flex-col sm:flex-row justify-between items-center gap-2 sm:gap-0">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mb-4 sm:mb-6">
                         <div>
-                            <h4 className="text-base sm:text-lg font-semibold">Configuración de Usuarios</h4>
-                            <p className="text-xs sm:text-sm text-gray-600 mt-1">
+                            <h4 className="text-lg sm:text-xl font-semibold">Configuración de Usuarios</h4>
+                            <p className="text-sm text-[var(--muted-foreground)] mt-1">
                                 Gestiona usuarios, roles y permisos del sistema
                             </p>
                         </div>
                         <button
                             onClick={addUser}
-                            className="px-3 py-2 sm:px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm sm:text-base"
+                            className="px-4 py-2 sm:px-6 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm sm:text-base w-full sm:w-auto flex items-center justify-center gap-2"
                         >
-                            Agregar Usuario
+                            <UserPlus className="w-4 h-4" />
+                            <span className="hidden sm:inline">Agregar Usuario</span>
+                            <span className="sm:hidden">Usuario</span>
                         </button>
                     </div>
 
                     {usersData.map((user, index) => (
-                        <div key={user.id || index} className="border border-[var(--input-border)] rounded-lg p-2 sm:p-4 relative">
+                        <div key={user.id || index} className="border border-[var(--input-border)] rounded-lg p-3 sm:p-4 md:p-6 relative">
                             {hasUserChanged(index) && (
-                                <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
+                                <div className="absolute top-2 right-2 sm:top-3 sm:right-3 flex items-center gap-1 px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
                                     <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
-                                    Cambios pendientes
+                                    <span className="hidden sm:inline">Cambios pendientes</span>
+                                    <span className="sm:hidden">Pendiente</span>
                                 </div>
                             )}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Nombre:</label>
+                                    <label className="block text-sm font-medium mb-1">Usuario:</label>
                                     <input
                                         type="text"
                                         value={user.name}
                                         onChange={(e) => updateUser(index, 'name', e.target.value)}
                                         className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
                                         style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                        placeholder="Nombre del usuario"
+                                        placeholder="Nombre de usuario"
                                     />
-                                    {/* Mostrar nombre de la empresa dueña si existe (ownercompanie) */}
-                                    {user.ownercompanie && (
-                                        <div className="mt-2 text-sm text-[var(--muted-foreground)]">
-                                            Empresa Dueña: <span className="font-medium text-[var(--foreground)]">{user.ownercompanie}</span>
-                                        </div>
-                                    )}
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Nombre Completo:</label>
+                                    <input
+                                        type="text"
+                                        value={user.fullName || ''}
+                                        onChange={(e) => updateUser(index, 'fullName', e.target.value)}
+                                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
+                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                        placeholder="Nombre completo"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Correo:</label>
+                                    <input
+                                        type="email"
+                                        value={user.email || ''}
+                                        onChange={(e) => updateUser(index, 'email', e.target.value)}
+                                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
+                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                        placeholder="correo@ejemplo.com"
+                                    />
                                 </div>
                                 {/* Ubicación removed visually as requested */}
                                 <div>
@@ -1466,34 +1550,6 @@ export default function DataEditor() {
                                     })()}
                                 </div>
                             </div>
-
-                            {/* Email y Nombre Completo — mostrar sólo si el usuario logueado es superadmin y el rol seleccionado es admin/superadmin */}
-                            {currentUser?.role === 'superadmin' && (user.role === 'admin' || user.role === 'superadmin') && (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Correo electrónico:</label>
-                                        <input
-                                            type="email"
-                                            value={user.email || ''}
-                                            onChange={(e) => updateUser(index, 'email', e.target.value)}
-                                            className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
-                                            style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                            placeholder="correo@ejemplo.com"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Nombre completo:</label>
-                                        <input
-                                            type="text"
-                                            value={user.fullName || ''}
-                                            onChange={(e) => updateUser(index, 'fullName', e.target.value)}
-                                            className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
-                                            style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                            placeholder="Nombre completo de la persona encargada"
-                                        />
-                                    </div>
-                                </div>
-                            )}
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                                 <div>
@@ -1595,7 +1651,7 @@ export default function DataEditor() {
                                             className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
                                             style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
                                             placeholder="Cantidad máxima de empresas"
-                                        />  
+                                        />
                                     </div>
                                 )}
                             </div>
@@ -1661,33 +1717,29 @@ export default function DataEditor() {
             )}            {/* CCSS Payment Configuration */}
             {activeFile === 'ccss' && (
                 <div className="space-y-6">
-                    <div className="flex flex-col sm:flex-row justify-between items-center gap-2 sm:gap-0">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mb-4 sm:mb-6">
                         <div>
-                            <h4 className="text-base sm:text-xl font-semibold flex items-center gap-2">
+                            <h4 className="text-lg sm:text-xl font-semibold flex items-center gap-2">
                                 <DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
-                                Configuración de Pago CCSS por Empresa
+                                Configuración de Pago CCSS
                             </h4>
-                            <p className="text-xs sm:text-sm text-[var(--muted-foreground)] mt-1">
+                            <p className="text-sm text-[var(--muted-foreground)] mt-1">
                                 Configurar los montos de pago CCSS específicos para cada empresa
                             </p>
                         </div>
                         <button
                             onClick={addCcssConfig}
-                            className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl font-semibold flex items-center gap-2"
+                            className="px-4 py-2 sm:px-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl font-semibold w-full sm:w-auto"
                         >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                            </svg>
-                            Agregar Configuración
+                            <span className="hidden sm:inline">Agregar Configuración</span>
+                            <span className="sm:hidden">+ Config</span>
                         </button>
                     </div>
 
                     <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-2 sm:p-4">
                         <div className="flex items-start gap-3">
                             <div className="flex-shrink-0">
-                                <svg className="w-5 h-5 text-blue-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                                </svg>
+                                <Info className="w-5 h-5 text-blue-600 mt-0.5" />
                             </div>
                             <div>
                                 <h5 className="font-medium text-blue-900 dark:text-blue-300">Configuración por Empresa</h5>
@@ -1713,9 +1765,7 @@ export default function DataEditor() {
                                 onClick={addCcssConfig}
                                 className="px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl font-semibold text-lg flex items-center gap-3 mx-auto"
                             >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                </svg>
+                                <Plus className="w-5 h-5" />
                                 Crear Primera Configuración
                             </button>
                         </div>
@@ -1724,16 +1774,16 @@ export default function DataEditor() {
                             {getFlattenedCcssData().map((item, flatIndex) => (
                                 <div key={`${item.config.id || item.configIndex}-${item.companyIndex}`} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-lg hover:shadow-xl transition-all duration-200 relative">
                                     {/* Header con botones */}
-                                    <div className="flex justify-between items-start mb-6">
-                                        <div>
-                                            <h5 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-start mb-4 sm:mb-6 gap-3 sm:gap-0">
+                                        <div className="min-w-0 flex-1">
+                                            <h5 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-2 truncate">
                                                 Configuración CCSS #{flatIndex + 1}
                                             </h5>
-                                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                                            <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
                                                 {item.company.ownerCompanie || 'Nueva empresa'}
                                             </p>
                                         </div>
-                                        <div className="flex gap-3">
+                                        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
                                             <button
                                                 onClick={async () => {
                                                     try {
@@ -1752,21 +1802,19 @@ export default function DataEditor() {
                                                         showToast('Error al guardar la configuración', 'error');
                                                     }
                                                 }}
-                                                className="px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-200 shadow-md hover:shadow-lg font-medium text-sm flex items-center gap-2"
+                                                className="px-3 py-2 sm:px-4 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-200 shadow-md hover:shadow-lg font-medium text-sm flex items-center justify-center gap-2 whitespace-nowrap"
                                             >
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                                                </svg>
-                                                Guardar
+                                                <Check className="w-4 h-4" />
+                                                <span className="hidden sm:inline">Guardar</span>
+                                                <span className="sm:hidden">Save</span>
                                             </button>
                                             <button
                                                 onClick={() => removeCcssConfig(item.configIndex, item.companyIndex)}
-                                                className="px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-md hover:shadow-lg font-medium text-sm flex items-center gap-2"
+                                                className="px-3 py-2 sm:px-4 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-md hover:shadow-lg font-medium text-sm flex items-center justify-center gap-2 whitespace-nowrap"
                                             >
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                </svg>
-                                                Eliminar
+                                                <Trash2 className="w-4 h-4" />
+                                                <span className="hidden sm:inline">Eliminar</span>
+                                                <span className="sm:hidden">Delete</span>
                                             </button>
                                         </div>
                                     </div>
@@ -1775,9 +1823,7 @@ export default function DataEditor() {
                                     <div className="mb-8">
                                         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-700 rounded-xl p-4">
                                             <label className="text-sm font-semibold text-blue-900 dark:text-blue-200 mb-3 flex items-center gap-2">
-                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                                                </svg>
+                                                <Building className="w-5 h-5" />
                                                 Empresa:
                                             </label>
                                             <select

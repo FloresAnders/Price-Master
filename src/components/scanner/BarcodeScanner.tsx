@@ -19,16 +19,12 @@ import CameraScanner from './CameraScanner';
 import ImageDropArea from './ImageDropArea';
 import { useAuth } from '../../hooks/useAuth';
 import { hasPermission } from '../../utils/permissions';
-import { PictureInPicture } from './PictureInPicture';
 
 export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children }: BarcodeScannerProps & { onRemoveLeadingZero?: (code: string) => void; children?: React.ReactNode }) {
   /* Verificar permisos del usuario */
   const { user } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'image' | 'camera'>('image');
-
-  // Picture-in-Picture state
-  const [isPiPOpen, setIsPiPOpen] = useState(false);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -94,21 +90,6 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
   const fadeIn = { initial: { opacity: 0 }, animate: { opacity: 1 } };
   const slideUp = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 } };
 
-  // Handlers for PiP
-  const handlePiPToggle = useCallback(() => {
-    // Si la ventana se está cerrando (desde el PiP), solo actualizar el estado
-    setIsPiPOpen(prev => !prev);
-  }, []);
-
-  const handlePiPProcessImage = useCallback((imageData: string) => {
-    processImage(imageData);
-  }, [processImage]);
-
-  const handlePiPRemoveLeadingZero = useCallback((newCode: string) => {
-    setCode(newCode);
-    onRemoveLeadingZero?.(newCode);
-  }, [setCode, onRemoveLeadingZero]);
-
   // Verificar si el usuario tiene permiso para usar el escáner
   if (!hasPermission(user?.permissions, 'scanner')) {
     return (
@@ -144,15 +125,6 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
               <h2 className="text-xl font-bold text-[var(--foreground)]">Escáner de Códigos de Barras</h2>
               <p className="text-sm text-[var(--muted-foreground)]">Sube imágenes o pégalas desde el portapapeles (Ctrl+V)</p>
             </div>
-          </div>
-          <div className="ml-4">
-            <PictureInPicture
-              isOpen={isPiPOpen}
-              code={code}
-              onToggle={handlePiPToggle}
-              onProcessImage={handlePiPProcessImage}
-              onRemoveLeadingZero={handlePiPRemoveLeadingZero}
-            />
           </div>
         </div>
       </div>

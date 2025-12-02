@@ -1,12 +1,13 @@
 'use client'
 
-import { Eye, EyeOff, Info, Loader2, User as UserIcon, X, Check, Camera, ChevronDown, ChevronUp, Lock } from 'lucide-react';
+import { Eye, EyeOff, Info, Loader2, User as UserIcon, X, Check, Camera, ChevronDown, ChevronUp, Lock, Upload, Trash2 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import useToast from '../../hooks/useToast';
 import { useAuth } from '../../hooks/useAuth';
 import { UsersService } from '../../services/users';
 import type { User as UserRecord } from '../../types/firestore';
 import { verifyPassword } from '../../lib/auth/password';
+import { useProfileImageUpload } from '../../hooks/useProfileImageUpload';
 
 interface EditProfileModalProps {
     isOpen: boolean;
@@ -26,6 +27,7 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
         document.addEventListener('keydown', handleEsc);
         return () => document.removeEventListener('keydown', handleEsc);
     }, [isOpen, onClose]);
+
     const { user } = useAuth();
 
     const [profile, setProfile] = useState<UserRecord | null>(null);
@@ -51,6 +53,23 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
     const [hasPassword, setHasPassword] = useState(false);
 
     const baseUser = profile ?? user ?? null;
+
+    // Image upload hook
+    const imageUpload = useProfileImageUpload({
+        user: baseUser,
+        onSuccess: () => {
+            showToast('Foto de perfil actualizada correctamente.', 'success');
+            loadProfile();
+        },
+        onError: (error) => {
+            setError(error);
+            showToast(error, 'error');
+        },
+        onDeleteSuccess: () => {
+            showToast('Foto de perfil eliminada correctamente.', 'success');
+            loadProfile();
+        }
+    });
 
     const loadProfile = useCallback(async () => {
         if (!user?.id) {
@@ -170,9 +189,10 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
             formData.name !== baseName ||
             formData.fullName !== baseFullName ||
             formData.email !== baseEmail ||
-            formData.password.length > 0
+            formData.password.length > 0 ||
+            imageUpload.hasSelectedFile
         );
-    }, [formData, baseUser]);
+    }, [formData, baseUser, imageUpload.hasSelectedFile]);
 
     const handleChange = (field: keyof typeof formData) => (
         event: React.ChangeEvent<HTMLInputElement>
@@ -269,6 +289,11 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
 
             await UsersService.updateUserAs(user, targetId, payload);
 
+            // Handle image upload if a file was selected
+            if (imageUpload.hasSelectedFile) {
+                await imageUpload.uploadImage();
+            }
+
             try {
                 if (typeof window !== 'undefined') {
                     const sessionRaw = window.localStorage.getItem('pricemaster_session');
@@ -301,7 +326,7 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
         }
     };
 
-    const isFormLocked = profileLoading || isSaving;
+    const isFormLocked = profileLoading || isSaving || imageUpload.isProcessing;
 
     const initials = useMemo(() => {
         const source = profile ?? user ?? null;
@@ -349,24 +374,72 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
                             <form onSubmit={handleSubmit} className="space-y-4">
                                 <div className="flex flex-col items-center gap-3">
                                     <div className="w-24 h-24 rounded-full bg-[var(--input-bg)] border border-[var(--input-border)] flex items-center justify-center overflow-hidden">
-                                        {(baseUser as any)?.photoUrl ? (
-                                            // placeholder: if real photo exists, show it (rare); otherwise show initials
-                                            // functionality to upload is not implemented yet
+                                        {imageUpload.imagePreview ? (
+                                            // Show preview of selected image
+                                            // eslint-disable-next-line @next/next/no-img-element
+                                            <img src={imageUpload.imagePreview} alt="Vista previa" className="w-full h-full object-cover" />
+                                        ) : (baseUser as any)?.photoUrl ? (
+                                            // Show existing photo
                                             // eslint-disable-next-line @next/next/no-img-element
                                             <img src={(baseUser as any).photoUrl} alt="Foto de perfil" className="w-full h-full object-cover" />
                                         ) : (
                                             <span className="text-xl font-semibold text-[var(--foreground)]">{initials}</span>
                                         )}
                                     </div>
-                                    <div className="text-xs text-[var(--muted-foreground)]">Foto de perfil (próximamente funcional)</div>
+                                    <div className="text-xs text-[var(--muted-foreground)]">
+                                        {imageUpload.hasSelectedFile ? 'Vista previa - Guardar para aplicar' : 'Foto de perfil'}
+                                    </div>
                                     <div className="flex gap-2">
-                                        <button disabled className="inline-flex items-center gap-2 rounded-md border border-[var(--input-border)] px-3 py-1 text-sm text-[var(--foreground)] bg-transparent opacity-60 cursor-not-allowed">
-                                            <Camera className="w-4 h-4 text-[var(--muted-foreground)]" />
-                                            Cambiar
-                                        </button>
-                                        <button disabled className="inline-flex items-center gap-2 rounded-md border border-[var(--input-border)] px-3 py-1 text-sm text-[var(--foreground)] bg-transparent opacity-60 cursor-not-allowed">
-                                            Eliminar
-                                        </button>
+                                        <input
+                                            ref={imageUpload.fileInputRef}
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={imageUpload.handleFileSelect}
+                                            className="hidden"
+                                            disabled={isFormLocked}
+                                        />
+                                        {imageUpload.hasSelectedFile ? (
+                                            <>
+                                                <button
+                                                    type="button"
+                                                    onClick={imageUpload.cancelSelection}
+                                                    disabled={isFormLocked}
+                                                    className="inline-flex items-center gap-2 rounded-md border border-[var(--input-border)] px-3 py-1 text-sm text-[var(--foreground)] bg-transparent hover:bg-[var(--muted)] transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                                                >
+                                                    <X className="w-4 h-4 text-[var(--muted-foreground)]" />
+                                                    Cancelar
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                onClick={imageUpload.openFileDialog}
+                                                disabled={isFormLocked}
+                                                className="inline-flex items-center gap-2 rounded-md border border-[var(--input-border)] px-3 py-1 text-sm text-[var(--foreground)] bg-transparent hover:bg-[var(--muted)] transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                                            >
+                                                {imageUpload.isUploading ? (
+                                                    <Loader2 className="w-4 h-4 animate-spin text-[var(--muted-foreground)]" />
+                                                ) : (
+                                                    <Camera className="w-4 h-4 text-[var(--muted-foreground)]" />
+                                                )}
+                                                {imageUpload.isUploading ? 'Subiendo...' : 'Cambiar'}
+                                            </button>
+                                        )}
+                                        {imageUpload.canDelete && (
+                                            <button
+                                                type="button"
+                                                onClick={imageUpload.deleteImage}
+                                                disabled={isFormLocked}
+                                                className="inline-flex items-center gap-2 rounded-md border border-red-500/40 px-3 py-1 text-sm text-red-600 bg-transparent hover:bg-red-500/10 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                                            >
+                                                {imageUpload.isDeleting ? (
+                                                    <Loader2 className="w-4 h-4 animate-spin text-red-600" />
+                                                ) : (
+                                                    <Trash2 className="w-4 h-4 text-red-600" />
+                                                )}
+                                                {imageUpload.isDeleting ? 'Eliminando...' : 'Eliminar'}
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
 

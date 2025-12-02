@@ -28,6 +28,7 @@ import {
     ChevronRight,
     ChevronDown,
     ChevronUp,
+    Search,
 } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import { useProviders } from '../../../hooks/useProviders';
@@ -50,6 +51,12 @@ import { UsersService } from '../../../services/users';
 import AgregarMovimiento from './AgregarMovimiento';
 import DailyClosingModal, { DailyClosingFormValues } from './DailyClosingModal';
 import { useActorOwnership } from '../../../hooks/useActorOwnership';
+
+// Límite de movimientos almacenados en localStorage para evitar QuotaExceededError
+const MAX_LOCAL_MOVEMENTS = 500;
+// Límite máximo de ediciones permitidas por movimiento
+const MAX_AUDIT_EDITS = 5;
+
 export const FONDO_INGRESO_TYPES = ['VENTAS', 'OTROS INGRESOS'] as const;
 
 export const FONDO_GASTO_TYPES = [
@@ -150,6 +157,76 @@ export type FondoEntry = {
     isAudit?: boolean;
     originalEntryId?: string;
     auditDetails?: string;
+};
+
+/**
+ * Simplifica un registro de auditoría guardando solo los campos que cambiaron.
+ * @param before Estado anterior del movimiento
+ * @param after Estado nuevo del movimiento
+ * @returns Objeto con solo los campos modificados
+ */
+const getChangedFields = (before: any, after: any): { before: Record<string, any>, after: Record<string, any> } => {
+    const changed: { before: Record<string, any>, after: Record<string, any> } = { before: {}, after: {} };
+
+    // Campos relevantes a comparar
+    const fieldsToCheck = ['providerCode', 'invoiceNumber', 'paymentType', 'amountEgreso', 'amountIngreso', 'manager', 'notes', 'currency'];
+
+    fieldsToCheck.forEach(field => {
+        const beforeVal = before[field];
+        const afterVal = after[field];
+
+        // Solo guardar si el campo realmente cambió
+        if (beforeVal !== afterVal) {
+            changed.before[field] = beforeVal;
+            changed.after[field] = afterVal;
+        }
+    });
+
+    return changed;
+};
+
+/**
+ * Comprime el historial de auditoría para evitar que auditDetails crezca demasiado.
+ * Mantiene máximo 5 registros: el primero (creación), el último (más reciente) y 3 intermedios espaciados.
+ * @param history Array completo del historial de auditoría
+ * @returns Array comprimido del historial
+ */
+const compressAuditHistory = (history: any[]): any[] => {
+    if (!Array.isArray(history) || history.length <= 5) {
+        return history;
+    }
+
+    const compressed: any[] = [];
+    const first = history[0];
+    const last = history[history.length - 1];
+
+    // Siempre mantener el primero
+    compressed.push(first);
+
+    // Si hay más de 5 registros, seleccionar 3 intermedios espaciados uniformemente
+    if (history.length > 5) {
+        const middleCount = 3;
+        const step = Math.floor((history.length - 2) / (middleCount + 1));
+
+        for (let i = 1; i <= middleCount; i++) {
+            const index = step * i;
+            if (index < history.length - 1 && index > 0) {
+                compressed.push(history[index]);
+            }
+        }
+    } else {
+        // Si hay entre 2 y 5, mantener todos los intermedios
+        for (let i = 1; i < history.length - 1; i++) {
+            compressed.push(history[i]);
+        }
+    }
+
+    // Siempre mantener el último
+    if (history.length > 1) {
+        compressed.push(last);
+    }
+
+    return compressed;
 };
 
 const FONDO_KEY_SUFFIX = '_fondos_v1';
@@ -545,8 +622,35 @@ export function ProviderSection({ id }: { id?: string }) {
         code: '',
         name: '',
     });
+    const [searchTerm, setSearchTerm] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
     const companySelectId = `provider-company-select-${id ?? 'default'}`;
     const showCompanySelector = isAdminUser && (ownerCompaniesLoading || sortedOwnerCompanies.length > 0 || !!ownerCompaniesError);
+
+    const filteredProviders = useMemo(() => {
+        return providers.filter(p =>
+            p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            p.code.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    }, [providers, searchTerm]);
+
+    const totalPages = useMemo(() => {
+        if (itemsPerPage === 'all') return 1;
+        return Math.ceil(filteredProviders.length / itemsPerPage);
+    }, [filteredProviders.length, itemsPerPage]);
+
+    const paginatedProviders = useMemo(() => {
+        if (itemsPerPage === 'all') return filteredProviders;
+        return filteredProviders.slice(
+            (currentPage - 1) * itemsPerPage,
+            currentPage * itemsPerPage
+        );
+    }, [filteredProviders, currentPage, itemsPerPage]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, itemsPerPage]);
 
     const handleAdminCompanyChange = useCallback((value: string) => {
         if (!isAdminUser) return;
@@ -558,6 +662,9 @@ export function ProviderSection({ id }: { id?: string }) {
         setEditingProviderCode(null);
         setDeletingCode(null);
         setConfirmState({ open: false, code: '', name: '' });
+        setCurrentPage(1);
+        setSearchTerm('');
+        setItemsPerPage(10);
     }, [isAdminUser]);
 
     // provider creation is handled from the drawer UI below
@@ -697,49 +804,107 @@ export function ProviderSection({ id }: { id?: string }) {
 
             <div>
                 <h3 className="text-sm font-medium text-[var(--foreground)] mb-2">Lista de Proveedores</h3>
+                {!isLoading && (
+                    <div className="mb-4 space-y-4">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
+                            <input
+                                type="text"
+                                placeholder="Buscar proveedores..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full pl-10 pr-4 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-[var(--foreground)]"
+                            />
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <label htmlFor="items-per-page" className="text-sm text-[var(--foreground)]">Mostrar:</label>
+                                <select
+                                    id="items-per-page"
+                                    value={itemsPerPage === 'all' ? 'all' : itemsPerPage.toString()}
+                                    onChange={(e) => {
+                                        const value = e.target.value;
+                                        setItemsPerPage(value === 'all' ? 'all' : parseInt(value));
+                                        setCurrentPage(1);
+                                    }}
+                                    className="px-3 py-1 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
+                                >
+                                    <option value="all">Todos</option>
+                                    <option value="5">5</option>
+                                    <option value="10">10</option>
+                                    <option value="15">15</option>
+                                    <option value="20">20</option>
+                                </select>
+                            </div>
+                            {itemsPerPage !== 'all' && totalPages > 1 && (
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                        disabled={currentPage === 1}
+                                        className="px-3 py-1 bg-[var(--accent)] text-white rounded disabled:opacity-50"
+                                    >
+                                        <ChevronLeft className="w-4 h-4" />
+                                    </button>
+                                    <span className="text-[var(--foreground)] text-sm">
+                                        Página {currentPage} de {totalPages}
+                                    </span>
+                                    <button
+                                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                        disabled={currentPage === totalPages}
+                                        className="px-3 py-1 bg-[var(--accent)] text-white rounded disabled:opacity-50"
+                                    >
+                                        <ChevronRight className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
                 {isLoading ? (
                     <p className="text-[var(--muted-foreground)]">Cargando proveedores...</p>
                 ) : (
-                    <ul className="space-y-2">
-                        {providers.length === 0 && <li className="text-[var(--muted-foreground)]">Aun no hay proveedores.</li>}
-                        {providers.map(p => (
-                            <li key={p.code} className="flex items-center justify-between bg-[var(--muted)] p-3 rounded">
-                                <div>
-                                    <div className="text-[var(--foreground)] font-semibold">{p.name}</div>
-                                    <div className="text-xs text-[var(--muted-foreground)]">Código: {p.code}</div>
-                                    {p.type && (
-                                        <div className="text-xs text-[var(--muted-foreground)] mt-1">
-                                            Tipo: {p.type}
-                                            {p.category && <span className="ml-2 px-2 py-0.5 rounded bg-[var(--input-bg)] text-[10px]">
-                                                {p.category}
-                                            </span>}
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <div className="text-xs text-[var(--muted-foreground)]">Empresa: {p.company}</div>
-                                    <button
-                                        type="button"
-                                        className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] disabled:opacity-50"
-                                        onClick={() => openEditProvider(p.code)}
-                                        disabled={saving || deletingCode !== null}
-                                        title="Editar proveedor"
-                                    >
-                                        <Pencil className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="text-red-500 hover:text-red-600 disabled:opacity-50"
-                                        onClick={() => openRemoveModal(p.code, p.name)}
-                                        disabled={deletingCode === p.code || saving || deletingCode !== null}
-                                        title="Eliminar proveedor"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            </li>
-                        ))}
-                    </ul>
+                    <div>
+                        <ul className="space-y-2">
+                            {filteredProviders.length === 0 && <li className="text-[var(--muted-foreground)]">{searchTerm ? 'No se encontraron proveedores que coincidan con la búsqueda.' : 'Aun no hay proveedores.'}</li>}
+                            {paginatedProviders.map(p => (
+                                <li key={p.code} className="flex items-center justify-between bg-[var(--muted)] p-3 rounded">
+                                    <div>
+                                        <div className="text-[var(--foreground)] font-semibold">{p.name}</div>
+                                        <div className="text-xs text-[var(--muted-foreground)]">Código: {p.code}</div>
+                                        {p.type && (
+                                            <div className="text-xs text-[var(--muted-foreground)] mt-1">
+                                                Tipo: {p.type}
+                                                {p.category && <span className="ml-2 px-2 py-0.5 rounded bg-[var(--input-bg)] text-[10px]">
+                                                    {p.category}
+                                                </span>}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <div className="text-xs text-[var(--muted-foreground)]">Empresa: {p.company}</div>
+                                        <button
+                                            type="button"
+                                            className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] disabled:opacity-50"
+                                            onClick={() => openEditProvider(p.code)}
+                                            disabled={saving || deletingCode !== null}
+                                            title="Editar proveedor"
+                                        >
+                                            <Pencil className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="text-red-500 hover:text-red-600 disabled:opacity-50"
+                                            onClick={() => openRemoveModal(p.code, p.name)}
+                                            disabled={deletingCode === p.code || saving || deletingCode !== null}
+                                            title="Eliminar proveedor"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
                 )}
             </div>
 
@@ -1139,6 +1304,11 @@ export function FondoSection({
         CRC: true,
         USD: true,
     });
+    const [companyData, setCompanyData] = useState<Empresas | null>(null);
+    const [confirmDeleteEntry, setConfirmDeleteEntry] = useState<{ open: boolean; entry: FondoEntry | null }>({
+        open: false,
+        entry: null
+    });
     const enabledBalanceCurrencies = useMemo(
         () => (['CRC', 'USD'] as MovementCurrencyKey[]).filter(currency => currencyEnabled[currency]),
         [currencyEnabled],
@@ -1307,7 +1477,6 @@ export function FondoSection({
                     'fondogeneral-filterEditedOnly',
                     'fondogeneral-searchQuery',
                     'fondogeneral-pageSize',
-                    'fondogeneral-sortAsc',
                 ];
                 for (const k of keysToClear) localStorage.removeItem(k);
             } catch {
@@ -1406,10 +1575,19 @@ export function FondoSection({
     const isIngreso = isIngresoType(paymentType);
     const isEgreso = isEgresoType(paymentType) || isGastoType(paymentType);
 
-    const employeeOptions = useMemo(
-        () => companyEmployees.filter(name => !!name && name.trim().length > 0),
-        [companyEmployees],
-    );
+    const employeeOptions = useMemo(() => {
+        const employees = companyEmployees.filter(name => !!name && name.trim().length > 0);
+
+        // Si el usuario actual es admin, agregarlo a la lista de empleados
+        if (user?.role === 'admin' && user?.name) {
+            const adminName = user.name.trim();
+            if (!employees.includes(adminName)) {
+                return [adminName, ...employees];
+            }
+        }
+
+        return employees;
+    }, [companyEmployees, user]);
 
     const editingEntry = useMemo(
         () => (editingEntryId ? fondoEntries.find(entry => entry.id === editingEntryId) ?? null : null),
@@ -1597,6 +1775,7 @@ export function FondoSection({
                 if (isMounted) {
                     setFondoEntries(resolvedEntries ?? []);
                     if (resolvedState) {
+                        console.log('[LOCK-DEBUG] Loading state with lockedUntil:', resolvedState.lockedUntil);
                         applyLedgerStateFromStorage(resolvedState);
                     }
                 }
@@ -1768,6 +1947,15 @@ export function FondoSection({
             };
         }
 
+        // Solo cargar empleados de la empresa si estamos en fondogeneral (namespace 'fg')
+        // Para otros fondos (BCR, BN, BAC), no cargar empleados
+        if (namespace !== 'fg') {
+            setEmployeesLoading(false);
+            return () => {
+                isActive = false;
+            };
+        }
+
         setEmployeesLoading(true);
         EmpresasService.getAllEmpresas()
             .then(empresas => {
@@ -1782,6 +1970,35 @@ export function FondoSection({
             })
             .finally(() => {
                 if (isActive) setEmployeesLoading(false);
+            });
+
+        return () => {
+            isActive = false;
+        };
+    }, [company, namespace]);
+
+    // Load company data to check ownerId for delete permissions
+    useEffect(() => {
+        let isActive = true;
+        setCompanyData(null);
+
+        if (!company) {
+            return () => {
+                isActive = false;
+            };
+        }
+
+        EmpresasService.getAllEmpresas()
+            .then(empresas => {
+                if (!isActive) return;
+                const match = empresas.find(emp => emp.name?.toLowerCase() === company.toLowerCase());
+                if (match) {
+                    setCompanyData(match);
+                }
+            })
+            .catch(err => {
+                console.error('Error loading company data:', err);
+                if (isActive) setCompanyData(null);
             });
 
         return () => {
@@ -1859,8 +2076,22 @@ export function FondoSection({
                     } catch {
                         history = [];
                     }
-                    const newRecord = { at: new Date().toISOString(), before: { ...e }, after: { providerCode: selectedProvider, invoiceNumber: paddedInvoice, paymentType, amountEgreso: isEgreso ? egresoValue : 0, amountIngreso: isEgreso ? 0 : ingresoValue, manager, notes: trimmedNotes } };
+
+                    // Validar límite máximo de ediciones
+                    if (history.length >= MAX_AUDIT_EDITS) {
+                        showToast(`No se pueden realizar más de ${MAX_AUDIT_EDITS} ediciones en un mismo movimiento`, 'error');
+                        return e; // No permitir más ediciones
+                    }
+
+                    // Crear registro simplificado con solo los campos que cambiaron
+                    const changedFields = getChangedFields(
+                        { providerCode: e.providerCode, invoiceNumber: e.invoiceNumber, paymentType: e.paymentType, amountEgreso: e.amountEgreso, amountIngreso: e.amountIngreso, manager: e.manager, notes: e.notes, currency: e.currency },
+                        { providerCode: selectedProvider, invoiceNumber: paddedInvoice, paymentType, amountEgreso: isEgreso ? egresoValue : 0, amountIngreso: isEgreso ? 0 : ingresoValue, manager, notes: trimmedNotes, currency: movementCurrency }
+                    );
+                    const newRecord = { at: new Date().toISOString(), ...changedFields };
                     history.push(newRecord);
+                    // Comprimir historial para evitar QuotaExceededError
+                    const compressedHistory = compressAuditHistory(history);
                     // keep original createdAt so chronological order and balances are preserved
                     return {
                         ...e,
@@ -1874,7 +2105,7 @@ export function FondoSection({
                         // mark as edited/audited and preserve originalEntryId (point to initial id)
                         isAudit: true,
                         originalEntryId: e.originalEntryId ?? e.id,
-                        auditDetails: JSON.stringify({ history }),
+                        auditDetails: JSON.stringify({ history: compressedHistory }),
                         currency: movementCurrency,
                     } as FondoEntry;
                 });
@@ -1951,7 +2182,44 @@ export function FondoSection({
         setMovementModalOpen(true);
     };
 
+    const isMovementLocked = useCallback((entry: FondoEntry): boolean => {
+        // Los ajustes automáticos siempre están bloqueados
+        if (entry.providerCode === AUTO_ADJUSTMENT_PROVIDER_CODE) {
+            return true;
+        }
+
+        // El bloqueo por cierres solo aplica para Fondo General
+        if (accountKey !== 'FondoGeneral') {
+            return false;
+        }
+
+        // Si no hay snapshot o no hay lockedUntil, no hay bloqueo
+        const lockedUntil = storageSnapshotRef.current?.state?.lockedUntil;
+        console.log('[LOCK-DEBUG] Checking movement', entry.id, 'createdAt:', entry.createdAt, 'lockedUntil:', lockedUntil);
+        if (!lockedUntil) {
+            return false;
+        }
+
+        try {
+            const movementTime = new Date(entry.createdAt).getTime();
+            const lockTime = new Date(lockedUntil).getTime();
+
+            // Bloqueado si el movimiento es anterior o igual al último cierre
+            const isLocked = movementTime <= lockTime;
+            console.log('[LOCK-DEBUG] Movement', entry.id, 'is', isLocked ? 'LOCKED' : 'EDITABLE');
+            return isLocked;
+        } catch {
+            // Si hay error parseando fechas, no bloquear
+            return false;
+        }
+    }, [accountKey]);
+
     const handleEditMovement = (entry: FondoEntry) => {
+        if (isMovementLocked(entry)) {
+            showToast('Este movimiento está bloqueado (anterior al último cierre).', 'info', 5000);
+            return;
+        }
+
         if (entry.providerCode === AUTO_ADJUSTMENT_PROVIDER_CODE) {
             showToast('Los ajustes automáticos no se pueden editar.', 'info', 5000);
             return;
@@ -1990,6 +2258,48 @@ export function FondoSection({
     const cancelEditing = () => {
         resetFondoForm();
     };
+
+    // Check if current user is the principal admin (owner) of the company
+    const isPrincipalAdmin = useMemo(() => {
+        if (!user?.id || !companyData?.ownerId) return false;
+        return String(user.id) === String(companyData.ownerId);
+    }, [user, companyData]);
+
+    const handleDeleteMovement = useCallback((entry: FondoEntry) => {
+        if (!isPrincipalAdmin) {
+            showToast('Solo el administrador principal puede eliminar movimientos', 'error');
+            return;
+        }
+
+        if (isMovementLocked(entry)) {
+            showToast('Este movimiento está bloqueado (anterior al último cierre) y no puede eliminarse.', 'error');
+            return;
+        }
+
+        if (entry.providerCode === AUTO_ADJUSTMENT_PROVIDER_CODE) {
+            showToast('Los ajustes automáticos no se pueden eliminar.', 'error');
+            return;
+        }
+
+        setConfirmDeleteEntry({ open: true, entry });
+    }, [isPrincipalAdmin, isMovementLocked, showToast]);
+
+    const confirmDeleteMovement = useCallback(() => {
+        const entry = confirmDeleteEntry.entry;
+        if (!entry) return;
+
+        // Remove from fondoEntries
+        setFondoEntries(prev => prev.filter(e => e.id !== entry.id));
+
+        // Close modal
+        setConfirmDeleteEntry({ open: false, entry: null });
+
+        showToast('Movimiento eliminado exitosamente', 'success');
+    }, [confirmDeleteEntry, showToast]);
+
+    const cancelDeleteMovement = useCallback(() => {
+        setConfirmDeleteEntry({ open: false, entry: null });
+    }, []);
 
     const isProviderSelectDisabled = !company || providersLoading || providers.length === 0;
     const providersMap = useMemo(() => {
@@ -2111,8 +2421,20 @@ export function FondoSection({
                         : 'FondoGeneral';
                     return storedAccount !== accountKey;
                 });
+
+                // SOLUCIÓN #1: Limitar movimientos en localStorage
+                // Mantener solo los más recientes según MAX_LOCAL_MOVEMENTS
+                const sortedRecentMovements = [...normalizedEntries]
+                    .sort((a, b) => {
+                        const timeA = Date.parse(a.createdAt);
+                        const timeB = Date.parse(b.createdAt);
+                        if (Number.isNaN(timeA) || Number.isNaN(timeB)) return 0;
+                        return timeB - timeA; // Más reciente primero
+                    })
+                    .slice(0, MAX_LOCAL_MOVEMENTS);
+
                 baseStorage.operations = {
-                    movements: [...preservedMovements, ...normalizedEntries],
+                    movements: [...preservedMovements, ...sortedRecentMovements],
                 };
 
                 const stateSnapshot =
@@ -2138,8 +2460,41 @@ export function FondoSection({
                 );
                 stateSnapshot.balancesByAccount = nextAccountBalances;
                 stateSnapshot.updatedAt = new Date().toISOString();
+                // Preservar lockedUntil del snapshot actual si existe
+                if (storageSnapshotRef.current?.state?.lockedUntil) {
+                    stateSnapshot.lockedUntil = storageSnapshotRef.current.state.lockedUntil;
+                    console.log('[LOCK-DEBUG] Preserving lockedUntil in persistEntries:', stateSnapshot.lockedUntil);
+                }
                 baseStorage.state = stateSnapshot;
-                localStorage.setItem(companyKey, JSON.stringify(baseStorage));
+                console.log('[LOCK-DEBUG] baseStorage.state.lockedUntil before save:', baseStorage.state.lockedUntil);
+
+                // Intentar guardar en localStorage con manejo de error
+                try {
+                    localStorage.setItem(companyKey, JSON.stringify(baseStorage));
+                } catch (storageError) {
+                    if (storageError instanceof Error && storageError.name === 'QuotaExceededError') {
+                        console.error('QuotaExceededError: Reduciendo automáticamente el límite de movimientos');
+                        // Si aún falla con 500, intentar con menos movimientos
+                        const emergencyLimit = Math.floor(MAX_LOCAL_MOVEMENTS * 0.6); // 300 movimientos
+                        const reducedMovements = [...normalizedEntries]
+                            .sort((a, b) => {
+                                const timeA = Date.parse(a.createdAt);
+                                const timeB = Date.parse(b.createdAt);
+                                if (Number.isNaN(timeA) || Number.isNaN(timeB)) return 0;
+                                return timeB - timeA;
+                            })
+                            .slice(0, emergencyLimit);
+
+                        baseStorage.operations = {
+                            movements: [...preservedMovements, ...reducedMovements],
+                        };
+
+                        localStorage.setItem(companyKey, JSON.stringify(baseStorage));
+                        console.warn(`Almacenamiento reducido a ${emergencyLimit} movimientos más recientes`);
+                    } else {
+                        throw storageError;
+                    }
+                }
 
                 const legacyKey = buildStorageKey(namespace, FONDO_KEY_SUFFIX);
                 localStorage.removeItem(legacyKey);
@@ -2160,6 +2515,7 @@ export function FondoSection({
             if (!storageToPersist) return;
 
             try {
+                console.log('[LOCK-DEBUG] Saving to Firestore with lockedUntil:', storageToPersist.state?.lockedUntil);
                 await MovimientosFondosService.saveDocument(companyKey, storageToPersist);
             } catch (err) {
                 console.error('Error storing fondo entries to Firestore:', err);
@@ -2356,6 +2712,7 @@ export function FondoSection({
         loadedDailyClosingKeysRef.current.add(closingDateKey);
         loadingDailyClosingKeysRef.current.delete(closingDateKey);
         setDailyClosingsHydrated(true);
+
         setDailyClosingModalOpen(false);
 
         const normalizedCompany = (company || '').trim();
@@ -2566,8 +2923,15 @@ export function FondoSection({
                                 } catch {
                                     history = [];
                                 }
-                                const newRecord = { at: new Date().toISOString(), before: { ...e }, after: { providerCode: e.providerCode, invoiceNumber: match.invoiceNumber, paymentType: match.paymentType, amountEgreso: match.amountEgreso, amountIngreso: match.amountIngreso, manager: AUTO_ADJUSTMENT_MANAGER, notes: match.notes } };
+                                // Crear registro simplificado con solo los campos que cambiaron
+                                const changedFields = getChangedFields(
+                                    { providerCode: e.providerCode, invoiceNumber: e.invoiceNumber, paymentType: e.paymentType, amountEgreso: e.amountEgreso, amountIngreso: e.amountIngreso, manager: e.manager, notes: e.notes, currency: e.currency },
+                                    { providerCode: e.providerCode, invoiceNumber: match.invoiceNumber, paymentType: match.paymentType, amountEgreso: match.amountEgreso, amountIngreso: match.amountIngreso, manager: AUTO_ADJUSTMENT_MANAGER, notes: match.notes, currency: match.currency }
+                                );
+                                const newRecord = { at: new Date().toISOString(), ...changedFields };
                                 history.push(newRecord);
+                                // Comprimir historial para evitar QuotaExceededError
+                                const compressedHistory = compressAuditHistory(history);
                                 return {
                                     ...e,
                                     paymentType: match.paymentType,
@@ -2579,7 +2943,7 @@ export function FondoSection({
                                     manager: AUTO_ADJUSTMENT_MANAGER,
                                     isAudit: true,
                                     originalEntryId: e.originalEntryId ?? e.id,
-                                    auditDetails: JSON.stringify({ history }),
+                                    auditDetails: JSON.stringify({ history: compressedHistory }),
                                 } as FondoEntry;
                             }
                             return e;
@@ -2688,6 +3052,37 @@ export function FondoSection({
             }
         } catch {
             // defensive: ignore
+        }
+
+        // Actualizar lockedUntil DESPUÉS de agregar todos los movimientos
+        // para que persistEntries tenga el estado completo
+        if (storageSnapshotRef.current) {
+            if (!storageSnapshotRef.current.state) {
+                storageSnapshotRef.current.state =
+                    MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(company).state;
+            }
+            // Bloquear hasta la fecha de creación del cierre
+            storageSnapshotRef.current.state.lockedUntil = createdAt;
+            console.log('[LOCK-DEBUG] Setting lockedUntil at end:', createdAt);
+
+            // Persistir inmediatamente para asegurar que se guarde incluso sin movimientos
+            const normalizedCompany = (company || '').trim();
+            if (normalizedCompany.length > 0) {
+                const companyKey = MovimientosFondosService.buildCompanyMovementsKey(normalizedCompany);
+                try {
+                    // Actualizar localStorage
+                    localStorage.setItem(companyKey, JSON.stringify(storageSnapshotRef.current));
+                    console.log('[LOCK-DEBUG] Force saved to localStorage after closing');
+                    // Actualizar Firestore
+                    void MovimientosFondosService.saveDocument(companyKey, storageSnapshotRef.current)
+                        .then(() => console.log('[LOCK-DEBUG] Force saved to Firestore after closing'))
+                        .catch(err => {
+                            console.error('Error force saving lockedUntil to Firestore:', err);
+                        });
+                } catch (err) {
+                    console.error('Error force persisting lockedUntil:', err);
+                }
+            }
         }
 
         // Reset editing state after confirm
@@ -2945,7 +3340,7 @@ export function FondoSection({
     }, [fromFilter, toFilter, filterProviderCode, filterPaymentType, filterEditedOnly, searchQuery]);
 
     const totalsByCurrency = useMemo(() => {
-        const acc: Record<'CRC' | 'USD', { ingreso: number; egreso: number } > = { CRC: { ingreso: 0, egreso: 0 }, USD: { ingreso: 0, egreso: 0 } };
+        const acc: Record<'CRC' | 'USD', { ingreso: number; egreso: number }> = { CRC: { ingreso: 0, egreso: 0 }, USD: { ingreso: 0, egreso: 0 } };
         for (const e of filteredEntries) {
             const cur = (e.currency as 'CRC' | 'USD') || 'CRC';
             const ing = Math.trunc(e.amountIngreso || 0);
@@ -3118,6 +3513,7 @@ export function FondoSection({
                 <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--input-border)] pt-3">
                     <div className="flex flex-1 flex-wrap items-center gap-3 min-w-[260px]">
                         <div className="relative w-full sm:w-auto">
+                            <label className="block text-xs font-medium text-[var(--muted-foreground)] mb-1">Desde</label>
                             <button
                                 type="button"
                                 ref={fromButtonRef}
@@ -3240,6 +3636,7 @@ export function FondoSection({
                         </div>
 
                         <div className="relative w-full sm:w-auto">
+                            <label className="block text-xs font-medium text-[var(--muted-foreground)] mb-1">Hasta</label>
                             <button
                                 type="button"
                                 ref={toButtonRef}
@@ -3363,14 +3760,16 @@ export function FondoSection({
                     </div>
 
                     <div className="flex w-full items-center justify-center gap-2 sm:w-auto">
-                        <button
-                            type="button"
-                            onClick={handleOpenDailyClosing}
-                            className="flex items-center justify-center gap-2 rounded fg-add-mov-btn px-4 py-2 text-white"
-                        >
-                            <Banknote className="w-4 h-4" />
-                            Registrar cierre
-                        </button>
+                        {accountKey === 'FondoGeneral' && (
+                            <button
+                                type="button"
+                                onClick={handleOpenDailyClosing}
+                                className="flex items-center justify-center gap-2 rounded fg-add-mov-btn px-4 py-2 text-white"
+                            >
+                                <Banknote className="w-4 h-4" />
+                                Registrar cierre
+                            </button>
+                        )}
                         <button
                             type="button"
                             onClick={handleOpenCreateMovement}
@@ -3704,18 +4103,43 @@ export function FondoSection({
                                                         const before = h?.before ?? {};
                                                         const after = h?.after ?? {};
                                                         const parts: string[] = [];
-                                                        if (before.providerCode !== after.providerCode) parts.push(`Proveedor: ${before.providerCode} → ${after.providerCode}`);
-                                                        if (before.invoiceNumber !== after.invoiceNumber) parts.push(`Factura: ${before.invoiceNumber} → ${after.invoiceNumber}`);
-                                                        if (before.paymentType !== after.paymentType) parts.push(`Tipo: ${before.paymentType} → ${after.paymentType}`);
-                                                        const beforeAmt = before && before.paymentType ? (isEgresoType(before.paymentType) ? Number(before.amountEgreso || 0) : Number(before.amountIngreso || 0)) : undefined;
-                                                        const afterAmt = after && (after.paymentType ?? before.paymentType) ? (isEgresoType(after.paymentType ?? before.paymentType) ? Number(after.amountEgreso || 0) : Number(after.amountIngreso || 0)) : undefined;
-                                                        const beforeCur = (before && (before.currency as 'CRC' | 'USD')) || entryCurrency || 'CRC';
-                                                        const afterCur = (after && (after.currency as 'CRC' | 'USD')) || entryCurrency || 'CRC';
-                                                        if (typeof beforeAmt === 'number' && typeof afterAmt === 'number' && beforeAmt !== afterAmt) {
+
+                                                        // Con el nuevo formato simplificado, mostramos todos los campos presentes
+                                                        if ('providerCode' in before || 'providerCode' in after) {
+                                                            parts.push(`Proveedor: ${before.providerCode ?? '—'} → ${after.providerCode ?? '—'}`);
+                                                        }
+                                                        if ('invoiceNumber' in before || 'invoiceNumber' in after) {
+                                                            parts.push(`Factura: ${before.invoiceNumber ?? '—'} → ${after.invoiceNumber ?? '—'}`);
+                                                        }
+                                                        if ('paymentType' in before || 'paymentType' in after) {
+                                                            parts.push(`Tipo: ${before.paymentType ?? '—'} → ${after.paymentType ?? '—'}`);
+                                                        }
+
+                                                        // Manejar cambio de moneda
+                                                        if ('currency' in before || 'currency' in after) {
+                                                            const beforeCur = before.currency || entryCurrency || 'CRC';
+                                                            const afterCur = after.currency || entryCurrency || 'CRC';
+                                                            if (beforeCur !== afterCur) {
+                                                                parts.push(`Moneda: ${beforeCur} → ${afterCur}`);
+                                                            }
+                                                        }
+
+                                                        // Manejar montos (pueden estar en amountEgreso o amountIngreso)
+                                                        if ('amountEgreso' in before || 'amountEgreso' in after || 'amountIngreso' in before || 'amountIngreso' in after) {
+                                                            const beforeAmt = Number(before.amountEgreso || before.amountIngreso || 0);
+                                                            const afterAmt = Number(after.amountEgreso || after.amountIngreso || 0);
+                                                            const beforeCur = (before.currency as 'CRC' | 'USD') || entryCurrency || 'CRC';
+                                                            const afterCur = (after.currency as 'CRC' | 'USD') || entryCurrency || 'CRC';
                                                             parts.push(`Monto: ${formatByCurrency(beforeCur, beforeAmt)} → ${formatByCurrency(afterCur, afterAmt)}`);
                                                         }
-                                                        if (before.manager !== after.manager) parts.push(`Encargado: ${before.manager} → ${after.manager}`);
-                                                        if ((before.notes ?? '') !== (after.notes ?? '')) parts.push(`Notas: "${before.notes ?? ''}" → "${after.notes ?? ''}"`);
+
+                                                        if ('manager' in before || 'manager' in after) {
+                                                            parts.push(`Encargado: ${before.manager ?? '—'} → ${after.manager ?? '—'}`);
+                                                        }
+                                                        if ('notes' in before || 'notes' in after) {
+                                                            parts.push(`Notas: "${before.notes ?? ''}" → "${after.notes ?? ''}"`);
+                                                        }
+
                                                         return `${at}: ${parts.join('; ') || 'Editado (sin cambios detectados)'} `;
                                                     });
                                                     auditTooltip = lines.join('\n');
@@ -3727,7 +4151,9 @@ export function FondoSection({
                                             return (
                                                 <tr
                                                     key={fe.id}
-                                                    className={`border-t border-[var(--input-border)] hover:bg-[var(--muted)] ${isMostRecent ? 'bg-[#273238]' : ''}`}
+                                                    className={`border-t border-[var(--input-border)] hover:bg-[var(--muted)] ${isMostRecent ? 'bg-[#273238]' : ''
+                                                        } ${isMovementLocked(fe) ? 'opacity-60' : ''
+                                                        }`}
                                                 >
                                                     <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">{formattedDate}</td>
                                                     <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
@@ -3786,16 +4212,35 @@ export function FondoSection({
                                                     </td>
                                                     <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">{fe.manager}</td>
                                                     <td className="px-3 py-2 align-top">
-                                                        <button
-                                                            type="button"
-                                                            className="inline-flex items-center gap-2 rounded border border-[var(--input-border)] px-3 py-1 text-xs font-medium text-[var(--muted-foreground)] hover:bg-[var(--muted)] disabled:opacity-50"
-                                                            onClick={() => handleEditMovement(fe)}
-                                                            disabled={editingEntryId === fe.id || isAutoAdjustment}
-                                                            title={isAutoAdjustment ? 'Los ajustes automáticos no se pueden editar' : 'Editar movimiento'}
-                                                        >
-                                                            <Pencil className="w-4 h-4" />
-                                                            {editingEntryId === fe.id ? 'Editando' : isAutoAdjustment ? 'Bloqueado' : 'Editar'}
-                                                        </button>
+                                                        {!isMovementLocked(fe) && (
+                                                            <div className="flex items-center gap-2">
+                                                                <button
+                                                                    type="button"
+                                                                    className="inline-flex items-center gap-2 rounded border border-[var(--input-border)] px-3 py-1 text-xs font-medium text-[var(--muted-foreground)] hover:bg-[var(--muted)] disabled:opacity-50"
+                                                                    onClick={() => handleEditMovement(fe)}
+                                                                    disabled={editingEntryId === fe.id}
+                                                                    title={
+                                                                        isAutoAdjustment
+                                                                            ? 'Los ajustes automáticos no se pueden editar'
+                                                                            : 'Editar movimiento'
+                                                                    }
+                                                                >
+                                                                    <Pencil className="w-4 h-4" />
+                                                                    {editingEntryId === fe.id ? 'Editando' : 'Editar'}
+                                                                </button>
+                                                                {isPrincipalAdmin && !isAutoAdjustment && (
+                                                                    <button
+                                                                        type="button"
+                                                                        className="inline-flex items-center gap-2 rounded border border-red-500/50 px-3 py-1 text-xs font-medium text-red-500 hover:bg-red-500/10"
+                                                                        onClick={() => handleDeleteMovement(fe)}
+                                                                        title="Eliminar movimiento (solo admin principal)"
+                                                                    >
+                                                                        <Trash2 className="w-4 h-4" />
+                                                                        Eliminar
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        )}
                                                     </td>
                                                 </tr>
                                             );
@@ -3816,7 +4261,7 @@ export function FondoSection({
                             <div className="px-4 py-3 rounded min-w-[220px] fg-balance-card">
                                 <div className="mb-2 text-center font-semibold text-sm text-[var(--muted-foreground)]">Totales (según búsqueda)</div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    {(['CRC', 'USD'] as ('CRC'|'USD')[]).map(currency => {
+                                    {(['CRC', 'USD'] as ('CRC' | 'USD')[]).map(currency => {
                                         const ingreso = totalsByCurrency[currency].ingreso;
                                         const egreso = totalsByCurrency[currency].egreso;
                                         const neto = ingreso - egreso;
@@ -3869,7 +4314,6 @@ export function FondoSection({
                                 {/* Registrar cierre moved next to 'Agregar movimiento' per UI changes */}
                             </div>
                         )}
-                        {/* Daily closings list intentionally hidden from below-balance area per UX request. Use the "Ver historial" button inside the cierre modal to view history. */}
                     </div>
                 </div>
             </div>
@@ -3928,6 +4372,16 @@ export function FondoSection({
                 loadingEmployees={employeesLoading}
                 currentBalanceCRC={currentBalanceCRC}
                 currentBalanceUSD={currentBalanceUSD}
+            />
+
+            <ConfirmModal
+                open={confirmDeleteEntry.open}
+                title="Eliminar movimiento"
+                message={`¿Está seguro que desea eliminar el movimiento #${confirmDeleteEntry.entry?.invoiceNumber || ''}? Esta acción no se puede deshacer.`}
+                confirmText="Eliminar"
+                onConfirm={confirmDeleteMovement}
+                onCancel={cancelDeleteMovement}
+                actionType="delete"
             />
 
             {dailyClosingHistoryOpen && (

@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { useActorOwnership } from '../../hooks/useActorOwnership';
-import { Calculator, DollarSign, Image, Save, Calendar } from 'lucide-react';
+import { Calculator, DollarSign, Image, Save, Calendar, MapPin, Building2, Users, Filter } from 'lucide-react';
 import { EmpresasService } from '../../services/empresas';
 import useToast from '../../hooks/useToast';
 import ConfirmModal from '../ui/ConfirmModal';
@@ -118,6 +118,16 @@ export default function PayrollExporter({
   const [tempInputValues, setTempInputValues] = useState<{ [key: string]: string }>({});
   const [debounceTimers, setDebounceTimers] = useState<{ [key: string]: NodeJS.Timeout }>({});
   const [ccssConfigs, setCcssConfigs] = useState<{ [empresaName: string]: { tc: number; mt: number; horabruta: number } }>({});
+  const optionStyle = {
+    backgroundColor: 'var(--card-bg)',
+    color: 'var(--foreground)'
+  };
+  const selectedLocationLabel = useMemo(() => {
+    if (selectedLocation === 'all') {
+      return 'Todas las empresas';
+    }
+    return locations.find(loc => loc.value === selectedLocation)?.label || selectedLocation;
+  }, [selectedLocation, locations]);
 
   // Constantes de salario por defecto (fallback)
   const REGULAR_HOURLY_RATE = 1529.62;
@@ -509,6 +519,8 @@ export default function PayrollExporter({
       })
     }));
   }, [payrollData, getEmployeeDeductions, getCcssConfigForEmpresa]);
+  const totalEmployees = useMemo(() => memoizedPayrollCalculations.reduce((sum, loc) => sum + loc.employees.length, 0), [memoizedPayrollCalculations]);
+  const totalCompanies = memoizedPayrollCalculations.length;
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -958,406 +970,454 @@ export default function PayrollExporter({
 
   if (loading) {
     return (
-      <div className="max-w-full mx-auto bg-[var(--card-bg)] rounded-lg shadow p-6">
-        <div className="text-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-          <div className="text-lg text-[var(--foreground)]">Cargando planilla de pago...</div>
+      <div className="max-w-full mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4 sm:p-6">
+        <div className="text-center py-8 sm:py-12">
+          <div className="animate-spin rounded-full h-8 w-8 sm:h-12 sm:w-12 border-b-2 border-green-600 mx-auto mb-3 sm:mb-4"></div>
+          <div className="text-base sm:text-lg text-[var(--foreground)]">Cargando planilla de pago...</div>
+          <div className="text-sm text-[var(--tab-text)] mt-2">Calculando salarios y deducciones</div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-full mx-auto bg-[var(--card-bg)] rounded-lg shadow p-6">
+    <div className="max-w-full mx-auto bg-[var(--card-bg)] rounded-lg shadow p-3 sm:p-6">
       {/* notifications are rendered globally by ToastProvider */}
 
       {/* Header con controles */}
-      <div className="mb-6 flex flex-col lg:flex-row gap-4 items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Calculator className="w-8 h-8 text-green-600" />
-          <div>
-            <h3 className="text-xl font-semibold">Planilla de Pago</h3>
-            <p className="text-sm text-[var(--tab-text)]">
-              Cálculo de salarios por quincena
-            </p>
+      <div className="mb-4 sm:mb-6">
+        <div className="flex flex-col gap-4">
+          {/* Título y descripción */}
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-start sm:items-center justify-between">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <Calculator className="w-6 h-6 sm:w-8 sm:h-8 text-green-600 flex-shrink-0" />
+              <div>
+                <h3 className="text-lg sm:text-xl font-semibold">Planilla de Pago</h3>
+                <p className="text-sm text-[var(--tab-text)]">
+                  Cálculo de salarios por quincena
+                </p>
+              </div>
+            </div>
           </div>
-        </div>        <div className="flex items-center gap-4">
-          {/* Selector de ubicación */}
-          <select
-            value={selectedLocation}
-            onChange={(e) => onLocationChange?.(e.target.value)}
-            className="px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            style={{
-              background: 'var(--input-bg)',
-              border: '1px solid var(--input-border)',
-              color: 'var(--foreground)',
-            }}
-          >
-            <option value="all">Todas las empresas</option>
-            {locations.filter(location => location.value !== 'DELIFOOD').map(location => (
-              <option key={location.value} value={location.value}>
-                {location.label}
-              </option>
-            ))}
-          </select>
 
-          {/* Selector de período - ahora interactivo */}
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-[var(--tab-text)]" />
-            <select
-              value={currentPeriod ? `${currentPeriod.year}-${currentPeriod.month}-${currentPeriod.period}` : ''}
-              onChange={(e) => {
-                if (e.target.value && onPeriodChange) {
-                  const [year, month, period] = e.target.value.split('-');
-                  const selectedPeriod = availablePeriods.find(p =>
-                    p.year === parseInt(year) &&
-                    p.month === parseInt(month) &&
-                    p.period === period
-                  );
-                  if (selectedPeriod) {
-                    onPeriodChange(selectedPeriod);
-                  }
-                }
-              }}
-              className="px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 min-w-[200px]"
-              style={{
-                background: 'var(--input-bg)',
-                border: '1px solid var(--input-border)',
-                color: 'var(--foreground)',
-              }}
-              disabled={!onPeriodChange || availablePeriods.length === 0}
-              title={onPeriodChange ? "Seleccionar quincena para la planilla" : "Período controlado desde la pestaña Horarios"}
-            >
-              {availablePeriods.length === 0 ? (
-                <option value="">Cargando quincenas...</option>
-              ) : (
-                availablePeriods.map((period) => (
-                  <option
-                    key={`${period.year}-${period.month}-${period.period}`}
-                    value={`${period.year}-${period.month}-${period.period}`}
+          {/* Controles - diseño unificado con la pestaña de horarios */}
+          <div className="bg-gray-50/80 dark:bg-gray-900/30 border border-[var(--input-border)] rounded-2xl p-4 sm:p-5 space-y-4 transition-colors">
+            <div className="flex flex-col xl:flex-row gap-3 xl:gap-4 items-stretch">
+              <div className="flex items-center gap-3 flex-1 w-full bg-white/80 dark:bg-gray-900/60 border border-[var(--input-border)] rounded-xl px-3 py-2">
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
+                  <MapPin className="w-5 h-5" />
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--tab-text)]">Empresa</p>
+                  <select
+                    value={selectedLocation}
+                    onChange={(e) => onLocationChange?.(e.target.value)}
+                    disabled={!onLocationChange}
+                    className="w-full bg-transparent text-sm font-medium text-[var(--foreground)] focus:outline-none disabled:text-gray-400 appearance-none"
+                    title={onLocationChange ? 'Seleccionar empresa para la planilla' : 'Selector controlado desde la pestaña principal'}
+                    style={{ backgroundColor: 'transparent' }}
                   >
-                    {period.label}
-                  </option>
-                ))
-              )}
-            </select>
-          </div>
+                    <option value="all" style={optionStyle}>Todas las empresas</option>
+                    {locations.filter(location => location.value !== 'DELIFOOD').map(location => (
+                      <option key={location.value} value={location.value} style={optionStyle}>
+                        {location.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
 
-          {/* Botón de exportar */}
-          <button
-            onClick={exportPayroll}
-            disabled={memoizedPayrollCalculations.length === 0}
-            className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-md flex items-center gap-2 transition-colors"
-            title="Exportar planillas como imágenes"
-          >
-            {/* eslint-disable-next-line jsx-a11y/alt-text */}
-            <Image className="w-4 h-4" />
-            <span className="hidden sm:inline">Exportar Imágenes</span>
-          </button>
+              <div className="grid grid-cols-2 gap-3 w-full xl:w-auto">
+                <div className="flex items-center justify-between bg-white dark:bg-gray-900/60 border border-[var(--input-border)] rounded-xl px-4 py-3">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide font-semibold text-[var(--tab-text)]">Empresas activas</p>
+                    <p className="text-lg font-semibold text-[var(--foreground)]">{totalCompanies}</p>
+                    <p className="text-[11px] text-[var(--tab-text)]">Con datos en la quincena</p>
+                  </div>
+                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-200">
+                    <Building2 className="w-4 h-4" />
+                  </span>
+                </div>
+                <div className="flex items-center justify-between bg-white dark:bg-gray-900/60 border border-[var(--input-border)] rounded-xl px-4 py-3">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide font-semibold text-[var(--tab-text)]">Colaboradores</p>
+                    <p className="text-lg font-semibold text-[var(--foreground)]">{totalEmployees}</p>
+                    <p className="text-[11px] text-[var(--tab-text)]">Listos para exportar</p>
+                  </div>
+                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-100">
+                    <Users className="w-4 h-4" />
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col xl:flex-row gap-3 xl:gap-4 items-stretch">
+              <div className="flex items-center gap-3 flex-1 w-full bg-white/80 dark:bg-gray-900/60 border border-[var(--input-border)] rounded-xl px-3 py-2">
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200">
+                  <Calendar className="w-5 h-5" />
+                </span>
+                <div className="flex-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--tab-text)]">Seleccionar quincena</p>
+                  <select
+                    value={currentPeriod ? `${currentPeriod.year}-${currentPeriod.month}-${currentPeriod.period}` : ''}
+                    onChange={(e) => {
+                      if (e.target.value && onPeriodChange) {
+                        const [year, month, period] = e.target.value.split('-');
+                        const selectedPeriod = availablePeriods.find(p =>
+                          p.year === parseInt(year) &&
+                          p.month === parseInt(month) &&
+                          p.period === period
+                        );
+                        if (selectedPeriod) {
+                          onPeriodChange(selectedPeriod);
+                        }
+                      }
+                    }}
+                    className="w-full bg-transparent text-sm font-medium text-[var(--foreground)] focus:outline-none disabled:text-gray-400 appearance-none"
+                    disabled={!onPeriodChange || availablePeriods.length === 0}
+                    title={onPeriodChange ? 'Seleccionar quincena para la planilla' : 'Período controlado desde la pestaña Horarios'}
+                    style={{ backgroundColor: 'transparent' }}
+                  >
+                    {availablePeriods.length === 0 ? (
+                      <option value="" style={optionStyle}>Cargando quincenas...</option>
+                    ) : (
+                      availablePeriods.map((period) => (
+                        <option
+                          key={`${period.year}-${period.month}-${period.period}`}
+                          value={`${period.year}-${period.month}-${period.period}`}
+                          style={optionStyle}
+                        >
+                          {period.label}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 bg-white dark:bg-gray-900/70 border border-[var(--input-border)] rounded-xl px-4 py-3 w-full xl:w-auto">
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-100">
+                  <Filter className="w-5 h-5" />
+                </span>
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--tab-text)]">Resumen del filtro</p>
+                  <p className="text-sm font-semibold text-[var(--foreground)]">
+                    {selectedLocation === 'all' ? 'Mostrando todas las empresas' : selectedLocationLabel}
+                  </p>
+                  <p className="text-xs text-[var(--tab-text)]">
+                    {currentPeriod?.label ? `Período ${currentPeriod.label}` : 'Selecciona una quincena para ver datos'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col lg:flex-row gap-3 lg:gap-4 items-stretch">
+              <div className="flex flex-wrap justify-end gap-2 w-full lg:w-auto">
+                <button
+                  onClick={exportPayroll}
+                  disabled={memoizedPayrollCalculations.length === 0}
+                  className="flex-1 sm:flex-none px-4 py-3 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 transition-all shadow-sm flex items-center justify-center gap-2 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed"
+                  title="Exportar planillas como imágenes"
+                >
+                  <Image className="w-4 h-4" />
+                  <span className="hidden sm:inline">Exportar Imágenes</span>
+                  <span className="sm:hidden">Exportar</span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Contenido de planilla */}
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {memoizedPayrollCalculations.map((locationData, locationIndex) => (
-          <div key={locationIndex} className="border border-[var(--input-border)] rounded-lg p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-lg font-semibold flex items-center gap-2">
-                <DollarSign className="w-5 h-5" />
-                {locationData.location.label}
-              </h4>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-[var(--tab-text)]">
-                  {locationData.employees.length} empleado{locationData.employees.length !== 1 ? 's' : ''}
-                </span>
-                <button
-                  onClick={() => savePayrollRecordsForLocation(locationData.location.value, locationData.employees as EnhancedEmployeePayrollData[])}
-                  className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md flex items-center gap-2 transition-colors"
-                  title={`Guardar todos los registros de ${locationData.location.label}`}
-                >
-                  <Save className="w-4 h-4" />
-                  Guardar Registros
-                </button>
+          <div key={locationIndex} className="border border-[var(--input-border)] rounded-lg overflow-hidden">
+            <div className="bg-gray-50 dark:bg-gray-800/50 px-4 py-3 sm:px-6 sm:py-4 border-b border-[var(--input-border)]">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
+                <h4 className="text-base sm:text-lg font-semibold flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
+                  <span className="truncate">{locationData.location.label}</span>
+                </h4>
+                <div className="flex flex-col xs:flex-row xs:items-center gap-2 xs:gap-4">
+                  <span className="text-sm text-[var(--tab-text)]">
+                    {locationData.employees.length} empleado{locationData.employees.length !== 1 ? 's' : ''}
+                  </span>
+                  <button
+                    onClick={() => savePayrollRecordsForLocation(locationData.location.value, locationData.employees as EnhancedEmployeePayrollData[])}
+                    className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md flex items-center justify-center gap-2 transition-colors whitespace-nowrap"
+                    title={`Guardar todos los registros de ${locationData.location.label}`}
+                  >
+                    <Save className="w-4 h-4" />
+                    <span className="hidden sm:inline">Guardar Registros</span>
+                    <span className="sm:hidden">Guardar</span>
+                  </button>
+                </div>
               </div>
             </div>
 
             {locationData.employees.length === 0 ? (
-              <div className="text-center py-8 text-[var(--tab-text)]">
-                <Calculator className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <p>No hay datos de planilla para este período</p>
-              </div>) : (<div className="space-y-6">                {locationData.employees.map((employee, empIndex) => {
-                // Usar los valores precalculados
-                const {
-                  regularTotal,
-                  overtimeTotal,
-                  totalIncome,
-                  ccssAmount,
-                  totalDeductions,
-                  finalNetSalary
-                } = employee;
+              <div className="text-center py-8 sm:py-12 text-[var(--tab-text)]">
+                <Calculator className="w-8 h-8 sm:w-12 sm:h-12 mx-auto mb-3 opacity-50" />
+                <p className="text-sm sm:text-base">No hay datos de planilla para este período</p>
+              </div>
+            ) : (
+              <div className="space-y-4 sm:space-y-6 p-3 sm:p-6">
+                {locationData.employees.map((employee, empIndex) => {
+                  // Usar los valores precalculados
+                  const {
+                    regularTotal,
+                    overtimeTotal,
+                    totalIncome,
+                    ccssAmount,
+                    totalDeductions,
+                    finalNetSalary
+                  } = employee;
 
-                return (
-                  <div key={empIndex} className="overflow-x-auto">
-                    <table className="w-full border-collapse border border-[var(--input-border)]">
-                      <thead>
-                        <tr>
-                          <th className="border border-[var(--input-border)] p-2 font-semibold text-center bg-[var(--input-bg)]">
+                  return (
+                    <div key={empIndex} className="border border-[var(--input-border)] rounded-lg overflow-hidden">
+                      {/* Header del empleado */}
+                      <div className="bg-blue-50 dark:bg-blue-900/20 px-4 py-3 border-b border-[var(--input-border)]">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
+                          <h5 className="text-base sm:text-lg font-semibold text-blue-900 dark:text-blue-200">
                             {employee.employeeName}
-                          </th>
-                          <th className="border border-[var(--input-border)] p-2 font-semibold text-center bg-[var(--input-bg)]">
-                            MES:
-                          </th>
-                          <th className="border border-[var(--input-border)] p-2 font-semibold text-center bg-[var(--input-bg)]">
-                            {new Date().toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
-                          </th>
-                          <th className="border border-[var(--input-border)] p-2 font-semibold text-center bg-[var(--input-bg)]">
-                            Quincena:
-                          </th>
-                          <th className="border border-[var(--input-border)] p-2 font-semibold text-center bg-[var(--input-bg)]">
-                            {currentPeriod ? `${currentPeriod.start.getDate()}-${currentPeriod.end.getDate()}` : 'NumeroQuincenaActual'}
-                          </th>
-                          <th className="border border-[var(--input-border)] p-2 font-semibold text-center bg-[var(--input-bg)]">
+                          </h5>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => savePayrollRecord(employee, locationData.location.value)}
+                              className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md flex items-center gap-2 transition-colors"
+                              title={`Guardar registro de ${employee.employeeName}`}
+                            >
+                              <Save className="w-4 h-4" />
+                              <span className="hidden sm:inline">Guardar</span>
+                            </button>
+                            <button
+                              onClick={() => exportIndividualEmployee(employee, locationData.location.value)}
+                              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md flex items-center gap-2 transition-colors"
+                              title={`Exportar planilla de ${employee.employeeName}`}
+                            >
+                              <Image className="w-4 h-4" />
+                              <span className="hidden sm:inline">Exportar</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
 
-                          </th>
-                        </tr>
-                        <tr>
-                          <th className="border border-[var(--input-border)] p-2 text-xs bg-gray-50 dark:bg-gray-800"></th>
-                          <th className="border border-[var(--input-border)] p-2 text-xs bg-gray-50 dark:bg-gray-800">
-                            DiasLaborados
-                          </th>
-                          <th className="border border-[var(--input-border)] p-2 text-xs bg-gray-50 dark:bg-gray-800">
-                            H/D
-                          </th>
-                          <th className="border border-[var(--input-border)] p-2 text-xs bg-gray-50 dark:bg-gray-800">
-                            H/T
-                          </th>
-                          <th className="border border-[var(--input-border)] p-2 text-xs bg-gray-50 dark:bg-gray-800">
-                            S/H
-                          </th>
-                          <th className="border border-[var(--input-border)] p-2 text-xs bg-gray-50 dark:bg-gray-800">
-                            T/S
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {/* Fila de HorasOrdinarias */}
-                        <tr className="bg-blue-50 dark:bg-blue-900/20">
-                          <td className="border border-[var(--input-border)] p-2 font-medium">
-                            HorasOrdinarias
-                          </td>
-                          <td className="border border-[var(--input-border)] p-2 text-center">
-                            {employee.totalWorkDays}
-                          </td>
-                          <td className="border border-[var(--input-border)] p-2 text-center">
-                            {employee.hoursPerDay}
-                          </td>
-                          <td className="border border-[var(--input-border)] p-2 text-center">
-                            {employee.totalHours}
-                          </td>
-                          <td className="border border-[var(--input-border)] p-2 text-center">
-                            {employee.regularSalary.toLocaleString('es-CR', { minimumFractionDigits: 2 })}
-                          </td>
-                          <td className="border border-[var(--input-border)] p-2 text-center font-semibold">
-                            {regularTotal.toLocaleString('es-CR', { minimumFractionDigits: 2 })}
-                          </td>
-                        </tr>
-                        {/* Fila de HorasExtras */}
-                        <tr className="bg-orange-50 dark:bg-orange-900/20">
-                          <td className="border border-[var(--input-border)] p-2 font-medium">
-                            HorasExtras
-                          </td>
-                          <td className="border border-[var(--input-border)] p-2 text-center">
-                          </td>
-                          <td className="border border-[var(--input-border)] p-2 text-center">
-                          </td>
-                          <td className="border border-[var(--input-border)] p-2 text-center">
-                            {employee.overtimeHours}
-                          </td>
-                          <td className="border border-[var(--input-border)] p-2 text-center">
-                            {(employee.regularSalary * 1.5).toLocaleString('es-CR', { minimumFractionDigits: 2 })}
-                          </td>
-                          <td className="border border-[var(--input-border)] p-2 text-center font-semibold">
-                            {overtimeTotal.toLocaleString('es-CR', { minimumFractionDigits: 2 })}
-                          </td>
-                        </tr>
+                      {/* Tabla de planilla */}
+                      <div className="overflow-x-auto">
+                        <div className="min-w-full">
+                          <table className="w-full border-collapse">
+                            <thead>
+                              <tr>
+                                <th className="border-b border-r border-[var(--input-border)] p-2 sm:p-3 font-semibold text-left bg-gray-50 dark:bg-gray-800/50 min-w-[140px]">
+                                  Concepto
+                                </th>
+                                <th className="border-b border-r border-[var(--input-border)] p-2 sm:p-3 font-semibold text-center bg-gray-50 dark:bg-gray-800/50 min-w-[80px]">
+                                  Días
+                                </th>
+                                <th className="border-b border-r border-[var(--input-border)] p-2 sm:p-3 font-semibold text-center bg-gray-50 dark:bg-gray-800/50 min-w-[60px]">
+                                  H/D
+                                </th>
+                                <th className="border-b border-r border-[var(--input-border)] p-2 sm:p-3 font-semibold text-center bg-gray-50 dark:bg-gray-800/50 min-w-[60px]">
+                                  H/T
+                                </th>
+                                <th className="border-b border-r border-[var(--input-border)] p-2 sm:p-3 font-semibold text-center bg-gray-50 dark:bg-gray-800/50 min-w-[80px]">
+                                  S/H
+                                </th>
+                                <th className="border-b border-[var(--input-border)] p-2 sm:p-3 font-semibold text-center bg-gray-50 dark:bg-gray-800/50 min-w-[100px]">
+                                  Total
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {/* Fila de Horas Ordinarias */}
+                              <tr className="bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30">
+                                <td className="border-b border-r border-[var(--input-border)] p-2 sm:p-3 font-medium text-sm sm:text-base">
+                                  Horas Ordinarias
+                                </td>
+                                <td className="border-b border-r border-[var(--input-border)] p-2 sm:p-3 text-center text-sm sm:text-base">
+                                  {employee.totalWorkDays}
+                                </td>
+                                <td className="border-b border-r border-[var(--input-border)] p-2 sm:p-3 text-center text-sm sm:text-base">
+                                  {employee.hoursPerDay}
+                                </td>
+                                <td className="border-b border-r border-[var(--input-border)] p-2 sm:p-3 text-center text-sm sm:text-base">
+                                  {employee.totalHours}
+                                </td>
+                                <td className="border-b border-r border-[var(--input-border)] p-2 sm:p-3 text-center text-sm sm:text-base">
+                                  ₡{employee.regularSalary.toLocaleString('es-CR', { minimumFractionDigits: 2 })}
+                                </td>
+                                <td className="border-b border-[var(--input-border)] p-2 sm:p-3 text-center font-semibold text-sm sm:text-base">
+                                  ₡{regularTotal.toLocaleString('es-CR', { minimumFractionDigits: 2 })}
+                                </td>
+                              </tr>
 
-                        {/* Fila de Monto Extra */}
-                        <tr className="bg-green-50 dark:bg-green-900/20">
-                          <td className="border border-[var(--input-border)] p-2 font-medium">
-                            Monto Extra
-                          </td>
-                          <td className="border border-[var(--input-border)] p-2 text-center"></td>
-                          <td className="border border-[var(--input-border)] p-2 text-center"></td>
-                          <td className="border border-[var(--input-border)] p-2 text-center"></td>
-                          <td className="border border-[var(--input-border)] p-2 text-center"></td>
-                          <td className="border border-[var(--input-border)] p-2 text-center">
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={getTempInputValue(locationData.location.value, employee.employeeName, 'extraAmount') || employee.finalExtraAmount.toString()}
-                              onChange={(e) => updateDeduction(locationData.location.value, employee.employeeName, 'extraAmount', e.target.value)}
-                              className="w-full text-center border-none bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-1 font-semibold"
-                              style={{
-                                background: 'var(--input-bg)',
-                                color: 'var(--foreground)',
-                              }}
-                              placeholder="0.00"
-                            />
-                          </td>
-                        </tr>
+                              {/* Fila de Horas Extras */}
+                              <tr className="bg-orange-50 dark:bg-orange-900/20 hover:bg-orange-100 dark:hover:bg-orange-900/30">
+                                <td className="border-b border-r border-[var(--input-border)] p-2 sm:p-3 font-medium text-sm sm:text-base">
+                                  Horas Extras
+                                </td>
+                                <td className="border-b border-r border-[var(--input-border)] p-2 sm:p-3 text-center text-sm sm:text-base">
+                                  -
+                                </td>
+                                <td className="border-b border-r border-[var(--input-border)] p-2 sm:p-3 text-center text-sm sm:text-base">
+                                  -
+                                </td>
+                                <td className="border-b border-r border-[var(--input-border)] p-2 sm:p-3 text-center text-sm sm:text-base">
+                                  {employee.overtimeHours}
+                                </td>
+                                <td className="border-b border-r border-[var(--input-border)] p-2 sm:p-3 text-center text-sm sm:text-base">
+                                  ₡{(employee.regularSalary * 1.5).toLocaleString('es-CR', { minimumFractionDigits: 2 })}
+                                </td>
+                                <td className="border-b border-[var(--input-border)] p-2 sm:p-3 text-center font-semibold text-sm sm:text-base">
+                                  ₡{overtimeTotal.toLocaleString('es-CR', { minimumFractionDigits: 2 })}
+                                </td>
+                              </tr>
 
-                        {/* Fila de INGRESOS TOTALES */}
-                        <tr className="bg-green-100 dark:bg-green-900/30 border-t-2 border-green-600">
-                          <td className="border border-[var(--input-border)] p-2 font-bold text-green-800 dark:text-green-200">
-                            INGRESOS TOTALES
-                          </td>
-                          <td className="border border-[var(--input-border)] p-2"></td>
-                          <td className="border border-[var(--input-border)] p-2"></td>
-                          <td className="border border-[var(--input-border)] p-2"></td>
-                          <td className="border border-[var(--input-border)] p-2"></td>
-                          <td className="border border-[var(--input-border)] p-2 text-center font-bold text-green-800 dark:text-green-200 text-lg">
-                            {totalIncome.toLocaleString('es-CR', { minimumFractionDigits: 2 })}
-                          </td>
-                        </tr>
+                              {/* Fila de Monto Extra */}
+                              <tr className="bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30">
+                                <td className="border-b border-r border-[var(--input-border)] p-2 sm:p-3 font-medium text-sm sm:text-base">
+                                  Monto Extra
+                                </td>
+                                <td className="border-b border-r border-[var(--input-border)] p-2 sm:p-3 text-center text-sm sm:text-base" colSpan={4}>
+                                  -
+                                </td>
+                                <td className="border-b border-[var(--input-border)] p-2 sm:p-3 text-center">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={getTempInputValue(locationData.location.value, employee.employeeName, 'extraAmount') || employee.finalExtraAmount.toString()}
+                                    onChange={(e) => updateDeduction(locationData.location.value, employee.employeeName, 'extraAmount', e.target.value)}
+                                    className="w-full text-center border-none bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-1 font-semibold text-sm sm:text-base"
+                                    style={{
+                                      background: 'var(--input-bg)',
+                                      color: 'var(--foreground)',
+                                    }}
+                                    placeholder="0.00"
+                                  />
+                                </td>
+                              </tr>
 
-                        {/* Fila de CCSS */}
-                        <tr className="bg-red-50 dark:bg-red-900/20">
-                          <td className="border border-[var(--input-border)] p-2"></td>
-                          <td className="border border-[var(--input-border)] p-2"></td>
-                          <td className="border border-[var(--input-border)] p-2"></td>
-                          <td className="border border-[var(--input-border)] p-2"></td>
-                          <td className="border border-[var(--input-border)] p-2 font-medium">CCSS</td>
-                          <td className="border border-[var(--input-border)] p-2 text-center font-semibold">
-                            {ccssAmount.toLocaleString('es-CR', { minimumFractionDigits: 2 })}
-                          </td>
-                        </tr>
+                              {/* Fila de INGRESOS TOTALES */}
+                              <tr className="bg-green-100 dark:bg-green-900/30 border-t-2 border-green-600">
+                                <td className="border-b border-r border-[var(--input-border)] p-2 sm:p-3 font-bold text-green-800 dark:text-green-200 text-sm sm:text-base">
+                                  INGRESOS TOTALES
+                                </td>
+                                <td className="border-b border-r border-[var(--input-border)] p-2 sm:p-3" colSpan={4}></td>
+                                <td className="border-b border-[var(--input-border)] p-2 sm:p-3 text-center font-bold text-green-800 dark:text-green-200 text-base sm:text-lg">
+                                  ₡{totalIncome.toLocaleString('es-CR', { minimumFractionDigits: 2 })}
+                                </td>
+                              </tr>
 
-                        {/* COMPRAS - Editable */}
-                        <tr>
-                          <td className="border border-[var(--input-border)] p-2"></td>
-                          <td className="border border-[var(--input-border)] p-2"></td>
-                          <td className="border border-[var(--input-border)] p-2"></td>
-                          <td className="border border-[var(--input-border)] p-2"></td>
-                          <td className="border border-[var(--input-border)] p-2 font-medium">COMPRAS</td>
-                          <td className="border border-[var(--input-border)] p-2 text-center">
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={getTempInputValue(locationData.location.value, employee.employeeName, 'compras')}
-                              onChange={(e) => updateDeduction(locationData.location.value, employee.employeeName, 'compras', e.target.value)}
-                              className="w-full text-center border-none bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-1"
-                              style={{
-                                background: 'var(--input-bg)',
-                                color: 'var(--foreground)',
-                              }}
-                              placeholder="0.00"
-                            />
-                          </td>
-                        </tr>
+                              {/* Fila de CCSS */}
+                              <tr className="bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30">
+                                <td className="border-b border-r border-[var(--input-border)] p-2 sm:p-3 font-medium text-sm sm:text-base">
+                                  CCSS
+                                </td>
+                                <td className="border-b border-r border-[var(--input-border)] p-2 sm:p-3" colSpan={4}></td>
+                                <td className="border-b border-[var(--input-border)] p-2 sm:p-3 text-center font-semibold text-sm sm:text-base">
+                                  ₡{ccssAmount.toLocaleString('es-CR', { minimumFractionDigits: 2 })}
+                                </td>
+                              </tr>
 
-                        {/* ADELANTO - Editable */}
-                        <tr>
-                          <td className="border border-[var(--input-border)] p-2"></td>
-                          <td className="border border-[var(--input-border)] p-2"></td>
-                          <td className="border border-[var(--input-border)] p-2"></td>
-                          <td className="border border-[var(--input-border)] p-2"></td>
-                          <td className="border border-[var(--input-border)] p-2 font-medium">ADELANTO</td>
-                          <td className="border border-[var(--input-border)] p-2 text-center">
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={getTempInputValue(locationData.location.value, employee.employeeName, 'adelanto')}
-                              onChange={(e) => updateDeduction(locationData.location.value, employee.employeeName, 'adelanto', e.target.value)}
-                              className="w-full text-center border-none bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-1"
-                              style={{
-                                background: 'var(--input-bg)',
-                                color: 'var(--foreground)',
-                              }}
-                              placeholder="0.00"
-                            />
-                          </td>
-                        </tr>
+                              {/* COMPRAS - Editable */}
+                              <tr className="hover:bg-gray-50 dark:hover:bg-gray-800/30">
+                                <td className="border-b border-r border-[var(--input-border)] p-2 sm:p-3 font-medium text-sm sm:text-base">
+                                  COMPRAS
+                                </td>
+                                <td className="border-b border-r border-[var(--input-border)] p-2 sm:p-3" colSpan={4}></td>
+                                <td className="border-b border-[var(--input-border)] p-2 sm:p-3 text-center">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={getTempInputValue(locationData.location.value, employee.employeeName, 'compras')}
+                                    onChange={(e) => updateDeduction(locationData.location.value, employee.employeeName, 'compras', e.target.value)}
+                                    className="w-full text-center border-none bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-1 font-semibold text-sm sm:text-base"
+                                    style={{
+                                      background: 'var(--input-bg)',
+                                      color: 'var(--foreground)',
+                                    }}
+                                    placeholder="0.00"
+                                  />
+                                </td>
+                              </tr>
 
-                        {/* OTROS deducciones - Editable */}
-                        <tr>
-                          <td className="border border-[var(--input-border)] p-2"></td>
-                          <td className="border border-[var(--input-border)] p-2"></td>
-                          <td className="border border-[var(--input-border)] p-2"></td>
-                          <td className="border border-[var(--input-border)] p-2"></td>
-                          <td className="border border-[var(--input-border)] p-2 font-medium">OTROS</td>
-                          <td className="border border-[var(--input-border)] p-2 text-center">
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={getTempInputValue(locationData.location.value, employee.employeeName, 'otros')}
-                              onChange={(e) => updateDeduction(locationData.location.value, employee.employeeName, 'otros', e.target.value)}
-                              className="w-full text-center border-none bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-1"
-                              style={{
-                                background: 'var(--input-bg)',
-                                color: 'var(--foreground)',
-                              }}
-                              placeholder="0.00"
-                            />
-                          </td>
-                        </tr>
+                              {/* ADELANTO - Editable */}
+                              <tr className="hover:bg-gray-50 dark:hover:bg-gray-800/30">
+                                <td className="border-b border-r border-[var(--input-border)] p-2 sm:p-3 font-medium text-sm sm:text-base">
+                                  ADELANTO
+                                </td>
+                                <td className="border-b border-r border-[var(--input-border)] p-2 sm:p-3" colSpan={4}></td>
+                                <td className="border-b border-[var(--input-border)] p-2 sm:p-3 text-center">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={getTempInputValue(locationData.location.value, employee.employeeName, 'adelanto')}
+                                    onChange={(e) => updateDeduction(locationData.location.value, employee.employeeName, 'adelanto', e.target.value)}
+                                    className="w-full text-center border-none bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-1 font-semibold text-sm sm:text-base"
+                                    style={{
+                                      background: 'var(--input-bg)',
+                                      color: 'var(--foreground)',
+                                    }}
+                                    placeholder="0.00"
+                                  />
+                                </td>
+                              </tr>
 
-                        {/* Fila de DEDUCCIONESTOTALES */}
-                        <tr className="bg-red-100 dark:bg-red-900/30 border-t-2 border-red-600">
-                          <td className="border border-[var(--input-border)] p-2 font-bold text-red-800 dark:text-red-200">
-                            DEDUCCIONESTOTALES
-                          </td>
-                          <td className="border border-[var(--input-border)] p-2"></td>
-                          <td className="border border-[var(--input-border)] p-2"></td>
-                          <td className="border border-[var(--input-border)] p-2"></td>
-                          <td className="border border-[var(--input-border)] p-2"></td>
-                          <td className="border border-[var(--input-border)] p-2 text-center font-bold text-red-800 dark:text-red-200 text-lg">
-                            {totalDeductions.toLocaleString('es-CR', { minimumFractionDigits: 2 })}
-                          </td>
-                        </tr>
+                              {/* OTROS deducciones - Editable */}
+                              <tr className="hover:bg-gray-50 dark:hover:bg-gray-800/30">
+                                <td className="border-b border-r border-[var(--input-border)] p-2 sm:p-3 font-medium text-sm sm:text-base">
+                                  OTROS
+                                </td>
+                                <td className="border-b border-r border-[var(--input-border)] p-2 sm:p-3" colSpan={4}></td>
+                                <td className="border-b border-[var(--input-border)] p-2 sm:p-3 text-center">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={getTempInputValue(locationData.location.value, employee.employeeName, 'otros')}
+                                    onChange={(e) => updateDeduction(locationData.location.value, employee.employeeName, 'otros', e.target.value)}
+                                    className="w-full text-center border-none bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-1 font-semibold text-sm sm:text-base"
+                                    style={{
+                                      background: 'var(--input-bg)',
+                                      color: 'var(--foreground)',
+                                    }}
+                                    placeholder="0.00"
+                                  />
+                                </td>
+                              </tr>
 
-                        {/* Fila de SALARIO NETO */}
-                        <tr className="bg-yellow-100 dark:bg-yellow-900/30 border-t-4 border-yellow-600">
-                          <td className="border border-[var(--input-border)] p-3 font-bold text-yellow-800 dark:text-yellow-200 text-lg">
-                            SALARIO NETO
-                          </td>
-                          <td className="border border-[var(--input-border)] p-3"></td>
-                          <td className="border border-[var(--input-border)] p-3"></td>
-                          <td className="border border-[var(--input-border)] p-3"></td>
-                          <td className="border border-[var(--input-border)] p-3"></td>
-                          <td className="border border-[var(--input-border)] p-3 text-center font-bold text-yellow-800 dark:text-yellow-200 text-xl">
-                            {finalNetSalary.toLocaleString('es-CR', { minimumFractionDigits: 2 })}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
+                              {/* Fila de DEDUCCIONES TOTALES */}
+                              <tr className="bg-red-100 dark:bg-red-900/30 border-t-2 border-red-600">
+                                <td className="border-b border-r border-[var(--input-border)] p-2 sm:p-3 font-bold text-red-800 dark:text-red-200 text-sm sm:text-base">
+                                  DEDUCCIONES TOTALES
+                                </td>
+                                <td className="border-b border-r border-[var(--input-border)] p-2 sm:p-3" colSpan={4}></td>
+                                <td className="border-b border-[var(--input-border)] p-2 sm:p-3 text-center font-bold text-red-800 dark:text-red-200 text-base sm:text-lg">
+                                  ₡{totalDeductions.toLocaleString('es-CR', { minimumFractionDigits: 2 })}
+                                </td>
+                              </tr>
 
-                    {/* Botones de acción */}
-                    <div className="mt-3 flex justify-end gap-2">
-                      <button
-                        onClick={() => savePayrollRecord(employee, locationData.location.value)}
-                        className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md flex items-center gap-2 transition-colors"
-                        title={`Guardar registro de ${employee.employeeName}`}
-                      >
-                        <Save className="w-4 h-4" />
-                        Guardar Registro
-                      </button>
-                      <button
-                        onClick={() => exportIndividualEmployee(employee, locationData.location.value)}
-                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md flex items-center gap-2 transition-colors"
-                        title={`Exportar planilla de ${employee.employeeName}`}
-                      >
-                        {/* eslint-disable-next-line jsx-a11y/alt-text */}
-                        <Image className="w-4 h-4" />
-                        Exportar Planilla
-                      </button>
+                              {/* Fila de SALARIO NETO */}
+                              <tr className="bg-yellow-100 dark:bg-yellow-900/30 border-t-4 border-yellow-600">
+                                <td className="border-b border-r border-[var(--input-border)] p-3 font-bold text-yellow-800 dark:text-yellow-200 text-base sm:text-lg">
+                                  SALARIO NETO
+                                </td>
+                                <td className="border-b border-r border-[var(--input-border)] p-3" colSpan={4}></td>
+                                <td className="border-b border-[var(--input-border)] p-3 text-center font-bold text-yellow-800 dark:text-yellow-200 text-lg sm:text-xl">
+                                  ₡{finalNetSalary.toLocaleString('es-CR', { minimumFractionDigits: 2 })}
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1370,19 +1430,19 @@ export default function PayrollExporter({
         height={540}
         style={{ display: 'none' }}
       />
-        <ConfirmModal
-          open={confirmModal.open}
-          title={confirmModal.title}
-          message={confirmModal.message}
-          confirmText="Guardar"
-          cancelText="Cancelar"
-          singleButton={confirmModal.singleButton}
-          singleButtonText={confirmModal.singleButtonText}
-          loading={confirmModal.loading}
-          onConfirm={handleConfirm}
-          onCancel={closeConfirmModal}
-          actionType="assign"
-        />
+      <ConfirmModal
+        open={confirmModal.open}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText="Guardar"
+        cancelText="Cancelar"
+        singleButton={confirmModal.singleButton}
+        singleButtonText={confirmModal.singleButtonText}
+        loading={confirmModal.loading}
+        onConfirm={handleConfirm}
+        onCancel={closeConfirmModal}
+        actionType="assign"
+      />
     </div>
   );
 };
