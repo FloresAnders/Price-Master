@@ -51,6 +51,12 @@ import { UsersService } from '../../../services/users';
 import AgregarMovimiento from './AgregarMovimiento';
 import DailyClosingModal, { DailyClosingFormValues } from './DailyClosingModal';
 import { useActorOwnership } from '../../../hooks/useActorOwnership';
+
+// Límite de movimientos almacenados en localStorage para evitar QuotaExceededError
+const MAX_LOCAL_MOVEMENTS = 500;
+// Límite máximo de ediciones permitidas por movimiento
+const MAX_AUDIT_EDITS = 5;
+
 export const FONDO_INGRESO_TYPES = ['VENTAS', 'OTROS INGRESOS'] as const;
 
 export const FONDO_GASTO_TYPES = [
@@ -151,6 +157,76 @@ export type FondoEntry = {
     isAudit?: boolean;
     originalEntryId?: string;
     auditDetails?: string;
+};
+
+/**
+ * Simplifica un registro de auditoría guardando solo los campos que cambiaron.
+ * @param before Estado anterior del movimiento
+ * @param after Estado nuevo del movimiento
+ * @returns Objeto con solo los campos modificados
+ */
+const getChangedFields = (before: any, after: any): { before: Record<string, any>, after: Record<string, any> } => {
+    const changed: { before: Record<string, any>, after: Record<string, any> } = { before: {}, after: {} };
+    
+    // Campos relevantes a comparar
+    const fieldsToCheck = ['providerCode', 'invoiceNumber', 'paymentType', 'amountEgreso', 'amountIngreso', 'manager', 'notes', 'currency'];
+    
+    fieldsToCheck.forEach(field => {
+        const beforeVal = before[field];
+        const afterVal = after[field];
+        
+        // Solo guardar si el campo realmente cambió
+        if (beforeVal !== afterVal) {
+            changed.before[field] = beforeVal;
+            changed.after[field] = afterVal;
+        }
+    });
+    
+    return changed;
+};
+
+/**
+ * Comprime el historial de auditoría para evitar que auditDetails crezca demasiado.
+ * Mantiene máximo 5 registros: el primero (creación), el último (más reciente) y 3 intermedios espaciados.
+ * @param history Array completo del historial de auditoría
+ * @returns Array comprimido del historial
+ */
+const compressAuditHistory = (history: any[]): any[] => {
+    if (!Array.isArray(history) || history.length <= 5) {
+        return history;
+    }
+
+    const compressed: any[] = [];
+    const first = history[0];
+    const last = history[history.length - 1];
+    
+    // Siempre mantener el primero
+    compressed.push(first);
+    
+    // Si hay más de 5 registros, seleccionar 3 intermedios espaciados uniformemente
+    if (history.length > 5) {
+        const middleCount = 3;
+        const step = Math.floor((history.length - 2) / (middleCount + 1));
+        
+        for (let i = 1; i <= middleCount; i++) {
+            const index = step * i;
+            if (index < history.length - 1 && index > 0) {
+                compressed.push(history[index]);
+            }
+        }
+    } else {
+        // Si hay entre 2 y 5, mantener todos los intermedios
+        for (let i = 1; i < history.length - 1; i++) {
+            compressed.push(history[i]);
+        }
+    }
+    
+    // Siempre mantener el último
+    if (history.length > 1) {
+        compressed.push(last);
+    }
+    
+    return compressed;
 };
 
 const FONDO_KEY_SUFFIX = '_fondos_v1';
@@ -1948,8 +2024,22 @@ export function FondoSection({
                     } catch {
                         history = [];
                     }
-                    const newRecord = { at: new Date().toISOString(), before: { ...e }, after: { providerCode: selectedProvider, invoiceNumber: paddedInvoice, paymentType, amountEgreso: isEgreso ? egresoValue : 0, amountIngreso: isEgreso ? 0 : ingresoValue, manager, notes: trimmedNotes, currency: movementCurrency } };
+                    
+                    // Validar límite máximo de ediciones
+                    if (history.length >= MAX_AUDIT_EDITS) {
+                        showToast(`No se pueden realizar más de ${MAX_AUDIT_EDITS} ediciones en un mismo movimiento`, 'error');
+                        return e; // No permitir más ediciones
+                    }
+                    
+                    // Crear registro simplificado con solo los campos que cambiaron
+                    const changedFields = getChangedFields(
+                        { providerCode: e.providerCode, invoiceNumber: e.invoiceNumber, paymentType: e.paymentType, amountEgreso: e.amountEgreso, amountIngreso: e.amountIngreso, manager: e.manager, notes: e.notes, currency: e.currency },
+                        { providerCode: selectedProvider, invoiceNumber: paddedInvoice, paymentType, amountEgreso: isEgreso ? egresoValue : 0, amountIngreso: isEgreso ? 0 : ingresoValue, manager, notes: trimmedNotes, currency: movementCurrency }
+                    );
+                    const newRecord = { at: new Date().toISOString(), ...changedFields };
                     history.push(newRecord);
+                    // Comprimir historial para evitar QuotaExceededError
+                    const compressedHistory = compressAuditHistory(history);
                     // keep original createdAt so chronological order and balances are preserved
                     return {
                         ...e,
@@ -1963,7 +2053,7 @@ export function FondoSection({
                         // mark as edited/audited and preserve originalEntryId (point to initial id)
                         isAudit: true,
                         originalEntryId: e.originalEntryId ?? e.id,
-                        auditDetails: JSON.stringify({ history }),
+                        auditDetails: JSON.stringify({ history: compressedHistory }),
                         currency: movementCurrency,
                     } as FondoEntry;
                 });
@@ -2200,8 +2290,20 @@ export function FondoSection({
                         : 'FondoGeneral';
                     return storedAccount !== accountKey;
                 });
+                
+                // SOLUCIÓN #1: Limitar movimientos en localStorage
+                // Mantener solo los más recientes según MAX_LOCAL_MOVEMENTS
+                const sortedRecentMovements = [...normalizedEntries]
+                    .sort((a, b) => {
+                        const timeA = Date.parse(a.createdAt);
+                        const timeB = Date.parse(b.createdAt);
+                        if (Number.isNaN(timeA) || Number.isNaN(timeB)) return 0;
+                        return timeB - timeA; // Más reciente primero
+                    })
+                    .slice(0, MAX_LOCAL_MOVEMENTS);
+
                 baseStorage.operations = {
-                    movements: [...preservedMovements, ...normalizedEntries],
+                    movements: [...preservedMovements, ...sortedRecentMovements],
                 };
 
                 const stateSnapshot =
@@ -2228,7 +2330,34 @@ export function FondoSection({
                 stateSnapshot.balancesByAccount = nextAccountBalances;
                 stateSnapshot.updatedAt = new Date().toISOString();
                 baseStorage.state = stateSnapshot;
-                localStorage.setItem(companyKey, JSON.stringify(baseStorage));
+                
+                // Intentar guardar en localStorage con manejo de error
+                try {
+                    localStorage.setItem(companyKey, JSON.stringify(baseStorage));
+                } catch (storageError) {
+                    if (storageError instanceof Error && storageError.name === 'QuotaExceededError') {
+                        console.error('QuotaExceededError: Reduciendo automáticamente el límite de movimientos');
+                        // Si aún falla con 500, intentar con menos movimientos
+                        const emergencyLimit = Math.floor(MAX_LOCAL_MOVEMENTS * 0.6); // 300 movimientos
+                        const reducedMovements = [...normalizedEntries]
+                            .sort((a, b) => {
+                                const timeA = Date.parse(a.createdAt);
+                                const timeB = Date.parse(b.createdAt);
+                                if (Number.isNaN(timeA) || Number.isNaN(timeB)) return 0;
+                                return timeB - timeA;
+                            })
+                            .slice(0, emergencyLimit);
+                        
+                        baseStorage.operations = {
+                            movements: [...preservedMovements, ...reducedMovements],
+                        };
+                        
+                        localStorage.setItem(companyKey, JSON.stringify(baseStorage));
+                        console.warn(`Almacenamiento reducido a ${emergencyLimit} movimientos más recientes`);
+                    } else {
+                        throw storageError;
+                    }
+                }
 
                 const legacyKey = buildStorageKey(namespace, FONDO_KEY_SUFFIX);
                 localStorage.removeItem(legacyKey);
@@ -2655,8 +2784,15 @@ export function FondoSection({
                                 } catch {
                                     history = [];
                                 }
-                                const newRecord = { at: new Date().toISOString(), before: { ...e }, after: { providerCode: e.providerCode, invoiceNumber: match.invoiceNumber, paymentType: match.paymentType, amountEgreso: match.amountEgreso, amountIngreso: match.amountIngreso, manager: AUTO_ADJUSTMENT_MANAGER, notes: match.notes, currency: match.currency } };
+                                // Crear registro simplificado con solo los campos que cambiaron
+                                const changedFields = getChangedFields(
+                                    { providerCode: e.providerCode, invoiceNumber: e.invoiceNumber, paymentType: e.paymentType, amountEgreso: e.amountEgreso, amountIngreso: e.amountIngreso, manager: e.manager, notes: e.notes, currency: e.currency },
+                                    { providerCode: e.providerCode, invoiceNumber: match.invoiceNumber, paymentType: match.paymentType, amountEgreso: match.amountEgreso, amountIngreso: match.amountIngreso, manager: AUTO_ADJUSTMENT_MANAGER, notes: match.notes, currency: match.currency }
+                                );
+                                const newRecord = { at: new Date().toISOString(), ...changedFields };
                                 history.push(newRecord);
+                                // Comprimir historial para evitar QuotaExceededError
+                                const compressedHistory = compressAuditHistory(history);
                                 return {
                                     ...e,
                                     paymentType: match.paymentType,
@@ -2668,7 +2804,7 @@ export function FondoSection({
                                     manager: AUTO_ADJUSTMENT_MANAGER,
                                     isAudit: true,
                                     originalEntryId: e.originalEntryId ?? e.id,
-                                    auditDetails: JSON.stringify({ history }),
+                                    auditDetails: JSON.stringify({ history: compressedHistory }),
                                 } as FondoEntry;
                             }
                             return e;
@@ -3793,18 +3929,43 @@ export function FondoSection({
                                                         const before = h?.before ?? {};
                                                         const after = h?.after ?? {};
                                                         const parts: string[] = [];
-                                                        if (before.providerCode !== after.providerCode) parts.push(`Proveedor: ${before.providerCode} → ${after.providerCode}`);
-                                                        if (before.invoiceNumber !== after.invoiceNumber) parts.push(`Factura: ${before.invoiceNumber} → ${after.invoiceNumber}`);
-                                                        if (before.paymentType !== after.paymentType) parts.push(`Tipo: ${before.paymentType} → ${after.paymentType}`);
-                                                        const beforeAmt = before && before.paymentType ? ((isEgresoType(before.paymentType) || isGastoType(before.paymentType)) ? Number(before.amountEgreso || 0) : Number(before.amountIngreso || 0)) : undefined;
-                                                        const afterAmt = after && (after.paymentType ?? before.paymentType) ? ((isEgresoType(after.paymentType ?? before.paymentType) || isGastoType(after.paymentType ?? before.paymentType)) ? Number(after.amountEgreso || 0) : Number(after.amountIngreso || 0)) : undefined;
-                                                        const beforeCur = (before && (before.currency as 'CRC' | 'USD')) || entryCurrency || 'CRC';
-                                                        const afterCur = (after && (after.currency as 'CRC' | 'USD')) || entryCurrency || 'CRC';
-                                                        if (typeof beforeAmt === 'number' && typeof afterAmt === 'number' && (beforeAmt !== afterAmt || beforeCur !== afterCur)) {
+                                                        
+                                                        // Con el nuevo formato simplificado, mostramos todos los campos presentes
+                                                        if ('providerCode' in before || 'providerCode' in after) {
+                                                            parts.push(`Proveedor: ${before.providerCode ?? '—'} → ${after.providerCode ?? '—'}`);
+                                                        }
+                                                        if ('invoiceNumber' in before || 'invoiceNumber' in after) {
+                                                            parts.push(`Factura: ${before.invoiceNumber ?? '—'} → ${after.invoiceNumber ?? '—'}`);
+                                                        }
+                                                        if ('paymentType' in before || 'paymentType' in after) {
+                                                            parts.push(`Tipo: ${before.paymentType ?? '—'} → ${after.paymentType ?? '—'}`);
+                                                        }
+                                                        
+                                                        // Manejar cambio de moneda
+                                                        if ('currency' in before || 'currency' in after) {
+                                                            const beforeCur = before.currency || entryCurrency || 'CRC';
+                                                            const afterCur = after.currency || entryCurrency || 'CRC';
+                                                            if (beforeCur !== afterCur) {
+                                                                parts.push(`Moneda: ${beforeCur} → ${afterCur}`);
+                                                            }
+                                                        }
+                                                        
+                                                        // Manejar montos (pueden estar en amountEgreso o amountIngreso)
+                                                        if ('amountEgreso' in before || 'amountEgreso' in after || 'amountIngreso' in before || 'amountIngreso' in after) {
+                                                            const beforeAmt = Number(before.amountEgreso || before.amountIngreso || 0);
+                                                            const afterAmt = Number(after.amountEgreso || after.amountIngreso || 0);
+                                                            const beforeCur = (before.currency as 'CRC' | 'USD') || entryCurrency || 'CRC';
+                                                            const afterCur = (after.currency as 'CRC' | 'USD') || entryCurrency || 'CRC';
                                                             parts.push(`Monto: ${formatByCurrency(beforeCur, beforeAmt)} → ${formatByCurrency(afterCur, afterAmt)}`);
                                                         }
-                                                        if (before.manager !== after.manager) parts.push(`Encargado: ${before.manager} → ${after.manager}`);
-                                                        if ((before.notes ?? '') !== (after.notes ?? '')) parts.push(`Notas: "${before.notes ?? ''}" → "${after.notes ?? ''}"`);
+                                                        
+                                                        if ('manager' in before || 'manager' in after) {
+                                                            parts.push(`Encargado: ${before.manager ?? '—'} → ${after.manager ?? '—'}`);
+                                                        }
+                                                        if ('notes' in before || 'notes' in after) {
+                                                            parts.push(`Notas: "${before.notes ?? ''}" → "${after.notes ?? ''}"`);
+                                                        }
+                                                        
                                                         return `${at}: ${parts.join('; ') || 'Editado (sin cambios detectados)'} `;
                                                     });
                                                     auditTooltip = lines.join('\n');
