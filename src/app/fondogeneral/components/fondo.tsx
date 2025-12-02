@@ -1351,16 +1351,16 @@ export function FondoSection({
     const [fromFilter, setFromFilter] = useState<string | null>(() => {
         if (typeof window !== 'undefined') {
             const saved = localStorage.getItem('fondogeneral-fromFilter');
-            return (saved !== null && saved !== '') ? saved : dateKeyFromDate(new Date());
+            return saved !== null ? saved : null;
         }
-        return dateKeyFromDate(new Date());
+        return null;
     });
     const [toFilter, setToFilter] = useState<string | null>(() => {
         if (typeof window !== 'undefined') {
             const saved = localStorage.getItem('fondogeneral-toFilter');
-            return (saved !== null && saved !== '') ? saved : dateKeyFromDate(new Date());
+            return saved !== null ? saved : null;
         }
-        return dateKeyFromDate(new Date());
+        return null;
     });
 
     // Advanced filters
