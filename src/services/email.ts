@@ -1,4 +1,5 @@
-import nodemailer from 'nodemailer';
+import { db } from '@/config/firebase';
+import { collection, addDoc, Timestamp } from 'firebase/firestore';
 
 interface EmailAttachment {
   filename: string;
@@ -16,74 +17,42 @@ interface EmailOptions {
 }
 
 export class EmailService {
-  private static createTransporter() {
-    return nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_APP_PASSWORD,
-      },
-      pool: true,
-      maxConnections: 1,
-      rateDelta: 20000,
-      rateLimit: 5,
-    });
-  }
-
-  private static getMailOptions(options: EmailOptions) {
-    const { to, subject, text, html, attachments } = options;
-
-    return {
-      from: {
-        name: 'Time Master System',
-        address: process.env.GMAIL_USER || '',
-      },
-      to,
-      subject,
-      text,
-      html: html || `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
-            <h2 style="color: #333; margin-bottom: 20px;">Time Master System</h2>
-            <div style="background-color: white; padding: 20px; border-radius: 6px; border-left: 4px solid #007bff;">
-              ${text.replace(/\n/g, '<br>')}
-            </div>
-            <div style="margin-top: 20px; padding: 15px; background-color: #e9ecef; border-radius: 6px;">
-              <p style="margin: 0; font-size: 12px; color: #6c757d;">
-                Este correo fue enviado desde el sistema Time Master. 
-                Si no esperabas recibir este mensaje, por favor ignóralo.
-              </p>
-            </div>
-          </div>
-        </div>
-      `,
-      attachments: attachments || [],
-      headers: {
-        'X-Priority': '3',
-        'X-MSMail-Priority': 'Normal',
-        'Importance': 'Normal',
-        'X-Mailer': 'Time Master System',
-        'Reply-To': process.env.GMAIL_USER || '',
-      },
-      messageId: `<${Date.now()}.${Math.random().toString(36).substr(2, 9)}@pricemaster.local>`,
-      date: new Date(),
-    };
-  }
-
-  static async sendEmail(options: EmailOptions): Promise<void> {
+  /**
+   * Encola un email en Firestore para que sea procesado por Firebase Functions
+   * Este método reemplaza el envío directo de emails
+   */
+  static async queueEmail(options: EmailOptions): Promise<void> {
     try {
-      // Verificar configuración
-      if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
-        throw new Error('Configuración de email no encontrada en variables de entorno');
+      // Validar datos requeridos
+      if (!options.to || !options.subject || !options.text) {
+        throw new Error('Missing required email fields: to, subject, text');
       }
 
-      const transporter = this.createTransporter();
-      const mailOptions = this.getMailOptions(options);
+      // Preparar datos del email - solo incluir campos definidos
+      const emailData: any = {
+        to: options.to,
+        subject: options.subject,
+        text: options.text,
+        createdAt: Timestamp.now(),
+        status: 'pending'
+      };
 
-      await transporter.sendMail(mailOptions);
+      // Solo agregar campos opcionales si están definidos
+      if (options.html !== undefined) {
+        emailData.html = options.html;
+      }
+
+      if (options.attachments !== undefined && options.attachments.length > 0) {
+        emailData.attachments = options.attachments;
+      }
+
+      // Guardar en Firestore - esto disparará la Cloud Function
+      await addDoc(collection(db, 'emails'), emailData);
+
+      console.log('✅ Email queued successfully for:', options.to);
     } catch (error) {
-      console.error('Error sending email:', error);
-      throw new Error('Failed to send email: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      console.error('❌ Error queueing email:', error);
+      throw new Error('Failed to queue email: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
   }
 
@@ -204,7 +173,7 @@ Si no solicitaste este cambio, ignora este email.
 Time Master System
     `;
 
-    await this.sendEmail({
+    await this.queueEmail({
       to: email,
       subject: 'Recuperación de Contraseña - Time Master',
       text: textContent,
@@ -269,7 +238,7 @@ Cuenta: ${email}
 Time Master System
     `;
 
-    await this.sendEmail({
+    await this.queueEmail({
       to: email,
       subject: 'Contraseña Actualizada - Time Master',
       text: textContent,
