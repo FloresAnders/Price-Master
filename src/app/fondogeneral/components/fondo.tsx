@@ -1948,7 +1948,7 @@ export function FondoSection({
                     } catch {
                         history = [];
                     }
-                    const newRecord = { at: new Date().toISOString(), before: { ...e }, after: { providerCode: selectedProvider, invoiceNumber: paddedInvoice, paymentType, amountEgreso: isEgreso ? egresoValue : 0, amountIngreso: isEgreso ? 0 : ingresoValue, manager, notes: trimmedNotes } };
+                    const newRecord = { at: new Date().toISOString(), before: { ...e }, after: { providerCode: selectedProvider, invoiceNumber: paddedInvoice, paymentType, amountEgreso: isEgreso ? egresoValue : 0, amountIngreso: isEgreso ? 0 : ingresoValue, manager, notes: trimmedNotes, currency: movementCurrency } };
                     history.push(newRecord);
                     // keep original createdAt so chronological order and balances are preserved
                     return {
@@ -2655,7 +2655,7 @@ export function FondoSection({
                                 } catch {
                                     history = [];
                                 }
-                                const newRecord = { at: new Date().toISOString(), before: { ...e }, after: { providerCode: e.providerCode, invoiceNumber: match.invoiceNumber, paymentType: match.paymentType, amountEgreso: match.amountEgreso, amountIngreso: match.amountIngreso, manager: AUTO_ADJUSTMENT_MANAGER, notes: match.notes } };
+                                const newRecord = { at: new Date().toISOString(), before: { ...e }, after: { providerCode: e.providerCode, invoiceNumber: match.invoiceNumber, paymentType: match.paymentType, amountEgreso: match.amountEgreso, amountIngreso: match.amountIngreso, manager: AUTO_ADJUSTMENT_MANAGER, notes: match.notes, currency: match.currency } };
                                 history.push(newRecord);
                                 return {
                                     ...e,
@@ -3034,7 +3034,7 @@ export function FondoSection({
     }, [fromFilter, toFilter, filterProviderCode, filterPaymentType, filterEditedOnly, searchQuery]);
 
     const totalsByCurrency = useMemo(() => {
-        const acc: Record<'CRC' | 'USD', { ingreso: number; egreso: number } > = { CRC: { ingreso: 0, egreso: 0 }, USD: { ingreso: 0, egreso: 0 } };
+        const acc: Record<'CRC' | 'USD', { ingreso: number; egreso: number }> = { CRC: { ingreso: 0, egreso: 0 }, USD: { ingreso: 0, egreso: 0 } };
         for (const e of filteredEntries) {
             const cur = (e.currency as 'CRC' | 'USD') || 'CRC';
             const ing = Math.trunc(e.amountIngreso || 0);
@@ -3796,11 +3796,11 @@ export function FondoSection({
                                                         if (before.providerCode !== after.providerCode) parts.push(`Proveedor: ${before.providerCode} → ${after.providerCode}`);
                                                         if (before.invoiceNumber !== after.invoiceNumber) parts.push(`Factura: ${before.invoiceNumber} → ${after.invoiceNumber}`);
                                                         if (before.paymentType !== after.paymentType) parts.push(`Tipo: ${before.paymentType} → ${after.paymentType}`);
-                                                        const beforeAmt = before && before.paymentType ? (isEgresoType(before.paymentType) ? Number(before.amountEgreso || 0) : Number(before.amountIngreso || 0)) : undefined;
-                                                        const afterAmt = after && (after.paymentType ?? before.paymentType) ? (isEgresoType(after.paymentType ?? before.paymentType) ? Number(after.amountEgreso || 0) : Number(after.amountIngreso || 0)) : undefined;
+                                                        const beforeAmt = before && before.paymentType ? ((isEgresoType(before.paymentType) || isGastoType(before.paymentType)) ? Number(before.amountEgreso || 0) : Number(before.amountIngreso || 0)) : undefined;
+                                                        const afterAmt = after && (after.paymentType ?? before.paymentType) ? ((isEgresoType(after.paymentType ?? before.paymentType) || isGastoType(after.paymentType ?? before.paymentType)) ? Number(after.amountEgreso || 0) : Number(after.amountIngreso || 0)) : undefined;
                                                         const beforeCur = (before && (before.currency as 'CRC' | 'USD')) || entryCurrency || 'CRC';
                                                         const afterCur = (after && (after.currency as 'CRC' | 'USD')) || entryCurrency || 'CRC';
-                                                        if (typeof beforeAmt === 'number' && typeof afterAmt === 'number' && beforeAmt !== afterAmt) {
+                                                        if (typeof beforeAmt === 'number' && typeof afterAmt === 'number' && (beforeAmt !== afterAmt || beforeCur !== afterCur)) {
                                                             parts.push(`Monto: ${formatByCurrency(beforeCur, beforeAmt)} → ${formatByCurrency(afterCur, afterAmt)}`);
                                                         }
                                                         if (before.manager !== after.manager) parts.push(`Encargado: ${before.manager} → ${after.manager}`);
@@ -3905,7 +3905,7 @@ export function FondoSection({
                             <div className="px-4 py-3 rounded min-w-[220px] fg-balance-card">
                                 <div className="mb-2 text-center font-semibold text-sm text-[var(--muted-foreground)]">Totales (según búsqueda)</div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    {(['CRC', 'USD'] as ('CRC'|'USD')[]).map(currency => {
+                                    {(['CRC', 'USD'] as ('CRC' | 'USD')[]).map(currency => {
                                         const ingreso = totalsByCurrency[currency].ingreso;
                                         const egreso = totalsByCurrency[currency].egreso;
                                         const neto = ingreso - egreso;
