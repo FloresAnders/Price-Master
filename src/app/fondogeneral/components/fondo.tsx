@@ -1762,6 +1762,7 @@ export function FondoSection({
                 if (isMounted) {
                     setFondoEntries(resolvedEntries ?? []);
                     if (resolvedState) {
+                        console.log('[LOCK-DEBUG] Loading state with lockedUntil:', resolvedState.lockedUntil);
                         applyLedgerStateFromStorage(resolvedState);
                     }
                 }
@@ -2130,7 +2131,39 @@ export function FondoSection({
         setMovementModalOpen(true);
     };
 
+    const isMovementLocked = useCallback((entry: FondoEntry): boolean => {
+        // Los ajustes automáticos siempre están bloqueados
+        if (entry.providerCode === AUTO_ADJUSTMENT_PROVIDER_CODE) {
+            return true;
+        }
+        
+        // Si no hay snapshot o no hay lockedUntil, no hay bloqueo
+        const lockedUntil = storageSnapshotRef.current?.state?.lockedUntil;
+        console.log('[LOCK-DEBUG] Checking movement', entry.id, 'createdAt:', entry.createdAt, 'lockedUntil:', lockedUntil);
+        if (!lockedUntil) {
+            return false;
+        }
+        
+        try {
+            const movementTime = new Date(entry.createdAt).getTime();
+            const lockTime = new Date(lockedUntil).getTime();
+            
+            // Bloqueado si el movimiento es anterior o igual al último cierre
+            const isLocked = movementTime <= lockTime;
+            console.log('[LOCK-DEBUG] Movement', entry.id, 'is', isLocked ? 'LOCKED' : 'EDITABLE');
+            return isLocked;
+        } catch {
+            // Si hay error parseando fechas, no bloquear
+            return false;
+        }
+    }, []);
+
     const handleEditMovement = (entry: FondoEntry) => {
+        if (isMovementLocked(entry)) {
+            showToast('Este movimiento está bloqueado (anterior al último cierre).', 'info', 5000);
+            return;
+        }
+        
         if (entry.providerCode === AUTO_ADJUSTMENT_PROVIDER_CODE) {
             showToast('Los ajustes automáticos no se pueden editar.', 'info', 5000);
             return;
@@ -2329,7 +2362,13 @@ export function FondoSection({
                 );
                 stateSnapshot.balancesByAccount = nextAccountBalances;
                 stateSnapshot.updatedAt = new Date().toISOString();
+                // Preservar lockedUntil del snapshot actual si existe
+                if (storageSnapshotRef.current?.state?.lockedUntil) {
+                    stateSnapshot.lockedUntil = storageSnapshotRef.current.state.lockedUntil;
+                    console.log('[LOCK-DEBUG] Preserving lockedUntil in persistEntries:', stateSnapshot.lockedUntil);
+                }
                 baseStorage.state = stateSnapshot;
+                console.log('[LOCK-DEBUG] baseStorage.state.lockedUntil before save:', baseStorage.state.lockedUntil);
                 
                 // Intentar guardar en localStorage con manejo de error
                 try {
@@ -2378,6 +2417,7 @@ export function FondoSection({
             if (!storageToPersist) return;
 
             try {
+                console.log('[LOCK-DEBUG] Saving to Firestore with lockedUntil:', storageToPersist.state?.lockedUntil);
                 await MovimientosFondosService.saveDocument(companyKey, storageToPersist);
             } catch (err) {
                 console.error('Error storing fondo entries to Firestore:', err);
@@ -2574,6 +2614,7 @@ export function FondoSection({
         loadedDailyClosingKeysRef.current.add(closingDateKey);
         loadingDailyClosingKeysRef.current.delete(closingDateKey);
         setDailyClosingsHydrated(true);
+        
         setDailyClosingModalOpen(false);
 
         const normalizedCompany = (company || '').trim();
@@ -2913,6 +2954,37 @@ export function FondoSection({
             }
         } catch {
             // defensive: ignore
+        }
+
+        // Actualizar lockedUntil DESPUÉS de agregar todos los movimientos
+        // para que persistEntries tenga el estado completo
+        if (storageSnapshotRef.current) {
+            if (!storageSnapshotRef.current.state) {
+                storageSnapshotRef.current.state = 
+                    MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(company).state;
+            }
+            // Bloquear hasta la fecha de creación del cierre
+            storageSnapshotRef.current.state.lockedUntil = createdAt;
+            console.log('[LOCK-DEBUG] Setting lockedUntil at end:', createdAt);
+            
+            // Persistir inmediatamente para asegurar que se guarde incluso sin movimientos
+            const normalizedCompany = (company || '').trim();
+            if (normalizedCompany.length > 0) {
+                const companyKey = MovimientosFondosService.buildCompanyMovementsKey(normalizedCompany);
+                try {
+                    // Actualizar localStorage
+                    localStorage.setItem(companyKey, JSON.stringify(storageSnapshotRef.current));
+                    console.log('[LOCK-DEBUG] Force saved to localStorage after closing');
+                    // Actualizar Firestore
+                    void MovimientosFondosService.saveDocument(companyKey, storageSnapshotRef.current)
+                        .then(() => console.log('[LOCK-DEBUG] Force saved to Firestore after closing'))
+                        .catch(err => {
+                            console.error('Error force saving lockedUntil to Firestore:', err);
+                        });
+                } catch (err) {
+                    console.error('Error force persisting lockedUntil:', err);
+                }
+            }
         }
 
         // Reset editing state after confirm
@@ -3977,7 +4049,11 @@ export function FondoSection({
                                             return (
                                                 <tr
                                                     key={fe.id}
-                                                    className={`border-t border-[var(--input-border)] hover:bg-[var(--muted)] ${isMostRecent ? 'bg-[#273238]' : ''}`}
+                                                    className={`border-t border-[var(--input-border)] hover:bg-[var(--muted)] ${
+                                                        isMostRecent ? 'bg-[#273238]' : ''
+                                                    } ${
+                                                        isMovementLocked(fe) ? 'opacity-60' : ''
+                                                    }`}
                                                 >
                                                     <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">{formattedDate}</td>
                                                     <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
@@ -4040,11 +4116,24 @@ export function FondoSection({
                                                             type="button"
                                                             className="inline-flex items-center gap-2 rounded border border-[var(--input-border)] px-3 py-1 text-xs font-medium text-[var(--muted-foreground)] hover:bg-[var(--muted)] disabled:opacity-50"
                                                             onClick={() => handleEditMovement(fe)}
-                                                            disabled={editingEntryId === fe.id || isAutoAdjustment}
-                                                            title={isAutoAdjustment ? 'Los ajustes automáticos no se pueden editar' : 'Editar movimiento'}
+                                                            disabled={
+                                                                editingEntryId === fe.id || 
+                                                                isMovementLocked(fe)
+                                                            }
+                                                            title={
+                                                                isMovementLocked(fe)
+                                                                    ? 'Este movimiento está bloqueado (anterior al último cierre)' 
+                                                                    : isAutoAdjustment 
+                                                                        ? 'Los ajustes automáticos no se pueden editar' 
+                                                                        : 'Editar movimiento'
+                                                            }
                                                         >
                                                             <Pencil className="w-4 h-4" />
-                                                            {editingEntryId === fe.id ? 'Editando' : isAutoAdjustment ? 'Bloqueado' : 'Editar'}
+                                                            {editingEntryId === fe.id 
+                                                                ? 'Editando' 
+                                                                : isMovementLocked(fe) 
+                                                                    ? 'Bloqueado' 
+                                                                    : 'Editar'}
                                                         </button>
                                                     </td>
                                                 </tr>
@@ -4119,6 +4208,22 @@ export function FondoSection({
                                 {/* Registrar cierre moved next to 'Agregar movimiento' per UI changes */}
                             </div>
                         )}
+                        
+                        {/* Información de movimientos bloqueados */}
+                        {storageSnapshotRef.current?.state?.lockedUntil && (
+                            <div className="px-4 py-3 rounded border border-yellow-500/30 bg-yellow-900/10">
+                                <div className="flex items-center gap-2 text-yellow-400">
+                                    <Lock className="w-4 h-4" />
+                                    <span className="font-medium text-sm">Movimientos bloqueados</span>
+                                </div>
+                                <p className="text-xs text-[var(--muted-foreground)] mt-1">
+                                    Los movimientos anteriores al {dateTimeFormatter.format(
+                                        new Date(storageSnapshotRef.current.state.lockedUntil)
+                                    )} están bloqueados y no pueden editarse.
+                                </p>
+                            </div>
+                        )}
+                        
                         {/* Daily closings list intentionally hidden from below-balance area per UX request. Use the "Ver historial" button inside the cierre modal to view history. */}
                     </div>
                 </div>
