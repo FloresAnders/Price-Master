@@ -167,21 +167,21 @@ export type FondoEntry = {
  */
 const getChangedFields = (before: any, after: any): { before: Record<string, any>, after: Record<string, any> } => {
     const changed: { before: Record<string, any>, after: Record<string, any> } = { before: {}, after: {} };
-    
+
     // Campos relevantes a comparar
     const fieldsToCheck = ['providerCode', 'invoiceNumber', 'paymentType', 'amountEgreso', 'amountIngreso', 'manager', 'notes', 'currency'];
-    
+
     fieldsToCheck.forEach(field => {
         const beforeVal = before[field];
         const afterVal = after[field];
-        
+
         // Solo guardar si el campo realmente cambió
         if (beforeVal !== afterVal) {
             changed.before[field] = beforeVal;
             changed.after[field] = afterVal;
         }
     });
-    
+
     return changed;
 };
 
@@ -199,15 +199,15 @@ const compressAuditHistory = (history: any[]): any[] => {
     const compressed: any[] = [];
     const first = history[0];
     const last = history[history.length - 1];
-    
+
     // Siempre mantener el primero
     compressed.push(first);
-    
+
     // Si hay más de 5 registros, seleccionar 3 intermedios espaciados uniformemente
     if (history.length > 5) {
         const middleCount = 3;
         const step = Math.floor((history.length - 2) / (middleCount + 1));
-        
+
         for (let i = 1; i <= middleCount; i++) {
             const index = step * i;
             if (index < history.length - 1 && index > 0) {
@@ -220,12 +220,12 @@ const compressAuditHistory = (history: any[]): any[] => {
             compressed.push(history[i]);
         }
     }
-    
+
     // Siempre mantener el último
     if (history.length > 1) {
         compressed.push(last);
     }
-    
+
     return compressed;
 };
 
@@ -1304,6 +1304,11 @@ export function FondoSection({
         CRC: true,
         USD: true,
     });
+    const [companyData, setCompanyData] = useState<Empresas | null>(null);
+    const [confirmDeleteEntry, setConfirmDeleteEntry] = useState<{ open: boolean; entry: FondoEntry | null }>({
+        open: false,
+        entry: null
+    });
     const enabledBalanceCurrencies = useMemo(
         () => (['CRC', 'USD'] as MovementCurrencyKey[]).filter(currency => currencyEnabled[currency]),
         [currencyEnabled],
@@ -1573,7 +1578,7 @@ export function FondoSection({
 
     const employeeOptions = useMemo(() => {
         const employees = companyEmployees.filter(name => !!name && name.trim().length > 0);
-        
+
         // Si el usuario actual es admin, agregarlo a la lista de empleados
         if (user?.role === 'admin' && user?.name) {
             const adminName = user.name.trim();
@@ -1581,7 +1586,7 @@ export function FondoSection({
                 return [adminName, ...employees];
             }
         }
-        
+
         return employees;
     }, [companyEmployees, user]);
 
@@ -1973,6 +1978,35 @@ export function FondoSection({
         };
     }, [company, namespace]);
 
+    // Load company data to check ownerId for delete permissions
+    useEffect(() => {
+        let isActive = true;
+        setCompanyData(null);
+
+        if (!company) {
+            return () => {
+                isActive = false;
+            };
+        }
+
+        EmpresasService.getAllEmpresas()
+            .then(empresas => {
+                if (!isActive) return;
+                const match = empresas.find(emp => emp.name?.toLowerCase() === company.toLowerCase());
+                if (match) {
+                    setCompanyData(match);
+                }
+            })
+            .catch(err => {
+                console.error('Error loading company data:', err);
+                if (isActive) setCompanyData(null);
+            });
+
+        return () => {
+            isActive = false;
+        };
+    }, [company]);
+
     useEffect(() => {
         if (manager && !employeeOptions.includes(manager)) {
             setManager('');
@@ -2043,13 +2077,13 @@ export function FondoSection({
                     } catch {
                         history = [];
                     }
-                    
+
                     // Validar límite máximo de ediciones
                     if (history.length >= MAX_AUDIT_EDITS) {
                         showToast(`No se pueden realizar más de ${MAX_AUDIT_EDITS} ediciones en un mismo movimiento`, 'error');
                         return e; // No permitir más ediciones
                     }
-                    
+
                     // Crear registro simplificado con solo los campos que cambiaron
                     const changedFields = getChangedFields(
                         { providerCode: e.providerCode, invoiceNumber: e.invoiceNumber, paymentType: e.paymentType, amountEgreso: e.amountEgreso, amountIngreso: e.amountIngreso, manager: e.manager, notes: e.notes, currency: e.currency },
@@ -2154,18 +2188,23 @@ export function FondoSection({
         if (entry.providerCode === AUTO_ADJUSTMENT_PROVIDER_CODE) {
             return true;
         }
-        
+
+        // El bloqueo por cierres solo aplica para Fondo General
+        if (accountKey !== 'FondoGeneral') {
+            return false;
+        }
+
         // Si no hay snapshot o no hay lockedUntil, no hay bloqueo
         const lockedUntil = storageSnapshotRef.current?.state?.lockedUntil;
         console.log('[LOCK-DEBUG] Checking movement', entry.id, 'createdAt:', entry.createdAt, 'lockedUntil:', lockedUntil);
         if (!lockedUntil) {
             return false;
         }
-        
+
         try {
             const movementTime = new Date(entry.createdAt).getTime();
             const lockTime = new Date(lockedUntil).getTime();
-            
+
             // Bloqueado si el movimiento es anterior o igual al último cierre
             const isLocked = movementTime <= lockTime;
             console.log('[LOCK-DEBUG] Movement', entry.id, 'is', isLocked ? 'LOCKED' : 'EDITABLE');
@@ -2174,14 +2213,14 @@ export function FondoSection({
             // Si hay error parseando fechas, no bloquear
             return false;
         }
-    }, []);
+    }, [accountKey]);
 
     const handleEditMovement = (entry: FondoEntry) => {
         if (isMovementLocked(entry)) {
             showToast('Este movimiento está bloqueado (anterior al último cierre).', 'info', 5000);
             return;
         }
-        
+
         if (entry.providerCode === AUTO_ADJUSTMENT_PROVIDER_CODE) {
             showToast('Los ajustes automáticos no se pueden editar.', 'info', 5000);
             return;
@@ -2220,6 +2259,48 @@ export function FondoSection({
     const cancelEditing = () => {
         resetFondoForm();
     };
+
+    // Check if current user is the principal admin (owner) of the company
+    const isPrincipalAdmin = useMemo(() => {
+        if (!user?.id || !companyData?.ownerId) return false;
+        return String(user.id) === String(companyData.ownerId);
+    }, [user, companyData]);
+
+    const handleDeleteMovement = useCallback((entry: FondoEntry) => {
+        if (!isPrincipalAdmin) {
+            showToast('Solo el administrador principal puede eliminar movimientos', 'error');
+            return;
+        }
+
+        if (isMovementLocked(entry)) {
+            showToast('Este movimiento está bloqueado (anterior al último cierre) y no puede eliminarse.', 'error');
+            return;
+        }
+
+        if (entry.providerCode === AUTO_ADJUSTMENT_PROVIDER_CODE) {
+            showToast('Los ajustes automáticos no se pueden eliminar.', 'error');
+            return;
+        }
+
+        setConfirmDeleteEntry({ open: true, entry });
+    }, [isPrincipalAdmin, isMovementLocked, showToast]);
+
+    const confirmDeleteMovement = useCallback(() => {
+        const entry = confirmDeleteEntry.entry;
+        if (!entry) return;
+
+        // Remove from fondoEntries
+        setFondoEntries(prev => prev.filter(e => e.id !== entry.id));
+
+        // Close modal
+        setConfirmDeleteEntry({ open: false, entry: null });
+
+        showToast('Movimiento eliminado exitosamente', 'success');
+    }, [confirmDeleteEntry, showToast]);
+
+    const cancelDeleteMovement = useCallback(() => {
+        setConfirmDeleteEntry({ open: false, entry: null });
+    }, []);
 
     const isProviderSelectDisabled = !company || providersLoading || providers.length === 0;
     const providersMap = useMemo(() => {
@@ -2341,7 +2422,7 @@ export function FondoSection({
                         : 'FondoGeneral';
                     return storedAccount !== accountKey;
                 });
-                
+
                 // SOLUCIÓN #1: Limitar movimientos en localStorage
                 // Mantener solo los más recientes según MAX_LOCAL_MOVEMENTS
                 const sortedRecentMovements = [...normalizedEntries]
@@ -2387,7 +2468,7 @@ export function FondoSection({
                 }
                 baseStorage.state = stateSnapshot;
                 console.log('[LOCK-DEBUG] baseStorage.state.lockedUntil before save:', baseStorage.state.lockedUntil);
-                
+
                 // Intentar guardar en localStorage con manejo de error
                 try {
                     localStorage.setItem(companyKey, JSON.stringify(baseStorage));
@@ -2404,11 +2485,11 @@ export function FondoSection({
                                 return timeB - timeA;
                             })
                             .slice(0, emergencyLimit);
-                        
+
                         baseStorage.operations = {
                             movements: [...preservedMovements, ...reducedMovements],
                         };
-                        
+
                         localStorage.setItem(companyKey, JSON.stringify(baseStorage));
                         console.warn(`Almacenamiento reducido a ${emergencyLimit} movimientos más recientes`);
                     } else {
@@ -2632,7 +2713,7 @@ export function FondoSection({
         loadedDailyClosingKeysRef.current.add(closingDateKey);
         loadingDailyClosingKeysRef.current.delete(closingDateKey);
         setDailyClosingsHydrated(true);
-        
+
         setDailyClosingModalOpen(false);
 
         const normalizedCompany = (company || '').trim();
@@ -2978,13 +3059,13 @@ export function FondoSection({
         // para que persistEntries tenga el estado completo
         if (storageSnapshotRef.current) {
             if (!storageSnapshotRef.current.state) {
-                storageSnapshotRef.current.state = 
+                storageSnapshotRef.current.state =
                     MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(company).state;
             }
             // Bloquear hasta la fecha de creación del cierre
             storageSnapshotRef.current.state.lockedUntil = createdAt;
             console.log('[LOCK-DEBUG] Setting lockedUntil at end:', createdAt);
-            
+
             // Persistir inmediatamente para asegurar que se guarde incluso sin movimientos
             const normalizedCompany = (company || '').trim();
             if (normalizedCompany.length > 0) {
@@ -3680,14 +3761,16 @@ export function FondoSection({
                     </div>
 
                     <div className="flex w-full items-center justify-center gap-2 sm:w-auto">
-                        <button
-                            type="button"
-                            onClick={handleOpenDailyClosing}
-                            className="flex items-center justify-center gap-2 rounded fg-add-mov-btn px-4 py-2 text-white"
-                        >
-                            <Banknote className="w-4 h-4" />
-                            Registrar cierre
-                        </button>
+                        {accountKey === 'FondoGeneral' && (
+                            <button
+                                type="button"
+                                onClick={handleOpenDailyClosing}
+                                className="flex items-center justify-center gap-2 rounded fg-add-mov-btn px-4 py-2 text-white"
+                            >
+                                <Banknote className="w-4 h-4" />
+                                Registrar cierre
+                            </button>
+                        )}
                         <button
                             type="button"
                             onClick={handleOpenCreateMovement}
@@ -4021,7 +4104,7 @@ export function FondoSection({
                                                         const before = h?.before ?? {};
                                                         const after = h?.after ?? {};
                                                         const parts: string[] = [];
-                                                        
+
                                                         // Con el nuevo formato simplificado, mostramos todos los campos presentes
                                                         if ('providerCode' in before || 'providerCode' in after) {
                                                             parts.push(`Proveedor: ${before.providerCode ?? '—'} → ${after.providerCode ?? '—'}`);
@@ -4032,7 +4115,7 @@ export function FondoSection({
                                                         if ('paymentType' in before || 'paymentType' in after) {
                                                             parts.push(`Tipo: ${before.paymentType ?? '—'} → ${after.paymentType ?? '—'}`);
                                                         }
-                                                        
+
                                                         // Manejar cambio de moneda
                                                         if ('currency' in before || 'currency' in after) {
                                                             const beforeCur = before.currency || entryCurrency || 'CRC';
@@ -4041,7 +4124,7 @@ export function FondoSection({
                                                                 parts.push(`Moneda: ${beforeCur} → ${afterCur}`);
                                                             }
                                                         }
-                                                        
+
                                                         // Manejar montos (pueden estar en amountEgreso o amountIngreso)
                                                         if ('amountEgreso' in before || 'amountEgreso' in after || 'amountIngreso' in before || 'amountIngreso' in after) {
                                                             const beforeAmt = Number(before.amountEgreso || before.amountIngreso || 0);
@@ -4050,14 +4133,14 @@ export function FondoSection({
                                                             const afterCur = (after.currency as 'CRC' | 'USD') || entryCurrency || 'CRC';
                                                             parts.push(`Monto: ${formatByCurrency(beforeCur, beforeAmt)} → ${formatByCurrency(afterCur, afterAmt)}`);
                                                         }
-                                                        
+
                                                         if ('manager' in before || 'manager' in after) {
                                                             parts.push(`Encargado: ${before.manager ?? '—'} → ${after.manager ?? '—'}`);
                                                         }
                                                         if ('notes' in before || 'notes' in after) {
                                                             parts.push(`Notas: "${before.notes ?? ''}" → "${after.notes ?? ''}"`);
                                                         }
-                                                        
+
                                                         return `${at}: ${parts.join('; ') || 'Editado (sin cambios detectados)'} `;
                                                     });
                                                     auditTooltip = lines.join('\n');
@@ -4069,11 +4152,9 @@ export function FondoSection({
                                             return (
                                                 <tr
                                                     key={fe.id}
-                                                    className={`border-t border-[var(--input-border)] hover:bg-[var(--muted)] ${
-                                                        isMostRecent ? 'bg-[#273238]' : ''
-                                                    } ${
-                                                        isMovementLocked(fe) ? 'opacity-60' : ''
-                                                    }`}
+                                                    className={`border-t border-[var(--input-border)] hover:bg-[var(--muted)] ${isMostRecent ? 'bg-[#273238]' : ''
+                                                        } ${isMovementLocked(fe) ? 'opacity-60' : ''
+                                                        }`}
                                                 >
                                                     <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">{formattedDate}</td>
                                                     <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
@@ -4132,29 +4213,35 @@ export function FondoSection({
                                                     </td>
                                                     <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">{fe.manager}</td>
                                                     <td className="px-3 py-2 align-top">
-                                                        <button
-                                                            type="button"
-                                                            className="inline-flex items-center gap-2 rounded border border-[var(--input-border)] px-3 py-1 text-xs font-medium text-[var(--muted-foreground)] hover:bg-[var(--muted)] disabled:opacity-50"
-                                                            onClick={() => handleEditMovement(fe)}
-                                                            disabled={
-                                                                editingEntryId === fe.id || 
-                                                                isMovementLocked(fe)
-                                                            }
-                                                            title={
-                                                                isMovementLocked(fe)
-                                                                    ? 'Este movimiento está bloqueado (anterior al último cierre)' 
-                                                                    : isAutoAdjustment 
-                                                                        ? 'Los ajustes automáticos no se pueden editar' 
-                                                                        : 'Editar movimiento'
-                                                            }
-                                                        >
-                                                            <Pencil className="w-4 h-4" />
-                                                            {editingEntryId === fe.id 
-                                                                ? 'Editando' 
-                                                                : isMovementLocked(fe) 
-                                                                    ? 'Bloqueado' 
-                                                                    : 'Editar'}
-                                                        </button>
+                                                        {!isMovementLocked(fe) && (
+                                                            <div className="flex items-center gap-2">
+                                                                <button
+                                                                    type="button"
+                                                                    className="inline-flex items-center gap-2 rounded border border-[var(--input-border)] px-3 py-1 text-xs font-medium text-[var(--muted-foreground)] hover:bg-[var(--muted)] disabled:opacity-50"
+                                                                    onClick={() => handleEditMovement(fe)}
+                                                                    disabled={editingEntryId === fe.id}
+                                                                    title={
+                                                                        isAutoAdjustment
+                                                                            ? 'Los ajustes automáticos no se pueden editar'
+                                                                            : 'Editar movimiento'
+                                                                    }
+                                                                >
+                                                                    <Pencil className="w-4 h-4" />
+                                                                    {editingEntryId === fe.id ? 'Editando' : 'Editar'}
+                                                                </button>
+                                                                {isPrincipalAdmin && !isAutoAdjustment && (
+                                                                    <button
+                                                                        type="button"
+                                                                        className="inline-flex items-center gap-2 rounded border border-red-500/50 px-3 py-1 text-xs font-medium text-red-500 hover:bg-red-500/10"
+                                                                        onClick={() => handleDeleteMovement(fe)}
+                                                                        title="Eliminar movimiento (solo admin principal)"
+                                                                    >
+                                                                        <Trash2 className="w-4 h-4" />
+                                                                        Eliminar
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        )}
                                                     </td>
                                                 </tr>
                                             );
@@ -4228,23 +4315,6 @@ export function FondoSection({
                                 {/* Registrar cierre moved next to 'Agregar movimiento' per UI changes */}
                             </div>
                         )}
-                        
-                        {/* Información de movimientos bloqueados */}
-                        {storageSnapshotRef.current?.state?.lockedUntil && (
-                            <div className="px-4 py-3 rounded border border-yellow-500/30 bg-yellow-900/10">
-                                <div className="flex items-center gap-2 text-yellow-400">
-                                    <Lock className="w-4 h-4" />
-                                    <span className="font-medium text-sm">Movimientos bloqueados</span>
-                                </div>
-                                <p className="text-xs text-[var(--muted-foreground)] mt-1">
-                                    Los movimientos anteriores al {dateTimeFormatter.format(
-                                        new Date(storageSnapshotRef.current.state.lockedUntil)
-                                    )} están bloqueados y no pueden editarse.
-                                </p>
-                            </div>
-                        )}
-                        
-                        {/* Daily closings list intentionally hidden from below-balance area per UX request. Use the "Ver historial" button inside the cierre modal to view history. */}
                     </div>
                 </div>
             </div>
@@ -4303,6 +4373,16 @@ export function FondoSection({
                 loadingEmployees={employeesLoading}
                 currentBalanceCRC={currentBalanceCRC}
                 currentBalanceUSD={currentBalanceUSD}
+            />
+
+            <ConfirmModal
+                open={confirmDeleteEntry.open}
+                title="Eliminar movimiento"
+                message={`¿Está seguro que desea eliminar el movimiento #${confirmDeleteEntry.entry?.invoiceNumber || ''}? Esta acción no se puede deshacer.`}
+                confirmText="Eliminar"
+                onConfirm={confirmDeleteMovement}
+                onCancel={cancelDeleteMovement}
+                actionType="delete"
             />
 
             {dailyClosingHistoryOpen && (
