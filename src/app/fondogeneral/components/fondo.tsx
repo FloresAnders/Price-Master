@@ -1351,16 +1351,16 @@ export function FondoSection({
     const [fromFilter, setFromFilter] = useState<string | null>(() => {
         if (typeof window !== 'undefined') {
             const saved = localStorage.getItem('fondogeneral-fromFilter');
-            return saved !== null ? saved : null;
+            return (saved !== null && saved !== '') ? saved : dateKeyFromDate(new Date());
         }
-        return null;
+        return dateKeyFromDate(new Date());
     });
     const [toFilter, setToFilter] = useState<string | null>(() => {
         if (typeof window !== 'undefined') {
             const saved = localStorage.getItem('fondogeneral-toFilter');
-            return saved !== null ? saved : null;
+            return (saved !== null && saved !== '') ? saved : dateKeyFromDate(new Date());
         }
-        return null;
+        return dateKeyFromDate(new Date());
     });
 
     // Advanced filters
@@ -3415,6 +3415,7 @@ export function FondoSection({
                 <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--input-border)] pt-3">
                     <div className="flex flex-1 flex-wrap items-center gap-3 min-w-[260px]">
                         <div className="relative w-full sm:w-auto">
+                            <label className="block text-xs font-medium text-[var(--muted-foreground)] mb-1">Desde</label>
                             <button
                                 type="button"
                                 ref={fromButtonRef}
@@ -3537,6 +3538,7 @@ export function FondoSection({
                         </div>
 
                         <div className="relative w-full sm:w-auto">
+                            <label className="block text-xs font-medium text-[var(--muted-foreground)] mb-1">Hasta</label>
                             <button
                                 type="button"
                                 ref={toButtonRef}
