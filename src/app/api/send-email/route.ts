@@ -13,11 +13,9 @@ type EmailPayload = {
 };
 
 export async function GET() {
-    const configured = Boolean(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD);
     return NextResponse.json({
-        configured,
-        user: configured ? process.env.GMAIL_USER : undefined,
-        message: configured ? undefined : 'Variables de entorno de Gmail no configuradas',
+        configured: true,
+        message: 'Email service configured via Firestore triggers',
     });
 }
 
@@ -34,14 +32,17 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        await EmailService.sendEmail({
+        await EmailService.queueEmail({
             to: payload.to,
             subject: payload.subject,
             text: payload.text,
             html: payload.html,
         });
 
-        return NextResponse.json({ success: true });
+        return NextResponse.json({ 
+            success: true,
+            message: 'Email queued successfully via Firestore trigger'
+        });
     } catch (error) {
         console.error('API send-email error:', error);
         const message = error instanceof Error ? error.message : 'Error desconocido';
