@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        await EmailService.sendEmail({
+        await EmailService.queueEmail({
             to: payload.to,
             subject: payload.subject,
             text: payload.text,
