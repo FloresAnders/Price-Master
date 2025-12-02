@@ -1262,88 +1262,88 @@ export default function DataEditor() {
                                     {empresa.empleados?.map((emp: any, eIdx: number) => (
                                         <div key={eIdx} className="p-3 sm:p-4 border border-[var(--input-border)] rounded-lg bg-[var(--card-bg)]">
                                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 items-end">
-                                            <div className="sm:col-span-2 lg:col-span-2">
-                                                <label className="block text-xs sm:text-sm font-medium mb-1">Empleado</label>
-                                                <input
-                                                    type="text"
-                                                    value={emp.Empleado}
-                                                    onChange={(ev) => {
-                                                        const copy = [...empresasData];
-                                                        copy[idx].empleados[eIdx].Empleado = ev.target.value;
-                                                        setEmpresasData(copy);
-                                                    }}
-                                                    className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md text-sm"
-                                                    style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                                    placeholder="Nombre del empleado"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs sm:text-sm font-medium mb-1">Horas por turno</label>
-                                                <input
-                                                    type="number"
-                                                    value={emp.hoursPerShift ?? 8}
-                                                    onChange={(ev) => {
-                                                        const copy = [...empresasData];
-                                                        copy[idx].empleados[eIdx].hoursPerShift = parseInt(ev.target.value) || 0;
-                                                        setEmpresasData(copy);
-                                                    }}
-                                                    className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md text-sm"
-                                                    style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                                    min="0"
-                                                    step="0.5"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs sm:text-sm font-medium mb-1">Monto extra</label>
-                                                <input
-                                                    type="number"
-                                                    value={emp.extraAmount ?? 0}
-                                                    onChange={(ev) => {
-                                                        const copy = [...empresasData];
-                                                        copy[idx].empleados[eIdx].extraAmount = parseFloat(ev.target.value) || 0;
-                                                        setEmpresasData(copy);
-                                                    }}
-                                                    className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md text-sm"
-                                                    style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                                    min="0"
-                                                    step="0.01"
-                                                />
-                                            </div>
-                                            <div className="sm:col-span-2 lg:col-span-1">
-                                                <label className="block text-xs sm:text-sm font-medium mb-1">Tipo CCSS</label>
-                                                <select
-                                                    value={emp.ccssType || 'TC'}
-                                                    onChange={(ev) => {
-                                                        const copy = [...empresasData];
-                                                        copy[idx].empleados[eIdx].ccssType = ev.target.value;
-                                                        setEmpresasData(copy);
-                                                    }}
-                                                    className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md text-sm"
-                                                    style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                                >
-                                                    <option value="TC">Tiempo Completo</option>
-                                                    <option value="MT">Medio Tiempo</option>
-                                                </select>
-                                            </div>
-                                            <div className="flex justify-end mt-3 pt-3 border-t border-[var(--input-border)]">
-                                                <button
-                                                    onClick={() => {
-                                                        openConfirmModal(
-                                                            'Eliminar Empleado',
-                                                            `¿Desea eliminar al empleado ${emp.Empleado || `N°${eIdx + 1}`}?`,
-                                                            () => {
-                                                                const copy = [...empresasData];
-                                                                copy[idx].empleados = copy[idx].empleados.filter((_: unknown, i: number) => i !== eIdx);
-                                                                setEmpresasData(copy);
-                                                            }
-                                                        );
-                                                    }}
-                                                    className="text-xs sm:text-sm px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors flex items-center gap-1"
-                                                >
-                                                    <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
-                                                    <span className="hidden sm:inline">Eliminar</span>
-                                                </button>
-                                            </div>
+                                                <div className="sm:col-span-2 lg:col-span-2">
+                                                    <label className="block text-xs sm:text-sm font-medium mb-1">Empleado</label>
+                                                    <input
+                                                        type="text"
+                                                        value={emp.Empleado}
+                                                        onChange={(ev) => {
+                                                            const copy = [...empresasData];
+                                                            copy[idx].empleados[eIdx].Empleado = ev.target.value;
+                                                            setEmpresasData(copy);
+                                                        }}
+                                                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md text-sm"
+                                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                                        placeholder="Nombre del empleado"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs sm:text-sm font-medium mb-1">Horas por turno</label>
+                                                    <input
+                                                        type="number"
+                                                        value={emp.hoursPerShift ?? 8}
+                                                        onChange={(ev) => {
+                                                            const copy = [...empresasData];
+                                                            copy[idx].empleados[eIdx].hoursPerShift = parseInt(ev.target.value) || 0;
+                                                            setEmpresasData(copy);
+                                                        }}
+                                                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md text-sm"
+                                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                                        min="0"
+                                                        step="0.5"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs sm:text-sm font-medium mb-1">Monto extra</label>
+                                                    <input
+                                                        type="number"
+                                                        value={emp.extraAmount ?? 0}
+                                                        onChange={(ev) => {
+                                                            const copy = [...empresasData];
+                                                            copy[idx].empleados[eIdx].extraAmount = parseFloat(ev.target.value) || 0;
+                                                            setEmpresasData(copy);
+                                                        }}
+                                                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md text-sm"
+                                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                                        min="0"
+                                                        step="0.01"
+                                                    />
+                                                </div>
+                                                <div className="sm:col-span-2 lg:col-span-1">
+                                                    <label className="block text-xs sm:text-sm font-medium mb-1">Tipo CCSS</label>
+                                                    <select
+                                                        value={emp.ccssType || 'TC'}
+                                                        onChange={(ev) => {
+                                                            const copy = [...empresasData];
+                                                            copy[idx].empleados[eIdx].ccssType = ev.target.value;
+                                                            setEmpresasData(copy);
+                                                        }}
+                                                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md text-sm"
+                                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                                    >
+                                                        <option value="TC">Tiempo Completo</option>
+                                                        <option value="MT">Medio Tiempo</option>
+                                                    </select>
+                                                </div>
+                                                <div className="flex justify-end mt-3 pt-3 border-t border-[var(--input-border)]">
+                                                    <button
+                                                        onClick={() => {
+                                                            openConfirmModal(
+                                                                'Eliminar Empleado',
+                                                                `¿Desea eliminar al empleado ${emp.Empleado || `N°${eIdx + 1}`}?`,
+                                                                () => {
+                                                                    const copy = [...empresasData];
+                                                                    copy[idx].empleados = copy[idx].empleados.filter((_: unknown, i: number) => i !== eIdx);
+                                                                    setEmpresasData(copy);
+                                                                }
+                                                            );
+                                                        }}
+                                                        className="text-xs sm:text-sm px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors flex items-center gap-1"
+                                                    >
+                                                        <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                                                        <span className="hidden sm:inline">Eliminar</span>
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                     ))}
@@ -1486,22 +1486,38 @@ export default function DataEditor() {
                                 </div>
                             )}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
-                                <div className="md:col-span-2">
-                                    <label className="block text-sm font-medium mb-1">Nombre:</label>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Usuario:</label>
                                     <input
                                         type="text"
                                         value={user.name}
                                         onChange={(e) => updateUser(index, 'name', e.target.value)}
                                         className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
                                         style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                        placeholder="Nombre del usuario"
+                                        placeholder="Nombre de usuario"
                                     />
-                                    {/* Mostrar nombre de la empresa dueña si existe (ownercompanie) */}
-                                    {user.ownercompanie && (
-                                        <div className="mt-2 text-sm text-[var(--muted-foreground)]">
-                                            Empresa Dueña: <span className="font-medium text-[var(--foreground)]">{user.ownercompanie}</span>
-                                        </div>
-                                    )}
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Nombre Completo:</label>
+                                    <input
+                                        type="text"
+                                        value={user.fullName || ''}
+                                        onChange={(e) => updateUser(index, 'fullName', e.target.value)}
+                                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
+                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                        placeholder="Nombre completo"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Correo:</label>
+                                    <input
+                                        type="email"
+                                        value={user.email || ''}
+                                        onChange={(e) => updateUser(index, 'email', e.target.value)}
+                                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
+                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                                        placeholder="correo@ejemplo.com"
+                                    />
                                 </div>
                                 {/* Ubicación removed visually as requested */}
                                 <div>
@@ -1534,34 +1550,6 @@ export default function DataEditor() {
                                     })()}
                                 </div>
                             </div>
-
-                            {/* Email y Nombre Completo — mostrar sólo si el usuario logueado es superadmin y el rol seleccionado es admin/superadmin */}
-                            {currentUser?.role === 'superadmin' && (user.role === 'admin' || user.role === 'superadmin') && (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Correo electrónico:</label>
-                                        <input
-                                            type="email"
-                                            value={user.email || ''}
-                                            onChange={(e) => updateUser(index, 'email', e.target.value)}
-                                            className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
-                                            style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                            placeholder="correo@ejemplo.com"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Nombre completo:</label>
-                                        <input
-                                            type="text"
-                                            value={user.fullName || ''}
-                                            onChange={(e) => updateUser(index, 'fullName', e.target.value)}
-                                            className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
-                                            style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                            placeholder="Nombre completo de la persona encargada"
-                                        />
-                                    </div>
-                                </div>
-                            )}
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                                 <div>
@@ -1663,7 +1651,7 @@ export default function DataEditor() {
                                             className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
                                             style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
                                             placeholder="Cantidad máxima de empresas"
-                                        />  
+                                        />
                                     </div>
                                 )}
                             </div>
