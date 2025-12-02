@@ -542,10 +542,15 @@ export function ProviderSection({ id }: { id?: string }) {
         return set;
     }, [actorOwnerIds, user?.ownerId]);
     const isAdminUser = user?.role === 'admin';
-    const [adminCompany, setAdminCompany] = useState(assignedCompany);
-    useEffect(() => {
-        setAdminCompany(assignedCompany);
-    }, [assignedCompany]);
+    const [adminCompany, setAdminCompany] = useState(() => {
+        if (typeof window === 'undefined') return assignedCompany;
+        try {
+            const stored = localStorage.getItem('fg_selected_company_providers');
+            return stored || assignedCompany;
+        } catch {
+            return assignedCompany;
+        }
+    });
     const company = isAdminUser ? adminCompany : assignedCompany;
     const { providers, loading: providersLoading, error, addProvider, removeProvider, updateProvider } = useProviders(company);
     const permissions = user?.permissions || getDefaultPermissions(user?.role || 'user');
@@ -655,6 +660,11 @@ export function ProviderSection({ id }: { id?: string }) {
     const handleAdminCompanyChange = useCallback((value: string) => {
         if (!isAdminUser) return;
         setAdminCompany(value);
+        try {
+            localStorage.setItem('fg_selected_company_providers', value);
+        } catch (error) {
+            console.error('Error saving selected company to localStorage:', error);
+        }
         setProviderDrawerOpen(false);
         setFormError(null);
         setProviderName('');
@@ -1103,10 +1113,16 @@ export function FondoSection({
         return '';
     }, [allowedOwnerIds, primaryOwnerId]);
     const isAdminUser = user?.role === 'admin';
-    const [adminCompany, setAdminCompany] = useState(assignedCompany);
-    useEffect(() => {
-        setAdminCompany(assignedCompany);
-    }, [assignedCompany]);
+    const storageKey = `fg_selected_company_${namespace}`;
+    const [adminCompany, setAdminCompany] = useState(() => {
+        if (typeof window === 'undefined') return assignedCompany;
+        try {
+            const stored = localStorage.getItem(storageKey);
+            return stored || assignedCompany;
+        } catch {
+            return assignedCompany;
+        }
+    });
     const company = isAdminUser ? adminCompany : assignedCompany;
     const { providers, loading: providersLoading, error: providersError } = useProviders(company);
     const { sendEmail } = useEmail();
@@ -3093,6 +3109,11 @@ export function FondoSection({
     const handleAdminCompanyChange = useCallback((value: string) => {
         if (!isAdminUser) return;
         setAdminCompany(value);
+        try {
+            localStorage.setItem(storageKey, value);
+        } catch (error) {
+            console.error('Error saving selected company to localStorage:', error);
+        }
         setEntriesHydrated(false);
         setHydratedCompany('');
         setFondoEntries([]);
@@ -3117,7 +3138,7 @@ export function FondoSection({
         setFromFilter(null);
         setToFilter(null);
         setPageIndex(0);
-    }, [isAdminUser, mode, resetFondoForm]);
+    }, [isAdminUser, mode, resetFondoForm, storageKey]);
 
     const handleFondoKeyDown = (event: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>) => {
         if (event.key === 'Enter') {
