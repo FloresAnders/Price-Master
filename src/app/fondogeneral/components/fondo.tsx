@@ -1943,6 +1943,15 @@ export function FondoSection({
             };
         }
 
+        // Solo cargar empleados de la empresa si estamos en fondogeneral (namespace 'fg')
+        // Para otros fondos (BCR, BN, BAC), no cargar empleados
+        if (namespace !== 'fg') {
+            setEmployeesLoading(false);
+            return () => {
+                isActive = false;
+            };
+        }
+
         setEmployeesLoading(true);
         EmpresasService.getAllEmpresas()
             .then(empresas => {
@@ -1962,7 +1971,7 @@ export function FondoSection({
         return () => {
             isActive = false;
         };
-    }, [company]);
+    }, [company, namespace]);
 
     useEffect(() => {
         if (manager && !employeeOptions.includes(manager)) {
