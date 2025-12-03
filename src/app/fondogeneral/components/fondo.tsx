@@ -542,10 +542,15 @@ export function ProviderSection({ id }: { id?: string }) {
         return set;
     }, [actorOwnerIds, user?.ownerId]);
     const isAdminUser = user?.role === 'admin';
-    const [adminCompany, setAdminCompany] = useState(assignedCompany);
-    useEffect(() => {
-        setAdminCompany(assignedCompany);
-    }, [assignedCompany]);
+    const [adminCompany, setAdminCompany] = useState(() => {
+        if (typeof window === 'undefined') return assignedCompany;
+        try {
+            const stored = localStorage.getItem('fg_selected_company_providers');
+            return stored || assignedCompany;
+        } catch {
+            return assignedCompany;
+        }
+    });
     const company = isAdminUser ? adminCompany : assignedCompany;
     const { providers, loading: providersLoading, error, addProvider, removeProvider, updateProvider } = useProviders(company);
     const permissions = user?.permissions || getDefaultPermissions(user?.role || 'user');
@@ -655,6 +660,11 @@ export function ProviderSection({ id }: { id?: string }) {
     const handleAdminCompanyChange = useCallback((value: string) => {
         if (!isAdminUser) return;
         setAdminCompany(value);
+        try {
+            localStorage.setItem('fg_selected_company_providers', value);
+        } catch (error) {
+            console.error('Error saving selected company to localStorage:', error);
+        }
         setProviderDrawerOpen(false);
         setFormError(null);
         setProviderName('');
@@ -1103,10 +1113,16 @@ export function FondoSection({
         return '';
     }, [allowedOwnerIds, primaryOwnerId]);
     const isAdminUser = user?.role === 'admin';
-    const [adminCompany, setAdminCompany] = useState(assignedCompany);
-    useEffect(() => {
-        setAdminCompany(assignedCompany);
-    }, [assignedCompany]);
+    const storageKey = `fg_selected_company_${namespace}`;
+    const [adminCompany, setAdminCompany] = useState(() => {
+        if (typeof window === 'undefined') return assignedCompany;
+        try {
+            const stored = localStorage.getItem(storageKey);
+            return stored || assignedCompany;
+        } catch {
+            return assignedCompany;
+        }
+    });
     const company = isAdminUser ? adminCompany : assignedCompany;
     const { providers, loading: providersLoading, error: providersError } = useProviders(company);
     const { sendEmail } = useEmail();
@@ -1244,6 +1260,10 @@ export function FondoSection({
     const [movementModalOpen, setMovementModalOpen] = useState(false);
     const [movementAutoCloseLocked, setMovementAutoCloseLocked] = useState(false);
     const [movementCurrency, setMovementCurrency] = useState<'CRC' | 'USD'>('CRC');
+    const [providerError, setProviderError] = useState('');
+    const [invoiceError, setInvoiceError] = useState('');
+    const [amountError, setAmountError] = useState('');
+    const [managerError, setManagerError] = useState('');
     const [dailyClosingModalOpen, setDailyClosingModalOpen] = useState(false);
     const [editingDailyClosingId, setEditingDailyClosingId] = useState<string | null>(null);
     const [dailyClosingInitialValues, setDailyClosingInitialValues] = useState<DailyClosingFormValues | null>(null);
@@ -2021,6 +2041,7 @@ export function FondoSection({
     }, [paymentType, isIngreso]);
 
     const resetFondoForm = useCallback(() => {
+        setSelectedProvider('');
         setInvoiceNumber('');
         setEgreso('');
         setIngreso('');
@@ -2028,21 +2049,62 @@ export function FondoSection({
         setPaymentType('COMPRA INVENTARIO');
         setNotes('');
         setEditingEntryId(null);
+        // Clear all validation errors
+        setProviderError('');
+        setInvoiceError('');
+        setAmountError('');
+        setManagerError('');
     }, []);
 
     const normalizeMoneyInput = (value: string) => value.replace(/[^0-9]/g, '');
 
     const handleSubmitFondo = () => {
         if (!company) return;
-        if (!selectedProvider) return;
+
+        let hasErrors = false;
+
+        if (!selectedProvider) {
+            setProviderError('Selecciona un proveedor');
+            hasErrors = true;
+        } else {
+            setProviderError('');
+        }
+
         const providerExists = selectedProviderExists;
-        if (!providerExists && !(editingEntryId && editingEntry?.providerCode === selectedProvider)) return;
-        if (!/^[0-9]{1,4}$/.test(invoiceNumber)) return;
-        if (!manager) return;
+        if (!providerExists && !(editingEntryId && editingEntry?.providerCode === selectedProvider)) {
+            setProviderError('Proveedor no válido');
+            hasErrors = true;
+        }
+
+        if (!/^[0-9]{1,4}$/.test(invoiceNumber)) {
+            setInvoiceError('Ingresa un número de factura válido (1-4 dígitos)');
+            hasErrors = true;
+        } else {
+            setInvoiceError('');
+        }
+
+        if (!manager) {
+            setManagerError('Selecciona un encargado');
+            hasErrors = true;
+        } else {
+            setManagerError('');
+        }
 
         const egresoValue = isEgreso ? Number.parseInt(egreso, 10) : 0;
         const ingresoValue = isIngreso ? Number.parseInt(ingreso, 10) : 0;
         const trimmedNotes = notes.trim();
+
+        if (isEgreso && (Number.isNaN(egresoValue) || egresoValue <= 0)) {
+            setAmountError('Ingresa un monto válido para egreso');
+            hasErrors = true;
+        } else if (isIngreso && (Number.isNaN(ingresoValue) || ingresoValue <= 0)) {
+            setAmountError('Ingresa un monto válido para ingreso');
+            hasErrors = true;
+        } else {
+            setAmountError('');
+        }
+
+        if (hasErrors) return;
 
         if (isEgreso && (Number.isNaN(egresoValue) || egresoValue <= 0)) return;
         if (isIngreso && (Number.isNaN(ingresoValue) || ingresoValue <= 0)) return;
@@ -2165,19 +2227,22 @@ export function FondoSection({
         // Allow editing of entries even if previously edited; we accumulate audit history.
         setEditingEntryId(entry.id);
         setSelectedProvider(entry.providerCode);
+        // Determine the correct payment type: use provider's type if exists, else entry's type
+        const provider = providers.find(p => p.code === entry.providerCode);
+        const correctPaymentType = provider ? (provider.type as FondoEntry['paymentType']) : entry.paymentType;
+        setPaymentType(correctPaymentType);
         setInvoiceNumber(entry.invoiceNumber);
-        setPaymentType(entry.paymentType);
         setManager(entry.manager);
         setNotes(entry.notes ?? '');
         setMovementCurrency((entry.currency as 'CRC' | 'USD') ?? 'CRC');
-        if (isIngresoType(entry.paymentType)) {
-            const ingresoValue = Math.trunc(entry.amountIngreso);
-            setIngreso(ingresoValue > 0 ? ingresoValue.toString() : '');
-            setEgreso('');
-        } else {
-            const egresoValue = Math.trunc(entry.amountEgreso);
-            setEgreso(egresoValue > 0 ? egresoValue.toString() : '');
+        // Set amounts based on the correct payment type, using the entry's amounts
+        const isEgreso = isEgresoType(correctPaymentType) || isGastoType(correctPaymentType);
+        if (isEgreso) {
+            setEgreso(Math.trunc(entry.amountEgreso || entry.amountIngreso).toString());
             setIngreso('');
+        } else {
+            setIngreso(Math.trunc(entry.amountIngreso || entry.amountEgreso).toString());
+            setEgreso('');
         }
         setMovementModalOpen(true);
     };
@@ -2598,6 +2663,8 @@ export function FondoSection({
 
     const handleProviderChange = (value: string) => {
         setSelectedProvider(value);
+        setProviderError(''); // Clear error when user starts typing
+        const oldPaymentType = paymentType;
         try {
             const prov = providers.find(p => p.code === value);
             if (prov && prov.type && isFondoMovementType(prov.type)) {
@@ -2610,13 +2677,35 @@ export function FondoSection({
             // defensive: ensure UI remains usable on unexpected provider shapes
             setPaymentType('COMPRA INVENTARIO');
         }
+        // Move amount between egreso and ingreso fields if type changes
+        const oldIsEgreso = isEgresoType(oldPaymentType) || isGastoType(oldPaymentType);
+        const newIsEgreso = isEgresoType(paymentType) || isGastoType(paymentType);
+        if (oldIsEgreso && !newIsEgreso && egreso.trim()) {
+            setIngreso(egreso);
+            setEgreso('');
+        } else if (!oldIsEgreso && newIsEgreso && ingreso.trim()) {
+            setEgreso(ingreso);
+            setIngreso('');
+        }
     };
-    const handleInvoiceNumberChange = (value: string) => setInvoiceNumber(value.replace(/\D/g, '').slice(0, 4));
+    const handleInvoiceNumberChange = (value: string) => {
+        setInvoiceNumber(value.replace(/\D/g, '').slice(0, 4));
+        setInvoiceError(''); // Clear error when user starts typing
+    };
     // paymentType is derived from the selected provider; no manual change handler needed
-    const handleEgresoChange = (value: string) => setEgreso(normalizeMoneyInput(value));
-    const handleIngresoChange = (value: string) => setIngreso(normalizeMoneyInput(value));
+    const handleEgresoChange = (value: string) => {
+        setEgreso(normalizeMoneyInput(value));
+        setAmountError(''); // Clear error when user starts typing
+    };
+    const handleIngresoChange = (value: string) => {
+        setIngreso(normalizeMoneyInput(value));
+        setAmountError(''); // Clear error when user starts typing
+    };
     const handleNotesChange = (value: string) => setNotes(value);
-    const handleManagerChange = (value: string) => setManager(value);
+    const handleManagerChange = (value: string) => {
+        setManager(value);
+        setManagerError(''); // Clear error when user starts typing
+    };
 
     const managerSelectDisabled = !company || employeesLoading || employeeOptions.length === 0;
     const invoiceDisabled = !company;
@@ -3056,14 +3145,15 @@ export function FondoSection({
 
         // Actualizar lockedUntil DESPUÉS de agregar todos los movimientos
         // para que persistEntries tenga el estado completo
-        if (storageSnapshotRef.current) {
+        // Solo actualizar si no es edición de un cierre existente
+        if (!editingDailyClosingId && storageSnapshotRef.current) {
             if (!storageSnapshotRef.current.state) {
                 storageSnapshotRef.current.state =
                     MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(company).state;
             }
             // Bloquear hasta la fecha de creación del cierre
             storageSnapshotRef.current.state.lockedUntil = createdAt;
-            console.log('[LOCK-DEBUG] Setting lockedUntil at end:', createdAt);
+            console.log('[LOCK-DEBUG] Setting lockedUntil at end:', createdAt, 'for new closing');
 
             // Persistir inmediatamente para asegurar que se guarde incluso sin movimientos
             const normalizedCompany = (company || '').trim();
@@ -3093,6 +3183,11 @@ export function FondoSection({
     const handleAdminCompanyChange = useCallback((value: string) => {
         if (!isAdminUser) return;
         setAdminCompany(value);
+        try {
+            localStorage.setItem(storageKey, value);
+        } catch (error) {
+            console.error('Error saving selected company to localStorage:', error);
+        }
         setEntriesHydrated(false);
         setHydratedCompany('');
         setFondoEntries([]);
@@ -3117,7 +3212,7 @@ export function FondoSection({
         setFromFilter(null);
         setToFilter(null);
         setPageIndex(0);
-    }, [isAdminUser, mode, resetFondoForm]);
+    }, [isAdminUser, mode, resetFondoForm, storageKey]);
 
     const handleFondoKeyDown = (event: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>) => {
         if (event.key === 'Enter') {
@@ -3869,6 +3964,10 @@ export function FondoSection({
                             currency={movementCurrency}
                             onCurrencyChange={c => setMovementCurrency(c)}
                             currencyEnabled={currencyEnabled}
+                            providerError={providerError}
+                            invoiceError={invoiceError}
+                            amountError={amountError}
+                            managerError={managerError}
                         />
                     </Box>
                 </Box>
@@ -3916,7 +4015,7 @@ export function FondoSection({
                                 <div className="flex items-center gap-3 mr-2 text-[var(--muted-foreground)]">
                                     <label className="flex items-center gap-2 cursor-pointer">
                                         <input aria-label="Recordar filtros" title="Recordar filtros" className="cursor-pointer" type="checkbox" checked={rememberFilters} onChange={e => setRememberFilters(e.target.checked)} />
-                                        <span className="text-sm ml-1">Recordar filtros</span>
+                                        <span className="text-sm ml-1">Recordar ajustes</span>
                                     </label>
                                 </div>
                                 <button

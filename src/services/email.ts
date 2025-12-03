@@ -1,5 +1,5 @@
-import { collection, addDoc } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { db } from '@/config/firebase';
+import { collection, addDoc, Timestamp } from 'firebase/firestore';
 
 interface EmailAttachment {
   filename: string;
@@ -18,27 +18,40 @@ interface EmailOptions {
 
 export class EmailService {
   /**
-   * Envía email a través de Firestore trigger (nueva implementación)
+   * Encola un email en Firestore para que sea procesado por Firebase Functions
+   * Este método reemplaza el envío directo de emails
    */
   static async queueEmail(options: EmailOptions): Promise<void> {
     try {
+      // Validar datos requeridos
+      if (!options.to || !options.subject || !options.text) {
+        throw new Error('Missing required email fields: to, subject, text');
+      }
+
+      // Preparar datos del email - solo incluir campos definidos
       const emailData: any = {
         to: options.to,
         subject: options.subject,
         text: options.text,
-        attachments: options.attachments || [],
-        createdAt: new Date(),
+        createdAt: Timestamp.now(),
         status: 'pending'
       };
 
-      // Solo incluir html si está definido
+      // Solo agregar campos opcionales si están definidos
       if (options.html !== undefined) {
         emailData.html = options.html;
       }
 
+      if (options.attachments !== undefined && options.attachments.length > 0) {
+        emailData.attachments = options.attachments;
+      }
+
+      // Guardar en Firestore - esto disparará la Cloud Function
       await addDoc(collection(db, 'emails'), emailData);
+
+      console.log('✅ Email queued successfully for:', options.to);
     } catch (error) {
-      console.error('Error queuing email:', error);
+      console.error('❌ Error queueing email:', error);
       throw new Error('Failed to queue email: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
   }

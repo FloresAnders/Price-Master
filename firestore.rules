@@ -1,0 +1,21 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Colección de emails - solo escritura desde el cliente, lectura y actualización desde Functions
+    match /emails/{emailId} {
+      // Permitir crear documentos desde el cliente
+      allow create: if request.auth != null;
+      
+      // Solo Functions puede actualizar el estado
+      allow update: if false;
+      
+      // Solo lectura para administradores
+      allow read: if request.auth != null && request.auth.token.role == 'admin';
+    }
+    
+    // Otras reglas existentes...
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

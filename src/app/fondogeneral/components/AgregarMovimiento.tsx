@@ -1,5 +1,5 @@
-import React from 'react';
-import { Save } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Save, Search } from 'lucide-react';
 import type { FondoMovementType } from './fondo';
 
 type ProviderOption = {
@@ -41,6 +41,10 @@ type AgregarMovimientoProps = {
     currency?: 'CRC' | 'USD';
     onCurrencyChange?: (c: 'CRC' | 'USD') => void;
     currencyEnabled?: Record<'CRC' | 'USD', boolean>;
+    providerError?: string;
+    invoiceError?: string;
+    amountError?: string;
+    managerError?: string;
 };
 
 const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
@@ -49,7 +53,6 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
     providers,
     providersLoading,
     isProviderSelectDisabled,
-    selectedProviderExists,
     invoiceNumber,
     onInvoiceNumberChange,
     invoiceValid,
@@ -76,6 +79,10 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
     currency = 'CRC',
     onCurrencyChange,
     currencyEnabled = { CRC: true, USD: true },
+    providerError = '',
+    invoiceError = '',
+    amountError = '',
+    managerError = '',
 }) => {
     const invoiceBorderClass = invoiceValid || invoiceNumber.length === 0 ? 'border-[var(--input-border)]' : 'border-red-500';
     const inputFormatterCRC = React.useMemo(
@@ -96,6 +103,23 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
 
     const extractDigits = (value: string) => value.replace(/[^0-9]/g, '');
 
+    const [filter, setFilter] = useState('');
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+    useEffect(() => {
+        if (selectedProvider) {
+            const option = providers.find(p => p.code === selectedProvider);
+            setFilter(option ? `${option.name} (${option.code})` : selectedProvider);
+        } else {
+            setFilter('');
+        }
+    }, [selectedProvider, providers]);
+
+    const filteredProviders = providers.filter(p =>
+        p.name.toLowerCase().includes(filter.toLowerCase()) ||
+        p.code.toLowerCase().includes(filter.toLowerCase())
+    );
+
     return (
         <div className="space-y-5">
             <div className="grid gap-4 grid-cols-1">
@@ -103,23 +127,37 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                     <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
                         Proveedor
                     </label>
-                    <select
-                        value={selectedProvider}
-                        onChange={event => onProviderChange(event.target.value)}
-                        onKeyDown={onFieldKeyDown}
-                        className="w-full p-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded"
-                        disabled={isProviderSelectDisabled}
-                    >
-                        <option value="">
-                            {providersLoading ? 'Cargando proveedores...' : 'Seleccionar proveedor'}
-                        </option>
-                        {selectedProvider && !selectedProviderExists && (
-                            <option value={selectedProvider}>{`Proveedor no disponible (${selectedProvider})`}</option>
+                    <div className="relative">
+                        <input
+                            value={filter}
+                            onChange={(e) => { setFilter(e.target.value); setIsDropdownOpen(true); }}
+                            onFocus={() => setIsDropdownOpen(true)}
+                            onBlur={() => { setTimeout(() => setIsDropdownOpen(false), 200); onProviderChange(filter); }}
+                            onKeyDown={onFieldKeyDown}
+                            className={`w-full p-2 bg-[var(--input-bg)] border ${providerError ? 'border-red-500' : 'border-[var(--input-border)]'} rounded pr-10`}
+                            disabled={isProviderSelectDisabled}
+                            placeholder={providersLoading ? 'Cargando proveedores...' : 'Buscar proveedor'}
+                        />
+                        <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
+                        {isDropdownOpen && filteredProviders.length > 0 && (
+                            <div className="absolute z-10 w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded mt-1">
+                                {filteredProviders.map(p => (
+                                    <div
+                                        key={p.code}
+                                        className="p-2 hover:bg-blue-400 cursor-pointer transition-all duration-200"
+                                        onClick={() => {
+                                            onProviderChange(p.code);
+                                            setFilter(`${p.name} (${p.code})`);
+                                            setIsDropdownOpen(false);
+                                        }}
+                                    >
+                                        {p.name} ({p.code})
+                                    </div>
+                                ))}
+                            </div>
                         )}
-                        {providers.map(p => (
-                            <option key={p.code} value={p.code}>{`${p.name} (${p.code})`}</option>
-                        ))}
-                    </select>
+                    </div>
+                    {providerError && <p className="text-red-500 text-xs mt-1">{providerError}</p>}
                 </div>
 
                 <div className="flex flex-col gap-1">
@@ -131,9 +169,10 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                         value={invoiceNumber}
                         onChange={event => onInvoiceNumberChange(event.target.value)}
                         onKeyDown={onFieldKeyDown}
-                        className={`w-full p-2 bg-[var(--input-bg)] border ${invoiceBorderClass} rounded`}
+                        className={`w-full p-2 bg-[var(--input-bg)] border ${invoiceError ? 'border-red-500' : invoiceBorderClass} rounded`}
                         disabled={invoiceDisabled}
                     />
+                    {invoiceError && <p className="text-red-500 text-xs mt-1">{invoiceError}</p>}
                 </div>
 
                 {/* Tipo ya se determina por el proveedor seleccionado; no se muestra selector aquí */}
@@ -181,11 +220,12 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                                 if (isEgreso) onEgresoChange(digits); else onIngresoChange(digits);
                             }}
                             onKeyDown={onFieldKeyDown}
-                            className={`flex-1 p-2 bg-[var(--input-bg)] border ${isEgreso ? egresoBorderClass : ingresoBorderClass} rounded ${currencyEnabled[currency] ? '' : 'opacity-50 cursor-not-allowed'}`}
+                            className={`flex-1 p-2 bg-[var(--input-bg)] border ${amountError ? 'border-red-500' : (isEgreso ? egresoBorderClass : ingresoBorderClass)} rounded ${currencyEnabled[currency] ? '' : 'opacity-50 cursor-not-allowed'}`}
                             inputMode="numeric"
                             disabled={!currencyEnabled[currency]}
                         />
                     </div>
+                    {amountError && <p className="text-red-500 text-xs mt-1">{amountError}</p>}
                 </div>
 
                 <div className="flex flex-col gap-1">
@@ -210,7 +250,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                         value={manager}
                         onChange={event => onManagerChange(event.target.value)}
                         onKeyDown={onFieldKeyDown}
-                        className="w-full p-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded"
+                        className={`w-full p-2 bg-[var(--input-bg)] border ${managerError ? 'border-red-500' : 'border-[var(--input-border)]'} rounded`}
                         disabled={managerSelectDisabled}
                     >
                         <option value="">
@@ -222,6 +262,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                             </option>
                         ))}
                     </select>
+                    {managerError && <p className="text-red-500 text-xs mt-1">{managerError}</p>}
                 </div>
             </div>
 
