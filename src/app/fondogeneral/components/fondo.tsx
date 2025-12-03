@@ -29,6 +29,8 @@ import {
     ChevronDown,
     ChevronUp,
     Search,
+    AlertTriangle,
+    CheckCircle,
 } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import { useProviders } from '../../../hooks/useProviders';
@@ -105,9 +107,13 @@ export const FONDO_TYPE_OPTIONS = [...FONDO_INGRESO_TYPES, ...FONDO_GASTO_TYPES,
 
 export type FondoMovementType = typeof FONDO_INGRESO_TYPES[number] | typeof FONDO_GASTO_TYPES[number] | typeof FONDO_EGRESO_TYPES[number];
 
-const AUTO_ADJUSTMENT_PROVIDER_CODE = 'AJUSTE FONDO GENERAL';
+const AUTO_ADJUSTMENT_PROVIDER_CODE = 'CIERRE DE FONDO GENERAL';
+const AUTO_ADJUSTMENT_PROVIDER_CODE_LEGACY = 'AJUSTE FONDO GENERAL'; // Para compatibilidad con datos antiguos
 const AUTO_ADJUSTMENT_MANAGER = 'SISTEMA';
 
+// Helper para verificar si un proveedor es un cierre/ajuste automático
+const isAutoAdjustmentProvider = (code: string) => 
+    code === AUTO_ADJUSTMENT_PROVIDER_CODE || code === AUTO_ADJUSTMENT_PROVIDER_CODE_LEGACY;
 export const isFondoMovementType = (value: string): value is FondoMovementType =>
     FONDO_TYPE_OPTIONS.includes(value as FondoMovementType);
 
@@ -116,12 +122,16 @@ export const isGastoType = (type: FondoMovementType) => (FONDO_GASTO_TYPES as re
 export const isEgresoType = (type: FondoMovementType) => (FONDO_EGRESO_TYPES as readonly string[]).includes(type);
 
 // Formatea en Titulo Caso cada palabra
-export const formatMovementType = (type: FondoMovementType) =>
-    type
+export const formatMovementType = (type: FondoMovementType | string) => {
+    // Caso especial para cierres sin diferencias
+    if (type === 'INFORMATIVO') return '—';
+    
+    return type
         .toLowerCase()
         .split(' ')
         .map(w => (w ? w[0].toUpperCase() + w.slice(1) : w))
         .join(' ');
+};
 
 // Normaliza valores historicos guardados en localStorage a las nuevas categorias
 const normalizeStoredType = (value: unknown): FondoMovementType => {
@@ -2249,7 +2259,7 @@ export function FondoSection({
 
     const isMovementLocked = useCallback((entry: FondoEntry): boolean => {
         // Los ajustes automáticos siempre están bloqueados
-        if (entry.providerCode === AUTO_ADJUSTMENT_PROVIDER_CODE) {
+        if (isAutoAdjustmentProvider(entry.providerCode)) {
             return true;
         }
 
@@ -2878,7 +2888,7 @@ export function FondoSection({
                 let prevCRCContribution = 0;
                 let prevUSDContribution = 0;
                 fondoEntries.forEach(e => {
-                    if (e.originalEntryId === record.id && e.providerCode === 'AJUSTE FONDO GENERAL') {
+                    if (e.originalEntryId === record.id && isAutoAdjustmentProvider(e.providerCode)) {
                         const contrib = (e.amountIngreso || 0) - (e.amountEgreso || 0);
                         if (e.currency === 'USD') prevUSDContribution += contrib;
                         else prevCRCContribution += contrib;
@@ -2916,7 +2926,7 @@ export function FondoSection({
                     amountEgreso: isPositive ? 0 : Math.abs(diff),
                     amountIngreso: isPositive ? diff : 0,
                     manager: AUTO_ADJUSTMENT_MANAGER,
-                    notes: `AJUSTE FONDO GENERAL ${closingDateKey} — Diferencia CRC: ${diff}. ${userNotes ? `Notas: ${userNotes}` : ''}`,
+                    notes: `AJUSTE APLICADO AL SALDO ACTUAL\n[ALERT_ICON]Diferencia CRC: ${diff >= 0 ? '+ ' : '- '}${formatByCurrency('CRC', Math.abs(diff))}.${userNotes ? ` Notas: ${userNotes}` : ''}`,
                     createdAt,
                     currency: 'CRC',
                     breakdown: closing.breakdownCRC ?? {},
@@ -2936,7 +2946,7 @@ export function FondoSection({
                     amountEgreso: isPositive ? 0 : Math.abs(diff),
                     amountIngreso: isPositive ? diff : 0,
                     manager: AUTO_ADJUSTMENT_MANAGER,
-                    notes: `AJUSTE FONDO GENERAL ${closingDateKey} — Diferencia USD: ${diff}. ${userNotes ? `Notas: ${userNotes}` : ''}`,
+                    notes: `AJUSTE APLICADO AL SALDO ACTUAL\n[ALERT_ICON]Diferencia USD: ${diff >= 0 ? '+ ' : '- '}${formatByCurrency('USD', Math.abs(diff))}.${userNotes ? ` Notas: ${userNotes}` : ''}`,
                     createdAt,
                     currency: 'USD',
                 } as FondoEntry;
@@ -2944,12 +2954,28 @@ export function FondoSection({
                 newMovements.push(entry);
             }
 
+            if (adjustedDiffCRC === 0 && adjustedDiffUSD === 0) {
+                const entry: FondoEntry = {
+                    id: makeId(),
+                    providerCode: AUTO_ADJUSTMENT_PROVIDER_CODE,
+                    invoiceNumber: '0000',
+                    paymentType: 'INFORMATIVO' as any, // Tipo especial para cierres sin diferencias
+                    amountEgreso: 0,
+                    amountIngreso: 0,
+                    manager: AUTO_ADJUSTMENT_MANAGER,
+                    notes: `[CHECK_ICON]Sin diferencias.${userNotes ? ` Notas: ${userNotes}` : ''}`,
+                    createdAt,
+                    currency: 'CRC',
+                    breakdown: closing.breakdownCRC ?? {},
+                } as FondoEntry;
+                newMovements.push(entry);
+            }
             if (editingDailyClosingId && newMovements.length === 0) {
                 // No diff now: remove previous adjustment movements linked to this closing
                 console.info('[FG-DEBUG] Removing previous adjustment movements for closing', record.id, { beforeCount: fondoEntries.length });
                 setFondoEntries(prev => {
-                    const toRemove = prev.filter(e => e.originalEntryId === record.id && e.providerCode === 'AJUSTE FONDO GENERAL');
-                    const filtered = prev.filter(e => !(e.originalEntryId === record.id && e.providerCode === 'AJUSTE FONDO GENERAL'));
+                    const toRemove = prev.filter(e => e.originalEntryId === record.id && isAutoAdjustmentProvider(e.providerCode));
+                    const filtered = prev.filter(e => !(e.originalEntryId === record.id && isAutoAdjustmentProvider(e.providerCode)));
                     console.info('[FG-DEBUG] After remove, count:', filtered.length);
                     if (toRemove.length > 0) {
                         try {
@@ -3000,7 +3026,7 @@ export function FondoSection({
                     setFondoEntries(prev => {
                         console.info('[FG-DEBUG] Updating existing related adjustment movements for closing', record.id, { prevCount: prev.length, newMovements });
                         const updated = prev.map(e => {
-                            if (e.originalEntryId === record.id && e.providerCode === 'AJUSTE FONDO GENERAL') {
+                            if (e.originalEntryId === record.id && isAutoAdjustmentProvider(e.providerCode)) {
                                 const match = newMovements.find(nm => nm.currency === e.currency);
                                 if (!match) return e;
                                 // build audit history
@@ -3039,7 +3065,7 @@ export function FondoSection({
                         });
                         // If some newMovements have no existing entry, prepend them
                         newMovements.forEach(nm => {
-                            const exists = updated.some(u => u.originalEntryId === record.id && u.currency === nm.currency && u.providerCode === 'AJUSTE FONDO GENERAL');
+                            const exists = updated.some(u => u.originalEntryId === record.id && u.currency === nm.currency && isAutoAdjustmentProvider(u.providerCode));
                             if (!exists) {
                                 updated.unshift(nm);
                             }
@@ -3071,8 +3097,8 @@ export function FondoSection({
                     const totalNewUSD = newMovements.reduce((s, m) => s + ((m.currency === 'USD') ? ((m.amountIngreso || 0) - (m.amountEgreso || 0)) : 0), 0);
 
                     // compute existing previous contribution linked to this closing (before we mutate fondoEntries)
-                    const prevCRCContributionExisting = fondoEntries.reduce((s, e) => s + ((e.originalEntryId === record.id && e.providerCode === 'AJUSTE FONDO GENERAL' && (e.currency === 'CRC')) ? ((e.amountIngreso || 0) - (e.amountEgreso || 0)) : 0), 0);
-                    const prevUSDContributionExisting = fondoEntries.reduce((s, e) => s + ((e.originalEntryId === record.id && e.providerCode === 'AJUSTE FONDO GENERAL' && (e.currency === 'USD')) ? ((e.amountIngreso || 0) - (e.amountEgreso || 0)) : 0), 0);
+                    const prevCRCContributionExisting = fondoEntries.reduce((s, e) => s + ((e.originalEntryId === record.id && isAutoAdjustmentProvider(e.providerCode) && (e.currency === 'CRC')) ? ((e.amountIngreso || 0) - (e.amountEgreso || 0)) : 0), 0);
+                    const prevUSDContributionExisting = fondoEntries.reduce((s, e) => s + ((e.originalEntryId === record.id && isAutoAdjustmentProvider(e.providerCode) && (e.currency === 'USD')) ? ((e.amountIngreso || 0) - (e.amountEgreso || 0)) : 0), 0);
 
                     // New recorded balance = currentBalance (which includes existing adjustments) - prevExisting + newAdded
                     const postAdjustmentBalanceCRC = Math.trunc(currentBalanceCRC - prevCRCContributionExisting + totalNewCRC);
@@ -4179,7 +4205,8 @@ export function FondoSection({
                                             const formattedDate = Number.isNaN(recordedAt.getTime())
                                                 ? 'Sin fecha'
                                                 : dateTimeFormatter.format(recordedAt);
-                                            const isAutoAdjustment = fe.providerCode === AUTO_ADJUSTMENT_PROVIDER_CODE;
+                                            const isAutoAdjustment = isAutoAdjustmentProvider(fe.providerCode);
+                                            const isSuccessfulClosing = isAutoAdjustment && movementAmount === 0;
                                             const amountPrefix = isEntryEgreso ? '-' : '+';
                                             // prepare tooltip text for edited entries
                                             let auditTooltip: string | undefined;
@@ -4284,7 +4311,34 @@ export function FondoSection({
                                                         </div>
                                                         {fe.notes && (
                                                             <div className="mt-1 text-xs text-[var(--muted-foreground)] break-words">
-                                                                {fe.notes}
+                                                                {(() => {
+                                                                    // Renderizar iconos para movimientos de cierre con ajustes
+                                                                    if (fe.notes.includes('[ALERT_ICON]')) {
+                                                                        const parts = fe.notes.split('\n');
+                                                                        const headerText = parts.find(p => !p.includes('[ALERT_ICON]')) || '';
+                                                                        const alertLine = parts.find(p => p.includes('[ALERT_ICON]')) || '';
+                                                                        const noteText = alertLine.replace('[ALERT_ICON]', '');
+                                                                        return (
+                                                                            <div className="flex flex-col gap-1">
+                                                                                {headerText && <div className="text-[10px] font-semibold text-[var(--foreground)] uppercase tracking-wide">{headerText}</div>}
+                                                                                <div className="flex items-center gap-1.5">
+                                                                                    <AlertTriangle className="w-3.5 h-3.5 text-yellow-500 flex-shrink-0" />
+                                                                                    <span>{noteText}</span>
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    }
+                                                                    if (fe.notes.startsWith('[CHECK_ICON]')) {
+                                                                        const noteText = fe.notes.replace('[CHECK_ICON]', '');
+                                                                        return (
+                                                                            <div className="flex items-center gap-1.5">
+                                                                                <CheckCircle className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+                                                                                <span>{noteText}</span>
+                                                                            </div>
+                                                                        );
+                                                                    }
+                                                                    return fe.notes;
+                                                                })()}
                                                             </div>
                                                         )}
                                                     </td>
@@ -4293,21 +4347,25 @@ export function FondoSection({
                                                     </td>
                                                     <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">#{fe.invoiceNumber}</td>
                                                     <td className="px-3 py-2 align-top">
-                                                        <div className="flex flex-col gap-1 text-right">
-                                                            <div className="flex items-center justify-end gap-2">
-                                                                {isEntryEgreso ? (
-                                                                    <ArrowUpRight className="w-4 h-4 text-red-500" />
-                                                                ) : (
-                                                                    <ArrowDownRight className="w-4 h-4 text-green-500" />
-                                                                )}
-                                                                <span className={`font-semibold ${isEntryEgreso ? 'text-red-500' : 'text-green-600'}`}>
-                                                                    {`${amountPrefix} ${formatByCurrency(entryCurrency, movementAmount)}`}
+                                                        {isSuccessfulClosing ? (
+                                                            <div className="text-center text-[var(--muted-foreground)]">—</div>
+                                                        ) : (
+                                                            <div className="flex flex-col gap-1 text-right">
+                                                                <div className="flex items-center justify-end gap-2">
+                                                                    {isEntryEgreso ? (
+                                                                        <ArrowUpRight className="w-4 h-4 text-red-500" />
+                                                                    ) : (
+                                                                        <ArrowDownRight className="w-4 h-4 text-green-500" />
+                                                                    )}
+                                                                    <span className={`font-semibold ${isEntryEgreso ? 'text-red-500' : 'text-green-600'}`}>
+                                                                        {`${amountPrefix} ${formatByCurrency(entryCurrency, movementAmount)}`}
+                                                                    </span>
+                                                                </div>
+                                                                <span className="text-xs text-[var(--muted-foreground)]">
+                                                                    Saldo anterior: {formatByCurrency(entryCurrency, previousBalance)}
                                                                 </span>
                                                             </div>
-                                                            <span className="text-xs text-[var(--muted-foreground)]">
-                                                                Saldo anterior: {formatByCurrency(entryCurrency, previousBalance)}
-                                                            </span>
-                                                        </div>
+                                                        )}
                                                     </td>
                                                     <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">{fe.manager}</td>
                                                     <td className="px-3 py-2 align-top">
@@ -4547,7 +4605,7 @@ export function FondoSection({
 
                                                 {/* Show related adjustment movements or an edited/resolved indicator */}
                                                 {(() => {
-                                                    const relatedAdjustments = fondoEntries.filter(e => e.originalEntryId === record.id && e.providerCode === 'AJUSTE FONDO GENERAL');
+                                                    const relatedAdjustments = fondoEntries.filter(e => e.originalEntryId === record.id && isAutoAdjustmentProvider(e.providerCode));
                                                     if (relatedAdjustments.length === 0 && (record.diffCRC === 0 && record.diffUSD === 0)) {
                                                         const isExpanded = expandedClosings.has(record.id);
                                                         return (
