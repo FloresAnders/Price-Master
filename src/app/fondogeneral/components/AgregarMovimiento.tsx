@@ -1,5 +1,5 @@
-import React from 'react';
-import { Save } from 'lucide-react';
+import React, { useState, useLayoutEffect, useRef } from 'react';
+import { Save, Search } from 'lucide-react';
 import type { FondoMovementType } from './fondo';
 
 type ProviderOption = {
@@ -49,7 +49,6 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
     providers,
     providersLoading,
     isProviderSelectDisabled,
-    selectedProviderExists,
     invoiceNumber,
     onInvoiceNumberChange,
     invoiceValid,
@@ -96,6 +95,29 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
 
     const extractDigits = (value: string) => value.replace(/[^0-9]/g, '');
 
+    const [filter, setFilter] = useState('');
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const lastSelectedProvider = useRef(selectedProvider);
+
+    useLayoutEffect(() => {
+        if (lastSelectedProvider.current !== selectedProvider) {
+            lastSelectedProvider.current = selectedProvider;
+            setTimeout(() => {
+                if (selectedProvider) {
+                    const option = providers.find(p => p.code === selectedProvider);
+                    setFilter(option ? `${option.name} (${option.code})` : selectedProvider);
+                } else {
+                    setFilter('');
+                }
+            }, 0);
+        }
+    }, [selectedProvider, providers]);
+
+    const filteredProviders = providers.filter(p =>
+        p.name.toLowerCase().includes(filter.toLowerCase()) ||
+        p.code.toLowerCase().includes(filter.toLowerCase())
+    );
+
     return (
         <div className="space-y-5">
             <div className="grid gap-4 grid-cols-1">
@@ -103,23 +125,36 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                     <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
                         Proveedor
                     </label>
-                    <select
-                        value={selectedProvider}
-                        onChange={event => onProviderChange(event.target.value)}
-                        onKeyDown={onFieldKeyDown}
-                        className="w-full p-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded"
-                        disabled={isProviderSelectDisabled}
-                    >
-                        <option value="">
-                            {providersLoading ? 'Cargando proveedores...' : 'Seleccionar proveedor'}
-                        </option>
-                        {selectedProvider && !selectedProviderExists && (
-                            <option value={selectedProvider}>{`Proveedor no disponible (${selectedProvider})`}</option>
+                    <div className="relative">
+                        <input
+                            value={filter}
+                            onChange={(e) => { setFilter(e.target.value); setIsDropdownOpen(true); }}
+                            onFocus={() => setIsDropdownOpen(true)}
+                            onBlur={() => { setTimeout(() => setIsDropdownOpen(false), 200); onProviderChange(filter); }}
+                            onKeyDown={onFieldKeyDown}
+                            className="w-full p-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded pr-10"
+                            disabled={isProviderSelectDisabled}
+                            placeholder={providersLoading ? 'Cargando proveedores...' : 'Buscar proveedor'}
+                        />
+                        <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
+                        {isDropdownOpen && filteredProviders.length > 0 && (
+                            <div className="absolute z-10 w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded mt-1">
+                                {filteredProviders.map(p => (
+                                    <div
+                                        key={p.code}
+                                        className="p-2 hover:bg-blue-400 cursor-pointer transition-all duration-200"
+                                        onClick={() => {
+                                            onProviderChange(p.code);
+                                            setFilter(`${p.name} (${p.code})`);
+                                            setIsDropdownOpen(false);
+                                        }}
+                                    >
+                                        {p.name} ({p.code})
+                                    </div>
+                                ))}
+                            </div>
                         )}
-                        {providers.map(p => (
-                            <option key={p.code} value={p.code}>{`${p.name} (${p.code})`}</option>
-                        ))}
-                    </select>
+                    </div>
                 </div>
 
                 <div className="flex flex-col gap-1">
