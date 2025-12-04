@@ -111,7 +111,7 @@ const AUTO_ADJUSTMENT_PROVIDER_CODE = 'CIERRE DE FONDO GENERAL';
 const AUTO_ADJUSTMENT_PROVIDER_CODE_LEGACY = 'AJUSTE FONDO GENERAL'; // Para compatibilidad con datos antiguos
 const AUTO_ADJUSTMENT_MANAGER = 'SISTEMA';
 
-const CIERRE_DE_CAJA_PROVIDER_CODE = '0000';
+const CIERRE_FONDO_VENTAS_PROVIDER_NAME = 'CIERRE FONDO VENTAS';
 // Helper para verificar si un proveedor es un cierre/ajuste automático
 const isAutoAdjustmentProvider = (code: string) => 
     code === AUTO_ADJUSTMENT_PROVIDER_CODE || code === AUTO_ADJUSTMENT_PROVIDER_CODE_LEGACY;
@@ -1805,25 +1805,6 @@ export function FondoSection({
 
                 if (isMounted) {
                     setFondoEntries(resolvedEntries ?? []);
-                    if (resolvedEntries && resolvedEntries.length > 0) {
-                        const sortedEntries = [...resolvedEntries].sort((a, b) => 
-                            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-                        );
-                        
-                        let hasPendingCierreDeCaja = false;
-                        for (const entry of sortedEntries) {
-                            if (entry.providerCode === AUTO_ADJUSTMENT_PROVIDER_CODE) {
-                                // Encontramos un CIERRE DE FONDO GENERAL, no hay pendiente
-                                break;
-                            }
-                            if (entry.providerCode === CIERRE_DE_CAJA_PROVIDER_CODE) {
-                                hasPendingCierreDeCaja = true;
-                                break;
-                            }
-                        }
-                        setPendingCierreDeCaja(hasPendingCierreDeCaja);
-                        console.log('[CIERRE-DEBUG] Estado inicial pendingCierreDeCaja:', hasPendingCierreDeCaja);
-                    }
                     if (resolvedState) {
                         console.log('[LOCK-DEBUG] Loading state with lockedUntil:', resolvedState.lockedUntil);
                         applyLedgerStateFromStorage(resolvedState);
@@ -1849,6 +1830,32 @@ export function FondoSection({
             isMounted = false;
         };
     }, [namespace, resolvedOwnerId, company, applyLedgerStateFromStorage, accountKey]);
+
+    useEffect(() => {
+        if (!entriesHydrated || providers.length === 0 || fondoEntries.length === 0) {
+            return;
+        }
+
+        const sortedEntries = [...fondoEntries].sort((a, b) => 
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        
+        let hasPendingCierreDeCaja = false;
+        for (const entry of sortedEntries) {
+            // Si encontramos un CIERRE DE FONDO GENERAL, no hay pendiente
+            if (entry.providerCode === AUTO_ADJUSTMENT_PROVIDER_CODE) {
+                break;
+            }
+            // Buscar el nombre del proveedor por su código
+            const providerData = providers.find(p => p.code === entry.providerCode);
+            if (providerData?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME) {
+                hasPendingCierreDeCaja = true;
+                break;
+            }
+        }
+        setPendingCierreDeCaja(hasPendingCierreDeCaja);
+        console.log('[CIERRE-DEBUG] Estado pendingCierreDeCaja después de cargar:', hasPendingCierreDeCaja);
+    }, [entriesHydrated, providers, fondoEntries]);
 
     useEffect(() => {
         if (!selectedProvider) return;
@@ -2247,9 +2254,9 @@ export function FondoSection({
         };
 
         setFondoEntries(prev => [entry, ...prev]);
-        if (selectedProvider === CIERRE_DE_CAJA_PROVIDER_CODE) {
+        const selectedProviderData = providers.find(p => p.code === selectedProvider);
+        if (selectedProviderData?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME) {
             setPendingCierreDeCaja(true);
-            console.log('[CIERRE-DEBUG] Bloqueando botón Agregar movimiento - CIERRE DE CAJA detectado');
         }
         resetFondoForm();
         if (!movementAutoCloseLocked) {
@@ -3923,7 +3930,7 @@ export function FondoSection({
                                 </button>
                                 {!pendingCierreDeCaja && (
                                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-yellow-500 text-black text-sm rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
-                                        ⚠️ Debe agregar un movimiento de "CIERRE FONDO VENTAS" primero
+                                        ⚠️ Debe agregar un movimiento de &quot;CIERRE FONDO VENTAS&quot; primero
                                         <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-yellow-500"></div>
                                     </div>
                                 )}
@@ -3945,7 +3952,7 @@ export function FondoSection({
                             </button>
                             {pendingCierreDeCaja && entriesHydrated && (
                                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-yellow-500 text-black text-sm rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
-                                    ⚠️ Debe realizar el "Registrar cierre" para seguir agregando movimientos
+                                    ⚠️ Debe realizar el &quot;Registrar cierre&quot; para seguir agregando movimientos
                                     <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-yellow-500"></div>
                                 </div>
                             )}
