@@ -18,17 +18,6 @@ interface SessionData {
   useTokenAuth?: boolean; // Nueva propiedad para indicar si usar autenticación por tokens
 }
 
-interface AuditLog {
-  timestamp: string;
-  userId: string;
-  userName: string;
-  action: string;
-  details: string;
-  ipAddress?: string;
-  userAgent?: string;
-  sessionId: string;
-}
-
 // Duración de la sesión en horas por tipo de usuario
 const SESSION_DURATION_HOURS = {
   superadmin: 4,    // SuperAdmin: 4 horas por seguridad
@@ -68,34 +57,7 @@ export function useAuth() {
       platform: navigator.platform,
       cookieEnabled: navigator.cookieEnabled
     };
-  };  // Función para registrar logs de auditoría
-  const logAuditEvent = useCallback((action: string, details: string, userId?: string) => {
-    try {
-      const currentUser = user;
-      const auditLog: AuditLog = {
-        timestamp: new Date().toISOString(),
-        userId: userId || currentUser?.id || 'anonymous',
-        userName: currentUser?.name || 'Unknown',
-        action,
-        details,
-        sessionId: currentUser ? localStorage.getItem('pricemaster_session_id') || '' : '',
-        userAgent: navigator.userAgent
-      };
-
-      // Guardar en localStorage (en producción, enviar al servidor)
-      const existingLogs = JSON.parse(localStorage.getItem('pricemaster_audit_logs') || '[]');
-      existingLogs.push(auditLog);
-
-      // Mantener solo los últimos 100 logs
-      if (existingLogs.length > 100) {
-        existingLogs.shift();
-      }
-
-      localStorage.setItem('pricemaster_audit_logs', JSON.stringify(existingLogs));
-    } catch (error) {
-      console.error('Error logging audit event:', error);
-    }
-  }, [user]);
+  };
 
   // Función para verificar tiempo de inactividad
   const checkInactivity = useCallback((session: SessionData) => {
@@ -125,13 +87,6 @@ export function useAuth() {
   }, [isAuthenticated, user]);
 
   const logout = useCallback((reason?: string) => {
-    const currentUser = user;
-
-    // Log de auditoría antes del logout
-    if (currentUser) {
-      logAuditEvent('LOGOUT', reason || 'Manual logout', currentUser.id);
-    }
-
     // Limpiar datos de sesión según el tipo de autenticación
     if (useTokenAuth) {
       TokenService.revokeToken();
@@ -144,7 +99,7 @@ export function useAuth() {
     setIsAuthenticated(false);
     setSessionWarning(false);
     setUseTokenAuth(false);
-  }, [user, logAuditEvent, useTokenAuth]); const checkExistingSession = useCallback(() => {
+  }, [useTokenAuth]); const checkExistingSession = useCallback(() => {
     try {
       // Verificar primero si hay una sesión de token
       const tokenInfo = TokenService.getTokenInfo();
@@ -262,12 +217,11 @@ export function useAuth() {
       }
     } catch (error) {
       console.error('Error checking session:', error);
-      logAuditEvent('SESSION_ERROR', `Error checking session: ${error}`);
       logout();
     } finally {
       setLoading(false);
     }
-  }, [checkInactivity, logout, user, isAuthenticated, sessionWarning, logAuditEvent]);
+  }, [checkInactivity, logout, user, isAuthenticated, sessionWarning]);
   useEffect(() => {
     let unsubscribeUser: (() => void) | null = null;
 
@@ -359,7 +313,7 @@ export function useAuth() {
       });
       clearInterval(sessionInterval);
     };
-  }, [checkExistingSession, updateActivity, isAuthenticated, user?.id, useTokenAuth, logAuditEvent]);
+  }, [checkExistingSession, updateActivity, isAuthenticated, user?.id, useTokenAuth]);
   const login = (userData: User, keepActive: boolean = false, useTokens: boolean = false) => {
     if (useTokens) {
       // Usar autenticación por tokens (una semana automáticamente)
@@ -374,9 +328,6 @@ export function useAuth() {
       setIsAuthenticated(true);
       setSessionWarning(false);
       setUseTokenAuth(true);
-
-      // Log de auditoría
-      logAuditEvent('TOKEN_LOGIN_SUCCESS', `User ${userData.name} logged in with token authentication`, userData.id);
     } else {
       // Usar autenticación tradicional
       const sessionId = generateSessionId();
@@ -415,9 +366,6 @@ export function useAuth() {
       setIsAuthenticated(true);
       setSessionWarning(false);
       setUseTokenAuth(false);
-
-      // Log de auditoría
-      logAuditEvent('LOGIN_SUCCESS', `User ${userData.name} logged in with role ${userData.role}`, userData.id);
     }
   };
 
@@ -454,23 +402,7 @@ export function useAuth() {
     }
   }, [user, isAuthenticated, useTokenAuth]);
 
-  // Función para obtener logs de auditoría (solo SuperAdmin)
-  const getAuditLogs = () => {
-    // Allow both superadmins and admins to retrieve audit logs
-    if (user?.role !== 'superadmin' && user?.role !== 'admin') {
-      logAuditEvent('UNAUTHORIZED_ACCESS', 'Attempted to access audit logs without SuperAdmin/Admin role');
-      return [];
-    }
-
-    try {
-      const logs = JSON.parse(localStorage.getItem('pricemaster_audit_logs') || '[]');
-      logAuditEvent('AUDIT_LOGS_ACCESSED', 'SuperAdmin accessed audit logs');
-      return logs;
-    } catch (error) {
-      console.error('Error getting audit logs:', error);
-      return [];
-    }
-  }; const isAdmin = useCallback(() => {
+  const isAdmin = useCallback(() => {
     return user?.role === 'admin' || user?.role === 'superadmin';
   }, [user?.role]);
 
@@ -524,7 +456,6 @@ export function useAuth() {
     canChangeOwnercompanie,
     requiresTwoFactor,
     getSessionTimeLeft,
-    getAuditLogs,
     updateActivity,
     getSessionType,
     getFormattedTimeLeft

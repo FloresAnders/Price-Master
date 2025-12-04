@@ -110,22 +110,8 @@ export default function SecuritySettings() {
   const saveConfiguration = async () => {
     setSaving(true);
     try {
-      // Guardar en localStorage (en producción, enviar al servidor)
+      // Guardar en localStorage
       localStorage.setItem('pricemaster_security_config', JSON.stringify(config));
-
-      // Log de auditoría
-      const auditLog = {
-        timestamp: new Date().toISOString(),
-        userId: user?.id,
-        userName: user?.name,
-        action: 'SECURITY_CONFIG_UPDATED',
-        details: 'SuperAdmin updated security configuration',
-        sessionId: localStorage.getItem('pricemaster_session_id') || ''
-      };
-
-      const existingLogs = JSON.parse(localStorage.getItem('pricemaster_audit_logs') || '[]');
-      existingLogs.push(auditLog);
-      localStorage.setItem('pricemaster_audit_logs', JSON.stringify(existingLogs));
       showToast('Configuración de seguridad guardada exitosamente', 'success');
     } catch {
       showToast('Error al guardar la configuración', 'error');
