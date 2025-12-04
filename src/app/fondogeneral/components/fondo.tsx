@@ -2408,6 +2408,18 @@ export function FondoSection({
     }, []);
 
     const isProviderSelectDisabled = !company || providersLoading || providers.length === 0;
+    // Detectar si estamos editando un movimiento EXISTENTE de CIERRE FONDO VENTAS (bloquear cambio de proveedor)
+    // Solo aplica cuando editamos, no cuando creamos un nuevo movimiento
+    const isEditingCierreFondoVentas = useMemo(() => {
+        if (!editingEntryId) return false;
+        // Buscar el movimiento original que se está editando
+        const originalEntry = fondoEntries.find(e => e.id === editingEntryId);
+        if (!originalEntry) return false;
+        // Verificar si el proveedor ORIGINAL del movimiento es CIERRE FONDO VENTAS
+        const originalProvider = providers.find(p => p.code === originalEntry.providerCode);
+        return originalProvider?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME;
+    }, [editingEntryId, fondoEntries, providers]);
+    
     const providersMap = useMemo(() => {
         const map = new Map<string, string>();
         providers.forEach(p => map.set(p.code, p.name));
@@ -4018,7 +4030,8 @@ export function FondoSection({
                             onProviderChange={handleProviderChange}
                             providers={providers}
                             providersLoading={providersLoading}
-                            isProviderSelectDisabled={isProviderSelectDisabled}
+                            isProviderSelectDisabled={isProviderSelectDisabled || isEditingCierreFondoVentas}
+                            providerDisabledTooltip={isEditingCierreFondoVentas ? 'No se puede cambiar el proveedor de un movimiento "CIERRE FONDO VENTAS"' : undefined}
                             selectedProviderExists={selectedProviderExists}
                             invoiceNumber={invoiceNumber}
                             onInvoiceNumberChange={handleInvoiceNumberChange}
