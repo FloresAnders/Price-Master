@@ -141,7 +141,6 @@ export function useAuth() {
           setSessionWarning(shouldShowWarning);
         }
 
-        logAuditEvent('TOKEN_SESSION_RESUMED', `User ${tokenInfo.user.name} resumed token session`, tokenInfo.user.id);
         return;
       }
 
@@ -207,11 +206,8 @@ export function useAuth() {
             }
           }
 
-          logAuditEvent('SESSION_RESUMED', `User ${session.name} resumed session`, session.id);
         } else {
           // Sesión expirada o inactiva
-          const reason = isInactive ? 'inactivity' : 'time_expiration';
-          logAuditEvent('SESSION_EXPIRED', `Session expired due to ${reason}`, session.id);
           logout();
         }
       }
@@ -266,10 +262,6 @@ export function useAuth() {
                     console.error('Error updating session with new permissions:', err);
                   }
                 }
-              }
-
-              if (hasPermissionsChanged) {
-                logAuditEvent('PERMISSIONS_UPDATED', 'User permissions updated in real-time', prevUser.id);
               }
 
               return {
