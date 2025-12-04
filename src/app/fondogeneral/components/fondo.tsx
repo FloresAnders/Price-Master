@@ -2787,7 +2787,26 @@ export function FondoSection({
     const handleOpenDailyClosing = () => {
         if (accountKey !== 'FondoGeneral') return;
         setEditingDailyClosingId(null);
-        setDailyClosingInitialValues(null);
+
+        // Find the last "CIERRE FONDO VENTAS" movement to get the default manager
+        const lastCierreVentas = [...fondoEntries]
+            .filter(entry => {
+                const provider = providers.find(p => p.code === entry.providerCode);
+                return provider?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME;
+            })
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
+        const initialValues: DailyClosingFormValues = {
+            closingDate: new Date().toISOString(),
+            manager: lastCierreVentas?.manager || '',
+            notes: '',
+            totalCRC: currentBalanceCRC,
+            totalUSD: currentBalanceUSD,
+            breakdownCRC: {},
+            breakdownUSD: {},
+        };
+
+        setDailyClosingInitialValues(initialValues);
         setDailyClosingModalOpen(true);
     };
 
@@ -4587,6 +4606,7 @@ export function FondoSection({
                 loadingEmployees={employeesLoading}
                 currentBalanceCRC={currentBalanceCRC}
                 currentBalanceUSD={currentBalanceUSD}
+                managerReadonly={!editingDailyClosingId}
             />
 
             <ConfirmModal
