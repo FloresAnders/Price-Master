@@ -2799,7 +2799,26 @@ export function FondoSection({
     const handleOpenDailyClosing = () => {
         if (accountKey !== 'FondoGeneral') return;
         setEditingDailyClosingId(null);
-        setDailyClosingInitialValues(null);
+
+        // Find the last "CIERRE FONDO VENTAS" movement to get the default manager
+        const lastCierreVentas = [...fondoEntries]
+            .filter(entry => {
+                const provider = providers.find(p => p.code === entry.providerCode);
+                return provider?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME;
+            })
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
+        const initialValues: DailyClosingFormValues = {
+            closingDate: new Date().toISOString(),
+            manager: lastCierreVentas?.manager || '',
+            notes: '',
+            totalCRC: currentBalanceCRC,
+            totalUSD: currentBalanceUSD,
+            breakdownCRC: {},
+            breakdownUSD: {},
+        };
+
+        setDailyClosingInitialValues(initialValues);
         setDailyClosingModalOpen(true);
     };
 
@@ -3952,9 +3971,9 @@ export function FondoSection({
                             <button
                                 type="button"
                                 onClick={handleOpenCreateMovement}
-                                disabled={pendingCierreDeCaja || !entriesHydrated}
+                                disabled={(accountKey === 'FondoGeneral' && pendingCierreDeCaja) || !entriesHydrated}
                                 className={`flex items-center justify-center gap-2 rounded px-4 py-2 text-white ${
-                                    (pendingCierreDeCaja || !entriesHydrated)
+                                    ((accountKey === 'FondoGeneral' && pendingCierreDeCaja) || !entriesHydrated)
                                         ? 'bg-gray-400 cursor-not-allowed opacity-60'
                                         : 'fg-add-mov-btn'
                                 }`}
@@ -3962,7 +3981,7 @@ export function FondoSection({
                                 <Plus className="w-4 h-4" />
                                 Agregar movimiento
                             </button>
-                            {pendingCierreDeCaja && entriesHydrated && (
+                            {accountKey === 'FondoGeneral' && pendingCierreDeCaja && entriesHydrated && (
                                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-yellow-500 text-black text-sm rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
                                     ⚠️ Debe realizar el &quot;Registrar cierre&quot; para seguir agregando movimientos
                                     <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-yellow-500"></div>
@@ -4600,6 +4619,7 @@ export function FondoSection({
                 loadingEmployees={employeesLoading}
                 currentBalanceCRC={currentBalanceCRC}
                 currentBalanceUSD={currentBalanceUSD}
+                managerReadonly={!editingDailyClosingId}
             />
 
             <ConfirmModal
