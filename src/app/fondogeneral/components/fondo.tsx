@@ -111,6 +111,7 @@ const AUTO_ADJUSTMENT_PROVIDER_CODE = 'CIERRE DE FONDO GENERAL';
 const AUTO_ADJUSTMENT_PROVIDER_CODE_LEGACY = 'AJUSTE FONDO GENERAL'; // Para compatibilidad con datos antiguos
 const AUTO_ADJUSTMENT_MANAGER = 'SISTEMA';
 
+const CIERRE_DE_CAJA_PROVIDER_CODE = '0000';
 // Helper para verificar si un proveedor es un cierre/ajuste automático
 const isAutoAdjustmentProvider = (code: string) => 
     code === AUTO_ADJUSTMENT_PROVIDER_CODE || code === AUTO_ADJUSTMENT_PROVIDER_CODE_LEGACY;
@@ -1282,6 +1283,7 @@ export function FondoSection({
     const [dailyClosingsRefreshing, setDailyClosingsRefreshing] = useState(false);
     const [dailyClosingHistoryOpen, setDailyClosingHistoryOpen] = useState(false);
     const [expandedClosings, setExpandedClosings] = useState<Set<string>>(new Set());
+    const [pendingCierreDeCaja, setPendingCierreDeCaja] = useState(false);
     const dailyClosingsRequestCountRef = useRef(0);
     const isComponentMountedRef = useRef(true);
     const loadedDailyClosingKeysRef = useRef<Set<string>>(new Set());
@@ -1804,6 +1806,25 @@ export function FondoSection({
 
                 if (isMounted) {
                     setFondoEntries(resolvedEntries ?? []);
+                    if (resolvedEntries && resolvedEntries.length > 0) {
+                        const sortedEntries = [...resolvedEntries].sort((a, b) => 
+                            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                        );
+                        
+                        let hasPendingCierreDeCaja = false;
+                        for (const entry of sortedEntries) {
+                            if (entry.providerCode === AUTO_ADJUSTMENT_PROVIDER_CODE) {
+                                // Encontramos un CIERRE DE FONDO GENERAL, no hay pendiente
+                                break;
+                            }
+                            if (entry.providerCode === CIERRE_DE_CAJA_PROVIDER_CODE) {
+                                hasPendingCierreDeCaja = true;
+                                break;
+                            }
+                        }
+                        setPendingCierreDeCaja(hasPendingCierreDeCaja);
+                        console.log('[CIERRE-DEBUG] Estado inicial pendingCierreDeCaja:', hasPendingCierreDeCaja);
+                    }
                     if (resolvedState) {
                         console.log('[LOCK-DEBUG] Loading state with lockedUntil:', resolvedState.lockedUntil);
                         applyLedgerStateFromStorage(resolvedState);
@@ -2227,6 +2248,10 @@ export function FondoSection({
         };
 
         setFondoEntries(prev => [entry, ...prev]);
+        if (selectedProvider === CIERRE_DE_CAJA_PROVIDER_CODE) {
+            setPendingCierreDeCaja(true);
+            console.log('[CIERRE-DEBUG] Bloqueando botón Agregar movimiento - CIERRE DE CAJA detectado');
+        }
         resetFondoForm();
         if (!movementAutoCloseLocked) {
             setMovementModalOpen(false);
@@ -2812,6 +2837,7 @@ export function FondoSection({
         loadingDailyClosingKeysRef.current.delete(closingDateKey);
         setDailyClosingsHydrated(true);
 
+        setPendingCierreDeCaja(false);
         setDailyClosingModalOpen(false);
 
         const normalizedCompany = (company || '').trim();
@@ -3894,7 +3920,13 @@ export function FondoSection({
                         <button
                             type="button"
                             onClick={handleOpenCreateMovement}
-                            className="flex items-center justify-center gap-2 rounded fg-add-mov-btn px-4 py-2 text-white"
+                            disabled={pendingCierreDeCaja}
+                            className={`flex items-center justify-center gap-2 rounded px-4 py-2 text-white ${
+                                pendingCierreDeCaja
+                                    ? 'bg-gray-400 cursor-not-allowed opacity-60'
+                                    : 'fg-add-mov-btn'
+                            }`}
+                            title={pendingCierreDeCaja ? 'Debe completar el registro de cierre primero' : ''}
                         >
                             <Plus className="w-4 h-4" />
                             Agregar movimiento
