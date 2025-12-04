@@ -3923,7 +3923,7 @@ export function FondoSection({
                                 </button>
                                 {!pendingCierreDeCaja && (
                                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-yellow-500 text-black text-sm rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
-                                        ⚠️ Debe agregar un movimiento de Cierre de Caja primero
+                                        ⚠️ Debe agregar un movimiento de "CIERRE FONDO VENTAS" primero
                                         <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-yellow-500"></div>
                                     </div>
                                 )}
@@ -3933,9 +3933,9 @@ export function FondoSection({
                             <button
                                 type="button"
                                 onClick={handleOpenCreateMovement}
-                                disabled={pendingCierreDeCaja}
+                                disabled={pendingCierreDeCaja || !entriesHydrated}
                                 className={`flex items-center justify-center gap-2 rounded px-4 py-2 text-white ${
-                                    pendingCierreDeCaja
+                                    (pendingCierreDeCaja || !entriesHydrated)
                                         ? 'bg-gray-400 cursor-not-allowed opacity-60'
                                         : 'fg-add-mov-btn'
                                 }`}
@@ -3943,9 +3943,9 @@ export function FondoSection({
                                 <Plus className="w-4 h-4" />
                                 Agregar movimiento
                             </button>
-                            {pendingCierreDeCaja && (
+                            {pendingCierreDeCaja && entriesHydrated && (
                                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-yellow-500 text-black text-sm rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
-                                    ⚠️ Debe realizar el registro de cierre para seguir agregando movimientos
+                                    ⚠️ Debe realizar el "Registrar cierre" para seguir agregando movimientos
                                     <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-yellow-500"></div>
                                 </div>
                             )}
