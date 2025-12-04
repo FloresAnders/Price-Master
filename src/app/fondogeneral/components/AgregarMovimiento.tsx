@@ -132,7 +132,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                             value={filter}
                             onChange={(e) => { setFilter(e.target.value); setIsDropdownOpen(true); }}
                             onFocus={() => setIsDropdownOpen(true)}
-                            onBlur={() => { setTimeout(() => setIsDropdownOpen(false), 200); onProviderChange(filter); }}
+                            onBlur={() => { setTimeout(() => setIsDropdownOpen(false), 200); }}
                             onKeyDown={onFieldKeyDown}
                             className={`w-full p-2 bg-[var(--input-bg)] border ${providerError ? 'border-red-500' : 'border-[var(--input-border)]'} rounded pr-10`}
                             disabled={isProviderSelectDisabled}
@@ -145,7 +145,13 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                                     <div
                                         key={p.code}
                                         className="p-2 hover:bg-blue-400 cursor-pointer transition-all duration-200"
-                                        onClick={() => {
+                                        onMouseDown={() => {
+                                            onProviderChange(p.code);
+                                            setFilter(`${p.name} (${p.code})`);
+                                            setIsDropdownOpen(false);
+                                        }}
+                                        onTouchEnd={(e) => {
+                                            e.preventDefault();
                                             onProviderChange(p.code);
                                             setFilter(`${p.name} (${p.code})`);
                                             setIsDropdownOpen(false);
