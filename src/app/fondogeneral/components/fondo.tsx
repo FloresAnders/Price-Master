@@ -124,8 +124,7 @@ export const isEgresoType = (type: FondoMovementType) => (FONDO_EGRESO_TYPES as 
 
 // Formatea en Titulo Caso cada palabra
 export const formatMovementType = (type: FondoMovementType | string) => {
-    // Caso especial para cierres sin diferencias
-    if (type === 'INFORMATIVO') return '—';
+    if (type === 'INFORMATIVO') return '';
     
     return type
         .toLowerCase()
@@ -3908,29 +3907,49 @@ export function FondoSection({
 
                     <div className="flex w-full items-center justify-center gap-2 sm:w-auto">
                         {accountKey === 'FondoGeneral' && (
+                            <div className="relative group">
+                                <button
+                                    type="button"
+                                    onClick={handleOpenDailyClosing}
+                                    disabled={!pendingCierreDeCaja}
+                                    className={`flex items-center justify-center gap-2 rounded px-4 py-2 text-white ${
+                                        !pendingCierreDeCaja
+                                            ? 'bg-gray-400 cursor-not-allowed opacity-60'
+                                            : 'fg-add-mov-btn'
+                                    }`}
+                                >
+                                    <Banknote className="w-4 h-4" />
+                                    Registrar cierre
+                                </button>
+                                {!pendingCierreDeCaja && (
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-yellow-500 text-black text-sm rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
+                                        ⚠️ Debe agregar un movimiento de Cierre de Caja primero
+                                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-yellow-500"></div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        <div className="relative group">
                             <button
                                 type="button"
-                                onClick={handleOpenDailyClosing}
-                                className="flex items-center justify-center gap-2 rounded fg-add-mov-btn px-4 py-2 text-white"
+                                onClick={handleOpenCreateMovement}
+                                disabled={pendingCierreDeCaja}
+                                className={`flex items-center justify-center gap-2 rounded px-4 py-2 text-white ${
+                                    pendingCierreDeCaja
+                                        ? 'bg-gray-400 cursor-not-allowed opacity-60'
+                                        : 'fg-add-mov-btn'
+                                }`}
                             >
-                                <Banknote className="w-4 h-4" />
-                                Registrar cierre
+                                <Plus className="w-4 h-4" />
+                                Agregar movimiento
                             </button>
-                        )}
-                        <button
-                            type="button"
-                            onClick={handleOpenCreateMovement}
-                            disabled={pendingCierreDeCaja}
-                            className={`flex items-center justify-center gap-2 rounded px-4 py-2 text-white ${
-                                pendingCierreDeCaja
-                                    ? 'bg-gray-400 cursor-not-allowed opacity-60'
-                                    : 'fg-add-mov-btn'
-                            }`}
-                            title={pendingCierreDeCaja ? 'Debe completar el registro de cierre primero' : ''}
-                        >
-                            <Plus className="w-4 h-4" />
-                            Agregar movimiento
-                        </button>
+                            {pendingCierreDeCaja && (
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-yellow-500 text-black text-sm rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
+                                    ⚠️ Debe realizar el registro de cierre para seguir agregando movimientos
+                                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-yellow-500"></div>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             </section>
