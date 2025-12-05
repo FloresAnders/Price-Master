@@ -24,6 +24,7 @@ const getCategoryFromType = (type?: string): 'Ingreso' | 'Gasto' | 'Egreso' | un
 	// Gastos
 	const gastos = [
 		'SALARIOS',
+		'TELEFONOS',
 		'CARGAS SOCIALES',
 		'AGUINALDOS',
 		'VACACIONES',
@@ -43,7 +44,9 @@ const getCategoryFromType = (type?: string): 'Ingreso' | 'Gasto' | 'Egreso' | un
 		'CONTROL PLAGAS',
 		'MONITOREO DE ALARMAS',
 		'FACTURA ELECTRONICA',
-		'GASTOS VARIOS'
+		'GASTOS VARIOS',
+		'TRANSPORTE',
+		'MANTENIMIENTO MOBILIARIO Y EQUIPO',
 	];
 
 	if (gastos.includes(normalizedType)) {
@@ -52,13 +55,14 @@ const getCategoryFromType = (type?: string): 'Ingreso' | 'Gasto' | 'Egreso' | un
 
 	// Egresos
 	const egresos = [
+		'EGRESOS VARIOS',
 		'PAGO TIEMPOS',
 		'PAGO BANCA',
 		'COMPRA INVENTARIO',
 		'COMPRA ACTIVOS',
 		'PAGO IMPUESTO RENTA',
 		'PAGO IMPUESTO IVA',
-		'EGRESOS VARIOS'
+		'RETIRO EFECTIVO'
 	];
 
 	if (egresos.includes(normalizedType)) {

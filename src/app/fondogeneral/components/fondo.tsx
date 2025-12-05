@@ -63,6 +63,7 @@ export const FONDO_INGRESO_TYPES = ['VENTAS', 'OTROS INGRESOS'] as const;
 
 export const FONDO_GASTO_TYPES = [
     'SALARIOS',
+    'TELEFONOS',
     'CARGAS SOCIALES',
     'AGUINALDOS',
     'VACACIONES',
@@ -83,6 +84,8 @@ export const FONDO_GASTO_TYPES = [
     'MONITOREO DE ALARMAS',
     'FACTURA ELECTRONICA',
     'GASTOS VARIOS',
+    'TRANSPORTE',
+    'MANTENIMIENTO MOBILIARIO Y EQUIPO',
 ] as const;
 
 const AUTO_ADJUSTMENT_MOVEMENT_TYPE_EGRESO = (FONDO_GASTO_TYPES as readonly string[]).find(
@@ -93,13 +96,14 @@ const AUTO_ADJUSTMENT_MOVEMENT_TYPE_INGRESO = (FONDO_INGRESO_TYPES as readonly s
 ) ?? FONDO_INGRESO_TYPES[FONDO_INGRESO_TYPES.length - 1];
 
 export const FONDO_EGRESO_TYPES = [
+    'EGRESOS VARIOS',
     'PAGO TIEMPOS',
     'PAGO BANCA',
     'COMPRA INVENTARIO',
     'COMPRA ACTIVOS',
     'PAGO IMPUESTO RENTA',
     'PAGO IMPUESTO IVA',
-    'EGRESOS VARIOS',
+    'RETIRO EFECTIVO'
 ] as const;
 
 // Opciones visibles en el selector
@@ -113,7 +117,7 @@ const AUTO_ADJUSTMENT_MANAGER = 'SISTEMA';
 
 const CIERRE_FONDO_VENTAS_PROVIDER_NAME = 'CIERRE FONDO VENTAS';
 // Helper para verificar si un proveedor es un cierre/ajuste automático
-const isAutoAdjustmentProvider = (code: string) => 
+const isAutoAdjustmentProvider = (code: string) =>
     code === AUTO_ADJUSTMENT_PROVIDER_CODE || code === AUTO_ADJUSTMENT_PROVIDER_CODE_LEGACY;
 export const isFondoMovementType = (value: string): value is FondoMovementType =>
     FONDO_TYPE_OPTIONS.includes(value as FondoMovementType);
@@ -125,7 +129,7 @@ export const isEgresoType = (type: FondoMovementType) => (FONDO_EGRESO_TYPES as 
 // Formatea en Titulo Caso cada palabra
 export const formatMovementType = (type: FondoMovementType | string) => {
     if (type === 'INFORMATIVO') return '';
-    
+
     return type
         .toLowerCase()
         .split(' ')
@@ -1836,10 +1840,10 @@ export function FondoSection({
             return;
         }
 
-        const sortedEntries = [...fondoEntries].sort((a, b) => 
+        const sortedEntries = [...fondoEntries].sort((a, b) =>
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
-        
+
         let hasPendingCierreDeCaja = false;
         for (const entry of sortedEntries) {
             // Si encontramos un CIERRE DE FONDO GENERAL, no hay pendiente
@@ -2419,7 +2423,7 @@ export function FondoSection({
         const originalProvider = providers.find(p => p.code === originalEntry.providerCode);
         return originalProvider?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME;
     }, [editingEntryId, fondoEntries, providers]);
-    
+
     const providersMap = useMemo(() => {
         const map = new Map<string, string>();
         providers.forEach(p => map.set(p.code, p.name));
@@ -3950,11 +3954,10 @@ export function FondoSection({
                                     type="button"
                                     onClick={handleOpenDailyClosing}
                                     disabled={!pendingCierreDeCaja}
-                                    className={`flex items-center justify-center gap-2 rounded px-4 py-2 text-white ${
-                                        !pendingCierreDeCaja
-                                            ? 'bg-gray-400 cursor-not-allowed opacity-60'
-                                            : 'fg-add-mov-btn'
-                                    }`}
+                                    className={`flex items-center justify-center gap-2 rounded px-4 py-2 text-white ${!pendingCierreDeCaja
+                                        ? 'bg-gray-400 cursor-not-allowed opacity-60'
+                                        : 'fg-add-mov-btn'
+                                        }`}
                                 >
                                     <Banknote className="w-4 h-4" />
                                     Registrar cierre
@@ -3972,11 +3975,10 @@ export function FondoSection({
                                 type="button"
                                 onClick={handleOpenCreateMovement}
                                 disabled={(accountKey === 'FondoGeneral' && pendingCierreDeCaja) || !entriesHydrated}
-                                className={`flex items-center justify-center gap-2 rounded px-4 py-2 text-white ${
-                                    ((accountKey === 'FondoGeneral' && pendingCierreDeCaja) || !entriesHydrated)
-                                        ? 'bg-gray-400 cursor-not-allowed opacity-60'
-                                        : 'fg-add-mov-btn'
-                                }`}
+                                className={`flex items-center justify-center gap-2 rounded px-4 py-2 text-white ${((accountKey === 'FondoGeneral' && pendingCierreDeCaja) || !entriesHydrated)
+                                    ? 'bg-gray-400 cursor-not-allowed opacity-60'
+                                    : 'fg-add-mov-btn'
+                                    }`}
                             >
                                 <Plus className="w-4 h-4" />
                                 Agregar movimiento
