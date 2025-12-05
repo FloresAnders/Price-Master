@@ -539,6 +539,9 @@ const AccessRestrictedMessage = ({ description }: { description: string }) => (
     </div>
 );
 
+// Clave compartida para sincronizar la selección de empresa entre ProviderSection y FondoSection
+const SHARED_COMPANY_STORAGE_KEY = 'fg_selected_company_shared';
+
 export function ProviderSection({ id }: { id?: string }) {
     const { user, loading: authLoading } = useAuth();
     const assignedCompany = user?.ownercompanie?.trim() ?? '';
@@ -559,7 +562,7 @@ export function ProviderSection({ id }: { id?: string }) {
     const [adminCompany, setAdminCompany] = useState(() => {
         if (typeof window === 'undefined') return assignedCompany;
         try {
-            const stored = localStorage.getItem('fg_selected_company_providers');
+            const stored = localStorage.getItem(SHARED_COMPANY_STORAGE_KEY);
             return stored || assignedCompany;
         } catch {
             return assignedCompany;
@@ -671,11 +674,43 @@ export function ProviderSection({ id }: { id?: string }) {
         setCurrentPage(1);
     }, [searchTerm, itemsPerPage]);
 
+    // Escuchar cambios de empresa desde FondoSection (sincronización bidireccional)
+    useEffect(() => {
+        if (!isAdminUser) return;
+
+        const handleStorageChange = (event: StorageEvent) => {
+            if (event.key === SHARED_COMPANY_STORAGE_KEY && event.newValue && event.newValue !== adminCompany) {
+                setAdminCompany(event.newValue);
+                // Reset form state when company changes from external source
+                setProviderDrawerOpen(false);
+                setFormError(null);
+                setProviderName('');
+                setProviderType('');
+                setEditingProviderCode(null);
+                setDeletingCode(null);
+                setConfirmState({ open: false, code: '', name: '' });
+                setCurrentPage(1);
+                setSearchTerm('');
+                setItemsPerPage(10);
+            }
+        };
+
+        window.addEventListener('storage', handleStorageChange);
+        return () => window.removeEventListener('storage', handleStorageChange);
+    }, [isAdminUser, adminCompany]);
+
     const handleAdminCompanyChange = useCallback((value: string) => {
         if (!isAdminUser) return;
         setAdminCompany(value);
         try {
-            localStorage.setItem('fg_selected_company_providers', value);
+            localStorage.setItem(SHARED_COMPANY_STORAGE_KEY, value);
+            // Disparar evento de storage manualmente para sincronizar dentro de la misma ventana
+            window.dispatchEvent(new StorageEvent('storage', {
+                key: SHARED_COMPANY_STORAGE_KEY,
+                newValue: value,
+                oldValue: adminCompany,
+                storageArea: localStorage
+            }));
         } catch (error) {
             console.error('Error saving selected company to localStorage:', error);
         }
@@ -689,7 +724,7 @@ export function ProviderSection({ id }: { id?: string }) {
         setCurrentPage(1);
         setSearchTerm('');
         setItemsPerPage(10);
-    }, [isAdminUser]);
+    }, [isAdminUser, adminCompany]);
 
     // provider creation is handled from the drawer UI below
 
@@ -1127,11 +1162,10 @@ export function FondoSection({
         return '';
     }, [allowedOwnerIds, primaryOwnerId]);
     const isAdminUser = user?.role === 'admin';
-    const storageKey = `fg_selected_company_${namespace}`;
     const [adminCompany, setAdminCompany] = useState(() => {
         if (typeof window === 'undefined') return assignedCompany;
         try {
-            const stored = localStorage.getItem(storageKey);
+            const stored = localStorage.getItem(SHARED_COMPANY_STORAGE_KEY);
             return stored || assignedCompany;
         } catch {
             return assignedCompany;
@@ -3275,9 +3309,17 @@ export function FondoSection({
 
     const handleAdminCompanyChange = useCallback((value: string) => {
         if (!isAdminUser) return;
+        const previousValue = adminCompany;
         setAdminCompany(value);
         try {
-            localStorage.setItem(storageKey, value);
+            localStorage.setItem(SHARED_COMPANY_STORAGE_KEY, value);
+            // Disparar evento de storage manualmente para sincronizar dentro de la misma ventana
+            window.dispatchEvent(new StorageEvent('storage', {
+                key: SHARED_COMPANY_STORAGE_KEY,
+                newValue: value,
+                oldValue: previousValue,
+                storageArea: localStorage
+            }));
         } catch (error) {
             console.error('Error saving selected company to localStorage:', error);
         }
@@ -3305,7 +3347,46 @@ export function FondoSection({
         setFromFilter(null);
         setToFilter(null);
         setPageIndex(0);
-    }, [isAdminUser, mode, resetFondoForm, storageKey]);
+    }, [isAdminUser, mode, resetFondoForm, adminCompany]);
+
+    // Escuchar cambios de empresa desde ProviderSection (sincronización bidireccional)
+    useEffect(() => {
+        if (!isAdminUser) return;
+
+        const handleStorageChange = (event: StorageEvent) => {
+            if (event.key === SHARED_COMPANY_STORAGE_KEY && event.newValue && event.newValue !== adminCompany) {
+                setAdminCompany(event.newValue);
+                // Reset state when company changes from external source
+                setEntriesHydrated(false);
+                setHydratedCompany('');
+                setFondoEntries([]);
+                storageSnapshotRef.current = null;
+                setInitialAmount('0');
+                setInitialAmountUSD('0');
+                setDailyClosingsHydrated(false);
+                setDailyClosings([]);
+                setDailyClosingsRefreshing(false);
+                dailyClosingsRequestCountRef.current = 0;
+                loadedDailyClosingKeysRef.current = new Set();
+                loadingDailyClosingKeysRef.current = new Set();
+                setCurrencyEnabled({ CRC: true, USD: true });
+                setMovementModalOpen(false);
+                resetFondoForm();
+                setMovementAutoCloseLocked(false);
+                setSelectedProvider('');
+                setFilterProviderCode('all');
+                setFilterPaymentType(mode === 'all' ? 'all' : (mode === 'ingreso' ? FONDO_INGRESO_TYPES[0] : FONDO_EGRESO_TYPES[0]));
+                setFilterEditedOnly(false);
+                setSearchQuery('');
+                setFromFilter(null);
+                setToFilter(null);
+                setPageIndex(0);
+            }
+        };
+
+        window.addEventListener('storage', handleStorageChange);
+        return () => window.removeEventListener('storage', handleStorageChange);
+    }, [isAdminUser, adminCompany, mode, resetFondoForm]);
 
     const handleFondoKeyDown = (event: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>) => {
         if (event.key === 'Enter') {

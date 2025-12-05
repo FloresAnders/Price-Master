@@ -46,6 +46,9 @@ const ACCOUNT_ORDER: MovementAccountKey[] = ['FondoGeneral', 'BCR', 'BN', 'BAC']
 const MOVEMENT_ACCOUNT_SET = new Set<MovementAccountKey>(ACCOUNT_ORDER);
 const ALL_COMPANIES_VALUE = '__all_companies__';
 const ALL_ACCOUNTS_VALUE = 'all';
+
+// Clave compartida para sincronizar la selección de empresa entre todas las secciones del Fondo General
+const SHARED_COMPANY_STORAGE_KEY = 'fg_selected_company_shared';
 type AccountSelectValue = MovementAccountKey | typeof ALL_ACCOUNTS_VALUE;
 
 const isMovementAccountKey = (value: unknown): value is MovementAccountKey =>
@@ -105,7 +108,14 @@ export default function ReporteMovimientosPage() {
     const [companies, setCompanies] = useState<string[]>([]);
     const [companiesLoading, setCompaniesLoading] = useState(false);
     const [companiesError, setCompaniesError] = useState<string | null>(null);
-    const [selectedCompany, setSelectedCompany] = useState('');
+    const [selectedCompany, setSelectedCompanyState] = useState(() => {
+        if (typeof window === 'undefined') return '';
+        try {
+            return localStorage.getItem(SHARED_COMPANY_STORAGE_KEY) || '';
+        } catch {
+            return '';
+        }
+    });
     const [selectedAccount, setSelectedAccount] = useState<AccountSelectValue | ''>('');
     const [entries, setEntries] = useState<FondoEntry[]>([]);
     const [dataLoading, setDataLoading] = useState(false);
@@ -115,6 +125,44 @@ export default function ReporteMovimientosPage() {
     const [movementTypeSelectorOpen, setMovementTypeSelectorOpen] = useState(false);
     const [showUSD, setShowUSD] = useState(false);
     const movementTypeSelectorRef = useRef<HTMLDivElement | null>(null);
+
+    // Wrapper para guardar en localStorage y disparar evento de sincronización
+    const setSelectedCompany = useCallback((value: string | ((prev: string) => string)) => {
+        setSelectedCompanyState(prev => {
+            const newValue = typeof value === 'function' ? value(prev) : value;
+            if (newValue && newValue !== prev && newValue !== ALL_COMPANIES_VALUE) {
+                try {
+                    localStorage.setItem(SHARED_COMPANY_STORAGE_KEY, newValue);
+                    window.dispatchEvent(new StorageEvent('storage', {
+                        key: SHARED_COMPANY_STORAGE_KEY,
+                        newValue: newValue,
+                        oldValue: prev,
+                        storageArea: localStorage
+                    }));
+                } catch (error) {
+                    console.error('Error saving selected company to localStorage:', error);
+                }
+            }
+            return newValue;
+        });
+    }, []);
+
+    // Escuchar cambios de empresa desde otras secciones (sincronización bidireccional)
+    useEffect(() => {
+        const handleStorageChange = (event: StorageEvent) => {
+            if (event.key === SHARED_COMPANY_STORAGE_KEY && event.newValue) {
+                setSelectedCompanyState(prev => {
+                    if (event.newValue && event.newValue !== prev && companies.includes(event.newValue)) {
+                        return event.newValue;
+                    }
+                    return prev;
+                });
+            }
+        };
+
+        window.addEventListener('storage', handleStorageChange);
+        return () => window.removeEventListener('storage', handleStorageChange);
+    }, [companies]);
 
     const handleClassificationToggle = useCallback((target: 'gasto' | 'egreso' | 'ingreso') => {
         setClassificationFilter(prev => (prev === target ? 'all' : target));
