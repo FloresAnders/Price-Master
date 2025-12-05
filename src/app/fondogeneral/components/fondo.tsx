@@ -1378,6 +1378,8 @@ export function FondoSection({
         open: false,
         entry: null
     });
+    // Estado para indicar que se está guardando un movimiento y prevenir múltiples envíos
+    const [isSaving, setIsSaving] = useState(false);
     const enabledBalanceCurrencies = useMemo(
         () => (['CRC', 'USD'] as MovementCurrencyKey[]).filter(currency => currencyEnabled[currency]),
         [currencyEnabled],
@@ -2145,8 +2147,160 @@ export function FondoSection({
 
     const normalizeMoneyInput = (value: string) => value.replace(/[^0-9]/g, '');
 
-    const handleSubmitFondo = () => {
+    /**
+     * Función auxiliar para persistir movimientos a Firestore de forma inmediata.
+     * Retorna true si se guardó correctamente, false si hubo error.
+     */
+    const persistMovementToFirestore = async (
+        updatedEntries: FondoEntry[],
+        operationType: 'create' | 'edit' | 'delete',
+    ): Promise<boolean> => {
+        const normalizedCompany = (company || '').trim();
+        if (normalizedCompany.length === 0) {
+            console.error('[PERSIST-IMMEDIATE] No company specified');
+            return false;
+        }
+
+        const companyKey = MovimientosFondosService.buildCompanyMovementsKey(normalizedCompany);
+
+        try {
+            const baseStorage = storageSnapshotRef.current
+                ? MovimientosFondosService.ensureMovementStorageShape<FondoEntry>(
+                    storageSnapshotRef.current,
+                    normalizedCompany,
+                )
+                : MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(normalizedCompany);
+            
+            baseStorage.company = normalizedCompany;
+
+            const normalizedEntries: FondoEntry[] = updatedEntries.map(entry => {
+                const normalizedCurrency: MovementCurrencyKey = entry.currency === 'USD' ? 'USD' : 'CRC';
+                return {
+                    ...entry,
+                    accountId: accountKey,
+                    currency: normalizedCurrency,
+                };
+            });
+
+            const existingMovements = baseStorage.operations?.movements ?? [];
+            const preservedMovements = existingMovements.filter(storedEntry => {
+                const candidate = storedEntry as Partial<FondoEntry>;
+                const storedAccount = isMovementAccountKey(candidate.accountId)
+                    ? candidate.accountId
+                    : 'FondoGeneral';
+                return storedAccount !== accountKey;
+            });
+
+            // Limitar movimientos en localStorage
+            const sortedRecentMovements = [...normalizedEntries]
+                .sort((a, b) => {
+                    const timeA = Date.parse(a.createdAt);
+                    const timeB = Date.parse(b.createdAt);
+                    if (Number.isNaN(timeA) || Number.isNaN(timeB)) return 0;
+                    return timeB - timeA;
+                })
+                .slice(0, MAX_LOCAL_MOVEMENTS);
+
+            baseStorage.operations = {
+                movements: [...preservedMovements, ...sortedRecentMovements],
+            };
+
+            // Recalcular balances
+            let ingresosCRC = 0, egresosCRC = 0, ingresosUSD = 0, egresosUSD = 0;
+            updatedEntries.forEach(entry => {
+                const cur = (entry.currency as 'CRC' | 'USD') || 'CRC';
+                if (cur === 'USD') {
+                    ingresosUSD += entry.amountIngreso;
+                    egresosUSD += entry.amountEgreso;
+                } else {
+                    ingresosCRC += entry.amountIngreso;
+                    egresosCRC += entry.amountEgreso;
+                }
+            });
+
+            const normalizedInitialCRC = initialAmount.trim().length > 0 ? initialAmount.trim() : '0';
+            const normalizedInitialUSD = initialAmountUSD.trim().length > 0 ? initialAmountUSD.trim() : '0';
+            const parsedInitialCRC = Number(normalizedInitialCRC) || 0;
+            const parsedInitialUSD = Number(normalizedInitialUSD) || 0;
+            const newBalanceCRC = parsedInitialCRC + ingresosCRC - egresosCRC;
+            const newBalanceUSD = parsedInitialUSD + ingresosUSD - egresosUSD;
+
+            const stateSnapshot =
+                baseStorage.state ?? MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(normalizedCompany).state;
+            const nextAccountBalances = stateSnapshot.balancesByAccount.filter(balance => balance.accountId !== accountKey);
+            nextAccountBalances.push(
+                {
+                    accountId: accountKey,
+                    currency: 'CRC',
+                    enabled: currencyEnabled.CRC,
+                    initialBalance: parsedInitialCRC,
+                    currentBalance: newBalanceCRC,
+                },
+                {
+                    accountId: accountKey,
+                    currency: 'USD',
+                    enabled: currencyEnabled.USD,
+                    initialBalance: parsedInitialUSD,
+                    currentBalance: newBalanceUSD,
+                },
+            );
+            stateSnapshot.balancesByAccount = nextAccountBalances;
+            stateSnapshot.updatedAt = new Date().toISOString();
+            
+            // Preservar lockedUntil del snapshot actual si existe
+            if (storageSnapshotRef.current?.state?.lockedUntil) {
+                stateSnapshot.lockedUntil = storageSnapshotRef.current.state.lockedUntil;
+            }
+            baseStorage.state = stateSnapshot;
+
+            // Guardar en localStorage primero
+            try {
+                localStorage.setItem(companyKey, JSON.stringify(baseStorage));
+            } catch (storageError) {
+                if (storageError instanceof Error && storageError.name === 'QuotaExceededError') {
+                    console.error('QuotaExceededError: Reduciendo límite de movimientos');
+                    const emergencyLimit = Math.floor(MAX_LOCAL_MOVEMENTS * 0.6);
+                    const reducedMovements = [...normalizedEntries]
+                        .sort((a, b) => {
+                            const timeA = Date.parse(a.createdAt);
+                            const timeB = Date.parse(b.createdAt);
+                            if (Number.isNaN(timeA) || Number.isNaN(timeB)) return 0;
+                            return timeB - timeA;
+                        })
+                        .slice(0, emergencyLimit);
+                    baseStorage.operations = {
+                        movements: [...preservedMovements, ...reducedMovements],
+                    };
+                    localStorage.setItem(companyKey, JSON.stringify(baseStorage));
+                } else {
+                    throw storageError;
+                }
+            }
+
+            // Guardar en Firestore - ESTA ES LA PARTE CRÍTICA
+            console.log(`[PERSIST-IMMEDIATE] Guardando ${operationType} a Firestore...`, {
+                company: normalizedCompany,
+                accountKey,
+                entriesCount: updatedEntries.length,
+            });
+
+            await MovimientosFondosService.saveDocument(companyKey, baseStorage);
+            
+            console.log(`[PERSIST-IMMEDIATE] ✅ ${operationType} guardado exitosamente en Firestore`);
+            
+            // Actualizar snapshot después de guardar exitosamente
+            storageSnapshotRef.current = baseStorage;
+            
+            return true;
+        } catch (err) {
+            console.error(`[PERSIST-IMMEDIATE] ❌ Error guardando ${operationType} a Firestore:`, err);
+            return false;
+        }
+    };
+
+    const handleSubmitFondo = async () => {
         if (!company) return;
+        if (isSaving) return; // Prevenir múltiples envíos
 
         let hasErrors = false;
 
@@ -2198,23 +2352,30 @@ export function FondoSection({
 
         const paddedInvoice = invoiceNumber.padStart(4, '0');
 
-        if (editingEntryId) {
-            // Update the existing entry in-place so balances remain correct.
-            const original = fondoEntries.find(e => e.id === editingEntryId);
-            if (!original) return;
+        setIsSaving(true);
 
-            const changes: string[] = [];
-            if (selectedProvider !== original.providerCode) changes.push(`Proveedor: ${original.providerCode} → ${selectedProvider}`);
-            if (paddedInvoice !== original.invoiceNumber) changes.push(`N° factura: ${original.invoiceNumber} → ${paddedInvoice}`);
-            if (paymentType !== original.paymentType) changes.push(`Tipo: ${original.paymentType} → ${paymentType}`);
-            const originalAmount = isEgresoType(original.paymentType) ? original.amountEgreso : original.amountIngreso;
-            const newAmount = isEgreso ? egresoValue : ingresoValue;
-            if (Number.isFinite(originalAmount) && originalAmount !== newAmount) changes.push(`Monto: ${originalAmount} → ${newAmount}`);
-            if (manager !== original.manager) changes.push(`Encargado: ${original.manager} → ${manager}`);
-            if (trimmedNotes !== (original.notes ?? '')) changes.push(`Notas: "${original.notes}" → "${trimmedNotes}"`);
+        try {
+            if (editingEntryId) {
+                // Update the existing entry in-place so balances remain correct.
+                const original = fondoEntries.find(e => e.id === editingEntryId);
+                if (!original) {
+                    setIsSaving(false);
+                    return;
+                }
 
-            setFondoEntries(prev => {
-                const next = prev.map(e => {
+                const changes: string[] = [];
+                if (selectedProvider !== original.providerCode) changes.push(`Proveedor: ${original.providerCode} → ${selectedProvider}`);
+                if (paddedInvoice !== original.invoiceNumber) changes.push(`N° factura: ${original.invoiceNumber} → ${paddedInvoice}`);
+                if (paymentType !== original.paymentType) changes.push(`Tipo: ${original.paymentType} → ${paymentType}`);
+                const originalAmount = isEgresoType(original.paymentType) ? original.amountEgreso : original.amountIngreso;
+                const newAmount = isEgreso ? egresoValue : ingresoValue;
+                if (Number.isFinite(originalAmount) && originalAmount !== newAmount) changes.push(`Monto: ${originalAmount} → ${newAmount}`);
+                if (manager !== original.manager) changes.push(`Encargado: ${original.manager} → ${manager}`);
+                if (trimmedNotes !== (original.notes ?? '')) changes.push(`Notas: "${original.notes}" → "${trimmedNotes}"`);
+
+                // Preparar el movimiento editado ANTES de persistir
+                let updatedEntry: FondoEntry | null = null;
+                const updatedEntries = fondoEntries.map(e => {
                     if (e.id !== editingEntryId) return e;
                     // append to existing history if present
                     let history: any[] = [];
@@ -2242,7 +2403,7 @@ export function FondoSection({
                     // Comprimir historial para evitar QuotaExceededError
                     const compressedHistory = compressAuditHistory(history);
                     // keep original createdAt so chronological order and balances are preserved
-                    return {
+                    updatedEntry = {
                         ...e,
                         providerCode: selectedProvider,
                         invoiceNumber: paddedInvoice,
@@ -2257,7 +2418,21 @@ export function FondoSection({
                         auditDetails: JSON.stringify({ history: compressedHistory }),
                         currency: movementCurrency,
                     } as FondoEntry;
+                    return updatedEntry;
                 });
+
+                // PRIMERO persistir a Firestore, LUEGO actualizar UI
+                const saved = await persistMovementToFirestore(updatedEntries, 'edit');
+                
+                if (!saved) {
+                    showToast('Error al guardar el movimiento. Por favor, intente de nuevo.', 'error', 5000);
+                    setIsSaving(false);
+                    return; // NO actualizar la UI si falló el guardado
+                }
+
+                // Solo actualizar la UI si el guardado fue exitoso
+                setFondoEntries(updatedEntries);
+                showToast('Movimiento editado correctamente', 'success', 3000);
 
                 try {
                     // compute simple before/after CRC balances to help debug balance update issues
@@ -2273,44 +2448,61 @@ export function FondoSection({
                         });
                         return (Number(initialAmount) || 0) + ingresosCRC - egresosCRC;
                     };
-                    const beforeBalance = sumBalance(prev);
-                    const afterBalance = sumBalance(next);
-                    console.info('[FG-DEBUG] Edited movement saved', editingEntryId, { prevCount: prev.length, nextCount: next.length, beforeBalanceCRC: beforeBalance, afterBalanceCRC: afterBalance });
+                    const beforeBalance = sumBalance(fondoEntries);
+                    const afterBalance = sumBalance(updatedEntries);
+                    console.info('[FG-DEBUG] Edited movement saved', editingEntryId, { prevCount: fondoEntries.length, nextCount: updatedEntries.length, beforeBalanceCRC: beforeBalance, afterBalanceCRC: afterBalance });
                 } catch {
                     console.info('[FG-DEBUG] Edited movement saved (error computing debug balances)', editingEntryId);
                 }
 
-                return next;
-            });
+                resetFondoForm();
+                if (!movementAutoCloseLocked) {
+                    setMovementModalOpen(false);
+                }
+                setIsSaving(false);
+                return;
+            }
 
+            // CREAR nuevo movimiento
+            const entry: FondoEntry = {
+                id: String(Date.now()),
+                providerCode: selectedProvider,
+                invoiceNumber: paddedInvoice,
+                paymentType,
+                amountEgreso: isEgreso ? egresoValue : 0,
+                amountIngreso: isIngreso ? ingresoValue : 0,
+                manager,
+                notes: trimmedNotes,
+                createdAt: new Date().toISOString(),
+                currency: movementCurrency,
+            };
+
+            // Preparar la lista actualizada ANTES de persistir
+            const updatedEntries = [entry, ...fondoEntries];
+
+            // PRIMERO persistir a Firestore, LUEGO actualizar UI
+            const saved = await persistMovementToFirestore(updatedEntries, 'create');
+            
+            if (!saved) {
+                showToast('Error al guardar el movimiento. Por favor, intente de nuevo.', 'error', 5000);
+                setIsSaving(false);
+                return; // NO mostrar el movimiento si falló el guardado
+            }
+
+            // Solo actualizar la UI si el guardado fue exitoso
+            setFondoEntries(updatedEntries);
+            showToast('Movimiento guardado correctamente', 'success', 3000);
+            
+            const selectedProviderData = providers.find(p => p.code === selectedProvider);
+            if (selectedProviderData?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME) {
+                setPendingCierreDeCaja(true);
+            }
             resetFondoForm();
             if (!movementAutoCloseLocked) {
                 setMovementModalOpen(false);
             }
-            return;
-        }
-
-        const entry: FondoEntry = {
-            id: String(Date.now()),
-            providerCode: selectedProvider,
-            invoiceNumber: paddedInvoice,
-            paymentType,
-            amountEgreso: isEgreso ? egresoValue : 0,
-            amountIngreso: isIngreso ? ingresoValue : 0,
-            manager,
-            notes: trimmedNotes,
-            createdAt: new Date().toISOString(),
-            currency: movementCurrency,
-        };
-
-        setFondoEntries(prev => [entry, ...prev]);
-        const selectedProviderData = providers.find(p => p.code === selectedProvider);
-        if (selectedProviderData?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME) {
-            setPendingCierreDeCaja(true);
-        }
-        resetFondoForm();
-        if (!movementAutoCloseLocked) {
-            setMovementModalOpen(false);
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -2440,18 +2632,36 @@ export function FondoSection({
         setConfirmDeleteEntry({ open: true, entry });
     }, [isPrincipalAdmin, isMovementLocked, showToast]);
 
-    const confirmDeleteMovement = useCallback(() => {
+    const confirmDeleteMovement = useCallback(async () => {
         const entry = confirmDeleteEntry.entry;
         if (!entry) return;
 
-        // Remove from fondoEntries
-        setFondoEntries(prev => prev.filter(e => e.id !== entry.id));
+        if (isSaving) return; // Prevenir múltiples envíos
+        setIsSaving(true);
 
-        // Close modal
-        setConfirmDeleteEntry({ open: false, entry: null });
+        try {
+            // Preparar la lista actualizada SIN el movimiento a eliminar
+            const updatedEntries = fondoEntries.filter(e => e.id !== entry.id);
 
-        showToast('Movimiento eliminado exitosamente', 'success');
-    }, [confirmDeleteEntry, showToast]);
+            // PRIMERO persistir a Firestore, LUEGO actualizar UI
+            const saved = await persistMovementToFirestore(updatedEntries, 'delete');
+            
+            if (!saved) {
+                showToast('Error al eliminar el movimiento. Por favor, intente de nuevo.', 'error', 5000);
+                return; // NO actualizar la UI si falló el guardado
+            }
+
+            // Solo actualizar la UI si el guardado fue exitoso
+            setFondoEntries(updatedEntries);
+
+            // Close modal
+            setConfirmDeleteEntry({ open: false, entry: null });
+
+            showToast('Movimiento eliminado exitosamente', 'success');
+        } finally {
+            setIsSaving(false);
+        }
+    }, [confirmDeleteEntry, showToast, fondoEntries, isSaving, persistMovementToFirestore]);
 
     const cancelDeleteMovement = useCallback(() => {
         setConfirmDeleteEntry({ open: false, entry: null });
@@ -2715,7 +2925,8 @@ export function FondoSection({
         !egresoValid ||
         !ingresoValid ||
         !manager ||
-        employeesLoading;
+        employeesLoading ||
+        isSaving;
 
     const amountFormatter = useMemo(
         () => new Intl.NumberFormat('es-CR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }),
@@ -4177,6 +4388,7 @@ export function FondoSection({
                             onCancelEditing={cancelEditing}
                             onSubmit={handleSubmitFondo}
                             isSubmitDisabled={isSubmitDisabled}
+                            isSaving={isSaving}
                             onFieldKeyDown={handleFondoKeyDown}
                             currency={movementCurrency}
                             onCurrencyChange={c => setMovementCurrency(c)}

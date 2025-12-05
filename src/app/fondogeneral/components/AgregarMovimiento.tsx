@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Search } from 'lucide-react';
+import { Save, Search, Loader2 } from 'lucide-react';
 import type { FondoMovementType } from './fondo';
 
 type ProviderOption = {
@@ -38,6 +38,7 @@ type AgregarMovimientoProps = {
     onCancelEditing: () => void;
     onSubmit: () => void;
     isSubmitDisabled: boolean;
+    isSaving?: boolean;
     onFieldKeyDown: (event: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>) => void;
     currency?: 'CRC' | 'USD';
     onCurrencyChange?: (c: 'CRC' | 'USD') => void;
@@ -77,6 +78,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
     onCancelEditing,
     onSubmit,
     isSubmitDisabled,
+    isSaving = false,
     onFieldKeyDown,
     currency = 'CRC',
     onCurrencyChange,
@@ -294,10 +296,19 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                     type="button"
                     className="px-4 py-2 bg-blue-400 text-white rounded hover:bg-blue-500 disabled:opacity-50 inline-flex items-center gap-2"
                     onClick={onSubmit}
-                    disabled={isSubmitDisabled}
+                    disabled={isSubmitDisabled || isSaving}
                 >
-                    <Save className="w-4 h-4" />
-                    {editingEntryId ? 'Actualizar' : 'Guardar'}
+                    {isSaving ? (
+                        <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Guardando...
+                        </>
+                    ) : (
+                        <>
+                            <Save className="w-4 h-4" />
+                            {editingEntryId ? 'Actualizar' : 'Guardar'}
+                        </>
+                    )}
                 </button>
             </div>
         </div>
