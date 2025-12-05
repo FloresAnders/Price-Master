@@ -1858,7 +1858,6 @@ export function FondoSection({
                 if (isMounted) {
                     setFondoEntries(resolvedEntries ?? []);
                     if (resolvedState) {
-                        console.log('[LOCK-DEBUG] Loading state with lockedUntil:', resolvedState.lockedUntil);
                         applyLedgerStateFromStorage(resolvedState);
                     }
                 }
@@ -2543,7 +2542,7 @@ export function FondoSection({
 
         // Si no hay snapshot o no hay lockedUntil, no hay bloqueo
         const lockedUntil = storageSnapshotRef.current?.state?.lockedUntil;
-        console.log('[LOCK-DEBUG] Checking movement', entry.id, 'createdAt:', entry.createdAt, 'lockedUntil:', lockedUntil);
+        
         if (!lockedUntil) {
             return false;
         }
@@ -2554,7 +2553,7 @@ export function FondoSection({
 
             // Bloqueado si el movimiento es anterior o igual al último cierre
             const isLocked = movementTime <= lockTime;
-            console.log('[LOCK-DEBUG] Movement', entry.id, 'is', isLocked ? 'LOCKED' : 'EDITABLE');
+          
             return isLocked;
         } catch {
             // Si hay error parseando fechas, no bloquear
@@ -2841,10 +2840,10 @@ export function FondoSection({
                 // Preservar lockedUntil del snapshot actual si existe
                 if (storageSnapshotRef.current?.state?.lockedUntil) {
                     stateSnapshot.lockedUntil = storageSnapshotRef.current.state.lockedUntil;
-                    console.log('[LOCK-DEBUG] Preserving lockedUntil in persistEntries:', stateSnapshot.lockedUntil);
+                    
                 }
                 baseStorage.state = stateSnapshot;
-                console.log('[LOCK-DEBUG] baseStorage.state.lockedUntil before save:', baseStorage.state.lockedUntil);
+               
 
                 // Intentar guardar en localStorage con manejo de error
                 try {
@@ -2893,7 +2892,7 @@ export function FondoSection({
             if (!storageToPersist) return;
 
             try {
-                console.log('[LOCK-DEBUG] Saving to Firestore with lockedUntil:', storageToPersist.state?.lockedUntil);
+                
                 await MovimientosFondosService.saveDocument(companyKey, storageToPersist);
             } catch (err) {
                 console.error('Error storing fondo entries to Firestore:', err);
@@ -3503,8 +3502,7 @@ export function FondoSection({
             }
             // Bloquear hasta la fecha de creación del cierre
             storageSnapshotRef.current.state.lockedUntil = createdAt;
-            console.log('[LOCK-DEBUG] Setting lockedUntil at end:', createdAt, 'for new closing');
-
+          
             // Persistir inmediatamente para asegurar que se guarde incluso sin movimientos
             const normalizedCompany = (company || '').trim();
             if (normalizedCompany.length > 0) {
@@ -3512,7 +3510,7 @@ export function FondoSection({
                 try {
                     // Actualizar localStorage
                     localStorage.setItem(companyKey, JSON.stringify(storageSnapshotRef.current));
-                    console.log('[LOCK-DEBUG] Force saved to localStorage after closing');
+                    
                     // Actualizar Firestore
                     void MovimientosFondosService.saveDocument(companyKey, storageSnapshotRef.current)
                         .then(() => console.log('[LOCK-DEBUG] Force saved to Firestore after closing'))
