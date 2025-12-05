@@ -1475,6 +1475,13 @@ export function FondoSection({
         }
         return false;
     });
+    const [keepFiltersAcrossCompanies, setKeepFiltersAcrossCompanies] = useState(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('fondogeneral-keepFiltersAcrossCompanies');
+            return saved !== null ? JSON.parse(saved) : false;
+        }
+        return false;
+    });
 
     const applyLedgerStateFromStorage = useCallback(
         (state?: MovementStorageState | null) => {
@@ -1553,6 +1560,11 @@ export function FondoSection({
             }
         }
     }, [rememberFilters]);
+
+    // Save keepFiltersAcrossCompanies preference
+    useEffect(() => {
+        localStorage.setItem('fondogeneral-keepFiltersAcrossCompanies', JSON.stringify(keepFiltersAcrossCompanies));
+    }, [keepFiltersAcrossCompanies]);
 
     // Save filters if rememberFilters is true
     useEffect(() => {
@@ -3340,14 +3352,17 @@ export function FondoSection({
         resetFondoForm();
         setMovementAutoCloseLocked(false);
         setSelectedProvider('');
-        setFilterProviderCode('all');
-        setFilterPaymentType(mode === 'all' ? 'all' : (mode === 'ingreso' ? FONDO_INGRESO_TYPES[0] : FONDO_EGRESO_TYPES[0]));
-        setFilterEditedOnly(false);
-        setSearchQuery('');
-        setFromFilter(null);
-        setToFilter(null);
+        // Solo resetear filtros si no está activo keepFiltersAcrossCompanies
+        if (!keepFiltersAcrossCompanies) {
+            setFilterProviderCode('all');
+            setFilterPaymentType(mode === 'all' ? 'all' : (mode === 'ingreso' ? FONDO_INGRESO_TYPES[0] : FONDO_EGRESO_TYPES[0]));
+            setFilterEditedOnly(false);
+            setSearchQuery('');
+            setFromFilter(null);
+            setToFilter(null);
+        }
         setPageIndex(0);
-    }, [isAdminUser, mode, resetFondoForm, adminCompany]);
+    }, [isAdminUser, mode, resetFondoForm, adminCompany, keepFiltersAcrossCompanies]);
 
     // Escuchar cambios de empresa desde ProviderSection (sincronización bidireccional)
     useEffect(() => {
@@ -3374,19 +3389,22 @@ export function FondoSection({
                 resetFondoForm();
                 setMovementAutoCloseLocked(false);
                 setSelectedProvider('');
-                setFilterProviderCode('all');
-                setFilterPaymentType(mode === 'all' ? 'all' : (mode === 'ingreso' ? FONDO_INGRESO_TYPES[0] : FONDO_EGRESO_TYPES[0]));
-                setFilterEditedOnly(false);
-                setSearchQuery('');
-                setFromFilter(null);
-                setToFilter(null);
+                // Solo resetear filtros si no está activo keepFiltersAcrossCompanies
+                if (!keepFiltersAcrossCompanies) {
+                    setFilterProviderCode('all');
+                    setFilterPaymentType(mode === 'all' ? 'all' : (mode === 'ingreso' ? FONDO_INGRESO_TYPES[0] : FONDO_EGRESO_TYPES[0]));
+                    setFilterEditedOnly(false);
+                    setSearchQuery('');
+                    setFromFilter(null);
+                    setToFilter(null);
+                }
                 setPageIndex(0);
             }
         };
 
         window.addEventListener('storage', handleStorageChange);
         return () => window.removeEventListener('storage', handleStorageChange);
-    }, [isAdminUser, adminCompany, mode, resetFondoForm]);
+    }, [isAdminUser, adminCompany, mode, resetFondoForm, keepFiltersAcrossCompanies]);
 
     const handleFondoKeyDown = (event: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>) => {
         if (event.key === 'Enter') {
@@ -4215,6 +4233,10 @@ export function FondoSection({
                                     <label className="flex items-center gap-2 cursor-pointer">
                                         <input aria-label="Recordar filtros" title="Recordar filtros" className="cursor-pointer" type="checkbox" checked={rememberFilters} onChange={e => setRememberFilters(e.target.checked)} />
                                         <span className="text-sm ml-1">Recordar ajustes</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input aria-label="Mantener filtros entre empresas" title="Mantener filtros entre empresas" className="cursor-pointer" type="checkbox" checked={keepFiltersAcrossCompanies} onChange={e => setKeepFiltersAcrossCompanies(e.target.checked)} />
+                                        <span className="text-sm ml-1">Mantener filtros entre empresas</span>
                                     </label>
                                 </div>
                                 <button
