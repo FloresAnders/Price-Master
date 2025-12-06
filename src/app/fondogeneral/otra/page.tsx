@@ -123,7 +123,7 @@ export default function ReporteMovimientosPage() {
     const [classificationFilter, setClassificationFilter] = useState<'all' | 'gasto' | 'egreso' | 'ingreso'>('all');
     const [selectedMovementTypes, setSelectedMovementTypes] = useState<FondoMovementType[]>([]);
     const [movementTypeSelectorOpen, setMovementTypeSelectorOpen] = useState(false);
-    const [showUSD, setShowUSD] = useState(false);
+    const [showUSD, setShowUSD] = useState(true);
     const movementTypeSelectorRef = useRef<HTMLDivElement | null>(null);
 
     // Wrapper para guardar en localStorage y disparar evento de sincronización
