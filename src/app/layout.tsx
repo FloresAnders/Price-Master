@@ -3,6 +3,7 @@ import './globals.css';
 import { ThemeProvider, HeaderWrapper, Footer, PermissionsManager } from '../components/layout';
 import { ToastProvider } from '../components/ui/ToastProvider';
 import { AuthWrapper } from '../components/auth';
+import VersionCheckInitializer from '../components/VersionCheckInitializer';
 
 export const metadata = {
   title: 'Time Master',
@@ -95,6 +96,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <AuthWrapper>
             <PermissionsManager>
               <ToastProvider>
+                <VersionCheckInitializer />
                 <HeaderWrapper />
                 <main role="main" className="flex-1 flex flex-col w-full">
                   <div className="w-full" suppressHydrationWarning>

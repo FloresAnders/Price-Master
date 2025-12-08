@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import data from '../../data/version.json';
+import { useVersion } from '../../hooks/useVersion';
 
 export default function Footer() {
+  const { version } = useVersion();
   const [isGitHubModalOpen, setIsGitHubModalOpen] = useState(false);
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
   const [isNewsModalOpen, setIsNewsModalOpen] = useState(false);
@@ -173,7 +174,7 @@ export default function Footer() {
         {/* Copyright */}
         <div className="w-full text-center text-xs text-[var(--foreground)] opacity-80 border-t border-[var(--input-border)] pt-2 pb-1">
           <div className="mb-1">Copyright ©{new Date().getFullYear()}; Designed by <span className="font-semibold tracking-wide">Time Master</span></div>
-          <div className="opacity-90">{'v' + data.version}</div>
+          <div className="opacity-90">v{version}</div>
         </div>
       </div>
     </footer>

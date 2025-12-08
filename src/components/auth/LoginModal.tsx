@@ -5,7 +5,7 @@ import { Lock, User, Eye, EyeOff, Check, X, AlertCircle } from 'lucide-react';
 import type { User as UserType } from '@/types/firestore';
 import { PasswordRecoveryModal } from './PasswordRecoveryModal';
 import Image from 'next/image';
-import versionData from '@/data/version.json';
+import { useVersion } from '@/hooks/useVersion';
 
 
 interface LoginModalProps {
@@ -17,6 +17,7 @@ interface LoginModalProps {
 }
 
 export default function LoginModal({ isOpen, onLoginSuccess, onClose, title, canClose = true }: LoginModalProps) {
+  const { version } = useVersion();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -324,7 +325,7 @@ export default function LoginModal({ isOpen, onLoginSuccess, onClose, title, can
           {/* Version Footer */}
           <div className="mt-6 pt-4 border-t border-gray-200/20">
             <p className="text-xs text-center text-[var(--muted-foreground)]">
-              v{versionData.version} – © Time Master
+              v{version} – © Time Master
             </p>
           </div>
         </div>
