@@ -31,6 +31,7 @@ import {
     Search,
     AlertTriangle,
     CheckCircle,
+    Mail,
 } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import { useProviders } from '../../../hooks/useProviders';
@@ -1011,7 +1012,12 @@ export function ProviderSection({ id }: { id?: string }) {
                             {paginatedProviders.map(p => (
                                 <li key={p.code} className="flex items-center justify-between bg-[var(--muted)] p-3 rounded">
                                     <div>
-                                        <div className="text-[var(--foreground)] font-semibold">{p.name}</div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[var(--foreground)] font-semibold">{p.name}</span>
+                                            {p.correonotifi && p.correonotifi.trim().length > 0 && (
+                                                <Mail className="w-4 h-4 text-blue-500" title={`Correo de notificación: ${p.correonotifi}`} />
+                                            )}
+                                        </div>
                                         <div className="text-xs text-[var(--muted-foreground)]">Código: {p.code}</div>
                                         {p.type && (
                                             <div className="text-xs text-[var(--muted-foreground)] mt-1">
