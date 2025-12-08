@@ -117,6 +117,7 @@ const normalizeProviderEntry = (raw: unknown, fallbackCompany: string): Provider
 
 	const createdAt = typeof data.createdAt === 'string' ? data.createdAt : undefined;
 	const updatedAt = typeof data.updatedAt === 'string' ? data.updatedAt : undefined;
+	const correonotifi = typeof data.correonotifi === 'string' ? data.correonotifi.trim() : undefined;
 
 	return {
 		name,
@@ -125,7 +126,8 @@ const normalizeProviderEntry = (raw: unknown, fallbackCompany: string): Provider
 		type: typeCandidate && typeCandidate.length > 0 ? typeCandidate : undefined,
 		category: categoryCandidate,
 		createdAt,
-		updatedAt
+		updatedAt,
+		correonotifi
 	};
 };
 
@@ -199,7 +201,7 @@ export class ProvidersService {
 		return normalized.providers;
 	}
 
-	static async addProvider(company: string, providerName: string, providerType?: string): Promise<ProviderEntry> {
+	static async addProvider(company: string, providerName: string, providerType?: string, correonotifi?: string): Promise<ProviderEntry> {
 		const trimmedCompany = (company || '').trim();
 		if (!trimmedCompany) {
 			throw new Error('No se pudo determinar la empresa del usuario.');
@@ -237,6 +239,7 @@ export class ProvidersService {
 			const nextNumericCode = deriveNextCode(document.nextCode, document.providers);
 			const category = getCategoryFromType(normalizedType);
 			const now = new Date().toISOString();
+			const trimmedCorreo = typeof correonotifi === 'string' ? correonotifi.trim() : undefined;
 			const createdProvider: ProviderEntry = {
 				code: String(nextNumericCode).padStart(4, '0'),
 				name: normalizedName,
@@ -244,7 +247,8 @@ export class ProvidersService {
 				type: normalizedType,
 				category,
 				createdAt: now,
-				updatedAt: now
+				updatedAt: now,
+				correonotifi: trimmedCorreo && trimmedCorreo.length > 0 ? trimmedCorreo : undefined
 			};
 
 			const updatedDocument: ProvidersDocument = {
@@ -268,6 +272,7 @@ export class ProvidersService {
 					if (typeof p.category === 'string' && p.category.length > 0) out.category = p.category;
 					if (typeof p.createdAt === 'string' && p.createdAt.length > 0) out.createdAt = p.createdAt;
 					if (typeof p.updatedAt === 'string' && p.updatedAt.length > 0) out.updatedAt = p.updatedAt;
+					if (typeof p.correonotifi === 'string' && p.correonotifi.length > 0) out.correonotifi = p.correonotifi;
 					return out;
 				}),
 			};
@@ -329,6 +334,7 @@ export class ProvidersService {
 					if (typeof p.category === 'string' && p.category.length > 0) out.category = p.category;
 					if (typeof p.createdAt === 'string' && p.createdAt.length > 0) out.createdAt = p.createdAt;
 					if (typeof p.updatedAt === 'string' && p.updatedAt.length > 0) out.updatedAt = p.updatedAt;
+					if (typeof p.correonotifi === 'string' && p.correonotifi.length > 0) out.correonotifi = p.correonotifi;
 					return out;
 				}),
 			};
@@ -340,7 +346,7 @@ export class ProvidersService {
 		return removedProvider;
 	}
 
-	static async updateProvider(company: string, providerCode: string, providerName: string, providerType?: string): Promise<ProviderEntry> {
+	static async updateProvider(company: string, providerCode: string, providerName: string, providerType?: string, correonotifi?: string): Promise<ProviderEntry> {
 		const trimmedCompany = (company || '').trim();
 		if (!trimmedCompany) {
 			throw new Error('No se pudo determinar la empresa del usuario.');
@@ -382,12 +388,14 @@ export class ProvidersService {
 				: undefined;
 
 			const category = getCategoryFromType(normalizedType);
+			const trimmedCorreo = typeof correonotifi === 'string' ? correonotifi.trim() : undefined;
 			const updatedProvider: ProviderEntry = {
 				...document.providers[targetIndex],
 				name: normalizedName,
 				type: normalizedType,
 				category,
-				updatedAt: new Date().toISOString()
+				updatedAt: new Date().toISOString(),
+				correonotifi: trimmedCorreo && trimmedCorreo.length > 0 ? trimmedCorreo : undefined
 			}; const updatedProviders = [...document.providers];
 			updatedProviders[targetIndex] = updatedProvider;
 
@@ -410,6 +418,7 @@ export class ProvidersService {
 					if (typeof p.category === 'string' && p.category.length > 0) out.category = p.category;
 					if (typeof p.createdAt === 'string' && p.createdAt.length > 0) out.createdAt = p.createdAt;
 					if (typeof p.updatedAt === 'string' && p.updatedAt.length > 0) out.updatedAt = p.updatedAt;
+					if (typeof p.correonotifi === 'string' && p.correonotifi.length > 0) out.correonotifi = p.correonotifi;
 					return out;
 				}),
 			};

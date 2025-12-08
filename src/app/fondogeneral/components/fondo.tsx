@@ -36,10 +36,11 @@ import { useAuth } from '../../../hooks/useAuth';
 import { useProviders } from '../../../hooks/useProviders';
 import { useEmail } from '../../../hooks/useEmail';
 import useToast from '../../../hooks/useToast';
-import type { UserPermissions, Empresas } from '../../../types/firestore';
+import type { UserPermissions, Empresas, User } from '../../../types/firestore';
 import { getDefaultPermissions } from '../../../utils/permissions';
 import ConfirmModal from '../../../components/ui/ConfirmModal';
 import { EmpresasService } from '../../../services/empresas';
+import { UsersService } from '../../../services/users';
 import {
     MovimientosFondosService,
     MovementAccountKey,
@@ -49,7 +50,6 @@ import {
 } from '../../../services/movimientos-fondos';
 import { DailyClosingsService, DailyClosingRecord, DailyClosingsDocument } from '../../../services/daily-closings';
 import { buildDailyClosingEmailTemplate } from '../../../services/email-templates/daily-closing';
-import { UsersService } from '../../../services/users';
 import AgregarMovimiento from './AgregarMovimiento';
 import DailyClosingModal, { DailyClosingFormValues } from './DailyClosingModal';
 import { useActorOwnership } from '../../../hooks/useActorOwnership';
@@ -639,6 +639,10 @@ export function ProviderSection({ id }: { id?: string }) {
     const [saving, setSaving] = useState(false);
     const [deletingCode, setDeletingCode] = useState<string | null>(null);
     const [providerDrawerOpen, setProviderDrawerOpen] = useState(false);
+    const [addNotification, setAddNotification] = useState(false);
+    const [selectedAdminId, setSelectedAdminId] = useState<string>('');
+    const [adminUsers, setAdminUsers] = useState<User[]>([]);
+    const [loadingAdmins, setLoadingAdmins] = useState(false);
     const [confirmState, setConfirmState] = useState<{ open: boolean; code: string; name: string }>({
         open: false,
         code: '',
@@ -699,6 +703,68 @@ export function ProviderSection({ id }: { id?: string }) {
         return () => window.removeEventListener('storage', handleStorageChange);
     }, [isAdminUser, adminCompany]);
 
+    // Cargar admins cuando se necesite para notificaciones
+    useEffect(() => {
+        if (!addNotification || !user) {
+            setAdminUsers([]);
+            return;
+        }
+
+        let isMounted = true;
+        setLoadingAdmins(true);
+
+        // Determinar el ownerId de referencia:
+        // - Si el usuario tiene ownerId, usar ese
+        // - Si NO tiene ownerId (es el dueño), usar su propio id
+        const referenceOwnerId = user.ownerId && user.ownerId.trim().length > 0 
+            ? user.ownerId.trim() 
+            : user.id || '';
+
+        if (!referenceOwnerId) {
+            setAdminUsers([]);
+            setLoadingAdmins(false);
+            return;
+        }
+
+        UsersService.findUsersByRole('admin')
+            .then(allAdmins => {
+                if (!isMounted) return;
+                
+                // Filtrar admins que cumplan cualquiera de estas condiciones:
+                // 1. Admins que tengan el mismo ownerId que el referenceOwnerId
+                // 2. El admin "dueño" cuyo id sea igual al referenceOwnerId (sin ownerId o ownerId vacío)
+                const filtered = allAdmins.filter(admin => {
+                    const hasEmail = admin.email && admin.email.trim().length > 0;
+                    if (!hasEmail) return false;
+
+                    // Condición 1: Admin con el mismo ownerId
+                    const sameOwnerId = admin.ownerId && admin.ownerId.trim() === referenceOwnerId;
+                    
+                    // Condición 2: Admin dueño (su id es el referenceOwnerId y no tiene ownerId)
+                    const isOwnerAdmin = admin.id === referenceOwnerId && (!admin.ownerId || admin.ownerId.trim().length === 0);
+
+                    return sameOwnerId || isOwnerAdmin;
+                });
+                
+                setAdminUsers(filtered);
+                if (filtered.length > 0 && !selectedAdminId) {
+                    setSelectedAdminId(filtered[0].id || '');
+                }
+            })
+            .catch(err => {
+                if (!isMounted) return;
+                console.error('Error loading admin users:', err);
+                setAdminUsers([]);
+            })
+            .finally(() => {
+                if (isMounted) setLoadingAdmins(false);
+            });
+
+        return () => {
+            isMounted = false;
+        };
+    }, [addNotification, user, selectedAdminId]);
+
     const handleAdminCompanyChange = useCallback((value: string) => {
         if (!isAdminUser) return;
         setAdminCompany(value);
@@ -720,6 +786,8 @@ export function ProviderSection({ id }: { id?: string }) {
         setProviderType('');
         setEditingProviderCode(null);
         setDeletingCode(null);
+        setAddNotification(false);
+        setSelectedAdminId('');
         setConfirmState({ open: false, code: '', name: '' });
         setCurrentPage(1);
         setSearchTerm('');
@@ -739,6 +807,18 @@ export function ProviderSection({ id }: { id?: string }) {
         setEditingProviderCode(prov.code);
         setProviderName(prov.name ?? '');
         setProviderType((prov.type as FondoMovementType) ?? '');
+        // Cargar datos de notificación si existen
+        if (prov.correonotifi && prov.correonotifi.trim().length > 0) {
+            setAddNotification(true);
+            // Intentar encontrar el admin con ese correo
+            const matchingAdmin = adminUsers.find(admin => admin.email === prov.correonotifi);
+            if (matchingAdmin?.id) {
+                setSelectedAdminId(matchingAdmin.id);
+            }
+        } else {
+            setAddNotification(false);
+            setSelectedAdminId('');
+        }
         setProviderDrawerOpen(true);
     };
 
@@ -810,6 +890,8 @@ export function ProviderSection({ id }: { id?: string }) {
                             setProviderName('');
                             setProviderType('');
                             setEditingProviderCode(null);
+                            setAddNotification(false);
+                            setSelectedAdminId('');
                         }}
                         disabled={!company || saving || providersLoading}
                         className="flex items-center gap-2 px-4 py-2 bg-[var(--accent)] text-white rounded shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1011,6 +1093,8 @@ export function ProviderSection({ id }: { id?: string }) {
                                 setProviderName('');
                                 setProviderType('');
                                 setEditingProviderCode(null);
+                                setAddNotification(false);
+                                setSelectedAdminId('');
                             }}
                             sx={{ color: 'var(--foreground)' }}
                         >
@@ -1058,6 +1142,63 @@ export function ProviderSection({ id }: { id?: string }) {
                                     ))}
                                 </optgroup>
                             </select>
+
+                            {/* Checkbox para agregar notificación */}
+                            <div className="flex items-center gap-2 mt-2">
+                                <input
+                                    type="checkbox"
+                                    id="add-notification-checkbox"
+                                    checked={addNotification}
+                                    onChange={(e) => {
+                                        setAddNotification(e.target.checked);
+                                        if (!e.target.checked) {
+                                            setSelectedAdminId('');
+                                        }
+                                    }}
+                                    disabled={!company || saving}
+                                    className="w-4 h-4 cursor-pointer"
+                                />
+                                <label 
+                                    htmlFor="add-notification-checkbox" 
+                                    className="text-sm text-[var(--foreground)] cursor-pointer"
+                                >
+                                    Agregar Notificación
+                                </label>
+                            </div>
+
+                            {/* Selector de admin para notificación */}
+                            {addNotification && (
+                                <div className="mt-2">
+                                    {loadingAdmins ? (
+                                        <div className="text-xs text-[var(--muted-foreground)] p-2">
+                                            Cargando administradores...
+                                        </div>
+                                    ) : adminUsers.length === 0 ? (
+                                        <div className="text-xs text-red-500 p-2">
+                                            No hay administradores disponibles con correo electrónico en tu organización.
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <label className="text-xs text-[var(--muted-foreground)] mb-1 block">
+                                                Seleccionar administrador para notificaciones:
+                                            </label>
+                                            <select
+                                                value={selectedAdminId}
+                                                onChange={(e) => setSelectedAdminId(e.target.value)}
+                                                className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm"
+                                                disabled={!company || saving}
+                                            >
+                                                <option value="">Seleccione un administrador</option>
+                                                {adminUsers.map(admin => (
+                                                    <option key={admin.id} value={admin.id || ''}>
+                                                        {admin.name || admin.email} ({admin.email})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex justify-end gap-2 mt-6">
@@ -1069,6 +1210,8 @@ export function ProviderSection({ id }: { id?: string }) {
                                     setProviderName('');
                                     setProviderType('');
                                     setEditingProviderCode(null);
+                                    setAddNotification(false);
+                                    setSelectedAdminId('');
                                 }}
                                 className="px-4 py-2 border border-[var(--input-border)] rounded text-[var(--foreground)] hover:bg-[var(--muted)]"
                                 disabled={saving}
@@ -1087,12 +1230,28 @@ export function ProviderSection({ id }: { id?: string }) {
                                         setFormError('Tu usuario no tiene una empresa asignada.');
                                         return;
                                     }
+                                    
+                                    // Validar que si se marcó notificación, se haya seleccionado un admin
+                                    if (addNotification && !selectedAdminId) {
+                                        setFormError('Debe seleccionar un administrador para las notificaciones.');
+                                        return;
+                                    }
+
+                                    // Obtener el correo del admin seleccionado
+                                    let correonotifi: string | undefined = undefined;
+                                    if (addNotification && selectedAdminId) {
+                                        const selectedAdmin = adminUsers.find(admin => admin.id === selectedAdminId);
+                                        if (selectedAdmin?.email) {
+                                            correonotifi = selectedAdmin.email;
+                                        }
+                                    }
+
                                     try {
                                         setSaving(true);
                                         setFormError(null);
                                         if (editingProviderCode) {
                                             // Actualizar proveedor existente
-                                            await updateProvider(editingProviderCode, name, providerType || undefined);
+                                            await updateProvider(editingProviderCode, name, providerType || undefined, correonotifi);
                                         } else {
                                             // Crear nuevo proveedor
                                             if (providers.some(p => p.name.toUpperCase() === name)) {
@@ -1100,11 +1259,13 @@ export function ProviderSection({ id }: { id?: string }) {
                                                 setSaving(false);
                                                 return;
                                             }
-                                            await addProvider(name, providerType || undefined);
+                                            await addProvider(name, providerType || undefined, correonotifi);
                                         }
                                         setProviderName('');
                                         setProviderType('');
                                         setEditingProviderCode(null);
+                                        setAddNotification(false);
+                                        setSelectedAdminId('');
                                         setProviderDrawerOpen(false);
                                     } catch (err) {
                                         const message = err instanceof Error ? err.message : 'No se pudo guardar el proveedor.';

@@ -21,6 +21,7 @@ export interface ProviderEntry {
   category?: 'Ingreso' | 'Gasto' | 'Egreso';
   createdAt?: string;
   updatedAt?: string;
+  correonotifi?: string;
 }
 
 export interface Sorteo {
