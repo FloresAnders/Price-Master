@@ -120,10 +120,28 @@ export default function ReporteMovimientosPage() {
     const [entries, setEntries] = useState<FondoEntry[]>([]);
     const [dataLoading, setDataLoading] = useState(false);
     const [dataError, setDataError] = useState<string | null>(null);
-    const [classificationFilter, setClassificationFilter] = useState<'all' | 'gasto' | 'egreso' | 'ingreso'>('all');
+    const [classificationFilter, setClassificationFilter] = useState<'all' | 'gasto' | 'egreso' | 'ingreso'>(() => {
+        try {
+            const stored = localStorage.getItem('mostrartipos');
+            if (stored && ['all', 'gasto', 'egreso', 'ingreso'].includes(stored)) {
+                return stored as 'all' | 'gasto' | 'egreso' | 'ingreso';
+            }
+        } catch (error) {
+            console.error('Error reading classificationFilter from localStorage:', error);
+        }
+        return 'all';
+    });
     const [selectedMovementTypes, setSelectedMovementTypes] = useState<FondoMovementType[]>([]);
     const [movementTypeSelectorOpen, setMovementTypeSelectorOpen] = useState(false);
-    const [showUSD, setShowUSD] = useState(true);
+    const [showUSD, setShowUSD] = useState(() => {
+        try {
+            const stored = localStorage.getItem('showUSD');
+            return stored !== 'false';
+        } catch (error) {
+            console.error('Error reading showUSD from localStorage:', error);
+        }
+        return true;
+    });
     const movementTypeSelectorRef = useRef<HTMLDivElement | null>(null);
 
     // Wrapper para guardar en localStorage y disparar evento de sincronización
@@ -458,6 +476,22 @@ export default function ReporteMovimientosPage() {
             setMovementTypeSelectorOpen(false);
         }
     }, [movementTypeOptions]);
+
+    useEffect(() => {
+        try {
+            localStorage.setItem('mostrartipos', classificationFilter);
+        } catch (error) {
+            console.error('Error saving classificationFilter to localStorage:', error);
+        }
+    }, [classificationFilter]);
+
+    useEffect(() => {
+        try {
+            localStorage.setItem('showUSD', showUSD.toString());
+        } catch (error) {
+            console.error('Error saving showUSD to localStorage:', error);
+        }
+    }, [showUSD]);
 
     const summaryRows = useMemo<SummaryRow[]>(() => {
         if (dateRangeInvalid) return [];
