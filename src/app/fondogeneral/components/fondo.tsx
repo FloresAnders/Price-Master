@@ -41,6 +41,7 @@ import { getDefaultPermissions } from '../../../utils/permissions';
 import ConfirmModal from '../../../components/ui/ConfirmModal';
 import { EmpresasService } from '../../../services/empresas';
 import { UsersService } from '../../../services/users';
+import { generateMovementNotificationEmail } from '../../../services/email-templates/notificacion-movimiento';
 import {
     MovimientosFondosService,
     MovementAccountKey,
@@ -2308,6 +2309,64 @@ export function FondoSection({
     const normalizeMoneyInput = (value: string) => value.replace(/[^0-9]/g, '');
 
     /**
+     * Envía un correo de notificación cuando se crea o edita un movimiento,
+     * solo si el proveedor tiene configurado un correo de notificación.
+     */
+    const sendMovementNotification = async (
+        entry: FondoEntry,
+        operationType: 'create' | 'edit',
+    ): Promise<void> => {
+        try {
+            // Buscar el proveedor para obtener su correonotifi
+            const provider = providers.find(p => p.code === entry.providerCode);
+            
+            // Si el proveedor no tiene correonotifi, no enviar correo
+            if (!provider?.correonotifi || provider.correonotifi.trim().length === 0) {
+                return;
+            }
+
+            // Obtener el nombre del proveedor
+            const providerName = provider.name || entry.providerCode;
+            
+            // Calcular el monto y tipo
+            const amount = entry.amountEgreso > 0 ? entry.amountEgreso : entry.amountIngreso;
+            const amountType: 'Egreso' | 'Ingreso' = entry.amountEgreso > 0 ? 'Egreso' : 'Ingreso';
+            const currency = (entry.currency as 'CRC' | 'USD') || 'CRC';
+
+            // Generar el contenido del correo usando la plantilla
+            const emailContent = generateMovementNotificationEmail({
+                company: company || '',
+                providerName,
+                providerCode: entry.providerCode,
+                paymentType: entry.paymentType,
+                invoiceNumber: entry.invoiceNumber,
+                amount,
+                amountType,
+                currency,
+                manager: entry.manager,
+                notes: entry.notes,
+                createdAt: entry.createdAt,
+                operationType,
+            });
+
+            // Enviar el correo de forma asíncrona sin bloquear
+            sendEmail({
+                to: provider.correonotifi,
+                subject: emailContent.subject,
+                text: emailContent.text,
+                html: emailContent.html,
+            }).catch(err => {
+                console.error('[EMAIL-NOTIFICATION] Error sending email:', err);
+                // No mostrar error al usuario, es solo una notificación
+            });
+
+        } catch (err) {
+            console.error('[EMAIL-NOTIFICATION] Error preparing notification:', err);
+            // No lanzar error, la notificación es secundaria
+        }
+    };
+
+    /**
      * Función auxiliar para persistir movimientos a Firestore de forma inmediata.
      * Retorna true si se guardó correctamente, false si hubo error.
      */
@@ -2594,6 +2653,14 @@ export function FondoSection({
                 setFondoEntries(updatedEntries);
                 showToast('Movimiento editado correctamente', 'success', 3000);
 
+                // Enviar notificación por correo si el proveedor tiene correonotifi
+                const editedEntry = updatedEntries.find(e => e.id === editingEntryId);
+                if (editedEntry) {
+                    sendMovementNotification(editedEntry, 'edit').catch(err => {
+                        console.error('[NOTIFICATION] Error en notificación de movimiento editado:', err);
+                    });
+                }
+
                 try {
                     // compute simple before/after CRC balances to help debug balance update issues
                     const sumBalance = (entries: FondoEntry[]) => {
@@ -2652,6 +2719,13 @@ export function FondoSection({
             // Solo actualizar la UI si el guardado fue exitoso
             setFondoEntries(updatedEntries);
             showToast('Movimiento guardado correctamente', 'success', 3000);
+            
+            // Enviar notificación por correo si el proveedor tiene correonotifi
+            if (entry) {
+                sendMovementNotification(entry, 'create').catch(err => {
+                    console.error('[NOTIFICATION] Error en notificación de movimiento:', err);
+                });
+            }
             
             const selectedProviderData = providers.find(p => p.code === selectedProvider);
             if (selectedProviderData?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME) {
