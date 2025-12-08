@@ -1014,8 +1014,8 @@ export function ProviderSection({ id }: { id?: string }) {
                                     <div>
                                         <div className="flex items-center gap-2">
                                             <span className="text-[var(--foreground)] font-semibold">{p.name}</span>
-                                            {p.correonotifi && p.correonotifi.trim().length > 0 && (
-                                                <Mail className="w-4 h-4 text-blue-500" title={`Correo de notificación: ${p.correonotifi}`} />
+                                            {p.correonotifi?.trim() && (
+                                                <Mail className="w-4 h-4 text-[var(--accent)]" title={`Correo de notificación: ${p.correonotifi}`} />
                                             )}
                                         </div>
                                         <div className="text-xs text-[var(--muted-foreground)]">Código: {p.code}</div>
