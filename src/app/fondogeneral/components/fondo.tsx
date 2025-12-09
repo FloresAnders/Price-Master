@@ -653,15 +653,22 @@ export function ProviderSection({ id }: { id?: string }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
+    const [showOnlyWithEmail, setShowOnlyWithEmail] = useState(() => {
+        if (typeof window === 'undefined') return false;
+        const saved = localStorage.getItem('provider-filter-email');
+        return saved === 'true';
+    });
     const companySelectId = `provider-company-select-${id ?? 'default'}`;
     const showCompanySelector = isAdminUser && (ownerCompaniesLoading || sortedOwnerCompanies.length > 0 || !!ownerCompaniesError);
 
     const filteredProviders = useMemo(() => {
-        return providers.filter(p =>
-            p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            p.code.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-    }, [providers, searchTerm]);
+        return providers.filter(p => {
+            const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                p.code.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesEmail = !showOnlyWithEmail || (p.correonotifi && p.correonotifi.trim().length > 0);
+            return matchesSearch && matchesEmail;
+        });
+    }, [providers, searchTerm, showOnlyWithEmail]);
 
     const totalPages = useMemo(() => {
         if (itemsPerPage === 'all') return 1;
@@ -679,6 +686,13 @@ export function ProviderSection({ id }: { id?: string }) {
     useEffect(() => {
         setCurrentPage(1);
     }, [searchTerm, itemsPerPage]);
+
+    // Guardar preferencia de filtro de correo en localStorage
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('provider-filter-email', showOnlyWithEmail.toString());
+        }
+    }, [showOnlyWithEmail]);
 
     // Escuchar cambios de empresa desde FondoSection (sincronización bidireccional)
     useEffect(() => {
@@ -718,8 +732,8 @@ export function ProviderSection({ id }: { id?: string }) {
         // Determinar el ownerId de referencia:
         // - Si el usuario tiene ownerId, usar ese
         // - Si NO tiene ownerId (es el dueño), usar su propio id
-        const referenceOwnerId = user.ownerId && user.ownerId.trim().length > 0 
-            ? user.ownerId.trim() 
+        const referenceOwnerId = user.ownerId && user.ownerId.trim().length > 0
+            ? user.ownerId.trim()
             : user.id || '';
 
         if (!referenceOwnerId) {
@@ -731,7 +745,7 @@ export function ProviderSection({ id }: { id?: string }) {
         UsersService.findUsersByRole('admin')
             .then(allAdmins => {
                 if (!isMounted) return;
-                
+
                 // Filtrar admins que cumplan cualquiera de estas condiciones:
                 // 1. Admins que tengan el mismo ownerId que el referenceOwnerId
                 // 2. El admin "dueño" cuyo id sea igual al referenceOwnerId (sin ownerId o ownerId vacío)
@@ -741,13 +755,13 @@ export function ProviderSection({ id }: { id?: string }) {
 
                     // Condición 1: Admin con el mismo ownerId
                     const sameOwnerId = admin.ownerId && admin.ownerId.trim() === referenceOwnerId;
-                    
+
                     // Condición 2: Admin dueño (su id es el referenceOwnerId y no tiene ownerId)
                     const isOwnerAdmin = admin.id === referenceOwnerId && (!admin.ownerId || admin.ownerId.trim().length === 0);
 
                     return sameOwnerId || isOwnerAdmin;
                 });
-                
+
                 setAdminUsers(filtered);
                 if (filtered.length > 0 && !selectedAdminId) {
                     setSelectedAdminId(filtered[0].id || '');
@@ -946,7 +960,27 @@ export function ProviderSection({ id }: { id?: string }) {
 
 
             <div>
-                <h3 className="text-sm font-medium text-[var(--foreground)] mb-2">Lista de Proveedores</h3>
+                <div className='flex justify-between items-center mb-2'>
+                    <h3 className="text-sm font-medium text-[var(--foreground)]">Lista de Proveedores</h3>
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="checkbox"
+                            id="filter-with-email"
+                            checked={showOnlyWithEmail}
+                            onChange={(e) => {
+                                setShowOnlyWithEmail(e.target.checked);
+                                setCurrentPage(1);
+                            }}
+                            className="w-4 h-4 cursor-pointer"
+                        />
+                        <label
+                            htmlFor="filter-with-email"
+                            className="text-sm text-[var(--foreground)] cursor-pointer"
+                        >
+                            Mostrar solo con correo
+                        </label>
+                    </div>
+                </div>
                 {!isLoading && (
                     <div className="mb-4 space-y-4">
                         <div className="relative">
@@ -1015,11 +1049,12 @@ export function ProviderSection({ id }: { id?: string }) {
                                         <div className="flex items-center gap-2">
                                             <span className="text-[var(--foreground)] font-semibold">{p.name}</span>
                                             {p.correonotifi?.trim() && (
-                                                <Mail 
-                                                    className="w-4 h-4 text-[var(--accent)]" 
+                                                <span
                                                     title={`Correo de notificación: ${p.correonotifi}`}
-                                                    aria-label={`Tiene correo de notificación: ${p.correonotifi}`}
-                                                />
+                                                    className="inline-flex"
+                                                >
+                                                    <Mail className="w-4 h-4 text-[var(--accent)]" />
+                                                </span>
                                             )}
                                         </div>
                                         <div className="text-xs text-[var(--muted-foreground)]">Código: {p.code}</div>
@@ -1169,8 +1204,8 @@ export function ProviderSection({ id }: { id?: string }) {
                                     disabled={!company || saving}
                                     className="w-4 h-4 cursor-pointer"
                                 />
-                                <label 
-                                    htmlFor="add-notification-checkbox" 
+                                <label
+                                    htmlFor="add-notification-checkbox"
                                     className="text-sm text-[var(--foreground)] cursor-pointer"
                                 >
                                     Agregar Notificación
@@ -1241,7 +1276,7 @@ export function ProviderSection({ id }: { id?: string }) {
                                         setFormError('Tu usuario no tiene una empresa asignada.');
                                         return;
                                     }
-                                    
+
                                     // Validar que si se marcó notificación, se haya seleccionado un admin
                                     if (addNotification && !selectedAdminId) {
                                         setFormError('Debe seleccionar un administrador para las notificaciones.');
@@ -2329,7 +2364,7 @@ export function FondoSection({
         try {
             // Buscar el proveedor para obtener su correonotifi
             const provider = providers.find(p => p.code === entry.providerCode);
-            
+
             // Si el proveedor no tiene correonotifi, no enviar correo
             if (!provider?.correonotifi || provider.correonotifi.trim().length === 0) {
                 return;
@@ -2337,7 +2372,7 @@ export function FondoSection({
 
             // Obtener el nombre del proveedor
             const providerName = provider.name || entry.providerCode;
-            
+
             // Calcular el monto y tipo
             const amount = entry.amountEgreso > 0 ? entry.amountEgreso : entry.amountIngreso;
             const amountType: 'Egreso' | 'Ingreso' = entry.amountEgreso > 0 ? 'Egreso' : 'Ingreso';
@@ -2399,7 +2434,7 @@ export function FondoSection({
                     normalizedCompany,
                 )
                 : MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(normalizedCompany);
-            
+
             baseStorage.company = normalizedCompany;
 
             const normalizedEntries: FondoEntry[] = updatedEntries.map(entry => {
@@ -2475,7 +2510,7 @@ export function FondoSection({
             );
             stateSnapshot.balancesByAccount = nextAccountBalances;
             stateSnapshot.updatedAt = new Date().toISOString();
-            
+
             // Preservar lockedUntil del snapshot actual si existe
             if (storageSnapshotRef.current?.state?.lockedUntil) {
                 stateSnapshot.lockedUntil = storageSnapshotRef.current.state.lockedUntil;
@@ -2514,12 +2549,12 @@ export function FondoSection({
             });
 
             await MovimientosFondosService.saveDocument(companyKey, baseStorage);
-            
+
             console.log(`[PERSIST-IMMEDIATE] ✅ ${operationType} guardado exitosamente en Firestore`);
-            
+
             // Actualizar snapshot después de guardar exitosamente
             storageSnapshotRef.current = baseStorage;
-            
+
             return true;
         } catch (err) {
             console.error(`[PERSIST-IMMEDIATE] ❌ Error guardando ${operationType} a Firestore:`, err);
@@ -2652,7 +2687,7 @@ export function FondoSection({
 
                 // PRIMERO persistir a Firestore, LUEGO actualizar UI
                 const saved = await persistMovementToFirestore(updatedEntries, 'edit');
-                
+
                 if (!saved) {
                     showToast('Error al guardar el movimiento. Por favor, intente de nuevo.', 'error', 5000);
                     setIsSaving(false);
@@ -2719,7 +2754,7 @@ export function FondoSection({
 
             // PRIMERO persistir a Firestore, LUEGO actualizar UI
             const saved = await persistMovementToFirestore(updatedEntries, 'create');
-            
+
             if (!saved) {
                 showToast('Error al guardar el movimiento. Por favor, intente de nuevo.', 'error', 5000);
                 setIsSaving(false);
@@ -2729,14 +2764,14 @@ export function FondoSection({
             // Solo actualizar la UI si el guardado fue exitoso
             setFondoEntries(updatedEntries);
             showToast('Movimiento guardado correctamente', 'success', 3000);
-            
+
             // Enviar notificación por correo si el proveedor tiene correonotifi
             if (entry) {
                 sendMovementNotification(entry, 'create').catch(err => {
                     console.error('[NOTIFICATION] Error en notificación de movimiento:', err);
                 });
             }
-            
+
             const selectedProviderData = providers.find(p => p.code === selectedProvider);
             if (selectedProviderData?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME) {
                 setPendingCierreDeCaja(true);
@@ -2787,7 +2822,7 @@ export function FondoSection({
 
         // Si no hay snapshot o no hay lockedUntil, no hay bloqueo
         const lockedUntil = storageSnapshotRef.current?.state?.lockedUntil;
-        
+
         if (!lockedUntil) {
             return false;
         }
@@ -2798,7 +2833,7 @@ export function FondoSection({
 
             // Bloqueado si el movimiento es anterior o igual al último cierre
             const isLocked = movementTime <= lockTime;
-          
+
             return isLocked;
         } catch {
             // Si hay error parseando fechas, no bloquear
@@ -2889,7 +2924,7 @@ export function FondoSection({
 
             // PRIMERO persistir a Firestore, LUEGO actualizar UI
             const saved = await persistMovementToFirestore(updatedEntries, 'delete');
-            
+
             if (!saved) {
                 showToast('Error al eliminar el movimiento. Por favor, intente de nuevo.', 'error', 5000);
                 return; // NO actualizar la UI si falló el guardado
@@ -3085,10 +3120,10 @@ export function FondoSection({
                 // Preservar lockedUntil del snapshot actual si existe
                 if (storageSnapshotRef.current?.state?.lockedUntil) {
                     stateSnapshot.lockedUntil = storageSnapshotRef.current.state.lockedUntil;
-                    
+
                 }
                 baseStorage.state = stateSnapshot;
-               
+
 
                 // Intentar guardar en localStorage con manejo de error
                 try {
@@ -3137,7 +3172,7 @@ export function FondoSection({
             if (!storageToPersist) return;
 
             try {
-                
+
                 await MovimientosFondosService.saveDocument(companyKey, storageToPersist);
             } catch (err) {
                 console.error('Error storing fondo entries to Firestore:', err);
@@ -3747,7 +3782,7 @@ export function FondoSection({
             }
             // Bloquear hasta la fecha de creación del cierre
             storageSnapshotRef.current.state.lockedUntil = createdAt;
-          
+
             // Persistir inmediatamente para asegurar que se guarde incluso sin movimientos
             const normalizedCompany = (company || '').trim();
             if (normalizedCompany.length > 0) {
@@ -3755,7 +3790,7 @@ export function FondoSection({
                 try {
                     // Actualizar localStorage
                     localStorage.setItem(companyKey, JSON.stringify(storageSnapshotRef.current));
-                    
+
                     // Actualizar Firestore
                     void MovimientosFondosService.saveDocument(companyKey, storageSnapshotRef.current)
                         .then(() => console.log('[LOCK-DEBUG] Force saved to Firestore after closing'))
