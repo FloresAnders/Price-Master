@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import data from '../../data/version.json';
+import { useVersion } from '../../hooks/useVersion';
 
 export default function Footer() {
+  const { version, isLocalNewer, dbVersion } = useVersion();
   const [isGitHubModalOpen, setIsGitHubModalOpen] = useState(false);
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
   const [isNewsModalOpen, setIsNewsModalOpen] = useState(false);
@@ -41,9 +42,17 @@ export default function Footer() {
           <a href="https://plus.google.com" target="_blank" rel="noopener noreferrer" className="hover:opacity-70 transition-opacity" aria-label="Visitar nuestra página de Google Plus">
             <svg className="w-7 h-7 fill-current text-black dark:text-white" viewBox="0 0 24 24" aria-hidden="true"><path d="M21.8 10.02h-9.18v3.96h5.27c-.23 1.22-1.36 3.59-5.27 3.59-3.18 0-5.76-2.63-5.76-5.87s2.58-5.87 5.76-5.87c1.81 0 3.02.72 3.72 1.35l2.54-2.46C16.29 3.13 14.37 2 12 2 6.48 2 2 6.48 2 12s4.48 10 10 10c5.52 0 10-4.48 10-10 0-.68-.07-1.36-.2-1.98z" /></svg>
           </a>
-          <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" className="hover:opacity-70 transition-opacity" aria-label="Visitar nuestro canal de YouTube">
+          <button 
+            type="button" 
+            onClick={() => {
+              localStorage.clear();
+              location.reload();
+            }} 
+            className="hover:opacity-70 transition-opacity" 
+            aria-label="Limpiar caché y recargar"
+          >
             <svg className="w-7 h-7 fill-current text-black dark:text-white" viewBox="0 0 24 24" aria-hidden="true"><path d="M22.54 6.42a2.78 2.78 0 00-1.95-1.95C18.88 4 12 4 12 4s-6.88 0-8.59.47A2.78 2.78 0 001.46 6.42C1 8.13 1 12 1 12s0 3.87.46 5.58a2.78 2.78 0 001.95 1.95C5.12 20 12 20 12 20s6.88 0 8.59-.47a2.78 2.78 0 001.95-1.95C23 15.87 23 12 23 12s0-3.87-.46-5.58zM10 15.5V8.5l6 3.5-6 3.5z" /></svg>
-          </a>
+          </button>
         </div>
 
         {/* GitHub Modal */}
@@ -173,7 +182,20 @@ export default function Footer() {
         {/* Copyright */}
         <div className="w-full text-center text-xs text-[var(--foreground)] opacity-80 border-t border-[var(--input-border)] pt-2 pb-1">
           <div className="mb-1">Copyright ©{new Date().getFullYear()}; Designed by <span className="font-semibold tracking-wide">Time Master</span></div>
-          <div className="opacity-90">{'v' + data.version}</div>
+          <div className="opacity-90 flex items-center justify-center gap-2">
+            <span>v{version}</span>
+            {isLocalNewer && (
+              <span
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 border border-yellow-500/30"
+                title={`Cambios desplegados.`}
+              >
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                PENDIENTE
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </footer>

@@ -29,15 +29,20 @@ import {
     ChevronDown,
     ChevronUp,
     Search,
+    AlertTriangle,
+    CheckCircle,
+    Mail,
 } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import { useProviders } from '../../../hooks/useProviders';
 import { useEmail } from '../../../hooks/useEmail';
 import useToast from '../../../hooks/useToast';
-import type { UserPermissions, Empresas } from '../../../types/firestore';
+import type { UserPermissions, Empresas, User } from '../../../types/firestore';
 import { getDefaultPermissions } from '../../../utils/permissions';
 import ConfirmModal from '../../../components/ui/ConfirmModal';
 import { EmpresasService } from '../../../services/empresas';
+import { UsersService } from '../../../services/users';
+import { generateMovementNotificationEmail } from '../../../services/email-templates/notificacion-movimiento';
 import {
     MovimientosFondosService,
     MovementAccountKey,
@@ -47,7 +52,6 @@ import {
 } from '../../../services/movimientos-fondos';
 import { DailyClosingsService, DailyClosingRecord, DailyClosingsDocument } from '../../../services/daily-closings';
 import { buildDailyClosingEmailTemplate } from '../../../services/email-templates/daily-closing';
-import { UsersService } from '../../../services/users';
 import AgregarMovimiento from './AgregarMovimiento';
 import DailyClosingModal, { DailyClosingFormValues } from './DailyClosingModal';
 import { useActorOwnership } from '../../../hooks/useActorOwnership';
@@ -61,6 +65,7 @@ export const FONDO_INGRESO_TYPES = ['VENTAS', 'OTROS INGRESOS'] as const;
 
 export const FONDO_GASTO_TYPES = [
     'SALARIOS',
+    'TELEFONOS',
     'CARGAS SOCIALES',
     'AGUINALDOS',
     'VACACIONES',
@@ -81,6 +86,9 @@ export const FONDO_GASTO_TYPES = [
     'MONITOREO DE ALARMAS',
     'FACTURA ELECTRONICA',
     'GASTOS VARIOS',
+    'TRANSPORTE',
+    'SERVICIOS PROFECIONALES',
+    'MANTENIMIENTO MOBILIARIO Y EQUIPO',
 ] as const;
 
 const AUTO_ADJUSTMENT_MOVEMENT_TYPE_EGRESO = (FONDO_GASTO_TYPES as readonly string[]).find(
@@ -91,13 +99,14 @@ const AUTO_ADJUSTMENT_MOVEMENT_TYPE_INGRESO = (FONDO_INGRESO_TYPES as readonly s
 ) ?? FONDO_INGRESO_TYPES[FONDO_INGRESO_TYPES.length - 1];
 
 export const FONDO_EGRESO_TYPES = [
+    'EGRESOS VARIOS',
     'PAGO TIEMPOS',
     'PAGO BANCA',
     'COMPRA INVENTARIO',
     'COMPRA ACTIVOS',
     'PAGO IMPUESTO RENTA',
     'PAGO IMPUESTO IVA',
-    'EGRESOS VARIOS',
+    'RETIRO EFECTIVO'
 ] as const;
 
 // Opciones visibles en el selector
@@ -105,9 +114,14 @@ export const FONDO_TYPE_OPTIONS = [...FONDO_INGRESO_TYPES, ...FONDO_GASTO_TYPES,
 
 export type FondoMovementType = typeof FONDO_INGRESO_TYPES[number] | typeof FONDO_GASTO_TYPES[number] | typeof FONDO_EGRESO_TYPES[number];
 
-const AUTO_ADJUSTMENT_PROVIDER_CODE = 'AJUSTE FONDO GENERAL';
+const AUTO_ADJUSTMENT_PROVIDER_CODE = 'CIERRE DE FONDO GENERAL';
+const AUTO_ADJUSTMENT_PROVIDER_CODE_LEGACY = 'AJUSTE FONDO GENERAL'; // Para compatibilidad con datos antiguos
 const AUTO_ADJUSTMENT_MANAGER = 'SISTEMA';
 
+const CIERRE_FONDO_VENTAS_PROVIDER_NAME = 'CIERRE FONDO VENTAS';
+// Helper para verificar si un proveedor es un cierre/ajuste automático
+const isAutoAdjustmentProvider = (code: string) =>
+    code === AUTO_ADJUSTMENT_PROVIDER_CODE || code === AUTO_ADJUSTMENT_PROVIDER_CODE_LEGACY;
 export const isFondoMovementType = (value: string): value is FondoMovementType =>
     FONDO_TYPE_OPTIONS.includes(value as FondoMovementType);
 
@@ -116,12 +130,15 @@ export const isGastoType = (type: FondoMovementType) => (FONDO_GASTO_TYPES as re
 export const isEgresoType = (type: FondoMovementType) => (FONDO_EGRESO_TYPES as readonly string[]).includes(type);
 
 // Formatea en Titulo Caso cada palabra
-export const formatMovementType = (type: FondoMovementType) =>
-    type
+export const formatMovementType = (type: FondoMovementType | string) => {
+    if (type === 'INFORMATIVO') return '';
+
+    return type
         .toLowerCase()
         .split(' ')
         .map(w => (w ? w[0].toUpperCase() + w.slice(1) : w))
         .join(' ');
+};
 
 // Normaliza valores historicos guardados en localStorage a las nuevas categorias
 const normalizeStoredType = (value: unknown): FondoMovementType => {
@@ -525,6 +542,9 @@ const AccessRestrictedMessage = ({ description }: { description: string }) => (
     </div>
 );
 
+// Clave compartida para sincronizar la selección de empresa entre ProviderSection y FondoSection
+const SHARED_COMPANY_STORAGE_KEY = 'fg_selected_company_shared';
+
 export function ProviderSection({ id }: { id?: string }) {
     const { user, loading: authLoading } = useAuth();
     const assignedCompany = user?.ownercompanie?.trim() ?? '';
@@ -545,7 +565,7 @@ export function ProviderSection({ id }: { id?: string }) {
     const [adminCompany, setAdminCompany] = useState(() => {
         if (typeof window === 'undefined') return assignedCompany;
         try {
-            const stored = localStorage.getItem('fg_selected_company_providers');
+            const stored = localStorage.getItem(SHARED_COMPANY_STORAGE_KEY);
             return stored || assignedCompany;
         } catch {
             return assignedCompany;
@@ -622,6 +642,10 @@ export function ProviderSection({ id }: { id?: string }) {
     const [saving, setSaving] = useState(false);
     const [deletingCode, setDeletingCode] = useState<string | null>(null);
     const [providerDrawerOpen, setProviderDrawerOpen] = useState(false);
+    const [addNotification, setAddNotification] = useState(false);
+    const [selectedAdminId, setSelectedAdminId] = useState<string>('');
+    const [adminUsers, setAdminUsers] = useState<User[]>([]);
+    const [loadingAdmins, setLoadingAdmins] = useState(false);
     const [confirmState, setConfirmState] = useState<{ open: boolean; code: string; name: string }>({
         open: false,
         code: '',
@@ -630,15 +654,22 @@ export function ProviderSection({ id }: { id?: string }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
+    const [showOnlyWithEmail, setShowOnlyWithEmail] = useState(() => {
+        if (typeof window === 'undefined') return false;
+        const saved = localStorage.getItem('provider-filter-email');
+        return saved === 'true';
+    });
     const companySelectId = `provider-company-select-${id ?? 'default'}`;
     const showCompanySelector = isAdminUser && (ownerCompaniesLoading || sortedOwnerCompanies.length > 0 || !!ownerCompaniesError);
 
     const filteredProviders = useMemo(() => {
-        return providers.filter(p =>
-            p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            p.code.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-    }, [providers, searchTerm]);
+        return providers.filter(p => {
+            const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                p.code.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesEmail = !showOnlyWithEmail || (p.correonotifi && p.correonotifi.trim().length > 0);
+            return matchesSearch && matchesEmail;
+        });
+    }, [providers, searchTerm, showOnlyWithEmail]);
 
     const totalPages = useMemo(() => {
         if (itemsPerPage === 'all') return 1;
@@ -657,11 +688,112 @@ export function ProviderSection({ id }: { id?: string }) {
         setCurrentPage(1);
     }, [searchTerm, itemsPerPage]);
 
+    // Guardar preferencia de filtro de correo en localStorage
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('provider-filter-email', showOnlyWithEmail.toString());
+        }
+    }, [showOnlyWithEmail]);
+
+    // Escuchar cambios de empresa desde FondoSection (sincronización bidireccional)
+    useEffect(() => {
+        if (!isAdminUser) return;
+
+        const handleStorageChange = (event: StorageEvent) => {
+            if (event.key === SHARED_COMPANY_STORAGE_KEY && event.newValue && event.newValue !== adminCompany) {
+                setAdminCompany(event.newValue);
+                // Reset form state when company changes from external source
+                setProviderDrawerOpen(false);
+                setFormError(null);
+                setProviderName('');
+                setProviderType('');
+                setEditingProviderCode(null);
+                setDeletingCode(null);
+                setConfirmState({ open: false, code: '', name: '' });
+                setCurrentPage(1);
+                setSearchTerm('');
+                setItemsPerPage(10);
+            }
+        };
+
+        window.addEventListener('storage', handleStorageChange);
+        return () => window.removeEventListener('storage', handleStorageChange);
+    }, [isAdminUser, adminCompany]);
+
+    // Cargar admins cuando se necesite para notificaciones
+    useEffect(() => {
+        if (!addNotification || !user) {
+            setAdminUsers([]);
+            return;
+        }
+
+        let isMounted = true;
+        setLoadingAdmins(true);
+
+        // Determinar el ownerId de referencia:
+        // - Si el usuario tiene ownerId, usar ese
+        // - Si NO tiene ownerId (es el dueño), usar su propio id
+        const referenceOwnerId = user.ownerId && user.ownerId.trim().length > 0
+            ? user.ownerId.trim()
+            : user.id || '';
+
+        if (!referenceOwnerId) {
+            setAdminUsers([]);
+            setLoadingAdmins(false);
+            return;
+        }
+
+        UsersService.findUsersByRole('admin')
+            .then(allAdmins => {
+                if (!isMounted) return;
+
+                // Filtrar admins que cumplan cualquiera de estas condiciones:
+                // 1. Admins que tengan el mismo ownerId que el referenceOwnerId
+                // 2. El admin "dueño" cuyo id sea igual al referenceOwnerId (sin ownerId o ownerId vacío)
+                const filtered = allAdmins.filter(admin => {
+                    const hasEmail = admin.email && admin.email.trim().length > 0;
+                    if (!hasEmail) return false;
+
+                    // Condición 1: Admin con el mismo ownerId
+                    const sameOwnerId = admin.ownerId && admin.ownerId.trim() === referenceOwnerId;
+
+                    // Condición 2: Admin dueño (su id es el referenceOwnerId y no tiene ownerId)
+                    const isOwnerAdmin = admin.id === referenceOwnerId && (!admin.ownerId || admin.ownerId.trim().length === 0);
+
+                    return sameOwnerId || isOwnerAdmin;
+                });
+
+                setAdminUsers(filtered);
+                if (filtered.length > 0 && !selectedAdminId) {
+                    setSelectedAdminId(filtered[0].id || '');
+                }
+            })
+            .catch(err => {
+                if (!isMounted) return;
+                console.error('Error loading admin users:', err);
+                setAdminUsers([]);
+            })
+            .finally(() => {
+                if (isMounted) setLoadingAdmins(false);
+            });
+
+        return () => {
+            isMounted = false;
+        };
+    }, [addNotification, user, selectedAdminId]);
+
     const handleAdminCompanyChange = useCallback((value: string) => {
         if (!isAdminUser) return;
         setAdminCompany(value);
         try {
-            localStorage.setItem('fg_selected_company_providers', value);
+            localStorage.setItem(SHARED_COMPANY_STORAGE_KEY, value);
+            // Disparar evento de storage manualmente para sincronizar dentro de la misma ventana
+            window.dispatchEvent(new StorageEvent('storage', {
+                key: SHARED_COMPANY_STORAGE_KEY,
+                newValue: value,
+                oldValue: adminCompany,
+                storageArea: localStorage
+            }));
         } catch (error) {
             console.error('Error saving selected company to localStorage:', error);
         }
@@ -671,11 +803,13 @@ export function ProviderSection({ id }: { id?: string }) {
         setProviderType('');
         setEditingProviderCode(null);
         setDeletingCode(null);
+        setAddNotification(false);
+        setSelectedAdminId('');
         setConfirmState({ open: false, code: '', name: '' });
         setCurrentPage(1);
         setSearchTerm('');
         setItemsPerPage(10);
-    }, [isAdminUser]);
+    }, [isAdminUser, adminCompany]);
 
     // provider creation is handled from the drawer UI below
 
@@ -690,6 +824,18 @@ export function ProviderSection({ id }: { id?: string }) {
         setEditingProviderCode(prov.code);
         setProviderName(prov.name ?? '');
         setProviderType((prov.type as FondoMovementType) ?? '');
+        // Cargar datos de notificación si existen
+        if (prov.correonotifi && prov.correonotifi.trim().length > 0) {
+            setAddNotification(true);
+            // Intentar encontrar el admin con ese correo
+            const matchingAdmin = adminUsers.find(admin => admin.email === prov.correonotifi);
+            if (matchingAdmin?.id) {
+                setSelectedAdminId(matchingAdmin.id);
+            }
+        } else {
+            setAddNotification(false);
+            setSelectedAdminId('');
+        }
         setProviderDrawerOpen(true);
     };
 
@@ -761,6 +907,8 @@ export function ProviderSection({ id }: { id?: string }) {
                             setProviderName('');
                             setProviderType('');
                             setEditingProviderCode(null);
+                            setAddNotification(false);
+                            setSelectedAdminId('');
                         }}
                         disabled={!company || saving || providersLoading}
                         className="flex items-center gap-2 px-4 py-2 bg-[var(--accent)] text-white rounded shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
@@ -813,7 +961,27 @@ export function ProviderSection({ id }: { id?: string }) {
 
 
             <div>
-                <h3 className="text-sm font-medium text-[var(--foreground)] mb-2">Lista de Proveedores</h3>
+                <div className='flex justify-between items-center mb-2'>
+                    <h3 className="text-sm font-medium text-[var(--foreground)]">Lista de Proveedores</h3>
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="checkbox"
+                            id="filter-with-email"
+                            checked={showOnlyWithEmail}
+                            onChange={(e) => {
+                                setShowOnlyWithEmail(e.target.checked);
+                                setCurrentPage(1);
+                            }}
+                            className="w-4 h-4 cursor-pointer"
+                        />
+                        <label
+                            htmlFor="filter-with-email"
+                            className="text-sm text-[var(--foreground)] cursor-pointer"
+                        >
+                            Mostrar solo con correo
+                        </label>
+                    </div>
+                </div>
                 {!isLoading && (
                     <div className="mb-4 space-y-4">
                         <div className="relative">
@@ -879,7 +1047,17 @@ export function ProviderSection({ id }: { id?: string }) {
                             {paginatedProviders.map(p => (
                                 <li key={p.code} className="flex items-center justify-between bg-[var(--muted)] p-3 rounded">
                                     <div>
-                                        <div className="text-[var(--foreground)] font-semibold">{p.name}</div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[var(--foreground)] font-semibold">{p.name}</span>
+                                            {p.correonotifi?.trim() && (
+                                                <span
+                                                    title={`Correo de notificación: ${p.correonotifi}`}
+                                                    className="inline-flex"
+                                                >
+                                                    <Mail className="w-4 h-4 text-[var(--accent)]" />
+                                                </span>
+                                            )}
+                                        </div>
                                         <div className="text-xs text-[var(--muted-foreground)]">Código: {p.code}</div>
                                         {p.type && (
                                             <div className="text-xs text-[var(--muted-foreground)] mt-1">
@@ -962,6 +1140,8 @@ export function ProviderSection({ id }: { id?: string }) {
                                 setProviderName('');
                                 setProviderType('');
                                 setEditingProviderCode(null);
+                                setAddNotification(false);
+                                setSelectedAdminId('');
                             }}
                             sx={{ color: 'var(--foreground)' }}
                         >
@@ -1009,6 +1189,63 @@ export function ProviderSection({ id }: { id?: string }) {
                                     ))}
                                 </optgroup>
                             </select>
+
+                            {/* Checkbox para agregar notificación */}
+                            <div className="flex items-center gap-2 mt-2">
+                                <input
+                                    type="checkbox"
+                                    id="add-notification-checkbox"
+                                    checked={addNotification}
+                                    onChange={(e) => {
+                                        setAddNotification(e.target.checked);
+                                        if (!e.target.checked) {
+                                            setSelectedAdminId('');
+                                        }
+                                    }}
+                                    disabled={!company || saving}
+                                    className="w-4 h-4 cursor-pointer"
+                                />
+                                <label
+                                    htmlFor="add-notification-checkbox"
+                                    className="text-sm text-[var(--foreground)] cursor-pointer"
+                                >
+                                    Agregar Notificación
+                                </label>
+                            </div>
+
+                            {/* Selector de admin para notificación */}
+                            {addNotification && (
+                                <div className="mt-2">
+                                    {loadingAdmins ? (
+                                        <div className="text-xs text-[var(--muted-foreground)] p-2">
+                                            Cargando administradores...
+                                        </div>
+                                    ) : adminUsers.length === 0 ? (
+                                        <div className="text-xs text-red-500 p-2">
+                                            No hay administradores disponibles con correo electrónico en tu organización.
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <label className="text-xs text-[var(--muted-foreground)] mb-1 block">
+                                                Seleccionar administrador para notificaciones:
+                                            </label>
+                                            <select
+                                                value={selectedAdminId}
+                                                onChange={(e) => setSelectedAdminId(e.target.value)}
+                                                className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm"
+                                                disabled={!company || saving}
+                                            >
+                                                <option value="">Seleccione un administrador</option>
+                                                {adminUsers.map(admin => (
+                                                    <option key={admin.id} value={admin.id || ''}>
+                                                        {admin.name || admin.email} ({admin.email})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex justify-end gap-2 mt-6">
@@ -1020,6 +1257,8 @@ export function ProviderSection({ id }: { id?: string }) {
                                     setProviderName('');
                                     setProviderType('');
                                     setEditingProviderCode(null);
+                                    setAddNotification(false);
+                                    setSelectedAdminId('');
                                 }}
                                 className="px-4 py-2 border border-[var(--input-border)] rounded text-[var(--foreground)] hover:bg-[var(--muted)]"
                                 disabled={saving}
@@ -1038,12 +1277,28 @@ export function ProviderSection({ id }: { id?: string }) {
                                         setFormError('Tu usuario no tiene una empresa asignada.');
                                         return;
                                     }
+
+                                    // Validar que si se marcó notificación, se haya seleccionado un admin
+                                    if (addNotification && !selectedAdminId) {
+                                        setFormError('Debe seleccionar un administrador para las notificaciones.');
+                                        return;
+                                    }
+
+                                    // Obtener el correo del admin seleccionado
+                                    let correonotifi: string | undefined = undefined;
+                                    if (addNotification && selectedAdminId) {
+                                        const selectedAdmin = adminUsers.find(admin => admin.id === selectedAdminId);
+                                        if (selectedAdmin?.email) {
+                                            correonotifi = selectedAdmin.email;
+                                        }
+                                    }
+
                                     try {
                                         setSaving(true);
                                         setFormError(null);
                                         if (editingProviderCode) {
                                             // Actualizar proveedor existente
-                                            await updateProvider(editingProviderCode, name, providerType || undefined);
+                                            await updateProvider(editingProviderCode, name, providerType || undefined, correonotifi);
                                         } else {
                                             // Crear nuevo proveedor
                                             if (providers.some(p => p.name.toUpperCase() === name)) {
@@ -1051,11 +1306,13 @@ export function ProviderSection({ id }: { id?: string }) {
                                                 setSaving(false);
                                                 return;
                                             }
-                                            await addProvider(name, providerType || undefined);
+                                            await addProvider(name, providerType || undefined, correonotifi);
                                         }
                                         setProviderName('');
                                         setProviderType('');
                                         setEditingProviderCode(null);
+                                        setAddNotification(false);
+                                        setSelectedAdminId('');
                                         setProviderDrawerOpen(false);
                                     } catch (err) {
                                         const message = err instanceof Error ? err.message : 'No se pudo guardar el proveedor.';
@@ -1113,11 +1370,10 @@ export function FondoSection({
         return '';
     }, [allowedOwnerIds, primaryOwnerId]);
     const isAdminUser = user?.role === 'admin';
-    const storageKey = `fg_selected_company_${namespace}`;
     const [adminCompany, setAdminCompany] = useState(() => {
         if (typeof window === 'undefined') return assignedCompany;
         try {
-            const stored = localStorage.getItem(storageKey);
+            const stored = localStorage.getItem(SHARED_COMPANY_STORAGE_KEY);
             return stored || assignedCompany;
         } catch {
             return assignedCompany;
@@ -1272,6 +1528,7 @@ export function FondoSection({
     const [dailyClosingsRefreshing, setDailyClosingsRefreshing] = useState(false);
     const [dailyClosingHistoryOpen, setDailyClosingHistoryOpen] = useState(false);
     const [expandedClosings, setExpandedClosings] = useState<Set<string>>(new Set());
+    const [pendingCierreDeCaja, setPendingCierreDeCaja] = useState(false);
     const dailyClosingsRequestCountRef = useRef(0);
     const isComponentMountedRef = useRef(true);
     const loadedDailyClosingKeysRef = useRef<Set<string>>(new Set());
@@ -1329,6 +1586,8 @@ export function FondoSection({
         open: false,
         entry: null
     });
+    // Estado para indicar que se está guardando un movimiento y prevenir múltiples envíos
+    const [isSaving, setIsSaving] = useState(false);
     const enabledBalanceCurrencies = useMemo(
         () => (['CRC', 'USD'] as MovementCurrencyKey[]).filter(currency => currencyEnabled[currency]),
         [currencyEnabled],
@@ -1396,6 +1655,8 @@ export function FondoSection({
         }
         return 'all';
     });
+    const [providerFilter, setProviderFilter] = useState('');
+    const [isProviderDropdownOpen, setIsProviderDropdownOpen] = useState(false);
     const initialFilterPaymentType: FondoEntry['paymentType'] | 'all' =
         mode === 'all' ? 'all' : mode === 'ingreso' ? FONDO_INGRESO_TYPES[0] : FONDO_EGRESO_TYPES[0];
     const [filterPaymentType, setFilterPaymentType] = useState<FondoEntry['paymentType'] | 'all'>(() => {
@@ -1405,6 +1666,8 @@ export function FondoSection({
         }
         return initialFilterPaymentType;
     });
+    const [typeFilter, setTypeFilter] = useState('');
+    const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
     const [filterEditedOnly, setFilterEditedOnly] = useState(() => {
         if (typeof window !== 'undefined') {
             const saved = localStorage.getItem('fondogeneral-filterEditedOnly');
@@ -1422,6 +1685,13 @@ export function FondoSection({
     const [rememberFilters, setRememberFilters] = useState(() => {
         if (typeof window !== 'undefined') {
             const saved = localStorage.getItem('fondogeneral-rememberFilters');
+            return saved !== null ? JSON.parse(saved) : false;
+        }
+        return false;
+    });
+    const [keepFiltersAcrossCompanies, setKeepFiltersAcrossCompanies] = useState(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('fondogeneral-keepFiltersAcrossCompanies');
             return saved !== null ? JSON.parse(saved) : false;
         }
         return false;
@@ -1484,6 +1754,25 @@ export function FondoSection({
         resizingRef.current = { key, startX: event.clientX, startWidth };
     };
 
+    // Sincronizar filtro de proveedor con selección
+    useEffect(() => {
+        if (filterProviderCode === 'all') {
+            setProviderFilter('');
+        } else {
+            const option = providers.find(p => p.code === filterProviderCode);
+            setProviderFilter(option ? `${option.name} (${option.code})` : filterProviderCode);
+        }
+    }, [filterProviderCode, providers]);
+
+    // Sincronizar filtro de tipo con selección
+    useEffect(() => {
+        if (filterPaymentType === 'all') {
+            setTypeFilter('');
+        } else {
+            setTypeFilter(formatMovementType(filterPaymentType));
+        }
+    }, [filterPaymentType]);
+
     // Save rememberFilters. If disabled, clear saved filters from storage.
     useEffect(() => {
         localStorage.setItem('fondogeneral-rememberFilters', JSON.stringify(rememberFilters));
@@ -1504,6 +1793,11 @@ export function FondoSection({
             }
         }
     }, [rememberFilters]);
+
+    // Save keepFiltersAcrossCompanies preference
+    useEffect(() => {
+        localStorage.setItem('fondogeneral-keepFiltersAcrossCompanies', JSON.stringify(keepFiltersAcrossCompanies));
+    }, [keepFiltersAcrossCompanies]);
 
     // Save filters if rememberFilters is true
     useEffect(() => {
@@ -1795,7 +2089,6 @@ export function FondoSection({
                 if (isMounted) {
                     setFondoEntries(resolvedEntries ?? []);
                     if (resolvedState) {
-                        console.log('[LOCK-DEBUG] Loading state with lockedUntil:', resolvedState.lockedUntil);
                         applyLedgerStateFromStorage(resolvedState);
                     }
                 }
@@ -1819,6 +2112,32 @@ export function FondoSection({
             isMounted = false;
         };
     }, [namespace, resolvedOwnerId, company, applyLedgerStateFromStorage, accountKey]);
+
+    useEffect(() => {
+        if (!entriesHydrated || providers.length === 0 || fondoEntries.length === 0) {
+            return;
+        }
+
+        const sortedEntries = [...fondoEntries].sort((a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+
+        let hasPendingCierreDeCaja = false;
+        for (const entry of sortedEntries) {
+            // Si encontramos un CIERRE DE FONDO GENERAL, no hay pendiente
+            if (entry.providerCode === AUTO_ADJUSTMENT_PROVIDER_CODE) {
+                break;
+            }
+            // Buscar el nombre del proveedor por su código
+            const providerData = providers.find(p => p.code === entry.providerCode);
+            if (providerData?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME) {
+                hasPendingCierreDeCaja = true;
+                break;
+            }
+        }
+        setPendingCierreDeCaja(hasPendingCierreDeCaja);
+        console.log('[CIERRE-DEBUG] Estado pendingCierreDeCaja después de cargar:', hasPendingCierreDeCaja);
+    }, [entriesHydrated, providers, fondoEntries]);
 
     useEffect(() => {
         if (!selectedProvider) return;
@@ -2058,8 +2377,218 @@ export function FondoSection({
 
     const normalizeMoneyInput = (value: string) => value.replace(/[^0-9]/g, '');
 
-    const handleSubmitFondo = () => {
+    /**
+     * Envía un correo de notificación cuando se crea o edita un movimiento,
+     * solo si el proveedor tiene configurado un correo de notificación.
+     */
+    const sendMovementNotification = async (
+        entry: FondoEntry,
+        operationType: 'create' | 'edit',
+    ): Promise<void> => {
+        try {
+            // Buscar el proveedor para obtener su correonotifi
+            const provider = providers.find(p => p.code === entry.providerCode);
+
+            // Si el proveedor no tiene correonotifi, no enviar correo
+            if (!provider?.correonotifi || provider.correonotifi.trim().length === 0) {
+                return;
+            }
+
+            // Obtener el nombre del proveedor
+            const providerName = provider.name || entry.providerCode;
+
+            // Calcular el monto y tipo
+            const amount = entry.amountEgreso > 0 ? entry.amountEgreso : entry.amountIngreso;
+            const amountType: 'Egreso' | 'Ingreso' = entry.amountEgreso > 0 ? 'Egreso' : 'Ingreso';
+            const currency = (entry.currency as 'CRC' | 'USD') || 'CRC';
+
+            // Generar el contenido del correo usando la plantilla
+            const emailContent = generateMovementNotificationEmail({
+                company: company || '',
+                providerName,
+                providerCode: entry.providerCode,
+                paymentType: entry.paymentType,
+                invoiceNumber: entry.invoiceNumber,
+                amount,
+                amountType,
+                currency,
+                manager: entry.manager,
+                notes: entry.notes,
+                createdAt: entry.createdAt,
+                operationType,
+            });
+
+            // Enviar el correo de forma asíncrona sin bloquear
+            sendEmail({
+                to: provider.correonotifi,
+                subject: emailContent.subject,
+                text: emailContent.text,
+                html: emailContent.html,
+            }).catch(err => {
+                console.error('[EMAIL-NOTIFICATION] Error sending email:', err);
+                // No mostrar error al usuario, es solo una notificación
+            });
+
+        } catch (err) {
+            console.error('[EMAIL-NOTIFICATION] Error preparing notification:', err);
+            // No lanzar error, la notificación es secundaria
+        }
+    };
+
+    /**
+     * Función auxiliar para persistir movimientos a Firestore de forma inmediata.
+     * Retorna true si se guardó correctamente, false si hubo error.
+     */
+    const persistMovementToFirestore = async (
+        updatedEntries: FondoEntry[],
+        operationType: 'create' | 'edit' | 'delete',
+    ): Promise<boolean> => {
+        const normalizedCompany = (company || '').trim();
+        if (normalizedCompany.length === 0) {
+            console.error('[PERSIST-IMMEDIATE] No company specified');
+            return false;
+        }
+
+        const companyKey = MovimientosFondosService.buildCompanyMovementsKey(normalizedCompany);
+
+        try {
+            const baseStorage = storageSnapshotRef.current
+                ? MovimientosFondosService.ensureMovementStorageShape<FondoEntry>(
+                    storageSnapshotRef.current,
+                    normalizedCompany,
+                )
+                : MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(normalizedCompany);
+
+            baseStorage.company = normalizedCompany;
+
+            const normalizedEntries: FondoEntry[] = updatedEntries.map(entry => {
+                const normalizedCurrency: MovementCurrencyKey = entry.currency === 'USD' ? 'USD' : 'CRC';
+                return {
+                    ...entry,
+                    accountId: accountKey,
+                    currency: normalizedCurrency,
+                };
+            });
+
+            const existingMovements = baseStorage.operations?.movements ?? [];
+            const preservedMovements = existingMovements.filter(storedEntry => {
+                const candidate = storedEntry as Partial<FondoEntry>;
+                const storedAccount = isMovementAccountKey(candidate.accountId)
+                    ? candidate.accountId
+                    : 'FondoGeneral';
+                return storedAccount !== accountKey;
+            });
+
+            // Limitar movimientos en localStorage
+            const sortedRecentMovements = [...normalizedEntries]
+                .sort((a, b) => {
+                    const timeA = Date.parse(a.createdAt);
+                    const timeB = Date.parse(b.createdAt);
+                    if (Number.isNaN(timeA) || Number.isNaN(timeB)) return 0;
+                    return timeB - timeA;
+                })
+                .slice(0, MAX_LOCAL_MOVEMENTS);
+
+            baseStorage.operations = {
+                movements: [...preservedMovements, ...sortedRecentMovements],
+            };
+
+            // Recalcular balances
+            let ingresosCRC = 0, egresosCRC = 0, ingresosUSD = 0, egresosUSD = 0;
+            updatedEntries.forEach(entry => {
+                const cur = (entry.currency as 'CRC' | 'USD') || 'CRC';
+                if (cur === 'USD') {
+                    ingresosUSD += entry.amountIngreso;
+                    egresosUSD += entry.amountEgreso;
+                } else {
+                    ingresosCRC += entry.amountIngreso;
+                    egresosCRC += entry.amountEgreso;
+                }
+            });
+
+            const normalizedInitialCRC = initialAmount.trim().length > 0 ? initialAmount.trim() : '0';
+            const normalizedInitialUSD = initialAmountUSD.trim().length > 0 ? initialAmountUSD.trim() : '0';
+            const parsedInitialCRC = Number(normalizedInitialCRC) || 0;
+            const parsedInitialUSD = Number(normalizedInitialUSD) || 0;
+            const newBalanceCRC = parsedInitialCRC + ingresosCRC - egresosCRC;
+            const newBalanceUSD = parsedInitialUSD + ingresosUSD - egresosUSD;
+
+            const stateSnapshot =
+                baseStorage.state ?? MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(normalizedCompany).state;
+            const nextAccountBalances = stateSnapshot.balancesByAccount.filter(balance => balance.accountId !== accountKey);
+            nextAccountBalances.push(
+                {
+                    accountId: accountKey,
+                    currency: 'CRC',
+                    enabled: currencyEnabled.CRC,
+                    initialBalance: parsedInitialCRC,
+                    currentBalance: newBalanceCRC,
+                },
+                {
+                    accountId: accountKey,
+                    currency: 'USD',
+                    enabled: currencyEnabled.USD,
+                    initialBalance: parsedInitialUSD,
+                    currentBalance: newBalanceUSD,
+                },
+            );
+            stateSnapshot.balancesByAccount = nextAccountBalances;
+            stateSnapshot.updatedAt = new Date().toISOString();
+
+            // Preservar lockedUntil del snapshot actual si existe
+            if (storageSnapshotRef.current?.state?.lockedUntil) {
+                stateSnapshot.lockedUntil = storageSnapshotRef.current.state.lockedUntil;
+            }
+            baseStorage.state = stateSnapshot;
+
+            // Guardar en localStorage primero
+            try {
+                localStorage.setItem(companyKey, JSON.stringify(baseStorage));
+            } catch (storageError) {
+                if (storageError instanceof Error && storageError.name === 'QuotaExceededError') {
+                    console.error('QuotaExceededError: Reduciendo límite de movimientos');
+                    const emergencyLimit = Math.floor(MAX_LOCAL_MOVEMENTS * 0.6);
+                    const reducedMovements = [...normalizedEntries]
+                        .sort((a, b) => {
+                            const timeA = Date.parse(a.createdAt);
+                            const timeB = Date.parse(b.createdAt);
+                            if (Number.isNaN(timeA) || Number.isNaN(timeB)) return 0;
+                            return timeB - timeA;
+                        })
+                        .slice(0, emergencyLimit);
+                    baseStorage.operations = {
+                        movements: [...preservedMovements, ...reducedMovements],
+                    };
+                    localStorage.setItem(companyKey, JSON.stringify(baseStorage));
+                } else {
+                    throw storageError;
+                }
+            }
+
+            // Guardar en Firestore - ESTA ES LA PARTE CRÍTICA
+            console.log(`[PERSIST-IMMEDIATE] Guardando ${operationType} a Firestore...`, {
+                company: normalizedCompany,
+                accountKey,
+                entriesCount: updatedEntries.length,
+            });
+
+            await MovimientosFondosService.saveDocument(companyKey, baseStorage);
+
+            console.log(`[PERSIST-IMMEDIATE] ✅ ${operationType} guardado exitosamente en Firestore`);
+
+            // Actualizar snapshot después de guardar exitosamente
+            storageSnapshotRef.current = baseStorage;
+
+            return true;
+        } catch (err) {
+            console.error(`[PERSIST-IMMEDIATE] ❌ Error guardando ${operationType} a Firestore:`, err);
+            return false;
+        }
+    };
+
+    const handleSubmitFondo = async () => {
         if (!company) return;
+        if (isSaving) return; // Prevenir múltiples envíos
 
         let hasErrors = false;
 
@@ -2111,23 +2640,30 @@ export function FondoSection({
 
         const paddedInvoice = invoiceNumber.padStart(4, '0');
 
-        if (editingEntryId) {
-            // Update the existing entry in-place so balances remain correct.
-            const original = fondoEntries.find(e => e.id === editingEntryId);
-            if (!original) return;
+        setIsSaving(true);
 
-            const changes: string[] = [];
-            if (selectedProvider !== original.providerCode) changes.push(`Proveedor: ${original.providerCode} → ${selectedProvider}`);
-            if (paddedInvoice !== original.invoiceNumber) changes.push(`N° factura: ${original.invoiceNumber} → ${paddedInvoice}`);
-            if (paymentType !== original.paymentType) changes.push(`Tipo: ${original.paymentType} → ${paymentType}`);
-            const originalAmount = isEgresoType(original.paymentType) ? original.amountEgreso : original.amountIngreso;
-            const newAmount = isEgreso ? egresoValue : ingresoValue;
-            if (Number.isFinite(originalAmount) && originalAmount !== newAmount) changes.push(`Monto: ${originalAmount} → ${newAmount}`);
-            if (manager !== original.manager) changes.push(`Encargado: ${original.manager} → ${manager}`);
-            if (trimmedNotes !== (original.notes ?? '')) changes.push(`Notas: "${original.notes}" → "${trimmedNotes}"`);
+        try {
+            if (editingEntryId) {
+                // Update the existing entry in-place so balances remain correct.
+                const original = fondoEntries.find(e => e.id === editingEntryId);
+                if (!original) {
+                    setIsSaving(false);
+                    return;
+                }
 
-            setFondoEntries(prev => {
-                const next = prev.map(e => {
+                const changes: string[] = [];
+                if (selectedProvider !== original.providerCode) changes.push(`Proveedor: ${original.providerCode} → ${selectedProvider}`);
+                if (paddedInvoice !== original.invoiceNumber) changes.push(`N° factura: ${original.invoiceNumber} → ${paddedInvoice}`);
+                if (paymentType !== original.paymentType) changes.push(`Tipo: ${original.paymentType} → ${paymentType}`);
+                const originalAmount = isEgresoType(original.paymentType) ? original.amountEgreso : original.amountIngreso;
+                const newAmount = isEgreso ? egresoValue : ingresoValue;
+                if (Number.isFinite(originalAmount) && originalAmount !== newAmount) changes.push(`Monto: ${originalAmount} → ${newAmount}`);
+                if (manager !== original.manager) changes.push(`Encargado: ${original.manager} → ${manager}`);
+                if (trimmedNotes !== (original.notes ?? '')) changes.push(`Notas: "${original.notes}" → "${trimmedNotes}"`);
+
+                // Preparar el movimiento editado ANTES de persistir
+                let updatedEntry: FondoEntry | null = null;
+                const updatedEntries = fondoEntries.map(e => {
                     if (e.id !== editingEntryId) return e;
                     // append to existing history if present
                     let history: any[] = [];
@@ -2155,7 +2691,7 @@ export function FondoSection({
                     // Comprimir historial para evitar QuotaExceededError
                     const compressedHistory = compressAuditHistory(history);
                     // keep original createdAt so chronological order and balances are preserved
-                    return {
+                    updatedEntry = {
                         ...e,
                         providerCode: selectedProvider,
                         invoiceNumber: paddedInvoice,
@@ -2170,7 +2706,29 @@ export function FondoSection({
                         auditDetails: JSON.stringify({ history: compressedHistory }),
                         currency: movementCurrency,
                     } as FondoEntry;
+                    return updatedEntry;
                 });
+
+                // PRIMERO persistir a Firestore, LUEGO actualizar UI
+                const saved = await persistMovementToFirestore(updatedEntries, 'edit');
+
+                if (!saved) {
+                    showToast('Error al guardar el movimiento. Por favor, intente de nuevo.', 'error', 5000);
+                    setIsSaving(false);
+                    return; // NO actualizar la UI si falló el guardado
+                }
+
+                // Solo actualizar la UI si el guardado fue exitoso
+                setFondoEntries(updatedEntries);
+                showToast('Movimiento editado correctamente', 'success', 3000);
+
+                // Enviar notificación por correo si el proveedor tiene correonotifi
+                const editedEntry = updatedEntries.find(e => e.id === editingEntryId);
+                if (editedEntry) {
+                    sendMovementNotification(editedEntry, 'edit').catch(err => {
+                        console.error('[NOTIFICATION] Error en notificación de movimiento editado:', err);
+                    });
+                }
 
                 try {
                     // compute simple before/after CRC balances to help debug balance update issues
@@ -2186,40 +2744,68 @@ export function FondoSection({
                         });
                         return (Number(initialAmount) || 0) + ingresosCRC - egresosCRC;
                     };
-                    const beforeBalance = sumBalance(prev);
-                    const afterBalance = sumBalance(next);
-                    console.info('[FG-DEBUG] Edited movement saved', editingEntryId, { prevCount: prev.length, nextCount: next.length, beforeBalanceCRC: beforeBalance, afterBalanceCRC: afterBalance });
+                    const beforeBalance = sumBalance(fondoEntries);
+                    const afterBalance = sumBalance(updatedEntries);
+                    console.info('[FG-DEBUG] Edited movement saved', editingEntryId, { prevCount: fondoEntries.length, nextCount: updatedEntries.length, beforeBalanceCRC: beforeBalance, afterBalanceCRC: afterBalance });
                 } catch {
                     console.info('[FG-DEBUG] Edited movement saved (error computing debug balances)', editingEntryId);
                 }
 
-                return next;
-            });
+                resetFondoForm();
+                if (!movementAutoCloseLocked) {
+                    setMovementModalOpen(false);
+                }
+                setIsSaving(false);
+                return;
+            }
 
+            // CREAR nuevo movimiento
+            const entry: FondoEntry = {
+                id: String(Date.now()),
+                providerCode: selectedProvider,
+                invoiceNumber: paddedInvoice,
+                paymentType,
+                amountEgreso: isEgreso ? egresoValue : 0,
+                amountIngreso: isIngreso ? ingresoValue : 0,
+                manager,
+                notes: trimmedNotes,
+                createdAt: new Date().toISOString(),
+                currency: movementCurrency,
+            };
+
+            // Preparar la lista actualizada ANTES de persistir
+            const updatedEntries = [entry, ...fondoEntries];
+
+            // PRIMERO persistir a Firestore, LUEGO actualizar UI
+            const saved = await persistMovementToFirestore(updatedEntries, 'create');
+
+            if (!saved) {
+                showToast('Error al guardar el movimiento. Por favor, intente de nuevo.', 'error', 5000);
+                setIsSaving(false);
+                return; // NO mostrar el movimiento si falló el guardado
+            }
+
+            // Solo actualizar la UI si el guardado fue exitoso
+            setFondoEntries(updatedEntries);
+            showToast('Movimiento guardado correctamente', 'success', 3000);
+
+            // Enviar notificación por correo si el proveedor tiene correonotifi
+            if (entry) {
+                sendMovementNotification(entry, 'create').catch(err => {
+                    console.error('[NOTIFICATION] Error en notificación de movimiento:', err);
+                });
+            }
+
+            const selectedProviderData = providers.find(p => p.code === selectedProvider);
+            if (selectedProviderData?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME) {
+                setPendingCierreDeCaja(true);
+            }
             resetFondoForm();
             if (!movementAutoCloseLocked) {
                 setMovementModalOpen(false);
             }
-            return;
-        }
-
-        const entry: FondoEntry = {
-            id: String(Date.now()),
-            providerCode: selectedProvider,
-            invoiceNumber: paddedInvoice,
-            paymentType,
-            amountEgreso: isEgreso ? egresoValue : 0,
-            amountIngreso: isIngreso ? ingresoValue : 0,
-            manager,
-            notes: trimmedNotes,
-            createdAt: new Date().toISOString(),
-            currency: movementCurrency,
-        };
-
-        setFondoEntries(prev => [entry, ...prev]);
-        resetFondoForm();
-        if (!movementAutoCloseLocked) {
-            setMovementModalOpen(false);
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -2249,7 +2835,7 @@ export function FondoSection({
 
     const isMovementLocked = useCallback((entry: FondoEntry): boolean => {
         // Los ajustes automáticos siempre están bloqueados
-        if (entry.providerCode === AUTO_ADJUSTMENT_PROVIDER_CODE) {
+        if (isAutoAdjustmentProvider(entry.providerCode)) {
             return true;
         }
 
@@ -2260,7 +2846,7 @@ export function FondoSection({
 
         // Si no hay snapshot o no hay lockedUntil, no hay bloqueo
         const lockedUntil = storageSnapshotRef.current?.state?.lockedUntil;
-        console.log('[LOCK-DEBUG] Checking movement', entry.id, 'createdAt:', entry.createdAt, 'lockedUntil:', lockedUntil);
+
         if (!lockedUntil) {
             return false;
         }
@@ -2271,7 +2857,7 @@ export function FondoSection({
 
             // Bloqueado si el movimiento es anterior o igual al último cierre
             const isLocked = movementTime <= lockTime;
-            console.log('[LOCK-DEBUG] Movement', entry.id, 'is', isLocked ? 'LOCKED' : 'EDITABLE');
+
             return isLocked;
         } catch {
             // Si hay error parseando fechas, no bloquear
@@ -2349,24 +2935,54 @@ export function FondoSection({
         setConfirmDeleteEntry({ open: true, entry });
     }, [isPrincipalAdmin, isMovementLocked, showToast]);
 
-    const confirmDeleteMovement = useCallback(() => {
+    const confirmDeleteMovement = useCallback(async () => {
         const entry = confirmDeleteEntry.entry;
         if (!entry) return;
 
-        // Remove from fondoEntries
-        setFondoEntries(prev => prev.filter(e => e.id !== entry.id));
+        if (isSaving) return; // Prevenir múltiples envíos
+        setIsSaving(true);
 
-        // Close modal
-        setConfirmDeleteEntry({ open: false, entry: null });
+        try {
+            // Preparar la lista actualizada SIN el movimiento a eliminar
+            const updatedEntries = fondoEntries.filter(e => e.id !== entry.id);
 
-        showToast('Movimiento eliminado exitosamente', 'success');
-    }, [confirmDeleteEntry, showToast]);
+            // PRIMERO persistir a Firestore, LUEGO actualizar UI
+            const saved = await persistMovementToFirestore(updatedEntries, 'delete');
+
+            if (!saved) {
+                showToast('Error al eliminar el movimiento. Por favor, intente de nuevo.', 'error', 5000);
+                return; // NO actualizar la UI si falló el guardado
+            }
+
+            // Solo actualizar la UI si el guardado fue exitoso
+            setFondoEntries(updatedEntries);
+
+            // Close modal
+            setConfirmDeleteEntry({ open: false, entry: null });
+
+            showToast('Movimiento eliminado exitosamente', 'success');
+        } finally {
+            setIsSaving(false);
+        }
+    }, [confirmDeleteEntry, showToast, fondoEntries, isSaving, persistMovementToFirestore]);
 
     const cancelDeleteMovement = useCallback(() => {
         setConfirmDeleteEntry({ open: false, entry: null });
     }, []);
 
     const isProviderSelectDisabled = !company || providersLoading || providers.length === 0;
+    // Detectar si estamos editando un movimiento EXISTENTE de CIERRE FONDO VENTAS (bloquear cambio de proveedor)
+    // Solo aplica cuando editamos, no cuando creamos un nuevo movimiento
+    const isEditingCierreFondoVentas = useMemo(() => {
+        if (!editingEntryId) return false;
+        // Buscar el movimiento original que se está editando
+        const originalEntry = fondoEntries.find(e => e.id === editingEntryId);
+        if (!originalEntry) return false;
+        // Verificar si el proveedor ORIGINAL del movimiento es CIERRE FONDO VENTAS
+        const originalProvider = providers.find(p => p.code === originalEntry.providerCode);
+        return originalProvider?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME;
+    }, [editingEntryId, fondoEntries, providers]);
+
     const providersMap = useMemo(() => {
         const map = new Map<string, string>();
         providers.forEach(p => map.set(p.code, p.name));
@@ -2528,10 +3144,10 @@ export function FondoSection({
                 // Preservar lockedUntil del snapshot actual si existe
                 if (storageSnapshotRef.current?.state?.lockedUntil) {
                     stateSnapshot.lockedUntil = storageSnapshotRef.current.state.lockedUntil;
-                    console.log('[LOCK-DEBUG] Preserving lockedUntil in persistEntries:', stateSnapshot.lockedUntil);
+
                 }
                 baseStorage.state = stateSnapshot;
-                console.log('[LOCK-DEBUG] baseStorage.state.lockedUntil before save:', baseStorage.state.lockedUntil);
+
 
                 // Intentar guardar en localStorage con manejo de error
                 try {
@@ -2580,7 +3196,7 @@ export function FondoSection({
             if (!storageToPersist) return;
 
             try {
-                console.log('[LOCK-DEBUG] Saving to Firestore with lockedUntil:', storageToPersist.state?.lockedUntil);
+
                 await MovimientosFondosService.saveDocument(companyKey, storageToPersist);
             } catch (err) {
                 console.error('Error storing fondo entries to Firestore:', err);
@@ -2612,7 +3228,8 @@ export function FondoSection({
         !egresoValid ||
         !ingresoValid ||
         !manager ||
-        employeesLoading;
+        employeesLoading ||
+        isSaving;
 
     const amountFormatter = useMemo(
         () => new Intl.NumberFormat('es-CR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }),
@@ -2746,7 +3363,26 @@ export function FondoSection({
     const handleOpenDailyClosing = () => {
         if (accountKey !== 'FondoGeneral') return;
         setEditingDailyClosingId(null);
-        setDailyClosingInitialValues(null);
+
+        // Find the last "CIERRE FONDO VENTAS" movement to get the default manager
+        const lastCierreVentas = [...fondoEntries]
+            .filter(entry => {
+                const provider = providers.find(p => p.code === entry.providerCode);
+                return provider?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME;
+            })
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
+        const initialValues: DailyClosingFormValues = {
+            closingDate: new Date().toISOString(),
+            manager: lastCierreVentas?.manager || '',
+            notes: '',
+            totalCRC: currentBalanceCRC,
+            totalUSD: currentBalanceUSD,
+            breakdownCRC: {},
+            breakdownUSD: {},
+        };
+
+        setDailyClosingInitialValues(initialValues);
         setDailyClosingModalOpen(true);
     };
 
@@ -2802,6 +3438,7 @@ export function FondoSection({
         loadingDailyClosingKeysRef.current.delete(closingDateKey);
         setDailyClosingsHydrated(true);
 
+        setPendingCierreDeCaja(false);
         setDailyClosingModalOpen(false);
 
         const normalizedCompany = (company || '').trim();
@@ -2878,7 +3515,7 @@ export function FondoSection({
                 let prevCRCContribution = 0;
                 let prevUSDContribution = 0;
                 fondoEntries.forEach(e => {
-                    if (e.originalEntryId === record.id && e.providerCode === 'AJUSTE FONDO GENERAL') {
+                    if (e.originalEntryId === record.id && isAutoAdjustmentProvider(e.providerCode)) {
                         const contrib = (e.amountIngreso || 0) - (e.amountEgreso || 0);
                         if (e.currency === 'USD') prevUSDContribution += contrib;
                         else prevCRCContribution += contrib;
@@ -2916,7 +3553,7 @@ export function FondoSection({
                     amountEgreso: isPositive ? 0 : Math.abs(diff),
                     amountIngreso: isPositive ? diff : 0,
                     manager: AUTO_ADJUSTMENT_MANAGER,
-                    notes: `AJUSTE FONDO GENERAL ${closingDateKey} — Diferencia CRC: ${diff}. ${userNotes ? `Notas: ${userNotes}` : ''}`,
+                    notes: `AJUSTE APLICADO AL SALDO ACTUAL\n[ALERT_ICON]Diferencia CRC: ${diff >= 0 ? '+ ' : '- '}${formatByCurrency('CRC', Math.abs(diff))}.${userNotes ? ` Notas: ${userNotes}` : ''}`,
                     createdAt,
                     currency: 'CRC',
                     breakdown: closing.breakdownCRC ?? {},
@@ -2936,7 +3573,7 @@ export function FondoSection({
                     amountEgreso: isPositive ? 0 : Math.abs(diff),
                     amountIngreso: isPositive ? diff : 0,
                     manager: AUTO_ADJUSTMENT_MANAGER,
-                    notes: `AJUSTE FONDO GENERAL ${closingDateKey} — Diferencia USD: ${diff}. ${userNotes ? `Notas: ${userNotes}` : ''}`,
+                    notes: `AJUSTE APLICADO AL SALDO ACTUAL\n[ALERT_ICON]Diferencia USD: ${diff >= 0 ? '+ ' : '- '}${formatByCurrency('USD', Math.abs(diff))}.${userNotes ? ` Notas: ${userNotes}` : ''}`,
                     createdAt,
                     currency: 'USD',
                 } as FondoEntry;
@@ -2944,12 +3581,28 @@ export function FondoSection({
                 newMovements.push(entry);
             }
 
+            if (adjustedDiffCRC === 0 && adjustedDiffUSD === 0) {
+                const entry: FondoEntry = {
+                    id: makeId(),
+                    providerCode: AUTO_ADJUSTMENT_PROVIDER_CODE,
+                    invoiceNumber: '0000',
+                    paymentType: 'INFORMATIVO' as any, // Tipo especial para cierres sin diferencias
+                    amountEgreso: 0,
+                    amountIngreso: 0,
+                    manager: AUTO_ADJUSTMENT_MANAGER,
+                    notes: `[CHECK_ICON]Sin diferencias.${userNotes ? ` Notas: ${userNotes}` : ''}`,
+                    createdAt,
+                    currency: 'CRC',
+                    breakdown: closing.breakdownCRC ?? {},
+                } as FondoEntry;
+                newMovements.push(entry);
+            }
             if (editingDailyClosingId && newMovements.length === 0) {
                 // No diff now: remove previous adjustment movements linked to this closing
                 console.info('[FG-DEBUG] Removing previous adjustment movements for closing', record.id, { beforeCount: fondoEntries.length });
                 setFondoEntries(prev => {
-                    const toRemove = prev.filter(e => e.originalEntryId === record.id && e.providerCode === 'AJUSTE FONDO GENERAL');
-                    const filtered = prev.filter(e => !(e.originalEntryId === record.id && e.providerCode === 'AJUSTE FONDO GENERAL'));
+                    const toRemove = prev.filter(e => e.originalEntryId === record.id && isAutoAdjustmentProvider(e.providerCode));
+                    const filtered = prev.filter(e => !(e.originalEntryId === record.id && isAutoAdjustmentProvider(e.providerCode)));
                     console.info('[FG-DEBUG] After remove, count:', filtered.length);
                     if (toRemove.length > 0) {
                         try {
@@ -3000,7 +3653,7 @@ export function FondoSection({
                     setFondoEntries(prev => {
                         console.info('[FG-DEBUG] Updating existing related adjustment movements for closing', record.id, { prevCount: prev.length, newMovements });
                         const updated = prev.map(e => {
-                            if (e.originalEntryId === record.id && e.providerCode === 'AJUSTE FONDO GENERAL') {
+                            if (e.originalEntryId === record.id && isAutoAdjustmentProvider(e.providerCode)) {
                                 const match = newMovements.find(nm => nm.currency === e.currency);
                                 if (!match) return e;
                                 // build audit history
@@ -3039,7 +3692,7 @@ export function FondoSection({
                         });
                         // If some newMovements have no existing entry, prepend them
                         newMovements.forEach(nm => {
-                            const exists = updated.some(u => u.originalEntryId === record.id && u.currency === nm.currency && u.providerCode === 'AJUSTE FONDO GENERAL');
+                            const exists = updated.some(u => u.originalEntryId === record.id && u.currency === nm.currency && isAutoAdjustmentProvider(u.providerCode));
                             if (!exists) {
                                 updated.unshift(nm);
                             }
@@ -3071,8 +3724,8 @@ export function FondoSection({
                     const totalNewUSD = newMovements.reduce((s, m) => s + ((m.currency === 'USD') ? ((m.amountIngreso || 0) - (m.amountEgreso || 0)) : 0), 0);
 
                     // compute existing previous contribution linked to this closing (before we mutate fondoEntries)
-                    const prevCRCContributionExisting = fondoEntries.reduce((s, e) => s + ((e.originalEntryId === record.id && e.providerCode === 'AJUSTE FONDO GENERAL' && (e.currency === 'CRC')) ? ((e.amountIngreso || 0) - (e.amountEgreso || 0)) : 0), 0);
-                    const prevUSDContributionExisting = fondoEntries.reduce((s, e) => s + ((e.originalEntryId === record.id && e.providerCode === 'AJUSTE FONDO GENERAL' && (e.currency === 'USD')) ? ((e.amountIngreso || 0) - (e.amountEgreso || 0)) : 0), 0);
+                    const prevCRCContributionExisting = fondoEntries.reduce((s, e) => s + ((e.originalEntryId === record.id && isAutoAdjustmentProvider(e.providerCode) && (e.currency === 'CRC')) ? ((e.amountIngreso || 0) - (e.amountEgreso || 0)) : 0), 0);
+                    const prevUSDContributionExisting = fondoEntries.reduce((s, e) => s + ((e.originalEntryId === record.id && isAutoAdjustmentProvider(e.providerCode) && (e.currency === 'USD')) ? ((e.amountIngreso || 0) - (e.amountEgreso || 0)) : 0), 0);
 
                     // New recorded balance = currentBalance (which includes existing adjustments) - prevExisting + newAdded
                     const postAdjustmentBalanceCRC = Math.trunc(currentBalanceCRC - prevCRCContributionExisting + totalNewCRC);
@@ -3153,7 +3806,6 @@ export function FondoSection({
             }
             // Bloquear hasta la fecha de creación del cierre
             storageSnapshotRef.current.state.lockedUntil = createdAt;
-            console.log('[LOCK-DEBUG] Setting lockedUntil at end:', createdAt, 'for new closing');
 
             // Persistir inmediatamente para asegurar que se guarde incluso sin movimientos
             const normalizedCompany = (company || '').trim();
@@ -3162,7 +3814,7 @@ export function FondoSection({
                 try {
                     // Actualizar localStorage
                     localStorage.setItem(companyKey, JSON.stringify(storageSnapshotRef.current));
-                    console.log('[LOCK-DEBUG] Force saved to localStorage after closing');
+
                     // Actualizar Firestore
                     void MovimientosFondosService.saveDocument(companyKey, storageSnapshotRef.current)
                         .then(() => console.log('[LOCK-DEBUG] Force saved to Firestore after closing'))
@@ -3182,9 +3834,17 @@ export function FondoSection({
 
     const handleAdminCompanyChange = useCallback((value: string) => {
         if (!isAdminUser) return;
+        const previousValue = adminCompany;
         setAdminCompany(value);
         try {
-            localStorage.setItem(storageKey, value);
+            localStorage.setItem(SHARED_COMPANY_STORAGE_KEY, value);
+            // Disparar evento de storage manualmente para sincronizar dentro de la misma ventana
+            window.dispatchEvent(new StorageEvent('storage', {
+                key: SHARED_COMPANY_STORAGE_KEY,
+                newValue: value,
+                oldValue: previousValue,
+                storageArea: localStorage
+            }));
         } catch (error) {
             console.error('Error saving selected company to localStorage:', error);
         }
@@ -3205,14 +3865,59 @@ export function FondoSection({
         resetFondoForm();
         setMovementAutoCloseLocked(false);
         setSelectedProvider('');
-        setFilterProviderCode('all');
-        setFilterPaymentType(mode === 'all' ? 'all' : (mode === 'ingreso' ? FONDO_INGRESO_TYPES[0] : FONDO_EGRESO_TYPES[0]));
-        setFilterEditedOnly(false);
-        setSearchQuery('');
-        setFromFilter(null);
-        setToFilter(null);
+        // Solo resetear filtros si no está activo keepFiltersAcrossCompanies
+        if (!keepFiltersAcrossCompanies) {
+            setFilterProviderCode('all');
+            setFilterPaymentType(mode === 'all' ? 'all' : (mode === 'ingreso' ? FONDO_INGRESO_TYPES[0] : FONDO_EGRESO_TYPES[0]));
+            setFilterEditedOnly(false);
+            setSearchQuery('');
+            setFromFilter(null);
+            setToFilter(null);
+        }
         setPageIndex(0);
-    }, [isAdminUser, mode, resetFondoForm, storageKey]);
+    }, [isAdminUser, mode, resetFondoForm, adminCompany, keepFiltersAcrossCompanies]);
+
+    // Escuchar cambios de empresa desde ProviderSection (sincronización bidireccional)
+    useEffect(() => {
+        if (!isAdminUser) return;
+
+        const handleStorageChange = (event: StorageEvent) => {
+            if (event.key === SHARED_COMPANY_STORAGE_KEY && event.newValue && event.newValue !== adminCompany) {
+                setAdminCompany(event.newValue);
+                // Reset state when company changes from external source
+                setEntriesHydrated(false);
+                setHydratedCompany('');
+                setFondoEntries([]);
+                storageSnapshotRef.current = null;
+                setInitialAmount('0');
+                setInitialAmountUSD('0');
+                setDailyClosingsHydrated(false);
+                setDailyClosings([]);
+                setDailyClosingsRefreshing(false);
+                dailyClosingsRequestCountRef.current = 0;
+                loadedDailyClosingKeysRef.current = new Set();
+                loadingDailyClosingKeysRef.current = new Set();
+                setCurrencyEnabled({ CRC: true, USD: true });
+                setMovementModalOpen(false);
+                resetFondoForm();
+                setMovementAutoCloseLocked(false);
+                setSelectedProvider('');
+                // Solo resetear filtros si no está activo keepFiltersAcrossCompanies
+                if (!keepFiltersAcrossCompanies) {
+                    setFilterProviderCode('all');
+                    setFilterPaymentType(mode === 'all' ? 'all' : (mode === 'ingreso' ? FONDO_INGRESO_TYPES[0] : FONDO_EGRESO_TYPES[0]));
+                    setFilterEditedOnly(false);
+                    setSearchQuery('');
+                    setFromFilter(null);
+                    setToFilter(null);
+                }
+                setPageIndex(0);
+            }
+        };
+
+        window.addEventListener('storage', handleStorageChange);
+        return () => window.removeEventListener('storage', handleStorageChange);
+    }, [isAdminUser, adminCompany, mode, resetFondoForm, keepFiltersAcrossCompanies]);
 
     const handleFondoKeyDown = (event: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>) => {
         if (event.key === 'Enter') {
@@ -3530,43 +4235,128 @@ export function FondoSection({
 
             <section className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/70 p-4 space-y-4">
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                    <select
-                        value={filterProviderCode}
-                        onChange={e => setFilterProviderCode(e.target.value || 'all')}
-                        className="w-full px-3 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--muted-foreground)]"
-                        title="Filtrar por proveedor"
-                        aria-label="Filtrar por proveedor"
-                    >
-                        <option value="all">Todos los proveedores</option>
-                        {providers.map(p => (
-                            <option key={p.code} value={p.code}>{p.name}</option>
-                        ))}
-                    </select>
+                    <div className="relative">
+                        <input
+                            value={providerFilter}
+                            onChange={(e) => { 
+                                setProviderFilter(e.target.value); 
+                                setIsProviderDropdownOpen(true); 
+                            }}
+                            onFocus={() => setIsProviderDropdownOpen(true)}
+                            onBlur={() => { setTimeout(() => setIsProviderDropdownOpen(false), 200); }}
+                            className="w-full px-3 py-2 pr-10 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--muted-foreground)]"
+                            placeholder={providersLoading ? 'Cargando proveedores...' : 'Buscar proveedor'}
+                            title="Filtrar por proveedor"
+                            aria-label="Filtrar por proveedor"
+                        />
+                        <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
+                        {isProviderDropdownOpen && (() => {
+                            const filteredProviders = providerFilter.length === 0 
+                                ? [{ code: 'all', name: 'Todos los proveedores' }, ...providers]
+                                : [
+                                    { code: 'all', name: 'Todos los proveedores' },
+                                    ...providers.filter(p =>
+                                        p.name.toLowerCase().includes(providerFilter.toLowerCase()) ||
+                                        p.code.toLowerCase().includes(providerFilter.toLowerCase())
+                                    )
+                                ];
+                            return filteredProviders.length > 0 ? (
+                                <div className="absolute z-10 w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded mt-1 max-h-60 overflow-y-auto shadow-lg">
+                                    {filteredProviders.map(p => (
+                                        <div
+                                            key={p.code}
+                                            className="p-2 hover:bg-blue-400 cursor-pointer transition-all duration-200"
+                                            onMouseDown={() => {
+                                                setFilterProviderCode(p.code);
+                                                setProviderFilter(p.code === 'all' ? '' : `${p.name} (${p.code})`);
+                                                setIsProviderDropdownOpen(false);
+                                            }}
+                                            onTouchEnd={(e) => {
+                                                e.preventDefault();
+                                                setFilterProviderCode(p.code);
+                                                setProviderFilter(p.code === 'all' ? '' : `${p.name} (${p.code})`);
+                                                setIsProviderDropdownOpen(false);
+                                            }}
+                                        >
+                                            {p.code === 'all' ? p.name : `${p.name} (${p.code})`}
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : null;
+                        })()}
+                    </div>
 
-                    <select
-                        value={filterPaymentType}
-                        onChange={e => setFilterPaymentType((e.target.value as any) || 'all')}
-                        className="w-full px-3 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--muted-foreground)]"
-                        title="Filtrar por tipo"
-                        aria-label="Filtrar por tipo"
-                    >
-                        <option value="all">Todos los tipos</option>
-                        <optgroup label="Ingresos">
-                            {FONDO_INGRESO_TYPES.map(opt => (
-                                <option key={opt} value={opt}>{formatMovementType(opt)}</option>
-                            ))}
-                        </optgroup>
-                        <optgroup label="Gastos">
-                            {FONDO_GASTO_TYPES.map(opt => (
-                                <option key={opt} value={opt}>{formatMovementType(opt)}</option>
-                            ))}
-                        </optgroup>
-                        <optgroup label="Egresos">
-                            {FONDO_EGRESO_TYPES.map(opt => (
-                                <option key={opt} value={opt}>{formatMovementType(opt)}</option>
-                            ))}
-                        </optgroup>
-                    </select>
+                    <div className="relative">
+                        <input
+                            value={typeFilter}
+                            onChange={(e) => { 
+                                setTypeFilter(e.target.value); 
+                                setIsTypeDropdownOpen(true); 
+                            }}
+                            onFocus={() => setIsTypeDropdownOpen(true)}
+                            onBlur={() => { setTimeout(() => setIsTypeDropdownOpen(false), 200); }}
+                            className="w-full px-3 py-2 pr-10 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--muted-foreground)]"
+                            placeholder="Buscar tipo de movimiento"
+                            title="Filtrar por tipo"
+                            aria-label="Filtrar por tipo"
+                        />
+                        <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
+                        {isTypeDropdownOpen && (() => {
+                            const allTypes: Array<{ value: string; label: string; group: string }> = [
+                                { value: 'all', label: 'Todos los tipos', group: '' },
+                                ...FONDO_INGRESO_TYPES.map(t => ({ value: t, label: formatMovementType(t), group: 'Ingresos' })),
+                                ...FONDO_GASTO_TYPES.map(t => ({ value: t, label: formatMovementType(t), group: 'Gastos' })),
+                                ...FONDO_EGRESO_TYPES.map(t => ({ value: t, label: formatMovementType(t), group: 'Egresos' }))
+                            ];
+                            const filteredTypes = typeFilter.length === 0
+                                ? allTypes
+                                : allTypes.filter(t =>
+                                    t.label.toLowerCase().includes(typeFilter.toLowerCase()) ||
+                                    t.value.toLowerCase().includes(typeFilter.toLowerCase())
+                                );
+                            if (filteredTypes.length === 0) return null;
+                            
+                            const groupedTypes = filteredTypes.reduce((acc, type) => {
+                                const group = type.group || 'general';
+                                if (!acc[group]) acc[group] = [];
+                                acc[group].push(type);
+                                return acc;
+                            }, {} as Record<string, typeof filteredTypes>);
+
+                            return (
+                                <div className="absolute z-10 w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded mt-1 max-h-60 overflow-y-auto shadow-lg">
+                                    {Object.entries(groupedTypes).map(([group, types]) => (
+                                        <React.Fragment key={group}>
+                                            {group !== 'general' && (
+                                                <div className="px-3 py-1 text-xs font-semibold text-[var(--muted-foreground)] bg-[var(--muted)] uppercase">
+                                                    {group}
+                                                </div>
+                                            )}
+                                            {types.map(t => (
+                                                <div
+                                                    key={t.value}
+                                                    className="p-2 hover:bg-blue-400 cursor-pointer transition-all duration-200"
+                                                    onMouseDown={() => {
+                                                        setFilterPaymentType(t.value as any);
+                                                        setTypeFilter(t.value === 'all' ? '' : t.label);
+                                                        setIsTypeDropdownOpen(false);
+                                                    }}
+                                                    onTouchEnd={(e) => {
+                                                        e.preventDefault();
+                                                        setFilterPaymentType(t.value as any);
+                                                        setTypeFilter(t.value === 'all' ? '' : t.label);
+                                                        setIsTypeDropdownOpen(false);
+                                                    }}
+                                                >
+                                                    {t.label}
+                                                </div>
+                                            ))}
+                                        </React.Fragment>
+                                    ))}
+                                </div>
+                            );
+                        })()}
+                    </div>
 
                     <input
                         type="search"
@@ -3856,23 +4646,47 @@ export function FondoSection({
 
                     <div className="flex w-full items-center justify-center gap-2 sm:w-auto">
                         {accountKey === 'FondoGeneral' && (
+                            <div className="relative group">
+                                <button
+                                    type="button"
+                                    onClick={handleOpenDailyClosing}
+                                    disabled={!pendingCierreDeCaja}
+                                    className={`flex items-center justify-center gap-2 rounded px-4 py-2 text-white ${!pendingCierreDeCaja
+                                        ? 'bg-gray-400 cursor-not-allowed opacity-60'
+                                        : 'fg-add-mov-btn'
+                                        }`}
+                                >
+                                    <Banknote className="w-4 h-4" />
+                                    Registrar cierre
+                                </button>
+                                {!pendingCierreDeCaja && (
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-yellow-500 text-black text-sm rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
+                                        ⚠️ Debe agregar un movimiento de &quot;CIERRE FONDO VENTAS&quot; primero
+                                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-yellow-500"></div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        <div className="relative group">
                             <button
                                 type="button"
-                                onClick={handleOpenDailyClosing}
-                                className="flex items-center justify-center gap-2 rounded fg-add-mov-btn px-4 py-2 text-white"
+                                onClick={handleOpenCreateMovement}
+                                disabled={(accountKey === 'FondoGeneral' && pendingCierreDeCaja) || !entriesHydrated}
+                                className={`flex items-center justify-center gap-2 rounded px-4 py-2 text-white ${((accountKey === 'FondoGeneral' && pendingCierreDeCaja) || !entriesHydrated)
+                                    ? 'bg-gray-400 cursor-not-allowed opacity-60'
+                                    : 'fg-add-mov-btn'
+                                    }`}
                             >
-                                <Banknote className="w-4 h-4" />
-                                Registrar cierre
+                                <Plus className="w-4 h-4" />
+                                Agregar movimiento
                             </button>
-                        )}
-                        <button
-                            type="button"
-                            onClick={handleOpenCreateMovement}
-                            className="flex items-center justify-center gap-2 rounded fg-add-mov-btn px-4 py-2 text-white"
-                        >
-                            <Plus className="w-4 h-4" />
-                            Agregar movimiento
-                        </button>
+                            {accountKey === 'FondoGeneral' && pendingCierreDeCaja && entriesHydrated && (
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-yellow-500 text-black text-sm rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
+                                    ⚠️ Debe realizar el &quot;Registrar cierre&quot; para seguir agregando movimientos
+                                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-yellow-500"></div>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             </section>
@@ -3934,7 +4748,8 @@ export function FondoSection({
                             onProviderChange={handleProviderChange}
                             providers={providers}
                             providersLoading={providersLoading}
-                            isProviderSelectDisabled={isProviderSelectDisabled}
+                            isProviderSelectDisabled={isProviderSelectDisabled || isEditingCierreFondoVentas}
+                            providerDisabledTooltip={isEditingCierreFondoVentas ? 'No se puede cambiar el proveedor de un movimiento "CIERRE FONDO VENTAS"' : undefined}
                             selectedProviderExists={selectedProviderExists}
                             invoiceNumber={invoiceNumber}
                             onInvoiceNumberChange={handleInvoiceNumberChange}
@@ -3960,6 +4775,7 @@ export function FondoSection({
                             onCancelEditing={cancelEditing}
                             onSubmit={handleSubmitFondo}
                             isSubmitDisabled={isSubmitDisabled}
+                            isSaving={isSaving}
                             onFieldKeyDown={handleFondoKeyDown}
                             currency={movementCurrency}
                             onCurrencyChange={c => setMovementCurrency(c)}
@@ -4017,6 +4833,12 @@ export function FondoSection({
                                         <input aria-label="Recordar filtros" title="Recordar filtros" className="cursor-pointer" type="checkbox" checked={rememberFilters} onChange={e => setRememberFilters(e.target.checked)} />
                                         <span className="text-sm ml-1">Recordar ajustes</span>
                                     </label>
+                                    {isAdminUser && (
+                                        <label className="flex items-center gap-2 cursor-pointer">
+                                            <input aria-label="Mantener filtros entre empresas" title="Mantener filtros entre empresas" className="cursor-pointer" type="checkbox" checked={keepFiltersAcrossCompanies} onChange={e => setKeepFiltersAcrossCompanies(e.target.checked)} />
+                                            <span className="text-sm ml-1">Mantener filtros entre empresas</span>
+                                        </label>
+                                    )}
                                 </div>
                                 <button
                                     type="button"
@@ -4179,7 +5001,8 @@ export function FondoSection({
                                             const formattedDate = Number.isNaN(recordedAt.getTime())
                                                 ? 'Sin fecha'
                                                 : dateTimeFormatter.format(recordedAt);
-                                            const isAutoAdjustment = fe.providerCode === AUTO_ADJUSTMENT_PROVIDER_CODE;
+                                            const isAutoAdjustment = isAutoAdjustmentProvider(fe.providerCode);
+                                            const isSuccessfulClosing = isAutoAdjustment && movementAmount === 0;
                                             const amountPrefix = isEntryEgreso ? '-' : '+';
                                             // prepare tooltip text for edited entries
                                             let auditTooltip: string | undefined;
@@ -4284,7 +5107,34 @@ export function FondoSection({
                                                         </div>
                                                         {fe.notes && (
                                                             <div className="mt-1 text-xs text-[var(--muted-foreground)] break-words">
-                                                                {fe.notes}
+                                                                {(() => {
+                                                                    // Renderizar iconos para movimientos de cierre con ajustes
+                                                                    if (fe.notes.includes('[ALERT_ICON]')) {
+                                                                        const parts = fe.notes.split('\n');
+                                                                        const headerText = parts.find(p => !p.includes('[ALERT_ICON]')) || '';
+                                                                        const alertLine = parts.find(p => p.includes('[ALERT_ICON]')) || '';
+                                                                        const noteText = alertLine.replace('[ALERT_ICON]', '');
+                                                                        return (
+                                                                            <div className="flex flex-col gap-1">
+                                                                                {headerText && <div className="text-[10px] font-semibold text-[var(--foreground)] uppercase tracking-wide">{headerText}</div>}
+                                                                                <div className="flex items-center gap-1.5">
+                                                                                    <AlertTriangle className="w-3.5 h-3.5 text-yellow-500 flex-shrink-0" />
+                                                                                    <span>{noteText}</span>
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    }
+                                                                    if (fe.notes.startsWith('[CHECK_ICON]')) {
+                                                                        const noteText = fe.notes.replace('[CHECK_ICON]', '');
+                                                                        return (
+                                                                            <div className="flex items-center gap-1.5">
+                                                                                <CheckCircle className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+                                                                                <span>{noteText}</span>
+                                                                            </div>
+                                                                        );
+                                                                    }
+                                                                    return fe.notes;
+                                                                })()}
                                                             </div>
                                                         )}
                                                     </td>
@@ -4293,21 +5143,25 @@ export function FondoSection({
                                                     </td>
                                                     <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">#{fe.invoiceNumber}</td>
                                                     <td className="px-3 py-2 align-top">
-                                                        <div className="flex flex-col gap-1 text-right">
-                                                            <div className="flex items-center justify-end gap-2">
-                                                                {isEntryEgreso ? (
-                                                                    <ArrowUpRight className="w-4 h-4 text-red-500" />
-                                                                ) : (
-                                                                    <ArrowDownRight className="w-4 h-4 text-green-500" />
-                                                                )}
-                                                                <span className={`font-semibold ${isEntryEgreso ? 'text-red-500' : 'text-green-600'}`}>
-                                                                    {`${amountPrefix} ${formatByCurrency(entryCurrency, movementAmount)}`}
+                                                        {isSuccessfulClosing ? (
+                                                            <div className="text-center text-[var(--muted-foreground)]">—</div>
+                                                        ) : (
+                                                            <div className="flex flex-col gap-1 text-right">
+                                                                <div className="flex items-center justify-end gap-2">
+                                                                    {isEntryEgreso ? (
+                                                                        <ArrowUpRight className="w-4 h-4 text-red-500" />
+                                                                    ) : (
+                                                                        <ArrowDownRight className="w-4 h-4 text-green-500" />
+                                                                    )}
+                                                                    <span className={`font-semibold ${isEntryEgreso ? 'text-red-500' : 'text-green-600'}`}>
+                                                                        {`${amountPrefix} ${formatByCurrency(entryCurrency, movementAmount)}`}
+                                                                    </span>
+                                                                </div>
+                                                                <span className="text-xs text-[var(--muted-foreground)]">
+                                                                    Saldo anterior: {formatByCurrency(entryCurrency, previousBalance)}
                                                                 </span>
                                                             </div>
-                                                            <span className="text-xs text-[var(--muted-foreground)]">
-                                                                Saldo anterior: {formatByCurrency(entryCurrency, previousBalance)}
-                                                            </span>
-                                                        </div>
+                                                        )}
                                                     </td>
                                                     <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">{fe.manager}</td>
                                                     <td className="px-3 py-2 align-top">
@@ -4471,6 +5325,7 @@ export function FondoSection({
                 loadingEmployees={employeesLoading}
                 currentBalanceCRC={currentBalanceCRC}
                 currentBalanceUSD={currentBalanceUSD}
+                managerReadonly={!editingDailyClosingId}
             />
 
             <ConfirmModal
@@ -4547,7 +5402,7 @@ export function FondoSection({
 
                                                 {/* Show related adjustment movements or an edited/resolved indicator */}
                                                 {(() => {
-                                                    const relatedAdjustments = fondoEntries.filter(e => e.originalEntryId === record.id && e.providerCode === 'AJUSTE FONDO GENERAL');
+                                                    const relatedAdjustments = fondoEntries.filter(e => e.originalEntryId === record.id && isAutoAdjustmentProvider(e.providerCode));
                                                     if (relatedAdjustments.length === 0 && (record.diffCRC === 0 && record.diffUSD === 0)) {
                                                         const isExpanded = expandedClosings.has(record.id);
                                                         return (

@@ -36,6 +36,8 @@ type DailyClosingModalProps = {
     loadingEmployees: boolean;
     currentBalanceCRC: number;
     currentBalanceUSD: number;
+    // Whether the manager field should be readonly (for new closings with default manager)
+    managerReadonly?: boolean;
 };
 
 const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
@@ -49,6 +51,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     loadingEmployees,
     currentBalanceCRC,
     currentBalanceUSD,
+    managerReadonly = false,
 }) => {
     const [closingDateISO, setClosingDateISO] = useState(() => new Date().toISOString());
     const [manager, setManager] = useState('');
@@ -242,8 +245,10 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                 className="w-full max-w-full sm:max-w-3xl rounded border border-[var(--input-border)] bg-[#1f262a] text-white shadow-lg max-h-[80vh] overflow-hidden flex flex-col"
                 onClick={event => event.stopPropagation()}
             >
-                <div className="flex items-start justify-between gap-4 p-5 pb-0">
-                    <h3 className="text-lg font-semibold">Cierre diario del fondo</h3>
+                <div className="flex items-center justify-between gap-4 p-5 pb-0">
+                    <div className="flex-1" />
+                    <h3 className="text-lg font-semibold text-center">Cierre diario del fondo</h3>
+                    <div className="flex-1 flex justify-end">
                     <button
                         type="button"
                         onClick={onClose}
@@ -251,6 +256,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                     >
                         Cerrar
                     </button>
+                    </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
@@ -304,7 +310,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                             <div className="mt-3 text-sm font-semibold text-[var(--foreground)]">
                                 Total: {formatCurrency('CRC', totalCRC)}
                             </div>
-                            <div className="text-xs text-[var(--muted-foreground)]">
+                            <div className={`mt-2 text-sm font-semibold ${diffCRC < 0 ? 'text-red-500' : diffCRC > 0 ? 'text-green-500' : 'white'}`}>
                                 Saldo registrado: {formatCurrency('CRC', currentBalanceCRC)} · Diferencia: {differenceLabel('CRC', diffCRC)}
                             </div>
                         </section>
@@ -358,7 +364,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                             <div className="mt-3 text-sm font-semibold text-[var(--foreground)]">
                                 Total: {formatCurrency('USD', totalUSD)}
                             </div>
-                            <div className="text-xs text-[var(--muted-foreground)]">
+                            <div className={`mt-2 text-sm font-semibold ${diffUSD < 0 ? 'text-red-500' : diffUSD > 0 ? 'text-green-500' : 'text-white-500'}`}>
                                 Saldo registrado: {formatCurrency('USD', currentBalanceUSD)} · Diferencia: {differenceLabel('USD', diffUSD)}
                             </div>
                         </section>
@@ -382,7 +388,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                                     value={manager}
                                     onChange={event => setManager(event.target.value)}
                                     className="rounded border border-[var(--input-border)] bg-[var(--input-bg)] p-2 text-sm"
-                                    disabled={loadingEmployees}
+                                    disabled={loadingEmployees || managerReadonly}
                                 >
                                     <option value="">Seleccionar encargado</option>
                                     {employees.map(name => (
@@ -397,6 +403,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                                     onChange={event => setManager(event.target.value)}
                                     className="rounded border border-[var(--input-border)] bg-[var(--input-bg)] p-2 text-sm"
                                     placeholder="Nombre del encargado"
+                                    readOnly={managerReadonly}
                                 />
                             )}
                         </div>

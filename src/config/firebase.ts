@@ -26,7 +26,7 @@ if (!isConfigValid) {
 const app = initializeApp(firebaseConfig);
 
 // Initialize Firestore
-export const db = getFirestore(app);
+export const db = getFirestore(app, 'restauracion');
 
 // Initialize Storage
 export const storage = getStorage(app);

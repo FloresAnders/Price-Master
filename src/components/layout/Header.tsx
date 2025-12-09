@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image';
-import { Settings, LogOut, Menu, X, Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck, History, User, ChevronDown, Bell, UserPlus, Layers, Shield, Star } from 'lucide-react';
+import { Settings, LogOut, Menu, X, Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck, History, User, ChevronDown, Bell, UserPlus, Layers, Shield, Star, RefreshCw } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { collection, query as fbQuery, where as fbWhere, orderBy as fbOrderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../../config/firebase';
@@ -558,6 +558,16 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                             >
                               <Settings className="w-4 h-4 text-[var(--muted-foreground)]" />
                               <span className="truncate">Configuración de Sesión</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                setShowUserDropdown(false);
+                                window.location.reload();
+                              }}
+                              className="flex items-center gap-3 w-full px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--hover-bg)] transition-colors"
+                            >
+                              <RefreshCw className="w-4 h-4 text-[var(--muted-foreground)]" />
+                              <span className="truncate">Sincronizar</span>
                             </button>
                           </div>
                         </div>

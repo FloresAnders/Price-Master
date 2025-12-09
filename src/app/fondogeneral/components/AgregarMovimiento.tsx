@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Search } from 'lucide-react';
+import { Save, Search, Loader2 } from 'lucide-react';
 import type { FondoMovementType } from './fondo';
 
 type ProviderOption = {
@@ -13,6 +13,7 @@ type AgregarMovimientoProps = {
     providers: ProviderOption[];
     providersLoading: boolean;
     isProviderSelectDisabled: boolean;
+    providerDisabledTooltip?: string;
     selectedProviderExists: boolean;
     invoiceNumber: string;
     onInvoiceNumberChange: (value: string) => void;
@@ -37,6 +38,7 @@ type AgregarMovimientoProps = {
     onCancelEditing: () => void;
     onSubmit: () => void;
     isSubmitDisabled: boolean;
+    isSaving?: boolean;
     onFieldKeyDown: (event: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>) => void;
     currency?: 'CRC' | 'USD';
     onCurrencyChange?: (c: 'CRC' | 'USD') => void;
@@ -53,6 +55,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
     providers,
     providersLoading,
     isProviderSelectDisabled,
+    providerDisabledTooltip,
     invoiceNumber,
     onInvoiceNumberChange,
     invoiceValid,
@@ -75,6 +78,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
     onCancelEditing,
     onSubmit,
     isSubmitDisabled,
+    isSaving = false,
     onFieldKeyDown,
     currency = 'CRC',
     onCurrencyChange,
@@ -127,25 +131,37 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                     <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
                         Proveedor
                     </label>
-                    <div className="relative">
+                    <div className="relative group">
                         <input
                             value={filter}
                             onChange={(e) => { setFilter(e.target.value); setIsDropdownOpen(true); }}
                             onFocus={() => setIsDropdownOpen(true)}
-                            onBlur={() => { setTimeout(() => setIsDropdownOpen(false), 200); onProviderChange(filter); }}
+                            onBlur={() => { setTimeout(() => setIsDropdownOpen(false), 200); }}
                             onKeyDown={onFieldKeyDown}
-                            className={`w-full p-2 bg-[var(--input-bg)] border ${providerError ? 'border-red-500' : 'border-[var(--input-border)]'} rounded pr-10`}
+                            className={`w-full p-2 border rounded pr-10 ${providerError ? 'border-red-500' : 'border-[var(--input-border)]'} ${isProviderSelectDisabled && providerDisabledTooltip ? 'bg-gray-600 text-gray-400 cursor-not-allowed opacity-70' : 'bg-[var(--input-bg)]'}`}
                             disabled={isProviderSelectDisabled}
                             placeholder={providersLoading ? 'Cargando proveedores...' : 'Buscar proveedor'}
                         />
-                        <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
-                        {isDropdownOpen && filteredProviders.length > 0 && (
+                        <Search className={`absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 ${isProviderSelectDisabled && providerDisabledTooltip ? 'text-gray-500' : 'text-[var(--muted-foreground)]'}`} />
+                        {isProviderSelectDisabled && providerDisabledTooltip && (
+                            <div className="absolute bottom-full left-0 right-0 mb-2 mx-auto w-fit max-w-[90vw] sm:max-w-sm px-3 py-2 bg-yellow-500 text-black text-sm font-medium rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity text-center z-50 pointer-events-none">
+                                ⚠️ {providerDisabledTooltip}
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-yellow-500"></div>
+                            </div>
+                        )}
+                        {isDropdownOpen && filteredProviders.length > 0 && !isProviderSelectDisabled && (
                             <div className="absolute z-10 w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded mt-1">
                                 {filteredProviders.map(p => (
                                     <div
                                         key={p.code}
                                         className="p-2 hover:bg-blue-400 cursor-pointer transition-all duration-200"
-                                        onClick={() => {
+                                        onMouseDown={() => {
+                                            onProviderChange(p.code);
+                                            setFilter(`${p.name} (${p.code})`);
+                                            setIsDropdownOpen(false);
+                                        }}
+                                        onTouchEnd={(e) => {
+                                            e.preventDefault();
                                             onProviderChange(p.code);
                                             setFilter(`${p.name} (${p.code})`);
                                             setIsDropdownOpen(false);
@@ -280,10 +296,19 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                     type="button"
                     className="px-4 py-2 bg-blue-400 text-white rounded hover:bg-blue-500 disabled:opacity-50 inline-flex items-center gap-2"
                     onClick={onSubmit}
-                    disabled={isSubmitDisabled}
+                    disabled={isSubmitDisabled || isSaving}
                 >
-                    <Save className="w-4 h-4" />
-                    {editingEntryId ? 'Actualizar' : 'Guardar'}
+                    {isSaving ? (
+                        <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Guardando...
+                        </>
+                    ) : (
+                        <>
+                            <Save className="w-4 h-4" />
+                            {editingEntryId ? 'Actualizar' : 'Guardar'}
+                        </>
+                    )}
                 </button>
             </div>
         </div>

@@ -33,39 +33,8 @@ export function useRouteProtection(config: RouteProtectionConfig = {}) {
   useEffect(() => {
     if (loading) return;
 
-    // Log del intento de acceso
-    const logAccess = (granted: boolean, reason: string) => {
-      const auditLog = {
-        timestamp: new Date().toISOString(),
-        userId: user?.id || 'anonymous',
-        userName: user?.name || 'Unknown',
-        action: granted ? 'ROUTE_ACCESS_GRANTED' : 'ROUTE_ACCESS_DENIED',
-        details: `Access to ${pathname} - ${reason}`,
-        sessionId: localStorage.getItem('pricemaster_session_id') || '',
-        userAgent: navigator.userAgent
-      };
-
-      try {
-        const existingLogs = JSON.parse(localStorage.getItem('pricemaster_audit_logs') || '[]');
-        existingLogs.push(auditLog);
-
-        if (existingLogs.length > 100) {
-          existingLogs.shift();
-        }
-
-        localStorage.setItem('pricemaster_audit_logs', JSON.stringify(existingLogs));
-
-        if (!granted) {
-          console.warn('🚫 ROUTE ACCESS DENIED:', auditLog);
-        }
-      } catch (error) {
-        console.error('Error logging route access:', error);
-      }
-    };
-
     // Verificar autenticación
     if (requireAuth && !isAuthenticated) {
-      logAccess(false, 'User not authenticated');
       setAccessGranted(false);
       setAccessChecked(true);
       if (onUnauthorized) {
@@ -93,7 +62,6 @@ export function useRouteProtection(config: RouteProtectionConfig = {}) {
       }
 
       if (!hasRequiredRole) {
-        logAccess(false, `User role ${user?.role} insufficient, required: ${requiredRole}`);
         setAccessGranted(false);
         setAccessChecked(true);
         if (onAccessDenied) {
@@ -109,7 +77,6 @@ export function useRouteProtection(config: RouteProtectionConfig = {}) {
     if (allowedRoles.length > 0) {
       const userRole = user?.role;
       if (!userRole || !allowedRoles.includes(userRole)) {
-        logAccess(false, `User role ${userRole} not in allowed roles: ${allowedRoles.join(', ')}`);
         setAccessGranted(false);
         setAccessChecked(true);
         if (onAccessDenied) {
@@ -122,7 +89,6 @@ export function useRouteProtection(config: RouteProtectionConfig = {}) {
     }
 
     // Acceso concedido
-    logAccess(true, `Access granted for role: ${user?.role}`);
     setAccessGranted(true);
     setAccessChecked(true);
   }, [

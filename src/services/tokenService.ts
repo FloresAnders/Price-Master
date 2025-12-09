@@ -330,51 +330,10 @@ export class TokenService {
    */
   static revokeToken(): void {
     try {
-      // Agregar token a lista de tokens revocados (para mayor seguridad)
-      const sessionData = this.getTokenSession();
-      if (sessionData) {
-        const revokedTokens = this.getRevokedTokens();
-        const payload = this.validateSimpleToken(sessionData.token);
-        if (payload) {
-          revokedTokens.push({
-            jti: payload.jti,
-            revokedAt: Date.now(),
-            userId: payload.userId
-          });
-          localStorage.setItem('pricemaster_revoked_tokens', JSON.stringify(revokedTokens));
-        }
-      }
-
-      // Limpiar sesión
       this.clearTokenSession();
     } catch (error) {
       console.error('Error revoking token:', error);
-      this.clearTokenSession(); // Limpiar de todas formas
-    }
-  }
-
-  /**
-   * Verifica si un token está revocado
-   */
-  private static isTokenRevoked(jti: string): boolean {
-    try {
-      const revokedTokens = this.getRevokedTokens();
-      return revokedTokens.some(token => token.jti === jti);
-    } catch {
-      return false;
-    }
-  }
-
-  /**
-   * Obtiene la lista de tokens revocados
-   */
-  private static getRevokedTokens(): Array<{ jti: string, revokedAt: number, userId: string }> {
-    try {
-      const stored = localStorage.getItem('pricemaster_revoked_tokens');
-      if (!stored) return [];
-      return JSON.parse(stored);
-    } catch {
-      return [];
+      this.clearTokenSession();
     }
   }
 
@@ -453,20 +412,4 @@ export class TokenService {
     };
   }
 
-  /**
-   * Limpia tokens expirados y revocados antiguos (maintenance)
-   */
-  static cleanupExpiredTokens(): void {
-    try {
-      const revokedTokens = this.getRevokedTokens();
-      const oneWeekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
-
-      // Mantener solo tokens revocados de la última semana
-      const cleanedTokens = revokedTokens.filter(token => token.revokedAt > oneWeekAgo);
-
-      localStorage.setItem('pricemaster_revoked_tokens', JSON.stringify(cleanedTokens));
-    } catch (error) {
-      console.error('Error cleaning up tokens:', error);
-    }
-  }
 }

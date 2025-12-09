@@ -66,6 +66,9 @@ const createSnapshotState = (): SnapshotState => ({
 
 const normalizeDigits = (value: string) => value.replace(/[^0-9]/g, '');
 
+// Clave compartida para sincronizar la selección de empresa entre todas las secciones del Fondo General
+const SHARED_COMPANY_STORAGE_KEY = 'fg_selected_company_shared';
+
 const parseInitialValue = (value: string): number => {
     const digits = normalizeDigits(value);
     if (digits.length === 0) return 0;
@@ -128,7 +131,14 @@ export default function FondoGeneralConfigurationPage() {
 
     const [companies, setCompanies] = useState<string[]>([]);
     const [companiesLoading, setCompaniesLoading] = useState(false);
-    const [selectedCompany, setSelectedCompany] = useState('');
+    const [selectedCompany, setSelectedCompanyState] = useState(() => {
+        if (typeof window === 'undefined') return '';
+        try {
+            return localStorage.getItem(SHARED_COMPANY_STORAGE_KEY) || '';
+        } catch {
+            return '';
+        }
+    });
     const [accountSettings, setAccountSettings] = useState<AccountStateMap>(() => createAccountState());
     const [snapshot, setSnapshot] = useState<SnapshotState>(() => createSnapshotState());
     const [storage, setStorage] = useState<MovementStorage<FondoEntry> | null>(null);
@@ -139,6 +149,44 @@ export default function FondoGeneralConfigurationPage() {
     const [warning, setWarning] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
+
+    // Wrapper para guardar en localStorage y disparar evento de sincronización
+    const setSelectedCompany = useCallback((value: string | ((prev: string) => string)) => {
+        setSelectedCompanyState(prev => {
+            const newValue = typeof value === 'function' ? value(prev) : value;
+            if (newValue && newValue !== prev) {
+                try {
+                    localStorage.setItem(SHARED_COMPANY_STORAGE_KEY, newValue);
+                    window.dispatchEvent(new StorageEvent('storage', {
+                        key: SHARED_COMPANY_STORAGE_KEY,
+                        newValue: newValue,
+                        oldValue: prev,
+                        storageArea: localStorage
+                    }));
+                } catch (error) {
+                    console.error('Error saving selected company to localStorage:', error);
+                }
+            }
+            return newValue;
+        });
+    }, []);
+
+    // Escuchar cambios de empresa desde otras secciones (sincronización bidireccional)
+    useEffect(() => {
+        const handleStorageChange = (event: StorageEvent) => {
+            if (event.key === SHARED_COMPANY_STORAGE_KEY && event.newValue) {
+                setSelectedCompanyState(prev => {
+                    if (event.newValue && event.newValue !== prev && companies.includes(event.newValue)) {
+                        return event.newValue;
+                    }
+                    return prev;
+                });
+            }
+        };
+
+        window.addEventListener('storage', handleStorageChange);
+        return () => window.removeEventListener('storage', handleStorageChange);
+    }, [companies]);
 
     const crcFormatter = useMemo(
         () => new Intl.NumberFormat('es-CR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }),
@@ -225,12 +273,26 @@ export default function FondoGeneralConfigurationPage() {
             return;
         }
         setSelectedCompany(prev => {
+            // Si ya hay un valor válido en el estado (cargado desde localStorage), mantenerlo
             if (prev && companies.includes(prev)) {
                 return prev;
             }
+            // Si no hay valor válido, intentar leer desde localStorage compartido
+            if (typeof window !== 'undefined') {
+                try {
+                    const stored = localStorage.getItem(SHARED_COMPANY_STORAGE_KEY);
+                    if (stored && companies.includes(stored)) {
+                        return stored;
+                    }
+                } catch {
+                    // Ignorar errores de localStorage
+                }
+            }
+            // Si preferredCompany está disponible, usarlo
             if (preferredCompany && companies.includes(preferredCompany)) {
                 return preferredCompany;
             }
+            // Último recurso: usar la primera empresa
             return companies[0];
         });
     }, [companies, preferredCompany, canAccess]);
@@ -582,7 +644,7 @@ export default function FondoGeneralConfigurationPage() {
 
                 <div className="mt-6 grid gap-2 sm:grid-cols-[220px,1fr] sm:items-center">
                     <label htmlFor="company-select" className="text-sm font-medium text-[var(--muted-foreground)]">
-                        Empresa
+                        Empresa: 
                     </label>
                     <div className="flex items-center gap-3">
                         <select

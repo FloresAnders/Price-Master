@@ -9,6 +9,9 @@ import { getDefaultPermissions } from '@/utils/permissions';
 type TabId = 'fondo' | 'bcr' | 'bn' | 'bac';
 type FondoTab = { id: TabId; label: string; namespace: 'fg' | 'bcr' | 'bn' | 'bac' };
 
+// Clave para persistir la selección del tab de cuenta en localStorage
+const ACCOUNT_TAB_STORAGE_KEY = 'fg_selected_account_tab';
+
 export default function FondoPage() {
     const { user, loading } = useAuth();
     const permissions = user?.permissions || getDefaultPermissions(user?.role || 'user');
@@ -23,20 +26,56 @@ export default function FondoPage() {
         return list;
     }, [hasGeneralAccess, permissions.fondogeneralBCR, permissions.fondogeneralBN, permissions.fondogeneralBAC]);
 
-    const [active, setActive] = useState<TabId | ''>('fondo');
+    const [active, setActiveState] = useState<TabId | ''>(() => {
+        if (typeof window === 'undefined') return 'fondo';
+        try {
+            const stored = localStorage.getItem(ACCOUNT_TAB_STORAGE_KEY);
+            if (stored && ['fondo', 'bcr', 'bn', 'bac'].includes(stored)) {
+                return stored as TabId;
+            }
+        } catch {
+            // Ignorar errores de localStorage porfavor
+        }
+        return 'fondo';
+    });
+
+    // Wrapper para guardar la selección del tab en localStorage
+    const setActive = useCallback((tabId: TabId | '') => {
+        setActiveState(tabId);
+        if (tabId && typeof window !== 'undefined') {
+            try {
+                localStorage.setItem(ACCOUNT_TAB_STORAGE_KEY, tabId);
+            } catch (error) {
+                console.error('Error saving selected tab to localStorage:', error);
+            }
+        }
+    }, []);
+
     const [companySelectorSlot, setCompanySelectorSlot] = useState<React.ReactNode | null>(null);
     const activeTab = availableTabs.find(tab => tab.id === active) || null;
 
     useEffect(() => {
+        // No ejecutar mientras se cargan los permisos
+        if (loading) return;
+        
         if (availableTabs.length === 0) {
-            setActive('');
+            setActiveState('');
             return;
         }
         const exists = availableTabs.some(tab => tab.id === active);
         if (!exists) {
-            setActive(availableTabs[0].id);
+            // Si el tab guardado no está disponible, usar el primero disponible
+            const firstTab = availableTabs[0].id;
+            setActiveState(firstTab);
+            if (typeof window !== 'undefined') {
+                try {
+                    localStorage.setItem(ACCOUNT_TAB_STORAGE_KEY, firstTab);
+                } catch {
+                    // Ignorar errores de localStorage
+                }
+            }
         }
-    }, [availableTabs, active]);
+    }, [availableTabs, active, loading]);
 
     useEffect(() => {
         if (!activeTab) {

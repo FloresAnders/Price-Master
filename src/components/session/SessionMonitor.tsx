@@ -2,40 +2,25 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Shield, Clock, AlertTriangle, Eye, X, Key } from 'lucide-react';
+import { Shield, Clock, AlertTriangle, Key } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import TokenInfo from './TokenInfo';
 
-interface AuditLog {
-  timestamp: string;
-  userId: string;
-  userName: string;
-  action: string;
-  details: string;
-  ipAddress?: string;
-  userAgent?: string;
-  sessionId: string;
-}
-
 interface SessionMonitorProps {
-  showAuditLogs?: boolean;
   inline?: boolean; // Nueva prop para mostrar inline sin posicionamiento fijo
 }
 
-export default function SessionMonitor({ showAuditLogs = false, inline = false }: SessionMonitorProps) {
+export default function SessionMonitor({ inline = false }: SessionMonitorProps) {
   const {
     user,
     sessionWarning,
     getSessionTimeLeft,
-    getAuditLogs,
     isSuperAdmin,
     useTokenAuth,
     getFormattedTimeLeft
   } = useAuth();
 
   const [timeLeft, setTimeLeft] = useState(0);
-  const [showLogs, setShowLogs] = useState(false);
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [showTokenInfo, setShowTokenInfo] = useState(false);
   const [showSessionTimer, setShowSessionTimer] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
@@ -51,13 +36,6 @@ export default function SessionMonitor({ showAuditLogs = false, inline = false }
 
     return () => clearInterval(interval);
   }, [getSessionTimeLeft]);
-
-  // Cargar logs de auditoría para SuperAdmin
-  useEffect(() => {
-    if (isSuperAdmin() && showAuditLogs) {
-      setAuditLogs(getAuditLogs());
-    }
-  }, [isSuperAdmin, showAuditLogs, getAuditLogs]);
 
   // Leer preferencias de UI flotante para evitar superposición con el FAB (calculadora)
   useEffect(() => {
@@ -146,15 +124,6 @@ export default function SessionMonitor({ showAuditLogs = false, inline = false }
                 </button>
               )}
             </div>
-            {showAuditLogs && (
-              <button
-                onClick={() => setShowLogs(!showLogs)}
-                className="flex items-center gap-1 text-xs bg-red-700 hover:bg-red-600 px-2 py-1 rounded transition-colors w-full justify-center"
-              >
-                <Eye className="w-3 h-3" />
-                {showLogs ? 'Ocultar' : 'Ver'} Logs
-              </button>
-            )}
           </div>
         </div>
       )}
@@ -187,70 +156,6 @@ export default function SessionMonitor({ showAuditLogs = false, inline = false }
                 🔐 Autenticación con token seguro activa
               </div>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* Panel de logs de auditoría */}
-      {showLogs && isSuperAdmin() && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-4xl w-full max-h-[80vh] overflow-hidden">
-            <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
-              <div className="flex items-center gap-2">
-                <Shield className="w-5 h-5 text-red-600" />
-                <h3 className="text-lg font-semibold">Logs de Auditoría</h3>
-                <span className="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-medium">
-                  CONFIDENCIAL
-                </span>
-              </div>
-              <button
-                onClick={() => setShowLogs(false)}
-                className="text-gray-500 hover:text-gray-700 p-1"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-4 max-h-96 overflow-y-auto">
-              <div className="space-y-2">
-                {auditLogs.slice(-50).reverse().map((log, index) => (
-                  <div key={index} className="bg-gray-50 dark:bg-gray-700 p-3 rounded text-sm">
-                    <div className="flex justify-between items-start mb-1">
-                      <span className="font-medium text-blue-600 dark:text-blue-400">
-                        {log.action}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        {new Date(log.timestamp).toLocaleString('es-CR')}
-                      </span>
-                    </div>
-                    <div className="text-gray-700 dark:text-gray-300 mb-1">
-                      <strong>Usuario:</strong> {log.userName} ({log.userId})
-                    </div>
-                    <div className="text-gray-600 dark:text-gray-400 text-xs">
-                      {log.details}
-                    </div>
-                    {log.sessionId && (
-                      <div className="text-gray-500 text-xs mt-1">
-                        <strong>Sesión:</strong> {log.sessionId.slice(-8)}
-                      </div>
-                    )}
-                  </div>
-                ))}
-
-                {auditLogs.length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
-                    No hay logs de auditoría disponibles
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700">
-              <div className="flex justify-between items-center text-xs text-gray-600 dark:text-gray-400">
-                <span>Mostrando los últimos 50 eventos</span>
-                <span>Total de logs: {auditLogs.length}</span>
-              </div>
-            </div>
           </div>
         </div>
       )}
