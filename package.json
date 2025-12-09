@@ -17,7 +17,8 @@
     "firebase:test": "curl http://localhost:3000/api/firebase-test",
     "firebase:clear": "curl -X DELETE http://localhost:3000/api/firebase-test",
     "test:users": "start test-users-functionality.html",
-    "version:update": "node scripts/update-version.js"
+    "version:update": "node scripts/update-version.js",
+    "version:check": "node scripts/check-version.js"
   },
   "dependencies": {
     "@capacitor/android": "^7.4.3",
