@@ -111,3 +111,12 @@ export interface companies {
   valorhora: number; // Valor por hora predeterminado
   horabruta: number; // Valor por hora bruta
 }
+
+export interface FondoMovementTypeConfig {
+  id?: string;
+  category: 'INGRESO' | 'GASTO' | 'EGRESO';
+  name: string;
+  order?: number; // Para mantener el orden de los tipos
+  createdAt?: Date;
+  updatedAt?: Date;
+}
