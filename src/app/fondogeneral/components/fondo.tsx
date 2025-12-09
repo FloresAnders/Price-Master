@@ -4724,10 +4724,12 @@ export function FondoSection({
                                         <input aria-label="Recordar filtros" title="Recordar filtros" className="cursor-pointer" type="checkbox" checked={rememberFilters} onChange={e => setRememberFilters(e.target.checked)} />
                                         <span className="text-sm ml-1">Recordar ajustes</span>
                                     </label>
-                                    <label className="flex items-center gap-2 cursor-pointer">
-                                        <input aria-label="Mantener filtros entre empresas" title="Mantener filtros entre empresas" className="cursor-pointer" type="checkbox" checked={keepFiltersAcrossCompanies} onChange={e => setKeepFiltersAcrossCompanies(e.target.checked)} />
-                                        <span className="text-sm ml-1">Mantener filtros entre empresas</span>
-                                    </label>
+                                    {isAdminUser && (
+                                        <label className="flex items-center gap-2 cursor-pointer">
+                                            <input aria-label="Mantener filtros entre empresas" title="Mantener filtros entre empresas" className="cursor-pointer" type="checkbox" checked={keepFiltersAcrossCompanies} onChange={e => setKeepFiltersAcrossCompanies(e.target.checked)} />
+                                            <span className="text-sm ml-1">Mantener filtros entre empresas</span>
+                                        </label>
+                                    )}
                                 </div>
                                 <button
                                     type="button"
