@@ -16,7 +16,8 @@
     "firebase:migrate": "curl -X POST http://localhost:3000/api/firebase-test",
     "firebase:test": "curl http://localhost:3000/api/firebase-test",
     "firebase:clear": "curl -X DELETE http://localhost:3000/api/firebase-test",
-    "test:users": "start test-users-functionality.html"
+    "test:users": "start test-users-functionality.html",
+    "version:update": "node scripts/update-version.js"
   },
   "dependencies": {
     "@capacitor/android": "^7.4.3",
@@ -65,6 +66,7 @@
     "cssnano": "^7.1.2",
     "eslint": "^9",
     "eslint-config-next": "16.0.7",
+    "firebase-admin": "^12.0.0",
     "tailwindcss": "^3.4.0",
     "typescript": "^5"
   },
