@@ -1655,6 +1655,8 @@ export function FondoSection({
         }
         return 'all';
     });
+    const [providerFilter, setProviderFilter] = useState('');
+    const [isProviderDropdownOpen, setIsProviderDropdownOpen] = useState(false);
     const initialFilterPaymentType: FondoEntry['paymentType'] | 'all' =
         mode === 'all' ? 'all' : mode === 'ingreso' ? FONDO_INGRESO_TYPES[0] : FONDO_EGRESO_TYPES[0];
     const [filterPaymentType, setFilterPaymentType] = useState<FondoEntry['paymentType'] | 'all'>(() => {
@@ -1664,6 +1666,8 @@ export function FondoSection({
         }
         return initialFilterPaymentType;
     });
+    const [typeFilter, setTypeFilter] = useState('');
+    const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
     const [filterEditedOnly, setFilterEditedOnly] = useState(() => {
         if (typeof window !== 'undefined') {
             const saved = localStorage.getItem('fondogeneral-filterEditedOnly');
@@ -1749,6 +1753,25 @@ export function FondoSection({
         const startWidth = parseInt(columnWidths[key] || '100', 10) || 100;
         resizingRef.current = { key, startX: event.clientX, startWidth };
     };
+
+    // Sincronizar filtro de proveedor con selección
+    useEffect(() => {
+        if (filterProviderCode === 'all') {
+            setProviderFilter('');
+        } else {
+            const option = providers.find(p => p.code === filterProviderCode);
+            setProviderFilter(option ? `${option.name} (${option.code})` : filterProviderCode);
+        }
+    }, [filterProviderCode, providers]);
+
+    // Sincronizar filtro de tipo con selección
+    useEffect(() => {
+        if (filterPaymentType === 'all') {
+            setTypeFilter('');
+        } else {
+            setTypeFilter(formatMovementType(filterPaymentType));
+        }
+    }, [filterPaymentType]);
 
     // Save rememberFilters. If disabled, clear saved filters from storage.
     useEffect(() => {
@@ -4212,43 +4235,128 @@ export function FondoSection({
 
             <section className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/70 p-4 space-y-4">
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                    <select
-                        value={filterProviderCode}
-                        onChange={e => setFilterProviderCode(e.target.value || 'all')}
-                        className="w-full px-3 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--muted-foreground)]"
-                        title="Filtrar por proveedor"
-                        aria-label="Filtrar por proveedor"
-                    >
-                        <option value="all">Todos los proveedores</option>
-                        {providers.map(p => (
-                            <option key={p.code} value={p.code}>{p.name}</option>
-                        ))}
-                    </select>
+                    <div className="relative">
+                        <input
+                            value={providerFilter}
+                            onChange={(e) => { 
+                                setProviderFilter(e.target.value); 
+                                setIsProviderDropdownOpen(true); 
+                            }}
+                            onFocus={() => setIsProviderDropdownOpen(true)}
+                            onBlur={() => { setTimeout(() => setIsProviderDropdownOpen(false), 200); }}
+                            className="w-full px-3 py-2 pr-10 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--muted-foreground)]"
+                            placeholder={providersLoading ? 'Cargando proveedores...' : 'Buscar proveedor'}
+                            title="Filtrar por proveedor"
+                            aria-label="Filtrar por proveedor"
+                        />
+                        <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
+                        {isProviderDropdownOpen && (() => {
+                            const filteredProviders = providerFilter.length === 0 
+                                ? [{ code: 'all', name: 'Todos los proveedores' }, ...providers]
+                                : [
+                                    { code: 'all', name: 'Todos los proveedores' },
+                                    ...providers.filter(p =>
+                                        p.name.toLowerCase().includes(providerFilter.toLowerCase()) ||
+                                        p.code.toLowerCase().includes(providerFilter.toLowerCase())
+                                    )
+                                ];
+                            return filteredProviders.length > 0 ? (
+                                <div className="absolute z-10 w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded mt-1 max-h-60 overflow-y-auto shadow-lg">
+                                    {filteredProviders.map(p => (
+                                        <div
+                                            key={p.code}
+                                            className="p-2 hover:bg-blue-400 cursor-pointer transition-all duration-200"
+                                            onMouseDown={() => {
+                                                setFilterProviderCode(p.code);
+                                                setProviderFilter(p.code === 'all' ? '' : `${p.name} (${p.code})`);
+                                                setIsProviderDropdownOpen(false);
+                                            }}
+                                            onTouchEnd={(e) => {
+                                                e.preventDefault();
+                                                setFilterProviderCode(p.code);
+                                                setProviderFilter(p.code === 'all' ? '' : `${p.name} (${p.code})`);
+                                                setIsProviderDropdownOpen(false);
+                                            }}
+                                        >
+                                            {p.code === 'all' ? p.name : `${p.name} (${p.code})`}
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : null;
+                        })()}
+                    </div>
 
-                    <select
-                        value={filterPaymentType}
-                        onChange={e => setFilterPaymentType((e.target.value as any) || 'all')}
-                        className="w-full px-3 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--muted-foreground)]"
-                        title="Filtrar por tipo"
-                        aria-label="Filtrar por tipo"
-                    >
-                        <option value="all">Todos los tipos</option>
-                        <optgroup label="Ingresos">
-                            {FONDO_INGRESO_TYPES.map(opt => (
-                                <option key={opt} value={opt}>{formatMovementType(opt)}</option>
-                            ))}
-                        </optgroup>
-                        <optgroup label="Gastos">
-                            {FONDO_GASTO_TYPES.map(opt => (
-                                <option key={opt} value={opt}>{formatMovementType(opt)}</option>
-                            ))}
-                        </optgroup>
-                        <optgroup label="Egresos">
-                            {FONDO_EGRESO_TYPES.map(opt => (
-                                <option key={opt} value={opt}>{formatMovementType(opt)}</option>
-                            ))}
-                        </optgroup>
-                    </select>
+                    <div className="relative">
+                        <input
+                            value={typeFilter}
+                            onChange={(e) => { 
+                                setTypeFilter(e.target.value); 
+                                setIsTypeDropdownOpen(true); 
+                            }}
+                            onFocus={() => setIsTypeDropdownOpen(true)}
+                            onBlur={() => { setTimeout(() => setIsTypeDropdownOpen(false), 200); }}
+                            className="w-full px-3 py-2 pr-10 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--muted-foreground)]"
+                            placeholder="Buscar tipo de movimiento"
+                            title="Filtrar por tipo"
+                            aria-label="Filtrar por tipo"
+                        />
+                        <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
+                        {isTypeDropdownOpen && (() => {
+                            const allTypes: Array<{ value: string; label: string; group: string }> = [
+                                { value: 'all', label: 'Todos los tipos', group: '' },
+                                ...FONDO_INGRESO_TYPES.map(t => ({ value: t, label: formatMovementType(t), group: 'Ingresos' })),
+                                ...FONDO_GASTO_TYPES.map(t => ({ value: t, label: formatMovementType(t), group: 'Gastos' })),
+                                ...FONDO_EGRESO_TYPES.map(t => ({ value: t, label: formatMovementType(t), group: 'Egresos' }))
+                            ];
+                            const filteredTypes = typeFilter.length === 0
+                                ? allTypes
+                                : allTypes.filter(t =>
+                                    t.label.toLowerCase().includes(typeFilter.toLowerCase()) ||
+                                    t.value.toLowerCase().includes(typeFilter.toLowerCase())
+                                );
+                            if (filteredTypes.length === 0) return null;
+                            
+                            const groupedTypes = filteredTypes.reduce((acc, type) => {
+                                const group = type.group || 'general';
+                                if (!acc[group]) acc[group] = [];
+                                acc[group].push(type);
+                                return acc;
+                            }, {} as Record<string, typeof filteredTypes>);
+
+                            return (
+                                <div className="absolute z-10 w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded mt-1 max-h-60 overflow-y-auto shadow-lg">
+                                    {Object.entries(groupedTypes).map(([group, types]) => (
+                                        <React.Fragment key={group}>
+                                            {group !== 'general' && (
+                                                <div className="px-3 py-1 text-xs font-semibold text-[var(--muted-foreground)] bg-[var(--muted)] uppercase">
+                                                    {group}
+                                                </div>
+                                            )}
+                                            {types.map(t => (
+                                                <div
+                                                    key={t.value}
+                                                    className="p-2 hover:bg-blue-400 cursor-pointer transition-all duration-200"
+                                                    onMouseDown={() => {
+                                                        setFilterPaymentType(t.value as any);
+                                                        setTypeFilter(t.value === 'all' ? '' : t.label);
+                                                        setIsTypeDropdownOpen(false);
+                                                    }}
+                                                    onTouchEnd={(e) => {
+                                                        e.preventDefault();
+                                                        setFilterPaymentType(t.value as any);
+                                                        setTypeFilter(t.value === 'all' ? '' : t.label);
+                                                        setIsTypeDropdownOpen(false);
+                                                    }}
+                                                >
+                                                    {t.label}
+                                                </div>
+                                            ))}
+                                        </React.Fragment>
+                                    ))}
+                                </div>
+                            );
+                        })()}
+                    </div>
 
                     <input
                         type="search"
