@@ -3,20 +3,21 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import useToast from '../hooks/useToast';
-import { Save, Download, FileText, Users, Clock, DollarSign, Eye, EyeOff, Settings, Check, X, Lock, Edit, Smartphone, Clipboard, Trash2, Plus, UserPlus, Building, Info } from 'lucide-react';
+import { Save, Download, FileText, Users, Clock, DollarSign, Eye, EyeOff, Settings, Check, X, Lock, Edit, Smartphone, Clipboard, Trash2, Plus, UserPlus, Building, Info, List } from 'lucide-react';
 import { EmpresasService } from '../services/empresas';
 import { SorteosService } from '../services/sorteos';
 import { UsersService } from '../services/users';
 import { useAuth } from '../hooks/useAuth';
 import { useActorOwnership } from '../hooks/useActorOwnership';
 import { CcssConfigService } from '../services/ccss-config';
-import { Sorteo, User, CcssConfig, UserPermissions, companies } from '../types/firestore';
+import { FondoMovementTypesService } from '../services/fondo-movement-types';
+import { Sorteo, User, CcssConfig, UserPermissions, companies, FondoMovementTypeConfig } from '../types/firestore';
 import { getDefaultPermissions, getNoPermissions, hasPermission } from '../utils/permissions';
 import ScheduleReportTab from '../components/business/ScheduleReportTab';
 import ConfirmModal from '../components/ui/ConfirmModal';
 import ExportModal from '../components/export/ExportModal';
 
-type DataFile = 'sorteos' | 'users' | 'schedules' | 'ccss' | 'empresas';
+type DataFile = 'sorteos' | 'users' | 'schedules' | 'ccss' | 'empresas' | 'fondoTypes';
 
 export default function DataEditor() {
     const [activeFile, setActiveFile] = useState<DataFile>('empresas');
@@ -25,10 +26,12 @@ export default function DataEditor() {
     const [usersData, setUsersData] = useState<User[]>([]);
     const [ccssConfigsData, setCcssConfigsData] = useState<CcssConfig[]>([]);
     const [empresasData, setEmpresasData] = useState<any[]>([]);
+    const [fondoTypesData, setFondoTypesData] = useState<FondoMovementTypeConfig[]>([]);
     const [originalEmpresasData, setOriginalEmpresasData] = useState<any[]>([]);
     const [originalSorteosData, setOriginalSorteosData] = useState<Sorteo[]>([]);
     const [originalUsersData, setOriginalUsersData] = useState<User[]>([]);
     const [originalCcssConfigsData, setOriginalCcssConfigsData] = useState<CcssConfig[]>([]);
+    const [originalFondoTypesData, setOriginalFondoTypesData] = useState<FondoMovementTypeConfig[]>([]);
     const [hasChanges, setHasChanges] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const { showToast } = useToast();
@@ -98,8 +101,9 @@ export default function DataEditor() {
         const usersChanged = JSON.stringify(usersData) !== JSON.stringify(originalUsersData);
         const ccssChanged = JSON.stringify(ccssConfigsData) !== JSON.stringify(originalCcssConfigsData);
         const empresasChanged = JSON.stringify(empresasData) !== JSON.stringify(originalEmpresasData);
-        setHasChanges(sorteosChanged || usersChanged || ccssChanged || empresasChanged);
-    }, [sorteosData, usersData, ccssConfigsData, empresasData, originalSorteosData, originalUsersData, originalCcssConfigsData, originalEmpresasData]);
+        const fondoTypesChanged = JSON.stringify(fondoTypesData) !== JSON.stringify(originalFondoTypesData);
+        setHasChanges(sorteosChanged || usersChanged || ccssChanged || empresasChanged || fondoTypesChanged);
+    }, [sorteosData, usersData, ccssConfigsData, empresasData, fondoTypesData, originalSorteosData, originalUsersData, originalCcssConfigsData, originalEmpresasData, originalFondoTypesData]);
 
     const loadData = useCallback(async () => {
         try {
@@ -260,6 +264,22 @@ export default function DataEditor() {
                 setOriginalCcssConfigsData([]);
             }
 
+            // Cargar tipos de movimientos de fondo desde Firebase (solo para superadmins)
+            if (currentUser?.role === 'superadmin') {
+                try {
+                    const fondoTypes = await FondoMovementTypesService.getTypesFromCacheOrDB();
+                    setFondoTypesData(fondoTypes);
+                    setOriginalFondoTypesData(JSON.parse(JSON.stringify(fondoTypes)));
+                } catch (error) {
+                    console.error('Error loading fondo movement types:', error);
+                    setFondoTypesData([]);
+                    setOriginalFondoTypesData([]);
+                }
+            } else {
+                setFondoTypesData([]);
+                setOriginalFondoTypesData([]);
+            }
+
         } catch (error) {
             showToast('Error al cargar los datos de Firebase', 'error');
             console.error('Error loading data from Firebase:', error);
@@ -271,7 +291,27 @@ export default function DataEditor() {
         // Solo ejecutar la carga (loadData) cuando React haya inicializado el componente.
         // loadData internamente chequea `currentUser` antes de pedir usuarios.
         loadData();
-    }, [loadData]);
+        
+        // Listener para actualizaciones en tiempo real de tipos de fondo
+        const handleFondoTypesUpdate = async () => {
+            if (currentUser?.role === 'superadmin') {
+                try {
+                    console.log('[DataEditor] Fondo types updated, reloading...');
+                    const fondoTypes = await FondoMovementTypesService.getTypesFromCacheOrDB();
+                    setFondoTypesData(fondoTypes);
+                    // No actualizar originalFondoTypesData para mantener el tracking de cambios
+                } catch (error) {
+                    console.error('Error reloading fondo types:', error);
+                }
+            }
+        };
+        
+        window.addEventListener('fondoMovementTypesUpdated', handleFondoTypesUpdate);
+        
+        return () => {
+            window.removeEventListener('fondoMovementTypesUpdated', handleFondoTypesUpdate);
+        };
+    }, [loadData, currentUser]);
 
     // Función para verificar si una ubicación específica ha cambiado (removed - locations tab deleted)
 
@@ -358,6 +398,23 @@ export default function DataEditor() {
                 console.warn('Error al guardar empresas:', err);
             }
 
+            // Guardar tipos de movimientos de fondo (solo para superadmins)
+            if (currentUser?.role === 'superadmin') {
+                try {
+                    const existingFondoTypes = await FondoMovementTypesService.getAllMovementTypes();
+                    for (const ft of existingFondoTypes) { if (ft.id) await FondoMovementTypesService.deleteMovementType(ft.id); }
+                    for (const fondoType of fondoTypesData) {
+                        await FondoMovementTypesService.addMovementType({
+                            category: fondoType.category,
+                            name: fondoType.name,
+                            order: fondoType.order
+                        });
+                    }
+                } catch (err) {
+                    console.warn('Error al guardar tipos de movimientos de fondo:', err);
+                }
+            }
+
             // Local storage and update originals
             localStorage.setItem('editedSorteos', JSON.stringify(sorteosData));
             localStorage.setItem('editedUsers', JSON.stringify(usersData));
@@ -404,6 +461,149 @@ export default function DataEditor() {
             `¿Está seguro de que desea eliminar el sorteo "${sorteoName}"? Esta acción no se puede deshacer.`,
             () => {
                 setSorteosData(sorteosData.filter((_, i) => i !== index));
+            }
+        );
+    };
+
+    // Funciones para manejar tipos de movimientos de fondo
+    const addFondoType = async (category: 'INGRESO' | 'GASTO' | 'EGRESO') => {
+        const maxOrder = Math.max(...fondoTypesData.map(t => t.order ?? 0), -1);
+        const newType: FondoMovementTypeConfig = {
+            category,
+            name: '',
+            order: maxOrder + 1
+        };
+        
+        try {
+            // Agregar a la base de datos inmediatamente
+            const newId = await FondoMovementTypesService.addMovementType({
+                category,
+                name: '',
+                order: maxOrder + 1
+            });
+            
+            // Actualizar el estado local con el ID asignado
+            const typeWithId = { ...newType, id: newId };
+            setFondoTypesData([...fondoTypesData, typeWithId]);
+            setOriginalFondoTypesData([...originalFondoTypesData, typeWithId]);
+            
+            showToast(`Nuevo tipo de ${category} agregado`, 'success');
+        } catch (error) {
+            console.error('Error adding fondo type:', error);
+            showToast('Error al agregar el tipo de movimiento', 'error');
+        }
+    };
+
+    const updateFondoType = async (index: number, field: keyof FondoMovementTypeConfig, value: string | number) => {
+        const updated = [...fondoTypesData];
+        updated[index] = { ...updated[index], [field]: value };
+        setFondoTypesData(updated);
+        
+        // Si el tipo tiene ID, guardar automáticamente en la base de datos
+        if (updated[index].id && field === 'name') {
+            try {
+                await FondoMovementTypesService.updateMovementType(updated[index].id!, { name: value as string });
+                setOriginalFondoTypesData([...updated]);
+            } catch (error) {
+                console.error('Error updating fondo type:', error);
+                showToast('Error al actualizar el tipo', 'error');
+            }
+        }
+    };
+
+    const removeFondoType = (index: number) => {
+        const fondoType = fondoTypesData[index];
+        const typeName = fondoType.name || `Tipo ${index + 1}`;
+
+        openConfirmModal(
+            'Eliminar Tipo de Movimiento',
+            `¿Está seguro de que desea eliminar el tipo "${typeName}"? Esta acción no se puede deshacer.`,
+            async () => {
+                try {
+                    // Eliminar de la base de datos si tiene ID
+                    if (fondoType.id) {
+                        await FondoMovementTypesService.deleteMovementType(fondoType.id);
+                    }
+                    
+                    const filtered = fondoTypesData.filter((_, i) => i !== index);
+                    setFondoTypesData(filtered);
+                    setOriginalFondoTypesData(filtered);
+                    showToast('Tipo eliminado correctamente', 'success');
+                } catch (error) {
+                    console.error('Error deleting fondo type:', error);
+                    showToast('Error al eliminar el tipo', 'error');
+                }
+            }
+        );
+    };
+
+    const moveFondoTypeUp = async (index: number) => {
+        if (index === 0) return;
+        const updated = [...fondoTypesData];
+        [updated[index - 1], updated[index]] = [updated[index], updated[index - 1]];
+        // Update order values
+        updated.forEach((item, idx) => {
+            item.order = idx;
+        });
+        setFondoTypesData(updated);
+        
+        // Guardar cambios de orden en la base de datos
+        try {
+            const promises = [];
+            if (updated[index - 1].id) {
+                promises.push(FondoMovementTypesService.updateMovementType(updated[index - 1].id!, { order: index - 1 }));
+            }
+            if (updated[index].id) {
+                promises.push(FondoMovementTypesService.updateMovementType(updated[index].id!, { order: index }));
+            }
+            await Promise.all(promises);
+            setOriginalFondoTypesData([...updated]);
+        } catch (error) {
+            console.error('Error updating order:', error);
+            showToast('Error al actualizar el orden', 'error');
+        }
+    };
+
+    const moveFondoTypeDown = async (index: number) => {
+        if (index === fondoTypesData.length - 1) return;
+        const updated = [...fondoTypesData];
+        [updated[index], updated[index + 1]] = [updated[index + 1], updated[index]];
+        // Update order values
+        updated.forEach((item, idx) => {
+            item.order = idx;
+        });
+        setFondoTypesData(updated);
+        
+        // Guardar cambios de orden en la base de datos
+        try {
+            const promises = [];
+            if (updated[index].id) {
+                promises.push(FondoMovementTypesService.updateMovementType(updated[index].id!, { order: index }));
+            }
+            if (updated[index + 1].id) {
+                promises.push(FondoMovementTypesService.updateMovementType(updated[index + 1].id!, { order: index + 1 }));
+            }
+            await Promise.all(promises);
+            setOriginalFondoTypesData([...updated]);
+        } catch (error) {
+            console.error('Error updating order:', error);
+            showToast('Error al actualizar el orden', 'error');
+        }
+    };
+
+    const seedFondoTypes = async () => {
+        openConfirmModal(
+            'Inicializar Tipos de Movimientos',
+            '¿Deseas cargar los tipos de movimientos por defecto? Esta acción agregará los tipos que no existan en la base de datos.',
+            async () => {
+                try {
+                    await FondoMovementTypesService.seedInitialData();
+                    showToast('Tipos de movimientos inicializados correctamente', 'success');
+                    await loadData(); // Reload data to show the new types
+                } catch (error) {
+                    console.error('Error seeding fondo types:', error);
+                    showToast('Error al inicializar los tipos de movimientos', 'error');
+                }
             }
         );
     };    // Funciones para manejar usuarios
@@ -1168,6 +1368,20 @@ export default function DataEditor() {
                             <span className="xs:hidden">Companies</span>
                             ({empresasData.length})
                         </button>
+                        {currentUser?.role === 'superadmin' && (
+                            <button
+                                onClick={() => setActiveFile('fondoTypes')}
+                                className={`py-2 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-1 sm:gap-2 whitespace-nowrap ${activeFile === 'fondoTypes'
+                                    ? 'border-blue-500 text-blue-600'
+                                    : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-[var(--border)]'
+                                    }`}
+                            >
+                                <List className="w-3 h-3 sm:w-4 sm:h-4" />
+                                <span className="hidden xs:inline">Tipos Fondo</span>
+                                <span className="xs:hidden">Fund Types</span>
+                                ({fondoTypesData.length})
+                            </button>
+                        )}
                         <div className="flex flex-wrap items-center gap-1 sm:gap-2 w-full sm:w-auto justify-end md:justify-start md:ml-auto">
 
                             <button
@@ -1454,6 +1668,193 @@ export default function DataEditor() {
                             </div>
                         </div>
                     ))}
+                </div>
+            )}
+
+            {activeFile === 'fondoTypes' && currentUser?.role === 'superadmin' && (
+                <div className="space-y-6">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mb-4 sm:mb-6">
+                        <div>
+                            <h4 className="text-lg sm:text-xl font-semibold">Tipos de Movimientos de Fondo</h4>
+                            <p className="text-sm text-[var(--muted-foreground)] mt-1">
+                                Gestiona los tipos de movimientos disponibles para Ingresos, Gastos y Egresos
+                            </p>
+                        </div>
+                        {fondoTypesData.length === 0 && (
+                            <button
+                                onClick={seedFondoTypes}
+                                className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors text-sm flex items-center gap-2"
+                            >
+                                <Plus className="w-4 h-4" />
+                                Inicializar Tipos
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Sección INGRESO */}
+                    <div className="border border-green-200 dark:border-green-700 rounded-lg p-4 bg-green-50 dark:bg-green-900/10">
+                        <div className="flex justify-between items-center mb-4">
+                            <h5 className="text-lg font-semibold text-green-700 dark:text-green-300">Tipos de INGRESO</h5>
+                            <button
+                                onClick={() => addFondoType('INGRESO')}
+                                className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm flex items-center gap-2"
+                            >
+                                <Plus className="w-4 h-4" />
+                                Agregar
+                            </button>
+                        </div>
+                        <div className="space-y-2">
+                            {fondoTypesData
+                                .map((type, index) => ({ type, originalIndex: index }))
+                                .filter(({ type }) => type.category === 'INGRESO')
+                                .map(({ type, originalIndex }, relativeIndex, arr) => (
+                                    <div key={type.id || originalIndex} className="flex items-center gap-2 bg-white dark:bg-gray-800 p-3 rounded-md border border-green-300 dark:border-green-600">
+                                        <div className="flex flex-col gap-1">
+                                            <button
+                                                onClick={() => moveFondoTypeUp(originalIndex)}
+                                                disabled={relativeIndex === 0}
+                                                className="p-1 text-green-600 hover:text-green-800 disabled:opacity-30 disabled:cursor-not-allowed"
+                                                title="Mover arriba"
+                                            >
+                                                ▲
+                                            </button>
+                                            <button
+                                                onClick={() => moveFondoTypeDown(originalIndex)}
+                                                disabled={relativeIndex === arr.length - 1}
+                                                className="p-1 text-green-600 hover:text-green-800 disabled:opacity-30 disabled:cursor-not-allowed"
+                                                title="Mover abajo"
+                                            >
+                                                ▼
+                                            </button>
+                                        </div>
+                                        <input
+                                            type="text"
+                                            value={type.name}
+                                            onChange={(e) => updateFondoType(originalIndex, 'name', e.target.value)}
+                                            className="flex-1 px-3 py-2 border border-green-300 dark:border-green-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                                            placeholder="Nombre del tipo"
+                                        />
+                                        <button
+                                            onClick={() => removeFondoType(originalIndex)}
+                                            className="px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                                            title="Eliminar"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                ))}
+                        </div>
+                    </div>
+
+                    {/* Sección GASTO */}
+                    <div className="border border-orange-200 dark:border-orange-700 rounded-lg p-4 bg-orange-50 dark:bg-orange-900/10">
+                        <div className="flex justify-between items-center mb-4">
+                            <h5 className="text-lg font-semibold text-orange-700 dark:text-orange-300">Tipos de GASTO</h5>
+                            <button
+                                onClick={() => addFondoType('GASTO')}
+                                className="px-3 py-1 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors text-sm flex items-center gap-2"
+                            >
+                                <Plus className="w-4 h-4" />
+                                Agregar
+                            </button>
+                        </div>
+                        <div className="space-y-2">
+                            {fondoTypesData
+                                .map((type, index) => ({ type, originalIndex: index }))
+                                .filter(({ type }) => type.category === 'GASTO')
+                                .map(({ type, originalIndex }, relativeIndex, arr) => (
+                                    <div key={type.id || originalIndex} className="flex items-center gap-2 bg-white dark:bg-gray-800 p-3 rounded-md border border-orange-300 dark:border-orange-600">
+                                        <div className="flex flex-col gap-1">
+                                            <button
+                                                onClick={() => moveFondoTypeUp(originalIndex)}
+                                                disabled={relativeIndex === 0}
+                                                className="p-1 text-orange-600 hover:text-orange-800 disabled:opacity-30 disabled:cursor-not-allowed"
+                                                title="Mover arriba"
+                                            >
+                                                ▲
+                                            </button>
+                                            <button
+                                                onClick={() => moveFondoTypeDown(originalIndex)}
+                                                disabled={relativeIndex === arr.length - 1}
+                                                className="p-1 text-orange-600 hover:text-orange-800 disabled:opacity-30 disabled:cursor-not-allowed"
+                                                title="Mover abajo"
+                                            >
+                                                ▼
+                                            </button>
+                                        </div>
+                                        <input
+                                            type="text"
+                                            value={type.name}
+                                            onChange={(e) => updateFondoType(originalIndex, 'name', e.target.value)}
+                                            className="flex-1 px-3 py-2 border border-orange-300 dark:border-orange-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                                            placeholder="Nombre del tipo"
+                                        />
+                                        <button
+                                            onClick={() => removeFondoType(originalIndex)}
+                                            className="px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                                            title="Eliminar"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                ))}
+                        </div>
+                    </div>
+
+                    {/* Sección EGRESO */}
+                    <div className="border border-blue-200 dark:border-blue-700 rounded-lg p-4 bg-blue-50 dark:bg-blue-900/10">
+                        <div className="flex justify-between items-center mb-4">
+                            <h5 className="text-lg font-semibold text-blue-700 dark:text-blue-300">Tipos de EGRESO</h5>
+                            <button
+                                onClick={() => addFondoType('EGRESO')}
+                                className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm flex items-center gap-2"
+                            >
+                                <Plus className="w-4 h-4" />
+                                Agregar
+                            </button>
+                        </div>
+                        <div className="space-y-2">
+                            {fondoTypesData
+                                .map((type, index) => ({ type, originalIndex: index }))
+                                .filter(({ type }) => type.category === 'EGRESO')
+                                .map(({ type, originalIndex }, relativeIndex, arr) => (
+                                    <div key={type.id || originalIndex} className="flex items-center gap-2 bg-white dark:bg-gray-800 p-3 rounded-md border border-blue-300 dark:border-blue-600">
+                                        <div className="flex flex-col gap-1">
+                                            <button
+                                                onClick={() => moveFondoTypeUp(originalIndex)}
+                                                disabled={relativeIndex === 0}
+                                                className="p-1 text-blue-600 hover:text-blue-800 disabled:opacity-30 disabled:cursor-not-allowed"
+                                                title="Mover arriba"
+                                            >
+                                                ▲
+                                            </button>
+                                            <button
+                                                onClick={() => moveFondoTypeDown(originalIndex)}
+                                                disabled={relativeIndex === arr.length - 1}
+                                                className="p-1 text-blue-600 hover:text-blue-800 disabled:opacity-30 disabled:cursor-not-allowed"
+                                                title="Mover abajo"
+                                            >
+                                                ▼
+                                            </button>
+                                        </div>
+                                        <input
+                                            type="text"
+                                            value={type.name}
+                                            onChange={(e) => updateFondoType(originalIndex, 'name', e.target.value)}
+                                            className="flex-1 px-3 py-2 border border-blue-300 dark:border-blue-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                                            placeholder="Nombre del tipo"
+                                        />
+                                        <button
+                                            onClick={() => removeFondoType(originalIndex)}
+                                            className="px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                                            title="Eliminar"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                ))}
+                        </div>
+                    </div>
                 </div>
             )}
 

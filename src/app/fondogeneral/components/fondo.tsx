@@ -37,11 +37,12 @@ import { useAuth } from '../../../hooks/useAuth';
 import { useProviders } from '../../../hooks/useProviders';
 import { useEmail } from '../../../hooks/useEmail';
 import useToast from '../../../hooks/useToast';
-import type { UserPermissions, Empresas, User } from '../../../types/firestore';
+import type { UserPermissions, Empresas, User, FondoMovementTypeConfig } from '../../../types/firestore';
 import { getDefaultPermissions } from '../../../utils/permissions';
 import ConfirmModal from '../../../components/ui/ConfirmModal';
 import { EmpresasService } from '../../../services/empresas';
 import { UsersService } from '../../../services/users';
+import { FondoMovementTypesService } from '../../../services/fondo-movement-types';
 import { generateMovementNotificationEmail } from '../../../services/email-templates/notificacion-movimiento';
 import {
     MovimientosFondosService,
@@ -61,73 +62,33 @@ const MAX_LOCAL_MOVEMENTS = 500;
 // Límite máximo de ediciones permitidas por movimiento
 const MAX_AUDIT_EDITS = 5;
 
-export const FONDO_INGRESO_TYPES = ['VENTAS', 'OTROS INGRESOS'] as const;
+// Estos se inicializarán dinámicamente desde la base de datos
+export let FONDO_INGRESO_TYPES: readonly string[] = [];
+export let FONDO_GASTO_TYPES: readonly string[] = [];
+export let FONDO_EGRESO_TYPES: readonly string[] = [];
+export let FONDO_TYPE_OPTIONS: readonly string[] = [];
 
-export const FONDO_GASTO_TYPES = [
-    'SALARIOS',
-    'TELEFONOS',
-    'CARGAS SOCIALES',
-    'AGUINALDOS',
-    'VACACIONES',
-    'POLIZA RIESGOS DE TRABAJO',
-    'PAGO TIMBRE Y EDUCACION',
-    'PAGO IMPUESTOS A SOCIEDADES',
-    'PATENTES MUNICIPALES',
-    'ALQUILER LOCAL',
-    'ELECTRICIDAD',
-    'AGUA',
-    'INTERNET',
-    'MANTENIMIENTO INSTALACIONES',
-    'PAPELERIA Y UTILES',
-    'ASEO Y LIMPIEZA',
-    'REDES SOCIALES',
-    'MATERIALES DE EMPAQUE',
-    'CONTROL PLAGAS',
-    'MONITOREO DE ALARMAS',
-    'FACTURA ELECTRONICA',
-    'GASTOS VARIOS',
-    'TRANSPORTE',
-    'SERVICIOS PROFECIONALES',
-    'MANTENIMIENTO MOBILIARIO Y EQUIPO',
-] as const;
+let AUTO_ADJUSTMENT_MOVEMENT_TYPE_EGRESO = 'GASTOS VARIOS';
+let AUTO_ADJUSTMENT_MOVEMENT_TYPE_INGRESO = 'OTROS INGRESOS';
 
-const AUTO_ADJUSTMENT_MOVEMENT_TYPE_EGRESO = (FONDO_GASTO_TYPES as readonly string[]).find(
-    t => t.toUpperCase() === 'GASTOS VARIOS',
-) ?? FONDO_GASTO_TYPES[FONDO_GASTO_TYPES.length - 1];
-const AUTO_ADJUSTMENT_MOVEMENT_TYPE_INGRESO = (FONDO_INGRESO_TYPES as readonly string[]).find(
-    t => t.toUpperCase() === 'OTROS INGRESOS',
-) ?? FONDO_INGRESO_TYPES[FONDO_INGRESO_TYPES.length - 1];
-
-export const FONDO_EGRESO_TYPES = [
-    'EGRESOS VARIOS',
-    'PAGO TIEMPOS',
-    'PAGO BANCA',
-    'COMPRA INVENTARIO',
-    'COMPRA ACTIVOS',
-    'PAGO IMPUESTO RENTA',
-    'PAGO IMPUESTO IVA',
-    'RETIRO EFECTIVO'
-] as const;
-
-// Opciones visibles en el selector
-export const FONDO_TYPE_OPTIONS = [...FONDO_INGRESO_TYPES, ...FONDO_GASTO_TYPES, ...FONDO_EGRESO_TYPES] as const;
-
-export type FondoMovementType = typeof FONDO_INGRESO_TYPES[number] | typeof FONDO_GASTO_TYPES[number] | typeof FONDO_EGRESO_TYPES[number];
+export type FondoMovementType = string;
 
 const AUTO_ADJUSTMENT_PROVIDER_CODE = 'CIERRE DE FONDO GENERAL';
 const AUTO_ADJUSTMENT_PROVIDER_CODE_LEGACY = 'AJUSTE FONDO GENERAL'; // Para compatibilidad con datos antiguos
 const AUTO_ADJUSTMENT_MANAGER = 'SISTEMA';
 
 const CIERRE_FONDO_VENTAS_PROVIDER_NAME = 'CIERRE FONDO VENTAS';
+
 // Helper para verificar si un proveedor es un cierre/ajuste automático
 const isAutoAdjustmentProvider = (code: string) =>
     code === AUTO_ADJUSTMENT_PROVIDER_CODE || code === AUTO_ADJUSTMENT_PROVIDER_CODE_LEGACY;
+
 export const isFondoMovementType = (value: string): value is FondoMovementType =>
     FONDO_TYPE_OPTIONS.includes(value as FondoMovementType);
 
-export const isIngresoType = (type: FondoMovementType) => (FONDO_INGRESO_TYPES as readonly string[]).includes(type);
-export const isGastoType = (type: FondoMovementType) => (FONDO_GASTO_TYPES as readonly string[]).includes(type);
-export const isEgresoType = (type: FondoMovementType) => (FONDO_EGRESO_TYPES as readonly string[]).includes(type);
+export const isIngresoType = (type: FondoMovementType) => FONDO_INGRESO_TYPES.includes(type);
+export const isGastoType = (type: FondoMovementType) => FONDO_GASTO_TYPES.includes(type);
+export const isEgresoType = (type: FondoMovementType) => FONDO_EGRESO_TYPES.includes(type);
 
 // Formatea en Titulo Caso cada palabra
 export const formatMovementType = (type: FondoMovementType | string) => {
@@ -512,6 +473,9 @@ export const sanitizeFondoEntries = (
         const currency: MovementCurrencyKey = forcedCurrency ?? (entry.currency === 'USD' ? 'USD' : 'CRC');
         const accountId = forcedAccount ?? (isMovementAccountKey(entry.accountId) ? entry.accountId : undefined);
 
+        // Si los tipos aún no están cargados (arrays vacíos), preservar los montos originales
+        const typesLoaded = FONDO_INGRESO_TYPES.length > 0 || FONDO_GASTO_TYPES.length > 0 || FONDO_EGRESO_TYPES.length > 0;
+
         acc.push({
             id,
             providerCode,
@@ -519,8 +483,9 @@ export const sanitizeFondoEntries = (
             paymentType,
             currency,
             accountId,
-            amountEgreso: isEgresoType(paymentType) || isGastoType(paymentType) ? amountEgreso : 0,
-            amountIngreso: isIngresoType(paymentType) ? amountIngreso : 0,
+            // Si los tipos no están cargados, preservar los montos originales
+            amountEgreso: typesLoaded ? (isEgresoType(paymentType) || isGastoType(paymentType) ? amountEgreso : 0) : amountEgreso,
+            amountIngreso: typesLoaded ? (isIngresoType(paymentType) ? amountIngreso : 0) : amountIngreso,
             manager,
             notes: coerceNotes(entry.notes),
             createdAt,
@@ -646,6 +611,18 @@ export function ProviderSection({ id }: { id?: string }) {
     const [selectedAdminId, setSelectedAdminId] = useState<string>('');
     const [adminUsers, setAdminUsers] = useState<User[]>([]);
     const [loadingAdmins, setLoadingAdmins] = useState(false);
+    
+    // Estado para tipos de movimientos dinámicos
+    const [fondoTypesLoaded, setFondoTypesLoaded] = useState(false);
+    const [ingresoTypes, setIngresoTypes] = useState<string[]>([]);
+    const [gastoTypes, setGastoTypes] = useState<string[]>([]);
+    const [egresoTypes, setEgresoTypes] = useState<string[]>([]);
+    
+    // Computed: todos los tipos combinados
+    const allFondoTypes = useMemo(() => {
+        return [...ingresoTypes, ...gastoTypes, ...egresoTypes];
+    }, [ingresoTypes, gastoTypes, egresoTypes]);
+    
     const [confirmState, setConfirmState] = useState<{ open: boolean; code: string; name: string }>({
         open: false,
         code: '',
@@ -781,6 +758,72 @@ export function ProviderSection({ id }: { id?: string }) {
             isMounted = false;
         };
     }, [addNotification, user, selectedAdminId]);
+
+    // Cargar tipos de movimientos de fondo desde la base de datos (con caché y sincronización en tiempo real)
+    useEffect(() => {
+        let isMounted = true;
+        
+        // Función para cargar y actualizar tipos
+        const loadTypes = async () => {
+            try {
+                const types = await FondoMovementTypesService.getMovementTypesByCategoriesWithCache();
+                
+                if (!isMounted) return;
+                
+                setIngresoTypes(types.INGRESO);
+                setGastoTypes(types.GASTO);
+                setEgresoTypes(types.EGRESO);
+                setFondoTypesLoaded(true);
+                
+                // Actualizar las variables globales para compatibilidad
+                FONDO_INGRESO_TYPES = types.INGRESO;
+                FONDO_GASTO_TYPES = types.GASTO;
+                FONDO_EGRESO_TYPES = types.EGRESO;
+                FONDO_TYPE_OPTIONS = [...types.INGRESO, ...types.GASTO, ...types.EGRESO];
+                
+                // Actualizar los tipos de ajuste automático
+                AUTO_ADJUSTMENT_MOVEMENT_TYPE_EGRESO = types.GASTO.find(
+                    t => t.toUpperCase() === 'GASTOS VARIOS'
+                ) ?? types.GASTO[types.GASTO.length - 1] ?? '';
+                AUTO_ADJUSTMENT_MOVEMENT_TYPE_INGRESO = types.INGRESO.find(
+                    t => t.toUpperCase() === 'OTROS INGRESOS'
+                ) ?? types.INGRESO[types.INGRESO.length - 1] ?? '';
+                
+                console.log('[FondoTypes] Loaded:', types);
+            } catch (err) {
+                console.error('Error loading fondo movement types:', err);
+                if (isMounted) {
+                    setFondoTypesLoaded(true);
+                }
+            }
+        };
+
+        // Listener para actualizaciones en tiempo real desde el caché
+        const handleFondoTypesUpdate = (event: Event) => {
+            const customEvent = event as CustomEvent<{ 
+                types: FondoMovementTypeConfig[]; 
+                version: number; 
+            }>;
+            
+            if (!isMounted) return;
+
+            console.log('[FondoTypes] Cache updated, reloading types...');
+            
+            // Recargar tipos cuando el caché se actualiza
+            loadTypes();
+        };
+
+        // Cargar tipos iniciales (desde caché o DB)
+        loadTypes();
+
+        // Escuchar actualizaciones en tiempo real
+        window.addEventListener('fondoMovementTypesUpdated', handleFondoTypesUpdate);
+        
+        return () => {
+            isMounted = false;
+            window.removeEventListener('fondoMovementTypesUpdated', handleFondoTypesUpdate);
+        };
+    }, []);
 
     const handleAdminCompanyChange = useCallback((value: string) => {
         if (!isAdminUser) return;
@@ -1174,17 +1217,17 @@ export function ProviderSection({ id }: { id?: string }) {
                             >
                                 <option value="">Seleccione un tipo</option>
                                 <optgroup label="Ingresos">
-                                    {FONDO_INGRESO_TYPES.map(opt => (
+                                    {ingresoTypes.map(opt => (
                                         <option key={opt} value={opt}>{formatMovementType(opt)}</option>
                                     ))}
                                 </optgroup>
                                 <optgroup label="Gastos">
-                                    {FONDO_GASTO_TYPES.map(opt => (
+                                    {gastoTypes.map(opt => (
                                         <option key={opt} value={opt}>{formatMovementType(opt)}</option>
                                     ))}
                                 </optgroup>
                                 <optgroup label="Egresos">
-                                    {FONDO_EGRESO_TYPES.map(opt => (
+                                    {egresoTypes.map(opt => (
                                         <option key={opt} value={opt}>{formatMovementType(opt)}</option>
                                     ))}
                                 </optgroup>
@@ -1533,6 +1576,8 @@ export function FondoSection({
     const isComponentMountedRef = useRef(true);
     const loadedDailyClosingKeysRef = useRef<Set<string>>(new Set());
     const loadingDailyClosingKeysRef = useRef<Set<string>>(new Set());
+    const lastEditSaveTimestampRef = useRef<number>(0);
+    const editingInProgressRef = useRef<boolean>(false);
 
     const [pageSize, setPageSize] = useState<'daily' | number | 'all'>(() => {
         if (typeof window !== 'undefined') {
@@ -1912,11 +1957,12 @@ export function FondoSection({
     useEffect(() => {
         const normalizedCompany = (company || '').trim();
         const normalizedCompanyLower = normalizedCompany.toLowerCase();
-        if (normalizedCompany.length === 0) {
-            setFondoEntries([]);
-            setEntriesHydrated(true);
+        
+        // NO cargar movimientos si los tipos aún no están listos
+        if (normalizedCompany.length === 0 || FONDO_TYPE_OPTIONS.length === 0) {
+            setEntriesHydrated(false);
             setHydratedCompany('');
-            setHydratedAccountKey(accountKey);
+            setFondoEntries([]);
             storageSnapshotRef.current = null;
             return;
         }
@@ -2111,7 +2157,7 @@ export function FondoSection({
         return () => {
             isMounted = false;
         };
-    }, [namespace, resolvedOwnerId, company, applyLedgerStateFromStorage, accountKey]);
+    }, [namespace, resolvedOwnerId, company, applyLedgerStateFromStorage, accountKey, FONDO_TYPE_OPTIONS.length]);
 
     useEffect(() => {
         if (!entriesHydrated || providers.length === 0 || fondoEntries.length === 0) {
@@ -2715,8 +2761,13 @@ export function FondoSection({
                 if (!saved) {
                     showToast('Error al guardar el movimiento. Por favor, intente de nuevo.', 'error', 5000);
                     setIsSaving(false);
-                    return; // NO actualizar la UI si falló el guardado
+                    editingInProgressRef.current = false;
+                    return;
                 }
+
+                // Registrar timestamp de la última edición guardada
+                lastEditSaveTimestampRef.current = Date.now();
+                editingInProgressRef.current = false;
 
                 // Solo actualizar la UI si el guardado fue exitoso
                 setFondoEntries(updatedEntries);
@@ -2782,8 +2833,12 @@ export function FondoSection({
             if (!saved) {
                 showToast('Error al guardar el movimiento. Por favor, intente de nuevo.', 'error', 5000);
                 setIsSaving(false);
+                editingInProgressRef.current = false;
                 return; // NO mostrar el movimiento si falló el guardado
             }
+
+            // Limpiar flag de edición en progreso
+            editingInProgressRef.current = false;
 
             // Solo actualizar la UI si el guardado fue exitoso
             setFondoEntries(updatedEntries);
@@ -2810,6 +2865,23 @@ export function FondoSection({
     };
 
     const startEditingEntry = (entry: FondoEntry) => {
+        // Verificar si hay una edición en progreso o guardada recientemente (últimos 2 segundos)
+        const now = Date.now();
+        const timeSinceLastEdit = now - lastEditSaveTimestampRef.current;
+        
+        if (editingInProgressRef.current) {
+            showToast('Ya hay una edición en progreso. Completa o cancela la edición actual antes de editar otro movimiento.', 'warning', 5000);
+            return;
+        }
+        
+        if (timeSinceLastEdit < 2000) {
+            showToast('Debes esperar un momento antes de editar otro movimiento.', 'warning', 4000);
+            return;
+        }
+        
+        // Marcar que hay una edición en progreso
+        editingInProgressRef.current = true;
+        
         // Allow editing of entries even if previously edited; we accumulate audit history.
         setEditingEntryId(entry.id);
         setSelectedProvider(entry.providerCode);
@@ -2907,6 +2979,7 @@ export function FondoSection({
     };
 
     const cancelEditing = () => {
+        editingInProgressRef.current = false;
         resetFondoForm();
     };
 
