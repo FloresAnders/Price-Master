@@ -1272,7 +1272,7 @@ export default function DataEditor() {
     };
 
     return (
-        <div className="max-w-7xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-3 sm:p-4 md:p-6">            {/* Loading Modal */}
+        <div className="w-full max-w-7xl mx-auto bg-[var(--card-bg)] rounded-lg shadow py-3 px-2 sm:py-4 sm:px-3 md:py-6 md:px-4 lg:px-6">            {/* Loading Modal */}
             {isSaving && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-fade-in">
                     <div className="bg-[var(--card-bg)] rounded-xl p-8 flex flex-col items-center justify-center shadow-2xl border border-[var(--input-border)] max-w-sm mx-4 animate-scale-in">
@@ -1306,93 +1306,78 @@ export default function DataEditor() {
 
 
             {/* File Tabs */}
-            <div className="mb-6">
-                <div className="border-b border-[var(--input-border)]">
-                    <nav className="flex flex-wrap gap-1 sm:gap-2 md:flex-nowrap md:overflow-x-auto md:space-x-2 lg:space-x-4 xl:space-x-8 -mb-px">
+            <div className="mb-4 sm:mb-6">
+                <div className="border-b border-[var(--input-border)] overflow-x-auto scrollbar-hide">
+                    <nav className="flex gap-1 sm:gap-2 -mb-px min-w-max">
                         <button
                             onClick={() => setActiveFile('users')}
-                            className={`py-2 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-1 sm:gap-2 whitespace-nowrap ${activeFile === 'users'
+                            className={`py-1.5 sm:py-2 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-1 sm:gap-2 whitespace-nowrap transition-colors ${activeFile === 'users'
                                 ? 'border-blue-500 text-blue-600'
                                 : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-[var(--border)]'
                                 }`}
                         >
-                            <Users className="w-3 h-3 sm:w-4 sm:h-4" />
-                            <span className="hidden xs:inline">Usuarios</span>
-                            <span className="xs:hidden">Users</span>
-                            ({usersData.length})
+                            <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            <span>Usuarios ({usersData.length})</span>
                         </button>
                         <button
                             onClick={() => setActiveFile('sorteos')}
-                            className={`py-2 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-1 sm:gap-2 whitespace-nowrap ${activeFile === 'sorteos'
+                            className={`py-1.5 sm:py-2 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-1 sm:gap-2 whitespace-nowrap transition-colors ${activeFile === 'sorteos'
                                 ? 'border-blue-500 text-blue-600'
                                 : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-[var(--border)]'
                                 }`}
                         >
-                            <FileText className="w-3 h-3 sm:w-4 sm:h-4" />
-                            <span className="hidden xs:inline">Sorteos</span>
-                            <span className="xs:hidden">Draws</span>
-                            ({sorteosData.length})
+                            <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            <span>Sorteos ({sorteosData.length})</span>
                         </button>
                         <button
                             onClick={() => setActiveFile('schedules')}
-                            className={`py-2 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-1 sm:gap-2 whitespace-nowrap ${activeFile === 'schedules'
+                            className={`py-1.5 sm:py-2 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-1 sm:gap-2 whitespace-nowrap transition-colors ${activeFile === 'schedules'
                                 ? 'border-blue-500 text-blue-600'
                                 : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-[var(--border)]'
                                 }`}
                         >
-                            <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
-                            <span className="hidden xs:inline">Planilla</span>
-                            <span className="xs:hidden">Payroll</span>
+                            <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            <span>Planilla</span>
                         </button>
                         <button
                             onClick={() => setActiveFile('ccss')}
-                            className={`py-2 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-1 sm:gap-2 whitespace-nowrap ${activeFile === 'ccss'
+                            className={`py-1.5 sm:py-2 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-1 sm:gap-2 whitespace-nowrap transition-colors ${activeFile === 'ccss'
                                 ? 'border-blue-500 text-blue-600'
                                 : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-[var(--border)]'
                                 }`}
                         >
-                            <DollarSign className="w-3 h-3 sm:w-4 sm:h-4" />
-                            <span className="hidden xs:inline">Pago CCSS</span>
-                            <span className="xs:hidden">CCSS</span>
-                            ({ccssConfigsData.length})
+                            <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            <span>CCSS ({ccssConfigsData.length})</span>
                         </button>
                         <button
                             onClick={() => setActiveFile('empresas')}
-                            className={`py-2 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-1 sm:gap-2 whitespace-nowrap ${activeFile === 'empresas'
+                            className={`py-1.5 sm:py-2 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-1 sm:gap-2 whitespace-nowrap transition-colors ${activeFile === 'empresas'
                                 ? 'border-blue-500 text-blue-600'
                                 : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-[var(--border)]'
                                 }`}
                         >
-                            <Users className="w-3 h-3 sm:w-4 sm:h-4" />
-                            <span className="hidden xs:inline">Empresas</span>
-                            <span className="xs:hidden">Companies</span>
-                            ({empresasData.length})
+                            <Building className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            <span>Empresas ({empresasData.length})</span>
                         </button>
                         {currentUser?.role === 'superadmin' && (
                             <button
                                 onClick={() => setActiveFile('fondoTypes')}
-                                className={`py-2 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-1 sm:gap-2 whitespace-nowrap ${activeFile === 'fondoTypes'
+                                className={`py-1.5 sm:py-2 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-1 sm:gap-2 whitespace-nowrap transition-colors ${activeFile === 'fondoTypes'
                                     ? 'border-blue-500 text-blue-600'
                                     : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-[var(--border)]'
                                     }`}
                             >
-                                <List className="w-3 h-3 sm:w-4 sm:h-4" />
-                                <span className="hidden xs:inline">Tipos Fondo</span>
-                                <span className="xs:hidden">Fund Types</span>
-                                ({fondoTypesData.length})
+                                <List className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                <span>Tipos Fondo ({fondoTypesData.length})</span>
                             </button>
                         )}
-                        <div className="flex flex-wrap items-center gap-1 sm:gap-2 w-full sm:w-auto justify-end md:justify-start md:ml-auto">
-
-                            <button
-                                onClick={openExportModal}
-                                className="px-2 py-1 sm:px-3 sm:py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1 sm:gap-2 transition-colors text-xs sm:text-sm whitespace-nowrap"
-                            >
-                                <Download className="w-3 h-3 sm:w-4 sm:h-4" />
-                                <span className="hidden sm:inline">Exportar</span>
-                                <span className="sm:hidden">Export</span>
-                            </button>
-                        </div>
+                        <button
+                            onClick={openExportModal}
+                            className="py-1.5 sm:py-2 px-2 sm:px-3 rounded-md bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1 sm:gap-2 transition-colors text-xs sm:text-sm whitespace-nowrap ml-auto"
+                        >
+                            <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            <span>Exportar</span>
+                        </button>
                     </nav>
 
                 </div>
@@ -1403,29 +1388,28 @@ export default function DataEditor() {
 
 
             {activeFile === 'empresas' && (
-                <div className="space-y-4">
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mb-4 sm:mb-6">
+                <div className="space-y-3 sm:space-y-4">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
                         <div>
-                            <h4 className="text-lg sm:text-xl font-semibold">Configuración de Empresas</h4>
-                            <p className="text-sm text-[var(--muted-foreground)] mt-1">
+                            <h4 className="text-base sm:text-lg lg:text-xl font-semibold">Configuración de Empresas</h4>
+                            <p className="text-xs sm:text-sm text-[var(--muted-foreground)] mt-0.5 sm:mt-1">
                                 Gestiona las empresas y sus configuraciones
                             </p>
                         </div>
                         <button
                             onClick={() => setEmpresasData(prev => [...prev, { ownerId: currentUser && currentUser.eliminate === false ? currentUser.id : '', name: '', ubicacion: '', empleados: [{ Empleado: '', hoursPerShift: 8, extraAmount: 0, ccssType: 'TC' }] }])}
-                            className="px-4 py-2 sm:px-6 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm sm:text-base w-full sm:w-auto flex items-center justify-center gap-2"
+                            className="px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-xs sm:text-sm w-full sm:w-auto flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap"
                         >
-                            <Plus className="w-4 h-4" />
-                            <span className="hidden sm:inline">Agregar Empresa</span>
-                            <span className="sm:hidden">Empresa</span>
+                            <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            <span>Agregar Empresa</span>
                         </button>
                     </div>
 
                     {empresasData.map((empresa, idx) => (
-                        <div key={empresa.id || idx} className="border border-[var(--input-border)] rounded-lg p-3 sm:p-4 md:p-6 relative">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
-                                <div className="md:col-span-2">
-                                    <label className="block text-sm font-medium mb-1">Nombre de la empresa:</label>
+                        <div key={empresa.id || idx} className="border border-[var(--input-border)] rounded-lg p-2.5 sm:p-4 lg:p-5 relative">
+                            <div className="grid grid-cols-1 gap-3 sm:gap-4 mb-3 sm:mb-4">
+                                <div>
+                                    <label className="block text-xs sm:text-sm font-medium mb-1">Nombre de la empresa:</label>
                                     <input
                                         type="text"
                                         value={empresa.name || ''}
@@ -1434,12 +1418,12 @@ export default function DataEditor() {
                                             copy[idx] = { ...copy[idx], name: e.target.value };
                                             setEmpresasData(copy);
                                         }}
-                                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
+                                        className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
                                         style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
                                     />
                                 </div>
-                                <div className="md:col-span-2">
-                                    <label className="block text-sm font-medium mb-1">Ubicación:</label>
+                                <div>
+                                    <label className="block text-xs sm:text-sm font-medium mb-1">Ubicación:</label>
                                     <input
                                         type="text"
                                         value={empresa.ubicacion || ''}
@@ -1448,15 +1432,15 @@ export default function DataEditor() {
                                             copy[idx] = { ...copy[idx], ubicacion: e.target.value };
                                             setEmpresasData(copy);
                                         }}
-                                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
+                                        className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
                                         style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
                                     />
                                 </div>
                             </div>
 
-                            <div className="mt-6">
-                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
-                                    <label className="block text-sm sm:text-base font-medium">Empleados:</label>
+                            <div className="mt-4 sm:mt-5">
+                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-3">
+                                    <label className="block text-xs sm:text-sm font-medium">Empleados:</label>
                                     <button
                                         onClick={() => {
                                             const copy = [...empresasData];
@@ -1464,20 +1448,19 @@ export default function DataEditor() {
                                             copy[idx].empleados.push({ Empleado: '', 'Horas por turno': 8, 'Monto extra': 0, 'ccssType ': '' });
                                             setEmpresasData(copy);
                                         }}
-                                        className="text-sm bg-green-600 text-white px-3 py-2 rounded-md hover:bg-green-700 transition-colors w-full sm:w-auto flex items-center justify-center gap-2"
+                                        className="text-xs sm:text-sm bg-green-600 text-white px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-md hover:bg-green-700 transition-colors w-full sm:w-auto flex items-center justify-center gap-1.5 whitespace-nowrap"
                                     >
-                                        <Plus className="w-4 h-4" />
-                                        <span className="hidden sm:inline">Agregar Empleado</span>
-                                        <span className="sm:hidden">Empleado</span>
+                                        <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                        <span>Agregar Empleado</span>
                                     </button>
                                 </div>
 
-                                <div className="space-y-4">
+                                <div className="space-y-2 sm:space-y-3">
                                     {empresa.empleados?.map((emp: any, eIdx: number) => (
-                                        <div key={eIdx} className="p-3 sm:p-4 border border-[var(--input-border)] rounded-lg bg-[var(--card-bg)]">
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 items-end">
-                                                <div className="sm:col-span-2 lg:col-span-2">
-                                                    <label className="block text-xs sm:text-sm font-medium mb-1">Empleado</label>
+                                        <div key={eIdx} className="p-2 sm:p-3 border border-[var(--input-border)] rounded-lg bg-[var(--card-bg)]">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+                                                <div className="sm:col-span-2">
+                                                    <label className="block text-[10px] sm:text-xs font-medium mb-1">Empleado</label>
                                                     <input
                                                         type="text"
                                                         value={emp.Empleado}
@@ -1486,13 +1469,13 @@ export default function DataEditor() {
                                                             copy[idx].empleados[eIdx].Empleado = ev.target.value;
                                                             setEmpresasData(copy);
                                                         }}
-                                                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md text-sm"
+                                                        className="w-full px-2 sm:px-2.5 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
                                                         style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                                        placeholder="Nombre del empleado"
+                                                        placeholder="Nombre"
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label className="block text-xs sm:text-sm font-medium mb-1">Horas por turno</label>
+                                                    <label className="block text-[10px] sm:text-xs font-medium mb-1">Horas/turno</label>
                                                     <input
                                                         type="number"
                                                         value={emp.hoursPerShift ?? 8}
@@ -1501,14 +1484,14 @@ export default function DataEditor() {
                                                             copy[idx].empleados[eIdx].hoursPerShift = parseInt(ev.target.value) || 0;
                                                             setEmpresasData(copy);
                                                         }}
-                                                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md text-sm"
+                                                        className="w-full px-2 sm:px-2.5 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
                                                         style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
                                                         min="0"
                                                         step="0.5"
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label className="block text-xs sm:text-sm font-medium mb-1">Monto extra</label>
+                                                    <label className="block text-[10px] sm:text-xs font-medium mb-1">Monto extra</label>
                                                     <input
                                                         type="number"
                                                         value={emp.extraAmount ?? 0}
@@ -1517,14 +1500,14 @@ export default function DataEditor() {
                                                             copy[idx].empleados[eIdx].extraAmount = parseFloat(ev.target.value) || 0;
                                                             setEmpresasData(copy);
                                                         }}
-                                                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md text-sm"
+                                                        className="w-full px-2 sm:px-2.5 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
                                                         style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
                                                         min="0"
                                                         step="0.01"
                                                     />
                                                 </div>
-                                                <div className="sm:col-span-2 lg:col-span-1">
-                                                    <label className="block text-xs sm:text-sm font-medium mb-1">Tipo CCSS</label>
+                                                <div className="sm:col-span-2">
+                                                    <label className="block text-[10px] sm:text-xs font-medium mb-1">Tipo CCSS</label>
                                                     <select
                                                         value={emp.ccssType || 'TC'}
                                                         onChange={(ev) => {
@@ -1532,14 +1515,14 @@ export default function DataEditor() {
                                                             copy[idx].empleados[eIdx].ccssType = ev.target.value;
                                                             setEmpresasData(copy);
                                                         }}
-                                                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md text-sm"
+                                                        className="w-full px-2 sm:px-2.5 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
                                                         style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
                                                     >
                                                         <option value="TC">Tiempo Completo</option>
                                                         <option value="MT">Medio Tiempo</option>
                                                     </select>
                                                 </div>
-                                                <div className="flex justify-end mt-3 pt-3 border-t border-[var(--input-border)]">
+                                                <div className="sm:col-span-2 flex justify-end mt-2 pt-2 border-t border-[var(--input-border)]">
                                                     <button
                                                         onClick={() => {
                                                             openConfirmModal(
@@ -1672,57 +1655,57 @@ export default function DataEditor() {
             )}
 
             {activeFile === 'fondoTypes' && currentUser?.role === 'superadmin' && (
-                <div className="space-y-6">
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mb-4 sm:mb-6">
+                <div className="space-y-3 sm:space-y-4 lg:space-y-6">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
                         <div>
-                            <h4 className="text-lg sm:text-xl font-semibold">Tipos de Movimientos de Fondo</h4>
-                            <p className="text-sm text-[var(--muted-foreground)] mt-1">
-                                Gestiona los tipos de movimientos disponibles para Ingresos, Gastos y Egresos
+                            <h4 className="text-base sm:text-lg lg:text-xl font-semibold">Tipos de Movimientos de Fondo</h4>
+                            <p className="text-xs sm:text-sm text-[var(--muted-foreground)] mt-0.5 sm:mt-1">
+                                Gestiona los tipos de movimientos disponibles
                             </p>
                         </div>
                         {fondoTypesData.length === 0 && (
                             <button
                                 onClick={seedFondoTypes}
-                                className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors text-sm flex items-center gap-2"
+                                className="px-3 py-1.5 sm:px-4 sm:py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors text-xs sm:text-sm flex items-center justify-center gap-1.5 sm:gap-2 w-full sm:w-auto whitespace-nowrap"
                             >
-                                <Plus className="w-4 h-4" />
+                                <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                 Inicializar Tipos
                             </button>
                         )}
                     </div>
 
                     {/* Sección INGRESO */}
-                    <div className="border border-green-200 dark:border-green-700 rounded-lg p-4 bg-green-50 dark:bg-green-900/10">
-                        <div className="flex justify-between items-center mb-4">
-                            <h5 className="text-lg font-semibold text-green-700 dark:text-green-300">Tipos de INGRESO</h5>
+                    <div className="border border-green-200 dark:border-green-700 rounded-lg p-2.5 sm:p-3 lg:p-4 bg-green-50 dark:bg-green-900/10">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2 sm:mb-3">
+                            <h5 className="text-sm sm:text-base lg:text-lg font-semibold text-green-700 dark:text-green-300">INGRESO</h5>
                             <button
                                 onClick={() => addFondoType('INGRESO')}
-                                className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm flex items-center gap-2"
+                                className="px-2.5 sm:px-3 py-1 sm:py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-xs sm:text-sm flex items-center justify-center gap-1 sm:gap-1.5 w-full sm:w-auto whitespace-nowrap"
                             >
-                                <Plus className="w-4 h-4" />
+                                <Plus className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                                 Agregar
                             </button>
                         </div>
-                        <div className="space-y-2">
+                        <div className="space-y-1.5 sm:space-y-2">
                             {fondoTypesData
                                 .map((type, index) => ({ type, originalIndex: index }))
                                 .filter(({ type }) => type.category === 'INGRESO')
                                 .map(({ type, originalIndex }, relativeIndex, arr) => (
-                                    <div key={type.id || originalIndex} className="flex items-center gap-2 bg-white dark:bg-gray-800 p-3 rounded-md border border-green-300 dark:border-green-600">
-                                        <div className="flex flex-col gap-1">
+                                    <div key={type.id || originalIndex} className="flex items-center gap-1.5 sm:gap-2 bg-white dark:bg-gray-800 p-2 sm:p-2.5 lg:p-3 rounded-md border border-green-300 dark:border-green-600">
+                                        <div className="flex flex-col gap-0.5 sm:gap-1 flex-shrink-0">
                                             <button
                                                 onClick={() => moveFondoTypeUp(originalIndex)}
                                                 disabled={relativeIndex === 0}
-                                                className="p-1 text-green-600 hover:text-green-800 disabled:opacity-30 disabled:cursor-not-allowed"
-                                                title="Mover arriba"
+                                                className="p-0.5 sm:p-1 text-green-600 hover:text-green-800 disabled:opacity-30 disabled:cursor-not-allowed text-xs sm:text-sm"
+                                                title="Arriba"
                                             >
                                                 ▲
                                             </button>
                                             <button
                                                 onClick={() => moveFondoTypeDown(originalIndex)}
                                                 disabled={relativeIndex === arr.length - 1}
-                                                className="p-1 text-green-600 hover:text-green-800 disabled:opacity-30 disabled:cursor-not-allowed"
-                                                title="Mover abajo"
+                                                className="p-0.5 sm:p-1 text-green-600 hover:text-green-800 disabled:opacity-30 disabled:cursor-not-allowed text-xs sm:text-sm"
+                                                title="Abajo"
                                             >
                                                 ▼
                                             </button>
@@ -1731,15 +1714,15 @@ export default function DataEditor() {
                                             type="text"
                                             value={type.name}
                                             onChange={(e) => updateFondoType(originalIndex, 'name', e.target.value)}
-                                            className="flex-1 px-3 py-2 border border-green-300 dark:border-green-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                                            placeholder="Nombre del tipo"
+                                            className="flex-1 min-w-0 px-2 sm:px-2.5 lg:px-3 py-1.5 sm:py-2 border border-green-300 dark:border-green-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-xs sm:text-sm"
+                                            placeholder="Nombre"
                                         />
                                         <button
                                             onClick={() => removeFondoType(originalIndex)}
-                                            className="px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                                            className="p-1.5 sm:px-2.5 sm:py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors flex-shrink-0"
                                             title="Eliminar"
                                         >
-                                            <Trash2 className="w-4 h-4" />
+                                            <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                         </button>
                                     </div>
                                 ))}
@@ -1747,37 +1730,37 @@ export default function DataEditor() {
                     </div>
 
                     {/* Sección GASTO */}
-                    <div className="border border-orange-200 dark:border-orange-700 rounded-lg p-4 bg-orange-50 dark:bg-orange-900/10">
-                        <div className="flex justify-between items-center mb-4">
-                            <h5 className="text-lg font-semibold text-orange-700 dark:text-orange-300">Tipos de GASTO</h5>
+                    <div className="border border-orange-200 dark:border-orange-700 rounded-lg p-2.5 sm:p-3 lg:p-4 bg-orange-50 dark:bg-orange-900/10">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2 sm:mb-3">
+                            <h5 className="text-sm sm:text-base lg:text-lg font-semibold text-orange-700 dark:text-orange-300">GASTO</h5>
                             <button
                                 onClick={() => addFondoType('GASTO')}
-                                className="px-3 py-1 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors text-sm flex items-center gap-2"
+                                className="px-2.5 sm:px-3 py-1 sm:py-1.5 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors text-xs sm:text-sm flex items-center justify-center gap-1 sm:gap-1.5 w-full sm:w-auto whitespace-nowrap"
                             >
-                                <Plus className="w-4 h-4" />
+                                <Plus className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                                 Agregar
                             </button>
                         </div>
-                        <div className="space-y-2">
+                        <div className="space-y-1.5 sm:space-y-2">
                             {fondoTypesData
                                 .map((type, index) => ({ type, originalIndex: index }))
                                 .filter(({ type }) => type.category === 'GASTO')
                                 .map(({ type, originalIndex }, relativeIndex, arr) => (
-                                    <div key={type.id || originalIndex} className="flex items-center gap-2 bg-white dark:bg-gray-800 p-3 rounded-md border border-orange-300 dark:border-orange-600">
-                                        <div className="flex flex-col gap-1">
+                                    <div key={type.id || originalIndex} className="flex items-center gap-1.5 sm:gap-2 bg-white dark:bg-gray-800 p-2 sm:p-2.5 lg:p-3 rounded-md border border-orange-300 dark:border-orange-600">
+                                        <div className="flex flex-col gap-0.5 sm:gap-1 flex-shrink-0">
                                             <button
                                                 onClick={() => moveFondoTypeUp(originalIndex)}
                                                 disabled={relativeIndex === 0}
-                                                className="p-1 text-orange-600 hover:text-orange-800 disabled:opacity-30 disabled:cursor-not-allowed"
-                                                title="Mover arriba"
+                                                className="p-0.5 sm:p-1 text-orange-600 hover:text-orange-800 disabled:opacity-30 disabled:cursor-not-allowed text-xs sm:text-sm"
+                                                title="Arriba"
                                             >
                                                 ▲
                                             </button>
                                             <button
                                                 onClick={() => moveFondoTypeDown(originalIndex)}
                                                 disabled={relativeIndex === arr.length - 1}
-                                                className="p-1 text-orange-600 hover:text-orange-800 disabled:opacity-30 disabled:cursor-not-allowed"
-                                                title="Mover abajo"
+                                                className="p-0.5 sm:p-1 text-orange-600 hover:text-orange-800 disabled:opacity-30 disabled:cursor-not-allowed text-xs sm:text-sm"
+                                                title="Abajo"
                                             >
                                                 ▼
                                             </button>
@@ -1786,15 +1769,15 @@ export default function DataEditor() {
                                             type="text"
                                             value={type.name}
                                             onChange={(e) => updateFondoType(originalIndex, 'name', e.target.value)}
-                                            className="flex-1 px-3 py-2 border border-orange-300 dark:border-orange-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                                            placeholder="Nombre del tipo"
+                                            className="flex-1 min-w-0 px-2 sm:px-2.5 lg:px-3 py-1.5 sm:py-2 border border-orange-300 dark:border-orange-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-xs sm:text-sm"
+                                            placeholder="Nombre"
                                         />
                                         <button
                                             onClick={() => removeFondoType(originalIndex)}
-                                            className="px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                                            className="p-1.5 sm:px-2.5 sm:py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors flex-shrink-0"
                                             title="Eliminar"
                                         >
-                                            <Trash2 className="w-4 h-4" />
+                                            <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                         </button>
                                     </div>
                                 ))}
@@ -1802,37 +1785,37 @@ export default function DataEditor() {
                     </div>
 
                     {/* Sección EGRESO */}
-                    <div className="border border-blue-200 dark:border-blue-700 rounded-lg p-4 bg-blue-50 dark:bg-blue-900/10">
-                        <div className="flex justify-between items-center mb-4">
-                            <h5 className="text-lg font-semibold text-blue-700 dark:text-blue-300">Tipos de EGRESO</h5>
+                    <div className="border border-blue-200 dark:border-blue-700 rounded-lg p-2.5 sm:p-3 lg:p-4 bg-blue-50 dark:bg-blue-900/10">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2 sm:mb-3">
+                            <h5 className="text-sm sm:text-base lg:text-lg font-semibold text-blue-700 dark:text-blue-300">EGRESO</h5>
                             <button
                                 onClick={() => addFondoType('EGRESO')}
-                                className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm flex items-center gap-2"
+                                className="px-2.5 sm:px-3 py-1 sm:py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-xs sm:text-sm flex items-center justify-center gap-1 sm:gap-1.5 w-full sm:w-auto whitespace-nowrap"
                             >
-                                <Plus className="w-4 h-4" />
+                                <Plus className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                                 Agregar
                             </button>
                         </div>
-                        <div className="space-y-2">
+                        <div className="space-y-1.5 sm:space-y-2">
                             {fondoTypesData
                                 .map((type, index) => ({ type, originalIndex: index }))
                                 .filter(({ type }) => type.category === 'EGRESO')
                                 .map(({ type, originalIndex }, relativeIndex, arr) => (
-                                    <div key={type.id || originalIndex} className="flex items-center gap-2 bg-white dark:bg-gray-800 p-3 rounded-md border border-blue-300 dark:border-blue-600">
-                                        <div className="flex flex-col gap-1">
+                                    <div key={type.id || originalIndex} className="flex items-center gap-1.5 sm:gap-2 bg-white dark:bg-gray-800 p-2 sm:p-2.5 lg:p-3 rounded-md border border-blue-300 dark:border-blue-600">
+                                        <div className="flex flex-col gap-0.5 sm:gap-1 flex-shrink-0">
                                             <button
                                                 onClick={() => moveFondoTypeUp(originalIndex)}
                                                 disabled={relativeIndex === 0}
-                                                className="p-1 text-blue-600 hover:text-blue-800 disabled:opacity-30 disabled:cursor-not-allowed"
-                                                title="Mover arriba"
+                                                className="p-0.5 sm:p-1 text-blue-600 hover:text-blue-800 disabled:opacity-30 disabled:cursor-not-allowed text-xs sm:text-sm"
+                                                title="Arriba"
                                             >
                                                 ▲
                                             </button>
                                             <button
                                                 onClick={() => moveFondoTypeDown(originalIndex)}
                                                 disabled={relativeIndex === arr.length - 1}
-                                                className="p-1 text-blue-600 hover:text-blue-800 disabled:opacity-30 disabled:cursor-not-allowed"
-                                                title="Mover abajo"
+                                                className="p-0.5 sm:p-1 text-blue-600 hover:text-blue-800 disabled:opacity-30 disabled:cursor-not-allowed text-xs sm:text-sm"
+                                                title="Abajo"
                                             >
                                                 ▼
                                             </button>
@@ -1841,15 +1824,15 @@ export default function DataEditor() {
                                             type="text"
                                             value={type.name}
                                             onChange={(e) => updateFondoType(originalIndex, 'name', e.target.value)}
-                                            className="flex-1 px-3 py-2 border border-blue-300 dark:border-blue-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                                            placeholder="Nombre del tipo"
+                                            className="flex-1 min-w-0 px-2 sm:px-2.5 lg:px-3 py-1.5 sm:py-2 border border-blue-300 dark:border-blue-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-xs sm:text-sm"
+                                            placeholder="Nombre"
                                         />
                                         <button
                                             onClick={() => removeFondoType(originalIndex)}
-                                            className="px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                                            className="p-1.5 sm:px-2.5 sm:py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors flex-shrink-0"
                                             title="Eliminar"
                                         >
-                                            <Trash2 className="w-4 h-4" />
+                                            <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                         </button>
                                     </div>
                                 ))}
@@ -1859,70 +1842,68 @@ export default function DataEditor() {
             )}
 
             {activeFile === 'users' && (
-                <div className="space-y-4">
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mb-4 sm:mb-6">
+                <div className="space-y-3 sm:space-y-4">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
                         <div>
-                            <h4 className="text-lg sm:text-xl font-semibold">Configuración de Usuarios</h4>
-                            <p className="text-sm text-[var(--muted-foreground)] mt-1">
+                            <h4 className="text-base sm:text-lg lg:text-xl font-semibold">Configuración de Usuarios</h4>
+                            <p className="text-xs sm:text-sm text-[var(--muted-foreground)] mt-0.5 sm:mt-1">
                                 Gestiona usuarios, roles y permisos del sistema
                             </p>
                         </div>
                         <button
                             onClick={addUser}
-                            className="px-4 py-2 sm:px-6 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm sm:text-base w-full sm:w-auto flex items-center justify-center gap-2"
+                            className="px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-xs sm:text-sm w-full sm:w-auto flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap"
                         >
-                            <UserPlus className="w-4 h-4" />
-                            <span className="hidden sm:inline">Agregar Usuario</span>
-                            <span className="sm:hidden">Usuario</span>
+                            <UserPlus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            <span>Agregar Usuario</span>
                         </button>
                     </div>
 
                     {usersData.map((user, index) => (
-                        <div key={user.id || index} className="border border-[var(--input-border)] rounded-lg p-3 sm:p-4 md:p-6 relative">
+                        <div key={user.id || index} className="border border-[var(--input-border)] rounded-lg p-2.5 sm:p-4 lg:p-5 relative">
                             {hasUserChanged(index) && (
-                                <div className="absolute top-2 right-2 sm:top-3 sm:right-3 flex items-center gap-1 px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
-                                    <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
-                                    <span className="hidden sm:inline">Cambios pendientes</span>
-                                    <span className="sm:hidden">Pendiente</span>
+                                <div className="absolute top-2 right-2 sm:top-3 sm:right-3 flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 bg-yellow-100 text-yellow-800 rounded-full text-[10px] sm:text-xs font-medium">
+                                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-orange-500 rounded-full animate-pulse"></div>
+                                    <span>Pendiente</span>
                                 </div>
                             )}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Usuario:</label>
+                                    <label className="block text-xs sm:text-sm font-medium mb-1">Usuario:</label>
                                     <input
                                         type="text"
                                         value={user.name}
                                         onChange={(e) => updateUser(index, 'name', e.target.value)}
-                                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
+                                        className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
                                         style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
                                         placeholder="Nombre de usuario"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Nombre Completo:</label>
+                                    <label className="block text-xs sm:text-sm font-medium mb-1">Nombre Completo:</label>
                                     <input
                                         type="text"
                                         value={user.fullName || ''}
                                         onChange={(e) => updateUser(index, 'fullName', e.target.value)}
-                                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
+                                        className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
                                         style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
                                         placeholder="Nombre completo"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Correo:</label>
+                                    <label className="block text-xs sm:text-sm font-medium mb-1">Correo:</label>
                                     <input
                                         type="email"
                                         value={user.email || ''}
                                         onChange={(e) => updateUser(index, 'email', e.target.value)}
-                                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
+                                        className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
                                         style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
                                         placeholder="correo@ejemplo.com"
                                     />
                                 </div>
                                 {/* Ubicación removed visually as requested */}
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Empresa Dueña:</label>
+                                    <label className="block text-xs sm:text-sm font-medium mb-1">Empresa Dueña:</label>
                                     {/* Only show empresas whose ownerId matches the user's ownerId (or resolved owner) */}
                                     {(() => {
                                         // resolvedOwnerId must not change: use user.ownerId (the tenant) or fallback to currentUser owner
@@ -1933,7 +1914,7 @@ export default function DataEditor() {
                                                 <select
                                                     value={user.ownercompanie || ''}
                                                     onChange={(e) => updateUser(index, 'ownercompanie', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
+                                                    className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
                                                     style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
                                                 >
                                                     <option value="">Seleccionar empresa</option>
@@ -1944,7 +1925,7 @@ export default function DataEditor() {
                                                     ))}
                                                 </select>
                                                 {allowedEmpresas.length === 0 && (
-                                                    <p className="text-xs mt-1 text-yellow-600">No hay empresas disponibles para el owner asignado.</p>
+                                                    <p className="text-[10px] sm:text-xs mt-1 text-yellow-600">No hay empresas disponibles.</p>
                                                 )}
                                             </>
                                         );
@@ -1952,28 +1933,28 @@ export default function DataEditor() {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Contraseña:</label>
+                                    <label className="block text-xs sm:text-sm font-medium mb-1">Contraseña:</label>
                                     {!user.id ? (
                                         // Usuario nuevo: mostrar campo de contraseña sin ocultar
                                         <input
                                             type="text"
                                             value={user.password || ''}
                                             onChange={(e) => updateUser(index, 'password', e.target.value)}
-                                            className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
+                                            className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
                                             style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                            placeholder="Contraseña del usuario"
+                                            placeholder="Contraseña"
                                         />
                                     ) : changePasswordMode[getUserKey(user, index)] ? (
                                         // Usuario existente en modo cambio de contraseña
-                                        <div className="space-y-2">
+                                        <div className="space-y-1.5 sm:space-y-2">
                                             <div className="relative">
                                                 <input
                                                     type={passwordVisibility[getUserKey(user, index)] ? 'text' : 'password'}
                                                     value={user.password || ''}
                                                     onChange={(e) => updateUser(index, 'password', e.target.value)}
-                                                    className="w-full px-3 py-2 pr-10 border border-[var(--input-border)] rounded-md"
+                                                    className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 pr-10 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
                                                     style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
                                                     placeholder="Nueva contraseña"
                                                 />
@@ -2001,33 +1982,34 @@ export default function DataEditor() {
                                                     setUsersData(updated);
                                                     setPasswordStore(prev => ({ ...prev, [key]: passwordBaseline[key] ?? '' }));
                                                 }}
-                                                className="text-xs px-2 py-1 text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+                                                className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
                                             >
-                                                Cancelar cambio de contraseña
+                                                Cancelar
                                             </button>
                                         </div>
                                     ) : (
                                         // Usuario existente: mostrar mensaje informativo
-                                        <div className="flex items-center justify-between px-3 py-2 border border-[var(--input-border)] rounded-md" style={{ background: 'var(--muted)', color: 'var(--foreground)' }}>
-                                            <span className="text-sm">Contraseña configurada</span>
+                                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5 sm:gap-0 px-2.5 sm:px-3 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md" style={{ background: 'var(--muted)', color: 'var(--foreground)' }}>
+                                            <span className="text-xs sm:text-sm">Contraseña configurada</span>
                                             <button
                                                 type="button"
                                                 onClick={() => {
                                                     const key = getUserKey(user, index);
                                                     setChangePasswordMode(prev => ({ ...prev, [key]: true }));
                                                 }}
-                                                className="text-xs px-2 py-1 bg-[var(--primary)] text-white rounded hover:bg-[var(--button-hover)] transition-colors"
+                                                className="text-[10px] sm:text-xs px-2 py-1 bg-[var(--primary)] text-white rounded hover:bg-[var(--button-hover)] transition-colors whitespace-nowrap flex items-center justify-center gap-1"
                                             >
-                                                Cambiar contraseña
+                                                <Edit className="w-3 h-3" />
+                                                Cambiar
                                             </button>
                                         </div>
                                     )}
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Rol:</label>
+                                    <label className="block text-xs sm:text-sm font-medium mb-1">Rol:</label>
                                     <select
                                         value={user.role || 'user'} onChange={(e) => updateUser(index, 'role', e.target.value as 'admin' | 'user' | 'superadmin')}
-                                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
+                                        className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
                                         style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
                                     >
                                         {/* If currentUser is superadmin and this is a newly created local user (no id), do not show 'user' option */}
@@ -2043,48 +2025,48 @@ export default function DataEditor() {
                                 {/* Only show maxCompanies field if current user is superadmin */}
                                 {user.role === 'admin' && user.eliminate === false && currentUser?.role === 'superadmin' && (
                                     <div>
-                                        <label className="block text-sm font-medium mb-1">Máx. Empresas:</label>
+                                        <label className="block text-xs sm:text-sm font-medium mb-1">Máx. Empresas:</label>
                                         <input
                                             type="number"
                                             min={0}
                                             value={user.maxCompanies ?? ''}
                                             onChange={(e) => updateUser(index, 'maxCompanies', e.target.value === '' ? undefined : Number(e.target.value))}
-                                            className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
+                                            className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
                                             style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                            placeholder="Cantidad máxima de empresas"
+                                            placeholder="Máx. empresas"
                                         />
                                     </div>
                                 )}
                             </div>
 
-                            <div className="grid grid-cols-1 gap-4 mb-4">
+                            <div className="grid grid-cols-1 gap-3 sm:gap-4 mb-3 sm:mb-4">
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Estado:</label>
-                                    <div className="flex items-center gap-2">
+                                    <label className="block text-xs sm:text-sm font-medium mb-1">Estado:</label>
+                                    <div className="flex items-center gap-1.5 sm:gap-2">
                                         <input
                                             type="checkbox"
                                             checked={user.isActive ?? true}
                                             onChange={(e) => updateUser(index, 'isActive', e.target.checked)}
-                                            className="w-4 h-4 text-blue-600 bg-[var(--background)] border-[var(--border)] rounded focus:ring-blue-500"
+                                            className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600 bg-[var(--background)] border-[var(--border)] rounded focus:ring-blue-500"
                                         />
-                                        <span className="text-sm">Usuario activo</span>
+                                        <span className="text-xs sm:text-sm">Usuario activo</span>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Sección de Permisos */}
-                            <div className="mb-4 p-2 sm:p-4 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <Settings className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                                    <h5 className="font-medium" style={{ color: 'var(--foreground)' }}>Permisos del Usuario</h5>
-                                    <span className="text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
-                                        Rol: {user.role || 'user'}
+                            <div className="mb-3 sm:mb-4 p-2 sm:p-3 lg:p-4 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg">
+                                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3">
+                                    <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-600 dark:text-gray-400" />
+                                    <h5 className="text-xs sm:text-sm font-medium" style={{ color: 'var(--foreground)' }}>Permisos del Usuario</h5>
+                                    <span className="text-[10px] sm:text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded">
+                                        {user.role || 'user'}
                                     </span>
                                 </div>
                                 {renderUserPermissions(user, index)}
-                                <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-                                    <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
-                                        <strong>Nota:</strong> Marca &quot;Editar Permisos&quot; para habilitar los checkboxes, realiza los cambios y luego presiona &quot;Guardar&quot; para aplicar los permisos al usuario.
+                                <div className="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-gray-200 dark:border-gray-700">
+                                    <p className="text-[10px] sm:text-xs" style={{ color: 'var(--muted-foreground)' }}>
+                                        <strong>Nota:</strong> Edita los permisos y presiona &quot;Guardar&quot; para aplicar cambios.
                                     </p>
                                 </div>
                             </div>
@@ -2092,10 +2074,10 @@ export default function DataEditor() {
                             <div className="flex flex-col sm:flex-row justify-end gap-2 mt-2">
                                 <button
                                     onClick={() => saveIndividualUser(index)}
-                                    className="px-3 py-2 sm:px-4 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center gap-2 text-sm sm:text-base"
+                                    className="px-3 py-1.5 sm:px-4 sm:py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm"
                                     disabled={savingUserKey === getUserKey(user, index)}
                                 >
-                                    <Save className="w-4 h-4" />
+                                    <Save className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                     {savingUserKey === getUserKey(user, index) ? 'Guardando...' : 'Guardar'}
                                 </button>
                                 <button

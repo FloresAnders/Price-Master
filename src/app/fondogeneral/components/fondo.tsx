@@ -927,21 +927,35 @@ export function ProviderSection({ id }: { id?: string }) {
             </div>
         );
     }
+    
+    if (!fondoTypesLoaded) {
+        return (
+            <div id={id} className="mt-10">
+                <div className="p-8 bg-[var(--card-bg)] border border-[var(--input-border)] rounded text-center space-y-3">
+                    <div className="flex justify-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)]"></div>
+                    </div>
+                    <p className="text-[var(--muted-foreground)]">Cargando tipos de movimientos...</p>
+                    <p className="text-xs text-[var(--muted-foreground)]">Esto solo ocurre la primera vez</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
-        <div id={id} className="mt-10" style={{ color: '#ffffff' }}>
-            <div className="mb-4 flex items-center justify-between">
-                <div className="flex flex-col items-center">
-                    <h2 className="text-xl font-semibold text-[var(--foreground)] flex items-center gap-2">
-                        <UserPlus className="w-5 h-5" /> Agregar proveedor
+        <div id={id} className="mt-3 sm:mt-6 lg:mt-10" style={{ color: '#ffffff' }}>
+            <div className="mb-3 sm:mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex flex-col">
+                    <h2 className="text-base sm:text-lg lg:text-xl font-semibold text-[var(--foreground)] flex items-center gap-2">
+                        <UserPlus className="w-4 h-4 sm:w-5 sm:h-5" /> Agregar proveedor
                     </h2>
                     {company && (
-                        <p className="text-xs text-[var(--muted-foreground)] mt-1">
+                        <p className="text-[10px] sm:text-xs text-[var(--muted-foreground)] mt-1">
                             Empresa asignada: <span className="font-medium text-[var(--foreground)]">{company}</span>
                         </p>
                     )}
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
                     <button
                         type="button"
                         onClick={() => {
@@ -954,10 +968,10 @@ export function ProviderSection({ id }: { id?: string }) {
                             setSelectedAdminId('');
                         }}
                         disabled={!company || saving || providersLoading}
-                        className="flex items-center gap-2 px-4 py-2 bg-[var(--accent)] text-white rounded shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-[var(--accent)] text-white rounded shadow-sm disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-colors whitespace-nowrap"
                     >
-                        <Plus className="w-4 h-4" />
-                        Agregar proveedor
+                        <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                        <span>Agregar proveedor</span>
                     </button>
                     {showCompanySelector && (
                         <select
@@ -965,7 +979,7 @@ export function ProviderSection({ id }: { id?: string }) {
                             value={adminCompany}
                             onChange={event => handleAdminCompanyChange(event.target.value)}
                             disabled={ownerCompaniesLoading || sortedOwnerCompanies.length === 0}
-                            className="min-w-[220px] px-3 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
+                            className="w-full sm:min-w-[200px] lg:min-w-[220px] px-2.5 sm:px-3 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-xs sm:text-sm text-[var(--foreground)]"
                         >
                             {ownerCompaniesLoading && <option value="">Cargando empresas...</option>}
                             {!ownerCompaniesLoading && sortedOwnerCompanies.length === 0 && (
@@ -1004,9 +1018,9 @@ export function ProviderSection({ id }: { id?: string }) {
 
 
             <div>
-                <div className='flex justify-between items-center mb-2'>
-                    <h3 className="text-sm font-medium text-[var(--foreground)]">Lista de Proveedores</h3>
-                    <div className="flex items-center gap-2">
+                <div className='flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2 sm:mb-3'>
+                    <h3 className="text-xs sm:text-sm font-medium text-[var(--foreground)]">Lista de Proveedores</h3>
+                    <div className="flex items-center gap-1.5 sm:gap-2">
                         <input
                             type="checkbox"
                             id="filter-with-email"
@@ -1015,31 +1029,31 @@ export function ProviderSection({ id }: { id?: string }) {
                                 setShowOnlyWithEmail(e.target.checked);
                                 setCurrentPage(1);
                             }}
-                            className="w-4 h-4 cursor-pointer"
+                            className="w-3.5 h-3.5 sm:w-4 sm:h-4 cursor-pointer"
                         />
                         <label
                             htmlFor="filter-with-email"
-                            className="text-sm text-[var(--foreground)] cursor-pointer"
+                            className="text-xs sm:text-sm text-[var(--foreground)] cursor-pointer"
                         >
-                            Mostrar solo con correo
+                            Solo con correo
                         </label>
                     </div>
                 </div>
                 {!isLoading && (
-                    <div className="mb-4 space-y-4">
+                    <div className="mb-3 sm:mb-4 space-y-2 sm:space-y-3">
                         <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
+                            <Search className="absolute left-2.5 sm:left-3 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-[var(--muted-foreground)]" />
                             <input
                                 type="text"
                                 placeholder="Buscar proveedores..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-[var(--foreground)]"
+                                className="w-full pl-8 sm:pl-10 pr-3 sm:pr-4 py-1.5 sm:py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-xs sm:text-sm text-[var(--foreground)]"
                             />
                         </div>
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <label htmlFor="items-per-page" className="text-sm text-[var(--foreground)]">Mostrar:</label>
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-0">
+                            <div className="flex items-center gap-1.5 sm:gap-2">
+                                <label htmlFor="items-per-page" className="text-xs sm:text-sm text-[var(--foreground)] whitespace-nowrap">Mostrar:</label>
                                 <select
                                     id="items-per-page"
                                     value={itemsPerPage === 'all' ? 'all' : itemsPerPage.toString()}
@@ -1048,7 +1062,7 @@ export function ProviderSection({ id }: { id?: string }) {
                                         setItemsPerPage(value === 'all' ? 'all' : parseInt(value));
                                         setCurrentPage(1);
                                     }}
-                                    className="px-3 py-1 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
+                                    className="px-2 sm:px-3 py-1 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-xs sm:text-sm text-[var(--foreground)] flex-1 sm:flex-initial"
                                 >
                                     <option value="all">Todos</option>
                                     <option value="5">5</option>
@@ -1058,23 +1072,23 @@ export function ProviderSection({ id }: { id?: string }) {
                                 </select>
                             </div>
                             {itemsPerPage !== 'all' && totalPages > 1 && (
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1.5 sm:gap-2 justify-center sm:justify-end">
                                     <button
                                         onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                                         disabled={currentPage === 1}
-                                        className="px-3 py-1 bg-[var(--accent)] text-white rounded disabled:opacity-50"
+                                        className="p-1.5 sm:px-3 sm:py-1 bg-[var(--accent)] text-white rounded disabled:opacity-50 transition-colors"
                                     >
-                                        <ChevronLeft className="w-4 h-4" />
+                                        <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                     </button>
-                                    <span className="text-[var(--foreground)] text-sm">
-                                        Página {currentPage} de {totalPages}
+                                    <span className="text-[var(--foreground)] text-xs sm:text-sm whitespace-nowrap px-1">
+                                        {currentPage}/{totalPages}
                                     </span>
                                     <button
                                         onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                                         disabled={currentPage === totalPages}
-                                        className="px-3 py-1 bg-[var(--accent)] text-white rounded disabled:opacity-50"
+                                        className="p-1.5 sm:px-3 sm:py-1 bg-[var(--accent)] text-white rounded disabled:opacity-50 transition-colors"
                                     >
-                                        <ChevronRight className="w-4 h-4" />
+                                        <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                     </button>
                                 </div>
                             )}
@@ -1082,55 +1096,57 @@ export function ProviderSection({ id }: { id?: string }) {
                     </div>
                 )}
                 {isLoading ? (
-                    <p className="text-[var(--muted-foreground)]">Cargando proveedores...</p>
+                    <p className="text-xs sm:text-sm text-[var(--muted-foreground)] py-4 text-center">Cargando proveedores...</p>
                 ) : (
                     <div>
-                        <ul className="space-y-2">
-                            {filteredProviders.length === 0 && <li className="text-[var(--muted-foreground)]">{searchTerm ? 'No se encontraron proveedores que coincidan con la búsqueda.' : 'Aun no hay proveedores.'}</li>}
+                        <ul className="space-y-1.5 sm:space-y-2">
+                            {filteredProviders.length === 0 && <li className="text-xs sm:text-sm text-[var(--muted-foreground)] py-4 text-center">{searchTerm ? 'No se encontraron proveedores.' : 'Aun no hay proveedores.'}</li>}
                             {paginatedProviders.map(p => (
-                                <li key={p.code} className="flex items-center justify-between bg-[var(--muted)] p-3 rounded">
-                                    <div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[var(--foreground)] font-semibold">{p.name}</span>
+                                <li key={p.code} className="flex flex-col sm:flex-row sm:items-center justify-between bg-[var(--muted)] p-2.5 sm:p-3 rounded gap-2 sm:gap-3">
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                                            <span className="text-sm sm:text-base text-[var(--foreground)] font-semibold truncate">{p.name}</span>
                                             {p.correonotifi?.trim() && (
                                                 <span
-                                                    title={`Correo de notificación: ${p.correonotifi}`}
-                                                    className="inline-flex"
+                                                    title={`Correo: ${p.correonotifi}`}
+                                                    className="inline-flex flex-shrink-0"
                                                 >
-                                                    <Mail className="w-4 h-4 text-[var(--accent)]" />
+                                                    <Mail className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[var(--accent)]" />
                                                 </span>
                                             )}
                                         </div>
-                                        <div className="text-xs text-[var(--muted-foreground)]">Código: {p.code}</div>
+                                        <div className="text-[10px] sm:text-xs text-[var(--muted-foreground)] mt-0.5">Código: {p.code}</div>
                                         {p.type && (
-                                            <div className="text-xs text-[var(--muted-foreground)] mt-1">
-                                                Tipo: {p.type}
-                                                {p.category && <span className="ml-2 px-2 py-0.5 rounded bg-[var(--input-bg)] text-[10px]">
+                                            <div className="text-[10px] sm:text-xs text-[var(--muted-foreground)] mt-1 flex items-center gap-1.5 flex-wrap">
+                                                <span>Tipo: {p.type}</span>
+                                                {p.category && <span className="px-1.5 sm:px-2 py-0.5 rounded bg-[var(--input-bg)] text-[9px] sm:text-[10px]">
                                                     {p.category}
                                                 </span>}
                                             </div>
                                         )}
                                     </div>
-                                    <div className="flex items-center gap-3">
-                                        <div className="text-xs text-[var(--muted-foreground)]">Empresa: {p.company}</div>
-                                        <button
-                                            type="button"
-                                            className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] disabled:opacity-50"
-                                            onClick={() => openEditProvider(p.code)}
-                                            disabled={saving || deletingCode !== null}
-                                            title="Editar proveedor"
-                                        >
-                                            <Pencil className="w-4 h-4" />
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="text-red-500 hover:text-red-600 disabled:opacity-50"
-                                            onClick={() => openRemoveModal(p.code, p.name)}
-                                            disabled={deletingCode === p.code || saving || deletingCode !== null}
-                                            title="Eliminar proveedor"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
+                                    <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3">
+                                        <div className="text-[10px] sm:text-xs text-[var(--muted-foreground)] truncate">Empresa: {p.company}</div>
+                                        <div className="flex items-center gap-2 flex-shrink-0">
+                                            <button
+                                                type="button"
+                                                className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] disabled:opacity-50 p-1 transition-colors"
+                                                onClick={() => openEditProvider(p.code)}
+                                                disabled={saving || deletingCode !== null}
+                                                title="Editar"
+                                            >
+                                                <Pencil className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="text-red-500 hover:text-red-600 disabled:opacity-50 p-1 transition-colors"
+                                                onClick={() => openRemoveModal(p.code, p.name)}
+                                                disabled={deletingCode === p.code || saving || deletingCode !== null}
+                                                title="Eliminar"
+                                            >
+                                                <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                            </button>
+                                        </div>
                                     </div>
                                 </li>
                             ))}
@@ -1540,6 +1556,12 @@ export function FondoSection({
     const namespaceDescription = NAMESPACE_DESCRIPTIONS[namespace] || 'esta sección del Fondo General';
     const accountKey = useMemo(() => getAccountKeyFromNamespace(namespace), [namespace]);
 
+    // Estado para tipos de movimientos dinámicos
+    const [fondoTypesLoaded, setFondoTypesLoaded] = useState(false);
+    const [ingresoTypes, setIngresoTypes] = useState<string[]>([]);
+    const [gastoTypes, setGastoTypes] = useState<string[]>([]);
+    const [egresoTypes, setEgresoTypes] = useState<string[]>([]);
+
     const [fondoEntries, setFondoEntries] = useState<FondoEntry[]>([]);
     const [companyEmployees, setCompanyEmployees] = useState<string[]>([]);
     const [employeesLoading, setEmployeesLoading] = useState(false);
@@ -1798,6 +1820,72 @@ export function FondoSection({
         const startWidth = parseInt(columnWidths[key] || '100', 10) || 100;
         resizingRef.current = { key, startX: event.clientX, startWidth };
     };
+
+    // Cargar tipos de movimientos de fondo desde la base de datos (con caché y sincronización en tiempo real)
+    useEffect(() => {
+        let isMounted = true;
+        
+        // Función para cargar y actualizar tipos
+        const loadTypes = async () => {
+            try {
+                const types = await FondoMovementTypesService.getMovementTypesByCategoriesWithCache();
+                
+                if (!isMounted) return;
+                
+                setIngresoTypes(types.INGRESO);
+                setGastoTypes(types.GASTO);
+                setEgresoTypes(types.EGRESO);
+                setFondoTypesLoaded(true);
+                
+                // Actualizar las variables globales para compatibilidad
+                FONDO_INGRESO_TYPES = types.INGRESO;
+                FONDO_GASTO_TYPES = types.GASTO;
+                FONDO_EGRESO_TYPES = types.EGRESO;
+                FONDO_TYPE_OPTIONS = [...types.INGRESO, ...types.GASTO, ...types.EGRESO];
+                
+                // Actualizar los tipos de ajuste automático
+                AUTO_ADJUSTMENT_MOVEMENT_TYPE_EGRESO = types.GASTO.find(
+                    t => t.toUpperCase() === 'GASTOS VARIOS'
+                ) ?? types.GASTO[types.GASTO.length - 1] ?? '';
+                AUTO_ADJUSTMENT_MOVEMENT_TYPE_INGRESO = types.INGRESO.find(
+                    t => t.toUpperCase() === 'OTROS INGRESOS'
+                ) ?? types.INGRESO[types.INGRESO.length - 1] ?? '';
+                
+                console.log('[FondoTypes] Loaded:', types);
+            } catch (err) {
+                console.error('Error loading fondo movement types:', err);
+                if (isMounted) {
+                    setFondoTypesLoaded(true);
+                }
+            }
+        };
+
+        // Listener para actualizaciones en tiempo real desde el caché
+        const handleFondoTypesUpdate = (event: Event) => {
+            const customEvent = event as CustomEvent<{ 
+                types: FondoMovementTypeConfig[]; 
+                version: number; 
+            }>;
+            
+            if (!isMounted) return;
+
+            console.log('[FondoTypes] Cache updated, reloading types...');
+            
+            // Recargar tipos cuando el caché se actualiza
+            loadTypes();
+        };
+
+        // Cargar tipos iniciales (desde caché o DB)
+        loadTypes();
+
+        // Escuchar actualizaciones en tiempo real
+        window.addEventListener('fondoMovementTypesUpdated', handleFondoTypesUpdate);
+        
+        return () => {
+            isMounted = false;
+            window.removeEventListener('fondoMovementTypesUpdated', handleFondoTypesUpdate);
+        };
+    }, []);
 
     // Sincronizar filtro de proveedor con selección
     useEffect(() => {
@@ -2485,152 +2573,155 @@ export function FondoSection({
      * Función auxiliar para persistir movimientos a Firestore de forma inmediata.
      * Retorna true si se guardó correctamente, false si hubo error.
      */
-    const persistMovementToFirestore = async (
-        updatedEntries: FondoEntry[],
-        operationType: 'create' | 'edit' | 'delete',
-    ): Promise<boolean> => {
-        const normalizedCompany = (company || '').trim();
-        if (normalizedCompany.length === 0) {
-            console.error('[PERSIST-IMMEDIATE] No company specified');
-            return false;
-        }
-
-        const companyKey = MovimientosFondosService.buildCompanyMovementsKey(normalizedCompany);
-
-        try {
-            const baseStorage = storageSnapshotRef.current
-                ? MovimientosFondosService.ensureMovementStorageShape<FondoEntry>(
-                    storageSnapshotRef.current,
-                    normalizedCompany,
-                )
-                : MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(normalizedCompany);
-
-            baseStorage.company = normalizedCompany;
-
-            const normalizedEntries: FondoEntry[] = updatedEntries.map(entry => {
-                const normalizedCurrency: MovementCurrencyKey = entry.currency === 'USD' ? 'USD' : 'CRC';
-                return {
-                    ...entry,
-                    accountId: accountKey,
-                    currency: normalizedCurrency,
-                };
-            });
-
-            const existingMovements = baseStorage.operations?.movements ?? [];
-            const preservedMovements = existingMovements.filter(storedEntry => {
-                const candidate = storedEntry as Partial<FondoEntry>;
-                const storedAccount = isMovementAccountKey(candidate.accountId)
-                    ? candidate.accountId
-                    : 'FondoGeneral';
-                return storedAccount !== accountKey;
-            });
-
-            // Limitar movimientos en localStorage
-            const sortedRecentMovements = [...normalizedEntries]
-                .sort((a, b) => {
-                    const timeA = Date.parse(a.createdAt);
-                    const timeB = Date.parse(b.createdAt);
-                    if (Number.isNaN(timeA) || Number.isNaN(timeB)) return 0;
-                    return timeB - timeA;
-                })
-                .slice(0, MAX_LOCAL_MOVEMENTS);
-
-            baseStorage.operations = {
-                movements: [...preservedMovements, ...sortedRecentMovements],
-            };
-
-            // Recalcular balances
-            let ingresosCRC = 0, egresosCRC = 0, ingresosUSD = 0, egresosUSD = 0;
-            updatedEntries.forEach(entry => {
-                const cur = (entry.currency as 'CRC' | 'USD') || 'CRC';
-                if (cur === 'USD') {
-                    ingresosUSD += entry.amountIngreso;
-                    egresosUSD += entry.amountEgreso;
-                } else {
-                    ingresosCRC += entry.amountIngreso;
-                    egresosCRC += entry.amountEgreso;
-                }
-            });
-
-            const normalizedInitialCRC = initialAmount.trim().length > 0 ? initialAmount.trim() : '0';
-            const normalizedInitialUSD = initialAmountUSD.trim().length > 0 ? initialAmountUSD.trim() : '0';
-            const parsedInitialCRC = Number(normalizedInitialCRC) || 0;
-            const parsedInitialUSD = Number(normalizedInitialUSD) || 0;
-            const newBalanceCRC = parsedInitialCRC + ingresosCRC - egresosCRC;
-            const newBalanceUSD = parsedInitialUSD + ingresosUSD - egresosUSD;
-
-            const stateSnapshot =
-                baseStorage.state ?? MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(normalizedCompany).state;
-            const nextAccountBalances = stateSnapshot.balancesByAccount.filter(balance => balance.accountId !== accountKey);
-            nextAccountBalances.push(
-                {
-                    accountId: accountKey,
-                    currency: 'CRC',
-                    enabled: currencyEnabled.CRC,
-                    initialBalance: parsedInitialCRC,
-                    currentBalance: newBalanceCRC,
-                },
-                {
-                    accountId: accountKey,
-                    currency: 'USD',
-                    enabled: currencyEnabled.USD,
-                    initialBalance: parsedInitialUSD,
-                    currentBalance: newBalanceUSD,
-                },
-            );
-            stateSnapshot.balancesByAccount = nextAccountBalances;
-            stateSnapshot.updatedAt = new Date().toISOString();
-
-            // Preservar lockedUntil del snapshot actual si existe
-            if (storageSnapshotRef.current?.state?.lockedUntil) {
-                stateSnapshot.lockedUntil = storageSnapshotRef.current.state.lockedUntil;
+    const persistMovementToFirestore = useCallback(
+        async (
+            updatedEntries: FondoEntry[],
+            operationType: 'create' | 'edit' | 'delete',
+        ): Promise<boolean> => {
+            const normalizedCompany = (company || '').trim();
+            if (normalizedCompany.length === 0) {
+                console.error('[PERSIST-IMMEDIATE] No company specified');
+                return false;
             }
-            baseStorage.state = stateSnapshot;
 
-            // Guardar en localStorage primero
+            const companyKey = MovimientosFondosService.buildCompanyMovementsKey(normalizedCompany);
+
             try {
-                localStorage.setItem(companyKey, JSON.stringify(baseStorage));
-            } catch (storageError) {
-                if (storageError instanceof Error && storageError.name === 'QuotaExceededError') {
-                    console.error('QuotaExceededError: Reduciendo límite de movimientos');
-                    const emergencyLimit = Math.floor(MAX_LOCAL_MOVEMENTS * 0.6);
-                    const reducedMovements = [...normalizedEntries]
-                        .sort((a, b) => {
-                            const timeA = Date.parse(a.createdAt);
-                            const timeB = Date.parse(b.createdAt);
-                            if (Number.isNaN(timeA) || Number.isNaN(timeB)) return 0;
-                            return timeB - timeA;
-                        })
-                        .slice(0, emergencyLimit);
-                    baseStorage.operations = {
-                        movements: [...preservedMovements, ...reducedMovements],
+                const baseStorage = storageSnapshotRef.current
+                    ? MovimientosFondosService.ensureMovementStorageShape<FondoEntry>(
+                        storageSnapshotRef.current,
+                        normalizedCompany,
+                    )
+                    : MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(normalizedCompany);
+
+                baseStorage.company = normalizedCompany;
+
+                const normalizedEntries: FondoEntry[] = updatedEntries.map(entry => {
+                    const normalizedCurrency: MovementCurrencyKey = entry.currency === 'USD' ? 'USD' : 'CRC';
+                    return {
+                        ...entry,
+                        accountId: accountKey,
+                        currency: normalizedCurrency,
                     };
-                    localStorage.setItem(companyKey, JSON.stringify(baseStorage));
-                } else {
-                    throw storageError;
+                });
+
+                const existingMovements = baseStorage.operations?.movements ?? [];
+                const preservedMovements = existingMovements.filter(storedEntry => {
+                    const candidate = storedEntry as Partial<FondoEntry>;
+                    const storedAccount = isMovementAccountKey(candidate.accountId)
+                        ? candidate.accountId
+                        : 'FondoGeneral';
+                    return storedAccount !== accountKey;
+                });
+
+                // Limitar movimientos en localStorage
+                const sortedRecentMovements = [...normalizedEntries]
+                    .sort((a, b) => {
+                        const timeA = Date.parse(a.createdAt);
+                        const timeB = Date.parse(b.createdAt);
+                        if (Number.isNaN(timeA) || Number.isNaN(timeB)) return 0;
+                        return timeB - timeA;
+                    })
+                    .slice(0, MAX_LOCAL_MOVEMENTS);
+
+                baseStorage.operations = {
+                    movements: [...preservedMovements, ...sortedRecentMovements],
+                };
+
+                // Recalcular balances
+                let ingresosCRC = 0, egresosCRC = 0, ingresosUSD = 0, egresosUSD = 0;
+                updatedEntries.forEach(entry => {
+                    const cur = (entry.currency as 'CRC' | 'USD') || 'CRC';
+                    if (cur === 'USD') {
+                        ingresosUSD += entry.amountIngreso;
+                        egresosUSD += entry.amountEgreso;
+                    } else {
+                        ingresosCRC += entry.amountIngreso;
+                        egresosCRC += entry.amountEgreso;
+                    }
+                });
+
+                const normalizedInitialCRC = initialAmount.trim().length > 0 ? initialAmount.trim() : '0';
+                const normalizedInitialUSD = initialAmountUSD.trim().length > 0 ? initialAmountUSD.trim() : '0';
+                const parsedInitialCRC = Number(normalizedInitialCRC) || 0;
+                const parsedInitialUSD = Number(normalizedInitialUSD) || 0;
+                const newBalanceCRC = parsedInitialCRC + ingresosCRC - egresosCRC;
+                const newBalanceUSD = parsedInitialUSD + ingresosUSD - egresosUSD;
+
+                const stateSnapshot =
+                    baseStorage.state ?? MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(normalizedCompany).state;
+                const nextAccountBalances = stateSnapshot.balancesByAccount.filter(balance => balance.accountId !== accountKey);
+                nextAccountBalances.push(
+                    {
+                        accountId: accountKey,
+                        currency: 'CRC',
+                        enabled: currencyEnabled.CRC,
+                        initialBalance: parsedInitialCRC,
+                        currentBalance: newBalanceCRC,
+                    },
+                    {
+                        accountId: accountKey,
+                        currency: 'USD',
+                        enabled: currencyEnabled.USD,
+                        initialBalance: parsedInitialUSD,
+                        currentBalance: newBalanceUSD,
+                    },
+                );
+                stateSnapshot.balancesByAccount = nextAccountBalances;
+                stateSnapshot.updatedAt = new Date().toISOString();
+
+                // Preservar lockedUntil del snapshot actual si existe
+                if (storageSnapshotRef.current?.state?.lockedUntil) {
+                    stateSnapshot.lockedUntil = storageSnapshotRef.current.state.lockedUntil;
                 }
+                baseStorage.state = stateSnapshot;
+
+                // Guardar en localStorage primero
+                try {
+                    localStorage.setItem(companyKey, JSON.stringify(baseStorage));
+                } catch (storageError) {
+                    if (storageError instanceof Error && storageError.name === 'QuotaExceededError') {
+                        console.error('QuotaExceededError: Reduciendo límite de movimientos');
+                        const emergencyLimit = Math.floor(MAX_LOCAL_MOVEMENTS * 0.6);
+                        const reducedMovements = [...normalizedEntries]
+                            .sort((a, b) => {
+                                const timeA = Date.parse(a.createdAt);
+                                const timeB = Date.parse(b.createdAt);
+                                if (Number.isNaN(timeA) || Number.isNaN(timeB)) return 0;
+                                return timeB - timeA;
+                            })
+                            .slice(0, emergencyLimit);
+                        baseStorage.operations = {
+                            movements: [...preservedMovements, ...reducedMovements],
+                        };
+                        localStorage.setItem(companyKey, JSON.stringify(baseStorage));
+                    } else {
+                        throw storageError;
+                    }
+                }
+
+                // Guardar en Firestore - ESTA ES LA PARTE CRÍTICA
+                console.log(`[PERSIST-IMMEDIATE] Guardando ${operationType} a Firestore...`, {
+                    company: normalizedCompany,
+                    accountKey,
+                    entriesCount: updatedEntries.length,
+                });
+
+                await MovimientosFondosService.saveDocument(companyKey, baseStorage);
+
+                console.log(`[PERSIST-IMMEDIATE] ✅ ${operationType} guardado exitosamente en Firestore`);
+
+                // Actualizar snapshot después de guardar exitosamente
+                storageSnapshotRef.current = baseStorage;
+
+                return true;
+            } catch (err) {
+                console.error(`[PERSIST-IMMEDIATE] ❌ Error guardando ${operationType} a Firestore:`, err);
+                return false;
             }
-
-            // Guardar en Firestore - ESTA ES LA PARTE CRÍTICA
-            console.log(`[PERSIST-IMMEDIATE] Guardando ${operationType} a Firestore...`, {
-                company: normalizedCompany,
-                accountKey,
-                entriesCount: updatedEntries.length,
-            });
-
-            await MovimientosFondosService.saveDocument(companyKey, baseStorage);
-
-            console.log(`[PERSIST-IMMEDIATE] ✅ ${operationType} guardado exitosamente en Firestore`);
-
-            // Actualizar snapshot después de guardar exitosamente
-            storageSnapshotRef.current = baseStorage;
-
-            return true;
-        } catch (err) {
-            console.error(`[PERSIST-IMMEDIATE] ❌ Error guardando ${operationType} a Firestore:`, err);
-            return false;
-        }
-    };
+        },
+        [company, accountKey, initialAmount, initialAmountUSD, currencyEnabled],
+    );
 
     const handleSubmitFondo = async () => {
         if (!company) return;
@@ -4297,17 +4388,31 @@ export function FondoSection({
             </div>
         );
     }
+    
+    if (!fondoTypesLoaded) {
+        return (
+            <div id={id} className="mt-6">
+                <div className="p-8 bg-[var(--card-bg)] border border-[var(--input-border)] rounded text-center space-y-3">
+                    <div className="flex justify-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)]"></div>
+                    </div>
+                    <p className="text-[var(--muted-foreground)]">Cargando tipos de movimientos...</p>
+                    <p className="text-xs text-[var(--muted-foreground)]">Esto solo ocurre la primera vez</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
-        <div id={id} className="mt-6 w-full max-w-6xl space-y-6 mx-auto">
+        <div id={id} className="mt-3 sm:mt-4 lg:mt-6 w-full max-w-7xl space-y-3 sm:space-y-4 lg:space-y-6 mx-auto px-0">
             {companySelectorPlacement === 'content' && companySelectorContent && (
-                <div className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/70 p-4">
+                <div className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/70 p-3 sm:p-4">
                     {companySelectorContent}
                 </div>
             )}
 
-            <section className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/70 p-4 space-y-4">
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <section className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/70 p-2 sm:p-3 md:p-4 space-y-3 sm:space-y-4">
+                <div className="grid gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     <div className="relative">
                         <input
                             value={providerFilter}
@@ -4317,12 +4422,12 @@ export function FondoSection({
                             }}
                             onFocus={() => setIsProviderDropdownOpen(true)}
                             onBlur={() => { setTimeout(() => setIsProviderDropdownOpen(false), 200); }}
-                            className="w-full px-3 py-2 pr-10 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--muted-foreground)]"
-                            placeholder={providersLoading ? 'Cargando proveedores...' : 'Buscar proveedor'}
+                            className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 pr-8 sm:pr-10 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-xs sm:text-sm text-[var(--muted-foreground)]"
+                            placeholder={providersLoading ? 'Cargando...' : 'Proveedor'}
                             title="Filtrar por proveedor"
                             aria-label="Filtrar por proveedor"
                         />
-                        <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
+                        <Search className="absolute right-2 sm:right-3 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-[var(--muted-foreground)]" />
                         {isProviderDropdownOpen && (() => {
                             const filteredProviders = providerFilter.length === 0 
                                 ? [{ code: 'all', name: 'Todos los proveedores' }, ...providers]
@@ -4368,12 +4473,12 @@ export function FondoSection({
                             }}
                             onFocus={() => setIsTypeDropdownOpen(true)}
                             onBlur={() => { setTimeout(() => setIsTypeDropdownOpen(false), 200); }}
-                            className="w-full px-3 py-2 pr-10 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--muted-foreground)]"
-                            placeholder="Buscar tipo de movimiento"
+                            className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 pr-8 sm:pr-10 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-xs sm:text-sm text-[var(--muted-foreground)]"
+                            placeholder="Tipo movimiento"
                             title="Filtrar por tipo"
                             aria-label="Filtrar por tipo"
                         />
-                        <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
+                        <Search className="absolute right-2 sm:right-3 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-[var(--muted-foreground)]" />
                         {isTypeDropdownOpen && (() => {
                             const allTypes: Array<{ value: string; label: string; group: string }> = [
                                 { value: 'all', label: 'Todos los tipos', group: '' },
@@ -4435,19 +4540,18 @@ export function FondoSection({
                         type="search"
                         value={searchQuery}
                         onChange={e => setSearchQuery(e.target.value)}
-                        placeholder="Buscar factura, notas o proveedor"
-                        className="w-full px-3 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--muted-foreground)]"
+                        placeholder="Buscar factura, notas..."
+                        className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-xs sm:text-sm text-[var(--muted-foreground)]"
                         aria-label="Buscar movimientos"
                     />
 
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded border border-dashed border-[var(--input-border)] px-4 py-3 text-sm text-[var(--muted-foreground)]">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 rounded border border-dashed border-[var(--input-border)] px-2.5 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-[var(--muted-foreground)]">
                         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
                             <div>
-                                <label className="flex items-center gap-2 ml-1">
-                                    <input type="checkbox" checked={filterEditedOnly} onChange={e => setFilterEditedOnly(e.target.checked)} />
-                                    <span className="ml-1">Editados</span>
+                                <label className="flex items-center gap-1.5 sm:gap-2">
+                                    <input type="checkbox" checked={filterEditedOnly} onChange={e => setFilterEditedOnly(e.target.checked)} className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                    <span>Editados</span>
                                 </label>
-                                {/* Moved 'Recordar filtros' next to pagination controls */}
                             </div>
                             <button
                                 type="button"
@@ -4459,7 +4563,7 @@ export function FondoSection({
                                     setFromFilter(null);
                                     setToFilter(null);
                                 }}
-                                className="self-start sm:self-center px-3 py-1 text-xs font-semibold uppercase tracking-wide border border-[var(--input-border)] rounded hover:bg-[var(--muted)]"
+                                className="self-start sm:self-center px-2.5 sm:px-3 py-1 text-[10px] sm:text-xs font-semibold uppercase tracking-wide border border-[var(--input-border)] rounded hover:bg-[var(--muted)] transition-colors"
                                 title="Limpiar filtros"
                             >
                                 Limpiar
@@ -4468,29 +4572,29 @@ export function FondoSection({
                     </div>
                 </div>
 
-                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--input-border)] pt-3">
-                    <div className="flex flex-1 flex-wrap items-center gap-3 min-w-[260px]">
-                        <div className="relative w-full sm:w-auto">
-                            <label className="block text-xs font-medium text-[var(--muted-foreground)] mb-1">Desde</label>
+                <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center justify-between gap-2 sm:gap-3 border-t border-[var(--input-border)] pt-2 sm:pt-3">
+                    <div className="flex flex-col sm:flex-row flex-1 flex-wrap items-start sm:items-center gap-2 sm:gap-3 w-full sm:w-auto sm:min-w-[260px]">
+                        <div className="relative w-full sm:w-auto flex-1 sm:flex-initial min-w-[140px] sm:min-w-[160px]">
+                            <label className="block text-[10px] sm:text-xs font-medium text-[var(--muted-foreground)] mb-0.5 sm:mb-1">Desde</label>
                             <button
                                 type="button"
                                 ref={fromButtonRef}
                                 onClick={() => setCalendarFromOpen(prev => !prev)}
-                                className="flex w-full items-center justify-between gap-2 px-3 py-2 border border-[var(--input-border)] rounded hover:bg-[var(--muted)] bg-transparent text-[var(--muted-foreground)]"
+                                className="flex w-full items-center justify-between gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 border border-[var(--input-border)] rounded hover:bg-[var(--muted)] bg-transparent text-[var(--muted-foreground)] transition-colors"
                                 title="Seleccionar fecha desde"
                                 aria-label="Seleccionar fecha desde"
                             >
-                                <span className="text-sm font-medium">{fromFilter ? formatKeyToDisplay(fromFilter) : 'dd/mm/yyyy'}</span>
-                                <CalendarDays className="w-4 h-4" />
+                                <span className="text-xs sm:text-sm font-medium truncate">{fromFilter ? formatKeyToDisplay(fromFilter) : 'dd/mm/yyyy'}</span>
+                                <CalendarDays className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
                             </button>
 
                             {calendarFromOpen && (
                                 <div
                                     ref={fromCalendarRef}
-                                    className="absolute left-0 top-full mt-2 z-50 w-full sm:w-64"
+                                    className="absolute left-0 top-full mt-1 sm:mt-2 z-50 w-full min-w-[280px] sm:w-72"
                                     onClick={e => e.stopPropagation()}
                                 >
-                                    <div className="w-full rounded border border-[var(--input-border)] bg-[#1f262a] p-3 text-white shadow-lg">
+                                    <div className="w-full rounded border border-[var(--input-border)] bg-[#1f262a] p-2 sm:p-3 text-white shadow-lg">
                                         <div className="mb-2 flex items-center justify-between">
                                             <button
                                                 type="button"
@@ -4717,44 +4821,44 @@ export function FondoSection({
                         </div>
                     </div>
 
-                    <div className="flex w-full items-center justify-center gap-2 sm:w-auto">
+                    <div className="flex flex-col sm:flex-row w-full sm:w-auto items-stretch sm:items-center gap-2">
                         {accountKey === 'FondoGeneral' && (
-                            <div className="relative group">
+                            <div className="relative group flex-1 sm:flex-initial">
                                 <button
                                     type="button"
                                     onClick={handleOpenDailyClosing}
                                     disabled={!pendingCierreDeCaja}
-                                    className={`flex items-center justify-center gap-2 rounded px-4 py-2 text-white ${!pendingCierreDeCaja
+                                    className={`flex items-center justify-center gap-1.5 sm:gap-2 rounded px-3 sm:px-4 py-2 sm:py-2.5 text-white text-xs sm:text-sm w-full ${!pendingCierreDeCaja
                                         ? 'bg-gray-400 cursor-not-allowed opacity-60'
                                         : 'fg-add-mov-btn'
                                         }`}
                                 >
-                                    <Banknote className="w-4 h-4" />
-                                    Registrar cierre
+                                    <Banknote className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                    <span className="whitespace-nowrap">Registrar cierre</span>
                                 </button>
                                 {!pendingCierreDeCaja && (
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-yellow-500 text-black text-sm rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
+                                    <div className="hidden sm:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-yellow-500 text-black text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
                                         ⚠️ Debe agregar un movimiento de &quot;CIERRE FONDO VENTAS&quot; primero
                                         <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-yellow-500"></div>
                                     </div>
                                 )}
                             </div>
                         )}
-                        <div className="relative group">
+                        <div className="relative group flex-1 sm:flex-initial">
                             <button
                                 type="button"
                                 onClick={handleOpenCreateMovement}
                                 disabled={(accountKey === 'FondoGeneral' && pendingCierreDeCaja) || !entriesHydrated}
-                                className={`flex items-center justify-center gap-2 rounded px-4 py-2 text-white ${((accountKey === 'FondoGeneral' && pendingCierreDeCaja) || !entriesHydrated)
+                                className={`flex items-center justify-center gap-1.5 sm:gap-2 rounded px-3 sm:px-4 py-2 sm:py-2.5 text-white text-xs sm:text-sm w-full ${((accountKey === 'FondoGeneral' && pendingCierreDeCaja) || !entriesHydrated)
                                     ? 'bg-gray-400 cursor-not-allowed opacity-60'
                                     : 'fg-add-mov-btn'
                                     }`}
                             >
-                                <Plus className="w-4 h-4" />
-                                Agregar movimiento
+                                <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                <span className="whitespace-nowrap">Agregar movimiento</span>
                             </button>
                             {accountKey === 'FondoGeneral' && pendingCierreDeCaja && entriesHydrated && (
-                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-yellow-500 text-black text-sm rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
+                                <div className="hidden sm:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-yellow-500 text-black text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
                                     ⚠️ Debe realizar el &quot;Registrar cierre&quot; para seguir agregando movimientos
                                     <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-yellow-500"></div>
                                 </div>
@@ -4875,14 +4979,14 @@ export function FondoSection({
             )}
 
             <div className="mt-6">
-                <h3 className="text-sm font-medium text-[var(--muted-foreground)] mb-2 text-center">Movimientos recientes</h3>
+                <h3 className="text-xs sm:text-sm font-medium text-[var(--muted-foreground)] mb-2 text-center">Movimientos recientes</h3>
                 {fondoEntries.length === 0 ? (
-                    <p className="text-sm text-[var(--muted-foreground)] text-center">No hay movimientos aun.</p>
+                    <p className="text-xs sm:text-sm text-[var(--muted-foreground)] text-center py-4">No hay movimientos aun.</p>
                 ) : (
                     <div className="overflow-x-auto rounded border border-[var(--input-border)] bg-[#1f262a] text-white">
-                        <div className="px-3 py-2 flex items-center justify-between bg-transparent text-sm text-[var(--muted-foreground)]">
-                            <div className="flex items-center gap-2">
-                                <span>Mostrar</span>
+                        <div className="px-2 sm:px-3 py-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0 bg-transparent text-xs sm:text-sm text-[var(--muted-foreground)]">
+                            <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
+                                <span className="text-xs sm:text-sm">Mostrar</span>
                                 <select
                                     value={pageSize === 'all' ? 'all' : pageSize === 'daily' ? 'daily' : String(pageSize)}
                                     onChange={e => {
@@ -4891,63 +4995,65 @@ export function FondoSection({
                                         else if (v === 'daily') setPageSize('daily');
                                         else setPageSize(Number.parseInt(v, 10) || 10);
                                     }}
-                                    className="p-1 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm"
+                                    className="p-1 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-xs sm:text-sm flex-1 sm:flex-initial min-w-0"
                                 >
-                                    <option value="daily">Mostrar diariamente</option>
+                                    <option value="daily">Diariamente</option>
                                     <option value="5">5</option>
                                     <option value="10">10</option>
                                     <option value="15">15</option>
                                     <option value="all">Todos</option>
                                 </select>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <div className="flex items-center gap-3 mr-2 text-[var(--muted-foreground)]">
-                                    <label className="flex items-center gap-2 cursor-pointer">
-                                        <input aria-label="Recordar filtros" title="Recordar filtros" className="cursor-pointer" type="checkbox" checked={rememberFilters} onChange={e => setRememberFilters(e.target.checked)} />
-                                        <span className="text-sm ml-1">Recordar ajustes</span>
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 text-[var(--muted-foreground)]">
+                                    <label className="flex items-center gap-1.5 cursor-pointer">
+                                        <input aria-label="Recordar filtros" title="Recordar filtros" className="cursor-pointer w-3.5 h-3.5 sm:w-4 sm:h-4" type="checkbox" checked={rememberFilters} onChange={e => setRememberFilters(e.target.checked)} />
+                                        <span className="text-xs sm:text-sm whitespace-nowrap">Recordar ajustes</span>
                                     </label>
                                     {isAdminUser && (
-                                        <label className="flex items-center gap-2 cursor-pointer">
-                                            <input aria-label="Mantener filtros entre empresas" title="Mantener filtros entre empresas" className="cursor-pointer" type="checkbox" checked={keepFiltersAcrossCompanies} onChange={e => setKeepFiltersAcrossCompanies(e.target.checked)} />
-                                            <span className="text-sm ml-1">Mantener filtros entre empresas</span>
+                                        <label className="flex items-center gap-1.5 cursor-pointer">
+                                            <input aria-label="Mantener filtros entre empresas" title="Mantener filtros entre empresas" className="cursor-pointer w-3.5 h-3.5 sm:w-4 sm:h-4" type="checkbox" checked={keepFiltersAcrossCompanies} onChange={e => setKeepFiltersAcrossCompanies(e.target.checked)} />
+                                            <span className="text-xs sm:text-sm whitespace-nowrap">Mantener entre empresas</span>
                                         </label>
                                     )}
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={handlePrevPage}
-                                    disabled={disablePrevButton}
-                                    className="px-2 py-1 border border-[var(--input-border)] rounded disabled:opacity-50"
-                                >
-                                    Anterior
-                                </button>
-                                <div className="px-2">{isDailyMode ? formatGroupLabel(currentDailyKey) : `Página ${Math.min(pageIndex + 1, totalPages)} de ${totalPages}`}</div>
-                                <button
-                                    type="button"
-                                    onClick={handleNextPage}
-                                    disabled={disableNextButton}
-                                    className="px-2 py-1 border border-[var(--input-border)] rounded disabled:opacity-50"
-                                >
-                                    Siguiente
-                                </button>
+                                <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
+                                    <button
+                                        type="button"
+                                        onClick={handlePrevPage}
+                                        disabled={disablePrevButton}
+                                        className="px-2 sm:px-3 py-1 border border-[var(--input-border)] rounded disabled:opacity-50 text-xs sm:text-sm flex-1 sm:flex-initial"
+                                    >
+                                        Ant
+                                    </button>
+                                    <div className="px-1 sm:px-2 text-[10px] sm:text-xs whitespace-nowrap">{isDailyMode ? formatGroupLabel(currentDailyKey) : `${Math.min(pageIndex + 1, totalPages)}/${totalPages}`}</div>
+                                    <button
+                                        type="button"
+                                        onClick={handleNextPage}
+                                        disabled={disableNextButton}
+                                        className="px-2 sm:px-3 py-1 border border-[var(--input-border)] rounded disabled:opacity-50 text-xs sm:text-sm flex-1 sm:flex-initial"
+                                    >
+                                        Sig
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                        <div className="max-h-[36rem] overflow-y-auto">
+                        <div className="max-h-[28rem] sm:max-h-[36rem] overflow-y-auto">
                             {(fromFilter || toFilter) && (
-                                <div className="px-3 py-2">
-                                    <div className="text-sm text-[var(--muted-foreground)]">
-                                        Filtro: {fromFilter ? formatGroupLabel(fromFilter) : '—'}{toFilter ? ` → ${formatGroupLabel(toFilter)}` : ''}
+                                <div className="px-2 sm:px-3 py-2">
+                                    <div className="text-xs sm:text-sm text-[var(--muted-foreground)] flex flex-col sm:flex-row sm:items-center gap-2">
+                                        <span>Filtro: {fromFilter ? formatGroupLabel(fromFilter) : '—'}{toFilter ? ` → ${formatGroupLabel(toFilter)}` : ''}</span>
                                         <button
                                             type="button"
                                             onClick={() => { setFromFilter(null); setToFilter(null); setPageIndex(0); setPageSize('daily'); }}
-                                            className="ml-3 px-2 py-1 border border-[var(--input-border)] rounded text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+                                            className="px-2 py-1 border border-[var(--input-border)] rounded text-[var(--muted-foreground)] hover:bg-[var(--muted)] text-xs self-start"
                                         >
-                                            Limpiar filtro
+                                            Limpiar
                                         </button>
                                     </div>
                                 </div>
                             )}
-                            <table className="w-full min-w-[920px] text-sm">
+                            <table className="w-full min-w-[900px] text-xs sm:text-sm">
                                 <colgroup>
                                     <col style={{ width: columnWidths.hora }} />
                                     <col style={{ width: columnWidths.motivo }} />
