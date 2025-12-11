@@ -63,6 +63,7 @@ async function syncVersion() {
     }
 
     const db = admin.firestore();
+    db.settings({ databaseId: 'restauracion' });
 
     // Verificar versión actual en Firestore
     const versionRef = db.collection('version').doc('current');

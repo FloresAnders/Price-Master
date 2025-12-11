@@ -34,7 +34,7 @@ export default function FondoPage() {
                 return stored as TabId;
             }
         } catch {
-            // Ignorar errores de localStorage
+            // Ignorar errores de localStorage porfavor
         }
         return 'fondo';
     });
