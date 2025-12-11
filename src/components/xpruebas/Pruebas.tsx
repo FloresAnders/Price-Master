@@ -1,7 +1,23 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { TestTube, Beaker, FlaskConical, Zap, Code, Database, Upload, Image, CheckCircle, AlertCircle, Calendar, Mail } from 'lucide-react';
+import { TestTube, Beaker, FlaskConical, Zap, Code, Database, Upload, Image, CheckCircle, AlertCircle, Calendar, Mail, Download, FileUp } from 'lucide-react';
+import ExportModal from '@/components/export/ExportModal';
+import {
+    ImportUsers,
+    ImportEmpresas,
+    ImportSchedules,
+    ImportSorteos,
+    ImportScans,
+    ImportCcssConfig,
+    ImportPayrollRecords,
+    ImportFondoMovementTypes,
+    ImportSolicitudes,
+    ImportCierres,
+    ImportProveedores,
+    ImportMovimientosFondos,
+    ImportSessionStatus,
+} from '@/components/export';
 import { storage } from '@/config/firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { useEmail } from '@/hooks/useEmail';
@@ -55,6 +71,207 @@ export default function Pruebas() {
     const [movimientosLoading, setMovimientosLoading] = useState<boolean>(false);
     const [movimientosError, setMovimientosError] = useState<string | null>(null);
     const [exportingCompanyId, setExportingCompanyId] = useState<string | null>(null);
+    const [showExportModal, setShowExportModal] = useState(false);
+    const openExportModal = () => setShowExportModal(true);
+    const closeExportModal = () => setShowExportModal(false);
+
+    // Estados para exportación de colecciones
+    interface CollectionData {
+        name: string;
+        displayName: string;
+        count: number;
+        loading: boolean;
+        exporting: boolean;
+        data: unknown[];
+    }
+
+    const [collectionsData, setCollectionsData] = useState<CollectionData[]>([
+        { name: 'users', displayName: 'Usuarios', count: 0, loading: false, exporting: false, data: [] },
+        { name: 'empresas', displayName: 'Empresas', count: 0, loading: false, exporting: false, data: [] },
+        { name: 'schedules', displayName: 'Horarios (Schedules)', count: 0, loading: false, exporting: false, data: [] },
+        { name: 'sorteos', displayName: 'Sorteos', count: 0, loading: false, exporting: false, data: [] },
+        { name: 'scans', displayName: 'Escaneos (Scans)', count: 0, loading: false, exporting: false, data: [] },
+        { name: 'ccss-config', displayName: 'Configuración CCSS', count: 0, loading: false, exporting: false, data: [] },
+        { name: 'payroll-records', displayName: 'Registros de Planilla', count: 0, loading: false, exporting: false, data: [] },
+        { name: 'fondo-movement-types', displayName: 'Tipos de Movimientos', count: 0, loading: false, exporting: false, data: [] },
+        { name: 'solicitudes', displayName: 'Solicitudes', count: 0, loading: false, exporting: false, data: [] },
+        { name: 'cierres', displayName: 'Cierres Diarios', count: 0, loading: false, exporting: false, data: [] },
+        { name: 'proveedores', displayName: 'Proveedores', count: 0, loading: false, exporting: false, data: [] },
+        { name: 'MovimientosFondos', displayName: 'Movimientos de Fondos', count: 0, loading: false, exporting: false, data: [] },
+        { name: 'session_status', displayName: 'Estado de Sesión', count: 0, loading: false, exporting: false, data: [] },
+    ]);
+    const [collectionsLoading, setCollectionsLoading] = useState(false);
+    const [collectionsError, setCollectionsError] = useState<string | null>(null);
+
+    // Función para cargar datos de todas las colecciones
+    const fetchAllCollections = useCallback(async () => {
+        setCollectionsLoading(true);
+        setCollectionsError(null);
+
+        try {
+            const { UsersService } = await import('@/services/users');
+            const { EmpresasService } = await import('@/services/empresas');
+            const { SchedulesService } = await import('@/services/schedules');
+            const { SorteosService } = await import('@/services/sorteos');
+            const { ScanningService } = await import('@/services/scanning');
+            const { PayrollRecordsService } = await import('@/services/payroll-records');
+            const { FondoMovementTypesService } = await import('@/services/fondo-movement-types');
+            const { SolicitudesService } = await import('@/services/solicitudes');
+            const { FirestoreService } = await import('@/services/firestore');
+
+            const [users, empresas, schedules, sorteos, scans, payrollRecords, fondoTypes, solicitudes, ccssConfigs, cierres, proveedores, movimientosFondos, sessionStatus] = await Promise.all([
+                UsersService.getAllUsers(),
+                EmpresasService.getAllEmpresas(),
+                SchedulesService.getAllSchedules(),
+                SorteosService.getAllSorteos(),
+                ScanningService.getAllScans(),
+                PayrollRecordsService.getAllRecords(),
+                FondoMovementTypesService.getAllMovementTypes(),
+                SolicitudesService.getAllSolicitudes(),
+                FirestoreService.getAll('ccss-config'),
+                FirestoreService.getAll('cierres'),
+                FirestoreService.getAll('proveedores'),
+                FirestoreService.getAll('MovimientosFondos'),
+                FirestoreService.getAll('session_status'),
+            ]);
+
+            setCollectionsData([
+                { name: 'users', displayName: 'Usuarios', count: users.length, loading: false, exporting: false, data: users },
+                { name: 'empresas', displayName: 'Empresas', count: empresas.length, loading: false, exporting: false, data: empresas },
+                { name: 'schedules', displayName: 'Horarios (Schedules)', count: schedules.length, loading: false, exporting: false, data: schedules },
+                { name: 'sorteos', displayName: 'Sorteos', count: sorteos.length, loading: false, exporting: false, data: sorteos },
+                { name: 'scans', displayName: 'Escaneos (Scans)', count: scans.length, loading: false, exporting: false, data: scans },
+                { name: 'ccss-config', displayName: 'Configuración CCSS', count: ccssConfigs.length, loading: false, exporting: false, data: ccssConfigs },
+                { name: 'payroll-records', displayName: 'Registros de Planilla', count: payrollRecords.length, loading: false, exporting: false, data: payrollRecords },
+                { name: 'fondo-movement-types', displayName: 'Tipos de Movimientos', count: fondoTypes.length, loading: false, exporting: false, data: fondoTypes },
+                { name: 'solicitudes', displayName: 'Solicitudes', count: solicitudes.length, loading: false, exporting: false, data: solicitudes },
+                { name: 'cierres', displayName: 'Cierres Diarios', count: cierres.length, loading: false, exporting: false, data: cierres },
+                { name: 'proveedores', displayName: 'Proveedores', count: proveedores.length, loading: false, exporting: false, data: proveedores },
+                { name: 'MovimientosFondos', displayName: 'Movimientos de Fondos', count: movimientosFondos.length, loading: false, exporting: false, data: movimientosFondos },
+                { name: 'session_status', displayName: 'Estado de Sesión', count: sessionStatus.length, loading: false, exporting: false, data: sessionStatus },
+            ]);
+
+            setTestResults(prev => ({
+                ...prev,
+                'collections-load': `✅ Colecciones cargadas correctamente`
+            }));
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Error desconocido';
+            setCollectionsError(message);
+            setTestResults(prev => ({
+                ...prev,
+                'collections-load-error': `❌ Error al cargar colecciones: ${message}`
+            }));
+        } finally {
+            setCollectionsLoading(false);
+        }
+    }, []);
+
+    // Función para exportar una colección específica
+    const handleExportCollection = useCallback(async (collectionName: string, displayName: string) => {
+        setCollectionsData(prev => prev.map(c => 
+            c.name === collectionName ? { ...c, exporting: true } : c
+        ));
+
+        setTestResults(prev => ({
+            ...prev,
+            [`export-${collectionName}`]: `🔄 Preparando exportación de ${displayName}...`
+        }));
+
+        try {
+            const collection = collectionsData.find(c => c.name === collectionName);
+            
+            if (!collection || collection.data.length === 0) {
+                setTestResults(prev => ({
+                    ...prev,
+                    [`export-${collectionName}`]: `⚠️ No hay datos para exportar en ${displayName}`
+                }));
+                return;
+            }
+
+            const exportData = {
+                metadata: {
+                    collection: collectionName,
+                    displayName: displayName,
+                    exportDate: new Date().toISOString(),
+                    totalRecords: collection.data.length,
+                    version: '1.0'
+                },
+                data: collection.data
+            };
+
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const anchor = document.createElement('a');
+            anchor.href = url;
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            anchor.download = `${collectionName}-export-${timestamp}.json`;
+            document.body.appendChild(anchor);
+            anchor.click();
+            document.body.removeChild(anchor);
+            URL.revokeObjectURL(url);
+
+            setTestResults(prev => ({
+                ...prev,
+                [`export-${collectionName}`]: `✅ Exportación completada: ${collection.data.length} registros`
+            }));
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Error desconocido';
+            setTestResults(prev => ({
+                ...prev,
+                [`export-${collectionName}`]: `❌ Error al exportar ${displayName}: ${message}`
+            }));
+        } finally {
+            setCollectionsData(prev => prev.map(c => 
+                c.name === collectionName ? { ...c, exporting: false } : c
+            ));
+        }
+    }, [collectionsData]);
+
+    // Función para exportar todas las colecciones a la vez
+    const handleExportAllCollections = useCallback(async () => {
+        setTestResults(prev => ({
+            ...prev,
+            'export-all': `🔄 Preparando exportación de todas las colecciones...`
+        }));
+
+        try {
+            const allData: Record<string, unknown> = {
+                metadata: {
+                    exportDate: new Date().toISOString(),
+                    version: '1.0',
+                    collections: collectionsData.map(c => ({ name: c.name, displayName: c.displayName, count: c.count }))
+                }
+            };
+
+            collectionsData.forEach(collection => {
+                allData[collection.name] = collection.data;
+            });
+
+            const blob = new Blob([JSON.stringify(allData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const anchor = document.createElement('a');
+            anchor.href = url;
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            anchor.download = `full-database-export-${timestamp}.json`;
+            document.body.appendChild(anchor);
+            anchor.click();
+            document.body.removeChild(anchor);
+            URL.revokeObjectURL(url);
+
+            const totalRecords = collectionsData.reduce((sum, c) => sum + c.count, 0);
+            setTestResults(prev => ({
+                ...prev,
+                'export-all': `✅ Exportación completa: ${totalRecords} registros en ${collectionsData.length} colecciones`
+            }));
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Error desconocido';
+            setTestResults(prev => ({
+                ...prev,
+                'export-all': `❌ Error al exportar todas las colecciones: ${message}`
+            }));
+        }
+    }, [collectionsData]);
 
     // Hook para funcionalidad de correo
     const { sendEmail, checkEmailConfig, error: emailError } = useEmail();
@@ -1430,6 +1647,16 @@ export default function Pruebas() {
                 { id: 'email-config', name: 'Verificar Configuración', action: testEmailConfiguration },
                 { id: 'send-custom-email', name: 'Enviar Correo Personalizado', action: sendCustomEmail }
             ]
+        },
+        {
+            id: 'export-data',
+            title: 'Exportar Datos',
+            icon: <Download className="w-6 h-6" />,
+            color: 'blue',
+            description: 'Exportar datos del sistema en diferentes formatos',
+            tests: [
+                { id: 'export-modal', name: 'Abrir Modal de Exportación', action: openExportModal }
+            ]
         }
     ];
 
@@ -1748,6 +1975,324 @@ export default function Pruebas() {
                 )}
             </div>
 
+            {/* Database Collections Export Section */}
+            <div className="bg-[var(--input-bg)] rounded-lg border border-[var(--border)] p-6 mb-8">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+                    <div>
+                        <h3 className="text-lg font-semibold text-[var(--foreground)] flex items-center">
+                            <Database className="w-5 h-5 mr-2 text-blue-600" />
+                            Exportar Colecciones de Base de Datos
+                        </h3>
+                        <p className="text-sm text-[var(--muted-foreground)]">
+                            Consulta y exporta cada colección de Firebase en formato JSON. Útil para backups y migraciones.
+                        </p>
+                    </div>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={fetchAllCollections}
+                            disabled={collectionsLoading}
+                            className={`px-4 py-2 rounded-lg font-medium border transition-colors duration-200 ${collectionsLoading
+                                ? 'bg-gray-400 text-gray-700 cursor-not-allowed border-transparent'
+                                : 'bg-blue-600 hover:bg-blue-700 text-white border-blue-700'
+                                }`}
+                        >
+                            {collectionsLoading ? 'Cargando...' : '🔄 Cargar Colecciones'}
+                        </button>
+                        <button
+                            onClick={handleExportAllCollections}
+                            disabled={collectionsLoading || collectionsData.every(c => c.count === 0)}
+                            className={`px-4 py-2 rounded-lg font-medium border transition-colors duration-200 ${collectionsLoading || collectionsData.every(c => c.count === 0)
+                                ? 'bg-gray-400 text-gray-700 cursor-not-allowed border-transparent'
+                                : 'bg-green-600 hover:bg-green-700 text-white border-green-700'
+                                }`}
+                        >
+                            📦 Exportar Todo
+                        </button>
+                    </div>
+                </div>
+
+                {collectionsError && (
+                    <div className="p-3 mb-4 rounded-lg border border-red-200 bg-red-50 text-sm text-red-700">
+                        ⚠️ {collectionsError}
+                    </div>
+                )}
+
+                {collectionsLoading ? (
+                    <div className="text-sm text-[var(--muted-foreground)] flex items-center gap-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                        Cargando colecciones desde Firebase...
+                    </div>
+                ) : collectionsData.every(c => c.count === 0) ? (
+                    <div className="text-sm text-[var(--muted-foreground)] p-4 bg-[var(--background)] rounded-lg border border-[var(--border)]">
+                        <p className="mb-2">📋 Haz clic en &quot;Cargar Colecciones&quot; para consultar los datos de Firebase.</p>
+                        <p className="text-xs">Se cargarán: Usuarios, Empresas, Horarios, Sorteos, Escaneos, CCSS Config, Planilla, Tipos de Movimientos y Solicitudes.</p>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {collectionsData.map(collection => (
+                            <div key={collection.name} className="p-4 rounded-lg border border-[var(--border)] bg-[var(--background)] flex flex-col">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div>
+                                        <p className="text-sm font-semibold text-[var(--foreground)]">{collection.displayName}</p>
+                                        <p className="text-xs text-[var(--muted-foreground)]">Colección: {collection.name}</p>
+                                    </div>
+                                    <span className={`text-xs px-2 py-1 rounded-full ${collection.count > 0 
+                                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' 
+                                        : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'}`}>
+                                        {collection.count} registros
+                                    </span>
+                                </div>
+                                <button
+                                    onClick={() => handleExportCollection(collection.name, collection.displayName)}
+                                    disabled={collection.exporting || collection.count === 0}
+                                    className={`mt-auto px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center ${collection.exporting || collection.count === 0
+                                        ? 'bg-gray-400 text-gray-700 cursor-not-allowed'
+                                        : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                        }`}
+                                >
+                                    {collection.exporting ? (
+                                        <>
+                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                            Exportando...
+                                        </>
+                                    ) : collection.count === 0 ? (
+                                        'Sin datos'
+                                    ) : (
+                                        <>
+                                            <Download className="w-4 h-4 mr-2" />
+                                            Exportar JSON
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {/* Resumen de colecciones */}
+                {collectionsData.some(c => c.count > 0) && (
+                    <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                        <h4 className="font-semibold text-blue-700 dark:text-blue-400 mb-2">📊 Resumen de Base de Datos</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            <div>
+                                <p className="text-blue-600 dark:text-blue-300 font-medium">Total Colecciones</p>
+                                <p className="text-2xl font-bold text-blue-700 dark:text-blue-400">{collectionsData.filter(c => c.count > 0).length}</p>
+                            </div>
+                            <div>
+                                <p className="text-blue-600 dark:text-blue-300 font-medium">Total Registros</p>
+                                <p className="text-2xl font-bold text-blue-700 dark:text-blue-400">{collectionsData.reduce((sum, c) => sum + c.count, 0).toLocaleString()}</p>
+                            </div>
+                            <div>
+                                <p className="text-blue-600 dark:text-blue-300 font-medium">Colección Mayor</p>
+                                <p className="text-lg font-bold text-blue-700 dark:text-blue-400">
+                                    {collectionsData.reduce((max, c) => c.count > max.count ? c : max, collectionsData[0]).displayName}
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-blue-600 dark:text-blue-300 font-medium">Última Carga</p>
+                                <p className="text-sm font-medium text-blue-700 dark:text-blue-400">{new Date().toLocaleTimeString()}</p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Database Collections Import Section */}
+            <div className="bg-[var(--input-bg)] rounded-lg border border-[var(--border)] p-6 mb-8">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+                    <div>
+                        <h3 className="text-lg font-semibold text-[var(--foreground)] flex items-center">
+                            <FileUp className="w-5 h-5 mr-2 text-green-600" />
+                            Importar Colecciones de Base de Datos
+                        </h3>
+                        <p className="text-sm text-[var(--muted-foreground)]">
+                            Restaura datos desde archivos JSON exportados. Útil para migraciones y restauración de backups.
+                        </p>
+                    </div>
+                </div>
+
+                <div className="p-4 mb-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                    <h4 className="font-semibold text-yellow-700 dark:text-yellow-400 mb-2">⚠️ Precauciones al Importar</h4>
+                    <ul className="text-sm text-yellow-600 dark:text-yellow-300 space-y-1">
+                        <li>• Los registros con ID existente serán sobrescritos</li>
+                        <li>• Se recomienda hacer un backup antes de importar</li>
+                        <li>• Verifica que el archivo JSON tenga el formato correcto</li>
+                        <li>• Las importaciones preservan los timestamps originales</li>
+                    </ul>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {/* Usuarios */}
+                    <div className="p-4 rounded-lg border border-[var(--border)] bg-[var(--background)] flex flex-col">
+                        <div className="flex items-center justify-between mb-3">
+                            <div>
+                                <p className="text-sm font-semibold text-[var(--foreground)]">Usuarios</p>
+                                <p className="text-xs text-[var(--muted-foreground)]">Colección: users</p>
+                            </div>
+                        </div>
+                        <div className="mt-auto">
+                            <ImportUsers />
+                        </div>
+                    </div>
+
+                    {/* Empresas */}
+                    <div className="p-4 rounded-lg border border-[var(--border)] bg-[var(--background)] flex flex-col">
+                        <div className="flex items-center justify-between mb-3">
+                            <div>
+                                <p className="text-sm font-semibold text-[var(--foreground)]">Empresas</p>
+                                <p className="text-xs text-[var(--muted-foreground)]">Colección: empresas</p>
+                            </div>
+                        </div>
+                        <div className="mt-auto">
+                            <ImportEmpresas />
+                        </div>
+                    </div>
+
+                    {/* Schedules */}
+                    <div className="p-4 rounded-lg border border-[var(--border)] bg-[var(--background)] flex flex-col">
+                        <div className="flex items-center justify-between mb-3">
+                            <div>
+                                <p className="text-sm font-semibold text-[var(--foreground)]">Horarios</p>
+                                <p className="text-xs text-[var(--muted-foreground)]">Colección: schedules</p>
+                            </div>
+                        </div>
+                        <div className="mt-auto">
+                            <ImportSchedules />
+                        </div>
+                    </div>
+
+                    {/* Sorteos */}
+                    <div className="p-4 rounded-lg border border-[var(--border)] bg-[var(--background)] flex flex-col">
+                        <div className="flex items-center justify-between mb-3">
+                            <div>
+                                <p className="text-sm font-semibold text-[var(--foreground)]">Sorteos</p>
+                                <p className="text-xs text-[var(--muted-foreground)]">Colección: sorteos</p>
+                            </div>
+                        </div>
+                        <div className="mt-auto">
+                            <ImportSorteos />
+                        </div>
+                    </div>
+
+                    {/* Scans */}
+                    <div className="p-4 rounded-lg border border-[var(--border)] bg-[var(--background)] flex flex-col">
+                        <div className="flex items-center justify-between mb-3">
+                            <div>
+                                <p className="text-sm font-semibold text-[var(--foreground)]">Escaneos</p>
+                                <p className="text-xs text-[var(--muted-foreground)]">Colección: scans</p>
+                            </div>
+                        </div>
+                        <div className="mt-auto">
+                            <ImportScans />
+                        </div>
+                    </div>
+
+                    {/* CCSS Config */}
+                    <div className="p-4 rounded-lg border border-[var(--border)] bg-[var(--background)] flex flex-col">
+                        <div className="flex items-center justify-between mb-3">
+                            <div>
+                                <p className="text-sm font-semibold text-[var(--foreground)]">Config CCSS</p>
+                                <p className="text-xs text-[var(--muted-foreground)]">Colección: ccss-config</p>
+                            </div>
+                        </div>
+                        <div className="mt-auto">
+                            <ImportCcssConfig />
+                        </div>
+                    </div>
+
+                    {/* Payroll Records */}
+                    <div className="p-4 rounded-lg border border-[var(--border)] bg-[var(--background)] flex flex-col">
+                        <div className="flex items-center justify-between mb-3">
+                            <div>
+                                <p className="text-sm font-semibold text-[var(--foreground)]">Planilla</p>
+                                <p className="text-xs text-[var(--muted-foreground)]">Colección: payroll-records</p>
+                            </div>
+                        </div>
+                        <div className="mt-auto">
+                            <ImportPayrollRecords />
+                        </div>
+                    </div>
+
+                    {/* Fondo Movement Types */}
+                    <div className="p-4 rounded-lg border border-[var(--border)] bg-[var(--background)] flex flex-col">
+                        <div className="flex items-center justify-between mb-3">
+                            <div>
+                                <p className="text-sm font-semibold text-[var(--foreground)]">Tipos Movimiento</p>
+                                <p className="text-xs text-[var(--muted-foreground)]">Colección: fondo-movement-types</p>
+                            </div>
+                        </div>
+                        <div className="mt-auto">
+                            <ImportFondoMovementTypes />
+                        </div>
+                    </div>
+
+                    {/* Solicitudes */}
+                    <div className="p-4 rounded-lg border border-[var(--border)] bg-[var(--background)] flex flex-col">
+                        <div className="flex items-center justify-between mb-3">
+                            <div>
+                                <p className="text-sm font-semibold text-[var(--foreground)]">Solicitudes</p>
+                                <p className="text-xs text-[var(--muted-foreground)]">Colección: solicitudes</p>
+                            </div>
+                        </div>
+                        <div className="mt-auto">
+                            <ImportSolicitudes />
+                        </div>
+                    </div>
+
+                    {/* Cierres */}
+                    <div className="p-4 rounded-lg border border-[var(--border)] bg-[var(--background)] flex flex-col">
+                        <div className="flex items-center justify-between mb-3">
+                            <div>
+                                <p className="text-sm font-semibold text-[var(--foreground)]">Cierres Diarios</p>
+                                <p className="text-xs text-[var(--muted-foreground)]">Colección: cierres</p>
+                            </div>
+                        </div>
+                        <div className="mt-auto">
+                            <ImportCierres />
+                        </div>
+                    </div>
+
+                    {/* Proveedores */}
+                    <div className="p-4 rounded-lg border border-[var(--border)] bg-[var(--background)] flex flex-col">
+                        <div className="flex items-center justify-between mb-3">
+                            <div>
+                                <p className="text-sm font-semibold text-[var(--foreground)]">Proveedores</p>
+                                <p className="text-xs text-[var(--muted-foreground)]">Colección: proveedores</p>
+                            </div>
+                        </div>
+                        <div className="mt-auto">
+                            <ImportProveedores />
+                        </div>
+                    </div>
+
+                    {/* MovimientosFondos */}
+                    <div className="p-4 rounded-lg border border-[var(--border)] bg-[var(--background)] flex flex-col">
+                        <div className="flex items-center justify-between mb-3">
+                            <div>
+                                <p className="text-sm font-semibold text-[var(--foreground)]">Mov. Fondos</p>
+                                <p className="text-xs text-[var(--muted-foreground)]">Colección: MovimientosFondos</p>
+                            </div>
+                        </div>
+                        <div className="mt-auto">
+                            <ImportMovimientosFondos />
+                        </div>
+                    </div>
+
+                    {/* Session Status */}
+                    <div className="p-4 rounded-lg border border-[var(--border)] bg-[var(--background)] flex flex-col">
+                        <div className="flex items-center justify-between mb-3">
+                            <div>
+                                <p className="text-sm font-semibold text-[var(--foreground)]">Estado Sesión</p>
+                                <p className="text-xs text-[var(--muted-foreground)]">Colección: session_status</p>
+                            </div>
+                        </div>
+                        <div className="mt-auto">
+                            <ImportSessionStatus />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             {/* Schedule Management Help Section */}
             <div className="bg-[var(--input-bg)] rounded-lg border border-[var(--border)] p-6 mb-8">
                 <h3 className="text-lg font-semibold text-[var(--foreground)] mb-4 flex items-center">
@@ -2064,6 +2609,9 @@ GMAIL_APP_PASSWORD=abcd-efgh-ijkl-mnop`}
                     </div>
                 </div>
             )}
+
+            {/* Export Modal */}
+            <ExportModal open={showExportModal} onClose={closeExportModal} />
         </div>
     );
 }

@@ -1382,17 +1382,6 @@ export default function DataEditor() {
                                 ({fondoTypesData.length})
                             </button>
                         )}
-                        <div className="flex flex-wrap items-center gap-1 sm:gap-2 w-full sm:w-auto justify-end md:justify-start md:ml-auto">
-
-                            <button
-                                onClick={openExportModal}
-                                className="px-2 py-1 sm:px-3 sm:py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1 sm:gap-2 transition-colors text-xs sm:text-sm whitespace-nowrap"
-                            >
-                                <Download className="w-3 h-3 sm:w-4 sm:h-4" />
-                                <span className="hidden sm:inline">Exportar</span>
-                                <span className="sm:hidden">Export</span>
-                            </button>
-                        </div>
                     </nav>
 
                 </div>

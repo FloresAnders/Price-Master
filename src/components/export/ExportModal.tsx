@@ -5,16 +5,26 @@ import type { ReactElement } from 'react';
 import {
     ExportCcssConfig,
     ImportCcssConfig,
+    ExportCierres,
+    ImportCierres,
     ExportEmpresas,
     ImportEmpresas,
+    ExportFondoMovementTypes,
+    ImportFondoMovementTypes,
+    ExportMovimientosFondos,
+    ImportMovimientosFondos,
     ExportPayrollRecords,
     ImportPayrollRecords,
+    ExportProveedores,
+    ImportProveedores,
     ExportScans,
     ImportScans,
     ExportSchedules,
     ImportSchedules,
     ExportSessionStatus,
     ImportSessionStatus,
+    ExportSolicitudes,
+    ImportSolicitudes,
     ExportSorteos,
     ImportSorteos,
     ExportUsers,
@@ -51,12 +61,39 @@ export default function ExportModal({ open, onClose, title = 'Exportar / Importa
                             </div>
                         </div>
 
-                        {/* Row: locations */}
+                        {/* Row: cierres */}
+                        <div className="flex items-center justify-between py-3">
+                            <div className="font-medium">Cierres</div>
+                            <div className="flex gap-2">
+                                <ExportCierres />
+                                <ImportCierres />
+                            </div>
+                        </div>
+
+                        {/* Row: empresas */}
                         <div className="flex items-center justify-between py-3">
                             <div className="font-medium">Empresas</div>
                             <div className="flex gap-2">
                                 <ExportEmpresas />
                                 <ImportEmpresas />
+                            </div>
+                        </div>
+
+                        {/* Row: fondoMovementTypes */}
+                        <div className="flex items-center justify-between py-3">
+                            <div className="font-medium">Fondo Movement Types</div>
+                            <div className="flex gap-2">
+                                <ExportFondoMovementTypes />
+                                <ImportFondoMovementTypes />
+                            </div>
+                        </div>
+
+                        {/* Row: MovimientosFondos */}
+                        <div className="flex items-center justify-between py-3">
+                            <div className="font-medium">Movimientos Fondos</div>
+                            <div className="flex gap-2">
+                                <ExportMovimientosFondos />
+                                <ImportMovimientosFondos />
                             </div>
                         </div>
 
@@ -66,6 +103,15 @@ export default function ExportModal({ open, onClose, title = 'Exportar / Importa
                             <div className="flex gap-2">
                                 <ExportPayrollRecords />
                                 <ImportPayrollRecords />
+                            </div>
+                        </div>
+
+                        {/* Row: proveedores */}
+                        <div className="flex items-center justify-between py-3">
+                            <div className="font-medium">Proveedores</div>
+                            <div className="flex gap-2">
+                                <ExportProveedores />
+                                <ImportProveedores />
                             </div>
                         </div>
 
@@ -93,6 +139,15 @@ export default function ExportModal({ open, onClose, title = 'Exportar / Importa
                             <div className="flex gap-2">
                                 <ExportSessionStatus />
                                 <ImportSessionStatus />
+                            </div>
+                        </div>
+
+                        {/* Row: solicitudes */}
+                        <div className="flex items-center justify-between py-3">
+                            <div className="font-medium">Solicitudes</div>
+                            <div className="flex gap-2">
+                                <ExportSolicitudes />
+                                <ImportSolicitudes />
                             </div>
                         </div>
 

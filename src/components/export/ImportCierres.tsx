@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { collection, addDoc, doc, setDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 
-export default function ImportSessionStatus() {
+export default function ImportCierres() {
     const [importing, setImporting] = useState(false);
     const [progress, setProgress] = useState({ current: 0, total: 0 });
 
@@ -33,14 +33,13 @@ export default function ImportSessionStatus() {
                 return;
             }
 
-            if (!confirm(`¿Importar ${dataArray.length} registros de session_status?`)) {
+            if (!confirm(`¿Importar ${dataArray.length} documentos de Cierres?`)) {
                 setImporting(false);
                 return;
             }
 
             setProgress({ current: 0, total: dataArray.length });
             let imported = 0;
-            let updated = 0;
             let errors = 0;
             const errorMessages: string[] = [];
 
@@ -52,18 +51,20 @@ export default function ImportSessionStatus() {
                     delete docData.id;
 
                     // Convertir timestamps si existen
-                    if (docData.lastSeen && typeof docData.lastSeen === 'string') {
-                        docData.lastSeen = new Date(docData.lastSeen);
+                    if (docData.date && typeof docData.date === 'string') {
+                        docData.date = new Date(docData.date);
+                    }
+                    if (docData.createdAt && typeof docData.createdAt === 'string') {
+                        docData.createdAt = new Date(docData.createdAt);
                     }
 
                     if (docId) {
-                        await setDoc(doc(db, 'session_status', docId), docData);
-                        updated++;
+                        await setDoc(doc(db, 'cierres', docId), docData);
                     } else {
-                        await addDoc(collection(db, 'session_status'), docData);
-                        imported++;
+                        await addDoc(collection(db, 'cierres'), docData);
                     }
-                    setProgress({ current: imported + updated + errors, total: dataArray.length });
+                    imported++;
+                    setProgress({ current: imported + errors, total: dataArray.length });
                 } catch (itemError) {
                     errors++;
                     if (errorMessages.length < 5) {
@@ -74,9 +75,9 @@ export default function ImportSessionStatus() {
             }
 
             if (errors > 0) {
-                alert(`Importación completada con errores.\n\n✅ Nuevos: ${imported}\n🔄 Actualizados: ${updated}\n❌ Errores: ${errors}\n\n${errorMessages.join('\n')}`);
+                alert(`Importación completada con errores.\n\n✅ Importados: ${imported}\n❌ Errores: ${errors}\n\n${errorMessages.join('\n')}`);
             } else {
-                alert(`✅ Importación exitosa!\n\n📝 Nuevos: ${imported}\n🔄 Actualizados: ${updated}`);
+                alert(`✅ Importación exitosa! ${imported} cierres importados.`);
             }
         } catch (err) {
             console.error('Error importing:', err);
@@ -96,7 +97,7 @@ export default function ImportSessionStatus() {
                     {progress.total > 0 ? `${progress.current}/${progress.total}` : 'Importando...'}
                 </span>
             ) : (
-                'Importar session_status'
+                'Importar Cierres'
             )}
             <input 
                 type="file" 
