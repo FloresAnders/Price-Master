@@ -35,7 +35,6 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import { useProviders } from '../../../hooks/useProviders';
-import { useEmail } from '../../../hooks/useEmail';
 import useToast from '../../../hooks/useToast';
 import type { UserPermissions, Empresas, User, FondoMovementTypeConfig } from '../../../types/firestore';
 import { getDefaultPermissions } from '../../../utils/permissions';
@@ -56,6 +55,8 @@ import { buildDailyClosingEmailTemplate } from '../../../services/email-template
 import AgregarMovimiento from './AgregarMovimiento';
 import DailyClosingModal, { DailyClosingFormValues } from './DailyClosingModal';
 import { useActorOwnership } from '../../../hooks/useActorOwnership';
+import { db } from '../../../config/firebase';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 
 // Límite de movimientos almacenados en localStorage para evitar QuotaExceededError
 const MAX_LOCAL_MOVEMENTS = 500;
@@ -1440,7 +1441,6 @@ export function FondoSection({
     });
     const company = isAdminUser ? adminCompany : assignedCompany;
     const { providers, loading: providersLoading, error: providersError } = useProviders(company);
-    const { sendEmail } = useEmail();
     const { showToast } = useToast();
     const [ownerAdminEmail, setOwnerAdminEmail] = useState<string | null>(null);
     const [ownerCompanies, setOwnerCompanies] = useState<Empresas[]>([]);
@@ -2552,16 +2552,21 @@ export function FondoSection({
                 operationType,
             });
 
-            // Enviar el correo de forma asíncrona sin bloquear
-            sendEmail({
-                to: provider.correonotifi,
-                subject: emailContent.subject,
-                text: emailContent.text,
-                html: emailContent.html,
-            }).catch(err => {
-                console.error('[EMAIL-NOTIFICATION] Error sending email:', err);
-                // No mostrar error al usuario, es solo una notificación
-            });
+            // Crear documento en la colección 'mail' para que la extensión Firebase Trigger Email lo procese
+            try {
+                const docRef = await addDoc(collection(db, 'mail'), {
+                    to: provider.correonotifi,
+                    subject: emailContent.subject,
+                    text: emailContent.text,
+                    html: emailContent.html,
+                    createdAt: serverTimestamp(),
+                });
+                console.log(`[MAIL-DOC] Documento creado en 'mail' para movimiento: ${docRef.id}`);
+                showToast('Correo de notificación enviado correctamente', 'success');
+            } catch (err) {
+                console.error('[MAIL-DOC] Error creando documento en "mail" para movimiento:', err);
+                showToast('Error al enviar correo de notificación', 'error');
+            }
 
         } catch (err) {
             console.error('[EMAIL-NOTIFICATION] Error preparing notification:', err);
@@ -3556,7 +3561,7 @@ export function FondoSection({
         setDailyClosingInitialValues(null);
     };
 
-    const handleConfirmDailyClosing = (closing: DailyClosingFormValues) => {
+    const handleConfirmDailyClosing = async (closing: DailyClosingFormValues) => {
         if (accountKey !== 'FondoGeneral') {
             setDailyClosingModalOpen(false);
             return;
@@ -3651,17 +3656,24 @@ export function FondoSection({
             });
         }
 
-        notificationRecipients.forEach(recipient => {
-            if (!recipient) return;
-            void sendEmail({
-                to: recipient,
-                subject: emailTemplate.subject,
-                text: emailTemplate.text,
-                html: emailTemplate.html,
-            }).catch(err => {
-                console.error('Error sending daily closing email:', err);
-            });
-        });
+        // Crear documentos en la colección 'mail' para que la extensión Firebase Trigger Email los procese
+        for (const recipient of notificationRecipients) {
+            if (!recipient) continue;
+            try {
+                const docRef = await addDoc(collection(db, 'mail'), {
+                    to: recipient,
+                    subject: emailTemplate.subject,
+                    text: emailTemplate.text,
+                    html: emailTemplate.html,
+                    createdAt: serverTimestamp(),
+                });
+                console.log(`[MAIL-DOC] Documento creado en 'mail' para ${recipient}, ID: ${docRef.id}`);
+                showToast('Correo de cierre diario enviado correctamente', 'success');
+            } catch (err) {
+                console.error(`[MAIL-DOC] Error creando documento en 'mail' para ${recipient}:`, err);
+                showToast('Error al enviar correo de cierre diario', 'error');
+            }
+        }
 
         // Create or update movement(s) that reflect the difference so the balance updates accordingly.
         // We create one FondoEntry per currency where diff != 0. These are regular movements (editable)
