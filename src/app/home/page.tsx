@@ -33,13 +33,13 @@ export default function HomePage() {
   const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
   const [selectedTool, setSelectedTool] = useState<string>('');
 
-  // Verificar y cargar la sesión del usuario especial "SEBASTIAN"
+  // Load user session
   useEffect(() => {
     // Verificar si ya existe una sesión
     const existingSession = localStorage.getItem('pricemaster_session');
 
     if (!existingSession) {
-      // Si no hay sesión, algo salió mal - redirigir al login
+      // Si no hay sesión, redirigir al login
       router.push('/');
       return;
     }
@@ -47,25 +47,19 @@ export default function HomePage() {
     try {
       const session = JSON.parse(existingSession);
 
-      // Verificar que sea la sesión del usuario especial SEBASTIAN
-      if (session.isSpecialUser && session.id === 'special-user-sebastian') {
-        // Crear el objeto de usuario desde la sesión
-        const specialUser: User = {
-          id: session.id,
-          name: session.name,
-          ownercompanie: session.ownercompanie,
-          role: session.role,
-          permissions: session.permissions,
-          ownerId: session.id,
-          eliminate: false
-        };
+      // Crear el objeto de usuario desde la sesión
+      const user: User = {
+        id: session.id,
+        name: session.name,
+        ownercompanie: session.ownercompanie,
+        role: session.role,
+        permissions: session.permissions,
+        ownerId: session.id || session.ownerId,
+        eliminate: false
+      };
 
-        setCurrentUser(specialUser);
-        setIsLoading(false);
-      } else {
-        // Si es una sesión de usuario normal, redirigir a la página principal
-        router.push('/');
-      }
+      setCurrentUser(user);
+      setIsLoading(false);
     } catch (error) {
       console.error('Error loading session:', error);
       router.push('/');

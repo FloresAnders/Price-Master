@@ -294,9 +294,9 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   });
 
   const handleLogoutClick = () => {
-    // Si estamos en /home, limpiar sesión especial y redirigir
+    // Si estamos en /home, limpiar sesión y redirigir
     if (pathname === '/home') {
-      // Limpiar la sesión especial del usuario SEBASTIAN
+      // Limpiar la sesión
       localStorage.removeItem('pricemaster_session');
       localStorage.removeItem('pricemaster_session_id');
       window.location.href = '/';
