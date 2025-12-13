@@ -1678,6 +1678,9 @@ export function FondoSection({
         return true;
     });
     const storageSnapshotRef = useRef<MovementStorage<FondoEntry> | null>(null);
+    // Ref para prevenir guardados concurrentes y race conditions
+    const saveInProgressRef = useRef(false);
+    const saveQueueRef = useRef<Array<() => Promise<void>>>([]);
 
     useEffect(() => {
         localStorage.setItem('fondogeneral-sortAsc', JSON.stringify(sortAsc));
@@ -2577,6 +2580,7 @@ export function FondoSection({
     /**
      * Función auxiliar para persistir movimientos a Firestore de forma inmediata.
      * Retorna true si se guardó correctamente, false si hubo error.
+     * INCLUYE: Mecanismo de bloqueo para prevenir race conditions
      */
     const persistMovementToFirestore = useCallback(
         async (
@@ -2588,6 +2592,23 @@ export function FondoSection({
                 console.error('[PERSIST-IMMEDIATE] No company specified');
                 return false;
             }
+
+            // BLOQUEO: Si hay un guardado en progreso, esperar
+            if (saveInProgressRef.current) {
+                console.warn('[PERSIST-IMMEDIATE] Save already in progress, queuing operation...');
+                // Esperar hasta que el guardado anterior termine (máximo 10 segundos)
+                const startWait = Date.now();
+                while (saveInProgressRef.current && (Date.now() - startWait) < 10000) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+                if (saveInProgressRef.current) {
+                    console.error('[PERSIST-IMMEDIATE] Timeout waiting for previous save');
+                    return false;
+                }
+            }
+
+            // Marcar guardado en progreso
+            saveInProgressRef.current = true;
 
             const companyKey = MovimientosFondosService.buildCompanyMovementsKey(normalizedCompany);
 
@@ -2723,6 +2744,9 @@ export function FondoSection({
             } catch (err) {
                 console.error(`[PERSIST-IMMEDIATE] ❌ Error guardando ${operationType} a Firestore:`, err);
                 return false;
+            } finally {
+                // DESBLOQUEAR: Marcar guardado como completado
+                saveInProgressRef.current = false;
             }
         },
         [company, accountKey, initialAmount, initialAmountUSD, currencyEnabled],
@@ -2851,6 +2875,41 @@ export function FondoSection({
                     return updatedEntry;
                 });
 
+                // VALIDACIÓN: Prevenir saldo negativo después de la edición
+                // Calcular el nuevo saldo considerando el cambio
+                if (original) {
+                    const originalCurrency = (original.currency as 'CRC' | 'USD') || 'CRC';
+                    const newCurrency = movementCurrency;
+                    
+                    // Solo validar si la moneda no cambió (si cambió, el balance se recalcula de todas formas)
+                    if (originalCurrency === newCurrency && isEgreso) {
+                        // Calcular el delta del egreso
+                        const originalEgreso = isEgresoType(original.paymentType) || isGastoType(original.paymentType) 
+                            ? original.amountEgreso 
+                            : 0;
+                        const deltaEgreso = egresoValue - originalEgreso;
+                        
+                        // Si el egreso aumentó, verificar que no cause saldo negativo
+                        if (deltaEgreso > 0) {
+                            const currentBalance = movementCurrency === 'USD' ? currentBalanceUSD : currentBalanceCRC;
+                            const remainingBalance = currentBalance - deltaEgreso;
+                            
+                            if (remainingBalance < 0) {
+                                const balanceFormatted = formatByCurrency(movementCurrency, currentBalance);
+                                const deltaFormatted = formatByCurrency(movementCurrency, deltaEgreso);
+                                showToast(
+                                    `No se puede realizar la edición. Saldo actual: ${balanceFormatted}. Incremento del egreso: ${deltaFormatted}. El saldo resultante no puede ser negativo.`,
+                                    'error',
+                                    7000
+                                );
+                                setIsSaving(false);
+                                editingInProgressRef.current = false;
+                                return;
+                            }
+                        }
+                    }
+                }
+
                 // PRIMERO persistir a Firestore, LUEGO actualizar UI
                 const saved = await persistMovementToFirestore(updatedEntries, 'edit');
 
@@ -2904,6 +2963,25 @@ export function FondoSection({
                 }
                 setIsSaving(false);
                 return;
+            }
+
+            // VALIDACIÓN: Prevenir saldo negativo en egresos
+            if (isEgreso) {
+                // Calcular el saldo actual en la moneda del movimiento
+                const currentBalance = movementCurrency === 'USD' ? currentBalanceUSD : currentBalanceCRC;
+                const remainingBalance = currentBalance - egresoValue;
+                
+                if (remainingBalance < 0) {
+                    const balanceFormatted = formatByCurrency(movementCurrency, currentBalance);
+                    const amountFormatted = formatByCurrency(movementCurrency, egresoValue);
+                    showToast(
+                        `No se puede realizar el egreso. Saldo actual: ${balanceFormatted}. Monto solicitado: ${amountFormatted}. El saldo resultante no puede ser negativo.`,
+                        'error',
+                        7000
+                    );
+                    setIsSaving(false);
+                    return;
+                }
             }
 
             // CREAR nuevo movimiento
@@ -3364,8 +3442,13 @@ export function FondoSection({
 
             if (!storageToPersist) return;
 
-            try {
+            // PREVENIR RACE CONDITIONS: No auto-guardar si hay un guardado manual en progreso
+            if (saveInProgressRef.current) {
+                console.log('[AUTO-PERSIST] Skipping auto-save: manual save in progress');
+                return;
+            }
 
+            try {
                 await MovimientosFondosService.saveDocument(companyKey, storageToPersist);
             } catch (err) {
                 console.error('Error storing fondo entries to Firestore:', err);
