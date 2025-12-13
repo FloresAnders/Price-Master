@@ -60,6 +60,8 @@ import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 
 // Límite de movimientos almacenados en localStorage para evitar QuotaExceededError
 const MAX_LOCAL_MOVEMENTS = 500;
+// Mínimo garantizado de movimientos por cuenta en localStorage (incluso si hay otras cuentas)
+const MIN_MOVEMENTS_PER_ACCOUNT = 50;
 // Límite máximo de ediciones permitidas por movimiento
 const MAX_AUDIT_EDITS = 5;
 // Flag para habilitar logs detallados de persistencia (útil para debugging)
@@ -2630,7 +2632,10 @@ export function FondoSection({
 
                 // Limitar TOTAL de movimientos para localStorage (incluyendo preservados de otras cuentas)
                 // Calcular cuántos movimientos de esta cuenta podemos mantener
-                const availableSlots = Math.max(0, MAX_LOCAL_MOVEMENTS - preservedMovements.length);
+                // Garantizar al menos MIN_MOVEMENTS_PER_ACCOUNT para esta cuenta
+                let availableSlots = Math.max(0, MAX_LOCAL_MOVEMENTS - preservedMovements.length);
+                availableSlots = Math.max(availableSlots, MIN_MOVEMENTS_PER_ACCOUNT);
+                
                 const sortedRecentMovements = [...normalizedEntries]
                     .sort((a, b) => {
                         const timeA = Date.parse(a.createdAt);
@@ -2752,6 +2757,9 @@ export function FondoSection({
                 // 1. Mantiene consistencia con localStorage que también está limitado
                 // 2. Previene problemas de memoria al evitar almacenar movimientos ilimitados en memoria
                 // 3. Las operaciones posteriores cargan desde Firestore cuando necesitan datos completos
+                // IMPORTANTE: Este diseño significa que el snapshot en memoria NO contiene todos los movimientos.
+                // Las operaciones que requieren acceso a movimientos históricos deben cargar desde Firestore.
+                // El snapshot es principalmente para operaciones de UI y sincronización con localStorage.
                 storageSnapshotRef.current = baseStorage;
 
                 return true;
@@ -3317,7 +3325,10 @@ export function FondoSection({
                 
                 // SOLUCIÓN #1: Limitar TOTAL de movimientos para localStorage (incluyendo preservados)
                 // Calcular cuántos movimientos de esta cuenta podemos mantener
-                const availableSlots = Math.max(0, MAX_LOCAL_MOVEMENTS - preservedMovements.length);
+                // Garantizar al menos MIN_MOVEMENTS_PER_ACCOUNT para esta cuenta
+                let availableSlots = Math.max(0, MAX_LOCAL_MOVEMENTS - preservedMovements.length);
+                availableSlots = Math.max(availableSlots, MIN_MOVEMENTS_PER_ACCOUNT);
+                
                 const sortedRecentMovements = [...normalizedEntries]
                     .sort((a, b) => {
                         const timeA = Date.parse(a.createdAt);
