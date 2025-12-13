@@ -435,6 +435,45 @@ export function useAuth() {
     }
   }, [useTokenAuth, getSessionTimeLeft]);
 
+  // Función para validar si la sesión actual es válida
+  const isSessionValid = useCallback(() => {
+    try {
+      // Verificar primero si hay una sesión de token
+      const tokenInfo = TokenService.getTokenInfo();
+      if (tokenInfo.isValid && tokenInfo.user) {
+        return true;
+      }
+
+      // Si no hay token válido, verificar sesión tradicional
+      const sessionData = localStorage.getItem('pricemaster_session');
+      if (!sessionData) return false;
+
+      const session: SessionData = JSON.parse(sessionData);
+
+      // Verificar si la sesión no ha expirado según el rol o configuración extendida
+      const loginTime = new Date(session.loginTime);
+      const now = new Date();
+      const hoursElapsed = (now.getTime() - loginTime.getTime()) / (1000 * 60 * 60);
+
+      // Usar duración extendida solo si la sesión fue creada con token
+      let maxHours;
+      if (session.keepActive && session.useTokenAuth) {
+        maxHours = SESSION_DURATION_HOURS.extended; // 1 semana
+      } else {
+        maxHours = SESSION_DURATION_HOURS[session.role || 'user'] || SESSION_DURATION_HOURS.user;
+      }
+
+      // Verificar inactividad
+      const isInactive = checkInactivity(session);
+
+      // La sesión es válida si no ha expirado y no está inactiva
+      return hoursElapsed < maxHours && !isInactive;
+    } catch (error) {
+      console.error('Error validating session:', error);
+      return false;
+    }
+  }, [checkInactivity]);
+
   return {
     user,
     isAuthenticated,
@@ -450,6 +489,7 @@ export function useAuth() {
     getSessionTimeLeft,
     updateActivity,
     getSessionType,
-    getFormattedTimeLeft
+    getFormattedTimeLeft,
+    isSessionValid
   };
 }

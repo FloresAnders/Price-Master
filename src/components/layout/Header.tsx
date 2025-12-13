@@ -45,7 +45,7 @@ interface HeaderProps {
 }
 
 export default function Header({ activeTab, onTabChange }: HeaderProps) {
-  const { logout, user } = useAuth();
+  const { logout, user, isSessionValid } = useAuth();
   const pathname = usePathname();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -310,6 +310,16 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const handleTabClick = (tabId: ActiveTab) => {
     if (!isClient) return;
 
+    // Validar sesión antes de cambiar de tab
+    if (!isSessionValid()) {
+      // Sesión expirada, forzar logout inmediatamente
+      logout('Sesión expirada');
+      if (typeof window !== 'undefined') {
+        window.location.href = '/';
+      }
+      return;
+    }
+
     // Para todas las páginas, usar hash normal
     onTabChange?.(tabId);
     const hashId = tabId === 'histoscans' ? 'scanhistory' : tabId;
@@ -347,6 +357,41 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     }
   };
 
+  const handleLogoClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    
+    // Validar sesión antes de navegar al home
+    if (!isSessionValid()) {
+      // Sesión expirada, forzar logout inmediatamente
+      logout('Sesión expirada');
+      if (typeof window !== 'undefined') {
+        window.location.href = '/';
+      }
+      return;
+    }
+
+    // Si la sesión es válida, limpiar el hash para volver al home
+    if (typeof window !== 'undefined') {
+      window.location.hash = '';
+    }
+  };
+
+  // Helper para navegar validando sesión
+  const navigateWithSessionCheck = (hash: string) => {
+    if (!isSessionValid()) {
+      // Sesión expirada, forzar logout inmediatamente
+      logout('Sesión expirada');
+      if (typeof window !== 'undefined') {
+        window.location.href = '/';
+      }
+      return;
+    }
+    
+    if (typeof window !== 'undefined') {
+      window.location.hash = hash;
+    }
+  };
+
   return (
     <>
       <header className="w-full border-b border-[var(--input-border)] bg-transparent backdrop-blur-sm relative overflow-hidden">
@@ -355,6 +400,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
           {/* Logo and title */}
           <a
             href="#"
+            onClick={handleLogoClick}
             className="flex items-center gap-3 text-xl font-bold tracking-tight text-[var(--foreground)] hover:text-[var(--tab-text-active)] transition-colors cursor-pointer bg-transparent border-none p-0"
           >
             <Image
@@ -372,9 +418,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
             <nav className="hidden lg:flex items-center gap-1">
               {/* Agregar proveedor */}
               <button
-                onClick={() => {
-                  window.location.hash = '#agregarproveedor';
-                }}
+                onClick={() => navigateWithSessionCheck('#agregarproveedor')}
                 className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${currentHash === '#agregarproveedor'
                   ? 'text-[var(--tab-text-active)] font-semibold'
                   : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
@@ -390,9 +434,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
 
               {/* Fondo */}
               <button
-                onClick={() => {
-                  window.location.hash = '#fondogeneral';
-                }}
+                onClick={() => navigateWithSessionCheck('#fondogeneral')}
                 className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${currentHash === '#fondogeneral'
                   ? 'text-[var(--tab-text-active)] font-semibold'
                   : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
@@ -409,9 +451,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               {/* Reportes */}
               {isFondoPrivileged && (
                 <button
-                  onClick={() => {
-                    window.location.hash = '#reportes';
-                  }}
+                  onClick={() => navigateWithSessionCheck('#reportes')}
                   className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${currentHash === '#reportes'
                     ? 'text-[var(--tab-text-active)] font-semibold'
                     : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
@@ -429,9 +469,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               {/* Configuración */}
               {isFondoPrivileged && (
                 <button
-                  onClick={() => {
-                    window.location.hash = '#configuracion';
-                  }}
+                  onClick={() => navigateWithSessionCheck('#configuracion')}
                   className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${currentHash === '#configuracion'
                     ? 'text-[var(--tab-text-active)] font-semibold'
                     : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]'
@@ -674,7 +712,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                 {/* Agregar proveedor */}
                 <button
                   onClick={() => {
-                    window.location.hash = '#agregarproveedor';
+                    navigateWithSessionCheck('#agregarproveedor');
                     setShowMobileMenu(false);
                   }}
                   className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${currentHash === '#agregarproveedor'
@@ -690,7 +728,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                 {/* Fondo */}
                 <button
                   onClick={() => {
-                    window.location.hash = '#fondogeneral';
+                    navigateWithSessionCheck('#fondogeneral');
                     setShowMobileMenu(false);
                   }}
                   className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${currentHash === '#fondogeneral'
@@ -707,7 +745,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                 {isFondoPrivileged && (
                   <button
                     onClick={() => {
-                      window.location.hash = '#reportes';
+                      navigateWithSessionCheck('#reportes');
                       setShowMobileMenu(false);
                     }}
                     className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${currentHash === '#reportes'
@@ -725,7 +763,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                 {isFondoPrivileged && (
                   <button
                     onClick={() => {
-                      window.location.hash = '#configuracion';
+                      navigateWithSessionCheck('#configuracion');
                       setShowMobileMenu(false);
                     }}
                     className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${currentHash === '#configuracion'

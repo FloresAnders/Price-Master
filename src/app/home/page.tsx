@@ -6,6 +6,7 @@ import { Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck, Settings, H
 import AnimatedStickman from '@/components/ui/AnimatedStickman';
 import { User, UserPermissions } from '@/types/firestore';
 import { getDefaultPermissions } from '@/utils/permissions';
+import { useAuth } from '@/hooks/useAuth';
 
 // Define the menu items with permissions (same as HomeMenu.tsx)
 const menuItems = [
@@ -22,6 +23,7 @@ const menuItems = [
 ];
 
 export default function HomePage() {
+  const { isSessionValid, logout } = useAuth();
   const router = useRouter();
   const [hovered, setHovered] = useState(false);
   const [clickCount, setClickCount] = useState(0);
@@ -89,6 +91,16 @@ export default function HomePage() {
   const visibleMenuItems = getVisibleMenuItems();
 
   const handleCardClick = (id: string, name: string) => {
+    // Validar sesión antes de navegar
+    if (!isSessionValid()) {
+      // Sesión expirada, forzar logout inmediatamente
+      logout('Sesión expirada');
+      if (typeof window !== 'undefined') {
+        window.location.href = '/';
+      }
+      return;
+    }
+
     // Si es la tarjeta Fondo General, navegar a su página
     if (id === 'fondogeneral') {
       // Use hash navigation so header/tab system picks it up (/#fondogeneral)
@@ -109,6 +121,16 @@ export default function HomePage() {
   };
 
   const handleLogoClick = () => {
+    // Validar sesión antes de cualquier acción
+    if (!isSessionValid()) {
+      // Sesión expirada, forzar logout inmediatamente
+      logout('Sesión expirada');
+      if (typeof window !== 'undefined') {
+        window.location.href = '/';
+      }
+      return;
+    }
+
     const newCount = clickCount + 1;
     setClickCount(newCount);
     setHovered(h => !h);

@@ -6,6 +6,8 @@ import { Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck, Settings, H
 import AnimatedStickman from '../ui/AnimatedStickman';
 import { User, UserPermissions } from '../../types/firestore';
 import { getDefaultPermissions } from '../../utils/permissions';
+import { useAuth } from '../../hooks/useAuth';
+import { useRouter } from 'next/navigation';
 
 const menuItems = [
   { id: 'scanner', name: 'Escáner', icon: Scan, description: 'Escanear códigos de barras', permission: 'scanner' as keyof UserPermissions },
@@ -26,6 +28,8 @@ interface HomeMenuProps {
 }
 
 export default function HomeMenu({ currentUser }: HomeMenuProps) {
+  const { isSessionValid, logout } = useAuth();
+  const router = useRouter();
   const [hovered, setHovered] = useState(false);
   const [clickCount, setClickCount] = useState(0);
   const [showStickman, setShowStickman] = useState(false);
@@ -56,6 +60,16 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   const visibleMenuItems = getVisibleMenuItems();
 
   const handleNavigate = (id: string) => {
+    // Validar sesión antes de navegar
+    if (!isSessionValid()) {
+      // Sesión expirada, forzar logout inmediatamente
+      logout('Sesión expirada');
+      if (typeof window !== 'undefined') {
+        window.location.href = '/';
+      }
+      return;
+    }
+
     if (typeof window !== 'undefined') {
       // Redirigir a la ruta específica para la herramienta usando hash navigation
       window.location.hash = `#${id}`;
@@ -63,6 +77,16 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   };
 
   const handleLogoClick = () => {
+    // Validar sesión antes de cualquier acción
+    if (!isSessionValid()) {
+      // Sesión expirada, forzar logout inmediatamente
+      logout('Sesión expirada');
+      if (typeof window !== 'undefined') {
+        window.location.href = '/';
+      }
+      return;
+    }
+
     const newCount = clickCount + 1;
     setClickCount(newCount);
     setHovered(h => !h);
