@@ -2628,7 +2628,9 @@ export function FondoSection({
                     console.log(`[PERSIST-IMMEDIATE] Preparando ${normalizedEntries.length} movimientos de ${accountKey} para ${operationType}`);
                 }
 
-                // Limitar movimientos SOLO para localStorage
+                // Limitar TOTAL de movimientos para localStorage (incluyendo preservados de otras cuentas)
+                // Calcular cuántos movimientos de esta cuenta podemos mantener
+                const availableSlots = Math.max(0, MAX_LOCAL_MOVEMENTS - preservedMovements.length);
                 const sortedRecentMovements = [...normalizedEntries]
                     .sort((a, b) => {
                         const timeA = Date.parse(a.createdAt);
@@ -2636,11 +2638,11 @@ export function FondoSection({
                         if (Number.isNaN(timeA) || Number.isNaN(timeB)) return 0;
                         return timeB - timeA;
                     })
-                    .slice(0, MAX_LOCAL_MOVEMENTS);
+                    .slice(0, availableSlots);
 
                 // Advertir si se están limitando movimientos
-                if (normalizedEntries.length > MAX_LOCAL_MOVEMENTS) {
-                    console.warn(`[PERSIST-IMMEDIATE] ⚠️ Limitando ${normalizedEntries.length} movimientos a ${MAX_LOCAL_MOVEMENTS} para localStorage. Los movimientos más antiguos solo estarán en Firestore.`);
+                if (normalizedEntries.length > availableSlots) {
+                    console.warn(`[PERSIST-IMMEDIATE] ⚠️ Limitando ${normalizedEntries.length} movimientos de ${accountKey} a ${availableSlots} para localStorage (${preservedMovements.length} movimientos de otras cuentas). Total en localStorage: ${preservedMovements.length + availableSlots}. Los movimientos más antiguos solo estarán en Firestore.`);
                 }
 
                 // Versión limitada para localStorage
@@ -2745,7 +2747,11 @@ export function FondoSection({
                     console.log(`[PERSIST-IMMEDIATE] ✅ ${operationType} guardado exitosamente en Firestore con ${allMovementsForFirestore.length} movimientos totales`);
                 }
 
-                // Actualizar snapshot después de guardar exitosamente (usar versión limitada para mantener consistencia con localStorage)
+                // Actualizar snapshot después de guardar exitosamente
+                // NOTA: Usamos baseStorage (versión limitada) en lugar de firestoreStorage (completa) por las siguientes razones:
+                // 1. Mantiene consistencia con localStorage que también está limitado
+                // 2. Previene problemas de memoria al evitar almacenar movimientos ilimitados en memoria
+                // 3. Las operaciones posteriores cargan desde Firestore cuando necesitan datos completos
                 storageSnapshotRef.current = baseStorage;
 
                 return true;
@@ -3309,8 +3315,9 @@ export function FondoSection({
                     console.log(`[PERSIST] Preparando ${normalizedEntries.length} movimientos de ${accountKey} para persistencia`);
                 }
                 
-                // SOLUCIÓN #1: Limitar movimientos SOLO para localStorage
-                // Mantener solo los más recientes según MAX_LOCAL_MOVEMENTS
+                // SOLUCIÓN #1: Limitar TOTAL de movimientos para localStorage (incluyendo preservados)
+                // Calcular cuántos movimientos de esta cuenta podemos mantener
+                const availableSlots = Math.max(0, MAX_LOCAL_MOVEMENTS - preservedMovements.length);
                 const sortedRecentMovements = [...normalizedEntries]
                     .sort((a, b) => {
                         const timeA = Date.parse(a.createdAt);
@@ -3318,11 +3325,11 @@ export function FondoSection({
                         if (Number.isNaN(timeA) || Number.isNaN(timeB)) return 0;
                         return timeB - timeA; // Más reciente primero
                     })
-                    .slice(0, MAX_LOCAL_MOVEMENTS);
+                    .slice(0, availableSlots);
 
                 // Advertir si se están limitando movimientos
-                if (normalizedEntries.length > MAX_LOCAL_MOVEMENTS) {
-                    console.warn(`[PERSIST] ⚠️ Limitando ${normalizedEntries.length} movimientos a ${MAX_LOCAL_MOVEMENTS} para localStorage. Los movimientos más antiguos solo estarán en Firestore.`);
+                if (normalizedEntries.length > availableSlots) {
+                    console.warn(`[PERSIST] ⚠️ Limitando ${normalizedEntries.length} movimientos de ${accountKey} a ${availableSlots} para localStorage (${preservedMovements.length} movimientos de otras cuentas). Total en localStorage: ${preservedMovements.length + availableSlots}. Los movimientos más antiguos solo estarán en Firestore.`);
                 }
 
                 // Versión limitada para localStorage
