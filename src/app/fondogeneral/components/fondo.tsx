@@ -1680,7 +1680,6 @@ export function FondoSection({
     const storageSnapshotRef = useRef<MovementStorage<FondoEntry> | null>(null);
     // Ref para prevenir guardados concurrentes y race conditions
     const saveInProgressRef = useRef(false);
-    const saveQueueRef = useRef<Array<() => Promise<void>>>([]);
 
     useEffect(() => {
         localStorage.setItem('fondogeneral-sortAsc', JSON.stringify(sortAsc));
@@ -2595,12 +2594,16 @@ export function FondoSection({
 
             // BLOQUEO: Si hay un guardado en progreso, esperar
             if (saveInProgressRef.current) {
-                console.warn('[PERSIST-IMMEDIATE] Save already in progress, queuing operation...');
+                console.warn('[PERSIST-IMMEDIATE] Save already in progress, waiting...');
                 // Esperar hasta que el guardado anterior termine (máximo 10 segundos)
                 const startWait = Date.now();
-                while (saveInProgressRef.current && (Date.now() - startWait) < 10000) {
-                    await new Promise(resolve => setTimeout(resolve, 100));
+                const maxWaitMs = 10000;
+                const checkIntervalMs = 200; // Reducido de 100ms a 200ms para menor sobrecarga
+                
+                while (saveInProgressRef.current && (Date.now() - startWait) < maxWaitMs) {
+                    await new Promise(resolve => setTimeout(resolve, checkIntervalMs));
                 }
+                
                 if (saveInProgressRef.current) {
                     console.error('[PERSIST-IMMEDIATE] Timeout waiting for previous save');
                     return false;
@@ -2733,16 +2736,34 @@ export function FondoSection({
                     entriesCount: updatedEntries.length,
                 });
 
-                await MovimientosFondosService.saveDocument(companyKey, baseStorage);
+                // RETRY MECHANISM: Intentar hasta 3 veces con backoff exponencial
+                let lastError: Error | null = null;
+                const maxRetries = 3;
+                for (let attempt = 0; attempt < maxRetries; attempt++) {
+                    try {
+                        await MovimientosFondosService.saveDocument(companyKey, baseStorage);
+                        
+                        console.log(`[PERSIST-IMMEDIATE] ✅ ${operationType} guardado exitosamente en Firestore (intento ${attempt + 1})`);
+                        
+                        // Actualizar snapshot después de guardar exitosamente
+                        storageSnapshotRef.current = baseStorage;
+                        
+                        return true;
+                    } catch (err) {
+                        lastError = err instanceof Error ? err : new Error(String(err));
+                        console.warn(`[PERSIST-IMMEDIATE] ⚠️ Intento ${attempt + 1}/${maxRetries} falló:`, err);
+                        
+                        // Si no es el último intento, esperar antes de reintentar con backoff exponencial
+                        if (attempt < maxRetries - 1) {
+                            // Backoff exponencial: intento 0 -> 1s, intento 1 -> 2s
+                            const backoffMs = Math.pow(2, attempt) * 1000;
+                            console.log(`[PERSIST-IMMEDIATE] Reintentando en ${backoffMs}ms...`);
+                            await new Promise(resolve => setTimeout(resolve, backoffMs));
+                        }
+                    }
+                }
 
-                console.log(`[PERSIST-IMMEDIATE] ✅ ${operationType} guardado exitosamente en Firestore`);
-
-                // Actualizar snapshot después de guardar exitosamente
-                storageSnapshotRef.current = baseStorage;
-
-                return true;
-            } catch (err) {
-                console.error(`[PERSIST-IMMEDIATE] ❌ Error guardando ${operationType} a Firestore:`, err);
+                console.error(`[PERSIST-IMMEDIATE] ❌ Error guardando ${operationType} a Firestore después de ${maxRetries} intentos:`, lastError);
                 return false;
             } finally {
                 // DESBLOQUEAR: Marcar guardado como completado
