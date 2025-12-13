@@ -2631,10 +2631,13 @@ export function FondoSection({
                 }
 
                 // Limitar TOTAL de movimientos para localStorage (incluyendo preservados de otras cuentas)
-                // Calcular cuántos movimientos de esta cuenta podemos mantener
-                // Garantizar al menos MIN_MOVEMENTS_PER_ACCOUNT para esta cuenta
-                let availableSlots = Math.max(0, MAX_LOCAL_MOVEMENTS - preservedMovements.length);
-                availableSlots = Math.max(availableSlots, MIN_MOVEMENTS_PER_ACCOUNT);
+                // Calcular cuántos movimientos de esta cuenta podemos mantener sin exceder MAX_LOCAL_MOVEMENTS
+                const availableSlots = Math.max(0, MAX_LOCAL_MOVEMENTS - preservedMovements.length);
+                
+                // Advertir si no podemos cumplir con el mínimo garantizado
+                if (availableSlots < MIN_MOVEMENTS_PER_ACCOUNT && normalizedEntries.length > 0) {
+                    console.warn(`[PERSIST-IMMEDIATE] ⚠️ No se puede garantizar ${MIN_MOVEMENTS_PER_ACCOUNT} movimientos para ${accountKey} (solo ${availableSlots} disponibles) debido a ${preservedMovements.length} movimientos de otras cuentas.`);
+                }
                 
                 const sortedRecentMovements = [...normalizedEntries]
                     .sort((a, b) => {
@@ -3324,10 +3327,13 @@ export function FondoSection({
                 }
                 
                 // SOLUCIÓN #1: Limitar TOTAL de movimientos para localStorage (incluyendo preservados)
-                // Calcular cuántos movimientos de esta cuenta podemos mantener
-                // Garantizar al menos MIN_MOVEMENTS_PER_ACCOUNT para esta cuenta
-                let availableSlots = Math.max(0, MAX_LOCAL_MOVEMENTS - preservedMovements.length);
-                availableSlots = Math.max(availableSlots, MIN_MOVEMENTS_PER_ACCOUNT);
+                // Calcular cuántos movimientos de esta cuenta podemos mantener sin exceder MAX_LOCAL_MOVEMENTS
+                const availableSlots = Math.max(0, MAX_LOCAL_MOVEMENTS - preservedMovements.length);
+                
+                // Advertir si no podemos cumplir con el mínimo garantizado
+                if (availableSlots < MIN_MOVEMENTS_PER_ACCOUNT && normalizedEntries.length > 0) {
+                    console.warn(`[PERSIST] ⚠️ No se puede garantizar ${MIN_MOVEMENTS_PER_ACCOUNT} movimientos para ${accountKey} (solo ${availableSlots} disponibles) debido a ${preservedMovements.length} movimientos de otras cuentas.`);
+                }
                 
                 const sortedRecentMovements = [...normalizedEntries]
                     .sort((a, b) => {
