@@ -2619,7 +2619,12 @@ export function FondoSection({
                     return storedAccount !== accountKey;
                 });
 
-                // Limitar movimientos en localStorage
+                // FIX: Preparar TODOS los movimientos para Firestore (sin límite)
+                const allMovementsForFirestore = [...preservedMovements, ...normalizedEntries];
+                
+                console.log(`[PERSIST-IMMEDIATE] Preparando ${normalizedEntries.length} movimientos de ${accountKey} para ${operationType}`);
+
+                // Limitar movimientos SOLO para localStorage
                 const sortedRecentMovements = [...normalizedEntries]
                     .sort((a, b) => {
                         const timeA = Date.parse(a.createdAt);
@@ -2629,6 +2634,12 @@ export function FondoSection({
                     })
                     .slice(0, MAX_LOCAL_MOVEMENTS);
 
+                // Advertir si se están limitando movimientos
+                if (normalizedEntries.length > MAX_LOCAL_MOVEMENTS) {
+                    console.warn(`[PERSIST-IMMEDIATE] ⚠️ Limitando ${normalizedEntries.length} movimientos a ${MAX_LOCAL_MOVEMENTS} para localStorage. Los movimientos más antiguos solo estarán en Firestore.`);
+                }
+
+                // Versión limitada para localStorage
                 baseStorage.operations = {
                     movements: [...preservedMovements, ...sortedRecentMovements],
                 };
@@ -2706,18 +2717,28 @@ export function FondoSection({
                 }
 
                 // Guardar en Firestore - ESTA ES LA PARTE CRÍTICA
+                // FIX: Crear versión completa para Firestore con TODOS los movimientos
+                const firestoreStorage: MovementStorage<FondoEntry> = {
+                    ...baseStorage,
+                    operations: {
+                        movements: allMovementsForFirestore,
+                    },
+                };
+                
                 console.log(`[PERSIST-IMMEDIATE] Guardando ${operationType} a Firestore...`, {
                     company: normalizedCompany,
                     accountKey,
                     entriesCount: updatedEntries.length,
+                    totalMovementsInFirestore: allMovementsForFirestore.length,
+                    movementsInLocalStorage: baseStorage.operations.movements.length,
                 });
 
-                await MovimientosFondosService.saveDocument(companyKey, baseStorage);
+                await MovimientosFondosService.saveDocument(companyKey, firestoreStorage);
 
-                console.log(`[PERSIST-IMMEDIATE] ✅ ${operationType} guardado exitosamente en Firestore`);
+                console.log(`[PERSIST-IMMEDIATE] ✅ ${operationType} guardado exitosamente en Firestore con ${allMovementsForFirestore.length} movimientos totales`);
 
-                // Actualizar snapshot después de guardar exitosamente
-                storageSnapshotRef.current = baseStorage;
+                // Actualizar snapshot después de guardar exitosamente (usar versión completa)
+                storageSnapshotRef.current = firestoreStorage;
 
                 return true;
             } catch (err) {
@@ -3272,7 +3293,13 @@ export function FondoSection({
                     return storedAccount !== accountKey;
                 });
 
-                // SOLUCIÓN #1: Limitar movimientos en localStorage
+                // FIX: Guardar TODOS los movimientos en Firestore (sin límite)
+                // Solo limitar para localStorage para evitar QuotaExceededError
+                const allMovementsForFirestore = [...preservedMovements, ...normalizedEntries];
+                
+                console.log(`[PERSIST] Preparando ${normalizedEntries.length} movimientos de ${accountKey} para persistencia`);
+                
+                // SOLUCIÓN #1: Limitar movimientos SOLO para localStorage
                 // Mantener solo los más recientes según MAX_LOCAL_MOVEMENTS
                 const sortedRecentMovements = [...normalizedEntries]
                     .sort((a, b) => {
@@ -3283,6 +3310,12 @@ export function FondoSection({
                     })
                     .slice(0, MAX_LOCAL_MOVEMENTS);
 
+                // Advertir si se están limitando movimientos
+                if (normalizedEntries.length > MAX_LOCAL_MOVEMENTS) {
+                    console.warn(`[PERSIST] ⚠️ Limitando ${normalizedEntries.length} movimientos a ${MAX_LOCAL_MOVEMENTS} para localStorage. Los movimientos más antiguos solo estarán en Firestore.`);
+                }
+
+                // Versión limitada para localStorage
                 baseStorage.operations = {
                     movements: [...preservedMovements, ...sortedRecentMovements],
                 };
@@ -3357,7 +3390,19 @@ export function FondoSection({
                 }
 
                 storageSnapshotRef.current = baseStorage;
-                storageToPersist = baseStorage;
+                
+                // FIX: Crear versión completa para Firestore con TODOS los movimientos
+                const firestoreStorage: MovementStorage<FondoEntry> = {
+                    ...baseStorage,
+                    operations: {
+                        movements: allMovementsForFirestore,
+                    },
+                };
+                
+                storageToPersist = firestoreStorage;
+                
+                console.log(`[PERSIST] Firestore recibirá ${allMovementsForFirestore.length} movimientos totales`);
+                console.log(`[PERSIST] localStorage almacenará ${baseStorage.operations.movements.length} movimientos (limitado)`);
             } catch (err) {
                 console.error('Error preparing fondo entries for persistence:', err);
             }
