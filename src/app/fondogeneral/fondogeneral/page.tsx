@@ -5,17 +5,38 @@ import { Lock } from 'lucide-react';
 import { FondoSection } from '../components/fondo';
 import { useAuth } from '@/hooks/useAuth';
 import { getDefaultPermissions } from '@/utils/permissions';
+import { EmpresasService } from '@/services/empresas';
+import { useActorOwnership } from '@/hooks/useActorOwnership';
+import type { Empresas } from '@/types/firestore';
+import InitialConfigModal from '../components/InitialConfigModal';
 
 type TabId = 'fondo' | 'bcr' | 'bn' | 'bac';
 type FondoTab = { id: TabId; label: string; namespace: 'fg' | 'bcr' | 'bn' | 'bac' };
 
 // Clave para persistir la selección del tab de cuenta en localStorage
 const ACCOUNT_TAB_STORAGE_KEY = 'fg_selected_account_tab';
+// Clave para persistir la selección de empresa para admin (debe coincidir con fondo.tsx)
+const ADMIN_COMPANY_STORAGE_KEY = 'fg_selected_company_shared';
 
 export default function FondoPage() {
     const { user, loading } = useAuth();
     const permissions = user?.permissions || getDefaultPermissions(user?.role || 'user');
     const hasGeneralAccess = Boolean(permissions.fondogeneral);
+    const isAdmin = user?.role === 'admin';
+    const { ownerIds: actorOwnerIds } = useActorOwnership(user);
+    
+    // Estado para el modal de configuración inicial
+    const [showConfigModal, setShowConfigModal] = useState(false);
+    const [availableCompanies, setAvailableCompanies] = useState<Empresas[]>([]);
+    const [companiesLoading, setCompaniesLoading] = useState(false);
+    const [adminSelectedCompany, setAdminSelectedCompany] = useState(() => {
+        if (typeof window === 'undefined') return '';
+        try {
+            return localStorage.getItem(ADMIN_COMPANY_STORAGE_KEY) || '';
+        } catch {
+            return '';
+        }
+    });
     const availableTabs = useMemo<FondoTab[]>(() => {
         if (!hasGeneralAccess) return [];
 
@@ -54,6 +75,73 @@ export default function FondoPage() {
     const [companySelectorSlot, setCompanySelectorSlot] = useState<React.ReactNode | null>(null);
     const activeTab = availableTabs.find(tab => tab.id === active) || null;
 
+    // Cargar empresas disponibles para el admin
+    useEffect(() => {
+        if (!isAdmin || !hasGeneralAccess) return;
+        
+        const allowedOwnerIds = new Set<string>();
+        actorOwnerIds.forEach(id => {
+            const normalized = typeof id === 'string' ? id.trim() : String(id || '').trim();
+            if (normalized) allowedOwnerIds.add(normalized);
+        });
+        if (user?.ownerId) {
+            const normalized = String(user.ownerId).trim();
+            if (normalized) allowedOwnerIds.add(normalized);
+        }
+
+        if (allowedOwnerIds.size === 0) return;
+
+        setCompaniesLoading(true);
+        EmpresasService.getAllEmpresas()
+            .then(empresas => {
+                const filtered = empresas.filter(emp => {
+                    const owner = (emp.ownerId || '').trim();
+                    if (!owner) return false;
+                    return allowedOwnerIds.has(owner);
+                });
+                setAvailableCompanies(filtered);
+            })
+            .catch(err => {
+                console.error('Error loading companies:', err);
+                setAvailableCompanies([]);
+            })
+            .finally(() => {
+                setCompaniesLoading(false);
+            });
+    }, [isAdmin, hasGeneralAccess, actorOwnerIds, user?.ownerId]);
+
+    // Mostrar modal de configuración cada vez que el admin entre
+    useEffect(() => {
+        if (!isAdmin || !hasGeneralAccess || loading || companiesLoading) return;
+        
+        // Mostrar el modal siempre que el admin entre a la página
+        setShowConfigModal(true);
+    }, [isAdmin, hasGeneralAccess, loading, companiesLoading]);
+
+    // Handler para cuando el admin selecciona empresa y cuenta en el modal
+    const handleConfigSelect = useCallback((company: string, account: string) => {
+        setAdminSelectedCompany(company);
+        setActive(account as TabId);
+        
+        if (typeof window !== 'undefined') {
+            try {
+                localStorage.setItem(ADMIN_COMPANY_STORAGE_KEY, company);
+                localStorage.setItem(ACCOUNT_TAB_STORAGE_KEY, account);
+                
+                // Disparar evento de storage para que FondoSection lo detecte
+                window.dispatchEvent(new StorageEvent('storage', {
+                    key: ADMIN_COMPANY_STORAGE_KEY,
+                    newValue: company,
+                    url: window.location.href
+                }));
+            } catch (error) {
+                console.error('Error saving admin config:', error);
+            }
+        }
+        
+        setShowConfigModal(false);
+    }, [setActive]);
+
     useEffect(() => {
         // No ejecutar mientras se cargan los permisos
         if (loading) return;
@@ -87,11 +175,13 @@ export default function FondoPage() {
         setCompanySelectorSlot(node);
     }, []);
 
-    if (loading) {
+    if (loading || (isAdmin && companiesLoading)) {
         return (
             <div className="w-full max-w-7xl mx-auto py-3 px-2 sm:py-6 sm:px-4 lg:py-8">
                 <div className="flex items-center justify-center p-6 sm:p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)]">
-                    <p className="text-sm sm:text-base text-[var(--muted-foreground)]">Cargando permisos...</p>
+                    <p className="text-sm sm:text-base text-[var(--muted-foreground)]">
+                        {loading ? 'Cargando permisos...' : 'Cargando empresas...'}
+                    </p>
                 </div>
             </div>
         );
@@ -111,7 +201,21 @@ export default function FondoPage() {
     }
 
     return (
-        <div className="w-full max-w-7xl mx-auto py-3 px-2 sm:py-6 sm:px-4 lg:py-8">
+        <>
+            {/* Modal de configuración inicial para admin */}
+            {isAdmin && (
+                <InitialConfigModal
+                    isOpen={showConfigModal}
+                    onClose={() => setShowConfigModal(false)}
+                    companies={availableCompanies}
+                    availableTabs={availableTabs}
+                    onSelect={handleConfigSelect}
+                    initialCompany={adminSelectedCompany}
+                    initialAccount={active as TabId}
+                />
+            )}
+            
+            <div className="w-full max-w-7xl mx-auto py-3 px-2 sm:py-6 sm:px-4 lg:py-8">
             <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6">
                 <div>
                     {/* Tabs de cuentas - Responsive */}
@@ -173,5 +277,6 @@ export default function FondoPage() {
                 </div>
             </div>
         </div>
+        </>
     );
 }
