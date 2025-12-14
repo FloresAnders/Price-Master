@@ -3,6 +3,7 @@ import { User } from '../types/firestore';
 import { getDefaultPermissions } from '../utils/permissions';
 import { hashPassword } from '../lib/auth/password';
 import { getFirestore, onSnapshot, doc } from 'firebase/firestore';
+import { db } from '../config/firebase';
 
 const ARGON2_HASH_PREFIX = '$argon2';
 
@@ -35,7 +36,6 @@ export class UsersService {
     onError?: (error: Error) => void
   ): () => void {
     try {
-      const db = getFirestore();
       const userDocRef = doc(db, this.COLLECTION_NAME, userId);
 
       const unsubscribe = onSnapshot(

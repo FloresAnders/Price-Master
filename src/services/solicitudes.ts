@@ -77,9 +77,9 @@ export class SolicitudesService {
       if (exact.length > 0) {
         // sort by createdAt desc
         return exact.sort((a, b) => {
-          const da = a?.createdAt ? (a.createdAt.seconds ? new Date(a.createdAt.seconds * 1000) : new Date(a.createdAt)) : new Date(0);
-          const db = b?.createdAt ? (b.createdAt.seconds ? new Date(b.createdAt.seconds * 1000) : new Date(b.createdAt)) : new Date(0);
-          return db.getTime() - da.getTime();
+          const dateA = a?.createdAt ? (a.createdAt.seconds ? new Date(a.createdAt.seconds * 1000) : new Date(a.createdAt)) : new Date(0);
+          const dateB = b?.createdAt ? (b.createdAt.seconds ? new Date(b.createdAt.seconds * 1000) : new Date(b.createdAt)) : new Date(0);
+          return dateB.getTime() - dateA.getTime();
         });
       }
 
@@ -87,9 +87,9 @@ export class SolicitudesService {
       const partial = all.filter(r => normalize(r.empresa).includes(target));
       if (partial.length > 0) {
         return partial.sort((a, b) => {
-          const da = a?.createdAt ? (a.createdAt.seconds ? new Date(a.createdAt.seconds * 1000) : new Date(a.createdAt)) : new Date(0);
-          const db = b?.createdAt ? (b.createdAt.seconds ? new Date(b.createdAt.seconds * 1000) : new Date(b.createdAt)) : new Date(0);
-          return db.getTime() - da.getTime();
+          const dateA = a?.createdAt ? (a.createdAt.seconds ? new Date(a.createdAt.seconds * 1000) : new Date(a.createdAt)) : new Date(0);
+          const dateB = b?.createdAt ? (b.createdAt.seconds ? new Date(b.createdAt.seconds * 1000) : new Date(b.createdAt)) : new Date(0);
+          return dateB.getTime() - dateA.getTime();
         });
       }
 
