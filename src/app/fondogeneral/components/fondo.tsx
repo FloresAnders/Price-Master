@@ -3699,9 +3699,17 @@ export function FondoSection({
       // CREAR nuevo movimiento
       const now = new Date();
       const iso = now.toISOString();
-      const dateKey = iso.slice(0, 10); // YYYY-MM-DD
-      const timeKey = iso.slice(11, 23).replace(/[:.]/g, "_"); // HH_MM_SS_mmm
-      const movementId = `${dateKey}_${timeKey}_${accountKey}`;
+      // Use local time for the document id to avoid UTC surprises when searching by hour.
+      const yyyy = now.getFullYear();
+      const MM = String(now.getMonth() + 1).padStart(2, "0");
+      const DD = String(now.getDate()).padStart(2, "0");
+      const HH = String(now.getHours()).padStart(2, "0");
+      const mm = String(now.getMinutes()).padStart(2, "0");
+      const ss = String(now.getSeconds()).padStart(2, "0");
+      const mmm = String(now.getMilliseconds()).padStart(3, "0");
+      const dateKey = `${yyyy}_${MM}_${DD}`; // YYYY_MM_DD (local)
+      const timeKey = `${HH}_${mm}_${ss}_${mmm}`; // HH_MM_SS_mmm (local, URL-safe)
+      const movementId = `${dateKey}-${timeKey}_${accountKey}`;
       const entry: FondoEntry = {
         id: movementId,
         providerCode: selectedProvider,
