@@ -1994,6 +1994,8 @@ export function FondoSection({
     open: false,
     entry: null,
   });
+  const [confirmOpenCreateMovement, setConfirmOpenCreateMovement] =
+    useState(false);
   // Estado para indicar que se está guardando un movimiento y prevenir múltiples envíos
   const [isSaving, setIsSaving] = useState(false);
   const enabledBalanceCurrencies = useMemo(
@@ -3447,6 +3449,75 @@ export function FondoSection({
     [company, accountKey, initialAmount, initialAmountUSD, currencyEnabled]
   );
 
+  const persistCreatedMovement = useCallback(
+    async (entry: FondoEntry, updatedEntries: FondoEntry[]): Promise<void> => {
+      // PRIMERO persistir a Firestore, LUEGO actualizar UI
+      const saved = await persistMovementToFirestore(updatedEntries, "create", {
+        upsert: entry,
+      });
+
+      if (!saved.ok) {
+        showToast(
+          "Error al guardar el movimiento. Por favor, intente de nuevo.",
+          "error",
+          5000
+        );
+        editingInProgressRef.current = false;
+        return;
+      }
+
+      // Limpiar flag de edición en progreso
+      editingInProgressRef.current = false;
+
+      // Solo actualizar la UI si el guardado fue exitoso
+      setFondoEntries(updatedEntries);
+      if (saved.confirmed) {
+        showToast("Movimiento guardado correctamente", "success", 3000);
+      } else {
+        showToast(
+          "Movimiento guardado localmente; pendiente de sincronización (revisa tu conexión).",
+          "warning",
+          6000
+        );
+      }
+
+      // Enviar notificación por correo si el proveedor tiene correonotifi
+      sendMovementNotification(entry, "create").catch((err) => {
+        console.error(
+          "[NOTIFICATION] Error en notificación de movimiento:",
+          err
+        );
+      });
+
+      const selectedProviderData = providers.find(
+        (p) => p.code === entry.providerCode
+      );
+      if (
+        selectedProviderData?.name?.toUpperCase() ===
+        CIERRE_FONDO_VENTAS_PROVIDER_NAME
+      ) {
+        setPendingCierreDeCaja(true);
+      }
+      resetFondoForm();
+      if (!movementAutoCloseLocked) {
+        setMovementModalOpen(false);
+      }
+    },
+    [
+      persistMovementToFirestore,
+      showToast,
+      sendMovementNotification,
+      providers,
+      resetFondoForm,
+      movementAutoCloseLocked,
+      setFondoEntries,
+    ]
+  );
+
+  const cancelOpenCreateMovement = useCallback(() => {
+    setConfirmOpenCreateMovement(false);
+  }, []);
+
   const handleSubmitFondo = async () => {
     if (!company) return;
     if (isSaving) return; // Prevenir múltiples envíos
@@ -3725,61 +3796,7 @@ export function FondoSection({
 
       // Preparar la lista actualizada ANTES de persistir
       const updatedEntries = [entry, ...fondoEntries];
-
-      // PRIMERO persistir a Firestore, LUEGO actualizar UI
-      const saved = await persistMovementToFirestore(updatedEntries, "create", {
-        upsert: entry,
-      });
-
-      if (!saved.ok) {
-        showToast(
-          "Error al guardar el movimiento. Por favor, intente de nuevo.",
-          "error",
-          5000
-        );
-        setIsSaving(false);
-        editingInProgressRef.current = false;
-        return; // NO mostrar el movimiento si falló el guardado
-      }
-
-      // Limpiar flag de edición en progreso
-      editingInProgressRef.current = false;
-
-      // Solo actualizar la UI si el guardado fue exitoso
-      setFondoEntries(updatedEntries);
-      if (saved.confirmed) {
-        showToast("Movimiento guardado correctamente", "success", 3000);
-      } else {
-        showToast(
-          "Movimiento guardado localmente; pendiente de sincronización (revisa tu conexión).",
-          "warning",
-          6000
-        );
-      }
-
-      // Enviar notificación por correo si el proveedor tiene correonotifi
-      if (entry) {
-        sendMovementNotification(entry, "create").catch((err) => {
-          console.error(
-            "[NOTIFICATION] Error en notificación de movimiento:",
-            err
-          );
-        });
-      }
-
-      const selectedProviderData = providers.find(
-        (p) => p.code === selectedProvider
-      );
-      if (
-        selectedProviderData?.name?.toUpperCase() ===
-        CIERRE_FONDO_VENTAS_PROVIDER_NAME
-      ) {
-        setPendingCierreDeCaja(true);
-      }
-      resetFondoForm();
-      if (!movementAutoCloseLocked) {
-        setMovementModalOpen(false);
-      }
+      await persistCreatedMovement(entry, updatedEntries);
     } finally {
       setIsSaving(false);
     }
@@ -4430,7 +4447,7 @@ export function FondoSection({
     resetFondoForm();
     setMovementAutoCloseLocked(false);
   };
-  const handleOpenCreateMovement = () => {
+  const openCreateMovementDrawer = () => {
     resetFondoForm();
     setMovementCurrency(currencyEnabled.CRC ? "CRC" : "USD");
     // If a provider is already selected, derive paymentType from it so the form
@@ -4453,6 +4470,21 @@ export function FondoSection({
     if (mode === "ingreso") setPaymentType(FONDO_INGRESO_TYPES[0]);
     if (mode === "egreso") setPaymentType(FONDO_EGRESO_TYPES[0]);
     setMovementModalOpen(true);
+  };
+
+  const confirmOpenCreateMovementNow = useCallback(() => {
+    setConfirmOpenCreateMovement(false);
+    openCreateMovementDrawer();
+  }, [openCreateMovementDrawer]);
+
+  const handleOpenCreateMovement = () => {
+    // Confirmación solo para cuentas (BCR/BN/BAC), para evitar confusiones.
+    if (accountKey !== "FondoGeneral") {
+      setConfirmOpenCreateMovement(true);
+      return;
+    }
+
+    openCreateMovementDrawer();
   };
 
   const handleOpenDailyClosing = () => {
@@ -7234,6 +7266,17 @@ export function FondoSection({
         currentBalanceCRC={currentBalanceCRC}
         currentBalanceUSD={currentBalanceUSD}
         managerReadonly={!editingDailyClosingId}
+      />
+
+      <ConfirmModal
+        open={confirmOpenCreateMovement}
+        title="Confirmar empresa y cuenta"
+        message={`Vas a registrar un movimiento en la empresa "${company || ""}" y en la cuenta "${accountKey}". Verifica que sea correcto antes de continuar.`}
+        confirmText="Continuar"
+        cancelText="Cancelar"
+        actionType="change"
+        onConfirm={confirmOpenCreateMovementNow}
+        onCancel={cancelOpenCreateMovement}
       />
 
       <ConfirmModal
