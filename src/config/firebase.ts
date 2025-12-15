@@ -1,5 +1,11 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import {
+  getFirestore,
+  initializeFirestore,
+  memoryLocalCache,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+} from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 // Configuración de Firebase con fallbacks para producción
@@ -26,7 +32,35 @@ if (!isConfigValid) {
 const app = initializeApp(firebaseConfig);
 
 // Initialize Firestore
-export const db = getFirestore(app, "restauracion");
+// - In browser: enable persistent cache so offline writes survive reloads (common cause of "I saved it and tomorrow it's gone").
+// - In SSR / environments without IndexedDB: fallback to default (in-memory).
+const firestoreDatabaseId = 'restauracion';
+
+export const db = (() => {
+  const isBrowser = typeof window !== 'undefined';
+  if (!isBrowser) {
+    return getFirestore(app, firestoreDatabaseId);
+  }
+
+  try {
+    return initializeFirestore(
+      app,
+      {
+        localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+      },
+      firestoreDatabaseId,
+    );
+  } catch (err) {
+    console.warn('⚠️ Firestore persistent cache unavailable; falling back to memory cache.', err);
+    return initializeFirestore(
+      app,
+      {
+        localCache: memoryLocalCache(),
+      },
+      firestoreDatabaseId,
+    );
+  }
+})();
 
 // Initialize Storage
 export const storage = getStorage(app);

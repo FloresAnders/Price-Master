@@ -1,7 +1,32 @@
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  limit,
+  orderBy,
+  query,
+  setDoc,
+  startAfter,
+  writeBatch,
+  type Query,
+  type QueryConstraint,
+  type QuerySnapshot,
+  type QueryDocumentSnapshot,
+  type DocumentData,
+} from 'firebase/firestore';
+import { db } from '../config/firebase';
 import { FirestoreService } from './firestore';
 
 export type MovementCurrencyKey = 'CRC' | 'USD';
 export type MovementAccountKey = 'FondoGeneral' | 'BCR' | 'BN' | 'BAC';
+
+export type MovementRecordBase = {
+  id: string;
+  createdAt: string;
+  accountId: MovementAccountKey;
+  currency: MovementCurrencyKey;
+};
 
 const ACCOUNT_KEYS: MovementAccountKey[] = ['FondoGeneral', 'BCR', 'BN', 'BAC'];
 const CURRENCY_KEYS: MovementCurrencyKey[] = ['CRC', 'USD'];
@@ -73,6 +98,7 @@ const DEFAULT_ACCOUNT_LABELS: Record<MovementAccountKey, string> = {
 
 export class MovimientosFondosService {
   static readonly COLLECTION_NAME = 'MovimientosFondos';
+  static readonly MOVEMENTS_SUBCOLLECTION = 'movements';
 
   static buildMovementStorageKey(identifier: string): string {
     return `${MOVEMENT_STORAGE_PREFIX}_${identifier && identifier.length > 0 ? identifier : 'global'}`;
@@ -411,5 +437,109 @@ export class MovimientosFondosService {
   static async deleteDocument(docId: string): Promise<void> {
     if (!docId) return;
     await FirestoreService.delete(this.COLLECTION_NAME, docId);
+  }
+
+  private static movementsCollectionRef(docId: string) {
+    return collection(db, this.COLLECTION_NAME, docId, this.MOVEMENTS_SUBCOLLECTION);
+  }
+
+  static async upsertMovement<T extends Partial<MovementRecordBase>>(
+    docId: string,
+    movement: T & { id: string },
+  ): Promise<void> {
+    if (!docId) return;
+    if (!movement?.id) return;
+    const movementRef = doc(this.movementsCollectionRef(docId), movement.id);
+    // Store id as a field too to keep exports/debugging simple
+    await setDoc(movementRef, { ...(movement as Record<string, unknown>), id: movement.id } as any);
+  }
+
+  static async deleteMovement(docId: string, movementId: string): Promise<void> {
+    if (!docId) return;
+    if (!movementId) return;
+    const movementRef = doc(this.movementsCollectionRef(docId), movementId);
+    await deleteDoc(movementRef);
+  }
+
+  static async hasAnyV2Movements(docId: string): Promise<boolean> {
+    if (!docId) return false;
+    const snap = await getDocs(query(this.movementsCollectionRef(docId), limit(1)));
+    return !snap.empty;
+  }
+
+  static async listAllMovements<T = unknown>(
+    docId: string,
+    options?: {
+      pageSize?: number;
+      maxPages?: number;
+    },
+  ): Promise<Array<T & { id: string }>> {
+    if (!docId) return [];
+
+    const pageSize = Math.max(1, Math.min(options?.pageSize ?? 500, 500));
+    const maxPages = Math.max(1, options?.maxPages ?? 50); // 50 * 500 = 25k safety cap
+
+    const out: Array<T & { id: string }> = [];
+    let cursor: QueryDocumentSnapshot<DocumentData> | null = null;
+
+    for (let page = 0; page < maxPages; page += 1) {
+      const constraints: QueryConstraint[] = [orderBy('createdAt', 'desc'), limit(pageSize)];
+      const q: Query<DocumentData> = cursor
+        ? query(this.movementsCollectionRef(docId), ...constraints, startAfter(cursor))
+        : query(this.movementsCollectionRef(docId), ...constraints);
+      const snap: QuerySnapshot<DocumentData> = await getDocs(q);
+      if (snap.empty) break;
+
+      snap.docs.forEach((d) => {
+        out.push({ id: d.id, ...(d.data() as any) });
+      });
+
+      cursor = snap.docs[snap.docs.length - 1] ?? null;
+      if (snap.size < pageSize) break;
+    }
+
+    return out;
+  }
+
+  private static buildLegacyMovementId(candidate: unknown, index: number): string {
+    const base = candidate && typeof candidate === 'object' ? (candidate as Record<string, unknown>) : {};
+    const createdAt = typeof base.createdAt === 'string' ? base.createdAt : '';
+    const providerCode = typeof base.providerCode === 'string' ? base.providerCode : '';
+    const invoiceNumber = typeof base.invoiceNumber === 'string' ? base.invoiceNumber : '';
+    const amountEgreso = typeof base.amountEgreso === 'number' ? base.amountEgreso : Number(base.amountEgreso ?? 0);
+    const amountIngreso = typeof base.amountIngreso === 'number' ? base.amountIngreso : Number(base.amountIngreso ?? 0);
+    const raw = `${createdAt}_${providerCode}_${invoiceNumber}_${amountEgreso}_${amountIngreso}_${index}`;
+    return `legacy_${raw.replace(/[^A-Za-z0-9_-]/g, '-')}`;
+  }
+
+  static async migrateLegacyMovementsToV2<T = unknown>(
+    docId: string,
+    legacyMovements: T[],
+  ): Promise<{ migrated: number }>
+  {
+    if (!docId) return { migrated: 0 };
+    if (!Array.isArray(legacyMovements) || legacyMovements.length === 0) return { migrated: 0 };
+
+    // Batch writes (<=500 ops). Use 450 to stay safe.
+    const chunkSize = 450;
+    let migrated = 0;
+
+    for (let offset = 0; offset < legacyMovements.length; offset += chunkSize) {
+      const chunk = legacyMovements.slice(offset, offset + chunkSize);
+      const batch = writeBatch(db);
+      chunk.forEach((raw, idx) => {
+        const record = raw && typeof raw === 'object' ? { ...(raw as Record<string, unknown>) } : {};
+        const id = typeof record.id === 'string' && record.id.trim().length > 0
+          ? record.id.trim()
+          : this.buildLegacyMovementId(record, offset + idx);
+        record.id = id;
+        const ref = doc(this.movementsCollectionRef(docId), id);
+        batch.set(ref, record as any);
+      });
+      await batch.commit();
+      migrated += chunk.length;
+    }
+
+    return { migrated };
   }
 }
