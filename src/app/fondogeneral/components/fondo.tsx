@@ -2025,6 +2025,17 @@ export function FondoSection({
   });
   const storageSnapshotRef = useRef<MovementStorage<FondoEntry> | null>(null);
 
+  // Keep latest accountKey without re-triggering full remote reloads on tab switch.
+  const accountKeyRef = useRef<MovementAccountKey>(accountKey);
+  useEffect(() => {
+    accountKeyRef.current = accountKey;
+  }, [accountKey]);
+
+  // Cache v2 movements per companyKey to avoid re-reading the whole subcollection when switching tabs.
+  const v2MovementsCacheRef = useRef<
+    Record<string, { loaded: boolean; movements: FondoEntry[] }>
+  >({});
+
   useEffect(() => {
     localStorage.setItem("fondogeneral-sortAsc", JSON.stringify(sortAsc));
   }, [sortAsc]);
@@ -2515,7 +2526,8 @@ export function FondoSection({
 
         const buildEntriesFromStorage = (
           rawStorage: unknown,
-          movementsOverride?: unknown
+          movementsOverride?: unknown[] | null,
+          targetAccountKey: MovementAccountKey = accountKeyRef.current
         ): StorageEntriesResult | null => {
           if (!rawStorage) return null;
           try {
@@ -2531,13 +2543,13 @@ export function FondoSection({
               const candidate = rawEntry as Partial<FondoEntry>;
               const movementAccount = isMovementAccountKey(candidate.accountId)
                 ? candidate.accountId
-                : accountKey;
-              return movementAccount === accountKey;
+                : targetAccountKey;
+              return movementAccount === targetAccountKey;
             });
             const entries = sanitizeFondoEntries(
               scopedEntries,
               undefined,
-              accountKey
+              targetAccountKey
             ).sort((a, b) => parseTime(b.createdAt) - parseTime(a.createdAt));
             return { entries, storage };
           } catch (err) {
@@ -2576,11 +2588,22 @@ export function FondoSection({
             // Prefer V2 movements subcollection to avoid document overwrites/truncation.
             let v2Movements: FondoEntry[] = [];
             try {
-              const all =
-                await MovimientosFondosService.listAllMovements<FondoEntry>(
-                  docKey
-                );
-              v2Movements = Array.isArray(all) ? (all as FondoEntry[]) : [];
+              const cached = v2MovementsCacheRef.current[docKey];
+              if (cached?.loaded) {
+                v2Movements = Array.isArray(cached.movements)
+                  ? cached.movements
+                  : [];
+              } else {
+                const all =
+                  await MovimientosFondosService.listAllMovements<FondoEntry>(
+                    docKey
+                  );
+                v2Movements = Array.isArray(all) ? (all as FondoEntry[]) : [];
+                v2MovementsCacheRef.current[docKey] = {
+                  loaded: true,
+                  movements: v2Movements,
+                };
+              }
             } catch (listErr) {
               console.error(
                 `[FG-V2] Error listing v2 movements (${docKey}):`,
@@ -2630,6 +2653,11 @@ export function FondoSection({
                   v2Movements = Array.isArray(allAfter)
                     ? (allAfter as FondoEntry[])
                     : [];
+
+                  v2MovementsCacheRef.current[docKey] = {
+                    loaded: true,
+                    movements: v2Movements,
+                  };
                 }
               }
             } catch (migrateErr) {
@@ -2640,7 +2668,11 @@ export function FondoSection({
             }
 
             return {
-              result: buildEntriesFromStorage(remoteStorage, v2Movements),
+              result: buildEntriesFromStorage(
+                remoteStorage,
+                v2Movements,
+                accountKeyRef.current
+              ),
               status: "success",
             };
           } catch (err) {
@@ -2740,7 +2772,7 @@ export function FondoSection({
               const parsedEntries = sanitizeFondoEntries(
                 legacyParsed,
                 undefined,
-                accountKey
+                accountKeyRef.current
               );
               if (parsedEntries.length > 0) {
                 resolvedEntries = parsedEntries;
@@ -2751,7 +2783,7 @@ export function FondoSection({
                 fallbackStorage.operations.movements = parsedEntries.map(
                   (entry) => ({
                     ...entry,
-                    accountId: accountKey,
+                    accountId: accountKeyRef.current,
                   })
                 );
                 storageSnapshotRef.current = fallbackStorage;
@@ -2776,7 +2808,7 @@ export function FondoSection({
       } finally {
         if (isMounted) {
           setHydratedCompany(normalizedCompany);
-          setHydratedAccountKey(accountKey);
+          setHydratedAccountKey(accountKeyRef.current);
           setEntriesHydrated(true);
         }
       }
@@ -2792,9 +2824,45 @@ export function FondoSection({
     resolvedOwnerId,
     company,
     applyLedgerStateFromStorage,
-    accountKey,
     FONDO_TYPE_OPTIONS.length,
   ]);
+
+  // When switching tabs, do not reload from Firestore: just filter cached v2 movements in-memory.
+  useEffect(() => {
+    if (!entriesHydrated) return;
+    const normalizedCompany = (company || "").trim();
+    if (normalizedCompany.length === 0) return;
+
+    const companyKey =
+      MovimientosFondosService.buildCompanyMovementsKey(normalizedCompany);
+    const cached = v2MovementsCacheRef.current[companyKey];
+    if (!cached?.loaded) return;
+
+    const scopedEntries = cached.movements.filter((rawEntry) => {
+      const candidate = rawEntry as Partial<FondoEntry>;
+      const movementAccount = isMovementAccountKey(candidate.accountId)
+        ? candidate.accountId
+        : accountKey;
+      return movementAccount === accountKey;
+    });
+
+    const entries = sanitizeFondoEntries(
+      scopedEntries,
+      undefined,
+      accountKey
+    ).sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    setFondoEntries(entries);
+
+    const state = storageSnapshotRef.current?.state;
+    if (state) {
+      applyLedgerStateFromStorage(state);
+    }
+
+    setHydratedAccountKey(accountKey);
+  }, [accountKey, company, entriesHydrated, applyLedgerStateFromStorage]);
 
   useEffect(() => {
     if (
@@ -3285,6 +3353,14 @@ export function FondoSection({
             );
           }
           await MovimientosFondosService.deleteMovement(companyKey, deleteId);
+
+          const cached = v2MovementsCacheRef.current[companyKey];
+          if (cached?.loaded) {
+            v2MovementsCacheRef.current[companyKey] = {
+              loaded: true,
+              movements: cached.movements.filter((m) => m.id !== deleteId),
+            };
+          }
         } else {
           const movement = change?.upsert;
           if (!movement) {
@@ -3294,11 +3370,27 @@ export function FondoSection({
           }
           const normalizedCurrency: MovementCurrencyKey =
             movement.currency === "USD" ? "USD" : "CRC";
-          await MovimientosFondosService.upsertMovement(companyKey, {
-            ...movement,
+          const storedMovement: FondoEntry = {
+            ...(movement as FondoEntry),
             accountId: accountKey,
             currency: normalizedCurrency,
-          });
+          };
+          await MovimientosFondosService.upsertMovement(
+            companyKey,
+            storedMovement
+          );
+
+          const cached = v2MovementsCacheRef.current[companyKey];
+          if (cached?.loaded) {
+            const next = [
+              storedMovement,
+              ...cached.movements.filter((m) => m.id !== storedMovement.id),
+            ];
+            v2MovementsCacheRef.current[companyKey] = {
+              loaded: true,
+              movements: next,
+            };
+          }
         }
 
         // Guardar en Firestore - ESTA ES LA PARTE CRÍTICA
