@@ -3700,7 +3700,7 @@ export function FondoSection({
       const now = new Date();
       const iso = now.toISOString();
       const dateKey = iso.slice(0, 10); // YYYY-MM-DD
-      const timeKey = iso.slice(11, 23); // HH:MM:SS.mmm
+      const timeKey = iso.slice(11, 23).replace(/[:.]/g, "_"); // HH_MM_SS_mmm
       const movementId = `${dateKey}_${timeKey}_${accountKey}`;
       const entry: FondoEntry = {
         id: movementId,
