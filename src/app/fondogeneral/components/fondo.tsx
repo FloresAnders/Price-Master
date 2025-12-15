@@ -4159,27 +4159,51 @@ export function FondoSection({
           MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(
             normalizedCompany
           ).state;
+        const parsedInitialCRC = Number(normalizedInitialCRC) || 0;
+        const parsedInitialUSD = Number(normalizedInitialUSD) || 0;
+
+        const nextCRC = {
+          accountId: accountKey,
+          currency: "CRC" as const,
+          enabled: currencyEnabled.CRC,
+          initialBalance: parsedInitialCRC,
+          currentBalance: currentBalanceCRC,
+        };
+        const nextUSD = {
+          accountId: accountKey,
+          currency: "USD" as const,
+          enabled: currencyEnabled.USD,
+          initialBalance: parsedInitialUSD,
+          currentBalance: currentBalanceUSD,
+        };
+
+        const existingCRC = stateSnapshot.balancesByAccount.find(
+          (balance) => balance.accountId === accountKey && balance.currency === "CRC"
+        );
+        const existingUSD = stateSnapshot.balancesByAccount.find(
+          (balance) => balance.accountId === accountKey && balance.currency === "USD"
+        );
+
+        const crcChanged =
+          !existingCRC ||
+          existingCRC.enabled !== nextCRC.enabled ||
+          existingCRC.initialBalance !== nextCRC.initialBalance ||
+          existingCRC.currentBalance !== nextCRC.currentBalance;
+        const usdChanged =
+          !existingUSD ||
+          existingUSD.enabled !== nextUSD.enabled ||
+          existingUSD.initialBalance !== nextUSD.initialBalance ||
+          existingUSD.currentBalance !== nextUSD.currentBalance;
+
+        // If nothing changed for this account, do not write back to Firestore/localStorage.
+        if (!crcChanged && !usdChanged) {
+          return;
+        }
+
         const nextAccountBalances = stateSnapshot.balancesByAccount.filter(
           (balance) => balance.accountId !== accountKey
         );
-        const parsedInitialCRC = Number(normalizedInitialCRC) || 0;
-        const parsedInitialUSD = Number(normalizedInitialUSD) || 0;
-        nextAccountBalances.push(
-          {
-            accountId: accountKey,
-            currency: "CRC",
-            enabled: currencyEnabled.CRC,
-            initialBalance: parsedInitialCRC,
-            currentBalance: currentBalanceCRC,
-          },
-          {
-            accountId: accountKey,
-            currency: "USD",
-            enabled: currencyEnabled.USD,
-            initialBalance: parsedInitialUSD,
-            currentBalance: currentBalanceUSD,
-          }
-        );
+        nextAccountBalances.push(nextCRC, nextUSD);
         stateSnapshot.balancesByAccount = nextAccountBalances;
         stateSnapshot.updatedAt = new Date().toISOString();
         // Preservar lockedUntil del snapshot actual si existe
