@@ -35,33 +35,33 @@ const app = initializeApp(firebaseConfig);
 // - In browser: enable persistent cache so offline writes survive reloads (common cause of "I saved it and tomorrow it's gone").
 // - In SSR / environments without IndexedDB: fallback to default (in-memory).
 // Optional override: set NEXT_PUBLIC_FIRESTORE_DATABASE_ID to target a named Firestore database.
-// Default to "restauracion" (per production setup).
-const firestoreDatabaseId =
-  (process.env.NEXT_PUBLIC_FIRESTORE_DATABASE_ID || '').trim() || 'restauracion';
+// In production we usually set it to "restauracion" via `.env`.
+// In dev/tests we keep it empty in `.env.local` to use the default Firestore database.
+const firestoreDatabaseId = (process.env.NEXT_PUBLIC_FIRESTORE_DATABASE_ID || '').trim();
 
 export const db = (() => {
   const isBrowser = typeof window !== 'undefined';
   if (!isBrowser) {
-    return getFirestore(app, firestoreDatabaseId);
+    return firestoreDatabaseId ? getFirestore(app, firestoreDatabaseId) : getFirestore(app);
   }
 
   try {
-    return initializeFirestore(
-      app,
-      {
-        localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
-      },
-      firestoreDatabaseId,
-    );
+    const settings = {
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+    };
+
+    return firestoreDatabaseId
+      ? initializeFirestore(app, settings, firestoreDatabaseId)
+      : initializeFirestore(app, settings);
   } catch (err) {
     console.warn('⚠️ Firestore persistent cache unavailable; falling back to memory cache.', err);
-    return initializeFirestore(
-      app,
-      {
-        localCache: memoryLocalCache(),
-      },
-      firestoreDatabaseId,
-    );
+    const settings = {
+      localCache: memoryLocalCache(),
+    };
+
+    return firestoreDatabaseId
+      ? initializeFirestore(app, settings, firestoreDatabaseId)
+      : initializeFirestore(app, settings);
   }
 })();
 

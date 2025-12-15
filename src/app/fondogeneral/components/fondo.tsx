@@ -4726,7 +4726,8 @@ export function FondoSection({
       const willCreateInfo = adjustedDiffCRC === 0 && adjustedDiffUSD === 0;
       const willCreateCRC = !willCreateInfo && Boolean(adjustedDiffCRC);
       const willCreateUSD = !willCreateInfo && Boolean(adjustedDiffUSD);
-      const plannedCount = Number(willCreateCRC) + Number(willCreateUSD) + Number(willCreateInfo);
+      const plannedCount =
+        Number(willCreateCRC) + Number(willCreateUSD) + Number(willCreateInfo);
 
       if (adjustedDiffCRC && adjustedDiffCRC !== 0) {
         const diff = Math.trunc(adjustedDiffCRC);
@@ -7319,7 +7320,9 @@ export function FondoSection({
       <ConfirmModal
         open={confirmOpenCreateMovement}
         title="Confirmar empresa y cuenta"
-        message={`Vas a registrar un movimiento en la empresa "${company || ""}" y en la cuenta "${accountKey}". Verifica que sea correcto antes de continuar.`}
+        message={`Vas a registrar un movimiento en la empresa "${
+          company || ""
+        }" y en la cuenta "${accountKey}". Verifica que sea correcto antes de continuar.`}
         confirmText="Continuar"
         cancelText="Cancelar"
         actionType="change"
