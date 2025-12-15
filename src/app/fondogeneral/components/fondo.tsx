@@ -4543,7 +4543,8 @@ export function FondoSection({
       closingDateValue = new Date();
     }
 
-    const createdAt = new Date().toISOString();
+    const createdAtDate = new Date();
+    const createdAt = createdAtDate.toISOString();
     const diffCRC =
       Math.trunc(closing.totalCRC) - Math.trunc(currentBalanceCRC);
     const diffUSD =
@@ -4657,8 +4658,22 @@ export function FondoSection({
     // using the existing edit flow which marks entries as 'Editado').
     try {
       const newMovements: FondoEntry[] = [];
-      const makeId = () =>
-        String(Date.now()) + Math.floor(Math.random() * 900 + 100).toString();
+
+      const buildCierreMovementBaseId = (when: Date) => {
+        // Local time, URL-safe: 2025_12_15-02_10_38_929_CIERRE
+        const yyyy = when.getFullYear();
+        const MM = String(when.getMonth() + 1).padStart(2, "0");
+        const DD = String(when.getDate()).padStart(2, "0");
+        const HH = String(when.getHours()).padStart(2, "0");
+        const mm = String(when.getMinutes()).padStart(2, "0");
+        const ss = String(when.getSeconds()).padStart(2, "0");
+        const mmm = String(when.getMilliseconds()).padStart(3, "0");
+        const dateKey = `${yyyy}_${MM}_${DD}`;
+        const timeKey = `${HH}_${mm}_${ss}_${mmm}`;
+        return `${dateKey}-${timeKey}_CIERRE`;
+      };
+
+      const cierreBaseId = buildCierreMovementBaseId(createdAtDate);
       // If we're editing an existing closing, compute diffs relative to the balance
       // excluding the previous generated adjustment(s). This avoids flipping an
       // existing entry from egreso -> ingreso and double-counting.
@@ -4708,6 +4723,11 @@ export function FondoSection({
         });
       }
 
+      const willCreateInfo = adjustedDiffCRC === 0 && adjustedDiffUSD === 0;
+      const willCreateCRC = !willCreateInfo && Boolean(adjustedDiffCRC);
+      const willCreateUSD = !willCreateInfo && Boolean(adjustedDiffUSD);
+      const plannedCount = Number(willCreateCRC) + Number(willCreateUSD) + Number(willCreateInfo);
+
       if (adjustedDiffCRC && adjustedDiffCRC !== 0) {
         const diff = Math.trunc(adjustedDiffCRC);
         const isPositive = diff > 0;
@@ -4715,7 +4735,7 @@ export function FondoSection({
           ? AUTO_ADJUSTMENT_MOVEMENT_TYPE_INGRESO
           : AUTO_ADJUSTMENT_MOVEMENT_TYPE_EGRESO;
         const entry: FondoEntry = {
-          id: makeId(),
+          id: cierreBaseId,
           providerCode: AUTO_ADJUSTMENT_PROVIDER_CODE,
           invoiceNumber: String(Math.abs(diff)).padStart(4, "0"),
           paymentType,
@@ -4742,7 +4762,7 @@ export function FondoSection({
           ? AUTO_ADJUSTMENT_MOVEMENT_TYPE_INGRESO
           : AUTO_ADJUSTMENT_MOVEMENT_TYPE_EGRESO;
         const entry: FondoEntry = {
-          id: makeId(),
+          id: plannedCount > 1 ? `${cierreBaseId}_USD` : cierreBaseId,
           providerCode: AUTO_ADJUSTMENT_PROVIDER_CODE,
           invoiceNumber: String(Math.abs(diff)).padStart(4, "0"),
           paymentType,
@@ -4765,7 +4785,7 @@ export function FondoSection({
 
       if (adjustedDiffCRC === 0 && adjustedDiffUSD === 0) {
         const entry: FondoEntry = {
-          id: makeId(),
+          id: cierreBaseId,
           providerCode: AUTO_ADJUSTMENT_PROVIDER_CODE,
           invoiceNumber: "0000",
           paymentType: "INFORMATIVO" as any, // Tipo especial para cierres sin diferencias
