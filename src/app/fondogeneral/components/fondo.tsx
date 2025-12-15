@@ -2883,7 +2883,7 @@ export function FondoSection({
     let hasPendingCierreDeCaja = false;
     for (const entry of sortedEntries) {
       // Si encontramos un CIERRE DE FONDO GENERAL, no hay pendiente
-      if (entry.providerCode === AUTO_ADJUSTMENT_PROVIDER_CODE) {
+      if (isAutoAdjustmentProvider(entry.providerCode)) {
         break;
       }
       // Buscar el nombre del proveedor por su código
@@ -3903,7 +3903,7 @@ export function FondoSection({
       return;
     }
 
-    if (entry.providerCode === AUTO_ADJUSTMENT_PROVIDER_CODE) {
+    if (isAutoAdjustmentProvider(entry.providerCode)) {
       showToast("Los ajustes automáticos no se pueden editar.", "info", 5000);
       return;
     }
@@ -3967,7 +3967,7 @@ export function FondoSection({
         return;
       }
 
-      if (entry.providerCode === AUTO_ADJUSTMENT_PROVIDER_CODE) {
+      if (isAutoAdjustmentProvider(entry.providerCode)) {
         showToast("Los ajustes automáticos no se pueden eliminar.", "error");
         return;
       }
@@ -4728,6 +4728,7 @@ export function FondoSection({
             userNotes ? ` Notas: ${userNotes}` : ""
           }`,
           createdAt,
+          accountId: accountKey,
           currency: "CRC",
           breakdown: closing.breakdownCRC ?? {},
         } as FondoEntry;
@@ -4754,6 +4755,7 @@ export function FondoSection({
             userNotes ? ` Notas: ${userNotes}` : ""
           }`,
           createdAt,
+          accountId: accountKey,
           currency: "USD",
         } as FondoEntry;
         if ((entry as any).currency === "USD")
@@ -4774,6 +4776,7 @@ export function FondoSection({
             userNotes ? ` Notas: ${userNotes}` : ""
           }`,
           createdAt,
+          accountId: accountKey,
           currency: "CRC",
           breakdown: closing.breakdownCRC ?? {},
         } as FondoEntry;
@@ -4973,6 +4976,31 @@ export function FondoSection({
             );
             return next;
           });
+
+          // Persist v2 movement docs so the auto closing does not disappear after reload.
+          try {
+            const normalizedCompany = (company || "").trim();
+            if (normalizedCompany.length > 0) {
+              const companyKey =
+                MovimientosFondosService.buildCompanyMovementsKey(
+                  normalizedCompany
+                );
+              await Promise.all(
+                newMovements.map((movement) =>
+                  MovimientosFondosService.upsertMovement(companyKey, {
+                    ...(movement as any),
+                    accountId: accountKey,
+                    currency: (movement.currency ?? "CRC") as any,
+                  })
+                )
+              );
+            }
+          } catch (persistErr) {
+            console.error(
+              "[FG-DEBUG] Error persisting daily closing adjustment movements:",
+              persistErr
+            );
+          }
         }
 
         // Build a human-readable summary of the adjustments we just applied
