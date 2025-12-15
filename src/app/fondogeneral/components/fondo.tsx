@@ -3697,8 +3697,13 @@ export function FondoSection({
       }
 
       // CREAR nuevo movimiento
+      const now = new Date();
+      const iso = now.toISOString();
+      const dateKey = iso.slice(0, 10); // YYYY-MM-DD
+      const timeKey = iso.slice(11, 23); // HH:MM:SS.mmm
+      const movementId = `${dateKey}_${timeKey}_${accountKey}`;
       const entry: FondoEntry = {
-        id: String(Date.now()),
+        id: movementId,
         providerCode: selectedProvider,
         invoiceNumber: paddedInvoice,
         paymentType,
@@ -3706,7 +3711,7 @@ export function FondoSection({
         amountIngreso: isIngreso ? ingresoValue : 0,
         manager,
         notes: trimmedNotes,
-        createdAt: new Date().toISOString(),
+        createdAt: iso,
         currency: movementCurrency,
       };
 
@@ -4178,10 +4183,12 @@ export function FondoSection({
         };
 
         const existingCRC = stateSnapshot.balancesByAccount.find(
-          (balance) => balance.accountId === accountKey && balance.currency === "CRC"
+          (balance) =>
+            balance.accountId === accountKey && balance.currency === "CRC"
         );
         const existingUSD = stateSnapshot.balancesByAccount.find(
-          (balance) => balance.accountId === accountKey && balance.currency === "USD"
+          (balance) =>
+            balance.accountId === accountKey && balance.currency === "USD"
         );
 
         const crcChanged =

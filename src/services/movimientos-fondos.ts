@@ -450,8 +450,10 @@ export class MovimientosFondosService {
     if (!docId) return;
     if (!movement?.id) return;
     const movementRef = doc(this.movementsCollectionRef(docId), movement.id);
-    // Store id as a field too to keep exports/debugging simple
-    await setDoc(movementRef, { ...(movement as Record<string, unknown>), id: movement.id } as any);
+    // Do not duplicate id (docId already contains it). Keep the stored document clean.
+    const record = { ...(movement as Record<string, unknown>) };
+    delete (record as any).id;
+    await setDoc(movementRef, record as any);
   }
 
   static async deleteMovement(docId: string, movementId: string): Promise<void> {
@@ -532,7 +534,8 @@ export class MovimientosFondosService {
         const id = typeof record.id === 'string' && record.id.trim().length > 0
           ? record.id.trim()
           : this.buildLegacyMovementId(record, offset + idx);
-        record.id = id;
+        // Do not duplicate id inside the document.
+        delete (record as any).id;
         const ref = doc(this.movementsCollectionRef(docId), id);
         batch.set(ref, record as any);
       });

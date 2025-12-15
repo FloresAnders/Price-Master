@@ -34,41 +34,34 @@ const app = initializeApp(firebaseConfig);
 // Initialize Firestore
 // - In browser: enable persistent cache so offline writes survive reloads (common cause of "I saved it and tomorrow it's gone").
 // - In SSR / environments without IndexedDB: fallback to default (in-memory).
-// Optional: set NEXT_PUBLIC_FIRESTORE_DATABASE_ID (e.g. "restauracion") to target a named Firestore database.
-// If not set, the default Firestore database is used.
-const firestoreDatabaseId = (process.env.NEXT_PUBLIC_FIRESTORE_DATABASE_ID || '').trim() || undefined;
+// Optional override: set NEXT_PUBLIC_FIRESTORE_DATABASE_ID to target a named Firestore database.
+// Default to "restauracion" (per production setup).
+const firestoreDatabaseId =
+  (process.env.NEXT_PUBLIC_FIRESTORE_DATABASE_ID || '').trim() || 'restauracion';
 
 export const db = (() => {
   const isBrowser = typeof window !== 'undefined';
   if (!isBrowser) {
-    return firestoreDatabaseId ? getFirestore(app, firestoreDatabaseId) : getFirestore(app);
+    return getFirestore(app, firestoreDatabaseId);
   }
 
   try {
-    return firestoreDatabaseId
-      ? initializeFirestore(
-          app,
-          {
-            localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
-          },
-          firestoreDatabaseId,
-        )
-      : initializeFirestore(app, {
-          localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
-        });
+    return initializeFirestore(
+      app,
+      {
+        localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+      },
+      firestoreDatabaseId,
+    );
   } catch (err) {
     console.warn('⚠️ Firestore persistent cache unavailable; falling back to memory cache.', err);
-    return firestoreDatabaseId
-      ? initializeFirestore(
-          app,
-          {
-            localCache: memoryLocalCache(),
-          },
-          firestoreDatabaseId,
-        )
-      : initializeFirestore(app, {
-          localCache: memoryLocalCache(),
-        });
+    return initializeFirestore(
+      app,
+      {
+        localCache: memoryLocalCache(),
+      },
+      firestoreDatabaseId,
+    );
   }
 })();
 
