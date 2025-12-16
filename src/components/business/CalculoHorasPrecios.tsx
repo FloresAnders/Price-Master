@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, Clock as ClockIcon, Lock, User as UserIcon } from 'lucide-react';
 import { EmpresasService } from '../../services/empresas';
 import { CalculoHorasService } from '../../services/calculohoras';
+import { CcssConfigService } from '../../services/ccss-config';
 import CalculoHorasModal from '../ui/CalculoHorasModal';
 import { useAuth } from '../../hooks/useAuth';
 import useToast from '../../hooks/useToast';
@@ -29,6 +30,7 @@ interface MappedEmpresa {
 }
 
 type PeriodMode = 'first' | 'second' | 'monthly';
+const DEFAULT_PRICE_PER_HOUR = 1441;
 
 export default function CalculoHorasPrecios() {
   const { user } = useAuth();
@@ -41,6 +43,7 @@ export default function CalculoHorasPrecios() {
   const [period, setPeriod] = useState<PeriodMode>('first');
   const [selectedEmployee, setSelectedEmployee] = useState<string>('Todos');
   const [saving, setSaving] = useState(false);
+  const [pricePerHour, setPricePerHour] = useState<number>(DEFAULT_PRICE_PER_HOUR);
 
   const [timeData, setTimeData] = useState<{ [employeeName: string]: { [day: string]: { seconds: number; timeHHMMSS: string } } }>({});
   const [modal, setModal] = useState<{ isOpen: boolean; employeeName: string; day: number; currentTimeHHMMSS: string }>(
@@ -94,6 +97,11 @@ export default function CalculoHorasPrecios() {
     if (period === 'first') return Array.from({ length: 15 }, (_, i) => i + 1);
     return Array.from({ length: lastDay - 15 }, (_, i) => i + 16);
   }, [year, month, period]);
+
+  const moneyFormatter = useMemo(
+    () => new Intl.NumberFormat('es-CR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+    []
+  );
 
   // Load empresas for this owner
   useEffect(() => {
@@ -170,6 +178,38 @@ export default function CalculoHorasPrecios() {
   }, [empresa, isUserRole, empresaStorageKey]);
 
   const names = useMemo(() => empresas.find((e) => e.value === empresa)?.names || [], [empresas, empresa]);
+
+  // Load valorhora (price per hour) for selected empresa (fallback to DEFAULT_PRICE_PER_HOUR)
+  useEffect(() => {
+    const loadValorHora = async () => {
+      if (!empresa || !resolvedOwnerId) {
+        setPricePerHour(DEFAULT_PRICE_PER_HOUR);
+        return;
+      }
+
+      try {
+        const config = await CcssConfigService.getCcssConfig(resolvedOwnerId);
+        const currentEmpresa = empresas.find((e) => e.value === empresa);
+        const candidates = [empresa, currentEmpresa?.label, currentEmpresa?.value]
+          .filter(Boolean)
+          .map((s) => String(s).trim().toLowerCase());
+
+        const match = config?.companie?.find((c) => candidates.includes(String(c.ownerCompanie || '').trim().toLowerCase()));
+        const valorhora = match?.valorhora;
+
+        if (typeof valorhora === 'number' && Number.isFinite(valorhora) && valorhora > 0) {
+          setPricePerHour(valorhora);
+        } else {
+          setPricePerHour(DEFAULT_PRICE_PER_HOUR);
+        }
+      } catch (err) {
+        console.error('Error loading valorhora:', err);
+        setPricePerHour(DEFAULT_PRICE_PER_HOUR);
+      }
+    };
+
+    loadValorHora();
+  }, [empresa, empresas, resolvedOwnerId]);
 
   // Load calculohoras data for selected empresa/month
   useEffect(() => {
@@ -400,7 +440,21 @@ export default function CalculoHorasPrecios() {
                       className="border border-[var(--input-border)] p-2 font-medium bg-[var(--input-bg)] text-[var(--foreground)] min-w-[90px] sticky left-0 z-10 text-xs"
                       style={{ background: 'var(--input-bg)', color: 'var(--foreground)', minWidth: '90px', left: 0, height: '40px' }}
                     >
-                      <span className="block truncate">{name}</span>
+                      {(() => {
+                        const totalSeconds = daysToShow.reduce((acc, day) => acc + (timeData[name]?.[String(day)]?.seconds || 0), 0);
+                        const totalHours = totalSeconds / 3600;
+                        const total = totalHours * pricePerHour;
+                        const tooltip =
+                          `Tiempo total (hh:mm:ss): ${formatHHMMSS(totalSeconds)}\n` +
+                          `Precio hora: ${moneyFormatter.format(pricePerHour)}\n` +
+                          `Total: ${moneyFormatter.format(total)}`;
+
+                        return (
+                          <span className="block truncate" title={tooltip}>
+                            {name}
+                          </span>
+                        );
+                      })()}
                     </td>
                     {daysToShow.map((day) => {
                       const seconds = timeData[name]?.[String(day)]?.seconds || 0;
