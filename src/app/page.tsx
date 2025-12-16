@@ -20,6 +20,7 @@ const ScanHistory = dynamic(() => import('@/components/scanner').then(mod => ({ 
 const CashCounterTabs = dynamic(() => import('@/components/business').then(mod => ({ default: mod.CashCounterTabs })), { ssr: false })
 const ControlHorario = dynamic(() => import('@/components/business').then(mod => ({ default: mod.ControlHorario })), { ssr: false })
 const TimingControl = dynamic(() => import('@/components/business').then(mod => ({ default: mod.TimingControl })), { ssr: false })
+const CalculoHorasPrecios = dynamic(() => import('@/components/business').then(mod => ({ default: mod.CalculoHorasPrecios })), { ssr: false })
 const SupplierOrders = dynamic(() => import('@/components/business').then(mod => ({ default: mod.SupplierOrders })), { ssr: false })
 const Mantenimiento = dynamic(() => import('@/components/admin').then(mod => ({ default: mod.Mantenimiento })), { ssr: false })
 const ScanHistoryTable = dynamic(() => import('@/components/scanner').then(mod => ({ default: mod.ScanHistoryTable })), { ssr: false })
@@ -30,7 +31,7 @@ const ConfiguracionFondoGeneralPage = dynamic(() => import('@/app/fondogeneral/c
 const SolicitudForm = dynamic(() => import('@/components/solicitud/SolicitudForm'), { ssr: false })
 
 // 1) Ampliamos ActiveTab para incluir "cashcounter", "controlhorario", "supplierorders", "edit", "scanhistory", "solicitud", "agregarproveedor", "reportes"
-type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'supplierorders' | 'scanhistory' | 'edit' | 'solicitud' | 'fondogeneral' | 'agregarproveedor' | 'reportes' | 'configuracion' | 'pruebas'
+type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'calculohorasprecios' | 'supplierorders' | 'scanhistory' | 'edit' | 'solicitud' | 'fondogeneral' | 'agregarproveedor' | 'reportes' | 'configuracion' | 'pruebas'
 
 export default function HomePage() {
   // Hook para obtener el usuario autenticado
@@ -218,7 +219,7 @@ export default function HomePage() {
       if (typeof window !== 'undefined') {
         const hash = window.location.hash.replace('#', '') as ActiveTab;
         const validTabs = [
-          'scanner', 'calculator', 'converter', 'cashcounter', 'timingcontrol', 'controlhorario', 'supplierorders', 'scanhistory', 'solicitud', 'fondogeneral', 'agregarproveedor', 'reportes', 'configuracion',
+          'scanner', 'calculator', 'converter', 'cashcounter', 'timingcontrol', 'controlhorario', 'calculohorasprecios', 'supplierorders', 'scanhistory', 'solicitud', 'fondogeneral', 'agregarproveedor', 'reportes', 'configuracion',
           ...(isSuperAdmin ? ['pruebas'] : [])
         ];
         if (validTabs.includes(hash)) {
@@ -242,7 +243,7 @@ export default function HomePage() {
       const handleHashChange = () => {
         const hash = window.location.hash.replace('#', '') as ActiveTab;
         const validTabs = [
-          'scanner', 'calculator', 'converter', 'cashcounter', 'timingcontrol', 'controlhorario', 'supplierorders', 'scanhistory', 'edit', 'solicitud', 'fondogeneral', 'agregarproveedor', 'reportes', 'configuracion',
+          'scanner', 'calculator', 'converter', 'cashcounter', 'timingcontrol', 'controlhorario', 'calculohorasprecios', 'supplierorders', 'scanhistory', 'edit', 'solicitud', 'fondogeneral', 'agregarproveedor', 'reportes', 'configuracion',
           ...(isSuperAdmin ? ['pruebas'] : [])
         ];
         if (validTabs.includes(hash)) {
@@ -330,6 +331,11 @@ export default function HomePage() {
               {/* CONTROL HORARIO */}
               {activeTab === 'controlhorario' && (
                 <ControlHorario currentUser={user} />
+              )}
+
+              {/* CALCULO HORAS PRECIOS */}
+              {activeTab === 'calculohorasprecios' && (
+                <CalculoHorasPrecios />
               )}
 
               {/* SUPPLIER ORDERS */}

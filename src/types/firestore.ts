@@ -3,6 +3,15 @@ export interface EmpresaEmpleado {
   hoursPerShift: number;
   extraAmount: number;
   ccssType: 'TC' | 'MT';
+  /**
+   * Si es true (y amboshorarios no es true), el empleado se muestra solo en CalculoHorasPrecios
+   * y se oculta del ControlHorario normal.
+   */
+  calculoprecios?: boolean;
+  /**
+   * Si es true, el empleado se muestra en ambos horarios (prioridad sobre calculoprecios).
+   */
+  amboshorarios?: boolean;
 }
 
 export interface Empresas {
@@ -35,6 +44,7 @@ export interface UserPermissions {
   cashcounter: boolean;  // Contador Efectivo - Contar billetes y monedas
   timingcontrol: boolean; // Control Tiempos - Registro de venta de tiempos
   controlhorario: boolean; // Control Horario - Registro de horarios de trabajo
+  calculohorasprecios: boolean; // Calculo horas precios - Cálculo de horas y precios/planilla
   supplierorders: boolean; // Órdenes Proveedor - Gestión de órdenes de proveedores
   mantenimiento: boolean;  // Mantenimiento - Nueva sección de mantenimiento
   fondogeneral?: boolean; // Fondo General - Acceso a administración del fondo general

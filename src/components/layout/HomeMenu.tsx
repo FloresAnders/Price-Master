@@ -15,6 +15,7 @@ const menuItems = [
   { id: 'fondogeneral', name: 'Fondo General', icon: Banknote, description: 'Administrar el fondo general', permission: 'fondogeneral' as keyof UserPermissions },
   { id: 'timingcontrol', name: 'Control Tiempos', icon: Smartphone, description: 'Registro de venta de tiempos', permission: 'timingcontrol' as keyof UserPermissions },
   { id: 'controlhorario', name: 'Control Horario', icon: Clock, description: 'Registro de horarios de trabajo', permission: 'controlhorario' as keyof UserPermissions },
+  { id: 'calculohorasprecios', name: 'Calculo horas precios', icon: Calculator, description: 'Cálculo de horas y precios (planilla)', permission: 'calculohorasprecios' as keyof UserPermissions },
   { id: 'supplierorders', name: 'Órdenes Proveedor', icon: Truck, description: 'Gestión de órdenes de proveedores', permission: 'supplierorders' as keyof UserPermissions },
   { id: 'scanhistory', name: 'Historial de Escaneos', icon: History, description: 'Ver historial completo de escaneos', permission: 'scanhistory' as keyof UserPermissions },
   { id: 'edit', name: 'Mantenimiento', icon: Settings, description: 'Gestión y mantenimiento del sistema', permission: 'mantenimiento' as keyof UserPermissions },

@@ -330,8 +330,12 @@ export default function ControlHorario({ currentUser: propCurrentUser }: Control
           id: e.id,
           label: e.name || e.ubicacion || e.id || 'Empresa',
           value: e.ubicacion || e.name || e.id || '',
-          names: (e.empleados || []).map(emp => emp.Empleado || ''),
-          employees: (e.empleados || []).map(emp => ({
+          names: (e.empleados || [])
+            .filter(emp => Boolean((emp as any)?.amboshorarios) || !Boolean((emp as any)?.calculoprecios))
+            .map(emp => emp.Empleado || ''),
+          employees: (e.empleados || [])
+            .filter(emp => Boolean((emp as any)?.amboshorarios) || !Boolean((emp as any)?.calculoprecios))
+            .map(emp => ({
             name: emp.Empleado || '',
             ccssType: emp.ccssType || 'TC',
             hoursPerShift: emp.hoursPerShift ?? 8, // Usar ?? para permitir valores falsy

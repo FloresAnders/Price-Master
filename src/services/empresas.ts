@@ -7,7 +7,14 @@ export class EmpresasService {
 
     // Normalize empleados payload to a consistent shape before persisting
     private static normalizeEmpleado(raw: unknown): EmpresaEmpleado {
-        const defaultEmp: EmpresaEmpleado = { Empleado: '', hoursPerShift: 8, extraAmount: 0, ccssType: 'TC' };
+        const defaultEmp: EmpresaEmpleado = {
+            Empleado: '',
+            hoursPerShift: 8,
+            extraAmount: 0,
+            ccssType: 'TC',
+            calculoprecios: false,
+            amboshorarios: false
+        };
         if (!raw || typeof raw !== 'object') return defaultEmp;
 
         const obj = raw as Record<string, unknown>;
@@ -29,6 +36,21 @@ export class EmpresasService {
                 if (v !== undefined && v !== null && v !== '') {
                     const n = Number(v as unknown as number);
                     if (!Number.isNaN(n)) return n;
+                }
+            }
+            return undefined;
+        };
+
+        const getBoolean = (...keys: string[]) => {
+            for (const k of keys) {
+                const v = obj[k];
+                if (v === undefined || v === null) continue;
+                if (typeof v === 'boolean') return v;
+                if (typeof v === 'number') return v !== 0;
+                if (typeof v === 'string') {
+                    const s = v.trim().toLowerCase();
+                    if (s === 'true' || s === '1' || s === 'si' || s === 'sí' || s === 'yes') return true;
+                    if (s === 'false' || s === '0' || s === 'no') return false;
                 }
             }
             return undefined;
@@ -56,7 +78,9 @@ export class EmpresasService {
             Empleado: name || '',
             hoursPerShift: typeof hours === 'number' ? hours : 8,
             extraAmount: typeof extra === 'number' ? extra : 0,
-            ccssType: (ccss === 'MT' || ccss === 'TC') ? (ccss as 'TC' | 'MT') : 'TC'
+            ccssType: (ccss === 'MT' || ccss === 'TC') ? (ccss as 'TC' | 'MT') : 'TC',
+            calculoprecios: getBoolean('calculoprecios', 'calculoPrecios', 'calculo_precios', 'calculo precios') ?? false,
+            amboshorarios: getBoolean('amboshorarios', 'ambosHorarios', 'ambos_horarios', 'ambos horarios') ?? false
         };
 
         return normalized;
