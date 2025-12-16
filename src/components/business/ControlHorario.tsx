@@ -590,7 +590,7 @@ export default function ControlHorario({
       // Limpiar imagen del storage cuando se cierre el modal
       if (storageRef) {
         const imageRef = ref(storage, storageRef);
-        deleteObject(imageRef).catch((error) => {});
+        deleteObject(imageRef).catch(() => {});
         setStorageRef("");
       }
       setQRCodeDataURL("");
