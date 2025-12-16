@@ -46,7 +46,6 @@ import type {
   UserPermissions,
   Empresas,
   User,
-  FondoMovementTypeConfig,
 } from "../../../types/firestore";
 import { getDefaultPermissions } from "../../../utils/permissions";
 import ConfirmModal from "../../../components/ui/ConfirmModal";
@@ -757,11 +756,6 @@ export function ProviderSection({ id }: { id?: string }) {
   const [gastoTypes, setGastoTypes] = useState<string[]>([]);
   const [egresoTypes, setEgresoTypes] = useState<string[]>([]);
 
-  // Computed: todos los tipos combinados
-  const allFondoTypes = useMemo(() => {
-    return [...ingresoTypes, ...gastoTypes, ...egresoTypes];
-  }, [ingresoTypes, gastoTypes, egresoTypes]);
-
   const [confirmState, setConfirmState] = useState<{
     open: boolean;
     code: string;
@@ -967,12 +961,8 @@ export function ProviderSection({ id }: { id?: string }) {
     };
 
     // Listener para actualizaciones en tiempo real desde el caché
-    const handleFondoTypesUpdate = (event: Event) => {
-      const customEvent = event as CustomEvent<{
-        types: FondoMovementTypeConfig[];
-        version: number;
-      }>;
-
+    const handleFondoTypesUpdate = (_event: Event) => {
+      void _event;
       if (!isMounted) return;
 
       console.log("[FondoTypes] Cache updated, reloading types...");
@@ -1878,9 +1868,9 @@ export function FondoSection({
 
   // Estado para tipos de movimientos dinámicos
   const [fondoTypesLoaded, setFondoTypesLoaded] = useState(false);
-  const [ingresoTypes, setIngresoTypes] = useState<string[]>([]);
-  const [gastoTypes, setGastoTypes] = useState<string[]>([]);
-  const [egresoTypes, setEgresoTypes] = useState<string[]>([]);
+  const [, setIngresoTypes] = useState<string[]>([]);
+  const [, setGastoTypes] = useState<string[]>([]);
+  const [, setEgresoTypes] = useState<string[]>([]);
 
   const [fondoEntries, setFondoEntries] = useState<FondoEntry[]>([]);
   const [companyEmployees, setCompanyEmployees] = useState<string[]>([]);
@@ -2374,12 +2364,8 @@ export function FondoSection({
     };
 
     // Listener para actualizaciones en tiempo real desde el caché
-    const handleFondoTypesUpdate = (event: Event) => {
-      const customEvent = event as CustomEvent<{
-        types: FondoMovementTypeConfig[];
-        version: number;
-      }>;
-
+    const handleFondoTypesUpdate = (_event: Event) => {
+      void _event;
       if (!isMounted) return;
 
       console.log("[FondoTypes] Cache updated, reloading types...");
@@ -3011,7 +2997,6 @@ export function FondoSection({
     resolvedOwnerId,
     company,
     applyLedgerStateFromStorage,
-    FONDO_TYPE_OPTIONS.length,
   ]);
 
   // When switching tabs, do not reload from Firestore: just filter cached v2 movements in-memory.
@@ -3416,13 +3401,14 @@ export function FondoSection({
    * Envía un correo de notificación cuando se crea o edita un movimiento,
    * solo si el proveedor tiene configurado un correo de notificación.
    */
-  const sendMovementNotification = async (
-    entry: FondoEntry,
-    operationType: "create" | "edit"
-  ): Promise<void> => {
-    try {
-      // Buscar el proveedor para obtener su correonotifi
-      const provider = providers.find((p) => p.code === entry.providerCode);
+  const sendMovementNotification = useCallback(
+    async (
+      entry: FondoEntry,
+      operationType: "create" | "edit"
+    ): Promise<void> => {
+      try {
+        // Buscar el proveedor para obtener su correonotifi
+        const provider = providers.find((p) => p.code === entry.providerCode);
 
       // Si el proveedor no tiene correonotifi, no enviar correo
       if (
@@ -3478,11 +3464,16 @@ export function FondoSection({
         );
         showToast("Error al enviar correo de notificación", "error");
       }
-    } catch (err) {
-      console.error("[EMAIL-NOTIFICATION] Error preparing notification:", err);
-      // No lanzar error, la notificación es secundaria
-    }
-  };
+      } catch (err) {
+        console.error(
+          "[EMAIL-NOTIFICATION] Error preparing notification:",
+          err
+        );
+        // No lanzar error, la notificación es secundaria
+      }
+    },
+    [company, providers, showToast]
+  );
 
   /**
    * Función auxiliar para persistir movimientos a Firestore de forma inmediata.
@@ -4691,7 +4682,7 @@ export function FondoSection({
     resetFondoForm();
     setMovementAutoCloseLocked(false);
   };
-  const openCreateMovementDrawer = () => {
+  const openCreateMovementDrawer = useCallback(() => {
     resetFondoForm();
     setMovementCurrency(currencyEnabled.CRC ? "CRC" : "USD");
     // If a provider is already selected, derive paymentType from it so the form
@@ -4714,7 +4705,13 @@ export function FondoSection({
     if (mode === "ingreso") setPaymentType(FONDO_INGRESO_TYPES[0]);
     if (mode === "egreso") setPaymentType(FONDO_EGRESO_TYPES[0]);
     setMovementModalOpen(true);
-  };
+  }, [
+    resetFondoForm,
+    currencyEnabled.CRC,
+    selectedProvider,
+    providers,
+    mode,
+  ]);
 
   const confirmOpenCreateMovementNow = useCallback(() => {
     setConfirmOpenCreateMovement(false);
