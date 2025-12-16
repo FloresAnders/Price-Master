@@ -1,10 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import { useVersion } from "../../hooks/useVersion";
+import delikorLogo from "../../../public/Logos/delikor.png";
 
 export default function Footer() {
-  const { version, isLocalNewer, dbVersion } = useVersion();
+  const { version, isLocalNewer } = useVersion();
   const [isGitHubModalOpen, setIsGitHubModalOpen] = useState(false);
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
   const [isNewsModalOpen, setIsNewsModalOpen] = useState(false);
@@ -266,33 +268,62 @@ export default function Footer() {
             </div>
           </div>
         )}
-        {/* Copyright */}
-        <div className="w-full text-center text-xs text-[var(--foreground)] opacity-80 border-t border-[var(--input-border)] pt-2 pb-1">
-          <div className="mb-1">
-            Copyright ©{new Date().getFullYear()}; Designed by{" "}
-            <span className="font-semibold tracking-wide">Time Master</span>
-          </div>
-          <div className="opacity-90 flex items-center justify-center gap-2">
-            <span>v{version}</span>
-            {isLocalNewer && (
-              <span
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 border border-yellow-500/30"
-                title={`Cambios desplegados.`}
-              >
-                <svg
-                  className="w-3 h-3"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                PENDIENTE
-              </span>
-            )}
+        {/* Copyright + Logo */}
+        <div className="w-full text-xs text-[var(--foreground)] opacity-80 border-t border-[var(--input-border)] pt-2 pb-1">
+          <div className="w-full max-w-7xl mx-auto px-4 flex flex-col sm:flex-row sm:items-center sm:justify-center gap-2 sm:gap-3">
+            <div className="text-center">
+              <div className="flex flex-col items-center sm:flex-row sm:items-center sm:justify-center sm:gap-2 sm:flex-nowrap">
+                <span className="sm:whitespace-nowrap">
+                  Copyright ©{new Date().getFullYear()}; Designed by{" "}
+                  <span className="font-semibold tracking-wide">
+                    Time Master
+                  </span>
+                </span>
+                <span className="hidden sm:inline opacity-60">|</span>
+                <span className="opacity-90 flex items-center justify-center gap-2 sm:whitespace-nowrap">
+                  <span>v{version}</span>
+                  {isLocalNewer && (
+                    <span
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 border border-yellow-500/30"
+                      title={`Cambios desplegados.`}
+                    >
+                      <svg
+                        className="w-3 h-3"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      PENDIENTE
+                    </span>
+                  )}
+                </span>
+              </div>
+            </div>
+
+            <div
+              className="hidden sm:block h-6 w-px bg-[var(--input-border)] opacity-60"
+              aria-hidden="true"
+            />
+            <div
+              className="sm:hidden w-full h-px bg-[var(--input-border)] opacity-60"
+              aria-hidden="true"
+            />
+
+            <div className="flex items-center justify-center">
+              <Image
+                src={delikorLogo}
+                alt="Delikor"
+                width={160}
+                height={40}
+                sizes="(min-width: 640px) 180px, 160px"
+                className="h-8 sm:h-9 w-auto object-contain"
+              />
+            </div>
           </div>
         </div>
       </div>
