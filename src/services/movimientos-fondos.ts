@@ -469,6 +469,43 @@ export class MovimientosFondosService {
     return !snap.empty;
   }
 
+  static async listMovementsPage<T = unknown>(
+    docId: string,
+    options?: {
+      pageSize?: number;
+      cursor?: QueryDocumentSnapshot<DocumentData> | null;
+    },
+  ): Promise<{
+    items: Array<T & { id: string }>;
+    cursor: QueryDocumentSnapshot<DocumentData> | null;
+    exhausted: boolean;
+  }> {
+    if (!docId) return { items: [], cursor: null, exhausted: true };
+
+    const pageSize = Math.max(1, Math.min(options?.pageSize ?? 500, 500));
+    const cursor = options?.cursor ?? null;
+
+    const constraints: QueryConstraint[] = [orderBy('createdAt', 'desc'), limit(pageSize)];
+    const q: Query<DocumentData> = cursor
+      ? query(this.movementsCollectionRef(docId), ...constraints, startAfter(cursor))
+      : query(this.movementsCollectionRef(docId), ...constraints);
+
+    const snap: QuerySnapshot<DocumentData> = await getDocs(q);
+    if (snap.empty) {
+      return { items: [], cursor, exhausted: true };
+    }
+
+    const items: Array<T & { id: string }> = snap.docs.map((d) => ({
+      id: d.id,
+      ...(d.data() as any),
+    }));
+
+    const nextCursor = snap.docs[snap.docs.length - 1] ?? cursor;
+    const exhausted = snap.size < pageSize;
+
+    return { items, cursor: nextCursor, exhausted };
+  }
+
   static async listAllMovements<T = unknown>(
     docId: string,
     options?: {
