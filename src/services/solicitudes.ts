@@ -53,14 +53,20 @@ export class SolicitudesService {
   /**
    * Get solicitudes filtered by empresa (company name)
    */
-  static async getSolicitudesByEmpresa(empresa: string): Promise<any[]> {
+  static async getSolicitudesByEmpresa(empresa: string, limitCount?: number): Promise<any[]> {
     if (!empresa) return [];
     try {
       const conditions = [
         { field: 'empresa', operator: '==', value: empresa }
       ];
-      const rows = await FirestoreService.query(this.COLLECTION_NAME, conditions, 'createdAt', 'desc');
+      const rows = await FirestoreService.query(this.COLLECTION_NAME, conditions, 'createdAt', 'desc', limitCount);
       if (rows && rows.length > 0) return rows;
+
+      // In production, avoid expensive fallbacks that read the entire collection.
+      // These fallbacks were intended for dev/debugging when company names are inconsistent.
+      if (process.env.NODE_ENV === 'production') {
+        return [];
+      }
 
       // If no rows found, fallback: fetch all and perform a normalized client-side match.
       // This handles differences in casing, extra spaces, or small variants in stored company names.
