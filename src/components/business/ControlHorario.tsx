@@ -370,17 +370,17 @@ export default function ControlHorario({
           });
 
           return {
-          id: e.id,
-          label: e.name || e.ubicacion || e.id || "Empresa",
-          value: e.ubicacion || e.name || e.id || "",
-          names: controlHorarioEmployees.map((emp) => emp.Empleado || ""),
-          employees: controlHorarioEmployees.map((emp) => ({
-            name: emp.Empleado || "",
-            ccssType: emp.ccssType || "TC",
-            hoursPerShift: emp.hoursPerShift ?? 8, // Usar ?? para permitir valores falsy
-            extraAmount: emp.extraAmount || 0,
-          })),
-        };
+            id: e.id,
+            label: e.name || e.ubicacion || e.id || "Empresa",
+            value: e.ubicacion || e.name || e.id || "",
+            names: controlHorarioEmployees.map((emp) => emp.Empleado || ""),
+            employees: controlHorarioEmployees.map((emp) => ({
+              name: emp.Empleado || "",
+              ccssType: emp.ccssType || "TC",
+              hoursPerShift: emp.hoursPerShift ?? 8, // Usar ?? para permitir valores falsy
+              extraAmount: emp.extraAmount || 0,
+            })),
+          };
         });
         setEmpresas(mapped);
         // Resolver el `ownercompanie` del usuario únicamente al `value` de las empresas

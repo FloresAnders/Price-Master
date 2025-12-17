@@ -42,11 +42,7 @@ import {
 import { useAuth } from "../../../hooks/useAuth";
 import { useProviders } from "../../../hooks/useProviders";
 import useToast from "../../../hooks/useToast";
-import type {
-  UserPermissions,
-  Empresas,
-  User,
-} from "../../../types/firestore";
+import type { UserPermissions, Empresas, User } from "../../../types/firestore";
 import { getDefaultPermissions } from "../../../utils/permissions";
 import ConfirmModal from "../../../components/ui/ConfirmModal";
 import { EmpresasService } from "../../../services/empresas";
@@ -767,18 +763,17 @@ export function ProviderSection({ id }: { id?: string }) {
     name: "",
   });
 
-  const pendingProviderSaveRef = useRef<
-    | null
-    | {
-        mode: "create" | "update";
-        code?: string;
-        name: string;
-        providerType?: FondoMovementType;
-        correonotifi?: string;
-      }
-  >(null);
+  const pendingProviderSaveRef = useRef<null | {
+    mode: "create" | "update";
+    code?: string;
+    name: string;
+    providerType?: FondoMovementType;
+    correonotifi?: string;
+  }>(null);
   const [similarConfirmOpen, setSimilarConfirmOpen] = useState(false);
-  const [similarConfirmMessage, setSimilarConfirmMessage] = useState("");
+  const [similarConfirmMessage, setSimilarConfirmMessage] = useState<
+    React.ReactNode
+  >("");
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState<number | "all">(10);
@@ -1686,8 +1681,7 @@ export function ProviderSection({ id }: { id?: string }) {
                   try {
                     setFormError(null);
 
-                    const normalizedProviderType =
-                      providerType || undefined;
+                    const normalizedProviderType = providerType || undefined;
 
                     if (editingProviderCode) {
                       const otherProviders = providers.filter(
@@ -1721,15 +1715,43 @@ export function ProviderSection({ id }: { id?: string }) {
                           correonotifi,
                         };
                         setSimilarConfirmMessage(
-                          [
-                            "Detectamos un nombre demasiado similar.",
-                            "",
-                            `Nuevo: \"${name}\"`,
-                            `Existente: \"${best}\"${similarTypeLabel ? ` (Tipo: ${similarTypeLabel})` : ""}`,
-                            `Similitud: ${Math.round(score * 100)}%`,
-                            "",
-                            "¿Deseas continuar y guardarlo de todas formas?",
-                          ].join("\n")
+                          <div className="w-full flex flex-col items-center text-center">
+                            <p className="text-center">Detectamos un nombre demasiado similar.</p>
+
+                            <div className="mt-3 space-y-2">
+                              <div className="flex items-start justify-center gap-2 w-full">
+                                <UserPlus className="w-4 h-4 text-[var(--muted-foreground)] mt-0.5" />
+                                <div className="min-w-0 flex flex-col items-center">
+                                  <div className="text-xs text-[var(--muted-foreground)]">Nuevo proveedor</div>
+                                  <div className="font-semibold break-words">"{name}"</div>
+                                </div>
+                              </div>
+
+                              <div className="flex items-start justify-center gap-2 w-full">
+                                <Layers className="w-4 h-4 text-[var(--muted-foreground)] mt-0.5" />
+                                <div className="min-w-0 flex flex-col items-center">
+                                  <div className="text-xs text-[var(--muted-foreground)]">Proveedor existente</div>
+                                  <div className="font-semibold break-words">"{best}"</div>
+                                </div>
+                              </div>
+
+                              {similarTypeLabel && (
+                                <div className="flex items-start justify-center gap-2 w-full">
+                                  <Tag className="w-4 h-4 text-[var(--muted-foreground)] mt-0.5" />
+                                  <div className="min-w-0 flex flex-col items-center">
+                                    <div className="text-xs text-[var(--muted-foreground)]">Tipo del existente</div>
+                                    <div className="break-words">{similarTypeLabel}</div>
+                                  </div>
+                                </div>
+                              )}
+
+                              <div className="text-xs text-[var(--muted-foreground)] pt-1 text-center">
+                                Similitud: {Math.round(score * 100)}%
+                              </div>
+                            </div>
+
+                            <p className="mt-4 text-center">¿Deseas continuar y guardarlo de todas formas?</p>
+                          </div>
                         );
                         setSimilarConfirmOpen(true);
                         return;
@@ -1768,15 +1790,43 @@ export function ProviderSection({ id }: { id?: string }) {
                           correonotifi,
                         };
                         setSimilarConfirmMessage(
-                          [
-                            "Detectamos un nombre demasiado similar.",
-                            "",
-                            `Nuevo: \"${name}\"`,
-                            `Existente: \"${best}\"${similarTypeLabel ? ` (Tipo: ${similarTypeLabel})` : ""}`,
-                            `Similitud: ${Math.round(score * 100)}%`,
-                            "",
-                            "¿Deseas continuar y guardarlo de todas formas?",
-                          ].join("\n")
+                          <div className="w-full flex flex-col items-center text-center">
+                            <p className="text-center">Detectamos un nombre demasiado similar.</p>
+
+                            <div className="mt-3 space-y-2">
+                              <div className="flex items-start justify-center gap-2 w-full">
+                                <UserPlus className="w-4 h-4 text-[var(--muted-foreground)] mt-0.5" />
+                                <div className="min-w-0 flex flex-col items-center">
+                                  <div className="text-xs text-[var(--muted-foreground)]">Nuevo proveedor</div>
+                                  <div className="font-semibold break-words">"{name}"</div>
+                                </div>
+                              </div>
+
+                              <div className="flex items-start justify-center gap-2 w-full">
+                                <Layers className="w-4 h-4 text-[var(--muted-foreground)] mt-0.5" />
+                                <div className="min-w-0 flex flex-col items-center">
+                                  <div className="text-xs text-[var(--muted-foreground)]">Proveedor existente</div>
+                                  <div className="font-semibold break-words">"{best}"</div>
+                                </div>
+                              </div>
+
+                              {similarTypeLabel && (
+                                <div className="flex items-start justify-center gap-2 w-full">
+                                  <Tag className="w-4 h-4 text-[var(--muted-foreground)] mt-0.5" />
+                                  <div className="min-w-0 flex flex-col items-center">
+                                    <div className="text-xs text-[var(--muted-foreground)]">Tipo del existente</div>
+                                    <div className="break-words">{similarTypeLabel}</div>
+                                  </div>
+                                </div>
+                              )}
+
+                              <div className="text-xs text-[var(--muted-foreground)] pt-1 text-center">
+                                Similitud: {Math.round(score * 100)}%
+                              </div>
+                            </div>
+
+                            <p className="mt-4 text-center">¿Deseas continuar y guardarlo de todas formas?</p>
+                          </div>
                         );
                         setSimilarConfirmOpen(true);
                         return;
@@ -2882,7 +2932,8 @@ export function FondoSection({
                     items: Array<FondoEntry & { id: string }>;
                     cursor: QueryDocumentSnapshot<DocumentData> | null;
                     exhausted: boolean;
-                  } = await MovimientosFondosService.listMovementsPage<FondoEntry>(
+                  } =
+                    await MovimientosFondosService.listMovementsPage<FondoEntry>(
                       docKey,
                       {
                         pageSize: 500,
@@ -2964,7 +3015,8 @@ export function FondoSection({
                       items: Array<FondoEntry & { id: string }>;
                       cursor: QueryDocumentSnapshot<DocumentData> | null;
                       exhausted: boolean;
-                    } = await MovimientosFondosService.listMovementsPage<FondoEntry>(
+                    } =
+                      await MovimientosFondosService.listMovementsPage<FondoEntry>(
                         docKey,
                         {
                           pageSize: 500,
@@ -3149,12 +3201,7 @@ export function FondoSection({
     return () => {
       isMounted = false;
     };
-  }, [
-    namespace,
-    resolvedOwnerId,
-    company,
-    applyLedgerStateFromStorage,
-  ]);
+  }, [namespace, resolvedOwnerId, company, applyLedgerStateFromStorage]);
 
   // When switching tabs, do not reload from Firestore: just filter cached v2 movements in-memory.
   useEffect(() => {
@@ -3567,60 +3614,60 @@ export function FondoSection({
         // Buscar el proveedor para obtener su correonotifi
         const provider = providers.find((p) => p.code === entry.providerCode);
 
-      // Si el proveedor no tiene correonotifi, no enviar correo
-      if (
-        !provider?.correonotifi ||
-        provider.correonotifi.trim().length === 0
-      ) {
-        return;
-      }
+        // Si el proveedor no tiene correonotifi, no enviar correo
+        if (
+          !provider?.correonotifi ||
+          provider.correonotifi.trim().length === 0
+        ) {
+          return;
+        }
 
-      // Obtener el nombre del proveedor
-      const providerName = provider.name || entry.providerCode;
+        // Obtener el nombre del proveedor
+        const providerName = provider.name || entry.providerCode;
 
-      // Calcular el monto y tipo
-      const amount =
-        entry.amountEgreso > 0 ? entry.amountEgreso : entry.amountIngreso;
-      const amountType: "Egreso" | "Ingreso" =
-        entry.amountEgreso > 0 ? "Egreso" : "Ingreso";
-      const currency = (entry.currency as "CRC" | "USD") || "CRC";
+        // Calcular el monto y tipo
+        const amount =
+          entry.amountEgreso > 0 ? entry.amountEgreso : entry.amountIngreso;
+        const amountType: "Egreso" | "Ingreso" =
+          entry.amountEgreso > 0 ? "Egreso" : "Ingreso";
+        const currency = (entry.currency as "CRC" | "USD") || "CRC";
 
-      // Generar el contenido del correo usando la plantilla
-      const emailContent = generateMovementNotificationEmail({
-        company: company || "",
-        providerName,
-        providerCode: entry.providerCode,
-        paymentType: entry.paymentType,
-        invoiceNumber: entry.invoiceNumber,
-        amount,
-        amountType,
-        currency,
-        manager: entry.manager,
-        notes: entry.notes,
-        createdAt: entry.createdAt,
-        operationType,
-      });
-
-      // Crear documento en la colección 'mail' para que la extensión Firebase Trigger Email lo procese
-      try {
-        const docRef = await addDoc(collection(db, "mail"), {
-          to: provider.correonotifi,
-          subject: emailContent.subject,
-          text: emailContent.text,
-          html: emailContent.html,
-          createdAt: serverTimestamp(),
+        // Generar el contenido del correo usando la plantilla
+        const emailContent = generateMovementNotificationEmail({
+          company: company || "",
+          providerName,
+          providerCode: entry.providerCode,
+          paymentType: entry.paymentType,
+          invoiceNumber: entry.invoiceNumber,
+          amount,
+          amountType,
+          currency,
+          manager: entry.manager,
+          notes: entry.notes,
+          createdAt: entry.createdAt,
+          operationType,
         });
-        console.log(
-          `[MAIL-DOC] Documento creado en 'mail' para movimiento: ${docRef.id}`
-        );
-        showToast("Correo de notificación enviado correctamente", "success");
-      } catch (err) {
-        console.error(
-          '[MAIL-DOC] Error creando documento en "mail" para movimiento:',
-          err
-        );
-        showToast("Error al enviar correo de notificación", "error");
-      }
+
+        // Crear documento en la colección 'mail' para que la extensión Firebase Trigger Email lo procese
+        try {
+          const docRef = await addDoc(collection(db, "mail"), {
+            to: provider.correonotifi,
+            subject: emailContent.subject,
+            text: emailContent.text,
+            html: emailContent.html,
+            createdAt: serverTimestamp(),
+          });
+          console.log(
+            `[MAIL-DOC] Documento creado en 'mail' para movimiento: ${docRef.id}`
+          );
+          showToast("Correo de notificación enviado correctamente", "success");
+        } catch (err) {
+          console.error(
+            '[MAIL-DOC] Error creando documento en "mail" para movimiento:',
+            err
+          );
+          showToast("Error al enviar correo de notificación", "error");
+        }
       } catch (err) {
         console.error(
           "[EMAIL-NOTIFICATION] Error preparing notification:",
@@ -4862,13 +4909,7 @@ export function FondoSection({
     if (mode === "ingreso") setPaymentType(FONDO_INGRESO_TYPES[0]);
     if (mode === "egreso") setPaymentType(FONDO_EGRESO_TYPES[0]);
     setMovementModalOpen(true);
-  }, [
-    resetFondoForm,
-    currencyEnabled.CRC,
-    selectedProvider,
-    providers,
-    mode,
-  ]);
+  }, [resetFondoForm, currencyEnabled.CRC, selectedProvider, providers, mode]);
 
   const confirmOpenCreateMovementNow = useCallback(() => {
     setConfirmOpenCreateMovement(false);
