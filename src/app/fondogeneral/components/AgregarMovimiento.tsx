@@ -185,8 +185,8 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                                                 const isGasto = category === 'GASTO';
                                                 return (
                                                     <div className="min-w-0 flex items-center gap-2">
-                                                        {isIngreso && <ArrowUpRight className="w-4 h-4 text-green-500 shrink-0" />}
-                                                        {(isEgreso || isGasto) && <ArrowDownRight className="w-4 h-4 text-red-500 shrink-0" />}
+                                                        {isIngreso && <ArrowDownRight className="w-4 h-4 text-green-500 shrink-0" />}
+                                                        {(isEgreso || isGasto) && <ArrowUpRight className="w-4 h-4 text-red-500 shrink-0" />}
                                                         <div className="truncate text-[var(--foreground)]">{p.name} ({p.code})</div>
                                                     </div>
                                                 );
