@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Search, Loader2 } from 'lucide-react';
+import { Save, Search, Loader2, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import type { FondoMovementType } from './fondo';
+import { formatMovementType, isEgresoType, isGastoType, isIngresoType } from './fondo';
 
 type ProviderOption = {
     code: string;
     name: string;
+    type?: FondoMovementType;
 };
 
 type AgregarMovimientoProps = {
@@ -124,6 +126,14 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
         p.code.toLowerCase().includes(filter.toLowerCase())
     );
 
+    const getProviderCategory = (type?: FondoMovementType) => {
+        if (!type) return null;
+        if (isIngresoType(type)) return 'INGRESO' as const;
+        if (isEgresoType(type)) return 'EGRESO' as const;
+        if (isGastoType(type)) return 'GASTO' as const;
+        return null;
+    };
+
     return (
         <div className="space-y-5">
             <div className="grid gap-4 grid-cols-1">
@@ -167,7 +177,27 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                                             setIsDropdownOpen(false);
                                         }}
                                     >
-                                        {p.name} ({p.code})
+                                        <div className="flex items-center justify-between gap-3">
+                                            {(() => {
+                                                const category = getProviderCategory(p.type);
+                                                const isIngreso = category === 'INGRESO';
+                                                const isEgreso = category === 'EGRESO';
+                                                const isGasto = category === 'GASTO';
+                                                return (
+                                                    <div className="min-w-0 flex items-center gap-2">
+                                                        {isIngreso && <ArrowUpRight className="w-4 h-4 text-green-500 shrink-0" />}
+                                                        {(isEgreso || isGasto) && <ArrowDownRight className="w-4 h-4 text-red-500 shrink-0" />}
+                                                        <div className="truncate text-[var(--foreground)]">{p.name} ({p.code})</div>
+                                                    </div>
+                                                );
+                                            })()}
+
+                                            {p.type && (
+                                                <span className="text-xs text-[var(--muted-foreground)] opacity-70 shrink-0">
+                                                    {formatMovementType(p.type)}
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
                                 ))}
                             </div>

@@ -70,6 +70,7 @@ import AgregarMovimiento from "./AgregarMovimiento";
 import DailyClosingModal, { DailyClosingFormValues } from "./DailyClosingModal";
 import { useActorOwnership } from "../../../hooks/useActorOwnership";
 import { db } from "../../../config/firebase";
+import { findBestStringMatch } from "../../../utils/stringSimilarity";
 import {
   addDoc,
   collection,
@@ -765,6 +766,19 @@ export function ProviderSection({ id }: { id?: string }) {
     code: "",
     name: "",
   });
+
+  const pendingProviderSaveRef = useRef<
+    | null
+    | {
+        mode: "create" | "update";
+        code?: string;
+        name: string;
+        providerType?: FondoMovementType;
+        correonotifi?: string;
+      }
+  >(null);
+  const [similarConfirmOpen, setSimilarConfirmOpen] = useState(false);
+  const [similarConfirmMessage, setSimilarConfirmMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState<number | "all">(10);
@@ -1395,6 +1409,64 @@ export function ProviderSection({ id }: { id?: string }) {
         onCancel={cancelRemoveModal}
       />
 
+      <ConfirmModal
+        open={similarConfirmOpen}
+        title="Nombre demasiado similar"
+        message={similarConfirmMessage}
+        confirmText="Continuar"
+        cancelText="Cancelar"
+        actionType="change"
+        loading={saving}
+        onConfirm={async () => {
+          const pending = pendingProviderSaveRef.current;
+          if (!pending) {
+            setSimilarConfirmOpen(false);
+            return;
+          }
+
+          try {
+            setSaving(true);
+            setFormError(null);
+
+            if (pending.mode === "update" && pending.code) {
+              await updateProvider(
+                pending.code,
+                pending.name,
+                pending.providerType,
+                pending.correonotifi
+              );
+            } else {
+              await addProvider(
+                pending.name,
+                pending.providerType,
+                pending.correonotifi
+              );
+            }
+
+            pendingProviderSaveRef.current = null;
+            setProviderName("");
+            setProviderType("");
+            setEditingProviderCode(null);
+            setAddNotification(false);
+            setSelectedAdminId("");
+            setProviderDrawerOpen(false);
+            setSimilarConfirmOpen(false);
+          } catch (err) {
+            const message =
+              err instanceof Error
+                ? err.message
+                : "No se pudo guardar el proveedor.";
+            setFormError(message);
+          } finally {
+            setSaving(false);
+          }
+        }}
+        onCancel={() => {
+          pendingProviderSaveRef.current = null;
+          setSimilarConfirmOpen(false);
+        }}
+      />
+
       <Drawer
         anchor="right"
         open={providerDrawerOpen}
@@ -1587,6 +1659,11 @@ export function ProviderSection({ id }: { id?: string }) {
                     return;
                   }
 
+                  if (providersLoading) {
+                    setFormError("Espera a que carguen los proveedores.");
+                    return;
+                  }
+
                   // Validar que si se marcó notificación, se haya seleccionado un admin
                   if (addNotification && !selectedAdminId) {
                     setFormError(
@@ -1607,28 +1684,84 @@ export function ProviderSection({ id }: { id?: string }) {
                   }
 
                   try {
-                    setSaving(true);
                     setFormError(null);
+
+                    const normalizedProviderType =
+                      providerType || undefined;
+
                     if (editingProviderCode) {
-                      // Actualizar proveedor existente
+                      const otherProviders = providers.filter(
+                        (p) => p.code !== editingProviderCode
+                      );
+                      if (
+                        otherProviders.some(
+                          (p) => p.name.toUpperCase() === name
+                        )
+                      ) {
+                        setFormError(`El proveedor "${name}" ya existe.`);
+                        return;
+                      }
+
+                      const { best, score } = findBestStringMatch(
+                        name,
+                        otherProviders.map((p) => p.name)
+                      );
+                      if (best && score >= 0.9) {
+                        pendingProviderSaveRef.current = {
+                          mode: "update",
+                          code: editingProviderCode,
+                          name,
+                          providerType: normalizedProviderType,
+                          correonotifi,
+                        };
+                        setSimilarConfirmMessage(
+                          `El proveedor "${name}" es demasiado similar a "${best}" (${Math.round(
+                            score * 100
+                          )}%).\n\n¿Deseas continuar y guardarlo de todas formas?`
+                        );
+                        setSimilarConfirmOpen(true);
+                        return;
+                      }
+
+                      setSaving(true);
                       await updateProvider(
                         editingProviderCode,
                         name,
-                        providerType || undefined,
+                        normalizedProviderType,
                         correonotifi
                       );
                     } else {
-                      // Crear nuevo proveedor
                       if (
                         providers.some((p) => p.name.toUpperCase() === name)
                       ) {
                         setFormError(`El proveedor "${name}" ya existe.`);
-                        setSaving(false);
                         return;
                       }
+
+                      const { best, score } = findBestStringMatch(
+                        name,
+                        providers.map((p) => p.name)
+                      );
+                      if (best && score >= 0.9) {
+                        pendingProviderSaveRef.current = {
+                          mode: "create",
+                          name,
+                          providerType: normalizedProviderType,
+                          correonotifi,
+                        };
+                        setSimilarConfirmMessage(
+                          `El proveedor "${name}" es demasiado similar a "${best}" (${Math.round(
+                            score * 100
+                          )}%).\n\n¿Deseas continuar y guardarlo de todas formas?`
+                        );
+                        setSimilarConfirmOpen(true);
+                        return;
+                      }
+
+                      setSaving(true);
                       await addProvider(
                         name,
-                        providerType || undefined,
+                        normalizedProviderType,
                         correonotifi
                       );
                     }
