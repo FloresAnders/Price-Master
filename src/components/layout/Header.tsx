@@ -77,6 +77,7 @@ type ActiveTab =
   | "cashcounter"
   | "timingcontrol"
   | "controlhorario"
+  | "calculohorasprecios"
   | "supplierorders"
   | "histoscans"
   | "scanhistory"
