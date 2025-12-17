@@ -1707,6 +1707,12 @@ export function ProviderSection({ id }: { id?: string }) {
                         otherProviders.map((p) => p.name)
                       );
                       if (best && score >= 0.9) {
+                        const similarProvider = otherProviders.find(
+                          (p) => p.name === best
+                        );
+                        const similarTypeLabel = similarProvider?.type
+                          ? formatMovementType(similarProvider.type)
+                          : "";
                         pendingProviderSaveRef.current = {
                           mode: "update",
                           code: editingProviderCode,
@@ -1715,9 +1721,15 @@ export function ProviderSection({ id }: { id?: string }) {
                           correonotifi,
                         };
                         setSimilarConfirmMessage(
-                          `El proveedor "${name}" es demasiado similar a "${best}" (${Math.round(
-                            score * 100
-                          )}%).\n\n¿Deseas continuar y guardarlo de todas formas?`
+                          [
+                            "Detectamos un nombre demasiado similar.",
+                            "",
+                            `Nuevo: \"${name}\"`,
+                            `Existente: \"${best}\"${similarTypeLabel ? ` (Tipo: ${similarTypeLabel})` : ""}`,
+                            `Similitud: ${Math.round(score * 100)}%`,
+                            "",
+                            "¿Deseas continuar y guardarlo de todas formas?",
+                          ].join("\n")
                         );
                         setSimilarConfirmOpen(true);
                         return;
@@ -1743,6 +1755,12 @@ export function ProviderSection({ id }: { id?: string }) {
                         providers.map((p) => p.name)
                       );
                       if (best && score >= 0.9) {
+                        const similarProvider = providers.find(
+                          (p) => p.name === best
+                        );
+                        const similarTypeLabel = similarProvider?.type
+                          ? formatMovementType(similarProvider.type)
+                          : "";
                         pendingProviderSaveRef.current = {
                           mode: "create",
                           name,
@@ -1750,9 +1768,15 @@ export function ProviderSection({ id }: { id?: string }) {
                           correonotifi,
                         };
                         setSimilarConfirmMessage(
-                          `El proveedor "${name}" es demasiado similar a "${best}" (${Math.round(
-                            score * 100
-                          )}%).\n\n¿Deseas continuar y guardarlo de todas formas?`
+                          [
+                            "Detectamos un nombre demasiado similar.",
+                            "",
+                            `Nuevo: \"${name}\"`,
+                            `Existente: \"${best}\"${similarTypeLabel ? ` (Tipo: ${similarTypeLabel})` : ""}`,
+                            `Similitud: ${Math.round(score * 100)}%`,
+                            "",
+                            "¿Deseas continuar y guardarlo de todas formas?",
+                          ].join("\n")
                         );
                         setSimilarConfirmOpen(true);
                         return;

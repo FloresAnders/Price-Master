@@ -50,7 +50,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
           <span className="flex-shrink-0 flex items-center justify-center mb-1 sm:mb-0">{icon}</span>
           <h2 className="text-lg font-bold text-center w-full">{title}</h2>
         </div>
-        <div className="mb-4 text-base text-center w-full break-words">{message}</div>
+        <div className="mb-4 text-sm sm:text-base text-center w-full break-words whitespace-pre-line">{message}</div>
         <div className="flex flex-col sm:flex-row justify-center gap-2 mt-4 w-full">
           {/** Single-button informational modal */}
           {singleButton ? (
