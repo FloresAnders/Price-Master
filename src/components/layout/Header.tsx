@@ -363,6 +363,13 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       permission: "controlhorario" as keyof UserPermissions,
     },
     {
+      id: "calculohorasprecios" as ActiveTab,
+      name: "Cálculo precios",
+      icon: Calculator,
+      description: "Cálculo de horas y precios (planilla)",
+      permission: "calculohorasprecios" as keyof UserPermissions,
+    },
+    {
       id: "supplierorders" as ActiveTab,
       name: "Órdenes Proveedor",
       icon: Truck,

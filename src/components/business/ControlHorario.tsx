@@ -360,18 +360,28 @@ export default function ControlHorario({
           });
         }
 
-        const mapped = (owned || []).map((e) => ({
+        const mapped = (owned || []).map((e) => {
+          const controlHorarioEmployees = (e.empleados || []).filter((emp) => {
+            const ambos = Boolean((emp as any)?.amboshorarios);
+            const calculoPrecios = Boolean((emp as any)?.calculoprecios);
+            // Si “Ambos horarios” está activo, tiene prioridad.
+            // Si solo “Cálculo precios” está activo, se oculta del ControlHorario normal.
+            return ambos || !calculoPrecios;
+          });
+
+          return {
           id: e.id,
           label: e.name || e.ubicacion || e.id || "Empresa",
           value: e.ubicacion || e.name || e.id || "",
-          names: (e.empleados || []).map((emp) => emp.Empleado || ""),
-          employees: (e.empleados || []).map((emp) => ({
+          names: controlHorarioEmployees.map((emp) => emp.Empleado || ""),
+          employees: controlHorarioEmployees.map((emp) => ({
             name: emp.Empleado || "",
             ccssType: emp.ccssType || "TC",
             hoursPerShift: emp.hoursPerShift ?? 8, // Usar ?? para permitir valores falsy
             extraAmount: emp.extraAmount || 0,
           })),
-        }));
+        };
+        });
         setEmpresas(mapped);
         // Resolver el `ownercompanie` del usuario únicamente al `value` de las empresas
         // mapeadas. No usar legacy `user.location`.
