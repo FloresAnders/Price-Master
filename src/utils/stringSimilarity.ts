@@ -87,6 +87,33 @@ function jaroSimilarity(a: string, b: string): number {
   ) / 3;
 }
 
+function jaroWinklerOnNormalized(a: string, b: string): number {
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+
+  const jaro = jaroSimilarity(a, b);
+
+  let prefix = 0;
+  const maxPrefix = Math.min(4, a.length, b.length);
+  while (prefix < maxPrefix && a[prefix] === b[prefix]) prefix += 1;
+
+  const scalingFactor = 0.1;
+  return jaro + prefix * scalingFactor * (1 - jaro);
+}
+
+function tokenSimilarity(aToken: string, bToken: string): number {
+  if (!aToken || !bToken) return 0;
+  if (aToken === bToken) return 1;
+
+  const shorter = aToken.length <= bToken.length ? aToken : bToken;
+  const longer = aToken.length <= bToken.length ? bToken : aToken;
+
+  // Strong signal for morphological variants like SENSACION vs SENSACIONALES
+  if (shorter.length >= 5 && longer.startsWith(shorter)) return 1;
+
+  return jaroWinklerOnNormalized(aToken, bToken);
+}
+
 export function jaroWinklerSimilarity(aRaw: string, bRaw: string): number {
   const aInfo = analyzeForComparison(aRaw);
   const bInfo = analyzeForComparison(bRaw);
@@ -94,20 +121,28 @@ export function jaroWinklerSimilarity(aRaw: string, bRaw: string): number {
   const b = bInfo.normalized;
   if (!a || !b) return 0;
 
-  const jaro = jaroSimilarity(a, b);
+  let score = jaroWinklerOnNormalized(a, b);
 
-  // Winkler adjustment: common prefix up to 4 chars.
-  let prefix = 0;
-  const maxPrefix = Math.min(4, a.length, b.length);
-  while (prefix < maxPrefix && a[prefix] === b[prefix]) prefix += 1;
+  // Compare by tokens as well (order-independent-ish signal)
+  const aTokens = aInfo.tokens;
+  const bTokens = bInfo.tokens;
+  if (aTokens.length > 0 && bTokens.length > 0) {
+    let bestTokenScore = 0;
+    for (const at of aTokens) {
+      for (const bt of bTokens) {
+        const s = tokenSimilarity(at, bt);
+        if (s > bestTokenScore) bestTokenScore = s;
+      }
+    }
 
-  const scalingFactor = 0.1;
-  let score = jaro + prefix * scalingFactor * (1 - jaro);
+    // If we have a very strong token match, elevate overall score.
+    if (bestTokenScore >= 0.9) {
+      score = Math.max(score, Math.min(1, bestTokenScore));
+    }
+  }
 
   // Heurística: si los tokens del nombre corto están contenidos en el largo,
   // considerarlo "muy similar" (ej: "PLATA" vs "LA PLATA").
-  const aTokens = aInfo.tokens;
-  const bTokens = bInfo.tokens;
   if (aTokens.length > 0 && bTokens.length > 0) {
     const aSet = new Set(aTokens);
     const bSet = new Set(bTokens);

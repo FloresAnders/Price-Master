@@ -771,9 +771,8 @@ export function ProviderSection({ id }: { id?: string }) {
     correonotifi?: string;
   }>(null);
   const [similarConfirmOpen, setSimilarConfirmOpen] = useState(false);
-  const [similarConfirmMessage, setSimilarConfirmMessage] = useState<
-    React.ReactNode
-  >("");
+  const [similarConfirmMessage, setSimilarConfirmMessage] =
+    useState<React.ReactNode>("");
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState<number | "all">(10);
@@ -1716,22 +1715,32 @@ export function ProviderSection({ id }: { id?: string }) {
                         };
                         setSimilarConfirmMessage(
                           <div className="w-full flex flex-col items-center text-center">
-                            <p className="text-center">Detectamos un nombre demasiado similar.</p>
+                            <p className="text-center">
+                              Detectamos un nombre demasiado similar.
+                            </p>
 
                             <div className="mt-3 space-y-2">
                               <div className="flex items-start justify-center gap-2 w-full">
                                 <UserPlus className="w-4 h-4 text-[var(--muted-foreground)] mt-0.5" />
                                 <div className="min-w-0 flex flex-col items-center">
-                                  <div className="text-xs text-[var(--muted-foreground)]">Nuevo proveedor</div>
-                                  <div className="font-semibold break-words">"{name}"</div>
+                                  <div className="text-xs text-[var(--muted-foreground)]">
+                                    Nuevo proveedor
+                                  </div>
+                                  <div className="font-semibold break-words">
+                                    "{name}"
+                                  </div>
                                 </div>
                               </div>
 
                               <div className="flex items-start justify-center gap-2 w-full">
                                 <Layers className="w-4 h-4 text-[var(--muted-foreground)] mt-0.5" />
                                 <div className="min-w-0 flex flex-col items-center">
-                                  <div className="text-xs text-[var(--muted-foreground)]">Proveedor existente</div>
-                                  <div className="font-semibold break-words">"{best}"</div>
+                                  <div className="text-xs text-[var(--muted-foreground)]">
+                                    Proveedor existente
+                                  </div>
+                                  <div className="font-semibold break-words">
+                                    "{best}"
+                                  </div>
                                 </div>
                               </div>
 
@@ -1739,8 +1748,12 @@ export function ProviderSection({ id }: { id?: string }) {
                                 <div className="flex items-start justify-center gap-2 w-full">
                                   <Tag className="w-4 h-4 text-[var(--muted-foreground)] mt-0.5" />
                                   <div className="min-w-0 flex flex-col items-center">
-                                    <div className="text-xs text-[var(--muted-foreground)]">Tipo del existente</div>
-                                    <div className="break-words">{similarTypeLabel}</div>
+                                    <div className="text-xs text-[var(--muted-foreground)]">
+                                      Tipo del existente
+                                    </div>
+                                    <div className="break-words">
+                                      {similarTypeLabel}
+                                    </div>
                                   </div>
                                 </div>
                               )}
@@ -1750,7 +1763,9 @@ export function ProviderSection({ id }: { id?: string }) {
                               </div>
                             </div>
 
-                            <p className="mt-4 text-center">¿Deseas continuar y guardarlo de todas formas?</p>
+                            <p className="mt-4 text-center">
+                              ¿Deseas continuar y guardarlo de todas formas?
+                            </p>
                           </div>
                         );
                         setSimilarConfirmOpen(true);
@@ -1791,22 +1806,32 @@ export function ProviderSection({ id }: { id?: string }) {
                         };
                         setSimilarConfirmMessage(
                           <div className="w-full flex flex-col items-center text-center">
-                            <p className="text-center">Detectamos un nombre demasiado similar.</p>
+                            <p className="text-center">
+                              Detectamos un nombre demasiado similar.
+                            </p>
 
                             <div className="mt-3 space-y-2">
                               <div className="flex items-start justify-center gap-2 w-full">
                                 <UserPlus className="w-4 h-4 text-[var(--muted-foreground)] mt-0.5" />
                                 <div className="min-w-0 flex flex-col items-center">
-                                  <div className="text-xs text-[var(--muted-foreground)]">Nuevo proveedor</div>
-                                  <div className="font-semibold break-words">"{name}"</div>
+                                  <div className="text-xs text-[var(--muted-foreground)]">
+                                    Nuevo proveedor
+                                  </div>
+                                  <div className="font-semibold break-words">
+                                    "{name}"
+                                  </div>
                                 </div>
                               </div>
 
                               <div className="flex items-start justify-center gap-2 w-full">
                                 <Layers className="w-4 h-4 text-[var(--muted-foreground)] mt-0.5" />
                                 <div className="min-w-0 flex flex-col items-center">
-                                  <div className="text-xs text-[var(--muted-foreground)]">Proveedor existente</div>
-                                  <div className="font-semibold break-words">"{best}"</div>
+                                  <div className="text-xs text-[var(--muted-foreground)]">
+                                    Proveedor existente
+                                  </div>
+                                  <div className="font-semibold break-words">
+                                    "{best}"
+                                  </div>
                                 </div>
                               </div>
 
@@ -1814,8 +1839,12 @@ export function ProviderSection({ id }: { id?: string }) {
                                 <div className="flex items-start justify-center gap-2 w-full">
                                   <Tag className="w-4 h-4 text-[var(--muted-foreground)] mt-0.5" />
                                   <div className="min-w-0 flex flex-col items-center">
-                                    <div className="text-xs text-[var(--muted-foreground)]">Tipo del existente</div>
-                                    <div className="break-words">{similarTypeLabel}</div>
+                                    <div className="text-xs text-[var(--muted-foreground)]">
+                                      Tipo del existente
+                                    </div>
+                                    <div className="break-words">
+                                      {similarTypeLabel}
+                                    </div>
                                   </div>
                                 </div>
                               )}
@@ -1825,7 +1854,9 @@ export function ProviderSection({ id }: { id?: string }) {
                               </div>
                             </div>
 
-                            <p className="mt-4 text-center">¿Deseas continuar y guardarlo de todas formas?</p>
+                            <p className="mt-4 text-center">
+                              ¿Deseas continuar y guardarlo de todas formas?
+                            </p>
                           </div>
                         );
                         setSimilarConfirmOpen(true);
