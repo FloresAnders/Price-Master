@@ -293,8 +293,9 @@ export class MovimientosFondosService {
     };
 
     // Preservar lockedUntil si existe
-    if (state?.lockedUntil) {
-      result.lockedUntil = state.lockedUntil;
+    const lockedUntil = this.coerceTimestampToISO(state?.lockedUntil);
+    if (lockedUntil) {
+      result.lockedUntil = lockedUntil;
     }
 
     return result;
@@ -393,11 +394,71 @@ export class MovimientosFondosService {
     return `${accountId}_${currency}`;
   }
 
-  private static resolveTimestamp(value: unknown): string {
-    if (typeof value === 'string' && value.trim().length > 0) {
-      return value;
+  private static coerceTimestampToISO(value: unknown): string | null {
+    if (!value) return null;
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed.length === 0) return null;
+      // Keep as-is; consumers will parse via Date().
+      return trimmed;
     }
-    return new Date().toISOString();
+
+    if (value instanceof Date) {
+      const time = value.getTime();
+      return Number.isFinite(time) ? value.toISOString() : null;
+    }
+
+    if (typeof value === 'number') {
+      if (!Number.isFinite(value)) return null;
+      const d = new Date(value);
+      return Number.isFinite(d.getTime()) ? d.toISOString() : null;
+    }
+
+    if (typeof value === 'object') {
+      // Firestore Timestamp (client/admin) commonly exposes toDate() or toMillis().
+      const maybeAny = value as any;
+      if (typeof maybeAny.toDate === 'function') {
+        try {
+          const d = maybeAny.toDate();
+          if (d instanceof Date && Number.isFinite(d.getTime())) return d.toISOString();
+        } catch {
+          // ignore
+        }
+      }
+      if (typeof maybeAny.toMillis === 'function') {
+        try {
+          const ms = maybeAny.toMillis();
+          if (typeof ms === 'number' && Number.isFinite(ms)) {
+            const d = new Date(ms);
+            if (Number.isFinite(d.getTime())) return d.toISOString();
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      // Timestamp-like plain object: { seconds, nanoseconds } or {_seconds, _nanoseconds}
+      const seconds =
+        typeof (maybeAny.seconds ?? maybeAny._seconds) === 'number'
+          ? (maybeAny.seconds ?? maybeAny._seconds)
+          : null;
+      const nanos =
+        typeof (maybeAny.nanoseconds ?? maybeAny._nanoseconds) === 'number'
+          ? (maybeAny.nanoseconds ?? maybeAny._nanoseconds)
+          : 0;
+      if (seconds !== null) {
+        const ms = seconds * 1000 + Math.floor(nanos / 1e6);
+        const d = new Date(ms);
+        return Number.isFinite(d.getTime()) ? d.toISOString() : null;
+      }
+    }
+
+    return null;
+  }
+
+  private static resolveTimestamp(value: unknown): string {
+    return this.coerceTimestampToISO(value) ?? new Date().toISOString();
   }
 
   private static isMovementAccountKey(value: unknown): value is MovementAccountKey {

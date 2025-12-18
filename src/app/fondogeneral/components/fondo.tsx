@@ -4328,6 +4328,17 @@ export function FondoSection({
     setMovementModalOpen(true);
   };
 
+  const dailyClosingsLockedUntilMs = useMemo(() => {
+    let max = -1;
+    for (const record of dailyClosings) {
+      const raw = (record as any)?.createdAt ?? (record as any)?.closingDate;
+      if (!raw) continue;
+      const ms = new Date(raw).getTime();
+      if (Number.isFinite(ms) && ms > max) max = ms;
+    }
+    return max > 0 ? max : null;
+  }, [dailyClosings]);
+
   const isMovementLocked = useCallback(
     (entry: FondoEntry): boolean => {
       // Los ajustes automáticos siempre están bloqueados
@@ -4341,15 +4352,22 @@ export function FondoSection({
       }
 
       // Si no hay snapshot o no hay lockedUntil, no hay bloqueo
-      const lockedUntil = storageSnapshotRef.current?.state?.lockedUntil;
-
-      if (!lockedUntil) {
-        return false;
-      }
-
       try {
         const movementTime = new Date(entry.createdAt).getTime();
-        const lockTime = new Date(lockedUntil).getTime();
+
+        let lockTime = -1;
+
+        const lockedUntil = storageSnapshotRef.current?.state?.lockedUntil;
+        if (lockedUntil) {
+          const parsed = new Date(lockedUntil).getTime();
+          if (Number.isFinite(parsed)) lockTime = parsed;
+        }
+
+        if (dailyClosingsLockedUntilMs && dailyClosingsLockedUntilMs > lockTime) {
+          lockTime = dailyClosingsLockedUntilMs;
+        }
+
+        if (!Number.isFinite(movementTime) || lockTime <= 0) return false;
 
         // Bloqueado si el movimiento es anterior o igual al último cierre
         const isLocked = movementTime <= lockTime;
@@ -4360,7 +4378,7 @@ export function FondoSection({
         return false;
       }
     },
-    [accountKey]
+    [accountKey, dailyClosingsLockedUntilMs]
   );
 
   const handleEditMovement = (entry: FondoEntry) => {
