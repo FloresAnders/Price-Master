@@ -2316,6 +2316,9 @@ export function FondoSection({
 
       setInitialAmount(crcSettings.initialBalance.toString());
       setInitialAmountUSD(usdSettings.initialBalance.toString());
+
+      setCurrentBalanceCRC(crcSettings.currentBalance);
+      setCurrentBalanceUSD(usdSettings.currentBalance);
     },
     [accountKey]
   );
@@ -4026,6 +4029,15 @@ export function FondoSection({
       // Limpiar flag de edición en progreso
       editingInProgressRef.current = false;
 
+      // Update balance state
+      const cur = (entry.currency as "CRC" | "USD") || "CRC";
+      const amount = entry.amountIngreso - entry.amountEgreso;
+      if (cur === "USD") {
+        setCurrentBalanceUSD((prev) => prev + amount);
+      } else {
+        setCurrentBalanceCRC((prev) => prev + amount);
+      }
+
       // Solo actualizar la UI si el guardado fue exitoso
       setFondoEntries(updatedEntries);
       if (saved.confirmed) {
@@ -4263,6 +4275,30 @@ export function FondoSection({
         // Registrar timestamp de la última edición guardada
         lastEditSaveTimestampRef.current = Date.now();
         editingInProgressRef.current = false;
+
+        // Update balance state
+        const oldEntry = fondoEntries.find((e) => e.id === editingEntryId);
+        if (oldEntry && updatedEntry) {
+          const oldCur = (oldEntry.currency as "CRC" | "USD") || "CRC";
+          const newCur = ((updatedEntry as FondoEntry).currency as "CRC" | "USD") || "CRC";
+
+          const oldAmount = oldEntry.amountIngreso - oldEntry.amountEgreso;
+          const newAmount =
+            (updatedEntry as FondoEntry).amountIngreso - (updatedEntry as FondoEntry).amountEgreso;
+
+          if (oldCur === newCur) {
+            const delta = newAmount - oldAmount;
+            if (newCur === "USD") setCurrentBalanceUSD((p) => p + delta);
+            else setCurrentBalanceCRC((p) => p + delta);
+          } else {
+            // Currency changed
+            if (oldCur === "USD") setCurrentBalanceUSD((p) => p - oldAmount);
+            else setCurrentBalanceCRC((p) => p - oldAmount);
+
+            if (newCur === "USD") setCurrentBalanceUSD((p) => p + newAmount);
+            else setCurrentBalanceCRC((p) => p + newAmount);
+          }
+        }
 
         // Solo actualizar la UI si el guardado fue exitoso
         setFondoEntries(updatedEntries);
@@ -4580,6 +4616,15 @@ export function FondoSection({
         return; // NO actualizar la UI si falló el guardado
       }
 
+      // Update balance state
+      const cur = (entry.currency as "CRC" | "USD") || "CRC";
+      const amount = entry.amountIngreso - entry.amountEgreso;
+      if (cur === "USD") {
+        setCurrentBalanceUSD((prev) => prev - amount);
+      } else {
+        setCurrentBalanceCRC((prev) => prev - amount);
+      }
+
       // Solo actualizar la UI si el guardado fue exitoso
       setFondoEntries(updatedEntries);
 
@@ -4664,29 +4709,8 @@ export function FondoSection({
     ? egreso.trim().length > 0
     : ingreso.trim().length > 0;
 
-  const { currentBalanceCRC, currentBalanceUSD } = useMemo(() => {
-    let ingresosCRC = 0;
-    let egresosCRC = 0;
-    let ingresosUSD = 0;
-    let egresosUSD = 0;
-    fondoEntries.forEach((entry) => {
-      const cur = (entry.currency as "CRC" | "USD") || "CRC";
-      if (cur === "USD") {
-        ingresosUSD += entry.amountIngreso;
-        egresosUSD += entry.amountEgreso;
-      } else {
-        ingresosCRC += entry.amountIngreso;
-        egresosCRC += entry.amountEgreso;
-      }
-    });
-    const balanceCRC = (Number(initialAmount) || 0) + ingresosCRC - egresosCRC;
-    const balanceUSD =
-      (Number(initialAmountUSD) || 0) + ingresosUSD - egresosUSD;
-    return {
-      currentBalanceCRC: balanceCRC,
-      currentBalanceUSD: balanceUSD,
-    };
-  }, [fondoEntries, initialAmount, initialAmountUSD]);
+  const [currentBalanceCRC, setCurrentBalanceCRC] = useState(0);
+  const [currentBalanceUSD, setCurrentBalanceUSD] = useState(0);
 
   const balanceAfterByIdCRC = useMemo(() => {
     let running = Number(initialAmount) || 0;
@@ -5661,6 +5685,13 @@ export function FondoSection({
           const postAdjustmentBalanceUSD = Math.trunc(
             currentBalanceUSD - prevUSDContributionExisting + totalNewUSD
           );
+
+          // Update balance state
+          const netChangeCRC = totalNewCRC - prevCRCContributionExisting;
+          const netChangeUSD = totalNewUSD - prevUSDContributionExisting;
+          if (netChangeCRC !== 0) setCurrentBalanceCRC((p) => p + netChangeCRC);
+          if (netChangeUSD !== 0) setCurrentBalanceUSD((p) => p + netChangeUSD);
+
           const hasCRCAdjustments =
             totalNewCRC !== 0 || prevCRCContributionExisting !== 0;
           const hasUSDAdjustments =
