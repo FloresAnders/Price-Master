@@ -79,6 +79,12 @@ import {
 // Límite máximo de ediciones permitidas por movimiento
 const MAX_AUDIT_EDITS = 5;
 
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const companiesCache: { data: Empresas[] | null; timestamp: number } = {
+  data: null,
+  timestamp: 0,
+};
+
 // Estos se inicializarán dinámicamente desde la base de datos
 export let FONDO_INGRESO_TYPES: readonly string[] = [];
 export let FONDO_GASTO_TYPES: readonly string[] = [];
@@ -694,10 +700,17 @@ export function ProviderSection({ id }: { id?: string }) {
     setOwnerCompaniesLoading(true);
     setOwnerCompaniesError(null);
 
-    EmpresasService.getAllEmpresas()
-      .then((empresas) => {
+    const fetchOwnerCompanies = async () => {
+      try {
+        let empresas = companiesCache.data;
+        if (!empresas || Date.now() - companiesCache.timestamp > CACHE_TTL) {
+          empresas = await EmpresasService.getAllEmpresas();
+          companiesCache.data = empresas;
+          companiesCache.timestamp = Date.now();
+        }
+
         if (!isMounted) return;
-        const filtered = empresas.filter((emp) => {
+        const filtered = (empresas || []).filter((emp) => {
           const owner = (emp.ownerId || "").trim();
           if (!owner) return false;
           return allowedOwnerIds.has(owner);
@@ -714,8 +727,7 @@ export function ProviderSection({ id }: { id?: string }) {
           }
           return filtered[0]?.name ?? "";
         });
-      })
-      .catch((err) => {
+      } catch (err) {
         if (!isMounted) return;
         setOwnerCompanies([]);
         setOwnerCompaniesError(
@@ -723,10 +735,12 @@ export function ProviderSection({ id }: { id?: string }) {
             ? err.message
             : "No se pudieron cargar las empresas disponibles."
         );
-      })
-      .finally(() => {
+      } finally {
         if (isMounted) setOwnerCompaniesLoading(false);
-      });
+      }
+    };
+
+    void fetchOwnerCompanies();
 
     return () => {
       isMounted = false;
@@ -1993,10 +2007,17 @@ export function FondoSection({
     setOwnerCompaniesLoading(true);
     setOwnerCompaniesError(null);
 
-    EmpresasService.getAllEmpresas()
-      .then((empresas) => {
+    const fetchOwnerCompanies = async () => {
+      try {
+        let empresas = companiesCache.data;
+        if (!empresas || Date.now() - companiesCache.timestamp > CACHE_TTL) {
+          empresas = await EmpresasService.getAllEmpresas();
+          companiesCache.data = empresas;
+          companiesCache.timestamp = Date.now();
+        }
+
         if (!isMounted) return;
-        const filtered = empresas.filter((emp) => {
+        const filtered = (empresas || []).filter((emp) => {
           const owner = (emp.ownerId || "").trim();
           if (!owner) return false;
           return allowedOwnerIds.has(owner);
@@ -2013,8 +2034,7 @@ export function FondoSection({
           }
           return filtered[0]?.name ?? "";
         });
-      })
-      .catch((err) => {
+      } catch (err) {
         if (!isMounted) return;
         setOwnerCompanies([]);
         setOwnerCompaniesError(
@@ -2022,10 +2042,12 @@ export function FondoSection({
             ? err.message
             : "No se pudieron cargar las empresas disponibles."
         );
-      })
-      .finally(() => {
+      } finally {
         if (isMounted) setOwnerCompaniesLoading(false);
-      });
+      }
+    };
+
+    void fetchOwnerCompanies();
 
     return () => {
       isMounted = false;
@@ -2365,6 +2387,8 @@ export function FondoSection({
       options?: {
         minCount?: number;
         loadAll?: boolean;
+        fromFilter?: string | null;
+        toFilter?: string | null;
       }
     ) => {
       if (!docKey) return;
@@ -2372,6 +2396,8 @@ export function FondoSection({
       const targetAccountKey = accountKeyRef.current;
       const loadAll = Boolean(options?.loadAll);
       const minCount = Math.max(0, options?.minCount ?? 0);
+      const fromFilter = options?.fromFilter;
+      const toFilter = options?.toFilter;
 
       const cached = v2MovementsCacheRef.current[docKey] ?? {
         loaded: false,
@@ -2382,6 +2408,38 @@ export function FondoSection({
       };
 
       if (cached.loading) return;
+      
+      // If filtering by date, we always try to load that range if not fully covered?
+      // For simplicity, we just fetch the range and merge.
+      if (fromFilter || toFilter) {
+         cached.loading = true;
+         v2MovementsCacheRef.current[docKey] = cached;
+         try {
+            const rangeResult = await MovimientosFondosService.listMovementsPage<FondoEntry>(
+              docKey,
+              {
+                pageSize: 1000, // Load up to 1000 items in the range
+                fromISO: fromFilter,
+                toISO: toFilter
+              }
+            );
+            
+            const newItems = rangeResult.items as FondoEntry[];
+            if (newItems.length > 0) {
+                const existingIds = new Set(cached.movements.map(m => m.id));
+                const uniqueNewItems = newItems.filter(m => !existingIds.has(m.id));
+                cached.movements.push(...uniqueNewItems);
+                cached.movements.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+                cached.loaded = true;
+            }
+         } finally {
+            cached.loading = false;
+            v2MovementsCacheRef.current[docKey] = cached;
+         }
+         rebuildEntriesFromV2Cache(docKey, targetAccountKey);
+         return;
+      }
+
       if (!loadAll && cached.exhausted) return;
       if (!loadAll && cached.loaded && cached.movements.length >= minCount)
         return;
@@ -2949,7 +3007,7 @@ export function FondoSection({
                   : [];
               } else {
                 // Load only a small window first; fetch more pages on-demand (filters/pagination).
-                const initialPages = 2;
+                const initialPages = 1;
                 let cursor: QueryDocumentSnapshot<DocumentData> | null = null;
                 let exhausted = false;
                 const movements: FondoEntry[] = [];
@@ -2967,7 +3025,7 @@ export function FondoSection({
                     await MovimientosFondosService.listMovementsPage<FondoEntry>(
                       docKey,
                       {
-                        pageSize: 500,
+                        pageSize: 100,
                         cursor,
                       }
                     );
@@ -3290,7 +3348,11 @@ export function FondoSection({
       filterPaymentType !== "all";
 
     if (pageSize === "all" || hasActiveFilters) {
-      void ensureV2MovementsLoaded(docKey, { loadAll: true });
+      void ensureV2MovementsLoaded(docKey, { 
+        loadAll: !fromFilter && !toFilter,
+        fromFilter,
+        toFilter
+      });
     }
   }, [
     entriesHydrated,
@@ -3546,23 +3608,32 @@ export function FondoSection({
     }
 
     setEmployeesLoading(true);
-    EmpresasService.getAllEmpresas()
-      .then((empresas) => {
+
+    const fetchEmpresas = async () => {
+      try {
+        let empresas = companiesCache.data;
+        if (!empresas || Date.now() - companiesCache.timestamp > CACHE_TTL) {
+          empresas = await EmpresasService.getAllEmpresas();
+          companiesCache.data = empresas;
+          companiesCache.timestamp = Date.now();
+        }
+        
         if (!isActive) return;
-        const match = empresas.find(
+        const match = empresas?.find(
           (emp) => emp.name?.toLowerCase() === company.toLowerCase()
         );
         const names =
           match?.empleados?.map((emp) => emp.Empleado).filter(Boolean) ?? [];
         setCompanyEmployees(names as string[]);
-      })
-      .catch((err) => {
+      } catch (err) {
         console.error("Error loading company employees:", err);
         if (isActive) setCompanyEmployees([]);
-      })
-      .finally(() => {
+      } finally {
         if (isActive) setEmployeesLoading(false);
-      });
+      }
+    };
+
+    void fetchEmpresas();
 
     return () => {
       isActive = false;
@@ -3580,20 +3651,29 @@ export function FondoSection({
       };
     }
 
-    EmpresasService.getAllEmpresas()
-      .then((empresas) => {
+    const fetchCompanyData = async () => {
+      try {
+        let empresas = companiesCache.data;
+        if (!empresas || Date.now() - companiesCache.timestamp > CACHE_TTL) {
+          empresas = await EmpresasService.getAllEmpresas();
+          companiesCache.data = empresas;
+          companiesCache.timestamp = Date.now();
+        }
+
         if (!isActive) return;
-        const match = empresas.find(
+        const match = empresas?.find(
           (emp) => emp.name?.toLowerCase() === company.toLowerCase()
         );
         if (match) {
           setCompanyData(match);
         }
-      })
-      .catch((err) => {
+      } catch (err) {
         console.error("Error loading company data:", err);
         if (isActive) setCompanyData(null);
-      });
+      }
+    };
+
+    void fetchCompanyData();
 
     return () => {
       isActive = false;

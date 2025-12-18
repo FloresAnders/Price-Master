@@ -61,11 +61,30 @@ export class UsersService {
     }
   }
 
+  private static usersCache: { data: User[] | null; timestamp: number } = {
+    data: null,
+    timestamp: 0
+  };
+  private static readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
   /**
-   * Get all users
+   * Get all users (cached)
    */
-  static async getAllUsers(): Promise<User[]> {
-    return await FirestoreService.getAll(this.COLLECTION_NAME);
+  static async getAllUsers(forceRefresh = false): Promise<User[]> {
+    if (
+      !forceRefresh &&
+      this.usersCache.data &&
+      Date.now() - this.usersCache.timestamp < this.CACHE_TTL
+    ) {
+      return this.usersCache.data;
+    }
+
+    const users = await FirestoreService.getAll(this.COLLECTION_NAME);
+    this.usersCache = {
+      data: users,
+      timestamp: Date.now()
+    };
+    return users;
   }
   // Find users by role with optional actor validation
   static async findUsersByRole(actorOrRole: User | { role?: string } | null | 'admin' | 'user' | 'superadmin', maybeRole?: 'admin' | 'user' | 'superadmin'): Promise<User[]> {

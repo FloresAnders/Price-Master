@@ -402,15 +402,23 @@ export default function PayrollExporter({
 
       setLoading(true);
       try {
-        const allSchedules = await SchedulesService.getAllSchedules();
+        let periodSchedules: ScheduleEntry[] = [];
 
-        // Filtrar por período actual
-        const periodSchedules = allSchedules.filter(schedule => {
-          const matchesPeriod = schedule.year === currentPeriod.year &&
-            schedule.month === currentPeriod.month;
+        if (selectedLocation === 'all') {
+          periodSchedules = await SchedulesService.getSchedulesByYearMonth(
+            currentPeriod.year,
+            currentPeriod.month
+          );
+        } else {
+          periodSchedules = await SchedulesService.getSchedulesByLocationYearMonth(
+            selectedLocation,
+            currentPeriod.year,
+            currentPeriod.month
+          );
+        }
 
-          if (!matchesPeriod) return false;
-
+        // Filtrar por quincena (días 1-15 o 16-end)
+        periodSchedules = periodSchedules.filter(schedule => {
           if (currentPeriod.period === 'first') {
             return schedule.day >= 1 && schedule.day <= 15;
           } else {

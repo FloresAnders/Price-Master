@@ -93,6 +93,19 @@ export class SchedulesService {
   }
 
   /**
+   * Get all schedules for a specific year and month (across all locations).
+   */
+  static async getSchedulesByYearMonth(
+    year: number,
+    month: number
+  ): Promise<ScheduleEntry[]> {
+    return await FirestoreService.query(this.COLLECTION_NAME, [
+      { field: 'year', operator: '==', value: year },
+      { field: 'month', operator: '==', value: month }
+    ]);
+  }
+
+  /**
    * Get or create a schedule entry for a specific day
    */
   static async getOrCreateScheduleEntry(

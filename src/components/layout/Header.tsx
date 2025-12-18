@@ -204,17 +204,18 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   }, [showConfigModal, showEditProfileModal]);
 
   // Real-time listener for solicitudes for the user's company (onSnapshot)
-  useEffect(() => {
-    if (!isClient || !user) return;
+  const userId = user?.id;
+  const userCompany = (user as any)?.ownercompanie || (user as any)?.ownerCompanie;
 
-    const company =
-      (user as any)?.ownercompanie || (user as any)?.ownerCompanie || "";
-    if (!company) {
+  useEffect(() => {
+    if (!isClient || !userId || !userCompany) {
       knownSolicitudesRef.current = new Set();
       initializedSolicitudesRef.current = false;
       setHasNewSolicitudes(false);
       return;
     }
+
+    const company = userCompany;
 
     knownSolicitudesRef.current = new Set();
     initializedSolicitudesRef.current = false;
@@ -316,7 +317,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       console.error("Error setting up solicitudes listener:", err);
       return;
     }
-  }, [isClient, user]);
+  }, [isClient, userId, userCompany]);
 
   // Navigation tabs with permissions
   const allTabs = [

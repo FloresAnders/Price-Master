@@ -275,14 +275,15 @@ export default function ScheduleReportTab() {
 
     setLoading(true);
     try {
-      const allSchedules = await SchedulesService.getAllSchedules();
+      // Optimize: Fetch only schedules for the current period (year/month)
+      // instead of fetching all history.
+      let periodSchedules = await SchedulesService.getSchedulesByYearMonth(
+        currentPeriod.year,
+        currentPeriod.month
+      );
 
-      const periodSchedules = allSchedules.filter(schedule => {
-        const matchesPeriod = schedule.year === currentPeriod.year &&
-          schedule.month === currentPeriod.month;
-
-        if (!matchesPeriod) return false;
-
+      // Filter by biweekly period (1-15 or 16-end)
+      periodSchedules = periodSchedules.filter(schedule => {
         if (currentPeriod.period === 'first') {
           return schedule.day >= 1 && schedule.day <= 15;
         } else {

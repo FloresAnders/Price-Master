@@ -8,6 +8,7 @@ import {
   query,
   setDoc,
   startAfter,
+  where,
   writeBatch,
   type Query,
   type QueryConstraint,
@@ -535,6 +536,8 @@ export class MovimientosFondosService {
     options?: {
       pageSize?: number;
       cursor?: QueryDocumentSnapshot<DocumentData> | null;
+      fromISO?: string | null;
+      toISO?: string | null;
     },
   ): Promise<{
     items: Array<T & { id: string }>;
@@ -546,7 +549,17 @@ export class MovimientosFondosService {
     const pageSize = Math.max(1, Math.min(options?.pageSize ?? 500, 500));
     const cursor = options?.cursor ?? null;
 
-    const constraints: QueryConstraint[] = [orderBy('createdAt', 'desc'), limit(pageSize)];
+    const constraints: QueryConstraint[] = [orderBy('createdAt', 'desc')];
+
+    if (options?.fromISO) {
+      constraints.push(where('createdAt', '>=', options.fromISO));
+    }
+    if (options?.toISO) {
+      constraints.push(where('createdAt', '<=', options.toISO));
+    }
+
+    constraints.push(limit(pageSize));
+
     const q: Query<DocumentData> = cursor
       ? query(this.movementsCollectionRef(docId), ...constraints, startAfter(cursor))
       : query(this.movementsCollectionRef(docId), ...constraints);
