@@ -205,7 +205,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
 
   // Real-time listener for solicitudes for the user's company (onSnapshot)
   const userId = user?.id;
-  const userCompany = (user as any)?.ownercompanie || (user as any)?.ownerCompanie;
+  const userCompany =
+    (user as any)?.ownercompanie || (user as any)?.ownerCompanie;
 
   useEffect(() => {
     if (!isClient || !userId || !userCompany) {

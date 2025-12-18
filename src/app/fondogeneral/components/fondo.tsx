@@ -2408,36 +2408,43 @@ export function FondoSection({
       };
 
       if (cached.loading) return;
-      
+
       // If filtering by date, we always try to load that range if not fully covered?
       // For simplicity, we just fetch the range and merge.
       if (fromFilter || toFilter) {
-         cached.loading = true;
-         v2MovementsCacheRef.current[docKey] = cached;
-         try {
-            const rangeResult = await MovimientosFondosService.listMovementsPage<FondoEntry>(
+        cached.loading = true;
+        v2MovementsCacheRef.current[docKey] = cached;
+        try {
+          const rangeResult =
+            await MovimientosFondosService.listMovementsPage<FondoEntry>(
               docKey,
               {
                 pageSize: 1000, // Load up to 1000 items in the range
                 fromISO: fromFilter,
-                toISO: toFilter
+                toISO: toFilter,
               }
             );
-            
-            const newItems = rangeResult.items as FondoEntry[];
-            if (newItems.length > 0) {
-                const existingIds = new Set(cached.movements.map(m => m.id));
-                const uniqueNewItems = newItems.filter(m => !existingIds.has(m.id));
-                cached.movements.push(...uniqueNewItems);
-                cached.movements.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-                cached.loaded = true;
-            }
-         } finally {
-            cached.loading = false;
-            v2MovementsCacheRef.current[docKey] = cached;
-         }
-         rebuildEntriesFromV2Cache(docKey, targetAccountKey);
-         return;
+
+          const newItems = rangeResult.items as FondoEntry[];
+          if (newItems.length > 0) {
+            const existingIds = new Set(cached.movements.map((m) => m.id));
+            const uniqueNewItems = newItems.filter(
+              (m) => !existingIds.has(m.id)
+            );
+            cached.movements.push(...uniqueNewItems);
+            cached.movements.sort(
+              (a, b) =>
+                new Date(b.createdAt).getTime() -
+                new Date(a.createdAt).getTime()
+            );
+            cached.loaded = true;
+          }
+        } finally {
+          cached.loading = false;
+          v2MovementsCacheRef.current[docKey] = cached;
+        }
+        rebuildEntriesFromV2Cache(docKey, targetAccountKey);
+        return;
       }
 
       if (!loadAll && cached.exhausted) return;
@@ -3348,10 +3355,10 @@ export function FondoSection({
       filterPaymentType !== "all";
 
     if (pageSize === "all" || hasActiveFilters) {
-      void ensureV2MovementsLoaded(docKey, { 
+      void ensureV2MovementsLoaded(docKey, {
         loadAll: !fromFilter && !toFilter,
         fromFilter,
-        toFilter
+        toFilter,
       });
     }
   }, [
@@ -3617,7 +3624,7 @@ export function FondoSection({
           companiesCache.data = empresas;
           companiesCache.timestamp = Date.now();
         }
-        
+
         if (!isActive) return;
         const match = empresas?.find(
           (emp) => emp.name?.toLowerCase() === company.toLowerCase()
@@ -4443,7 +4450,10 @@ export function FondoSection({
           if (Number.isFinite(parsed)) lockTime = parsed;
         }
 
-        if (dailyClosingsLockedUntilMs && dailyClosingsLockedUntilMs > lockTime) {
+        if (
+          dailyClosingsLockedUntilMs &&
+          dailyClosingsLockedUntilMs > lockTime
+        ) {
           lockTime = dailyClosingsLockedUntilMs;
         }
 

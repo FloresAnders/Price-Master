@@ -1,11 +1,18 @@
 // src/edit/ScheduleReportTab.tsx
-'use client';
+"use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, Calendar, MapPin, FileText, Download } from 'lucide-react';
-import { EmpresasService } from '../services/empresas';
-import { useAuth } from '../hooks/useAuth';
-import { SchedulesService, ScheduleEntry } from '../services/schedules';
+import React, { useState, useEffect, useCallback } from "react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Calendar,
+  MapPin,
+  FileText,
+  Download,
+} from "lucide-react";
+import { EmpresasService } from "../services/empresas";
+import { useAuth } from "../hooks/useAuth";
+import { SchedulesService, ScheduleEntry } from "../services/schedules";
 
 interface BiweeklyPeriod {
   start: Date;
@@ -13,7 +20,7 @@ interface BiweeklyPeriod {
   label: string;
   year: number;
   month: number;
-  period: 'first' | 'second';
+  period: "first" | "second";
 }
 
 interface EmployeeSchedule {
@@ -34,7 +41,7 @@ interface MappedEmpresa {
   names: string[];
   employees: {
     name: string;
-    ccssType: 'TC' | 'MT';
+    ccssType: "TC" | "MT";
     hoursPerShift: number;
     extraAmount: number;
   }[];
@@ -43,9 +50,13 @@ interface MappedEmpresa {
 export default function ScheduleReportTab() {
   const { user: currentUser } = useAuth();
   const [locations, setLocations] = useState<MappedEmpresa[]>([]);
-  const [selectedLocation, setSelectedLocation] = useState<string>('all');
-  const [currentPeriod, setCurrentPeriod] = useState<BiweeklyPeriod | null>(null);
-  const [availablePeriods, setAvailablePeriods] = useState<BiweeklyPeriod[]>([]);
+  const [selectedLocation, setSelectedLocation] = useState<string>("all");
+  const [currentPeriod, setCurrentPeriod] = useState<BiweeklyPeriod | null>(
+    null
+  );
+  const [availablePeriods, setAvailablePeriods] = useState<BiweeklyPeriod[]>(
+    []
+  );
   const [scheduleData, setScheduleData] = useState<LocationSchedule[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -56,24 +67,37 @@ export default function ScheduleReportTab() {
     const month = now.getMonth();
     const day = now.getDate();
 
-    const period: 'first' | 'second' = day <= 15 ? 'first' : 'second';
-    const start = new Date(year, month, period === 'first' ? 1 : 16);
-    const end = period === 'first' ?
-      new Date(year, month, 15) :
-      new Date(year, month + 1, 0); // último día del mes
+    const period: "first" | "second" = day <= 15 ? "first" : "second";
+    const start = new Date(year, month, period === "first" ? 1 : 16);
+    const end =
+      period === "first"
+        ? new Date(year, month, 15)
+        : new Date(year, month + 1, 0); // último día del mes
 
     const monthNames = [
-      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+      "Enero",
+      "Febrero",
+      "Marzo",
+      "Abril",
+      "Mayo",
+      "Junio",
+      "Julio",
+      "Agosto",
+      "Septiembre",
+      "Octubre",
+      "Noviembre",
+      "Diciembre",
     ];
 
     return {
       start,
       end,
-      label: `${monthNames[month]} ${year} (${period === 'first' ? '1-15' : `16-${end.getDate()}`})`,
+      label: `${monthNames[month]} ${year} (${
+        period === "first" ? "1-15" : `16-${end.getDate()}`
+      })`,
       year,
       month: month + 1, // Firebase months are 1-indexed
-      period
+      period,
     };
   };
 
@@ -83,9 +107,9 @@ export default function ScheduleReportTab() {
       const allSchedules = await SchedulesService.getAllSchedules();
       const periods = new Set<string>();
 
-      allSchedules.forEach(schedule => {
-        if (schedule.shift && schedule.shift.trim() !== '') {
-          const period = schedule.day <= 15 ? 'first' : 'second';
+      allSchedules.forEach((schedule) => {
+        if (schedule.shift && schedule.shift.trim() !== "") {
+          const period = schedule.day <= 15 ? "first" : "second";
           const key = `${schedule.year}-${schedule.month}-${period}`;
           periods.add(key);
         }
@@ -93,36 +117,48 @@ export default function ScheduleReportTab() {
 
       const periodsArray: BiweeklyPeriod[] = [];
 
-      periods.forEach(key => {
-        const [year, month, period] = key.split('-');
+      periods.forEach((key) => {
+        const [year, month, period] = key.split("-");
         const yearNum = parseInt(year);
         const monthNum = parseInt(month);
-        const isFirst = period === 'first';
+        const isFirst = period === "first";
 
         const start = new Date(yearNum, monthNum - 1, isFirst ? 1 : 16);
-        const end = isFirst ?
-          new Date(yearNum, monthNum - 1, 15) :
-          new Date(yearNum, monthNum, 0);
+        const end = isFirst
+          ? new Date(yearNum, monthNum - 1, 15)
+          : new Date(yearNum, monthNum, 0);
 
         const monthNames = [
-          'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-          'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+          "Enero",
+          "Febrero",
+          "Marzo",
+          "Abril",
+          "Mayo",
+          "Junio",
+          "Julio",
+          "Agosto",
+          "Septiembre",
+          "Octubre",
+          "Noviembre",
+          "Diciembre",
         ];
 
         periodsArray.push({
           start,
           end,
-          label: `${monthNames[monthNum - 1]} ${yearNum} (${isFirst ? '1-15' : `16-${end.getDate()}`})`,
+          label: `${monthNames[monthNum - 1]} ${yearNum} (${
+            isFirst ? "1-15" : `16-${end.getDate()}`
+          })`,
           year: yearNum,
           month: monthNum,
-          period: isFirst ? 'first' : 'second'
+          period: isFirst ? "first" : "second",
         });
       });
 
       // Ordenar por fecha descendente (más reciente primero)
       return periodsArray.sort((a, b) => b.start.getTime() - a.start.getTime());
     } catch (error) {
-      console.error('Error getting available periods:', error);
+      console.error("Error getting available periods:", error);
       return [];
     }
   };
@@ -137,30 +173,34 @@ export default function ScheduleReportTab() {
 
         if (!currentUser) {
           owned = [];
-        } else if (currentUser.role === 'superadmin') {
+        } else if (currentUser.role === "superadmin") {
           owned = empresas || [];
         } else {
-          owned = (empresas || []).filter(e => e && e.ownerId && (
-            String(e.ownerId) === String(currentUser.id) ||
-            (currentUser.ownerId && String(e.ownerId) === String(currentUser.ownerId))
-          ));
+          owned = (empresas || []).filter(
+            (e) =>
+              e &&
+              e.ownerId &&
+              (String(e.ownerId) === String(currentUser.id) ||
+                (currentUser.ownerId &&
+                  String(e.ownerId) === String(currentUser.ownerId)))
+          );
         }
 
-        const mapped = owned.map(e => ({
+        const mapped = owned.map((e) => ({
           id: e.id,
-          label: e.name || e.ubicacion || e.id || 'Empresa',
-          value: e.ubicacion || e.name || e.id || '',
+          label: e.name || e.ubicacion || e.id || "Empresa",
+          value: e.ubicacion || e.name || e.id || "",
           names: [],
-          employees: (e.empleados || []).map(emp => ({
-            name: emp.Empleado || '',
-            ccssType: emp.ccssType || 'TC',
+          employees: (e.empleados || []).map((emp) => ({
+            name: emp.Empleado || "",
+            ccssType: emp.ccssType || "TC",
             hoursPerShift: emp.hoursPerShift || 8,
-            extraAmount: emp.extraAmount || 0
-          }))
+            extraAmount: emp.extraAmount || 0,
+          })),
         }));
         setLocations(mapped);
       } catch (error) {
-        console.error('Error loading empresas:', error);
+        console.error("Error loading empresas:", error);
       }
     };
     loadLocations();
@@ -176,17 +216,19 @@ export default function ScheduleReportTab() {
       const available = await getAvailablePeriods();
 
       // Agregar período actual al inicio si no está en la lista
-      const currentExists = available.some(p =>
-        p.year === current.year &&
-        p.month === current.month &&
-        p.period === current.period
+      const currentExists = available.some(
+        (p) =>
+          p.year === current.year &&
+          p.month === current.month &&
+          p.period === current.period
       );
 
       if (!currentExists) {
         setAvailablePeriods([current, ...available]);
       } else {
         setAvailablePeriods(available);
-      } setLoading(false);
+      }
+      setLoading(false);
     };
     initializePeriods();
   }, []);
@@ -203,8 +245,8 @@ export default function ScheduleReportTab() {
       );
 
       // Filtrar por período actual (quincena)
-      periodSchedules = periodSchedules.filter(schedule => {
-        if (currentPeriod.period === 'first') {
+      periodSchedules = periodSchedules.filter((schedule) => {
+        if (currentPeriod.period === "first") {
           return schedule.day >= 1 && schedule.day <= 15;
         } else {
           return schedule.day >= 16;
@@ -214,7 +256,7 @@ export default function ScheduleReportTab() {
       // Agrupar por ubicación
       const locationGroups = new Map<string, ScheduleEntry[]>();
 
-      periodSchedules.forEach(schedule => {
+      periodSchedules.forEach((schedule) => {
         if (!locationGroups.has(schedule.companieValue)) {
           locationGroups.set(schedule.companieValue, []);
         }
@@ -224,16 +266,20 @@ export default function ScheduleReportTab() {
       const scheduleDataArray: LocationSchedule[] = [];
 
       // Filtrar ubicaciones según selección
-      const locationsToProcess = selectedLocation === 'all' ?
-        locations.filter(location => location.value !== 'DELIFOOD') :
-        locations.filter(loc => loc.value === selectedLocation && loc.value !== 'DELIFOOD');
+      const locationsToProcess =
+        selectedLocation === "all"
+          ? locations.filter((location) => location.value !== "DELIFOOD")
+          : locations.filter(
+              (loc) =>
+                loc.value === selectedLocation && loc.value !== "DELIFOOD"
+            );
 
-      locationsToProcess.forEach(location => {
+      locationsToProcess.forEach((location) => {
         const locationSchedules = locationGroups.get(location.value) || [];
 
         // Agrupar por empleado
         const employeeGroups = new Map<string, ScheduleEntry[]>();
-        locationSchedules.forEach(schedule => {
+        locationSchedules.forEach((schedule) => {
           if (!employeeGroups.has(schedule.employeeName)) {
             employeeGroups.set(schedule.employeeName, []);
           }
@@ -247,8 +293,8 @@ export default function ScheduleReportTab() {
           const days: { [day: number]: string } = {};
           let employeeWorkDays = 0;
 
-          schedules.forEach(schedule => {
-            if (schedule.shift && schedule.shift.trim() !== '') {
+          schedules.forEach((schedule) => {
+            if (schedule.shift && schedule.shift.trim() !== "") {
               days[schedule.day] = schedule.shift;
               employeeWorkDays++;
             }
@@ -264,14 +310,14 @@ export default function ScheduleReportTab() {
           scheduleDataArray.push({
             location,
             employees,
-            totalWorkDays
+            totalWorkDays,
           });
         }
       });
 
       setScheduleData(scheduleDataArray);
     } catch (error) {
-      console.error('Error loading schedule data:', error);
+      console.error("Error loading schedule data:", error);
     } finally {
       setLoading(false);
     }
@@ -284,16 +330,17 @@ export default function ScheduleReportTab() {
     }
   }, [currentPeriod, selectedLocation, loadScheduleData]);
 
-  const navigatePeriod = (direction: 'prev' | 'next') => {
-    const currentIndex = availablePeriods.findIndex(p =>
-      p.year === currentPeriod?.year &&
-      p.month === currentPeriod?.month &&
-      p.period === currentPeriod?.period
+  const navigatePeriod = (direction: "prev" | "next") => {
+    const currentIndex = availablePeriods.findIndex(
+      (p) =>
+        p.year === currentPeriod?.year &&
+        p.month === currentPeriod?.month &&
+        p.period === currentPeriod?.period
     );
 
-    if (direction === 'prev' && currentIndex < availablePeriods.length - 1) {
+    if (direction === "prev" && currentIndex < availablePeriods.length - 1) {
       setCurrentPeriod(availablePeriods[currentIndex + 1]);
-    } else if (direction === 'next' && currentIndex > 0) {
+    } else if (direction === "next" && currentIndex > 0) {
       setCurrentPeriod(availablePeriods[currentIndex - 1]);
     }
   };
@@ -302,8 +349,9 @@ export default function ScheduleReportTab() {
     if (!currentPeriod) return [];
 
     const days: number[] = [];
-    const start = currentPeriod.period === 'first' ? 1 : 16;
-    const end = currentPeriod.period === 'first' ? 15 : currentPeriod.end.getDate();
+    const start = currentPeriod.period === "first" ? 1 : 16;
+    const end =
+      currentPeriod.period === "first" ? 15 : currentPeriod.end.getDate();
 
     for (let i = start; i <= end; i++) {
       days.push(i);
@@ -317,20 +365,22 @@ export default function ScheduleReportTab() {
 
     const exportData = {
       period: currentPeriod.label,
-      locations: scheduleData.map(locationData => ({
+      locations: scheduleData.map((locationData) => ({
         location: locationData.location.label,
-        employees: locationData.employees.map(emp => ({
+        employees: locationData.employees.map((emp) => ({
           name: emp.employeeName,
           schedule: emp.days,
-          totalDays: Object.keys(emp.days).length
+          totalDays: Object.keys(emp.days).length,
         })),
-        totalWorkDays: locationData.totalWorkDays
-      }))
+        totalWorkDays: locationData.totalWorkDays,
+      })),
     };
 
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+      type: "application/json",
+    });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = `planilla-${currentPeriod.year}-${currentPeriod.month}-${currentPeriod.period}.json`;
     document.body.appendChild(a);
@@ -356,7 +406,9 @@ export default function ScheduleReportTab() {
       <div className="flex flex-col gap-3 sm:gap-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h3 className="text-lg sm:text-xl font-semibold">Planilla de Horarios</h3>
+            <h3 className="text-lg sm:text-xl font-semibold">
+              Planilla de Horarios
+            </h3>
             <p className="text-xs sm:text-sm text-[var(--tab-text)] mt-1">
               Control de horarios por ubicación y quincena
             </p>
@@ -385,10 +437,13 @@ export default function ScheduleReportTab() {
           className="w-full sm:w-auto px-3 py-2 border border-[var(--input-border)] rounded-md bg-[var(--input-bg)] text-[var(--text-color)] text-sm"
         >
           <option value="all">Todas las empresas</option>
-          {locations.filter(location => location.value !== 'DELIFOOD').map(location => (<option key={location.value} value={location.value}>
-            {location.label}
-          </option>
-          ))}
+          {locations
+            .filter((location) => location.value !== "DELIFOOD")
+            .map((location) => (
+              <option key={location.value} value={location.value}>
+                {location.label}
+              </option>
+            ))}
         </select>
       </div>
 
@@ -396,18 +451,25 @@ export default function ScheduleReportTab() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
         <div className="flex items-center gap-2">
           <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--tab-text)]" />
-          <span className="text-xs sm:text-sm text-[var(--tab-text)] font-medium">Seleccionar Quincena:</span>
+          <span className="text-xs sm:text-sm text-[var(--tab-text)] font-medium">
+            Seleccionar Quincena:
+          </span>
         </div>
 
         <div className="flex items-center gap-2 flex-1">
           <select
-            value={currentPeriod ? `${currentPeriod.year}-${currentPeriod.month}-${currentPeriod.period}` : ''}
+            value={
+              currentPeriod
+                ? `${currentPeriod.year}-${currentPeriod.month}-${currentPeriod.period}`
+                : ""
+            }
             onChange={(e) => {
-              const [year, month, period] = e.target.value.split('-');
-              const selected = availablePeriods.find(p =>
-                p.year === parseInt(year) &&
-                p.month === parseInt(month) &&
-                p.period === period
+              const [year, month, period] = e.target.value.split("-");
+              const selected = availablePeriods.find(
+                (p) =>
+                  p.year === parseInt(year) &&
+                  p.month === parseInt(month) &&
+                  p.period === period
               );
               if (selected) setCurrentPeriod(selected);
             }}
@@ -425,12 +487,17 @@ export default function ScheduleReportTab() {
 
           <div className="flex items-center gap-1">
             <button
-              onClick={() => navigatePeriod('prev')}
-              disabled={!currentPeriod || availablePeriods.findIndex(p =>
-                p.year === currentPeriod.year &&
-                p.month === currentPeriod.month &&
-                p.period === currentPeriod.period
-              ) >= availablePeriods.length - 1}
+              onClick={() => navigatePeriod("prev")}
+              disabled={
+                !currentPeriod ||
+                availablePeriods.findIndex(
+                  (p) =>
+                    p.year === currentPeriod.year &&
+                    p.month === currentPeriod.month &&
+                    p.period === currentPeriod.period
+                ) >=
+                  availablePeriods.length - 1
+              }
               className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               aria-label="Período anterior"
             >
@@ -438,12 +505,16 @@ export default function ScheduleReportTab() {
             </button>
 
             <button
-              onClick={() => navigatePeriod('next')}
-              disabled={!currentPeriod || availablePeriods.findIndex(p =>
-                p.year === currentPeriod.year &&
-                p.month === currentPeriod.month &&
-                p.period === currentPeriod.period
-              ) <= 0}
+              onClick={() => navigatePeriod("next")}
+              disabled={
+                !currentPeriod ||
+                availablePeriods.findIndex(
+                  (p) =>
+                    p.year === currentPeriod.year &&
+                    p.month === currentPeriod.month &&
+                    p.period === currentPeriod.period
+                ) <= 0
+              }
               className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               aria-label="Período siguiente"
             >
@@ -467,14 +538,22 @@ export default function ScheduleReportTab() {
       ) : (
         <div className="space-y-4 sm:space-y-6">
           {scheduleData.map((locationData, locationIndex) => (
-            <div key={locationIndex} className="border border-[var(--input-border)] rounded-lg p-3 sm:p-4 md:p-6">
+            <div
+              key={locationIndex}
+              className="border border-[var(--input-border)] rounded-lg p-3 sm:p-4 md:p-6"
+            >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0 mb-3 sm:mb-4">
                 <h4 className="text-base sm:text-lg font-semibold flex items-center gap-2">
                   <MapPin className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span className="truncate">{locationData.location.label}</span>
+                  <span className="truncate">
+                    {locationData.location.label}
+                  </span>
                 </h4>
                 <span className="text-xs sm:text-sm text-[var(--tab-text)] whitespace-nowrap">
-                  Total días: <span className="font-semibold">{locationData.totalWorkDays}</span>
+                  Total días:{" "}
+                  <span className="font-semibold">
+                    {locationData.totalWorkDays}
+                  </span>
                 </span>
               </div>
 
@@ -503,8 +582,11 @@ export default function ScheduleReportTab() {
                           <th className="sticky left-0 z-10 bg-gray-50 dark:bg-gray-800/50 text-left p-2 sm:p-3 font-medium text-xs sm:text-sm min-w-[120px] sm:min-w-[150px]">
                             Empleado
                           </th>
-                          {getDaysInPeriod().map(day => (
-                            <th key={day} className="text-center p-1 sm:p-2 font-medium text-xs sm:text-sm min-w-[28px] sm:min-w-[40px]">
+                          {getDaysInPeriod().map((day) => (
+                            <th
+                              key={day}
+                              className="text-center p-1 sm:p-2 font-medium text-xs sm:text-sm min-w-[28px] sm:min-w-[40px]"
+                            >
                               {day}
                             </th>
                           ))}
@@ -515,21 +597,30 @@ export default function ScheduleReportTab() {
                       </thead>
                       <tbody>
                         {locationData.employees.map((employee, empIndex) => (
-                          <tr key={empIndex} className="border-b border-[var(--input-border)] hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+                          <tr
+                            key={empIndex}
+                            className="border-b border-[var(--input-border)] hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors"
+                          >
                             <td className="sticky left-0 z-10 bg-white dark:bg-gray-900 p-2 sm:p-3 font-medium text-xs sm:text-sm">
                               <span className="block truncate max-w-[100px] sm:max-w-none">
                                 {employee.employeeName}
                               </span>
                             </td>
-                            {getDaysInPeriod().map(day => (
+                            {getDaysInPeriod().map((day) => (
                               <td key={day} className="text-center p-1 sm:p-2">
                                 <div className="flex items-center justify-center">
-                                  <span className={`w-5 h-5 sm:w-6 sm:h-6 rounded text-[10px] sm:text-xs font-medium flex items-center justify-center ${employee.days[day] === 'D' ? 'bg-[var(--shift-diurno-bg)] text-[var(--shift-diurno-text)]' :
-                                    employee.days[day] === 'N' ? 'bg-[var(--shift-nocturno-bg)] text-[var(--shift-nocturno-text)]' :
-                                      employee.days[day] === 'L' ? 'bg-[var(--shift-libre-bg)] text-[var(--shift-libre-text)]' :
-                                        'bg-transparent'
-                                    }`}>
-                                    {employee.days[day] || ''}
+                                  <span
+                                    className={`w-5 h-5 sm:w-6 sm:h-6 rounded text-[10px] sm:text-xs font-medium flex items-center justify-center ${
+                                      employee.days[day] === "D"
+                                        ? "bg-[var(--shift-diurno-bg)] text-[var(--shift-diurno-text)]"
+                                        : employee.days[day] === "N"
+                                        ? "bg-[var(--shift-nocturno-bg)] text-[var(--shift-nocturno-text)]"
+                                        : employee.days[day] === "L"
+                                        ? "bg-[var(--shift-libre-bg)] text-[var(--shift-libre-text)]"
+                                        : "bg-transparent"
+                                    }`}
+                                  >
+                                    {employee.days[day] || ""}
                                   </span>
                                 </div>
                               </td>
