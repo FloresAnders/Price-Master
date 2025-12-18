@@ -739,6 +739,7 @@ export function ProviderSection({ id }: { id?: string }) {
     null
   );
   const [formError, setFormError] = useState<string | null>(null);
+  const [providerTypeError, setProviderTypeError] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [deletingCode, setDeletingCode] = useState<string | null>(null);
   const [providerDrawerOpen, setProviderDrawerOpen] = useState(false);
@@ -1017,6 +1018,7 @@ export function ProviderSection({ id }: { id?: string }) {
       }
       setProviderDrawerOpen(false);
       setFormError(null);
+      setProviderTypeError("");
       setProviderName("");
       setProviderType("");
       setEditingProviderCode(null);
@@ -1044,6 +1046,7 @@ export function ProviderSection({ id }: { id?: string }) {
     setEditingProviderCode(prov.code);
     setProviderName(prov.name ?? "");
     setProviderType((prov.type as FondoMovementType) ?? "");
+    setProviderTypeError("");
     // Cargar datos de notificación si existen
     if (prov.correonotifi && prov.correonotifi.trim().length > 0) {
       setAddNotification(true);
@@ -1151,6 +1154,7 @@ export function ProviderSection({ id }: { id?: string }) {
             onClick={() => {
               setProviderDrawerOpen(true);
               setFormError(null);
+              setProviderTypeError("");
               setProviderName("");
               setProviderType("");
               setEditingProviderCode(null);
@@ -1467,6 +1471,7 @@ export function ProviderSection({ id }: { id?: string }) {
         onClose={() => {
           setProviderDrawerOpen(false);
           setFormError(null);
+          setProviderTypeError("");
           setProviderName("");
           setProviderType("");
           setEditingProviderCode(null);
@@ -1498,6 +1503,7 @@ export function ProviderSection({ id }: { id?: string }) {
               onClick={() => {
                 setProviderDrawerOpen(false);
                 setFormError(null);
+                setProviderTypeError("");
                 setProviderName("");
                 setProviderType("");
                 setEditingProviderCode(null);
@@ -1534,10 +1540,15 @@ export function ProviderSection({ id }: { id?: string }) {
               />
               <select
                 value={providerType}
-                onChange={(e) =>
-                  setProviderType(e.target.value as FondoMovementType | "")
-                }
-                className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded"
+                onChange={(e) => {
+                  setProviderType(e.target.value as FondoMovementType | "");
+                  setProviderTypeError("");
+                }}
+                className={`w-full p-3 bg-[var(--input-bg)] border rounded ${
+                  providerTypeError
+                    ? "border-red-500"
+                    : "border-[var(--input-border)]"
+                }`}
                 disabled={!company || saving}
               >
                 <option value="">Seleccione un tipo</option>
@@ -1563,6 +1574,9 @@ export function ProviderSection({ id }: { id?: string }) {
                   ))}
                 </optgroup>
               </select>
+              {providerTypeError && (
+                <p className="text-xs text-red-500">{providerTypeError}</p>
+              )}
 
               {/* Checkbox para agregar notificación */}
               <div className="flex items-center gap-2 mt-2">
@@ -1653,6 +1667,10 @@ export function ProviderSection({ id }: { id?: string }) {
                     return;
                   }
 
+                  if (!providerType) {
+                    setProviderTypeError("Debe seleccionar un tipo.");
+                    return;
+                  }
                   if (providersLoading) {
                     setFormError("Espera a que carguen los proveedores.");
                     return;
@@ -1679,6 +1697,7 @@ export function ProviderSection({ id }: { id?: string }) {
 
                   try {
                     setFormError(null);
+                    setProviderTypeError("");
 
                     const normalizedProviderType = providerType || undefined;
 
@@ -1875,6 +1894,7 @@ export function ProviderSection({ id }: { id?: string }) {
                     setEditingProviderCode(null);
                     setAddNotification(false);
                     setSelectedAdminId("");
+                    setProviderTypeError("");
                     setProviderDrawerOpen(false);
                   } catch (err) {
                     const message =
