@@ -88,7 +88,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     <div className="flex flex-col items-center justify-center min-h-[60vh] py-8">
       <div className="mb-2 flex items-center justify-center">
         <Image
-          src="/Logos/LogoBlanco2.png"
+          src="/Logos/LogoBlanco2NV.png"
           alt="Time Master logo"
           className={`w-28 h-28 mr-2 transition-transform duration-300 ${hovered ? 'scale-110 rotate-12' : 'scale-100'}`}
           width={56}
