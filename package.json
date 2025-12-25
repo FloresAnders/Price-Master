@@ -54,7 +54,8 @@
     "nodemailer": "^7.0.5",
     "qrcode": "^1.5.4",
     "react": "19.2.0",
-    "react-dom": "19.2.0"
+    "react-dom": "19.2.0",
+    "react-snowfall": "^2.4.0"
   },
   "devDependencies": {
     "@types/html2canvas": "^0.5.35",

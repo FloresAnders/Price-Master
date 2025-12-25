@@ -1,6 +1,6 @@
 "use client";
 import Image from 'next/image';
-
+import SnowFall from 'react-snowfall';
 import React, { useState, useEffect } from 'react';
 import { Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck, Settings, History } from 'lucide-react';
 import AnimatedStickman from '../ui/AnimatedStickman';
@@ -30,6 +30,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   const [hovered, setHovered] = useState(false);
   const [clickCount, setClickCount] = useState(0);
   const [showStickman, setShowStickman] = useState(false);
+  const [showChristmasToast, setShowChristmasToast] = useState(false);
 
   // Filter menu items based on user permissions
   const getVisibleMenuItems = () => {
@@ -84,9 +85,68 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     }
   }, [showStickman]);
 
+  // Mostrar el toast al entrar y ocultarlo a los 5 segundos
+  useEffect(() => {
+    setShowChristmasToast(true);
+    const timer = setTimeout(() => {
+      setShowChristmasToast(false);
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] py-8">
-      <div className="mb-2 flex items-center justify-center">
+      <SnowFall color='#930C24' radius={[0.5, 5.0]} enable3DRotation rotationSpeed={[0.0, 0.5]} />
+      <SnowFall color='#ffffff' radius={[0.5, 3.0]} enable3DRotation />
+      {/* aGREGAR UN TOAST EN LA PARTE SUPERIOR DEL IMAGE DEL LOGO QUE DIGA "FELIZ NAVIDAD!" */}
+      <div className="mb-2 flex items-center justify-center relative">
+        {showChristmasToast && (
+          <div
+            className="absolute -top-3 left-1/2 -translate-x-1/2 z-10 pointer-events-none"
+            aria-live="polite"
+          >
+            <div className="christmas-toast whitespace-nowrap rounded-full bg-[var(--card-bg)] border border-[var(--input-border)] px-3 py-1 text-xs font-semibold text-[var(--foreground)] shadow-md">
+              FELIZ NAVIDAD!
+            </div>
+          </div>
+        )}
+        <style jsx>{`
+        .christmas-toast {
+          transform-origin: center;
+          will-change: transform, opacity;
+          animation:
+            toast-in 280ms cubic-bezier(0.16, 1, 0.3, 1) both,
+            toast-beat 900ms ease-in-out 280ms infinite;
+        }
+
+        @keyframes toast-in {
+          from {
+            opacity: 0;
+            transform: translateY(-8px) scale(0.96);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+
+        @keyframes toast-beat {
+          0%,
+          100% {
+            transform: scale(1);
+          }
+          50% {
+            transform: scale(1.06);
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .christmas-toast {
+            animation: none;
+          }
+        }
+      `}</style>
         <Image
           src="/Logos/LogoBlanco2NV.png"
           alt="Time Master logo"
