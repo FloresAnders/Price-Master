@@ -30,9 +30,9 @@ export default function Footer() {
 
   return (
     <footer className="w-full mt-auto">
-      <div className="bg-[var(--card-bg)] text-[var(--foreground)] border-t border-[var(--input-border)] pt-8 pb-2 flex flex-col items-center">
+      <div className="bg-[var(--card-bg)] text-[var(--foreground)] border-t border-[var(--input-border)] pt-1 flex flex-col items-center">
         {/* Social icons */}
-        <div className="flex gap-6 mb-4 flex-wrap justify-center sm:flex-nowrap">
+        <div className="flex gap-6 mb-1 flex-wrap justify-center sm:flex-nowrap">
           <a
             href="https://facebook.com"
             target="_blank"
@@ -211,7 +211,7 @@ export default function Footer() {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
             <div className="bg-[var(--card-bg)] rounded-lg shadow-lg p-6 max-w-md w-full relative animate-fade-in">
               <button
-                className="absolute top-2 right-2 text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] text-2xl font-bold focus:outline-none"
+                className="absolute top-1 right-2 text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] text-2xl font-bold focus:outline-none"
                 onClick={() => setIsNewsModalOpen(false)}
                 aria-label="Cerrar"
               >
@@ -314,7 +314,8 @@ export default function Footer() {
               aria-hidden="true"
             />
 
-            <div className="flex items-center justify-center">
+            <div className="flex flex-col items-center justify-center">
+              <span className="text-xs text-[var(--muted-foreground)]">Sponsored by</span>
               <Image
                 src={delikorLogo}
                 alt="Delikor"
