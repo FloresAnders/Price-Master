@@ -1,7 +1,7 @@
 "use client";
 import Image from 'next/image';
-import SnowFall from 'react-snowfall';
-import React, { useState, useEffect } from 'react';
+import Fireworks from 'fireworks-js';
+import React, { useState, useEffect, useRef } from 'react';
 import { Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck, Settings, History } from 'lucide-react';
 import AnimatedStickman from '../ui/AnimatedStickman';
 import { User, UserPermissions } from '../../types/firestore';
@@ -31,6 +31,9 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   const [clickCount, setClickCount] = useState(0);
   const [showStickman, setShowStickman] = useState(false);
   const [showChristmasToast, setShowChristmasToast] = useState(false);
+
+  const fireworksRef = useRef<HTMLDivElement>(null);
+  const [fireworksInstance, setFireworksInstance] = useState<Fireworks | null>(null);
 
   // Filter menu items based on user permissions
   const getVisibleMenuItems = () => {
@@ -74,6 +77,22 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     }
   };
 
+  // Mostrar fuegos artificiales automáticamente al ingresar al HomeMenu durante 6 segundos
+  useEffect(() => {
+    if (fireworksRef.current && !fireworksInstance) {
+      const fw = new Fireworks(fireworksRef.current);
+      fw.start();
+      setFireworksInstance(fw);
+
+      const timer = setTimeout(() => {
+        fw.stop();
+        setFireworksInstance(null);
+      }, 6000); // 6 segundos
+
+      return () => clearTimeout(timer);
+    }
+  }, []); // Se ejecuta solo al montar el componente
+
   // Ocultar el AnimatedStickman después de 10 segundos
   useEffect(() => {
     if (showStickman) {
@@ -97,17 +116,15 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] py-8">
-      <SnowFall color='#930C24' radius={[0.5, 5.0]} enable3DRotation rotationSpeed={[0.0, 0.5]} />
-      <SnowFall color='#ffffff' radius={[0.5, 3.0]} enable3DRotation />
-      {/* aGREGAR UN TOAST EN LA PARTE SUPERIOR DEL IMAGE DEL LOGO QUE DIGA "FELIZ NAVIDAD!" */}
+      <div ref={fireworksRef} className="fixed inset-0 pointer-events-none z-40" />
       <div className="mb-2 flex items-center justify-center relative">
         {showChristmasToast && (
           <div
             className="absolute -top-3 left-1/2 -translate-x-1/2 z-10 pointer-events-none"
             aria-live="polite"
           >
-            <div className="christmas-toast whitespace-nowrap rounded-full bg-[var(--card-bg)] border border-[var(--input-border)] px-3 py-1 text-xs font-semibold text-[var(--foreground)] shadow-md">
-              FELIZ NAVIDAD!
+            <div className="christmas-toast whitespace-nowrap rounded-full border border-[var(--input-border)] px-3 py-1 text-xs font-semibold text-[var(--foreground)] shadow-md">
+              FELIZ AÑO NUEVO!!
             </div>
           </div>
         )}
@@ -148,7 +165,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
         }
       `}</style>
         <Image
-          src="/Logos/LogoBlanco2NV.png"
+          src="/Logos/LogoBlanco2.png"
           alt="Time Master logo"
           className={`w-28 h-28 mr-2 transition-transform duration-300 ${hovered ? 'scale-110 rotate-12' : 'scale-100'}`}
           width={56}

@@ -501,27 +501,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               width={32}
               height={32}
               className="rounded"
-            />{/*Time Master */}
-            {/*ELIMINAR DESDE ACA */}
-            <span className="leading-none">
-              Time Maste
-              <span className="relative inline-block leading-none">
-                r
-                <span
-                  aria-hidden
-                  className="pointer-events-none absolute -top-1 -right-3 rotate-12"
-                >
-                  <Image
-                    src="/gorro.png"
-                    alt=""
-                    width={20}
-                    height={20}
-                    className="block"
-                  />
-                </span>
-              </span>
-            </span>
-            {/*ELIMIAR HASTA ACA */}
+            />Time Master
           </a>
 
           {/* If we're on fondo-related sections, show quick actions in the header */}
@@ -537,8 +517,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                     window.location.hash = "#agregarproveedor";
                   }}
                   className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${currentHash === "#agregarproveedor"
-                      ? "text-[var(--tab-text-active)] font-semibold"
-                      : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
+                    ? "text-[var(--tab-text-active)] font-semibold"
+                    : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
                     }`}
                   title="Agregar proveedor"
                 >
@@ -555,8 +535,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                     window.location.hash = "#fondogeneral";
                   }}
                   className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${currentHash === "#fondogeneral"
-                      ? "text-[var(--tab-text-active)] font-semibold"
-                      : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
+                    ? "text-[var(--tab-text-active)] font-semibold"
+                    : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
                     }`}
                   title={fondoMenuLabel}
                 >
@@ -574,8 +554,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                       window.location.hash = "#reportes";
                     }}
                     className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${currentHash === "#reportes"
-                        ? "text-[var(--tab-text-active)] font-semibold"
-                        : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
+                      ? "text-[var(--tab-text-active)] font-semibold"
+                      : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
                       }`}
                     title="Reportes"
                   >
@@ -594,8 +574,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                       window.location.hash = "#configuracion";
                     }}
                     className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${currentHash === "#configuracion"
-                        ? "text-[var(--tab-text-active)] font-semibold"
-                        : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
+                      ? "text-[var(--tab-text-active)] font-semibold"
+                      : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
                       }`}
                     title="Configuración del fondo"
                   >
@@ -623,8 +603,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                       key={tab.id}
                       onClick={() => handleTabClick(tab.id)}
                       className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${activeTab === tab.id
-                          ? "text-[var(--tab-text-active)] font-semibold"
-                          : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
+                        ? "text-[var(--tab-text-active)] font-semibold"
+                        : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
                         }`}
                       title={tab.description}
                     >
@@ -853,8 +833,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                           setShowMobileMenu(false);
                         }}
                         className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${activeTab === tab.id
-                            ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
-                            : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
+                          ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                          : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
                           }`}
                       >
                         <IconComponent className="w-4 h-4" />
@@ -879,8 +859,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                       setShowMobileMenu(false);
                     }}
                     className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${currentHash === "#agregarproveedor"
-                        ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
-                        : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
+                      ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                      : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
                       }`}
                     title="Agregar proveedor"
                   >
@@ -895,8 +875,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                       setShowMobileMenu(false);
                     }}
                     className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${currentHash === "#fondogeneral"
-                        ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
-                        : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
+                      ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                      : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
                       }`}
                     title={fondoMenuLabel}
                   >
@@ -912,8 +892,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                         setShowMobileMenu(false);
                       }}
                       className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${currentHash === "#reportes"
-                          ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
-                          : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
+                        ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                        : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
                         }`}
                       title="Reportes"
                     >
@@ -930,8 +910,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                         setShowMobileMenu(false);
                       }}
                       className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${currentHash === "#configuracion"
-                          ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
-                          : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
+                        ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                        : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
                         }`}
                       title="Configuración del fondo"
                     >

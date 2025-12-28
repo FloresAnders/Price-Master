@@ -183,7 +183,7 @@ export default function LoginModal({
           <div className="text-center mb-6">
             <div className="relative w-[120px] h-[120px] mx-auto mb-4">
               <Image
-                src="/Logos/LogoBlancoNV.png"
+                src="/Logos/LogoBlanco.png"
                 alt="Logo"
                 fill
                 sizes="120px"
