@@ -87,7 +87,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
       const timer = setTimeout(() => {
         fw.stop();
         setFireworksInstance(null);
-      }, 6000); // 6 segundos
+      }, 86400); // 6 segundos
 
       return () => clearTimeout(timer);
     }
