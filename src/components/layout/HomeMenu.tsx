@@ -16,6 +16,7 @@ import {
 import AnimatedStickman from "../ui/AnimatedStickman";
 import { User, UserPermissions } from "../../types/firestore";
 import { getDefaultPermissions } from "../../utils/permissions";
+import { useProviders } from "../../hooks/useProviders";
 
 const menuItems = [
   {
@@ -113,11 +114,20 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   const [clickCount, setClickCount] = useState(0);
   const [showStickman, setShowStickman] = useState(false);
   const [showChristmasToast, setShowChristmasToast] = useState(false);
+  const [showSupplierWeekInMenu, setShowSupplierWeekInMenu] = useState(false);
 
   const fireworksRef = useRef<HTMLDivElement>(null);
   const [fireworksInstance, setFireworksInstance] = useState<Fireworks | null>(
     null
   );
+
+  // Resolve user permissions once for reuse
+  const resolvedPermissions: UserPermissions | null = (() => {
+    if (!currentUser) return null;
+    return currentUser.permissions
+      ? currentUser.permissions
+      : getDefaultPermissions(currentUser.role || "user");
+  })();
 
   // Filter menu items based on user permissions
   const getVisibleMenuItems = () => {
@@ -143,6 +153,137 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   };
 
   const visibleMenuItems = getVisibleMenuItems();
+
+  const hasSupplierWeekPermission = Boolean(
+    resolvedPermissions?.supplierorders || resolvedPermissions?.fondogeneral
+  );
+  const canViewSupplierWeek = hasSupplierWeekPermission && showSupplierWeekInMenu;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const readPreference = () => {
+      const savedPreference = localStorage.getItem("show-supplier-week-menu");
+      // Por defecto está desactivado (false)
+      setShowSupplierWeekInMenu(savedPreference === "true");
+    };
+
+    readPreference();
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "show-supplier-week-menu") readPreference();
+    };
+
+    const handlePrefChange = (e: Event) => {
+      const key = (e as CustomEvent)?.detail?.key;
+      if (key === "show-supplier-week-menu") readPreference();
+    };
+
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("pricemaster:preference-change", handlePrefChange);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener(
+        "pricemaster:preference-change",
+        handlePrefChange
+      );
+    };
+  }, []);
+
+  const companyForProviders = (currentUser?.ownercompanie || "").trim();
+  const {
+    providers: weeklyProviders,
+    loading: weeklyProvidersLoading,
+    error: weeklyProvidersError,
+  } = useProviders(canViewSupplierWeek ? companyForProviders : undefined);
+
+  type VisitDay = "D" | "L" | "M" | "MI" | "J" | "V" | "S";
+  const WEEK_DAY_CODES: VisitDay[] = ["D", "L", "M", "MI", "J", "V", "S"];
+  const WEEK_DAY_LABELS: Record<VisitDay, string> = {
+    D: "Domingo",
+    L: "Lunes",
+    M: "Martes",
+    MI: "Miércoles",
+    J: "Jueves",
+    V: "Viernes",
+    S: "Sábado",
+  };
+
+  const weekModel = (() => {
+    const now = new Date();
+    const todayKey = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate()
+    ).getTime();
+
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+    // Sunday-start
+    start.setDate(start.getDate() - start.getDay());
+
+    const days = Array.from({ length: 7 }, (_, idx) => {
+      const date = new Date(start);
+      date.setDate(start.getDate() + idx);
+      const code = WEEK_DAY_CODES[idx];
+      const dateKey = new Date(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate()
+      ).getTime();
+      return {
+        idx,
+        code,
+        label: WEEK_DAY_LABELS[code],
+        date,
+        isToday: dateKey === todayKey,
+      };
+    });
+
+    const visitProviders = (weeklyProviders || []).filter((p) => {
+      const type = (p.type || "").toUpperCase();
+      return type === "COMPRA INVENTARIO" && !!p.visit;
+    });
+
+    const createByCode = new Map<VisitDay, string[]>();
+    const receiveByCode = new Map<VisitDay, string[]>();
+    WEEK_DAY_CODES.forEach((c) => {
+      createByCode.set(c, []);
+      receiveByCode.set(c, []);
+    });
+
+    visitProviders.forEach((p) => {
+      const name = p.name;
+      const visit = p.visit;
+      if (!visit) return;
+      (visit.createOrderDays || []).forEach((d) => {
+        const key = d as VisitDay;
+        if (!createByCode.has(key)) return;
+        createByCode.get(key)!.push(name);
+      });
+      (visit.receiveOrderDays || []).forEach((d) => {
+        const key = d as VisitDay;
+        if (!receiveByCode.has(key)) return;
+        receiveByCode.get(key)!.push(name);
+      });
+    });
+
+    const sortNames = (list: string[]) =>
+      list
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
+
+    WEEK_DAY_CODES.forEach((c) => {
+      createByCode.set(c, sortNames(createByCode.get(c) || []));
+      receiveByCode.set(c, sortNames(receiveByCode.get(c) || []));
+    });
+
+    return {
+      days,
+      createByCode,
+      receiveByCode,
+    };
+  })();
 
   const handleNavigate = (id: string) => {
     if (typeof window !== "undefined") {
@@ -252,6 +393,102 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 w-full max-w-screen-xl pt-4">
+          {canViewSupplierWeek && (
+            <div
+              className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl shadow-md p-6 col-span-1 sm:col-span-2 md:col-span-3 lg:col-span-4"
+              style={{ minHeight: 160 }}
+            >
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <div className="min-w-0">
+                  <h3 className="text-lg font-semibold text-[var(--foreground)]">
+                    Semana actual (proveedores)
+                  </h3>
+                  <p className="text-xs text-[var(--muted-foreground)]">
+                    Crea pedido y recibe pedido (Domingo a Sábado)
+                  </p>
+                </div>
+              </div>
+
+              {!companyForProviders ? (
+                <div className="text-sm text-[var(--muted-foreground)]">
+                  No se pudo determinar la empresa del usuario.
+                </div>
+              ) : weeklyProvidersLoading ? (
+                <div className="text-sm text-[var(--muted-foreground)]">
+                  Cargando proveedores...
+                </div>
+              ) : weeklyProvidersError ? (
+                <div className="text-sm text-red-500">
+                  {weeklyProvidersError}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+                  {weekModel.days.map((d) => {
+                    const createList = weekModel.createByCode.get(d.code) || [];
+                    const receiveList = weekModel.receiveByCode.get(d.code) || [];
+                    const hasAny = createList.length > 0 || receiveList.length > 0;
+                    const todayStyle = d.isToday
+                      ? {
+                          borderColor: "var(--success)",
+                          backgroundColor:
+                            "color-mix(in srgb, var(--success) 18%, var(--card-bg))",
+                        }
+                      : undefined;
+
+                    return (
+                      <div
+                        key={`week-${d.code}`}
+                        className="rounded-lg border border-[var(--input-border)] p-2 bg-[var(--muted)]"
+                        style={todayStyle}
+                      >
+                        <div className="flex items-baseline justify-between gap-2">
+                          <div className="text-xs font-semibold text-[var(--foreground)]">
+                            {d.code}
+                          </div>
+                          <div className="text-[10px] text-[var(--muted-foreground)]">
+                            {d.date.getDate()}/{d.date.getMonth() + 1}
+                          </div>
+                        </div>
+                        <div className="text-[10px] text-[var(--muted-foreground)] mb-2">
+                          {d.label}
+                        </div>
+
+                        {!hasAny ? (
+                          <div className="text-[10px] text-[var(--muted-foreground)]">
+                            Sin visitas
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {createList.length > 0 && (
+                              <div>
+                                <div className="text-[10px] font-semibold text-[var(--foreground)]">
+                                  Crear
+                                </div>
+                                <div className="text-[10px] text-[var(--muted-foreground)] break-words">
+                                  {createList.join(", ")}
+                                </div>
+                              </div>
+                            )}
+                            {receiveList.length > 0 && (
+                              <div>
+                                <div className="text-[10px] font-semibold text-[var(--foreground)]">
+                                  Recibir
+                                </div>
+                                <div className="text-[10px] text-[var(--muted-foreground)] break-words">
+                                  {receiveList.join(", ")}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
           {visibleMenuItems.map((item) => (
             <button
               key={item.id}

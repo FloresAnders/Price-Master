@@ -106,6 +106,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
   const [showSessionTimer, setShowSessionTimer] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
+  const [showSupplierWeekInMenu, setShowSupplierWeekInMenu] = useState(false);
   const [showCalculatorModal, setShowCalculatorModal] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const initializedSolicitudesRef = useRef(false);
@@ -143,6 +144,15 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     }
   }, []);
 
+  // Cargar preferencia de la tarjeta semanal de proveedores (HomeMenu) desde localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedPreference = localStorage.getItem("show-supplier-week-menu");
+      // Por defecto está desactivado (false)
+      setShowSupplierWeekInMenu(savedPreference === "true");
+    }
+  }, []);
+
   // Guardar preferencia del FloatingSessionTimer cuando cambie
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -156,6 +166,24 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       localStorage.setItem("show-calculator", showCalculator.toString());
     }
   }, [showCalculator]);
+
+  // Guardar preferencia de la tarjeta semanal de proveedores cuando cambie
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(
+        "show-supplier-week-menu",
+        showSupplierWeekInMenu.toString()
+      );
+
+      // Notifica a otros componentes en la misma pestaña
+      // (el evento 'storage' no se dispara en el mismo documento).
+      window.dispatchEvent(
+        new CustomEvent("pricemaster:preference-change", {
+          detail: { key: "show-supplier-week-menu" },
+        })
+      );
+    }
+  }, [showSupplierWeekInMenu]);
 
   // Keep currentHash in sync in case some code manipulates history.hash
   useEffect(() => {
@@ -1047,6 +1075,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
         onToggleSessionTimer={setShowSessionTimer}
         showCalculator={showCalculator}
         onToggleCalculator={setShowCalculator}
+        showSupplierWeekInMenu={showSupplierWeekInMenu}
+        onToggleSupplierWeekInMenu={setShowSupplierWeekInMenu}
         onLogoutClick={handleLogoutClick}
       />
 
