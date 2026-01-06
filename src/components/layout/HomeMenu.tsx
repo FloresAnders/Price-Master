@@ -18,6 +18,7 @@ import { User, UserPermissions } from "../../types/firestore";
 import { getDefaultPermissions } from "../../utils/permissions";
 import { useProviders } from "../../hooks/useProviders";
 import { useControlPedido } from "../../hooks/useControlPedido";
+import { MovimientosFondosService } from "../../services/movimientos-fondos";
 
 const menuItems = [
   {
@@ -121,6 +122,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   const [selectedProviderCode, setSelectedProviderCode] = useState<string>("");
   const [orderAmount, setOrderAmount] = useState<string>("");
   const [orderSaving, setOrderSaving] = useState(false);
+  const [fondoGeneralBalanceCRC, setFondoGeneralBalanceCRC] = useState<number | null>(null);
 
   const fireworksRef = useRef<HTMLDivElement>(null);
   const [fireworksInstance, setFireworksInstance] = useState<Fireworks | null>(
@@ -213,6 +215,72 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     loading: weeklyProvidersLoading,
     error: weeklyProvidersError,
   } = useProviders(showExpandedSupplierWeek ? companyForProviders : undefined);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if (!showExpandedSupplierWeek) {
+      setFondoGeneralBalanceCRC(null);
+      return;
+    }
+
+    const normalizedCompany = (companyForProviders || "").trim();
+    if (normalizedCompany.length === 0) {
+      setFondoGeneralBalanceCRC(null);
+      return;
+    }
+
+    let cancelled = false;
+    const load = async () => {
+      const companyKey = MovimientosFondosService.buildCompanyMovementsKey(
+        normalizedCompany
+      );
+
+      let resolved = null as Awaited<
+        ReturnType<typeof MovimientosFondosService.getDocument>
+      >;
+
+      try {
+        resolved = await MovimientosFondosService.getDocument(companyKey);
+      } catch (err) {
+        console.error("Error reading Fondo General balances:", err);
+      }
+
+      if (!resolved) {
+        try {
+          const raw = window.localStorage.getItem(companyKey);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            resolved = MovimientosFondosService.ensureMovementStorageShape(
+              parsed,
+              normalizedCompany
+            );
+          }
+        } catch (err) {
+          console.error("Error reading Fondo General balances from cache:", err);
+        }
+      }
+
+      if (cancelled) return;
+
+      if (!resolved) {
+        setFondoGeneralBalanceCRC(null);
+        return;
+      }
+
+      const crcBalance =
+        resolved.state.balancesByAccount.find(
+          (b) => b.accountId === "FondoGeneral" && b.currency === "CRC"
+        )?.currentBalance ?? 0;
+
+      setFondoGeneralBalanceCRC(crcBalance);
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [showExpandedSupplierWeek, companyForProviders]);
 
   type VisitDay = "D" | "L" | "M" | "MI" | "J" | "V" | "S";
   const WEEK_DAY_CODES: VisitDay[] = ["D", "L", "M", "MI", "J", "V", "S"];
@@ -673,13 +741,22 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
                           .join(", ");
 
                         const receiveText = receiveList
-                          .map((p) => {
-                            const amt = amountsMap.get(p.code) || 0;
-                            return amt > 0
-                              ? `${p.name} (₡${formatAmount(amt)})`
-                              : p.name;
-                          })
-                          .join(", ");
+                          .map((p) => ({
+                            name: p.name,
+                            amount: amountsMap.get(p.code) || 0,
+                          }));
+
+                        const receiveTotal = receiveText.reduce(
+                          (sum, row) => sum + (row.amount > 0 ? row.amount : 0),
+                          0
+                        );
+
+                        const receiveTotalClassName =
+                          typeof fondoGeneralBalanceCRC === "number"
+                            ? receiveTotal <= fondoGeneralBalanceCRC
+                              ? "text-[var(--success)]"
+                              : "text-[var(--error)]"
+                            : "text-[var(--muted-foreground)]";
 
                         return (
                           <button
@@ -725,8 +802,35 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
                                     <div className="text-[10px] font-semibold text-[var(--foreground)]">
                                       Recibir
                                     </div>
-                                    <div className="text-[10px] text-[var(--muted-foreground)] break-words">
-                                      {receiveText}
+                                    <div className="mt-0.5 text-[10px] text-[var(--muted-foreground)]">
+                                      <div className="space-y-0.5">
+                                        {receiveText.map((row) => (
+                                          <div
+                                            key={row.name}
+                                            className="flex items-baseline justify-between gap-2"
+                                          >
+                                            <span className="min-w-0 flex-1 truncate">
+                                              {row.name}
+                                            </span>
+                                            <span className="flex-none tabular-nums">
+                                              {row.amount > 0
+                                                ? formatAmount(row.amount)
+                                                : ""}
+                                            </span>
+                                          </div>
+                                        ))}
+
+                                        <div className="mt-1 pt-1 border-t border-[var(--input-border)] flex items-baseline justify-between gap-2">
+                                          <span className="font-semibold text-[var(--foreground)]">
+                                            TOTAL
+                                          </span>
+                                          <span
+                                            className={`flex-none tabular-nums font-semibold ${receiveTotalClassName}`}
+                                          >
+                                            {formatAmount(receiveTotal)}
+                                          </span>
+                                        </div>
+                                      </div>
                                     </div>
                                   </div>
                                 )}
@@ -795,13 +899,22 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
                           .join(", ");
 
                         const receiveText = receiveList
-                          .map((p) => {
-                            const amt = amountsMap.get(p.code) || 0;
-                            return amt > 0
-                              ? `${p.name} (₡${formatAmount(amt)})`
-                              : p.name;
-                          })
-                          .join(", ");
+                          .map((p) => ({
+                            name: p.name,
+                            amount: amountsMap.get(p.code) || 0,
+                          }));
+
+                        const receiveTotal = receiveText.reduce(
+                          (sum, row) => sum + (row.amount > 0 ? row.amount : 0),
+                          0
+                        );
+
+                        const receiveTotalClassName =
+                          typeof fondoGeneralBalanceCRC === "number"
+                            ? receiveTotal <= fondoGeneralBalanceCRC
+                              ? "text-[var(--success)]"
+                              : "text-[var(--error)]"
+                            : "text-[var(--muted-foreground)]";
 
                         return (
                           <div
@@ -842,8 +955,35 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
                                     <div className="text-[10px] font-semibold text-[var(--foreground)]">
                                       Recibir
                                     </div>
-                                    <div className="text-[10px] text-[var(--muted-foreground)] break-words">
-                                      {receiveText}
+                                    <div className="mt-0.5 text-[10px] text-[var(--muted-foreground)]">
+                                      <div className="space-y-0.5">
+                                        {receiveText.map((row) => (
+                                          <div
+                                            key={row.name}
+                                            className="flex items-baseline justify-between gap-2"
+                                          >
+                                            <span className="min-w-0 flex-1 truncate">
+                                              {row.name}
+                                            </span>
+                                            <span className="flex-none tabular-nums">
+                                              {row.amount > 0
+                                                ? formatAmount(row.amount)
+                                                : ""}
+                                            </span>
+                                          </div>
+                                        ))}
+
+                                        <div className="mt-1 pt-1 border-t border-[var(--input-border)] flex items-baseline justify-between gap-2">
+                                          <span className="font-semibold text-[var(--foreground)]">
+                                            TOTAL
+                                          </span>
+                                          <span
+                                            className={`flex-none tabular-nums font-semibold ${receiveTotalClassName}`}
+                                          >
+                                            {formatAmount(receiveTotal)}
+                                          </span>
+                                        </div>
+                                      </div>
                                     </div>
                                   </div>
                                 )}
