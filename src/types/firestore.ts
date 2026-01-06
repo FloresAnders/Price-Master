@@ -31,6 +31,11 @@ export interface ProviderEntry {
   createdAt?: string;
   updatedAt?: string;
   correonotifi?: string;
+  visit?: {
+    createOrderDays: Array<'D' | 'L' | 'M' | 'MI' | 'J' | 'V' | 'S'>;
+    receiveOrderDays: Array<'D' | 'L' | 'M' | 'MI' | 'J' | 'V' | 'S'>;
+    frequency: 'SEMANAL' | 'QUINCENAL' | 'MENSUAL' | '22_DIAS';
+  };
 }
 
 export interface Sorteo {

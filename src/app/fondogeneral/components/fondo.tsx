@@ -42,7 +42,11 @@ import {
 import { useAuth } from "../../../hooks/useAuth";
 import { useProviders } from "../../../hooks/useProviders";
 import useToast from "../../../hooks/useToast";
-import type { UserPermissions, Empresas, User } from "../../../types/firestore";
+import type {
+  UserPermissions,
+  Empresas,
+  User,
+} from "../../../types/firestore";
 import { getDefaultPermissions } from "../../../utils/permissions";
 import ConfirmModal from "../../../components/ui/ConfirmModal";
 import { EmpresasService } from "../../../services/empresas";
@@ -748,6 +752,83 @@ export function ProviderSection({ id }: { id?: string }) {
   const [adminUsers, setAdminUsers] = useState<User[]>([]);
   const [loadingAdmins, setLoadingAdmins] = useState(false);
 
+  type ProviderVisitDay = "D" | "L" | "M" | "MI" | "J" | "V" | "S";
+  type ProviderVisitFrequency = "SEMANAL" | "QUINCENAL" | "MENSUAL" | "22_DIAS";
+  type ProviderVisitConfig = {
+    createOrderDays: ProviderVisitDay[];
+    receiveOrderDays: ProviderVisitDay[];
+    frequency: ProviderVisitFrequency;
+  };
+
+  const VISIT_DAY_ORDER = useMemo<ProviderVisitDay[]>(
+    () => ["D", "L", "M", "MI", "J", "V", "S"],
+    []
+  );
+  const VISIT_DAY_TITLES = useMemo<Record<ProviderVisitDay, string>>(
+    () => ({
+      D: "Domingo",
+      L: "Lunes",
+      M: "Martes",
+      MI: "Miércoles",
+      J: "Jueves",
+      V: "Viernes",
+      S: "Sábado",
+    }),
+    []
+  );
+  const VISIT_FREQUENCY_OPTIONS = useMemo<
+    Array<{ value: ProviderVisitFrequency; label: string }>
+  >(
+    () => [
+      { value: "SEMANAL", label: "Semanal" },
+      { value: "QUINCENAL", label: "Quincenal" },
+      { value: "MENSUAL", label: "Mensual" },
+      { value: "22_DIAS", label: "22 días" },
+    ],
+    []
+  );
+
+  const [addVisit, setAddVisit] = useState(false);
+  const [visitCreateDays, setVisitCreateDays] = useState<ProviderVisitDay[]>([]);
+  const [visitReceiveDays, setVisitReceiveDays] = useState<ProviderVisitDay[]>([]);
+  const [visitFrequency, setVisitFrequency] = useState<ProviderVisitFrequency | "">("");
+
+  const isCompraInventarioProvider =
+    typeof providerType === "string" &&
+    providerType.trim().toUpperCase() === "COMPRA INVENTARIO";
+
+  const sortVisitDays = useCallback(
+    (days: ProviderVisitDay[]) => {
+      return [...days].sort(
+        (a, b) => VISIT_DAY_ORDER.indexOf(a) - VISIT_DAY_ORDER.indexOf(b)
+      );
+    },
+    [VISIT_DAY_ORDER]
+  );
+
+  const toggleVisitDay = useCallback(
+    (
+      day: ProviderVisitDay,
+      setter: React.Dispatch<React.SetStateAction<ProviderVisitDay[]>>
+    ) => {
+      setter((prev) => {
+        const exists = prev.includes(day);
+        const next = exists ? prev.filter((d) => d !== day) : [...prev, day];
+        return sortVisitDays(next);
+      });
+    },
+    [sortVisitDays]
+  );
+
+  useEffect(() => {
+    if (!isCompraInventarioProvider) {
+      setAddVisit(false);
+      setVisitCreateDays([]);
+      setVisitReceiveDays([]);
+      setVisitFrequency("");
+    }
+  }, [isCompraInventarioProvider]);
+
   // Estado para tipos de movimientos dinámicos
   const [fondoTypesLoaded, setFondoTypesLoaded] = useState(false);
   const [ingresoTypes, setIngresoTypes] = useState<string[]>([]);
@@ -770,6 +851,7 @@ export function ProviderSection({ id }: { id?: string }) {
     name: string;
     providerType?: FondoMovementType;
     correonotifi?: string;
+    visit?: ProviderVisitConfig;
   }>(null);
   const [similarConfirmOpen, setSimilarConfirmOpen] = useState(false);
   const [similarConfirmMessage, setSimilarConfirmMessage] =
@@ -1061,6 +1143,19 @@ export function ProviderSection({ id }: { id?: string }) {
       setAddNotification(false);
       setSelectedAdminId("");
     }
+
+    if (prov.visit && (prov.type || "").toUpperCase() === "COMPRA INVENTARIO") {
+      setAddVisit(true);
+      setVisitCreateDays((prov.visit.createOrderDays || []) as ProviderVisitDay[]);
+      setVisitReceiveDays((prov.visit.receiveOrderDays || []) as ProviderVisitDay[]);
+      setVisitFrequency((prov.visit.frequency || "") as ProviderVisitFrequency);
+    } else {
+      setAddVisit(false);
+      setVisitCreateDays([]);
+      setVisitReceiveDays([]);
+      setVisitFrequency("");
+    }
+
     setProviderDrawerOpen(true);
   };
 
@@ -1160,6 +1255,11 @@ export function ProviderSection({ id }: { id?: string }) {
               setEditingProviderCode(null);
               setAddNotification(false);
               setSelectedAdminId("");
+
+              setAddVisit(false);
+              setVisitCreateDays([]);
+              setVisitReceiveDays([]);
+              setVisitFrequency("");
             }}
             disabled={!company || saving || providersLoading}
             className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-[var(--accent)] text-white rounded shadow-sm disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-colors whitespace-nowrap"
@@ -1231,7 +1331,7 @@ export function ProviderSection({ id }: { id?: string }) {
               checked={showOnlyWithEmail}
               onChange={(e) => {
                 setShowOnlyWithEmail(e.target.checked);
-                setCurrentPage(1);
+                setCurrentPage(1);  
               }}
               className="w-3.5 h-3.5 sm:w-4 sm:h-4 cursor-pointer"
             />
@@ -1431,13 +1531,15 @@ export function ProviderSection({ id }: { id?: string }) {
                 pending.code,
                 pending.name,
                 pending.providerType,
-                pending.correonotifi
+                pending.correonotifi,
+                pending.visit
               );
             } else {
               await addProvider(
                 pending.name,
                 pending.providerType,
-                pending.correonotifi
+                pending.correonotifi,
+                pending.visit
               );
             }
 
@@ -1447,6 +1549,12 @@ export function ProviderSection({ id }: { id?: string }) {
             setEditingProviderCode(null);
             setAddNotification(false);
             setSelectedAdminId("");
+
+            setAddVisit(false);
+            setVisitCreateDays([]);
+            setVisitReceiveDays([]);
+            setVisitFrequency("");
+
             setProviderDrawerOpen(false);
             setSimilarConfirmOpen(false);
           } catch (err) {
@@ -1475,6 +1583,11 @@ export function ProviderSection({ id }: { id?: string }) {
           setProviderName("");
           setProviderType("");
           setEditingProviderCode(null);
+
+          setAddVisit(false);
+          setVisitCreateDays([]);
+          setVisitReceiveDays([]);
+          setVisitFrequency("");
         }}
         PaperProps={{
           sx: {
@@ -1509,6 +1622,11 @@ export function ProviderSection({ id }: { id?: string }) {
                 setEditingProviderCode(null);
                 setAddNotification(false);
                 setSelectedAdminId("");
+
+                setAddVisit(false);
+                setVisitCreateDays([]);
+                setVisitReceiveDays([]);
+                setVisitFrequency("");
               }}
               sx={{ color: "var(--foreground)" }}
             >
@@ -1635,6 +1753,116 @@ export function ProviderSection({ id }: { id?: string }) {
                   )}
                 </div>
               )}
+
+              {isCompraInventarioProvider && (
+                <div className="mt-2 rounded border border-[var(--input-border)] p-3 bg-[var(--input-bg)]">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="add-visit-checkbox"
+                      checked={addVisit}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setAddVisit(checked);
+                        if (!checked) {
+                          setVisitCreateDays([]);
+                          setVisitReceiveDays([]);
+                          setVisitFrequency("");
+                        }
+                      }}
+                      disabled={!company || saving}
+                      className="w-4 h-4 cursor-pointer"
+                    />
+                    <label
+                      htmlFor="add-visit-checkbox"
+                      className="text-sm text-[var(--foreground)] cursor-pointer"
+                    >
+                      Agregar visita
+                    </label>
+                  </div>
+
+                  {addVisit && (
+                    <div className="mt-3 space-y-3">
+                      <div>
+                        <div className="text-xs text-[var(--muted-foreground)] mb-1">
+                          Día de crear pedido
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {VISIT_DAY_ORDER.map((day) => {
+                            const selected = visitCreateDays.includes(day);
+                            return (
+                              <button
+                                key={`visit-create-${day}`}
+                                type="button"
+                                onClick={() =>
+                                  toggleVisitDay(day, setVisitCreateDays)
+                                }
+                                title={VISIT_DAY_TITLES[day]}
+                                className={`px-2 py-1 rounded border text-xs transition-colors ${
+                                  selected
+                                    ? "bg-[var(--accent)] text-white border-[var(--accent)]"
+                                    : "bg-[var(--input-bg)] text-[var(--foreground)] border-[var(--input-border)]"
+                                }`}
+                              >
+                                {day}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="text-xs text-[var(--muted-foreground)] mb-1">
+                          Día de recibir pedido
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {VISIT_DAY_ORDER.map((day) => {
+                            const selected = visitReceiveDays.includes(day);
+                            return (
+                              <button
+                                key={`visit-receive-${day}`}
+                                type="button"
+                                onClick={() =>
+                                  toggleVisitDay(day, setVisitReceiveDays)
+                                }
+                                title={VISIT_DAY_TITLES[day]}
+                                className={`px-2 py-1 rounded border text-xs transition-colors ${
+                                  selected
+                                    ? "bg-[var(--accent)] text-white border-[var(--accent)]"
+                                    : "bg-[var(--input-bg)] text-[var(--foreground)] border-[var(--input-border)]"
+                                }`}
+                              >
+                                {day}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-xs text-[var(--muted-foreground)] mb-1 block">
+                          Frecuencia
+                        </label>
+                        <select
+                          value={visitFrequency}
+                          onChange={(e) =>
+                            setVisitFrequency(e.target.value as ProviderVisitFrequency | "")
+                          }
+                          className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm"
+                          disabled={!company || saving}
+                        >
+                          <option value="">Seleccione una frecuencia</option>
+                          {VISIT_FREQUENCY_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end gap-2 mt-6">
@@ -1648,6 +1876,11 @@ export function ProviderSection({ id }: { id?: string }) {
                   setEditingProviderCode(null);
                   setAddNotification(false);
                   setSelectedAdminId("");
+
+                  setAddVisit(false);
+                  setVisitCreateDays([]);
+                  setVisitReceiveDays([]);
+                  setVisitFrequency("");
                 }}
                 className="px-4 py-2 border border-[var(--input-border)] rounded text-[var(--foreground)] hover:bg-[var(--muted)]"
                 disabled={saving}
@@ -1695,6 +1928,28 @@ export function ProviderSection({ id }: { id?: string }) {
                     }
                   }
 
+                  let visit: ProviderVisitConfig | undefined = undefined;
+                  if (isCompraInventarioProvider && addVisit) {
+                    if (visitCreateDays.length === 0) {
+                      setFormError("Debe seleccionar al menos un día para crear pedido.");
+                      return;
+                    }
+                    if (visitReceiveDays.length === 0) {
+                      setFormError("Debe seleccionar al menos un día para recibir pedido.");
+                      return;
+                    }
+                    if (!visitFrequency) {
+                      setFormError("Debe seleccionar una frecuencia de visita.");
+                      return;
+                    }
+
+                    visit = {
+                      createOrderDays: visitCreateDays,
+                      receiveOrderDays: visitReceiveDays,
+                      frequency: visitFrequency as ProviderVisitFrequency,
+                    };
+                  }
+
                   try {
                     setFormError(null);
                     setProviderTypeError("");
@@ -1731,6 +1986,7 @@ export function ProviderSection({ id }: { id?: string }) {
                           name,
                           providerType: normalizedProviderType,
                           correonotifi,
+                          visit,
                         };
                         setSimilarConfirmMessage(
                           <div className="w-full flex flex-col items-center text-center">
@@ -1796,7 +2052,8 @@ export function ProviderSection({ id }: { id?: string }) {
                         editingProviderCode,
                         name,
                         normalizedProviderType,
-                        correonotifi
+                        correonotifi,
+                        visit
                       );
                     } else {
                       if (
@@ -1822,6 +2079,7 @@ export function ProviderSection({ id }: { id?: string }) {
                           name,
                           providerType: normalizedProviderType,
                           correonotifi,
+                          visit,
                         };
                         setSimilarConfirmMessage(
                           <div className="w-full flex flex-col items-center text-center">
@@ -1886,7 +2144,8 @@ export function ProviderSection({ id }: { id?: string }) {
                       await addProvider(
                         name,
                         normalizedProviderType,
-                        correonotifi
+                        correonotifi,
+                        visit
                       );
                     }
                     setProviderName("");
@@ -1894,6 +2153,12 @@ export function ProviderSection({ id }: { id?: string }) {
                     setEditingProviderCode(null);
                     setAddNotification(false);
                     setSelectedAdminId("");
+
+                    setAddVisit(false);
+                    setVisitCreateDays([]);
+                    setVisitReceiveDays([]);
+                    setVisitFrequency("");
+
                     setProviderTypeError("");
                     setProviderDrawerOpen(false);
                   } catch (err) {
