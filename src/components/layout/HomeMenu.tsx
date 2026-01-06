@@ -17,6 +17,7 @@ import AnimatedStickman from "../ui/AnimatedStickman";
 import { User, UserPermissions } from "../../types/firestore";
 import { getDefaultPermissions } from "../../utils/permissions";
 import { useProviders } from "../../hooks/useProviders";
+import { useControlPedido } from "../../hooks/useControlPedido";
 
 const menuItems = [
   {
@@ -115,6 +116,11 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   const [showStickman, setShowStickman] = useState(false);
   const [showChristmasToast, setShowChristmasToast] = useState(false);
   const [showSupplierWeekInMenu, setShowSupplierWeekInMenu] = useState(false);
+  const [currentHash, setCurrentHash] = useState("");
+  const [selectedCreateDateKey, setSelectedCreateDateKey] = useState<number | null>(null);
+  const [selectedProviderCode, setSelectedProviderCode] = useState<string>("");
+  const [orderAmount, setOrderAmount] = useState<string>("");
+  const [orderSaving, setOrderSaving] = useState(false);
 
   const fireworksRef = useRef<HTMLDivElement>(null);
   const [fireworksInstance, setFireworksInstance] = useState<Fireworks | null>(
@@ -157,7 +163,19 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   const hasSupplierWeekPermission = Boolean(
     resolvedPermissions?.supplierorders || resolvedPermissions?.fondogeneral
   );
-  const canViewSupplierWeek = hasSupplierWeekPermission && showSupplierWeekInMenu;
+  const isSupplierWeekRoute = currentHash === "#SupplierWeek";
+  const showOnlySupplierWeek = isSupplierWeekRoute && hasSupplierWeekPermission;
+  const showExpandedSupplierWeek =
+    hasSupplierWeekPermission && (isSupplierWeekRoute || showSupplierWeekInMenu);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const updateHash = () => setCurrentHash(window.location.hash || "");
+    updateHash();
+    window.addEventListener("hashchange", updateHash);
+    return () => window.removeEventListener("hashchange", updateHash);
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -194,7 +212,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     providers: weeklyProviders,
     loading: weeklyProvidersLoading,
     error: weeklyProvidersError,
-  } = useProviders(canViewSupplierWeek ? companyForProviders : undefined);
+  } = useProviders(showExpandedSupplierWeek ? companyForProviders : undefined);
 
   type VisitDay = "D" | "L" | "M" | "MI" | "J" | "V" | "S";
   const WEEK_DAY_CODES: VisitDay[] = ["D", "L", "M", "MI", "J", "V", "S"];
@@ -220,6 +238,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     start.setHours(0, 0, 0, 0);
     // Sunday-start
     start.setDate(start.getDate() - start.getDay());
+    const weekStartKey = start.getTime();
 
     const days = Array.from({ length: 7 }, (_, idx) => {
       const date = new Date(start);
@@ -235,17 +254,19 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
         code,
         label: WEEK_DAY_LABELS[code],
         date,
+        dateKey,
         isToday: dateKey === todayKey,
       };
     });
 
+    type ProviderRef = { code: string; name: string };
     const visitProviders = (weeklyProviders || []).filter((p) => {
       const type = (p.type || "").toUpperCase();
       return type === "COMPRA INVENTARIO" && !!p.visit;
     });
 
-    const createByCode = new Map<VisitDay, string[]>();
-    const receiveByCode = new Map<VisitDay, string[]>();
+    const createByCode = new Map<VisitDay, ProviderRef[]>();
+    const receiveByCode = new Map<VisitDay, ProviderRef[]>();
     WEEK_DAY_CODES.forEach((c) => {
       createByCode.set(c, []);
       receiveByCode.set(c, []);
@@ -253,37 +274,142 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
 
     visitProviders.forEach((p) => {
       const name = p.name;
+      const code = p.code;
       const visit = p.visit;
       if (!visit) return;
       (visit.createOrderDays || []).forEach((d) => {
         const key = d as VisitDay;
         if (!createByCode.has(key)) return;
-        createByCode.get(key)!.push(name);
+        createByCode.get(key)!.push({ code, name });
       });
       (visit.receiveOrderDays || []).forEach((d) => {
         const key = d as VisitDay;
         if (!receiveByCode.has(key)) return;
-        receiveByCode.get(key)!.push(name);
+        receiveByCode.get(key)!.push({ code, name });
       });
     });
 
-    const sortNames = (list: string[]) =>
+    const sortProviders = (list: ProviderRef[]) =>
       list
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
+        .map((p) => ({ code: p.code.trim(), name: p.name.trim() }))
+        .filter((p) => p.code && p.name)
+        .sort((a, b) => a.name.localeCompare(b.name, "es", { sensitivity: "base" }));
 
     WEEK_DAY_CODES.forEach((c) => {
-      createByCode.set(c, sortNames(createByCode.get(c) || []));
-      receiveByCode.set(c, sortNames(receiveByCode.get(c) || []));
+      createByCode.set(c, sortProviders(createByCode.get(c) || []));
+      receiveByCode.set(c, sortProviders(receiveByCode.get(c) || []));
     });
 
     return {
+      weekStartKey,
       days,
       createByCode,
       receiveByCode,
+      visitProviders,
     };
   })();
+
+  const {
+    entries: controlEntries,
+    loading: controlLoading,
+    error: controlError,
+    addOrder,
+  } = useControlPedido(
+    showExpandedSupplierWeek ? companyForProviders : undefined,
+    showExpandedSupplierWeek ? weekModel.weekStartKey : undefined,
+    showExpandedSupplierWeek
+  );
+
+  // weekModel is computed above (needs weeklyProviders)
+
+  useEffect(() => {
+    // Reset selection when leaving SupplierWeek route
+    if (!isSupplierWeekRoute) {
+      setSelectedCreateDateKey(null);
+      setSelectedProviderCode("");
+      setOrderAmount("");
+    }
+  }, [isSupplierWeekRoute]);
+
+  const selectedDay = selectedCreateDateKey
+    ? weekModel.days.find((d) => d.dateKey === selectedCreateDateKey) || null
+    : null;
+
+  const eligibleProviders = (() => {
+    if (!selectedDay) return [];
+    const dayCode = selectedDay.code as VisitDay;
+    return (weekModel.visitProviders || [])
+      .filter((p) => (p.visit?.createOrderDays || []).includes(dayCode))
+      .sort((a, b) =>
+        a.name.localeCompare(b.name, "es", { sensitivity: "base" })
+      );
+  })();
+
+  const formatAmount = (amount: number) => {
+    if (!Number.isFinite(amount)) return String(amount);
+    return amount.toLocaleString("es-CR", {
+      maximumFractionDigits: 2,
+    });
+  };
+
+  const receiveAmountByProviderCodeForDay = (dateKey: number) => {
+    const map = new Map<string, number>();
+    (controlEntries || []).forEach((e) => {
+      if (e.receiveDateKey !== dateKey) return;
+      const key = e.providerCode;
+      map.set(key, (map.get(key) || 0) + (Number(e.amount) || 0));
+    });
+    return map;
+  };
+
+  const computeReceiveDateKey = (providerCode: string, createDateKey: number) => {
+    const provider = (weekModel.visitProviders || []).find(
+      (p) => p.code === providerCode
+    );
+    const receiveDays = provider?.visit?.receiveOrderDays || [];
+    if (!provider || receiveDays.length === 0) return createDateKey;
+
+    const createDay = weekModel.days.find((d) => d.dateKey === createDateKey);
+    if (!createDay) return createDateKey;
+
+    // Find first matching receive day from create day onward within current week
+    for (let idx = createDay.idx; idx < weekModel.days.length; idx++) {
+      const candidate = weekModel.days[idx];
+      if (receiveDays.includes(candidate.code as VisitDay)) {
+        return candidate.dateKey;
+      }
+    }
+
+    return createDateKey;
+  };
+
+  const handleSaveControlPedido = async () => {
+    if (!isSupplierWeekRoute) return;
+    if (!companyForProviders) return;
+    if (!selectedDay) return;
+    const provider = eligibleProviders.find((p) => p.code === selectedProviderCode);
+    if (!provider) return;
+
+    const parsedAmount = Number(orderAmount);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) return;
+
+    const receiveDateKey = computeReceiveDateKey(provider.code, selectedDay.dateKey);
+
+    setOrderSaving(true);
+    try {
+      await addOrder({
+        providerCode: provider.code,
+        providerName: provider.name,
+        createDateKey: selectedDay.dateKey,
+        receiveDateKey,
+        amount: parsedAmount,
+      });
+      setOrderAmount("");
+      setSelectedProviderCode("");
+    } finally {
+      setOrderSaving(false);
+    }
+  };
 
   const handleNavigate = (id: string) => {
     if (typeof window !== "undefined") {
@@ -393,119 +519,379 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 w-full max-w-screen-xl pt-4">
-          {canViewSupplierWeek && (
-            <div
-              className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl shadow-md p-6 col-span-1 sm:col-span-2 md:col-span-3 lg:col-span-4"
-              style={{ minHeight: 160 }}
-            >
-              <div className="flex items-center justify-between gap-3 mb-4">
-                <div className="min-w-0">
-                  <h3 className="text-lg font-semibold text-[var(--foreground)]">
-                    Semana actual (proveedores)
-                  </h3>
-                  <p className="text-xs text-[var(--muted-foreground)]">
-                    Crea pedido y recibe pedido (Domingo a Sábado)
-                  </p>
-                </div>
-              </div>
+          {hasSupplierWeekPermission &&
+            (isSupplierWeekRoute || showSupplierWeekInMenu ? (
+              isSupplierWeekRoute ? (
+                <div
+                  className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl shadow-md p-6 col-span-1 sm:col-span-2 md:col-span-3 lg:col-span-4"
+                  style={{ minHeight: 160 }}
+                >
+                  <div className="flex items-center justify-between gap-3 mb-4">
+                    <div className="min-w-0">
+                      <h3 className="text-lg font-semibold text-[var(--foreground)]">
+                        Semana actual (proveedores)
+                      </h3>
+                      <p className="text-xs text-[var(--muted-foreground)]">
+                        Crea pedido y recibe pedido (Domingo a Sábado)
+                      </p>
+                    </div>
+                  </div>
 
-              {!companyForProviders ? (
-                <div className="text-sm text-[var(--muted-foreground)]">
-                  No se pudo determinar la empresa del usuario.
-                </div>
-              ) : weeklyProvidersLoading ? (
-                <div className="text-sm text-[var(--muted-foreground)]">
-                  Cargando proveedores...
-                </div>
-              ) : weeklyProvidersError ? (
-                <div className="text-sm text-red-500">
-                  {weeklyProvidersError}
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-                  {weekModel.days.map((d) => {
-                    const createList = weekModel.createByCode.get(d.code) || [];
-                    const receiveList = weekModel.receiveByCode.get(d.code) || [];
-                    const hasAny = createList.length > 0 || receiveList.length > 0;
-                    const todayStyle = d.isToday
-                      ? {
-                          borderColor: "var(--success)",
-                          backgroundColor:
-                            "color-mix(in srgb, var(--success) 18%, var(--card-bg))",
-                        }
-                      : undefined;
-
-                    return (
-                      <div
-                        key={`week-${d.code}`}
-                        className="rounded-lg border border-[var(--input-border)] p-2 bg-[var(--muted)]"
-                        style={todayStyle}
-                      >
-                        <div className="flex items-baseline justify-between gap-2">
-                          <div className="text-xs font-semibold text-[var(--foreground)]">
-                            {d.code}
-                          </div>
-                          <div className="text-[10px] text-[var(--muted-foreground)]">
-                            {d.date.getDate()}/{d.date.getMonth() + 1}
-                          </div>
+                  {/* Control de pedido (solo en /#SupplierWeek) */}
+                  <div className="bg-[var(--hover-bg)] rounded-lg p-4 mb-4">
+                    <div className="text-sm font-semibold text-[var(--foreground)] mb-2">
+                      Registrar pedido
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div>
+                        <div className="text-xs text-[var(--muted-foreground)] mb-1">
+                          Día seleccionado
                         </div>
-                        <div className="text-[10px] text-[var(--muted-foreground)] mb-2">
-                          {d.label}
+                        <div className="text-sm text-[var(--foreground)]">
+                          {selectedDay
+                            ? `${selectedDay.label} (${selectedDay.date.getDate()}/${selectedDay.date.getMonth() + 1})`
+                            : "Selecciona un día abajo"}
                         </div>
+                      </div>
 
-                        {!hasAny ? (
-                          <div className="text-[10px] text-[var(--muted-foreground)]">
-                            Sin visitas
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            {createList.length > 0 && (
-                              <div>
-                                <div className="text-[10px] font-semibold text-[var(--foreground)]">
-                                  Crear
-                                </div>
-                                <div className="text-[10px] text-[var(--muted-foreground)] break-words">
-                                  {createList.join(", ")}
-                                </div>
-                              </div>
-                            )}
-                            {receiveList.length > 0 && (
-                              <div>
-                                <div className="text-[10px] font-semibold text-[var(--foreground)]">
-                                  Recibir
-                                </div>
-                                <div className="text-[10px] text-[var(--muted-foreground)] break-words">
-                                  {receiveList.join(", ")}
-                                </div>
-                              </div>
-                            )}
+                      <div>
+                        <div className="text-xs text-[var(--muted-foreground)] mb-1">
+                          Proveedor
+                        </div>
+                        <select
+                          className="w-full bg-[var(--background)] border border-[var(--input-border)] rounded-md px-3 py-2 text-sm text-[var(--foreground)]"
+                          value={selectedProviderCode}
+                          onChange={(e) => setSelectedProviderCode(e.target.value)}
+                          disabled={!selectedDay || eligibleProviders.length === 0}
+                        >
+                          <option value="">
+                            {!selectedDay
+                              ? "Selecciona un día"
+                              : eligibleProviders.length === 0
+                                ? "Sin proveedores para ese día"
+                                : "Selecciona proveedor"}
+                          </option>
+                          {eligibleProviders.map((p) => (
+                            <option key={`prov-${p.code}`} value={p.code}>
+                              {p.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <div className="text-xs text-[var(--muted-foreground)] mb-1">
+                          Monto
+                        </div>
+                        <div className="flex gap-2">
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            min={0}
+                            step="0.01"
+                            className="flex-1 bg-[var(--background)] border border-[var(--input-border)] rounded-md px-3 py-2 text-sm text-[var(--foreground)]"
+                            value={orderAmount}
+                            onChange={(e) => setOrderAmount(e.target.value)}
+                            disabled={!selectedProviderCode || orderSaving}
+                          />
+                          <button
+                            type="button"
+                            onClick={handleSaveControlPedido}
+                            disabled={
+                              orderSaving ||
+                              !selectedDay ||
+                              !selectedProviderCode ||
+                              !orderAmount ||
+                              !(Number(orderAmount) > 0)
+                            }
+                            className="px-4 py-2 rounded-md text-sm font-semibold bg-[var(--primary)] text-[var(--primary-foreground)] disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {orderSaving ? "Guardando..." : "Guardar"}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {(controlLoading || controlError) && (
+                      <div className="mt-3 text-xs">
+                        {controlLoading && (
+                          <div className="text-[var(--muted-foreground)]">
+                            Cargando control de pedido...
                           </div>
                         )}
+                        {controlError && (
+                          <div className="text-red-500">{controlError}</div>
+                        )}
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
+                    )}
+                  </div>
 
-          {visibleMenuItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => handleNavigate(item.id)}
-              className="bg-[var(--card-bg)] dark:bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl shadow-md p-6 flex flex-col items-center transition hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-[var(--primary)] group"
-              style={{ minHeight: 160 }}
-            >
-              <item.icon className="w-10 h-10 mb-3 text-[var(--primary)] group-hover:scale-110 group-hover:text-[var(--button-hover)] transition-all" />
-              <span className="text-lg font-semibold mb-1 text-[var(--foreground)] dark:text-[var(--foreground)]">
-                {item.name}
-              </span>
-              <span className="text-sm text-[var(--muted-foreground)] text-center">
-                {item.description}
-              </span>
-              {/* No badge shown here; navigation goes to the Fondo General page */}
-            </button>
-          ))}
+                  {!companyForProviders ? (
+                    <div className="text-sm text-[var(--muted-foreground)]">
+                      No se pudo determinar la empresa del usuario.
+                    </div>
+                  ) : weeklyProvidersLoading ? (
+                    <div className="text-sm text-[var(--muted-foreground)]">
+                      Cargando proveedores...
+                    </div>
+                  ) : weeklyProvidersError ? (
+                    <div className="text-sm text-red-500">
+                      {weeklyProvidersError}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+                      {weekModel.days.map((d) => {
+                        const createList =
+                          weekModel.createByCode.get(d.code) || [];
+                        const receiveList =
+                          weekModel.receiveByCode.get(d.code) || [];
+                        const hasAny =
+                          createList.length > 0 || receiveList.length > 0;
+                        const isSelected =
+                          selectedDay && selectedDay.dateKey === d.dateKey;
+                        const todayStyle = d.isToday
+                          ? {
+                              borderColor: "var(--success)",
+                              backgroundColor:
+                                "color-mix(in srgb, var(--success) 18%, var(--card-bg))",
+                            }
+                          : undefined;
+
+                        const selectionStyle = isSelected
+                          ? {
+                              borderColor: "var(--primary)",
+                              boxShadow: "0 0 0 1px var(--primary)",
+                            }
+                          : undefined;
+
+                        const amountsMap = receiveAmountByProviderCodeForDay(
+                          d.dateKey
+                        );
+
+                        const createText = createList
+                          .map((p) => p.name)
+                          .join(", ");
+
+                        const receiveText = receiveList
+                          .map((p) => {
+                            const amt = amountsMap.get(p.code) || 0;
+                            return amt > 0
+                              ? `${p.name} (₡${formatAmount(amt)})`
+                              : p.name;
+                          })
+                          .join(", ");
+
+                        return (
+                          <button
+                            type="button"
+                            key={`week-${d.code}`}
+                            onClick={() => {
+                              setSelectedCreateDateKey(d.dateKey);
+                              setSelectedProviderCode("");
+                            }}
+                            className="rounded-lg border border-[var(--input-border)] p-2 bg-[var(--muted)] text-left cursor-pointer"
+                            style={{ ...todayStyle, ...selectionStyle }}
+                          >
+                            <div className="flex items-baseline justify-between gap-2">
+                              <div className="text-xs font-semibold text-[var(--foreground)]">
+                                {d.code}
+                              </div>
+                              <div className="text-[10px] text-[var(--muted-foreground)]">
+                                {d.date.getDate()}/{d.date.getMonth() + 1}
+                              </div>
+                            </div>
+                            <div className="text-[10px] text-[var(--muted-foreground)] mb-2">
+                              {d.label}
+                            </div>
+
+                            {!hasAny ? (
+                              <div className="text-[10px] text-[var(--muted-foreground)]">
+                                Sin visitas
+                              </div>
+                            ) : (
+                              <div className="space-y-2">
+                                {createList.length > 0 && (
+                                  <div>
+                                    <div className="text-[10px] font-semibold text-[var(--foreground)]">
+                                      Crear
+                                    </div>
+                                    <div className="text-[10px] text-[var(--muted-foreground)] break-words">
+                                      {createText}
+                                    </div>
+                                  </div>
+                                )}
+                                {receiveList.length > 0 && (
+                                  <div>
+                                    <div className="text-[10px] font-semibold text-[var(--foreground)]">
+                                      Recibir
+                                    </div>
+                                    <div className="text-[10px] text-[var(--muted-foreground)] break-words">
+                                      {receiveText}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => handleNavigate("SupplierWeek")}
+                  className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl shadow-md p-6 col-span-1 sm:col-span-2 md:col-span-3 lg:col-span-4 text-left transition hover:scale-[1.01] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                  style={{ minHeight: 160 }}
+                  aria-label="Abrir Semana actual (proveedores)"
+                >
+                  <div className="flex items-center justify-between gap-3 mb-4">
+                    <div className="min-w-0">
+                      <h3 className="text-lg font-semibold text-[var(--foreground)]">
+                        Semana actual (proveedores)
+                      </h3>
+                      <p className="text-xs text-[var(--muted-foreground)]">
+                        Crea pedido y recibe pedido (Domingo a Sábado)
+                      </p>
+                    </div>
+                  </div>
+
+                  {!companyForProviders ? (
+                    <div className="text-sm text-[var(--muted-foreground)]">
+                      No se pudo determinar la empresa del usuario.
+                    </div>
+                  ) : weeklyProvidersLoading ? (
+                    <div className="text-sm text-[var(--muted-foreground)]">
+                      Cargando proveedores...
+                    </div>
+                  ) : weeklyProvidersError ? (
+                    <div className="text-sm text-red-500">
+                      {weeklyProvidersError}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+                      {weekModel.days.map((d) => {
+                        const createList =
+                          weekModel.createByCode.get(d.code) || [];
+                        const receiveList =
+                          weekModel.receiveByCode.get(d.code) || [];
+                        const hasAny =
+                          createList.length > 0 || receiveList.length > 0;
+                        const todayStyle = d.isToday
+                          ? {
+                              borderColor: "var(--success)",
+                              backgroundColor:
+                                "color-mix(in srgb, var(--success) 18%, var(--card-bg))",
+                            }
+                          : undefined;
+
+                        const amountsMap = receiveAmountByProviderCodeForDay(
+                          d.dateKey
+                        );
+
+                        const createText = createList
+                          .map((p) => p.name)
+                          .join(", ");
+
+                        const receiveText = receiveList
+                          .map((p) => {
+                            const amt = amountsMap.get(p.code) || 0;
+                            return amt > 0
+                              ? `${p.name} (₡${formatAmount(amt)})`
+                              : p.name;
+                          })
+                          .join(", ");
+
+                        return (
+                          <div
+                            key={`week-${d.code}`}
+                            className="rounded-lg border border-[var(--input-border)] p-2 bg-[var(--muted)]"
+                            style={todayStyle}
+                          >
+                            <div className="flex items-baseline justify-between gap-2">
+                              <div className="text-xs font-semibold text-[var(--foreground)]">
+                                {d.code}
+                              </div>
+                              <div className="text-[10px] text-[var(--muted-foreground)]">
+                                {d.date.getDate()}/{d.date.getMonth() + 1}
+                              </div>
+                            </div>
+                            <div className="text-[10px] text-[var(--muted-foreground)] mb-2">
+                              {d.label}
+                            </div>
+
+                            {!hasAny ? (
+                              <div className="text-[10px] text-[var(--muted-foreground)]">
+                                Sin visitas
+                              </div>
+                            ) : (
+                              <div className="space-y-2">
+                                {createList.length > 0 && (
+                                  <div>
+                                    <div className="text-[10px] font-semibold text-[var(--foreground)]">
+                                      Crear
+                                    </div>
+                                    <div className="text-[10px] text-[var(--muted-foreground)] break-words">
+                                      {createText}
+                                    </div>
+                                  </div>
+                                )}
+                                {receiveList.length > 0 && (
+                                  <div>
+                                    <div className="text-[10px] font-semibold text-[var(--foreground)]">
+                                      Recibir
+                                    </div>
+                                    <div className="text-[10px] text-[var(--muted-foreground)] break-words">
+                                      {receiveText}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </button>
+              )
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleNavigate("SupplierWeek")}
+                className="bg-[var(--card-bg)] dark:bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl shadow-md p-6 flex flex-col items-center transition hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-[var(--primary)] group"
+                style={{ minHeight: 160 }}
+                aria-label="Abrir Semana actual (proveedores)"
+              >
+                <Truck className="w-10 h-10 mb-3 text-[var(--primary)] group-hover:scale-110 group-hover:text-[var(--button-hover)] transition-all" />
+                <span className="text-lg font-semibold mb-1 text-[var(--foreground)] dark:text-[var(--foreground)] text-center">
+                  Semana proveedores
+                </span>
+                <span className="text-sm text-[var(--muted-foreground)] text-center">
+                  Ver crear/recibir pedidos
+                </span>
+              </button>
+            ))}
+
+          {!showOnlySupplierWeek &&
+            visibleMenuItems.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => handleNavigate(item.id)}
+                className="bg-[var(--card-bg)] dark:bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl shadow-md p-6 flex flex-col items-center transition hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-[var(--primary)] group"
+                style={{ minHeight: 160 }}
+              >
+                <item.icon className="w-10 h-10 mb-3 text-[var(--primary)] group-hover:scale-110 group-hover:text-[var(--button-hover)] transition-all" />
+                <span className="text-lg font-semibold mb-1 text-[var(--foreground)] dark:text-[var(--foreground)]">
+                  {item.name}
+                </span>
+                <span className="text-sm text-[var(--muted-foreground)] text-center">
+                  {item.description}
+                </span>
+                {/* No badge shown here; navigation goes to the Fondo General page */}
+              </button>
+            ))}
         </div>
       )}
 
