@@ -1,24 +1,29 @@
-// Importación corregida para versiones actuales
-const { initializeFirebaseApp, backups } = require('firestore-export-import');
-const fs = require('fs');
+async function main() {
+  const firestoreExportImport = await import('firestore-export-import');
+  const { initializeFirebaseApp, backups } =
+    firestoreExportImport.default ?? firestoreExportImport;
 
-// Carga tus credenciales
-const serviceAccount = require('./serviceAccountKey.json');
-// LOG PARA VERIFICAR EN CONSOLA
-console.log("Conectando al proyecto:", serviceAccount.project_id);
+  const fsModule = await import('node:fs');
+  const fs = fsModule.default ?? fsModule;
 
-// 1. Inicializa la conexión
-// Nota: Algunos proyectos requieren la URL de la base de datos como segundo parámetro
-const firestore = initializeFirebaseApp(serviceAccount);
+  const pathModule = await import('node:path');
+  const path = pathModule.default ?? pathModule;
 
-console.log('Iniciando exportación completa...');
+  const serviceAccountPath = path.join(__dirname, 'serviceAccountKey.json');
+  const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
 
-// 2. Obtener todas las colecciones (backups sin parámetros trae todo)
-backups(firestore)
-  .then((data) => {
-    fs.writeFileSync('copia_local.json', JSON.stringify(data, null, 2));
-    console.log('✅ Exportación completada con éxito en copia_local.json');
-  })
-  .catch((error) => {
-    console.error('❌ Error durante la exportación:', error);
-  });
+  console.log('Conectando al proyecto:', serviceAccount.project_id);
+
+  const firestore = initializeFirebaseApp(serviceAccount);
+
+  console.log('Iniciando exportación completa...');
+
+  const data = await backups(firestore);
+  fs.writeFileSync('copia_local.json', JSON.stringify(data, null, 2));
+  console.log('✅ Exportación completada con éxito en copia_local.json');
+}
+
+main().catch((error) => {
+  console.error('❌ Error durante la exportación:', error);
+  process.exitCode = 1;
+});
