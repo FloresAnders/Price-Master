@@ -102,7 +102,20 @@ const weekDocId = (company: string, weekStartKey: number): string => {
 	return `${c}__${weekStartKey}`;
 };
 
+type WeekSubscriber = {
+	onValue: (entries: ControlPedidoEntry[]) => void;
+	onError?: (error: unknown) => void;
+};
+
+type SharedWeekListener = {
+	unsubscribe: Unsubscribe;
+	subscribers: Set<WeekSubscriber>;
+	lastEntries?: ControlPedidoEntry[];
+};
+
 export class ControlPedidoService {
+	private static sharedWeekListeners = new Map<string, SharedWeekListener>();
+
 	static subscribeWeek(
 		company: string,
 		weekStartKey: number,
@@ -115,21 +128,49 @@ export class ControlPedidoService {
 			return () => {};
 		}
 
-		const docRef = doc(db, COLLECTION_NAME, weekDocId(trimmedCompany, weekStartKey));
-		return onSnapshot(
+		const subscriber: WeekSubscriber = { onValue, onError };
+		const key = weekDocId(trimmedCompany, weekStartKey);
+		const existing = this.sharedWeekListeners.get(key);
+		if (existing) {
+			existing.subscribers.add(subscriber);
+			if (existing.lastEntries) onValue(existing.lastEntries);
+			return () => {
+				existing.subscribers.delete(subscriber);
+				if (existing.subscribers.size === 0) {
+					existing.unsubscribe();
+					this.sharedWeekListeners.delete(key);
+				}
+			};
+		}
+
+		const docRef = doc(db, COLLECTION_NAME, key);
+		const holder: SharedWeekListener = {
+			unsubscribe: () => {},
+			subscribers: new Set<WeekSubscriber>([subscriber]),
+		};
+		this.sharedWeekListeners.set(key, holder);
+
+		holder.unsubscribe = onSnapshot(
 			docRef,
 			(snapshot) => {
-				if (!snapshot.exists()) {
-					onValue([]);
-					return;
-				}
-				const normalized = normalizeWeekDoc(snapshot.data(), trimmedCompany, weekStartKey);
-				onValue(normalized.entries);
+				const entries = snapshot.exists()
+					? normalizeWeekDoc(snapshot.data(), trimmedCompany, weekStartKey).entries
+					: [];
+				holder.lastEntries = entries;
+				for (const sub of holder.subscribers) sub.onValue(entries);
 			},
 			(err) => {
-				if (onError) onError(err);
+				for (const sub of holder.subscribers) sub.onError?.(err);
 			}
 		);
+
+		return () => {
+			holder.subscribers.delete(subscriber);
+			if (holder.subscribers.size === 0) {
+				holder.unsubscribe();
+				this.sharedWeekListeners.delete(key);
+			}
+		};
 	}
 
 	static async addEntry(
