@@ -20,7 +20,7 @@ import DelifoodHoursModal from "../ui/DelifoodHoursModal";
 import ConfirmModal from "../ui/ConfirmModal";
 import type { User as FirestoreUser } from "../../types/firestore";
 import { ref, deleteObject } from "firebase/storage";
-import { storage } from "../../config/firebase";
+import { storage } from "@/config/firebase";
 import { useAuth } from "../../hooks/useAuth";
 import useToast from "../../hooks/useToast";
 import { hasPermission } from "../../utils/permissions";

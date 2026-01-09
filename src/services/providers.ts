@@ -1,5 +1,5 @@
 import { doc, getDoc, runTransaction } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { db } from '@/config/firebase';
 import type { ProviderEntry } from '../types/firestore';
 
 interface ProvidersDocument {

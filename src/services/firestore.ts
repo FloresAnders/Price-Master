@@ -11,7 +11,7 @@ import {
   where, orderBy,
   limit
 } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { db } from '@/config/firebase';
 
 export class FirestoreService {
   // Remove undefined values recursively from an object or array

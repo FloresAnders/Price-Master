@@ -6,11 +6,11 @@ import dynamic from 'next/dynamic'
 import { useAuth } from '@/hooks/useAuth'
 import useToast from '@/hooks/useToast';
 /*import { Calculator, Smartphone, Type, Banknote, Scan, Clock, Truck, Settings, History, } from lucide-react'*/
-import type { ScanHistoryEntry } from '@/types/barcode'
-import { ClientOnlyHomeMenu } from '@/components/layout'
-import { storage } from '@/config/firebase'
-import { ref, listAll } from 'firebase/storage'
-import Pruebas from '@/components/xpruebas/Pruebas'
+import type { ScanHistoryEntry } from '@/types/barcode';
+import { ClientOnlyHomeMenu } from '@/components/layout';
+import { ref, listAll } from 'firebase/storage';
+import Pruebas from '@/components/xpruebas/Pruebas';
+import { storage } from '@/config/firebase';
 
 // Dynamic imports for code splitting
 const BarcodeScanner = dynamic(() => import('@/components/scanner').then(mod => ({ default: mod.BarcodeScanner })), { ssr: false })

@@ -15,7 +15,7 @@ import {
   type QueryDocumentSnapshot,
   type DocumentData,
 } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { db } from '@/config/firebase';
 import { FirestoreService } from './firestore';
 
 export type MovementCurrencyKey = 'CRC' | 'USD';

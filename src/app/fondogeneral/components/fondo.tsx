@@ -69,7 +69,7 @@ import { buildDailyClosingEmailTemplate } from "../../../services/email-template
 import AgregarMovimiento from "./AgregarMovimiento";
 import DailyClosingModal, { DailyClosingFormValues } from "./DailyClosingModal";
 import { useActorOwnership } from "../../../hooks/useActorOwnership";
-import { db } from "../../../config/firebase";
+import { db } from "@/config/firebase";
 import { findBestStringMatch } from "../../../utils/stringSimilarity";
 import {
   addDoc,
@@ -2002,7 +2002,7 @@ export function ProviderSection({ id }: { id?: string }) {
                                     Nuevo proveedor
                                   </div>
                                   <div className="font-semibold break-words">
-                                    "{name}"
+                                    '{name}'
                                   </div>
                                 </div>
                               </div>
@@ -2014,7 +2014,7 @@ export function ProviderSection({ id }: { id?: string }) {
                                     Proveedor existente
                                   </div>
                                   <div className="font-semibold break-words">
-                                    "{best}"
+                                    '{best}'
                                   </div>
                                 </div>
                               </div>
@@ -2095,7 +2095,7 @@ export function ProviderSection({ id }: { id?: string }) {
                                     Nuevo proveedor
                                   </div>
                                   <div className="font-semibold break-words">
-                                    "{name}"
+                                    '{name}'
                                   </div>
                                 </div>
                               </div>
@@ -2107,7 +2107,7 @@ export function ProviderSection({ id }: { id?: string }) {
                                     Proveedor existente
                                   </div>
                                   <div className="font-semibold break-words">
-                                    "{best}"
+                                    '{best}'
                                   </div>
                                 </div>
                               </div>

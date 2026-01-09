@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { db } from '../config/firebase';
+import { db } from '@/config/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import versionData from '../data/version.json';
 

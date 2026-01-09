@@ -115,7 +115,6 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   const [hovered, setHovered] = useState(false);
   const [clickCount, setClickCount] = useState(0);
   const [showStickman, setShowStickman] = useState(false);
-  const [showChristmasToast, setShowChristmasToast] = useState(false);
   const [showSupplierWeekInMenu, setShowSupplierWeekInMenu] = useState(false);
   const [currentHash, setCurrentHash] = useState("");
   const [selectedCreateDateKey, setSelectedCreateDateKey] = useState<number | null>(null);
@@ -125,9 +124,6 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   const [fondoGeneralBalanceCRC, setFondoGeneralBalanceCRC] = useState<number | null>(null);
 
   const fireworksRef = useRef<HTMLDivElement>(null);
-  const [fireworksInstance, setFireworksInstance] = useState<Fireworks | null>(
-    null
-  );
 
   // Resolve user permissions once for reuse
   const resolvedPermissions: UserPermissions | null = (() => {
@@ -526,15 +522,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     }
   }, [showStickman]);
 
-  // Mostrar el toast al entrar y ocultarlo a los 5 segundos
-  useEffect(() => {
-    setShowChristmasToast(true);
-    const timer = setTimeout(() => {
-      setShowChristmasToast(false);
-    }, 5000);
-
-    return () => clearTimeout(timer);
-  }, []);
+  
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] py-8">

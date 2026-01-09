@@ -236,7 +236,7 @@ export default function CalculoHorasModal({
                 Fin
               </button>
             </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Al dar "Fin", el tiempo se copia al campo manual.</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Al dar 'Fin', el tiempo se copia al campo manual.</p>
           </div>
 
           {error && (
