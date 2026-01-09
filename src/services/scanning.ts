@@ -139,7 +139,8 @@ export class ScanningService {
             let q = query(
                 collection(db, this.COLLECTION_NAME),
                 where('processed', '==', false),
-                orderBy('timestamp', 'desc')
+                orderBy('timestamp', 'desc'),
+                limit(50)
             );
 
             if (sessionId) {
@@ -147,7 +148,8 @@ export class ScanningService {
                     collection(db, this.COLLECTION_NAME),
                     where('processed', '==', false),
                     where('sessionId', '==', sessionId),
-                    orderBy('timestamp', 'desc')
+                    orderBy('timestamp', 'desc'),
+                    limit(50)
                 );
             }
 
