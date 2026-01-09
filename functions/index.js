@@ -1,8 +1,8 @@
-const { onDocumentCreated } = require("firebase-functions/v2/firestore");
-const { onRequest } = require("firebase-functions/v2/https");
-const { defineSecret } = require("firebase-functions/params");
-const admin = require("firebase-admin");
-const nodemailer = require("nodemailer");
+import { onDocumentCreated } from 'firebase-functions/v2/firestore';
+import { onRequest } from 'firebase-functions/v2/https';
+import { defineSecret } from 'firebase-functions/params';
+import * as admin from 'firebase-admin';
+import nodemailer from 'nodemailer';
 
 // Definir secretos
 const gmailUser = defineSecret("GMAIL_USER");
@@ -20,7 +20,7 @@ const getDb = () => admin.firestore().databaseId === 'restauracion'
  * Cloud Function que se dispara cuando se crea un documento en la colección 'mail'
  * Procesa y envía el email usando nodemailer
  */
-exports.sendEmailTrigger = onDocumentCreated(
+export const sendEmailTrigger = onDocumentCreated(
   {
     document: "mail/{emailId}",
     database: "restauracion",
@@ -124,7 +124,7 @@ exports.sendEmailTrigger = onDocumentCreated(
  * Función auxiliar para verificar la configuración del sistema de emails
  * Puede ser llamada manualmente para diagnóstico
  */
-exports.checkEmailConfig = onRequest(
+export const checkEmailConfig = onRequest(
   { secrets: [gmailUser, gmailAppPassword] },
   async (req, res) => {
     const hasGmailUser = !!gmailUser.value();
@@ -143,7 +143,7 @@ exports.checkEmailConfig = onRequest(
  * Función de prueba para enviar un email de prueba
  * Uso: POST /testEmail con body { "to": "email@example.com" }
  */
-exports.testEmail = onRequest(
+export const testEmail = onRequest(
   { secrets: [gmailUser, gmailAppPassword] },
   async (req, res) => {
     if (req.method !== "POST") {
