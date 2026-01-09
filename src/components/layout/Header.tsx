@@ -33,7 +33,7 @@ import {
   limit as fbLimit,
   onSnapshot,
 } from "firebase/firestore";
-import { db } from "../../config/firebase";
+import { db } from "@/config/firebase";
 import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import { useAuth } from "../../hooks/useAuth";
