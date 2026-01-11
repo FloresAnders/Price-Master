@@ -1,7 +1,28 @@
 import { FirestoreService } from './firestore';
+import { doc, writeBatch } from 'firebase/firestore';
+import { db } from '@/config/firebase';
 
 export class SolicitudesService {
   private static readonly COLLECTION_NAME = 'solicitudes';
+
+  /**
+   * Delete multiple solicitudes by IDs efficiently (chunks to respect Firestore batch limits).
+   */
+  static async deleteSolicitudesByIds(ids: string[]): Promise<void> {
+    const uniqueIds = Array.from(new Set((ids || []).filter(Boolean)));
+    if (uniqueIds.length === 0) return;
+
+    // Firestore writeBatch supports up to 500 ops; keep a safety margin.
+    const CHUNK_SIZE = 450;
+    for (let i = 0; i < uniqueIds.length; i += CHUNK_SIZE) {
+      const slice = uniqueIds.slice(i, i + CHUNK_SIZE);
+      const batch = writeBatch(db);
+      for (const id of slice) {
+        batch.delete(doc(db, this.COLLECTION_NAME, id));
+      }
+      await batch.commit();
+    }
+  }
 
   /**
    * Create a new solicitud document. The service will add the creation date automatically.
