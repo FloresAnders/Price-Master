@@ -1,7 +1,7 @@
 "use client";
 import Image from "next/image";
 import Fireworks from "fireworks-js";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Scan,
   Calculator,
@@ -19,6 +19,14 @@ import { getDefaultPermissions } from "../../utils/permissions";
 import { useProviders } from "../../hooks/useProviders";
 import { useControlPedido } from "../../hooks/useControlPedido";
 import { MovimientosFondosService } from "../../services/movimientos-fondos";
+import {
+  addDays,
+  dateToKey,
+  nextBusinessDay,
+  visitDayFromDate,
+  weekStartKeyFromDateKey,
+} from "../../utils/dateKey";
+import { SupplierWeekSection } from "../business/SupplierWeekSection";
 
 const menuItems = [
   {
@@ -117,8 +125,12 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   const [showStickman, setShowStickman] = useState(false);
   const [showSupplierWeekInMenu, setShowSupplierWeekInMenu] = useState(false);
   const [currentHash, setCurrentHash] = useState("");
+  const [supplierWeekAnchorKey, setSupplierWeekAnchorKey] = useState<number>(() =>
+    dateToKey(new Date())
+  );
   const [selectedCreateDateKey, setSelectedCreateDateKey] = useState<number | null>(null);
   const [selectedProviderCode, setSelectedProviderCode] = useState<string>("");
+  const [selectedReceiveDateKey, setSelectedReceiveDateKey] = useState<number | null>(null);
   const [orderAmount, setOrderAmount] = useState<string>("");
   const [orderSaving, setOrderSaving] = useState(false);
   const [fondoGeneralBalanceCRC, setFondoGeneralBalanceCRC] = useState<number | null>(null);
@@ -165,6 +177,13 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   const showOnlySupplierWeek = isSupplierWeekRoute && hasSupplierWeekPermission;
   const showExpandedSupplierWeek =
     hasSupplierWeekPermission && (isSupplierWeekRoute || showSupplierWeekInMenu);
+
+  // When the supplier week card is shown in the Home menu, it must always reflect the current week.
+  useEffect(() => {
+    if (showSupplierWeekInMenu && !isSupplierWeekRoute) {
+      setSupplierWeekAnchorKey(dateToKey(new Date()));
+    }
+  }, [showSupplierWeekInMenu, isSupplierWeekRoute]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -291,28 +310,16 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   };
 
   const weekModel = (() => {
-    const now = new Date();
-    const todayKey = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate()
-    ).getTime();
+    const todayKey = dateToKey(new Date());
 
-    const start = new Date(now);
-    start.setHours(0, 0, 0, 0);
-    // Sunday-start
-    start.setDate(start.getDate() - start.getDay());
-    const weekStartKey = start.getTime();
+    const weekStartKey = weekStartKeyFromDateKey(supplierWeekAnchorKey);
+    const start = new Date(weekStartKey);
 
     const days = Array.from({ length: 7 }, (_, idx) => {
       const date = new Date(start);
       date.setDate(start.getDate() + idx);
       const code = WEEK_DAY_CODES[idx];
-      const dateKey = new Date(
-        date.getFullYear(),
-        date.getMonth(),
-        date.getDate()
-      ).getTime();
+      const dateKey = dateToKey(date);
       return {
         idx,
         code,
@@ -373,6 +380,14 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     };
   })();
 
+  const supplierWeekRangeLabel = (() => {
+    if (!weekModel.days || weekModel.days.length === 0) return "";
+    const start = weekModel.days[0].date;
+    const end = weekModel.days[weekModel.days.length - 1].date;
+    const fmt = (d: Date) => `${d.getDate()}/${d.getMonth() + 1}`;
+    return `${fmt(start)} – ${fmt(end)}`;
+  })();
+
   const {
     entries: controlEntries,
     loading: controlLoading,
@@ -391,9 +406,18 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     if (!isSupplierWeekRoute) {
       setSelectedCreateDateKey(null);
       setSelectedProviderCode("");
+      setSelectedReceiveDateKey(null);
       setOrderAmount("");
     }
   }, [isSupplierWeekRoute]);
+
+  useEffect(() => {
+    // Reset selection when changing week
+    setSelectedCreateDateKey(null);
+    setSelectedProviderCode("");
+    setSelectedReceiveDateKey(null);
+    setOrderAmount("");
+  }, [weekModel.weekStartKey]);
 
   const selectedDay = selectedCreateDateKey
     ? weekModel.days.find((d) => d.dateKey === selectedCreateDateKey) || null
@@ -409,6 +433,55 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
       );
   })();
 
+  const selectedProvider = selectedProviderCode
+    ? eligibleProviders.find((p) => p.code === selectedProviderCode) || null
+    : null;
+
+  const isImmediateDeliveryProvider = Boolean(
+    selectedProvider &&
+    selectedDay &&
+    (selectedProvider.visit?.receiveOrderDays || []).includes(selectedDay.code as VisitDay)
+  );
+
+  const computeDefaultReceiveDateKey = (providerCode: string, createDate: Date): number => {
+    const provider = (weekModel.visitProviders || []).find((p) => p.code === providerCode);
+    const receiveDays = provider?.visit?.receiveOrderDays || [];
+
+    if (!provider || receiveDays.length === 0) return dateToKey(createDate);
+
+    const createCode = visitDayFromDate(createDate) as VisitDay;
+    if (receiveDays.includes(createCode)) return dateToKey(createDate);
+
+    let candidate = nextBusinessDay(createDate);
+    if (receiveDays.length > 0) {
+      let guard = 0;
+      while (guard < 14) {
+        const code = visitDayFromDate(candidate) as VisitDay;
+        if (receiveDays.includes(code)) break;
+        candidate = nextBusinessDay(candidate);
+        guard++;
+      }
+    }
+
+    return dateToKey(candidate);
+  };
+
+  useEffect(() => {
+    if (!selectedDay || !selectedProviderCode) {
+      setSelectedReceiveDateKey(null);
+      return;
+    }
+
+    if (isImmediateDeliveryProvider) {
+      setSelectedReceiveDateKey(selectedDay.dateKey);
+      return;
+    }
+
+    setSelectedReceiveDateKey(
+      computeDefaultReceiveDateKey(selectedProviderCode, selectedDay.date)
+    );
+  }, [selectedDay?.dateKey, selectedProviderCode, isImmediateDeliveryProvider]);
+
   const formatAmount = (amount: number) => {
     if (!Number.isFinite(amount)) return String(amount);
     return amount.toLocaleString("es-CR", {
@@ -416,36 +489,33 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     });
   };
 
-  const receiveAmountByProviderCodeForDay = (dateKey: number) => {
-    const map = new Map<string, number>();
-    (controlEntries || []).forEach((e) => {
-      if (e.receiveDateKey !== dateKey) return;
-      const key = e.providerCode;
-      map.set(key, (map.get(key) || 0) + (Number(e.amount) || 0));
-    });
-    return map;
-  };
+  const receiveAmountsByDateKey = useMemo(() => {
+    const byDateKey = new Map<number, Map<string, number>>();
+    for (const entry of controlEntries || []) {
+      const receiveDateKey = entry.receiveDateKey;
+      if (!Number.isFinite(receiveDateKey)) continue;
 
-  const computeReceiveDateKey = (providerCode: string, createDateKey: number) => {
-    const provider = (weekModel.visitProviders || []).find(
-      (p) => p.code === providerCode
-    );
-    const receiveDays = provider?.visit?.receiveOrderDays || [];
-    if (!provider || receiveDays.length === 0) return createDateKey;
+      const providerCode = String(entry.providerCode || "").trim();
+      if (!providerCode) continue;
 
-    const createDay = weekModel.days.find((d) => d.dateKey === createDateKey);
-    if (!createDay) return createDateKey;
+      const amount = Number(entry.amount);
+      if (!Number.isFinite(amount) || amount <= 0) continue;
 
-    // Find first matching receive day from create day onward within current week
-    for (let idx = createDay.idx; idx < weekModel.days.length; idx++) {
-      const candidate = weekModel.days[idx];
-      if (receiveDays.includes(candidate.code as VisitDay)) {
-        return candidate.dateKey;
+      let byProvider = byDateKey.get(receiveDateKey);
+      if (!byProvider) {
+        byProvider = new Map<string, number>();
+        byDateKey.set(receiveDateKey, byProvider);
       }
-    }
 
-    return createDateKey;
-  };
+      byProvider.set(providerCode, (byProvider.get(providerCode) || 0) + amount);
+    }
+    return byDateKey;
+  }, [controlEntries]);
+
+  const receiveAmountByProviderCodeForDay = useCallback(
+    (dateKey: number) => receiveAmountsByDateKey.get(dateKey) || new Map<string, number>(),
+    [receiveAmountsByDateKey]
+  );
 
   const handleSaveControlPedido = async () => {
     if (!isSupplierWeekRoute) return;
@@ -457,7 +527,9 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     const parsedAmount = Number(orderAmount);
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) return;
 
-    const receiveDateKey = computeReceiveDateKey(provider.code, selectedDay.dateKey);
+    if (!selectedReceiveDateKey || !Number.isFinite(selectedReceiveDateKey)) {
+      return;
+    }
 
     setOrderSaving(true);
     try {
@@ -465,11 +537,12 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
         providerCode: provider.code,
         providerName: provider.name,
         createDateKey: selectedDay.dateKey,
-        receiveDateKey,
+        receiveDateKey: selectedReceiveDateKey,
         amount: parsedAmount,
       });
       setOrderAmount("");
       setSelectedProviderCode("");
+      setSelectedReceiveDateKey(null);
     } finally {
       setOrderSaving(false);
     }
@@ -522,7 +595,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     }
   }, [showStickman]);
 
-  
+
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] py-8">
@@ -534,9 +607,8 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
         <Image
           src="/Logos/LogoBlanco2.png"
           alt="Time Master logo"
-          className={`w-28 h-28 mr-2 transition-transform duration-300 ${
-            hovered ? "scale-110 rotate-12" : "scale-100"
-          }`}
+          className={`w-28 h-28 mr-2 transition-transform duration-300 ${hovered ? "scale-110 rotate-12" : "scale-100"
+            }`}
           width={56}
           height={56}
           onMouseEnter={() => setHovered(true)}
@@ -550,9 +622,8 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
       </div>
       <h1 className="text-3xl font-bold mb-8 text-center">
         {currentUser
-          ? `¡Qué gusto verte, ${
-              currentUser.name ?? currentUser.email ?? "Usuario"
-            } !`
+          ? `¡Qué gusto verte, ${currentUser.name ?? currentUser.email ?? "Usuario"
+          } !`
           : "¡Qué gusto verte!"}
       </h1>
 
@@ -575,432 +646,47 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 w-full max-w-screen-xl pt-4">
-          {hasSupplierWeekPermission &&
-            (isSupplierWeekRoute || showSupplierWeekInMenu ? (
-              isSupplierWeekRoute ? (
-                <div
-                  className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl shadow-md p-6 col-span-1 sm:col-span-2 md:col-span-3 lg:col-span-4"
-                  style={{ minHeight: 160 }}
-                >
-                  <div className="flex items-center justify-between gap-3 mb-4">
-                    <div className="min-w-0">
-                      <h3 className="text-lg font-semibold text-[var(--foreground)]">
-                        Semana actual (proveedores)
-                      </h3>
-                      <p className="text-xs text-[var(--muted-foreground)]">
-                        Crea pedido y recibe pedido (Domingo a Sábado)
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Control de pedido (solo en /#SupplierWeek) */}
-                  <div className="bg-[var(--hover-bg)] rounded-lg p-4 mb-4">
-                    <div className="text-sm font-semibold text-[var(--foreground)] mb-2">
-                      Registrar pedido
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <div>
-                        <div className="text-xs text-[var(--muted-foreground)] mb-1">
-                          Día seleccionado
-                        </div>
-                        <div className="text-sm text-[var(--foreground)]">
-                          {selectedDay
-                            ? `${selectedDay.label} (${selectedDay.date.getDate()}/${selectedDay.date.getMonth() + 1})`
-                            : "Selecciona un día abajo"}
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="text-xs text-[var(--muted-foreground)] mb-1">
-                          Proveedor
-                        </div>
-                        <select
-                          className="w-full bg-[var(--background)] border border-[var(--input-border)] rounded-md px-3 py-2 text-sm text-[var(--foreground)]"
-                          value={selectedProviderCode}
-                          onChange={(e) => setSelectedProviderCode(e.target.value)}
-                          disabled={!selectedDay || eligibleProviders.length === 0}
-                        >
-                          <option value="">
-                            {!selectedDay
-                              ? "Selecciona un día"
-                              : eligibleProviders.length === 0
-                                ? "Sin proveedores para ese día"
-                                : "Selecciona proveedor"}
-                          </option>
-                          {eligibleProviders.map((p) => (
-                            <option key={`prov-${p.code}`} value={p.code}>
-                              {p.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <div className="text-xs text-[var(--muted-foreground)] mb-1">
-                          Monto
-                        </div>
-                        <div className="flex gap-2">
-                          <input
-                            type="number"
-                            inputMode="decimal"
-                            min={0}
-                            step="0.01"
-                            className="flex-1 bg-[var(--background)] border border-[var(--input-border)] rounded-md px-3 py-2 text-sm text-[var(--foreground)]"
-                            value={orderAmount}
-                            onChange={(e) => setOrderAmount(e.target.value)}
-                            disabled={!selectedProviderCode || orderSaving}
-                          />
-                          <button
-                            type="button"
-                            onClick={handleSaveControlPedido}
-                            disabled={
-                              orderSaving ||
-                              !selectedDay ||
-                              !selectedProviderCode ||
-                              !orderAmount ||
-                              !(Number(orderAmount) > 0)
-                            }
-                            className="px-4 py-2 rounded-md text-sm font-semibold bg-[var(--primary)] text-[var(--primary-foreground)] disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {orderSaving ? "Guardando..." : "Guardar"}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {(controlLoading || controlError) && (
-                      <div className="mt-3 text-xs">
-                        {controlLoading && (
-                          <div className="text-[var(--muted-foreground)]">
-                            Cargando control de pedido...
-                          </div>
-                        )}
-                        {controlError && (
-                          <div className="text-red-500">{controlError}</div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {!companyForProviders ? (
-                    <div className="text-sm text-[var(--muted-foreground)]">
-                      No se pudo determinar la empresa del usuario.
-                    </div>
-                  ) : weeklyProvidersLoading ? (
-                    <div className="text-sm text-[var(--muted-foreground)]">
-                      Cargando proveedores...
-                    </div>
-                  ) : weeklyProvidersError ? (
-                    <div className="text-sm text-red-500">
-                      {weeklyProvidersError}
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-                      {weekModel.days.map((d) => {
-                        const createList =
-                          weekModel.createByCode.get(d.code) || [];
-                        const receiveList =
-                          weekModel.receiveByCode.get(d.code) || [];
-                        const hasAny =
-                          createList.length > 0 || receiveList.length > 0;
-                        const isSelected =
-                          selectedDay && selectedDay.dateKey === d.dateKey;
-                        const todayStyle = d.isToday
-                          ? {
-                              borderColor: "var(--success)",
-                              backgroundColor:
-                                "color-mix(in srgb, var(--success) 18%, var(--card-bg))",
-                            }
-                          : undefined;
-
-                        const selectionStyle = isSelected
-                          ? {
-                              borderColor: "var(--primary)",
-                              boxShadow: "0 0 0 1px var(--primary)",
-                            }
-                          : undefined;
-
-                        const amountsMap = receiveAmountByProviderCodeForDay(
-                          d.dateKey
-                        );
-
-                        const createText = createList
-                          .map((p) => p.name)
-                          .join(", ");
-
-                        const receiveText = receiveList
-                          .map((p) => ({
-                            name: p.name,
-                            amount: amountsMap.get(p.code) || 0,
-                          }));
-
-                        const receiveTotal = receiveText.reduce(
-                          (sum, row) => sum + (row.amount > 0 ? row.amount : 0),
-                          0
-                        );
-
-                        const receiveTotalClassName =
-                          typeof fondoGeneralBalanceCRC === "number"
-                            ? receiveTotal <= fondoGeneralBalanceCRC
-                              ? "text-[var(--success)]"
-                              : "text-[var(--error)]"
-                            : "text-[var(--muted-foreground)]";
-
-                        return (
-                          <button
-                            type="button"
-                            key={`week-${d.code}`}
-                            onClick={() => {
-                              setSelectedCreateDateKey(d.dateKey);
-                              setSelectedProviderCode("");
-                            }}
-                            className="rounded-lg border border-[var(--input-border)] p-2 bg-[var(--muted)] text-left cursor-pointer"
-                            style={{ ...todayStyle, ...selectionStyle }}
-                          >
-                            <div className="flex items-baseline justify-between gap-2">
-                              <div className="text-xs font-semibold text-[var(--foreground)]">
-                                {d.code}
-                              </div>
-                              <div className="text-[10px] text-[var(--muted-foreground)]">
-                                {d.date.getDate()}/{d.date.getMonth() + 1}
-                              </div>
-                            </div>
-                            <div className="text-[10px] text-[var(--muted-foreground)] mb-2">
-                              {d.label}
-                            </div>
-
-                            {!hasAny ? (
-                              <div className="text-[10px] text-[var(--muted-foreground)]">
-                                Sin visitas
-                              </div>
-                            ) : (
-                              <div className="space-y-2">
-                                {createList.length > 0 && (
-                                  <div>
-                                    <div className="text-[10px] font-semibold text-[var(--foreground)]">
-                                      Crear
-                                    </div>
-                                    <div className="text-[10px] text-[var(--muted-foreground)] break-words">
-                                      {createText}
-                                    </div>
-                                  </div>
-                                )}
-                                {receiveList.length > 0 && (
-                                  <div>
-                                    <div className="text-[10px] font-semibold text-[var(--foreground)]">
-                                      Recibir
-                                    </div>
-                                    <div className="mt-0.5 text-[10px] text-[var(--muted-foreground)]">
-                                      <div className="space-y-0.5">
-                                        {receiveText.map((row) => (
-                                          <div
-                                            key={row.name}
-                                            className="flex items-baseline justify-between gap-2"
-                                          >
-                                            <span className="min-w-0 flex-1 truncate">
-                                              {row.name}
-                                            </span>
-                                            <span className="flex-none tabular-nums">
-                                              {row.amount > 0
-                                                ? formatAmount(row.amount)
-                                                : ""}
-                                            </span>
-                                          </div>
-                                        ))}
-
-                                        <div className="mt-1 pt-1 border-t border-[var(--input-border)] flex items-baseline justify-between gap-2">
-                                          <span className="font-semibold text-[var(--foreground)]">
-                                            TOTAL
-                                          </span>
-                                          <span
-                                            className={`flex-none tabular-nums font-semibold ${receiveTotalClassName}`}
-                                          >
-                                            {formatAmount(receiveTotal)}
-                                          </span>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => handleNavigate("SupplierWeek")}
-                  className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl shadow-md p-6 col-span-1 sm:col-span-2 md:col-span-3 lg:col-span-4 text-left transition hover:scale-[1.01] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
-                  style={{ minHeight: 160 }}
-                  aria-label="Abrir Semana actual (proveedores)"
-                >
-                  <div className="flex items-center justify-between gap-3 mb-4">
-                    <div className="min-w-0">
-                      <h3 className="text-lg font-semibold text-[var(--foreground)]">
-                        Semana actual (proveedores)
-                      </h3>
-                      <p className="text-xs text-[var(--muted-foreground)]">
-                        Crea pedido y recibe pedido (Domingo a Sábado)
-                      </p>
-                    </div>
-                  </div>
-
-                  {!companyForProviders ? (
-                    <div className="text-sm text-[var(--muted-foreground)]">
-                      No se pudo determinar la empresa del usuario.
-                    </div>
-                  ) : weeklyProvidersLoading ? (
-                    <div className="text-sm text-[var(--muted-foreground)]">
-                      Cargando proveedores...
-                    </div>
-                  ) : weeklyProvidersError ? (
-                    <div className="text-sm text-red-500">
-                      {weeklyProvidersError}
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-                      {weekModel.days.map((d) => {
-                        const createList =
-                          weekModel.createByCode.get(d.code) || [];
-                        const receiveList =
-                          weekModel.receiveByCode.get(d.code) || [];
-                        const hasAny =
-                          createList.length > 0 || receiveList.length > 0;
-                        const todayStyle = d.isToday
-                          ? {
-                              borderColor: "var(--success)",
-                              backgroundColor:
-                                "color-mix(in srgb, var(--success) 18%, var(--card-bg))",
-                            }
-                          : undefined;
-
-                        const amountsMap = receiveAmountByProviderCodeForDay(
-                          d.dateKey
-                        );
-
-                        const createText = createList
-                          .map((p) => p.name)
-                          .join(", ");
-
-                        const receiveText = receiveList
-                          .map((p) => ({
-                            name: p.name,
-                            amount: amountsMap.get(p.code) || 0,
-                          }));
-
-                        const receiveTotal = receiveText.reduce(
-                          (sum, row) => sum + (row.amount > 0 ? row.amount : 0),
-                          0
-                        );
-
-                        const receiveTotalClassName =
-                          typeof fondoGeneralBalanceCRC === "number"
-                            ? receiveTotal <= fondoGeneralBalanceCRC
-                              ? "text-[var(--success)]"
-                              : "text-[var(--error)]"
-                            : "text-[var(--muted-foreground)]";
-
-                        return (
-                          <div
-                            key={`week-${d.code}`}
-                            className="rounded-lg border border-[var(--input-border)] p-2 bg-[var(--muted)]"
-                            style={todayStyle}
-                          >
-                            <div className="flex items-baseline justify-between gap-2">
-                              <div className="text-xs font-semibold text-[var(--foreground)]">
-                                {d.code}
-                              </div>
-                              <div className="text-[10px] text-[var(--muted-foreground)]">
-                                {d.date.getDate()}/{d.date.getMonth() + 1}
-                              </div>
-                            </div>
-                            <div className="text-[10px] text-[var(--muted-foreground)] mb-2">
-                              {d.label}
-                            </div>
-
-                            {!hasAny ? (
-                              <div className="text-[10px] text-[var(--muted-foreground)]">
-                                Sin visitas
-                              </div>
-                            ) : (
-                              <div className="space-y-2">
-                                {createList.length > 0 && (
-                                  <div>
-                                    <div className="text-[10px] font-semibold text-[var(--foreground)]">
-                                      Crear
-                                    </div>
-                                    <div className="text-[10px] text-[var(--muted-foreground)] break-words">
-                                      {createText}
-                                    </div>
-                                  </div>
-                                )}
-                                {receiveList.length > 0 && (
-                                  <div>
-                                    <div className="text-[10px] font-semibold text-[var(--foreground)]">
-                                      Recibir
-                                    </div>
-                                    <div className="mt-0.5 text-[10px] text-[var(--muted-foreground)]">
-                                      <div className="space-y-0.5">
-                                        {receiveText.map((row) => (
-                                          <div
-                                            key={row.name}
-                                            className="flex items-baseline justify-between gap-2"
-                                          >
-                                            <span className="min-w-0 flex-1 truncate">
-                                              {row.name}
-                                            </span>
-                                            <span className="flex-none tabular-nums">
-                                              {row.amount > 0
-                                                ? formatAmount(row.amount)
-                                                : ""}
-                                            </span>
-                                          </div>
-                                        ))}
-
-                                        <div className="mt-1 pt-1 border-t border-[var(--input-border)] flex items-baseline justify-between gap-2">
-                                          <span className="font-semibold text-[var(--foreground)]">
-                                            TOTAL
-                                          </span>
-                                          <span
-                                            className={`flex-none tabular-nums font-semibold ${receiveTotalClassName}`}
-                                          >
-                                            {formatAmount(receiveTotal)}
-                                          </span>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </button>
-              )
-            ) : (
-              <button
-                type="button"
-                onClick={() => handleNavigate("SupplierWeek")}
-                className="bg-[var(--card-bg)] dark:bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl shadow-md p-6 flex flex-col items-center transition hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-[var(--primary)] group"
-                style={{ minHeight: 160 }}
-                aria-label="Abrir Semana actual (proveedores)"
-              >
-                <Truck className="w-10 h-10 mb-3 text-[var(--primary)] group-hover:scale-110 group-hover:text-[var(--button-hover)] transition-all" />
-                <span className="text-lg font-semibold mb-1 text-[var(--foreground)] dark:text-[var(--foreground)] text-center">
-                  Semana proveedores
-                </span>
-                <span className="text-sm text-[var(--muted-foreground)] text-center">
-                  Ver crear/recibir pedidos
-                </span>
-              </button>
-            ))}
+          {hasSupplierWeekPermission && (
+            <SupplierWeekSection
+              isSupplierWeekRoute={isSupplierWeekRoute}
+              showSupplierWeekInMenu={showSupplierWeekInMenu}
+              companyForProviders={companyForProviders}
+              weeklyProvidersLoading={weeklyProvidersLoading}
+              weeklyProvidersError={weeklyProvidersError}
+              weekModel={weekModel}
+              supplierWeekRangeLabel={supplierWeekRangeLabel}
+              fondoGeneralBalanceCRC={fondoGeneralBalanceCRC}
+              onNavigateSupplierWeek={() => handleNavigate("SupplierWeek")}
+              onPrevWeek={() =>
+                setSupplierWeekAnchorKey((prev) =>
+                  dateToKey(addDays(new Date(prev), -7))
+                )
+              }
+              onNextWeek={() =>
+                setSupplierWeekAnchorKey((prev) =>
+                  dateToKey(addDays(new Date(prev), 7))
+                )
+              }
+              selectedDay={selectedDay}
+              selectedProviderCode={selectedProviderCode}
+              selectedReceiveDateKey={selectedReceiveDateKey}
+              eligibleProviders={eligibleProviders.map((p) => ({
+                code: p.code,
+                name: p.name,
+              }))}
+              orderAmount={orderAmount}
+              orderSaving={orderSaving}
+              controlLoading={controlLoading}
+              controlError={controlError}
+              formatAmount={formatAmount}
+              receiveAmountByProviderCodeForDay={receiveAmountByProviderCodeForDay}
+              setSelectedCreateDateKey={setSelectedCreateDateKey}
+              setSelectedProviderCode={setSelectedProviderCode}
+              setSelectedReceiveDateKey={setSelectedReceiveDateKey}
+              setOrderAmount={setOrderAmount}
+              handleSaveControlPedido={handleSaveControlPedido}
+            />
+          )}
 
           {!showOnlySupplierWeek &&
             visibleMenuItems.map((item) => (

@@ -58,19 +58,10 @@ export function useControlPedido(
 				setError(message);
 				throw new Error(message);
 			}
-			if (normalizedWeekStartKey === undefined) {
-				const message = "Semana inválida.";
-				setError(message);
-				throw new Error(message);
-			}
 
 			try {
 				setError(null);
-				await ControlPedidoService.addEntry(
-					normalizedCompany,
-					normalizedWeekStartKey,
-					payload
-				);
+				await ControlPedidoService.addEntry(normalizedCompany, payload);
 			} catch (err) {
 				const message =
 					err instanceof Error
@@ -80,7 +71,7 @@ export function useControlPedido(
 				throw err instanceof Error ? err : new Error(message);
 			}
 		},
-		[normalizedCompany, normalizedWeekStartKey]
+		[normalizedCompany]
 	);
 
 	return {

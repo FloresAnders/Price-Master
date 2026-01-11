@@ -8,6 +8,7 @@ import {
 	type Unsubscribe,
 } from "firebase/firestore";
 import { db } from "@/config/firebase";
+import { weekStartKeyFromDateKey } from "@/utils/dateKey";
 
 export interface ControlPedidoEntry {
 	id: string;
@@ -175,15 +176,11 @@ export class ControlPedidoService {
 
 	static async addEntry(
 		company: string,
-		weekStartKey: number,
 		payload: Omit<ControlPedidoEntry, "id" | "createdAt">
 	): Promise<ControlPedidoEntry> {
 		const trimmedCompany = (company || "").trim();
 		if (!trimmedCompany) {
 			throw new Error("No se pudo determinar la empresa del usuario.");
-		}
-		if (!Number.isFinite(weekStartKey)) {
-			throw new Error("Semana inválida.");
 		}
 		const amount = asFiniteNumber(payload.amount);
 		if (amount === null || amount <= 0) {
@@ -194,6 +191,15 @@ export class ControlPedidoService {
 		}
 		if (!Number.isFinite(payload.createDateKey) || !Number.isFinite(payload.receiveDateKey)) {
 			throw new Error("Fechas inválidas.");
+		}
+		if (payload.receiveDateKey < payload.createDateKey) {
+			throw new Error("La fecha de recepción no puede ser anterior a la fecha de creación.");
+		}
+
+		// ControlPedido docs are partitioned by RECEIVE week.
+		const receiveWeekStartKey = weekStartKeyFromDateKey(payload.receiveDateKey);
+		if (!Number.isFinite(receiveWeekStartKey)) {
+			throw new Error("Semana de recepción inválida.");
 		}
 
 		const entry: ControlPedidoEntry = {
@@ -206,13 +212,17 @@ export class ControlPedidoService {
 			createdAt: Timestamp.now(),
 		};
 
-		const docRef = doc(db, COLLECTION_NAME, weekDocId(trimmedCompany, weekStartKey));
+		const docRef = doc(db, COLLECTION_NAME, weekDocId(trimmedCompany, receiveWeekStartKey));
 
 		await runTransaction(db, async (tx) => {
 			const snap = await tx.get(docRef);
 			const existing = snap.exists()
-				? normalizeWeekDoc(snap.data(), trimmedCompany, weekStartKey)
-				: { company: trimmedCompany, weekStartKey, entries: [] as ControlPedidoEntry[] };
+				? normalizeWeekDoc(snap.data(), trimmedCompany, receiveWeekStartKey)
+				: {
+						company: trimmedCompany,
+						weekStartKey: receiveWeekStartKey,
+						entries: [] as ControlPedidoEntry[],
+				  };
 
 			const entries = Array.isArray(existing.entries) ? existing.entries : [];
 			entries.push(entry);
@@ -221,7 +231,7 @@ export class ControlPedidoService {
 				docRef,
 				{
 					company: trimmedCompany,
-					weekStartKey,
+					weekStartKey: receiveWeekStartKey,
 					entries,
 					updatedAt: serverTimestamp(),
 				},
