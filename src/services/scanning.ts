@@ -75,6 +75,21 @@ export class ScanningService {
     private static readonly COLLECTION_NAME = 'scans';
 
     /**
+     * Get how many images exist for a code (uses cached filename list)
+     */
+    static async getImageCountForCode(code: string): Promise<number> {
+        const trimmed = code?.trim();
+        if (!trimmed) return 0;
+
+        try {
+            const filenames = await this.getAllImageFilenames();
+            return filenames.filter((name) => name.startsWith(trimmed)).length;
+        } catch {
+            return 0;
+        }
+    }
+
+    /**
      * Add a new scan result (optimized)
      */
     static async addScan(scan: Omit<ScanResult, 'id' | 'timestamp'>): Promise<string> {
