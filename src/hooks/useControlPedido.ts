@@ -74,10 +74,38 @@ export function useControlPedido(
 		[normalizedCompany]
 	);
 
+	const deleteOrdersForProviderReceiveDay = useCallback(
+		async (providerCode: string, receiveDateKey: number) => {
+			if (!normalizedCompany) {
+				const message = "No se pudo determinar la empresa del usuario.";
+				setError(message);
+				throw new Error(message);
+			}
+
+			try {
+				setError(null);
+				return await ControlPedidoService.deleteByProviderAndReceiveDateKey(
+					normalizedCompany,
+					providerCode,
+					receiveDateKey
+				);
+			} catch (err) {
+				const message =
+					err instanceof Error
+						? err.message
+						: "No se pudo eliminar el control de pedido.";
+				setError(message);
+				throw err instanceof Error ? err : new Error(message);
+			}
+		},
+		[normalizedCompany]
+	);
+
 	return {
 		entries,
 		loading,
 		error,
 		addOrder,
+		deleteOrdersForProviderReceiveDay,
 	};
 }

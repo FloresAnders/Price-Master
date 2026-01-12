@@ -393,6 +393,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     loading: controlLoading,
     error: controlError,
     addOrder,
+    deleteOrdersForProviderReceiveDay,
   } = useControlPedido(
     showExpandedSupplierWeek ? companyForProviders : undefined,
     showExpandedSupplierWeek ? weekModel.weekStartKey : undefined,
@@ -548,6 +549,24 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     }
   };
 
+  const handleDeleteControlPedido = async () => {
+    if (!isSupplierWeekRoute) return;
+    if (!companyForProviders) return;
+    if (!selectedProviderCode) return;
+    if (!selectedReceiveDateKey || !Number.isFinite(selectedReceiveDateKey)) return;
+
+    setOrderSaving(true);
+    try {
+      await deleteOrdersForProviderReceiveDay(
+        selectedProviderCode,
+        selectedReceiveDateKey
+      );
+      setOrderAmount("");
+    } finally {
+      setOrderSaving(false);
+    }
+  };
+
   const handleNavigate = (id: string) => {
     if (typeof window !== "undefined") {
       // Redirigir a la ruta específica para la herramienta usando hash navigation
@@ -685,6 +704,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
               setSelectedReceiveDateKey={setSelectedReceiveDateKey}
               setOrderAmount={setOrderAmount}
               handleSaveControlPedido={handleSaveControlPedido}
+              handleDeleteControlPedido={handleDeleteControlPedido}
             />
           )}
 

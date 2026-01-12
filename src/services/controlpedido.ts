@@ -117,6 +117,66 @@ type SharedWeekListener = {
 export class ControlPedidoService {
 	private static sharedWeekListeners = new Map<string, SharedWeekListener>();
 
+	static async deleteByProviderAndReceiveDateKey(
+		company: string,
+		providerCode: string,
+		receiveDateKey: number
+	): Promise<number> {
+		const trimmedCompany = (company || "").trim();
+		const trimmedProviderCode = (providerCode || "").trim();
+		if (!trimmedCompany) {
+			throw new Error("No se pudo determinar la empresa del usuario.");
+		}
+		if (!trimmedProviderCode) {
+			throw new Error("Proveedor inválido.");
+		}
+		if (!Number.isFinite(receiveDateKey)) {
+			throw new Error("Fecha de recepción inválida.");
+		}
+
+		// ControlPedido docs are partitioned by RECEIVE week.
+		const receiveWeekStartKey = weekStartKeyFromDateKey(receiveDateKey);
+		if (!Number.isFinite(receiveWeekStartKey)) {
+			throw new Error("Semana de recepción inválida.");
+		}
+
+		const docRef = doc(db, COLLECTION_NAME, weekDocId(trimmedCompany, receiveWeekStartKey));
+		let removedCount = 0;
+
+		await runTransaction(db, async (tx) => {
+			const snap = await tx.get(docRef);
+			if (!snap.exists()) {
+				removedCount = 0;
+				return;
+			}
+
+			const existing = normalizeWeekDoc(snap.data(), trimmedCompany, receiveWeekStartKey);
+			const entries = Array.isArray(existing.entries) ? existing.entries : [];
+			const nextEntries = entries.filter((e) => {
+				const match =
+					String(e.providerCode || "").trim() === trimmedProviderCode &&
+					Number(e.receiveDateKey) === receiveDateKey;
+				if (match) removedCount++;
+				return !match;
+			});
+
+			if (removedCount === 0) return;
+
+			tx.set(
+				docRef,
+				{
+					company: trimmedCompany,
+					weekStartKey: receiveWeekStartKey,
+					entries: nextEntries,
+					updatedAt: serverTimestamp(),
+				},
+				{ merge: true }
+			);
+		});
+
+		return removedCount;
+	}
+
 	static subscribeWeek(
 		company: string,
 		weekStartKey: number,

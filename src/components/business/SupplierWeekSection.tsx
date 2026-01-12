@@ -1,4 +1,6 @@
+import { useMemo, useState } from "react";
 import { Truck } from "lucide-react";
+import ConfirmModal from "../ui/ConfirmModal";
 
 export type SupplierWeekVisitDay = "D" | "L" | "M" | "MI" | "J" | "V" | "S";
 
@@ -47,7 +49,10 @@ export type SupplierWeekSectionProps = {
     setSelectedProviderCode: (providerCode: string) => void;
     setSelectedReceiveDateKey: (receiveDateKey: number | null) => void;
     setOrderAmount: (amount: string) => void;
-    handleSaveControlPedido: () => void;
+    handleSaveControlPedido: () => void | Promise<void>;
+
+    // Eliminar monto asignado (por proveedor + día de recepción)
+    handleDeleteControlPedido: () => void | Promise<void>;
 };
 
 export function SupplierWeekSection(props: SupplierWeekSectionProps) {
@@ -78,6 +83,7 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
         setSelectedReceiveDateKey,
         setOrderAmount,
         handleSaveControlPedido,
+        handleDeleteControlPedido,
     } = props;
 
     const canSave =
@@ -87,6 +93,39 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
         Boolean(selectedReceiveDateKey) &&
         Boolean(orderAmount) &&
         Number(orderAmount) > 0;
+
+    const existingAssignedAmount =
+        selectedReceiveDateKey && selectedProviderCode
+            ? receiveAmountByProviderCodeForDay(selectedReceiveDateKey).get(
+                selectedProviderCode
+            ) || 0
+            : 0;
+
+    const canDelete =
+        !orderSaving &&
+        !controlLoading &&
+        Boolean(selectedProviderCode) &&
+        Boolean(selectedReceiveDateKey) &&
+        existingAssignedAmount > 0;
+
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+    const [deleteConfirmLoading, setDeleteConfirmLoading] = useState(false);
+
+    const selectedProviderName = useMemo(() => {
+        if (!selectedProviderCode) return "";
+        return eligibleProviders.find((p) => p.code === selectedProviderCode)?.name || "";
+    }, [eligibleProviders, selectedProviderCode]);
+
+    const handleConfirmDelete = async () => {
+        if (!canDelete) return;
+        setDeleteConfirmLoading(true);
+        try {
+            await Promise.resolve(handleDeleteControlPedido());
+            setDeleteConfirmOpen(false);
+        } finally {
+            setDeleteConfirmLoading(false);
+        }
+    };
 
     if (!(isSupplierWeekRoute || showSupplierWeekInMenu)) {
         return (
@@ -282,19 +321,18 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
             </div>
 
             {/* Control de pedido (solo en /#SupplierWeek) */}
-            <div className="bg-[var(--hover-bg)] rounded-lg p-4 mb-4">
+            <div className="bg-[var(--hover-bg)] rounded-lg p-4 mb-4 flex align-top justify-between border">
                 <form
+                    className="w-full"
                     onSubmit={(e) => {
                         e.preventDefault();
                         if (!canSave) return;
                         handleSaveControlPedido();
                     }}
                 >
-                    <div className="text-sm font-semibold text-[var(--foreground)] mb-2">
-                        Registrar pedido
-                    </div>
+                    
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <div>
+                        <div className="">
                             <div className="text-xs text-[var(--muted-foreground)] mb-1">
                                 Día seleccionado
                             </div>
@@ -305,8 +343,8 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
                             </div>
                         </div>
 
-                        <div>
-                            <div className="text-xs text-[var(--muted-foreground)] mb-1">
+                        <div className="">
+                            <div className="text-xs text-[var(--muted-foreground)] mb-1 ">
                                 Proveedor
                             </div>
                             <select
@@ -333,30 +371,56 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
                             </select>
                         </div>
 
-                        <div>
-                            <div className="text-xs text-[var(--muted-foreground)] mb-1">
-                                Monto
-                            </div>
-                            <div className="flex gap-2">
-                                <input
-                                    type="number"
-                                    inputMode="decimal"
-                                    min={0}
-                                    step="0.01"
-                                    className="flex-1 bg-[var(--background)] border border-[var(--input-border)] rounded-md px-3 py-2 text-sm text-[var(--foreground)]"
-                                    value={orderAmount}
-                                    onChange={(e) => setOrderAmount(e.target.value)}
-                                    disabled={!selectedProviderCode || orderSaving}
-                                />
+                        <div className="flex flex-col gap-2 justify-between">
+                            <div className="flex flex-col sm:flex-row items-start justify-start gap-2">
+                                <div className="w-full sm:flex-1 min-w-0">
+                                    <input
+                                        type="number"
+                                        inputMode="decimal"
+                                        min={0}
+                                        step="0.01"
+                                        className="w-full bg-[var(--background)] border border-[var(--input-border)] rounded-md px-3 py-2 text-sm text-[var(--foreground)]"
+                                        value={orderAmount}
+                                        onChange={(e) => setOrderAmount(e.target.value)}
+                                        disabled={!selectedProviderCode || orderSaving}
+                                    />
+
+                                    <div className="mt-2 flex flex-wrap items-start justify-start gap-2">
+                                        <div className="text-xs text-[var(--muted-foreground)]">Monto</div>
+
+                                        {existingAssignedAmount > 0 && (
+                                            <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                                                <span className="text-[var(--muted-foreground)]">Asignado:</span>
+                                                <span className="tabular-nums text-[var(--foreground)]">
+                                                    {formatAmount(existingAssignedAmount)}
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    disabled={!canDelete}
+                                                    onClick={() => {
+                                                        if (!canDelete) return;
+                                                        setDeleteConfirmOpen(true);
+                                                    }}
+                                                    className="text-[11px] px-2 py-1 rounded-md border border-[var(--input-border)] bg-[var(--background)] text-[var(--foreground)] disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    aria-label="Eliminar monto asignado"
+                                                >
+                                                    Eliminar
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
                                 <button
                                     type="submit"
                                     disabled={!canSave}
-                                    className="px-4 py-2 rounded-md text-sm font-semibold bg-[var(--primary)] text-[var(--primary-foreground)] disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="w-full sm:w-auto px-4 py-2 min-w-[120px] whitespace-nowrap rounded-md text-sm font-semibold bg-[var(--primary)] text-[var(--primary-foreground)] disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {orderSaving ? "Guardando..." : "Guardar"}
                                 </button>
                             </div>
                         </div>
+
                     </div>
 
                     {(controlLoading || controlError) && (
@@ -372,133 +436,163 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
                         </div>
                     )}
                 </form>
-            </div>
+            </div >
 
-            {!companyForProviders ? (
-                <div className="text-sm text-[var(--muted-foreground)]">
-                    No se pudo determinar la empresa del usuario.
-                </div>
-            ) : weeklyProvidersLoading ? (
-                <div className="text-sm text-[var(--muted-foreground)]">
-                    Cargando proveedores...
-                </div>
-            ) : weeklyProvidersError ? (
-                <div className="text-sm text-red-500">{weeklyProvidersError}</div>
-            ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-                    {weekModel.days.map((d) => {
-                        const createList = weekModel.createByCode.get(d.code) || [];
-                        const receiveList = weekModel.receiveByCode.get(d.code) || [];
-                        const hasAny = createList.length > 0 || receiveList.length > 0;
-                        const isSelected = selectedDay && selectedDay.dateKey === d.dateKey;
-                        const todayStyle = d.isToday
-                            ? {
-                                borderColor: "var(--success)",
-                                backgroundColor:
-                                    "color-mix(in srgb, var(--success) 18%, var(--card-bg))",
-                            }
-                            : undefined;
-                        const selectionStyle = isSelected
-                            ? {
-                                borderColor: "var(--primary)",
-                                boxShadow: "0 0 0 1px var(--primary)",
-                            }
-                            : undefined;
+            <ConfirmModal
+                open={deleteConfirmOpen}
+                title="Eliminar monto asignado"
+                actionType="delete"
+                message={
+                    <div>
+                        <div>
+                            ¿Deseas eliminar el monto asignado{selectedProviderName ? " para " : ""}
+                            {selectedProviderName ? (
+                                <span className="font-semibold">{selectedProviderName}</span>
+                            ) : null}
+                            ?
+                        </div>
+                        <div className="mt-2 text-xs text-[var(--muted-foreground)]">
+                            Asignado: {formatAmount(existingAssignedAmount)}
+                        </div>
+                    </div>
+                }
+                confirmText="Eliminar"
+                cancelText="Cancelar"
+                loading={deleteConfirmLoading}
+                onCancel={() => {
+                    if (deleteConfirmLoading) return;
+                    setDeleteConfirmOpen(false);
+                }}
+                onConfirm={handleConfirmDelete}
+            />
 
-                        const amountsMap = receiveAmountByProviderCodeForDay(d.dateKey);
-                        const createText = createList.map((p) => p.name).join(", ");
-                        const receiveText = receiveList.map((p) => ({
-                            name: p.name,
-                            amount: amountsMap.get(p.code) || 0,
-                        }));
-                        const receiveTotal = receiveText.reduce(
-                            (sum, row) => sum + (row.amount > 0 ? row.amount : 0),
-                            0
-                        );
-                        const receiveTotalClassName =
-                            typeof fondoGeneralBalanceCRC === "number"
-                                ? receiveTotal <= fondoGeneralBalanceCRC
-                                    ? "text-[var(--success)]"
-                                    : "text-[var(--error)]"
-                                : "text-[var(--muted-foreground)]";
+            {
+                !companyForProviders ? (
+                    <div className="text-sm text-[var(--muted-foreground)]">
+                        No se pudo determinar la empresa del usuario.
+                    </div>
+                ) : weeklyProvidersLoading ? (
+                    <div className="text-sm text-[var(--muted-foreground)]">
+                        Cargando proveedores...
+                    </div>
+                ) : weeklyProvidersError ? (
+                    <div className="text-sm text-red-500">{weeklyProvidersError}</div>
+                ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+                        {weekModel.days.map((d) => {
+                            const createList = weekModel.createByCode.get(d.code) || [];
+                            const receiveList = weekModel.receiveByCode.get(d.code) || [];
+                            const hasAny = createList.length > 0 || receiveList.length > 0;
+                            const isSelected = selectedDay && selectedDay.dateKey === d.dateKey;
+                            const todayStyle = d.isToday
+                                ? {
+                                    borderColor: "var(--success)",
+                                    backgroundColor:
+                                        "color-mix(in srgb, var(--success) 18%, var(--card-bg))",
+                                }
+                                : undefined;
+                            const selectionStyle = isSelected
+                                ? {
+                                    borderColor: "var(--primary)",
+                                    boxShadow: "0 0 0 1px var(--primary)",
+                                }
+                                : undefined;
 
-                        return (
-                            <button
-                                type="button"
-                                key={`week-${d.code}`}
-                                onClick={() => {
-                                    setSelectedCreateDateKey(d.dateKey);
-                                    setSelectedProviderCode("");
-                                    setSelectedReceiveDateKey(null);
-                                }}
-                                className="rounded-lg border border-[var(--input-border)] p-2 bg-[var(--muted)] text-left cursor-pointer"
-                                style={{ ...todayStyle, ...selectionStyle }}
-                            >
-                                <div className="flex items-baseline justify-between gap-2">
-                                    <div className="text-xs font-semibold text-[var(--foreground)]">
-                                        {d.code}
+                            const amountsMap = receiveAmountByProviderCodeForDay(d.dateKey);
+                            const createText = createList.map((p) => p.name).join(", ");
+                            const receiveText = receiveList.map((p) => ({
+                                name: p.name,
+                                amount: amountsMap.get(p.code) || 0,
+                            }));
+                            const receiveTotal = receiveText.reduce(
+                                (sum, row) => sum + (row.amount > 0 ? row.amount : 0),
+                                0
+                            );
+                            const receiveTotalClassName =
+                                typeof fondoGeneralBalanceCRC === "number"
+                                    ? receiveTotal <= fondoGeneralBalanceCRC
+                                        ? "text-[var(--success)]"
+                                        : "text-[var(--error)]"
+                                    : "text-[var(--muted-foreground)]";
+
+                            return (
+                                <button
+                                    type="button"
+                                    key={`week-${d.code}`}
+                                    onClick={() => {
+                                        setSelectedCreateDateKey(d.dateKey);
+                                        setSelectedProviderCode("");
+                                        setSelectedReceiveDateKey(null);
+                                    }}
+                                    className="rounded-lg border border-[var(--input-border)] p-2 bg-[var(--muted)] text-left cursor-pointer"
+                                    style={{ ...todayStyle, ...selectionStyle }}
+                                >
+                                    <div className="flex items-baseline justify-between gap-2">
+                                        <div className="text-xs font-semibold text-[var(--foreground)]">
+                                            {d.code}
+                                        </div>
+                                        <div className="text-[10px] text-[var(--muted-foreground)]">
+                                            {d.date.getDate()}/{d.date.getMonth() + 1}
+                                        </div>
                                     </div>
-                                    <div className="text-[10px] text-[var(--muted-foreground)]">
-                                        {d.date.getDate()}/{d.date.getMonth() + 1}
+                                    <div className="text-[10px] text-[var(--muted-foreground)] mb-2">
+                                        {d.label}
                                     </div>
-                                </div>
-                                <div className="text-[10px] text-[var(--muted-foreground)] mb-2">
-                                    {d.label}
-                                </div>
 
-                                {!hasAny ? (
-                                    <div className="text-[10px] text-[var(--muted-foreground)]">
-                                        Sin visitas
-                                    </div>
-                                ) : (
-                                    <div className="space-y-2">
-                                        {createList.length > 0 && (
-                                            <div>
-                                                <div className="text-[10px] font-semibold text-[var(--foreground)]">
-                                                    Crear
+                                    {!hasAny ? (
+                                        <div className="text-[10px] text-[var(--muted-foreground)]">
+                                            Sin visitas
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            {createList.length > 0 && (
+                                                <div>
+                                                    <div className="text-[10px] font-semibold text-[var(--foreground)]">
+                                                        Crear
+                                                    </div>
+                                                    <div className="text-[10px] text-[var(--muted-foreground)] break-words">
+                                                        {createText}
+                                                    </div>
                                                 </div>
-                                                <div className="text-[10px] text-[var(--muted-foreground)] break-words">
-                                                    {createText}
-                                                </div>
-                                            </div>
-                                        )}
-                                        {receiveList.length > 0 && (
-                                            <div>
-                                                <div className="text-[10px] font-semibold text-[var(--foreground)]">
-                                                    Recibir
-                                                </div>
-                                                <div className="mt-0.5 text-[10px] text-[var(--muted-foreground)]">
-                                                    <div className="space-y-0.5">
-                                                        {receiveText.map((row) => (
-                                                            <div
-                                                                key={row.name}
-                                                                className="flex items-baseline justify-between gap-2"
-                                                            >
-                                                                <span className="min-w-0 flex-1 truncate">{row.name}</span>
-                                                                <span className="flex-none tabular-nums">
-                                                                    {row.amount > 0 ? formatAmount(row.amount) : ""}
+                                            )}
+                                            {receiveList.length > 0 && (
+                                                <div>
+                                                    <div className="text-[10px] font-semibold text-[var(--foreground)]">
+                                                        Recibir
+                                                    </div>
+                                                    <div className="mt-0.5 text-[10px] text-[var(--muted-foreground)]">
+                                                        <div className="space-y-0.5">
+                                                            {receiveText.map((row) => (
+                                                                <div
+                                                                    key={row.name}
+                                                                    className="flex items-baseline justify-between gap-2"
+                                                                >
+                                                                    <span className="min-w-0 flex-1 truncate">{row.name}</span>
+                                                                    <span className="flex-none tabular-nums">
+                                                                        {row.amount > 0 ? formatAmount(row.amount) : ""}
+                                                                    </span>
+                                                                </div>
+                                                            ))}
+                                                            <div className="mt-1 pt-1 border-t border-[var(--input-border)] flex items-baseline justify-between gap-2">
+                                                                <span className="font-semibold text-[var(--foreground)]">TOTAL</span>
+                                                                <span
+                                                                    className={`flex-none tabular-nums font-semibold ${receiveTotalClassName}`}
+                                                                >
+                                                                    {formatAmount(receiveTotal)}
                                                                 </span>
                                                             </div>
-                                                        ))}
-                                                        <div className="mt-1 pt-1 border-t border-[var(--input-border)] flex items-baseline justify-between gap-2">
-                                                            <span className="font-semibold text-[var(--foreground)]">TOTAL</span>
-                                                            <span
-                                                                className={`flex-none tabular-nums font-semibold ${receiveTotalClassName}`}
-                                                            >
-                                                                {formatAmount(receiveTotal)}
-                                                            </span>
                                                         </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </button>
-                        );
-                    })}
-                </div>
-            )}
-        </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </button>
+                            );
+                        })}
+                    </div>
+                )
+            }
+        </div >
     );
 }
