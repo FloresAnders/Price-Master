@@ -1659,8 +1659,24 @@ export function ProviderSection({ id }: { id?: string }) {
               <select
                 value={providerType}
                 onChange={(e) => {
-                  setProviderType(e.target.value as FondoMovementType | "");
+                  const nextType = e.target.value as FondoMovementType | "";
+                  setProviderType(nextType);
                   setProviderTypeError("");
+
+                  const normalized = String(nextType || "")
+                    .trim()
+                    .toUpperCase();
+
+                  if (normalized === "COMPRA INVENTARIO") {
+                    // Al seleccionar COMPRA INVENTARIO, activar visita automáticamente.
+                    setAddVisit(true);
+                  } else {
+                    // Si se cambia a otro tipo, limpiar configuración de visita.
+                    setAddVisit(false);
+                    setVisitCreateDays([]);
+                    setVisitReceiveDays([]);
+                    setVisitFrequency("");
+                  }
                 }}
                 className={`w-full p-3 bg-[var(--input-bg)] border rounded ${
                   providerTypeError
