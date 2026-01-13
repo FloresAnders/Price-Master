@@ -9,10 +9,10 @@ interface ProvidersDocument {
 }
 
 type ProviderVisitDay = 'D' | 'L' | 'M' | 'MI' | 'J' | 'V' | 'S';
-type ProviderVisitFrequency = 'SEMANAL' | 'QUINCENAL' | 'MENSUAL' | '22_DIAS';
+type ProviderVisitFrequency = 'SEMANAL' | 'QUINCENAL' | 'MENSUAL' | '22 DIAS';
 
 const VISIT_DAYS: ProviderVisitDay[] = ['D', 'L', 'M', 'MI', 'J', 'V', 'S'];
-const VISIT_FREQUENCIES: ProviderVisitFrequency[] = ['SEMANAL', 'QUINCENAL', 'MENSUAL', '22_DIAS'];
+const VISIT_FREQUENCIES: ProviderVisitFrequency[] = ['SEMANAL', 'QUINCENAL', 'MENSUAL', '22 DIAS'];
 
 const normalizeVisitDays = (raw: unknown): ProviderVisitDay[] => {
 	if (!Array.isArray(raw)) return [];
@@ -44,10 +44,25 @@ const normalizeVisitConfig = (raw: unknown): ProviderEntry['visit'] | undefined 
 	const frequency = normalizeVisitFrequency(data.frequency);
 	if (!frequency) return undefined;
 	if (createOrderDays.length === 0 && receiveOrderDays.length === 0) return undefined;
+
+	const startDateKeyRaw = data.startDateKey ?? (data as any).startdatekey ?? (data as any).startDate;
+	let startDateKey: number | undefined;
+	if (typeof startDateKeyRaw === 'number' && Number.isFinite(startDateKeyRaw) && startDateKeyRaw > 0) {
+		startDateKey = startDateKeyRaw;
+	} else if (typeof startDateKeyRaw === 'string') {
+		const trimmed = startDateKeyRaw.trim();
+		const parsed = Number.parseInt(trimmed, 10);
+		if (Number.isFinite(parsed) && parsed > 0) startDateKey = parsed;
+	}
+
+	// For SEMANAL we don't need an anchor; omit to keep storage clean.
+	if (frequency === 'SEMANAL') startDateKey = undefined;
+	// For non-weekly frequencies, keep startDateKey optional for backward compatibility.
 	return {
 		createOrderDays,
 		receiveOrderDays,
 		frequency,
+		startDateKey,
 	};
 };
 
@@ -340,6 +355,9 @@ export class ProvidersService {
 							receiveOrderDays: p.visit.receiveOrderDays,
 							frequency: p.visit.frequency,
 						};
+						if (typeof p.visit.startDateKey === 'number' && Number.isFinite(p.visit.startDateKey)) {
+							(out.visit as any).startDateKey = p.visit.startDateKey;
+						}
 					}
 					return out;
 				}),
@@ -509,6 +527,9 @@ export class ProvidersService {
 							receiveOrderDays: p.visit.receiveOrderDays,
 							frequency: p.visit.frequency,
 						};
+						if (typeof p.visit.startDateKey === 'number' && Number.isFinite(p.visit.startDateKey)) {
+							(out.visit as any).startDateKey = p.visit.startDateKey;
+						}
 					}
 					return out;
 				}),
