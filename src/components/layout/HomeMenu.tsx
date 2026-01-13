@@ -530,21 +530,107 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
       receiveByCode.set(c, []);
     });
 
+    // Helper: compute the next date (same day allowed) whose VisitDay is in allowed codes.
+    // We intentionally do NOT skip weekends here, because some providers may have D/S as valid receive days.
+    const nextMatchingVisitDay = (baseDate: Date, allowed: VisitDay[], includeSameDay: boolean): Date | null => {
+      if (!Array.isArray(allowed) || allowed.length === 0) return null;
+      let candidate = new Date(baseDate);
+      candidate.setHours(0, 0, 0, 0);
+
+      if (includeSameDay) {
+        const c = visitDayFromDate(candidate) as VisitDay;
+        if (allowed.includes(c)) return candidate;
+      }
+
+      // Guard: deliveries are expected within the next two weeks at most.
+      for (let i = 0; i < 14; i++) {
+        candidate = addDays(candidate, 1);
+        const c = visitDayFromDate(candidate) as VisitDay;
+        if (allowed.includes(c)) return candidate;
+      }
+
+      return null;
+    };
+
+    const isDateWithinWeek = (date: Date, weekStart: Date): boolean => {
+      const startKey = dateToKey(weekStart);
+      const endKey = dateToKey(addDays(weekStart, 6));
+      const key = dateToKey(date);
+      return key >= startKey && key <= endKey;
+    };
+
+    // Avoid duplicates when a provider has multiple day combinations.
+    const createSeen = new Map<VisitDay, Set<string>>();
+    const receiveSeen = new Map<VisitDay, Set<string>>();
+    WEEK_DAY_CODES.forEach((c) => {
+      createSeen.set(c, new Set());
+      receiveSeen.set(c, new Set());
+    });
+
+    // CREATE: providers that place orders in THIS week.
     visitProviders.forEach((p) => {
       const name = p.name;
       const code = p.code;
       const visit = p.visit;
       if (!visit) return;
+
       (visit.createOrderDays || []).forEach((d) => {
         const key = d as VisitDay;
-        if (!createByCode.has(key)) return;
+        const set = createSeen.get(key);
+        if (!createByCode.has(key) || !set) return;
+        if (set.has(code)) return;
+        set.add(code);
         createByCode.get(key)!.push({ code, name });
       });
-      (visit.receiveOrderDays || []).forEach((d) => {
-        const key = d as VisitDay;
-        if (!receiveByCode.has(key)) return;
-        receiveByCode.get(key)!.push({ code, name });
-      });
+    });
+
+    // RECEIVE: providers that will deliver in THIS week.
+    // Deliveries can come from orders created this week OR from the previous week
+    // (e.g. create Friday -> receive Tuesday of next week).
+    (weeklyProviders || []).forEach((p) => {
+      const type = (p.type || "").toUpperCase();
+      if (type !== "COMPRA INVENTARIO") return;
+      const visit = (p as any).visit;
+      if (!visit) return;
+
+      const createDays: VisitDay[] = Array.isArray(visit.createOrderDays) ? visit.createOrderDays : [];
+      const receiveDays: VisitDay[] = Array.isArray(visit.receiveOrderDays) ? visit.receiveOrderDays : [];
+      if (createDays.length === 0 || receiveDays.length === 0) return;
+
+      const providerCode = String(p.code || "");
+      const providerName = String(p.name || "");
+      if (!providerCode || !providerName) return;
+
+      // Check cycles that could land a delivery inside this week.
+      // offsetWeeks=0: create happens this week (delivery could still be this week)
+      // offsetWeeks=-1: create happened last week (delivery could land this week)
+      const offsets = [0, -1];
+      for (const offsetWeeks of offsets) {
+        const createWeekStartDate = addDays(new Date(weekStartKey), offsetWeeks * 7);
+        createWeekStartDate.setHours(0, 0, 0, 0);
+        const createWeekStartKey = dateToKey(createWeekStartDate);
+
+        if (!providerAppliesToWeek(visit, createWeekStartKey)) continue;
+
+        for (const createDayCode of createDays) {
+          const idx = WEEK_DAY_CODES.indexOf(createDayCode);
+          if (idx < 0) continue;
+
+          const createDate = addDays(createWeekStartDate, idx);
+          const includeSameDay = receiveDays.includes(visitDayFromDate(createDate) as VisitDay);
+          const deliveryDate = nextMatchingVisitDay(createDate, receiveDays, includeSameDay);
+          if (!deliveryDate) continue;
+
+          if (!isDateWithinWeek(deliveryDate, start)) continue;
+
+          const receiveCode = visitDayFromDate(deliveryDate) as VisitDay;
+          const set = receiveSeen.get(receiveCode);
+          if (!receiveByCode.has(receiveCode) || !set) continue;
+          if (set.has(providerCode)) continue;
+          set.add(providerCode);
+          receiveByCode.get(receiveCode)!.push({ code: providerCode, name: providerName });
+        }
+      }
     });
 
     const sortProviders = (list: ProviderRef[]) =>
