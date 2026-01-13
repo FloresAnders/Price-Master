@@ -342,8 +342,33 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
                             type="button"
                             onClick={() => {
                                 if (typeof window === "undefined") return;
-                                const target = `${window.location.origin}/#agregarproveedor`;
-                                window.location.assign(target);
+                                // Mantener la empresa seleccionada al ir a "Agregar proveedor".
+                                // ProviderSection (Fondo General) lee esta clave para decidir la empresa activa.
+                                const sharedCompanyKey = "fg_selected_company_shared";
+                                // Importante: usar la empresa efectiva (companyForProviders) y no solo el value del selector.
+                                // En HomeMenu puede existir un "fallback" donde companyForProviders cambia al label.
+                                const selectedCompany = (companyForProviders || selectedCompanyForUi).trim();
+
+                                if (selectedCompany) {
+                                    try {
+                                        const oldValue = localStorage.getItem(sharedCompanyKey) ?? "";
+                                        localStorage.setItem(sharedCompanyKey, selectedCompany);
+                                        // Sincronizar dentro de la misma pestaña (listeners de storage no siempre disparan en la misma ventana).
+                                        window.dispatchEvent(
+                                            new StorageEvent("storage", {
+                                                key: sharedCompanyKey,
+                                                newValue: selectedCompany,
+                                                oldValue,
+                                                storageArea: localStorage,
+                                            })
+                                        );
+                                    } catch {
+                                        // Si falla storage (modo privado/restricciones), igual navegamos.
+                                    }
+                                }
+
+                                // Navegación por hash (sin recargar la página)
+                                window.location.hash = "#agregarproveedor";
                             }}
                             className="px-3 py-2 rounded-md text-sm font-semibold bg-[var(--hover-bg)] border border-[var(--input-border)] text-[var(--foreground)] whitespace-nowrap"
                             aria-label="Agregar proveedor"
