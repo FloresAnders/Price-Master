@@ -298,10 +298,10 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
 
     return (
         <div
-            className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl shadow-md p-6 col-span-1 sm:col-span-2 md:col-span-3 lg:col-span-4"
+            className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl shadow-md p-4 sm:p-6 col-span-1 sm:col-span-2 md:col-span-3 lg:col-span-4"
             style={{ minHeight: 160 }}
         >
-            <div className="flex items-center justify-between gap-3 mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                 <div className="min-w-0">
                     <h3 className="text-lg font-semibold text-[var(--foreground)]">
                         Semana (proveedores)
@@ -313,17 +313,16 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
                     </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2 w-full sm:w-auto">
                     {canChangeCompanyForProviders &&
                         Array.isArray(companyOptionsForProviders) &&
                         companyOptionsForProviders.length > 0 ? (
                         <select
-                            className="w-full sm:w-auto px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            className="w-full sm:w-auto min-w-0 sm:min-w-[240px] px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             style={{
                                 background: "var(--input-bg)",
                                 border: "1px solid var(--input-border)",
                                 color: "var(--foreground)",
-                                minWidth: 240,
                             }}
                             value={companySelectorValue ?? companyForProviders}
                             onChange={(e) => onCompanyForProvidersChange?.(e.target.value)}
@@ -346,7 +345,7 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
                                 const target = `${window.location.origin}/#agregarproveedor`;
                                 window.location.assign(target);
                             }}
-                            className="px-3 py-2 rounded-md text-sm font-semibold bg-[var(--hover-bg)] border border-[var(--input-border)] text-[var(--foreground)]"
+                            className="px-3 py-2 rounded-md text-sm font-semibold bg-[var(--hover-bg)] border border-[var(--input-border)] text-[var(--foreground)] whitespace-nowrap"
                             aria-label="Agregar proveedor"
                         >
                             Agregar
@@ -356,7 +355,7 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
                     <button
                         type="button"
                         onClick={onPrevWeek}
-                        className="px-3 py-2 rounded-md text-sm font-semibold bg-[var(--hover-bg)] border border-[var(--input-border)] text-[var(--foreground)]"
+                        className="px-3 py-2 rounded-md text-sm font-semibold bg-[var(--hover-bg)] border border-[var(--input-border)] text-[var(--foreground)] whitespace-nowrap"
                         aria-label="Semana anterior"
                     >
                         &lt;
@@ -364,7 +363,7 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
                     <button
                         type="button"
                         onClick={onNextWeek}
-                        className="px-3 py-2 rounded-md text-sm font-semibold bg-[var(--hover-bg)] border border-[var(--input-border)] text-[var(--foreground)]"
+                        className="px-3 py-2 rounded-md text-sm font-semibold bg-[var(--hover-bg)] border border-[var(--input-border)] text-[var(--foreground)] whitespace-nowrap"
                         aria-label="Semana siguiente"
                     >
                         &gt;
@@ -373,7 +372,7 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
             </div>
 
             {/* Control de pedido (solo en /#SupplierWeek) */}
-            <div className="bg-[var(--hover-bg)] rounded-lg p-4 mb-4 flex align-top justify-between border">
+            <div className="bg-[var(--hover-bg)] rounded-lg p-3 sm:p-4 mb-4 border">
                 <form
                     className="w-full"
                     onSubmit={(e) => {
@@ -383,7 +382,7 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
                     }}
                 >
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                         <div className="">
                             <div className="text-xs text-[var(--muted-foreground)] mb-1">
                                 Día seleccionado
@@ -530,7 +529,7 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
                 ) : weeklyProvidersError ? (
                     <div className="text-sm text-red-500">{weeklyProvidersError}</div>
                 ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-3">
                         {weekModel.days.map((d) => {
                             const createList = weekModel.createByCode.get(d.code) || [];
                             const receiveList = weekModel.receiveByCode.get(d.code) || [];
@@ -576,7 +575,7 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
                                         setSelectedProviderCode("");
                                         setSelectedReceiveDateKey(null);
                                     }}
-                                    className="rounded-lg border border-[var(--input-border)] p-2 bg-[var(--muted)] text-left cursor-pointer"
+                                    className="rounded-lg border border-[var(--input-border)] p-2 bg-[var(--muted)] text-left cursor-pointer w-full"
                                     style={{ ...todayStyle, ...selectionStyle }}
                                 >
                                     <div className="flex items-baseline justify-between gap-2">

@@ -63,6 +63,29 @@ function TapTooltip({
   const tooltipRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number; placement: 'top' | 'bottom' } | null>(null);
+  const [isSmallScreen, setIsSmallScreen] = useState(false);
+  const [sheetDragY, setSheetDragY] = useState(0);
+  const [sheetDragging, setSheetDragging] = useState(false);
+  const sheetStartYRef = useRef(0);
+  const sheetLastYRef = useRef(0);
+  const sheetLastTRef = useRef(0);
+  const sheetVelocityRef = useRef(0);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(max-width: 640px)');
+    const update = () => setIsSmallScreen(mq.matches);
+    update();
+
+    if (typeof mq.addEventListener === 'function') {
+      mq.addEventListener('change', update);
+      return () => mq.removeEventListener('change', update);
+    }
+
+    // Safari/older browsers
+    mq.addListener(update);
+    return () => mq.removeListener(update);
+  }, []);
 
   const computePosition = () => {
     const el = triggerRef.current;
@@ -78,6 +101,36 @@ function TapTooltip({
     return { top, left, placement };
   };
 
+  const adjustPositionWithinViewport = () => {
+    const el = triggerRef.current;
+    const tip = tooltipRef.current;
+    if (!el || !tip || typeof window === 'undefined') return;
+
+    const triggerRect = el.getBoundingClientRect();
+    const tooltipRect = tip.getBoundingClientRect();
+
+    const padding = 8;
+    let placement: 'top' | 'bottom' =
+      triggerRect.top - tooltipRect.height - 12 > padding ? 'top' : 'bottom';
+
+    // Try to keep the tooltip within vertical viewport
+    if (
+      placement === 'bottom' &&
+      triggerRect.bottom + 10 + tooltipRect.height > window.innerHeight - padding &&
+      triggerRect.top - tooltipRect.height - 12 > padding
+    ) {
+      placement = 'top';
+    }
+
+    const top = placement === 'top' ? triggerRect.top - 10 : triggerRect.bottom + 10;
+    const desiredCenterX = triggerRect.left + triggerRect.width / 2;
+    const minCenterX = padding + tooltipRect.width / 2;
+    const maxCenterX = window.innerWidth - padding - tooltipRect.width / 2;
+    const left = Math.min(maxCenterX, Math.max(minCenterX, desiredCenterX));
+
+    setPos({ top, left, placement });
+  };
+
   const openTooltip = () => {
     if (disabled) return;
     const nextPos = computePosition();
@@ -85,10 +138,18 @@ function TapTooltip({
     setOpen(true);
   };
 
-  const closeTooltip = () => setOpen(false);
+  const closeTooltip = () => {
+    setOpen(false);
+    setSheetDragY(0);
+    setSheetDragging(false);
+  };
 
   useEffect(() => {
     if (!open) return;
+    if (isSmallScreen) {
+      setSheetDragY(0);
+      setSheetDragging(false);
+    }
     const onPointerDown = (e: PointerEvent) => {
       const t = e.target as Node | null;
       if (!t) return;
@@ -98,20 +159,89 @@ function TapTooltip({
     };
 
     const onResizeOrScroll = () => {
-      const nextPos = computePosition();
-      if (nextPos) setPos(nextPos);
+      if (isSmallScreen) return;
+      adjustPositionWithinViewport();
     };
 
     document.addEventListener('pointerdown', onPointerDown, true);
     window.addEventListener('resize', onResizeOrScroll);
     window.addEventListener('scroll', onResizeOrScroll, true);
+
+    // After the tooltip mounts, clamp it within viewport.
+    if (!isSmallScreen) {
+      requestAnimationFrame(() => adjustPositionWithinViewport());
+    }
+
     return () => {
       document.removeEventListener('pointerdown', onPointerDown, true);
       window.removeEventListener('resize', onResizeOrScroll);
       window.removeEventListener('scroll', onResizeOrScroll, true);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, isSmallScreen]);
+
+  const onSheetHandlePointerDown = (e: React.PointerEvent) => {
+    if (!isSmallScreen) return;
+    if (disabled) return;
+    // Only vertical drag; prevent browser scroll on the handle.
+    e.preventDefault();
+
+    const y = e.clientY;
+    sheetStartYRef.current = y;
+    sheetLastYRef.current = y;
+    sheetLastTRef.current = performance.now();
+    sheetVelocityRef.current = 0;
+    setSheetDragging(true);
+
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
+  };
+
+  const onSheetHandlePointerMove = (e: React.PointerEvent) => {
+    if (!isSmallScreen) return;
+    if (!sheetDragging) return;
+
+    const now = performance.now();
+    const y = e.clientY;
+    const dy = Math.max(0, y - sheetStartYRef.current);
+
+    const dt = Math.max(1, now - sheetLastTRef.current);
+    const vy = (y - sheetLastYRef.current) / dt; // px per ms
+    sheetVelocityRef.current = vy;
+    sheetLastYRef.current = y;
+    sheetLastTRef.current = now;
+
+    setSheetDragY(dy);
+  };
+
+  const onSheetHandlePointerUp = (e: React.PointerEvent) => {
+    if (!isSmallScreen) return;
+    if (!sheetDragging) return;
+    e.preventDefault();
+
+    const closeThresholdPx = 90;
+    const velocityThreshold = 0.9; // px/ms
+
+    const shouldClose = sheetDragY > closeThresholdPx || sheetVelocityRef.current > velocityThreshold;
+    setSheetDragging(false);
+
+    if (shouldClose) {
+      closeTooltip();
+      return;
+    }
+
+    // Snap back
+    setSheetDragY(0);
+
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
+  };
 
   return (
     <>
@@ -133,11 +263,13 @@ function TapTooltip({
         onMouseEnter={() => {
           // desktop hover
           if (disabled) return;
+          if (isSmallScreen) return;
           openTooltip();
         }}
         onMouseLeave={() => {
           // desktop hover
           if (disabled) return;
+          if (isSmallScreen) return;
           closeTooltip();
         }}
         onKeyDown={(e) => {
@@ -156,25 +288,77 @@ function TapTooltip({
         {children}
       </span>
 
-      {open && pos && typeof document !== 'undefined'
+      {open && isSmallScreen && typeof document !== 'undefined'
         ? createPortal(
-            <div
-              ref={tooltipRef}
-              role="dialog"
-              className="z-[9999] rounded-md border border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] shadow-lg px-3 py-2"
-              style={{
-                position: 'fixed',
-                left: pos.left,
-                top: pos.top,
-                transform: pos.placement === 'top' ? 'translate(-50%, -100%)' : 'translate(-50%, 0)',
-                maxWidth: 'min(360px, calc(100vw - 16px))',
-                pointerEvents: 'auto',
-              }}
-            >
-              {content}
-            </div>,
-            document.body
-          )
+          <div className="fixed inset-0 z-[9999]">
+            <button
+              type="button"
+              aria-label="Cerrar"
+              className="absolute inset-0 bg-black/40"
+              onClick={closeTooltip}
+            />
+
+            <div className="absolute inset-x-0 bottom-0 p-3 pb-[calc(env(safe-area-inset-bottom)+12px)]">
+              <div
+                ref={tooltipRef}
+                role="dialog"
+                aria-modal="true"
+                className="w-full max-w-md mx-auto rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] shadow-xl"
+                style={{
+                  transform: `translateY(${sheetDragY}px)`,
+                  transition: sheetDragging ? 'none' : 'transform 180ms ease-out',
+                  willChange: 'transform',
+                }}
+              >
+                <div
+                  className="px-4 pt-3 pb-2"
+                  onPointerDown={onSheetHandlePointerDown}
+                  onPointerMove={onSheetHandlePointerMove}
+                  onPointerUp={onSheetHandlePointerUp}
+                  onPointerCancel={onSheetHandlePointerUp}
+                  style={{ touchAction: 'none' }}
+                >
+                  <div className="mx-auto h-1.5 w-12 rounded-full bg-[var(--input-border)]" />
+                </div>
+
+                <div className="px-4 pb-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">{content}</div>
+                    <button
+                      type="button"
+                      onClick={closeTooltip}
+                      className="flex-none rounded-md border border-[var(--input-border)] bg-[var(--hover-bg)] px-2 py-1 text-xs"
+                    >
+                      Cerrar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )
+        : null}
+
+      {open && !isSmallScreen && pos && typeof document !== 'undefined'
+        ? createPortal(
+          <div
+            ref={tooltipRef}
+            role="dialog"
+            className="z-[9999] rounded-md border border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] shadow-lg px-3 py-2"
+            style={{
+              position: 'fixed',
+              left: pos.left,
+              top: pos.top,
+              transform: pos.placement === 'top' ? 'translate(-50%, -100%)' : 'translate(-50%, 0)',
+              maxWidth: 'min(360px, calc(100vw - 16px))',
+              pointerEvents: 'auto',
+            }}
+          >
+            {content}
+          </div>,
+          document.body
+        )
         : null}
     </>
   );
@@ -521,7 +705,7 @@ export default function CalculoHorasPrecios() {
           </div>
 
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-            <div className="flex-1 min-w-[220px]">
+            <div className="flex-1 min-w-0 sm:min-w-[220px]">
               <label className="block text-xs text-[var(--muted-foreground)] mb-1">Empresa</label>
               <select
                 className="w-full px-3 py-2 text-sm rounded focus:outline-none"
@@ -547,7 +731,7 @@ export default function CalculoHorasPrecios() {
               </select>
             </div>
 
-            <div className="min-w-[160px]">
+            <div className="min-w-0 sm:min-w-[160px]">
               <label className="block text-xs text-[var(--muted-foreground)] mb-1">Vista</label>
               <select
                 className="w-full px-3 py-2 text-sm rounded focus:outline-none"
@@ -561,7 +745,7 @@ export default function CalculoHorasPrecios() {
               </select>
             </div>
 
-            <div className="min-w-[200px]">
+            <div className="min-w-0 sm:min-w-[200px]">
               <label className="block text-xs text-[var(--muted-foreground)] mb-1">Empleado</label>
               <div className="flex items-center gap-2">
                 <UserIcon className="w-4 h-4 text-[var(--foreground)]" />
@@ -597,18 +781,18 @@ export default function CalculoHorasPrecios() {
                   {daysToShow.map((day) => {
                     const isToday = isCurrentMonthView && day === todayInfo.day;
                     return (
-                    <th
-                      key={day}
-                      className="border border-[var(--input-border)] p-2 font-semibold text-center text-xs"
-                      style={{
-                        background: isToday ? '#bbf7d0' : 'var(--input-bg)',
-                        color: isToday ? '#065f46' : 'var(--foreground)',
-                        minWidth: '32px',
-                        height: '40px'
-                      }}
-                    >
-                      {day}
-                    </th>
+                      <th
+                        key={day}
+                        className="border border-[var(--input-border)] p-2 font-semibold text-center text-xs"
+                        style={{
+                          background: isToday ? '#bbf7d0' : 'var(--input-bg)',
+                          color: isToday ? '#065f46' : 'var(--foreground)',
+                          minWidth: '32px',
+                          height: '40px'
+                        }}
+                      >
+                        {day}
+                      </th>
                     );
                   })}
                 </tr>
