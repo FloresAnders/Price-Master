@@ -34,7 +34,12 @@ export interface ProviderEntry {
   visit?: {
     createOrderDays: Array<'D' | 'L' | 'M' | 'MI' | 'J' | 'V' | 'S'>;
     receiveOrderDays: Array<'D' | 'L' | 'M' | 'MI' | 'J' | 'V' | 'S'>;
-    frequency: 'SEMANAL' | 'QUINCENAL' | 'MENSUAL' | '22_DIAS';
+    frequency: 'SEMANAL' | 'QUINCENAL' | 'MENSUAL' | '22 DIAS';
+    /**
+     * Date key (ms at local midnight) that anchors the recurrence.
+     * Used for non-weekly frequencies (quincenal/22 días/mensual) to decide which weeks apply.
+     */
+    startDateKey?: number;
   };
 }
 
