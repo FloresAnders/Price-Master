@@ -151,7 +151,7 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
             >
                 <Truck className="w-10 h-10 mb-3 text-[var(--primary)] group-hover:scale-110 group-hover:text-[var(--button-hover)] transition-all" />
                 <span className="text-lg font-semibold mb-1 text-[var(--foreground)] dark:text-[var(--foreground)] text-center">
-                    Semana proveedores
+                    Semana Proveedores
                 </span>
                 <span className="text-sm text-[var(--muted-foreground)] text-center">
                     Ver realizar/recibir pedidos
@@ -304,11 +304,11 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                 <div className="min-w-0">
                     <h3 className="text-lg font-semibold text-[var(--foreground)]">
-                        Semana (proveedores)
+                        Semana recepcion de proveedores
                     </h3>
                     <p className="text-xs text-[var(--muted-foreground)]">
                         {supplierWeekRangeLabel
-                            ? `Semana: ${supplierWeekRangeLabel} (Domingo a Sábado)`
+                            ? `Semana: ${supplierWeekRangeLabel}`
                             : "Crea pedido y recibe pedido (Domingo a Sábado)"}
                     </p>
                 </div>

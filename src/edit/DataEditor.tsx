@@ -787,7 +787,7 @@ export default function DataEditor() {
             cashcounter: 'Contador Efectivo',
             timingcontrol: 'Control Tiempos',
             controlhorario: 'Control Horario',
-            calculohorasprecios: 'Calculo horas precios',
+            calculohorasprecios: 'Calculo Horas Precios',
             supplierorders: 'Órdenes Proveedor',
             mantenimiento: 'Mantenimiento',
             solicitud: 'Solicitud',

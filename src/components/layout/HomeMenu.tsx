@@ -81,7 +81,7 @@ const menuItems = [
   },
   {
     id: "calculohorasprecios",
-    name: "Calculo horas precios",
+    name: "Cálculo Horas Precios",
     icon: Calculator,
     description: "Cálculo de horas y precios (planilla)",
     permission: "calculohorasprecios" as keyof UserPermissions,
@@ -571,7 +571,8 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     if (!weekModel.days || weekModel.days.length === 0) return "";
     const start = weekModel.days[0].date;
     const end = weekModel.days[weekModel.days.length - 1].date;
-    const fmt = (d: Date) => `${d.getDate()}/${d.getMonth() + 1}`;
+    const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    const fmt = (d: Date) => `${days[d.getDay()]}: ${d.getDate()}/${d.getMonth() + 1}`;
     return `${fmt(start)} – ${fmt(end)}`;
   })();
 
