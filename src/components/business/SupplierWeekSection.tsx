@@ -25,6 +25,10 @@ export type SupplierWeekSectionProps = {
     isSupplierWeekRoute: boolean;
     showSupplierWeekInMenu: boolean;
     companyForProviders: string;
+    companySelectorValue?: string;
+    canChangeCompanyForProviders?: boolean;
+    companyOptionsForProviders?: Array<{ label: string; value: string }>;
+    onCompanyForProvidersChange?: (company: string) => void;
     weeklyProvidersLoading: boolean;
     weeklyProvidersError: string | null;
     weekModel: SupplierWeekModel;
@@ -60,6 +64,10 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
         isSupplierWeekRoute,
         showSupplierWeekInMenu,
         companyForProviders,
+        companySelectorValue,
+        canChangeCompanyForProviders,
+        companyOptionsForProviders,
+        onCompanyForProvidersChange,
         weeklyProvidersLoading,
         weeklyProvidersError,
         weekModel,
@@ -85,6 +93,11 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
         handleSaveControlPedido,
         handleDeleteControlPedido,
     } = props;
+
+    const selectedCompanyForUi = (companySelectorValue ?? companyForProviders).trim();
+    const showAddProviderButton = canChangeCompanyForProviders
+        ? selectedCompanyForUi.length > 0
+        : true;
 
     const canSave =
         !orderSaving &&
@@ -301,6 +314,45 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
                 </div>
 
                 <div className="flex items-center gap-2">
+                    {canChangeCompanyForProviders &&
+                        Array.isArray(companyOptionsForProviders) &&
+                        companyOptionsForProviders.length > 0 ? (
+                        <select
+                            className="w-full sm:w-auto px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            style={{
+                                background: "var(--input-bg)",
+                                border: "1px solid var(--input-border)",
+                                color: "var(--foreground)",
+                                minWidth: 240,
+                            }}
+                            value={companySelectorValue ?? companyForProviders}
+                            onChange={(e) => onCompanyForProvidersChange?.(e.target.value)}
+                            aria-label="Seleccionar empresa"
+                        >
+                            <option value="">Seleccionar empresa</option>
+                            {companyOptionsForProviders.map((empresaItem) => (
+                                <option key={empresaItem.value} value={empresaItem.value}>
+                                    {empresaItem.label}
+                                </option>
+                            ))}
+                        </select>
+                    ) : null}
+
+                    {showAddProviderButton ? (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (typeof window === "undefined") return;
+                                const target = `${window.location.origin}/#agregarproveedor`;
+                                window.location.assign(target);
+                            }}
+                            className="px-3 py-2 rounded-md text-sm font-semibold bg-[var(--hover-bg)] border border-[var(--input-border)] text-[var(--foreground)]"
+                            aria-label="Agregar proveedor"
+                        >
+                            Agregar
+                        </button>
+                    ) : null}
+
                     <button
                         type="button"
                         onClick={onPrevWeek}
@@ -330,7 +382,7 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
                         handleSaveControlPedido();
                     }}
                 >
-                    
+
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <div className="">
                             <div className="text-xs text-[var(--muted-foreground)] mb-1">
