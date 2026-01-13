@@ -71,6 +71,7 @@ import DailyClosingModal, { DailyClosingFormValues } from "./DailyClosingModal";
 import { useActorOwnership } from "../../../hooks/useActorOwnership";
 import { db } from "@/config/firebase";
 import { findBestStringMatch } from "../../../utils/stringSimilarity";
+import { dateKeyToISODate, dateToKey, isoDateToDateKey } from "../../../utils/dateKey";
 import {
   addDoc,
   collection,
@@ -753,11 +754,12 @@ export function ProviderSection({ id }: { id?: string }) {
   const [loadingAdmins, setLoadingAdmins] = useState(false);
 
   type ProviderVisitDay = "D" | "L" | "M" | "MI" | "J" | "V" | "S";
-  type ProviderVisitFrequency = "SEMANAL" | "QUINCENAL" | "MENSUAL" | "22_DIAS";
+  type ProviderVisitFrequency = "SEMANAL" | "QUINCENAL" | "MENSUAL" | "22 DIAS";
   type ProviderVisitConfig = {
     createOrderDays: ProviderVisitDay[];
     receiveOrderDays: ProviderVisitDay[];
     frequency: ProviderVisitFrequency;
+    startDateKey?: number;
   };
 
   const VISIT_DAY_ORDER = useMemo<ProviderVisitDay[]>(
@@ -782,8 +784,8 @@ export function ProviderSection({ id }: { id?: string }) {
     () => [
       { value: "SEMANAL", label: "Semanal" },
       { value: "QUINCENAL", label: "Quincenal" },
+      { value: "22 DIAS", label: "22 días" },
       { value: "MENSUAL", label: "Mensual" },
-      { value: "22_DIAS", label: "22 días" },
     ],
     []
   );
@@ -792,6 +794,7 @@ export function ProviderSection({ id }: { id?: string }) {
   const [visitCreateDays, setVisitCreateDays] = useState<ProviderVisitDay[]>([]);
   const [visitReceiveDays, setVisitReceiveDays] = useState<ProviderVisitDay[]>([]);
   const [visitFrequency, setVisitFrequency] = useState<ProviderVisitFrequency | "">("");
+  const [visitStartDateISO, setVisitStartDateISO] = useState<string>("");
 
   const isCompraInventarioProvider =
     typeof providerType === "string" &&
@@ -826,8 +829,27 @@ export function ProviderSection({ id }: { id?: string }) {
       setVisitCreateDays([]);
       setVisitReceiveDays([]);
       setVisitFrequency("");
+      setVisitStartDateISO("");
     }
   }, [isCompraInventarioProvider]);
+
+  useEffect(() => {
+    // Si no es semanal, permitir configurar fecha inicial.
+    // Para semanal, limpiar la fecha inicial.
+    if (!addVisit) return;
+    if (!visitFrequency) {
+      setVisitStartDateISO("");
+      return;
+    }
+    if (visitFrequency === "SEMANAL") {
+      if (visitStartDateISO) setVisitStartDateISO("");
+      return;
+    }
+    // Si se selecciona frecuencia no semanal y aún no hay fecha, sugerir hoy.
+    if (!visitStartDateISO) {
+      setVisitStartDateISO(dateKeyToISODate(dateToKey(new Date())));
+    }
+  }, [addVisit, visitFrequency, visitStartDateISO]);
 
   // Estado para tipos de movimientos dinámicos
   const [fondoTypesLoaded, setFondoTypesLoaded] = useState(false);
@@ -1149,11 +1171,19 @@ export function ProviderSection({ id }: { id?: string }) {
       setVisitCreateDays((prov.visit.createOrderDays || []) as ProviderVisitDay[]);
       setVisitReceiveDays((prov.visit.receiveOrderDays || []) as ProviderVisitDay[]);
       setVisitFrequency((prov.visit.frequency || "") as ProviderVisitFrequency);
+
+      const startKey = (prov.visit as any).startDateKey;
+      if (typeof startKey === "number" && Number.isFinite(startKey) && startKey > 0) {
+        setVisitStartDateISO(dateKeyToISODate(startKey));
+      } else {
+        setVisitStartDateISO("");
+      }
     } else {
       setAddVisit(false);
       setVisitCreateDays([]);
       setVisitReceiveDays([]);
       setVisitFrequency("");
+      setVisitStartDateISO("");
     }
 
     setProviderDrawerOpen(true);
@@ -1784,6 +1814,7 @@ export function ProviderSection({ id }: { id?: string }) {
                           setVisitCreateDays([]);
                           setVisitReceiveDays([]);
                           setVisitFrequency("");
+                          setVisitStartDateISO("");
                         }
                       }}
                       disabled={!company || saving}
@@ -1801,7 +1832,7 @@ export function ProviderSection({ id }: { id?: string }) {
                     <div className="mt-3 space-y-3">
                       <div>
                         <div className="text-xs text-[var(--muted-foreground)] mb-1">
-                          Día de crear pedido
+                          Día de realizar pedido
                         </div>
                         <div className="flex flex-wrap gap-1">
                           {VISIT_DAY_ORDER.map((day) => {
@@ -1875,6 +1906,24 @@ export function ProviderSection({ id }: { id?: string }) {
                           ))}
                         </select>
                       </div>
+
+                      {visitFrequency && visitFrequency !== "SEMANAL" ? (
+                        <div>
+                          <label className="text-xs text-[var(--muted-foreground)] mb-1 block">
+                            Fecha inicial
+                          </label>
+                          <input
+                            type="date"
+                            value={visitStartDateISO}
+                            onChange={(e) => setVisitStartDateISO(e.target.value)}
+                            className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm"
+                            disabled={!company || saving}
+                          />
+                          <div className="mt-1 text-[10px] text-[var(--muted-foreground)]">
+                            Define desde qué semana empieza el ciclo (quincenal/22 días/mensual).
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
                   )}
                 </div>
@@ -1897,6 +1946,7 @@ export function ProviderSection({ id }: { id?: string }) {
                   setVisitCreateDays([]);
                   setVisitReceiveDays([]);
                   setVisitFrequency("");
+                  setVisitStartDateISO("");
                 }}
                 className="px-4 py-2 border border-[var(--input-border)] rounded text-[var(--foreground)] hover:bg-[var(--muted)]"
                 disabled={saving}
@@ -1959,10 +2009,21 @@ export function ProviderSection({ id }: { id?: string }) {
                       return;
                     }
 
+                    let startDateKey: number | undefined = undefined;
+                    if (visitFrequency !== "SEMANAL") {
+                      const key = isoDateToDateKey(visitStartDateISO);
+                      if (!key) {
+                        setFormError("Debe seleccionar una fecha inicial válida.");
+                        return;
+                      }
+                      startDateKey = key;
+                    }
+
                     visit = {
                       createOrderDays: visitCreateDays,
                       receiveOrderDays: visitReceiveDays,
                       frequency: visitFrequency as ProviderVisitFrequency,
+                      ...(typeof startDateKey === "number" ? { startDateKey } : {}),
                     };
                   }
 
@@ -2018,7 +2079,7 @@ export function ProviderSection({ id }: { id?: string }) {
                                     Nuevo proveedor
                                   </div>
                                   <div className="font-semibold break-words">
-                                    '{name}'
+                                    &apos;{name}&apos;
                                   </div>
                                 </div>
                               </div>
@@ -2030,7 +2091,7 @@ export function ProviderSection({ id }: { id?: string }) {
                                     Proveedor existente
                                   </div>
                                   <div className="font-semibold break-words">
-                                    '{best}'
+                                    &apos;{best}&apos;
                                   </div>
                                 </div>
                               </div>
@@ -2111,7 +2172,7 @@ export function ProviderSection({ id }: { id?: string }) {
                                     Nuevo proveedor
                                   </div>
                                   <div className="font-semibold break-words">
-                                    '{name}'
+                                    &apos;{name}&apos;
                                   </div>
                                 </div>
                               </div>
@@ -2123,7 +2184,7 @@ export function ProviderSection({ id }: { id?: string }) {
                                     Proveedor existente
                                   </div>
                                   <div className="font-semibold break-words">
-                                    '{best}'
+                                    &apos;{best}&apos;
                                   </div>
                                 </div>
                               </div>
