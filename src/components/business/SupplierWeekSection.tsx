@@ -154,7 +154,7 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
                     Semana proveedores
                 </span>
                 <span className="text-sm text-[var(--muted-foreground)] text-center">
-                    Ver crear/recibir pedidos
+                    Ver realizar/recibir pedidos
                 </span>
             </button>
         );
@@ -248,7 +248,7 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
                                             {createList.length > 0 && (
                                                 <div>
                                                     <div className="text-[10px] font-semibold text-[var(--foreground)]">
-                                                        Crear
+                                                        Realizar
                                                     </div>
                                                     <div className="text-[10px] text-[var(--muted-foreground)] break-words">
                                                         {createText}
@@ -600,7 +600,7 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
                                             {createList.length > 0 && (
                                                 <div>
                                                     <div className="text-[10px] font-semibold text-[var(--foreground)]">
-                                                        Crear
+                                                        Realizar
                                                     </div>
                                                     <div className="text-[10px] text-[var(--muted-foreground)] break-words">
                                                         {createText}
