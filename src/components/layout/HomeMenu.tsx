@@ -19,6 +19,7 @@ import { getDefaultPermissions } from "../../utils/permissions";
 import { useProviders } from "../../hooks/useProviders";
 import { useControlPedido } from "../../hooks/useControlPedido";
 import { MovimientosFondosService } from "../../services/movimientos-fondos";
+import { EmpresasService } from "../../services/empresas";
 import {
   addDays,
   dateToKey,
@@ -178,6 +179,22 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   const showExpandedSupplierWeek =
     hasSupplierWeekPermission && (isSupplierWeekRoute || showSupplierWeekInMenu);
 
+  const canChangeSupplierWeekCompany =
+    currentUser?.role === "admin" || currentUser?.role === "superadmin";
+
+  const assignedCompanyForProviders = (currentUser?.ownercompanie || "").trim();
+  const [supplierWeekCompanySelection, setSupplierWeekCompanySelection] = useState<string>(
+    () => assignedCompanyForProviders
+  );
+  const [supplierWeekCompany, setSupplierWeekCompany] = useState<string>(() =>
+    assignedCompanyForProviders
+  );
+  const [supplierWeekCompanyOptions, setSupplierWeekCompanyOptions] = useState<
+    Array<{ label: string; value: string }>
+  >([]);
+  const [supplierWeekCompanyOptionsLoading, setSupplierWeekCompanyOptionsLoading] =
+    useState(false);
+
   // When the supplier week card is shown in the Home menu, it must always reflect the current week.
   useEffect(() => {
     if (showSupplierWeekInMenu && !isSupplierWeekRoute) {
@@ -224,12 +241,158 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     };
   }, []);
 
-  const companyForProviders = (currentUser?.ownercompanie || "").trim();
+  useEffect(() => {
+    // Mantener la empresa sincronizada con la asignada al usuario.
+    // - rol user: forzar siempre a su empresa
+    // - otros roles: si no hay selección aún, usar la asignada como default
+    if (!currentUser) return;
+    if (currentUser.role === "user") {
+      setSupplierWeekCompanySelection(assignedCompanyForProviders);
+      setSupplierWeekCompany(assignedCompanyForProviders);
+      return;
+    }
+    setSupplierWeekCompanySelection((prev) => (prev ? prev : assignedCompanyForProviders));
+    setSupplierWeekCompany((prev) => (prev ? prev : assignedCompanyForProviders));
+  }, [currentUser, assignedCompanyForProviders]);
+
+  useEffect(() => {
+    // Cargar opciones de empresas para selector (solo admin/superadmin)
+    if (!showExpandedSupplierWeek) return;
+    if (!canChangeSupplierWeekCompany) return;
+    if (!currentUser) return;
+
+    let cancelled = false;
+    const load = async () => {
+      setSupplierWeekCompanyOptionsLoading(true);
+      try {
+        const allEmpresas = await EmpresasService.getAllEmpresas();
+
+        let owned: typeof allEmpresas = [];
+        if (currentUser.role === "superadmin") {
+          owned = allEmpresas || [];
+        } else {
+          const resolvedOwnerId =
+            currentUser.ownerId || (currentUser.eliminate === false ? currentUser.id : "") || "";
+
+          owned = (allEmpresas || []).filter((e: any) => {
+            if (!e) return false;
+            const ownerId = e.ownerId || "";
+
+            const ownerIdMatch = ownerId && String(ownerId) === String(resolvedOwnerId);
+
+            const name = e.name || "";
+            const ubicacion = e.ubicacion || "";
+            const ownerCompanieMatch =
+              currentUser.ownercompanie &&
+              (String(name) === String(currentUser.ownercompanie) ||
+                String(ubicacion) === String(currentUser.ownercompanie));
+
+            return !!ownerIdMatch || !!ownerCompanieMatch;
+          });
+        }
+
+        const mapped = (owned || [])
+          .map((e: any) => {
+            const label = e.name || e.ubicacion || e.id || "Empresa";
+            const value = e.ubicacion || e.name || e.id || "";
+            return { label: String(label), value: String(value) };
+          })
+          .filter((x) => x.value.trim().length > 0)
+          .sort((a, b) => a.label.localeCompare(b.label, "es", { sensitivity: "base" }));
+
+        if (cancelled) return;
+        setSupplierWeekCompanyOptions(mapped);
+
+        // Si aún no hay empresa seleccionada, resolver la asignada al value disponible
+        setSupplierWeekCompanySelection((prev) => {
+          if (prev && prev.trim()) return prev;
+          const assignedStr = String(assignedCompanyForProviders || "").trim();
+          if (!assignedStr) return "";
+          const assignedLower = assignedStr.toLowerCase();
+          const resolved = mapped.find((m) => {
+            const mv = String(m.value || "").toLowerCase();
+            const ml = String(m.label || "").toLowerCase();
+            return (
+              mv === assignedLower ||
+              ml === assignedLower ||
+              ml.includes(assignedLower) ||
+              assignedLower.includes(mv)
+            );
+          });
+          return resolved ? String(resolved.value) : assignedStr;
+        });
+
+        setSupplierWeekCompany((prev) => {
+          if (prev && prev.trim()) return prev;
+          const assignedStr = String(assignedCompanyForProviders || "").trim();
+          if (!assignedStr) return "";
+          const assignedLower = assignedStr.toLowerCase();
+          const resolved = mapped.find((m) => {
+            const mv = String(m.value || "").toLowerCase();
+            const ml = String(m.label || "").toLowerCase();
+            return (
+              mv === assignedLower ||
+              ml === assignedLower ||
+              ml.includes(assignedLower) ||
+              assignedLower.includes(mv)
+            );
+          });
+          return resolved ? String(resolved.value) : assignedStr;
+        });
+      } catch (err) {
+        console.error("Error loading empresas for SupplierWeek selector:", err);
+        if (!cancelled) setSupplierWeekCompanyOptions([]);
+      } finally {
+        if (!cancelled) setSupplierWeekCompanyOptionsLoading(false);
+      }
+    };
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [showExpandedSupplierWeek, canChangeSupplierWeekCompany, currentUser, assignedCompanyForProviders]);
+
+  const companyForProviders = supplierWeekCompany;
   const {
     providers: weeklyProviders,
     loading: weeklyProvidersLoading,
     error: weeklyProvidersError,
   } = useProviders(showExpandedSupplierWeek ? companyForProviders : undefined);
+
+  useEffect(() => {
+    // Fallback: si el admin selecciona una empresa y no hay proveedores bajo el "value",
+    // intentar cargar usando el label (nombre) como key alternativo.
+    if (!showExpandedSupplierWeek) return;
+    if (!canChangeSupplierWeekCompany) return;
+    if (weeklyProvidersLoading) return;
+    if (weeklyProvidersError) return;
+
+    const selectedValue = (supplierWeekCompanySelection || "").trim();
+    const activeKey = (supplierWeekCompany || "").trim();
+    if (!selectedValue || !activeKey) return;
+
+    // Solo intentar fallback cuando todavía estamos usando el value seleccionado.
+    if (activeKey !== selectedValue) return;
+
+    const hasAnyProviders = (weeklyProviders || []).length > 0;
+    if (hasAnyProviders) return;
+
+    const option = supplierWeekCompanyOptions.find((o) => o.value === selectedValue);
+    const alt = (option?.label || "").trim();
+    if (!alt || alt === activeKey) return;
+
+    setSupplierWeekCompany(alt);
+  }, [
+    showExpandedSupplierWeek,
+    canChangeSupplierWeekCompany,
+    weeklyProvidersLoading,
+    weeklyProvidersError,
+    weeklyProviders,
+    supplierWeekCompanySelection,
+    supplierWeekCompany,
+    supplierWeekCompanyOptions,
+  ]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -419,6 +582,15 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     setSelectedReceiveDateKey(null);
     setOrderAmount("");
   }, [weekModel.weekStartKey]);
+
+  useEffect(() => {
+    // Reset selection when changing company
+    if (!showExpandedSupplierWeek) return;
+    setSelectedCreateDateKey(null);
+    setSelectedProviderCode("");
+    setSelectedReceiveDateKey(null);
+    setOrderAmount("");
+  }, [showExpandedSupplierWeek, companyForProviders]);
 
   const selectedDay = selectedCreateDateKey
     ? weekModel.days.find((d) => d.dateKey === selectedCreateDateKey) || null
@@ -670,6 +842,14 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
               isSupplierWeekRoute={isSupplierWeekRoute}
               showSupplierWeekInMenu={showSupplierWeekInMenu}
               companyForProviders={companyForProviders}
+              companySelectorValue={supplierWeekCompanySelection}
+              canChangeCompanyForProviders={canChangeSupplierWeekCompany && !supplierWeekCompanyOptionsLoading}
+              companyOptionsForProviders={supplierWeekCompanyOptions}
+              onCompanyForProvidersChange={(value) => {
+                if (!canChangeSupplierWeekCompany) return;
+                setSupplierWeekCompanySelection(value);
+                setSupplierWeekCompany(value);
+              }}
               weeklyProvidersLoading={weeklyProvidersLoading}
               weeklyProvidersError={weeklyProvidersError}
               weekModel={weekModel}
