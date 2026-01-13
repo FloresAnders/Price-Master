@@ -478,6 +478,30 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     const weekStartKey = weekStartKeyFromDateKey(supplierWeekAnchorKey);
     const start = new Date(weekStartKey);
 
+    const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
+    const intervalWeeksForFrequency = (frequencyRaw: unknown): number => {
+      const freq = typeof frequencyRaw === "string" ? frequencyRaw.trim().toUpperCase() : "SEMANAL";
+      if (freq === "QUINCENAL") return 2;
+      if (freq === "22 DIAS") return 3; // cada ~3 semanas
+      if (freq === "MENSUAL") return 4;
+      return 1;
+    };
+
+    const providerAppliesToWeek = (visit: any, targetWeekStartKey: number): boolean => {
+      if (!visit) return false;
+      const interval = intervalWeeksForFrequency(visit.frequency);
+      if (interval <= 1) return true;
+      const startDateKey = visit.startDateKey;
+      if (typeof startDateKey !== "number" || !Number.isFinite(startDateKey)) {
+        // Backward compatible: if no anchor configured, show every week.
+        return true;
+      }
+      const anchorWeekStart = weekStartKeyFromDateKey(startDateKey);
+      const diffWeeks = Math.round((targetWeekStartKey - anchorWeekStart) / MS_PER_WEEK);
+      const mod = ((diffWeeks % interval) + interval) % interval;
+      return mod === 0;
+    };
+
     const days = Array.from({ length: 7 }, (_, idx) => {
       const date = new Date(start);
       date.setDate(start.getDate() + idx);
@@ -496,7 +520,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     type ProviderRef = { code: string; name: string };
     const visitProviders = (weeklyProviders || []).filter((p) => {
       const type = (p.type || "").toUpperCase();
-      return type === "COMPRA INVENTARIO" && !!p.visit;
+      return type === "COMPRA INVENTARIO" && !!p.visit && providerAppliesToWeek((p as any).visit, weekStartKey);
     });
 
     const createByCode = new Map<VisitDay, ProviderRef[]>();
