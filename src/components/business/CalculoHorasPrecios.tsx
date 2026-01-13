@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronLeft, ChevronRight, Clock as ClockIcon, Lock, User as UserIcon } from 'lucide-react';
 import { EmpresasService } from '../../services/empresas';
 import { CalculoHorasService } from '../../services/calculohoras';
@@ -32,6 +33,153 @@ interface MappedEmpresa {
 type PeriodMode = 'first' | 'second' | 'monthly';
 const DEFAULT_PRICE_PER_HOUR = 1441;
 
+function getDefaultQuincena(date: Date): Exclude<PeriodMode, 'monthly'> {
+  return date.getDate() <= 15 ? 'first' : 'second';
+}
+
+function TooltipLines({ text }: { text: string }) {
+  return (
+    <div className="text-xs leading-5">
+      {String(text)
+        .split('\n')
+        .filter(Boolean)
+        .map((line, idx) => (
+          <div key={idx}>{line}</div>
+        ))}
+    </div>
+  );
+}
+
+function TapTooltip({
+  content,
+  children,
+  disabled,
+}: {
+  content: React.ReactNode;
+  children: React.ReactNode;
+  disabled?: boolean;
+}) {
+  const triggerRef = useRef<HTMLSpanElement | null>(null);
+  const tooltipRef = useRef<HTMLDivElement | null>(null);
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number; placement: 'top' | 'bottom' } | null>(null);
+
+  const computePosition = () => {
+    const el = triggerRef.current;
+    if (!el || typeof window === 'undefined') return null;
+    const rect = el.getBoundingClientRect();
+
+    const centerX = rect.left + rect.width / 2;
+    const preferredTop = rect.top - 10;
+    const placement: 'top' | 'bottom' = preferredTop > 80 ? 'top' : 'bottom';
+    const top = placement === 'top' ? rect.top - 10 : rect.bottom + 10;
+
+    const left = Math.min(window.innerWidth - 8, Math.max(8, centerX));
+    return { top, left, placement };
+  };
+
+  const openTooltip = () => {
+    if (disabled) return;
+    const nextPos = computePosition();
+    setPos(nextPos);
+    setOpen(true);
+  };
+
+  const closeTooltip = () => setOpen(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const t = e.target as Node | null;
+      if (!t) return;
+      if (triggerRef.current?.contains(t)) return;
+      if (tooltipRef.current?.contains(t)) return;
+      closeTooltip();
+    };
+
+    const onResizeOrScroll = () => {
+      const nextPos = computePosition();
+      if (nextPos) setPos(nextPos);
+    };
+
+    document.addEventListener('pointerdown', onPointerDown, true);
+    window.addEventListener('resize', onResizeOrScroll);
+    window.addEventListener('scroll', onResizeOrScroll, true);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown, true);
+      window.removeEventListener('resize', onResizeOrScroll);
+      window.removeEventListener('scroll', onResizeOrScroll, true);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  return (
+    <>
+      <span
+        ref={triggerRef}
+        className="inline-block"
+        tabIndex={disabled ? -1 : 0}
+        role={disabled ? undefined : 'button'}
+        aria-haspopup={disabled ? undefined : 'dialog'}
+        aria-expanded={disabled ? undefined : open}
+        onClick={() => {
+          if (disabled) return;
+          setOpen((prev) => {
+            const next = !prev;
+            if (next) setPos(computePosition());
+            return next;
+          });
+        }}
+        onMouseEnter={() => {
+          // desktop hover
+          if (disabled) return;
+          openTooltip();
+        }}
+        onMouseLeave={() => {
+          // desktop hover
+          if (disabled) return;
+          closeTooltip();
+        }}
+        onKeyDown={(e) => {
+          if (disabled) return;
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setOpen((prev) => {
+              const next = !prev;
+              if (next) setPos(computePosition());
+              return next;
+            });
+          }
+          if (e.key === 'Escape') closeTooltip();
+        }}
+      >
+        {children}
+      </span>
+
+      {open && pos && typeof document !== 'undefined'
+        ? createPortal(
+            <div
+              ref={tooltipRef}
+              role="dialog"
+              className="z-[9999] rounded-md border border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] shadow-lg px-3 py-2"
+              style={{
+                position: 'fixed',
+                left: pos.left,
+                top: pos.top,
+                transform: pos.placement === 'top' ? 'translate(-50%, -100%)' : 'translate(-50%, 0)',
+                maxWidth: 'min(360px, calc(100vw - 16px))',
+                pointerEvents: 'auto',
+              }}
+            >
+              {content}
+            </div>,
+            document.body
+          )
+        : null}
+    </>
+  );
+}
+
 export default function CalculoHorasPrecios() {
   const { user } = useAuth();
   const { showToast } = useToast();
@@ -40,7 +188,7 @@ export default function CalculoHorasPrecios() {
   const [loading, setLoading] = useState(true);
   const [empresa, setEmpresa] = useState('');
   const [currentDate, setCurrentDate] = useState(() => new Date());
-  const [period, setPeriod] = useState<PeriodMode>('first');
+  const [period, setPeriod] = useState<PeriodMode>(() => getDefaultQuincena(new Date()));
   const [selectedEmployee, setSelectedEmployee] = useState<string>('Todos');
   const [saving, setSaving] = useState(false);
   const [pricePerHour, setPricePerHour] = useState<number>(DEFAULT_PRICE_PER_HOUR);
@@ -98,6 +246,17 @@ export default function CalculoHorasPrecios() {
     return Array.from({ length: lastDay - 15 }, (_, i) => i + 16);
   }, [year, month, period]);
 
+  const todayInfo = useMemo(() => {
+    const now = new Date();
+    return {
+      year: now.getFullYear(),
+      month: now.getMonth(),
+      day: now.getDate(),
+    };
+  }, []);
+
+  const isCurrentMonthView = todayInfo.year === year && todayInfo.month === month;
+
   const moneyFormatter = useMemo(
     () => new Intl.NumberFormat('es-CR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
     []
@@ -121,6 +280,19 @@ export default function CalculoHorasPrecios() {
               assignedEmpresa && (String(e.name) === String(assignedEmpresa) || String(e.ubicacion) === String(assignedEmpresa));
             return Boolean(ownerIdMatch || ownerCompanieMatch);
           });
+        }
+
+        // If an admin has an explicit allowed-company list, restrict the selector to those companies.
+        if (user?.role === 'admin') {
+          const allowed = (userPermissions.scanhistoryEmpresas || []).map((x) => String(x).trim().toLowerCase()).filter(Boolean);
+          if (allowed.length > 0) {
+            owned = (owned || []).filter((e) => {
+              const candidates = [e.name, e.ubicacion, e.id]
+                .filter(Boolean)
+                .map((x) => String(x).trim().toLowerCase());
+              return candidates.some((c) => allowed.includes(c));
+            });
+          }
         }
 
         const mapped: MappedEmpresa[] = (owned || []).map((e) => ({
@@ -422,15 +594,23 @@ export default function CalculoHorasPrecios() {
                   >
                     Nombre
                   </th>
-                  {daysToShow.map((day) => (
+                  {daysToShow.map((day) => {
+                    const isToday = isCurrentMonthView && day === todayInfo.day;
+                    return (
                     <th
                       key={day}
                       className="border border-[var(--input-border)] p-2 font-semibold text-center text-xs"
-                      style={{ background: 'var(--input-bg)', color: 'var(--foreground)', minWidth: '32px', height: '40px' }}
+                      style={{
+                        background: isToday ? '#bbf7d0' : 'var(--input-bg)',
+                        color: isToday ? '#065f46' : 'var(--foreground)',
+                        minWidth: '32px',
+                        height: '40px'
+                      }}
                     >
                       {day}
                     </th>
-                  ))}
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
@@ -450,15 +630,18 @@ export default function CalculoHorasPrecios() {
                           `Total: ${moneyFormatter.format(total)}`;
 
                         return (
-                          <span className="block truncate" title={tooltip}>
-                            {name}
-                          </span>
+                          <TapTooltip content={<TooltipLines text={tooltip} />}>
+                            <span className="block truncate cursor-pointer" title={tooltip}>
+                              {name}
+                            </span>
+                          </TapTooltip>
                         );
                       })()}
                     </td>
                     {daysToShow.map((day) => {
                       const seconds = timeData[name]?.[String(day)]?.seconds || 0;
                       const timeHHMMSS = timeData[name]?.[String(day)]?.timeHHMMSS || '';
+                      const isToday = isCurrentMonthView && day === todayInfo.day;
                       return (
                         <td key={day} className="border border-[var(--input-border)] p-0" style={{ minWidth: '32px' }}>
                           <button
@@ -468,7 +651,8 @@ export default function CalculoHorasPrecios() {
                               minWidth: '32px',
                               height: '40px',
                               backgroundColor: seconds > 0 ? '#d1fae5' : 'var(--input-bg)',
-                              color: seconds > 0 ? '#065f46' : 'var(--foreground)'
+                              color: seconds > 0 ? '#065f46' : 'var(--foreground)',
+                              boxShadow: isToday ? 'inset 0 0 0 2px #22c55e' : undefined,
                             }}
                             disabled={saving}
                             title={seconds > 0 ? `${timeHHMMSS} - Clic para editar` : 'Clic para agregar tiempo'}
