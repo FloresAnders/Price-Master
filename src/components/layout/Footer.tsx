@@ -30,9 +30,9 @@ export default function Footer() {
 
   return (
     <footer className="w-full mt-auto">
-      <div className="bg-[var(--card-bg)] text-[var(--foreground)] border-t border-[var(--input-border)] pt-1 flex flex-col items-center">
+      <div className="bg-[var(--card-bg)] text-[var(--foreground)] border-t border-[var(--input-border)] pt-2 sm:pt-3 flex flex-col items-center px-3 sm:px-0">
         {/* Social icons */}
-        <div className="flex gap-6 mb-1 flex-wrap justify-center sm:flex-nowrap">
+        <div className="flex gap-4 sm:gap-6 mb-2 sm:mb-1 flex-wrap justify-center sm:flex-nowrap">
           <a
             href="https://facebook.com"
             target="_blank"
@@ -41,7 +41,7 @@ export default function Footer() {
             aria-label="Visitar nuestra página de Facebook"
           >
             <svg
-              className="w-7 h-7 fill-current text-black dark:text-white"
+              className="w-6 h-6 sm:w-7 sm:h-7 fill-current text-black dark:text-white"
               viewBox="0 0 24 24"
               aria-hidden="true"
             >
@@ -55,7 +55,7 @@ export default function Footer() {
             className="hover:opacity-70 transition-opacity"
           >
             <svg
-              className="w-7 h-7 fill-current text-black dark:text-white"
+              className="w-6 h-6 sm:w-7 sm:h-7 fill-current text-black dark:text-white"
               viewBox="0 0 24 24"
             >
               <path d="M12 2C6.477 2 2 6.484 2 12.021c0 4.428 2.865 8.186 6.839 9.504.5.092.682-.217.682-.482 0-.237-.009-.868-.014-1.703-2.782.605-3.369-1.342-3.369-1.342-.454-1.157-1.11-1.465-1.11-1.465-.908-.62.069-.608.069-.608 1.004.07 1.532 1.032 1.532 1.032.892 1.53 2.341 1.088 2.91.832.091-.647.35-1.088.636-1.339-2.221-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.295 2.748-1.025 2.748-1.025.546 1.378.202 2.397.1 2.65.64.7 1.028 1.595 1.028 2.688 0 3.847-2.337 4.695-4.566 4.944.359.309.678.919.678 1.852 0 1.336-.012 2.417-.012 2.747 0 .267.18.577.688.48C19.138 20.203 22 16.447 22 12.021 22 6.484 17.523 2 12 2z" />
@@ -69,7 +69,7 @@ export default function Footer() {
             aria-label="Visitar nuestra página de Google Plus"
           >
             <svg
-              className="w-7 h-7 fill-current text-black dark:text-white"
+              className="w-6 h-6 sm:w-7 sm:h-7 fill-current text-black dark:text-white"
               viewBox="0 0 24 24"
               aria-hidden="true"
             >
@@ -78,15 +78,11 @@ export default function Footer() {
           </a>
           <button
             type="button"
-            onClick={() => {
-              localStorage.clear();
-              location.reload();
-            }}
             className="hover:opacity-70 transition-opacity"
             aria-label="Limpiar caché y recargar"
           >
             <svg
-              className="w-7 h-7 fill-current text-black dark:text-white"
+              className="w-6 h-6 sm:w-7 sm:h-7 fill-current text-black dark:text-white"
               viewBox="0 0 24 24"
               aria-hidden="true"
             >
@@ -172,39 +168,41 @@ export default function Footer() {
           </div>
         )}
         {/* Menu links */}
-        <nav className="flex flex-col sm:flex-row gap-4 sm:gap-8 mb-4 w-full items-center justify-center">
+        <nav className="w-full max-w-7xl mx-auto mb-2 sm:mb-4 px-0 sm:px-4">
+          <div className="flex sm:justify-center gap-3 sm:gap-8 overflow-x-auto sm:overflow-visible px-3 sm:px-0 py-1 sm:py-0 whitespace-nowrap [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           <a
             href="#"
-            className="text-base font-sans font-bold text-[var(--foreground)] hover:text-[var(--tab-hover-text)] transition-colors text-center"
+            className="text-sm sm:text-base font-sans font-bold text-[var(--foreground)] hover:text-[var(--tab-hover-text)] transition-colors text-center py-1 px-2 rounded-md hover:bg-[var(--hover-bg)] flex-none"
           >
             Home
           </a>
           <button
             type="button"
-            className="text-base font-sans font-bold text-[var(--foreground)] hover:text-[var(--tab-hover-text)] transition-colors focus:outline-none text-center"
+            className="text-sm sm:text-base font-sans font-bold text-[var(--foreground)] hover:text-[var(--tab-hover-text)] transition-colors focus:outline-none text-center py-1 px-2 rounded-md hover:bg-[var(--hover-bg)] flex-none"
             onClick={() => setIsNewsModalOpen(true)}
           >
             News
           </button>
           <button
             type="button"
-            className="text-base font-sans font-bold text-[var(--foreground)] hover:text-[var(--tab-hover-text)] transition-colors focus:outline-none text-center"
+            className="text-sm sm:text-base font-sans font-bold text-[var(--foreground)] hover:text-[var(--tab-hover-text)] transition-colors focus:outline-none text-center py-1 px-2 rounded-md hover:bg-[var(--hover-bg)] flex-none"
             onClick={() => setIsAboutModalOpen(true)}
           >
             About
           </button>
           <a
             href="#"
-            className="text-base font-sans font-bold text-[var(--foreground)] hover:text-[var(--tab-hover-text)] transition-colors text-center"
+            className="text-sm sm:text-base font-sans font-bold text-[var(--foreground)] hover:text-[var(--tab-hover-text)] transition-colors text-center py-1 px-2 rounded-md hover:bg-[var(--hover-bg)] flex-none"
           >
             Contact Us
           </a>
           <a
             href="#"
-            className="text-base font-sans font-bold text-[var(--foreground)] hover:text-[var(--tab-hover-text)] transition-colors text-center"
+            className="text-sm sm:text-base font-sans font-bold text-[var(--foreground)] hover:text-[var(--tab-hover-text)] transition-colors text-center py-1 px-2 rounded-md hover:bg-[var(--hover-bg)] flex-none"
           >
             Our Team
           </a>
+          </div>
         </nav>
         {/* News Modal */}
         {isNewsModalOpen && (
@@ -269,8 +267,8 @@ export default function Footer() {
           </div>
         )}
         {/* Copyright + Logo */}
-        <div className="w-full text-xs text-[var(--foreground)] opacity-80 border-t border-[var(--input-border)] pt-2 pb-1">
-          <div className="w-full max-w-7xl mx-auto px-4 flex flex-col sm:flex-row sm:items-center sm:justify-center gap-2 sm:gap-3">
+        <div className="w-full text-[11px] sm:text-xs text-[var(--foreground)] opacity-80 border-t border-[var(--input-border)] pt-2 pb-2 sm:pb-1">
+          <div className="w-full max-w-7xl mx-auto px-2 sm:px-4 flex flex-col sm:flex-row sm:items-center sm:justify-center gap-2 sm:gap-3">
             <div className="text-center">
               <div className="flex flex-col items-center sm:flex-row sm:items-center sm:justify-center sm:gap-2 sm:flex-nowrap">
                 <span className="sm:whitespace-nowrap">
@@ -315,14 +313,14 @@ export default function Footer() {
             />
 
             <div className="flex flex-col items-center justify-center">
-              <span className="text-xs text-[var(--muted-foreground)]">Sponsored by</span>
+              <span className="text-[11px] sm:text-xs text-[var(--muted-foreground)]">Sponsored by</span>
               <Image
                 src={delikorLogo}
                 alt="Delikor"
-                width={160}
-                height={40}
-                sizes="(min-width: 640px) 180px, 160px"
-                className="h-8 sm:h-9 w-auto object-contain"
+                width={140}
+                height={36}
+                sizes="(min-width: 640px) 180px, 140px"
+                className="h-7 sm:h-9 w-auto object-contain"
               />
             </div>
           </div>
