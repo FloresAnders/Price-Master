@@ -4,6 +4,17 @@ import { UsersService } from './users';
 
 export class EmpresasService {
     private static readonly COLLECTION_NAME = 'empresas';
+    private static readonly CACHE_TTL_MS = 30_000;
+    private static empresasCache: { expiresAt: number; data: Empresas[] } | null = null;
+
+    private static cloneEmpresas(list: Empresas[]): Empresas[] {
+        return (list || []).map((e) => ({
+            ...e,
+            empleados: Array.isArray((e as any).empleados)
+                ? (e as any).empleados.map((emp: any) => ({ ...emp }))
+                : [],
+        }));
+    }
 
     // Normalize empleados payload to a consistent shape before persisting
     private static normalizeEmpleado(raw: unknown): EmpresaEmpleado {
@@ -92,17 +103,26 @@ export class EmpresasService {
     }
 
     static async getAllEmpresas(): Promise<Empresas[]> {
+        const cached = this.empresasCache;
+        if (cached && cached.expiresAt > Date.now()) {
+            return this.cloneEmpresas(cached.data);
+        }
+
         const all = await FirestoreService.getAll(this.COLLECTION_NAME) as Empresas[];
-        return all.map(e => ({
+        const normalized = all.map(e => ({
             ...e,
             empleados: EmpresasService.normalizeEmpleados(e.empleados as unknown)
         }));
+        this.empresasCache = { expiresAt: Date.now() + this.CACHE_TTL_MS, data: normalized };
+        return this.cloneEmpresas(normalized);
     }
 
     /**
      * Add a new empresa. If empresa.id is provided, create with that id.
      */
     static async addEmpresa(empresa: Partial<Empresas> & { id?: string }): Promise<string> {
+        // invalidate cache on write
+        this.empresasCache = null;
         // If an ownerId is provided, enforce owner's maxCompanies limit (if any)
         const ownerId = empresa.ownerId || '';
         if (ownerId) {
@@ -146,6 +166,7 @@ export class EmpresasService {
     }
 
     static async updateEmpresa(id: string, empresa: Partial<Empresas>): Promise<void> {
+		this.empresasCache = null;
         const patch = { ...empresa } as Partial<Empresas> & Record<string, unknown>;
         if (patch.empleados) {
             patch.empleados = EmpresasService.normalizeEmpleados(patch.empleados as unknown);
@@ -154,6 +175,7 @@ export class EmpresasService {
     }
 
     static async deleteEmpresa(id: string): Promise<void> {
+		this.empresasCache = null;
         return await FirestoreService.delete(this.COLLECTION_NAME, id);
     }
 }

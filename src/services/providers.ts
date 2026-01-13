@@ -244,11 +244,31 @@ const normalizeProvidersDocument = (raw: unknown, company: string): ProvidersDoc
 
 export class ProvidersService {
 	private static readonly COLLECTION_NAME = 'proveedores';
+	private static readonly CACHE_TTL_MS = 15_000;
+	private static readonly providersCache = new Map<string, { expiresAt: number; providers: ProviderEntry[] }>();
+
+	private static cloneProviders(providers: ProviderEntry[]): ProviderEntry[] {
+		return (providers || []).map((p) => ({
+			...p,
+			visit: p.visit
+				? {
+					...p.visit,
+					createOrderDays: Array.isArray(p.visit.createOrderDays) ? [...p.visit.createOrderDays] : [],
+					receiveOrderDays: Array.isArray(p.visit.receiveOrderDays) ? [...p.visit.receiveOrderDays] : [],
+				}
+				: undefined,
+		}));
+	}
 
 	static async getProviders(company: string): Promise<ProviderEntry[]> {
 		const trimmedCompany = (company || '').trim();
 		if (!trimmedCompany) {
 			return [];
+		}
+
+		const cached = this.providersCache.get(trimmedCompany);
+		if (cached && cached.expiresAt > Date.now()) {
+			return this.cloneProviders(cached.providers);
 		}
 
 		const docRef = doc(db, this.COLLECTION_NAME, trimmedCompany);
@@ -259,7 +279,11 @@ export class ProvidersService {
 		}
 
 		const normalized = normalizeProvidersDocument(snapshot.data(), trimmedCompany);
-		return normalized.providers;
+		this.providersCache.set(trimmedCompany, {
+			expiresAt: Date.now() + this.CACHE_TTL_MS,
+			providers: normalized.providers,
+		});
+		return this.cloneProviders(normalized.providers);
 	}
 
 	static async addProvider(
@@ -367,6 +391,7 @@ export class ProvidersService {
 			return createdProvider;
 		});
 
+		this.providersCache.delete(trimmedCompany);
 		return newProvider;
 	}
 
@@ -429,6 +454,7 @@ export class ProvidersService {
 			return providerToRemove;
 		});
 
+		this.providersCache.delete(trimmedCompany);
 		return removedProvider;
 	}
 
@@ -539,6 +565,7 @@ export class ProvidersService {
 			return updatedProvider;
 		});
 
+		this.providersCache.delete(trimmedCompany);
 		return updated;
 	}
 
