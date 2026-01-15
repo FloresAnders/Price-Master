@@ -1571,14 +1571,14 @@ export function ProviderSection({ id }: { id?: string }) {
                             <span className="inline-flex items-center rounded-full border border-[var(--input-border)] bg-[var(--input-bg)] px-2 py-0.5">
                               Código: <span className="ml-1 text-[var(--foreground)]">{p.code}</span>
                             </span>
+                            <span className="inline-flex items-center rounded-full border border-[var(--input-border)] bg-[var(--card-bg)]/25 px-2 py-0.5">
+                              Empresa: <span className="ml-1 text-[var(--foreground)]">{p.company}</span>
+                            </span>
                             {p.type && (
                               <span className="inline-flex items-center rounded-full border border-[var(--input-border)] bg-[var(--card-bg)]/25 px-2 py-0.5">
                                 Tipo: <span className="ml-1 text-[var(--foreground)]">{p.type}</span>
                               </span>
                             )}
-                            <span className="inline-flex items-center rounded-full border border-[var(--input-border)] bg-[var(--card-bg)]/25 px-2 py-0.5">
-                              Empresa: <span className="ml-1 text-[var(--foreground)]">{p.company}</span>
-                            </span>
                             {p.category && (
                               <span className="inline-flex items-center rounded-full border border-[var(--input-border)] bg-[var(--input-bg)] px-2 py-0.5">
                                 {p.category}
