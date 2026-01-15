@@ -80,7 +80,8 @@ export default function ReporteMovimientosPage() {
     user?.permissions || getDefaultPermissions(user?.role || "user");
   const hasGeneralAccess = Boolean(permissions.fondogeneral);
   const assignedCompany = user?.ownercompanie?.trim() ?? "";
-  const isAdminUser = user?.role === "admin" || user?.role === "superadmin";
+  const isSuperAdmin = user?.role === "superadmin";
+  const isAdminUser = user?.role === "admin" || isSuperAdmin;
 
   const allowedOwnerIds = useMemo(() => {
     const set = new Set<string>();
@@ -320,7 +321,7 @@ export default function ReporteMovimientosPage() {
       return;
     }
 
-    if (allowedOwnerIds.size === 0) {
+    if (!isSuperAdmin && allowedOwnerIds.size === 0) {
       setCompanies([]);
       setSelectedCompany("");
       setCompaniesError(
@@ -338,13 +339,15 @@ export default function ReporteMovimientosPage() {
       try {
         const list = await EmpresasService.getAllEmpresas();
         if (cancelled) return;
-        const filtered = list.filter((emp) =>
-          allowedOwnerIds.has((emp.ownerId || "").trim())
-        );
+        const filtered = isSuperAdmin
+          ? list
+          : list.filter((emp) => allowedOwnerIds.has((emp.ownerId || "").trim()));
+        const getCompanyKey = (emp: any) =>
+          String(emp?.name || emp?.ubicacion || emp?.id || "").trim();
         const names = Array.from(
           new Set(
             filtered
-              .map((emp) => (emp.name || "").trim())
+              .map((emp) => getCompanyKey(emp))
               .filter((name) => name.length > 0)
           )
         ).sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
@@ -384,6 +387,7 @@ export default function ReporteMovimientosPage() {
     hasGeneralAccess,
     authLoading,
     isAdminUser,
+    isSuperAdmin,
     assignedCompany,
     allowedOwnerIds,
   ]);

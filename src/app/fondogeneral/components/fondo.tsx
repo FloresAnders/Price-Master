@@ -644,6 +644,8 @@ export function ProviderSection({ id }: { id?: string }) {
     return set;
   }, [actorOwnerIds, user?.ownerId]);
   const isAdminUser = user?.role === "admin";
+  const isSuperAdminUser = user?.role === "superadmin";
+  const canSelectCompany = isAdminUser || isSuperAdminUser;
   const [adminCompany, setAdminCompany] = useState(() => {
     if (typeof window === "undefined") return assignedCompany;
     try {
@@ -653,7 +655,7 @@ export function ProviderSection({ id }: { id?: string }) {
       return assignedCompany;
     }
   });
-  const company = isAdminUser ? adminCompany : assignedCompany;
+  const company = canSelectCompany ? adminCompany : assignedCompany;
   const {
     providers,
     loading: providersLoading,
@@ -680,13 +682,20 @@ export function ProviderSection({ id }: { id?: string }) {
   }, [ownerCompanies]);
 
   useEffect(() => {
-    if (!isAdminUser) {
+    const normalizeCompanyKey = (value: unknown) =>
+      String(value || "")
+        .trim()
+        .toLowerCase();
+    const getEmpresaCompanyKey = (emp: Empresas) =>
+      String(emp?.name || emp?.ubicacion || emp?.id || "").trim();
+
+    if (!canSelectCompany) {
       setOwnerCompanies([]);
       setOwnerCompaniesLoading(false);
       setOwnerCompaniesError(null);
       return;
     }
-    if (allowedOwnerIds.size === 0) {
+    if (isAdminUser && allowedOwnerIds.size === 0) {
       setOwnerCompanies([]);
       setOwnerCompaniesLoading(false);
       setOwnerCompaniesError(
@@ -702,22 +711,27 @@ export function ProviderSection({ id }: { id?: string }) {
     EmpresasService.getAllEmpresas()
       .then((empresas) => {
         if (!isMounted) return;
-        const filtered = empresas.filter((emp) => {
-          const owner = (emp.ownerId || "").trim();
-          if (!owner) return false;
-          return allowedOwnerIds.has(owner);
-        });
+        const filtered = isAdminUser
+          ? empresas.filter((emp) => {
+              const owner = (emp.ownerId || "").trim();
+              if (!owner) return false;
+              return allowedOwnerIds.has(owner);
+            })
+          : empresas;
         setOwnerCompanies(filtered);
         setAdminCompany((current) => {
-          const normalizedCurrent = (current || "").trim().toLowerCase();
+          const normalizedCurrent = normalizeCompanyKey(current);
           if (normalizedCurrent.length > 0) {
-            const exists = filtered.some(
-              (emp) =>
-                (emp.name || "").trim().toLowerCase() === normalizedCurrent
-            );
+            const exists = filtered.some((emp) => {
+              const candidates = [emp.name, emp.ubicacion, emp.id]
+                .map(normalizeCompanyKey)
+                .filter(Boolean);
+              return candidates.includes(normalizedCurrent);
+            });
             if (exists) return current;
           }
-          return filtered[0]?.name ?? "";
+          const fallback = filtered[0];
+          return fallback ? getEmpresaCompanyKey(fallback) : "";
         });
       })
       .catch((err) => {
@@ -736,7 +750,7 @@ export function ProviderSection({ id }: { id?: string }) {
     return () => {
       isMounted = false;
     };
-  }, [allowedOwnerIds, isAdminUser]);
+  }, [allowedOwnerIds, canSelectCompany, isAdminUser]);
 
   const [providerName, setProviderName] = useState("");
   const [providerType, setProviderType] = useState<FondoMovementType | "">("");
@@ -888,7 +902,7 @@ export function ProviderSection({ id }: { id?: string }) {
   });
   const companySelectId = `provider-company-select-${id ?? "default"}`;
   const showCompanySelector =
-    isAdminUser &&
+    canSelectCompany &&
     (ownerCompaniesLoading ||
       sortedOwnerCompanies.length > 0 ||
       !!ownerCompaniesError);
@@ -934,7 +948,7 @@ export function ProviderSection({ id }: { id?: string }) {
 
   // Escuchar cambios de empresa desde FondoSection (sincronización bidireccional)
   useEffect(() => {
-    if (!isAdminUser) return;
+    if (!canSelectCompany) return;
 
     const handleStorageChange = (event: StorageEvent) => {
       if (
@@ -959,7 +973,7 @@ export function ProviderSection({ id }: { id?: string }) {
 
     window.addEventListener("storage", handleStorageChange);
     return () => window.removeEventListener("storage", handleStorageChange);
-  }, [isAdminUser, adminCompany]);
+  }, [canSelectCompany, adminCompany]);
 
   // Cargar admins cuando se necesite para notificaciones
   useEffect(() => {
@@ -971,11 +985,27 @@ export function ProviderSection({ id }: { id?: string }) {
     let isMounted = true;
     setLoadingAdmins(true);
 
+    const normalizeCompanyKey = (value: unknown) =>
+      String(value || "")
+        .trim()
+        .toLowerCase();
+
     // Determinar el ownerId de referencia:
-    // - Si el usuario tiene ownerId, usar ese
-    // - Si NO tiene ownerId (es el dueño), usar su propio id
-    const referenceOwnerId =
-      user.ownerId && user.ownerId.trim().length > 0
+    // - Superadmin: el ownerId de la empresa seleccionada
+    // - Otros: basado en su ownerId (o su id si es dueño)
+    const referenceOwnerId = isSuperAdminUser
+      ? (() => {
+          const normalizedSelected = normalizeCompanyKey(adminCompany);
+          if (!normalizedSelected) return "";
+          const match = ownerCompanies.find((emp) => {
+            const candidates = [emp?.name, emp?.ubicacion, emp?.id]
+              .map(normalizeCompanyKey)
+              .filter(Boolean);
+            return candidates.includes(normalizedSelected);
+          });
+          return typeof match?.ownerId === "string" ? match.ownerId.trim() : "";
+        })()
+      : user.ownerId && user.ownerId.trim().length > 0
         ? user.ownerId.trim()
         : user.id || "";
 
@@ -1025,7 +1055,7 @@ export function ProviderSection({ id }: { id?: string }) {
     return () => {
       isMounted = false;
     };
-  }, [addNotification, user, selectedAdminId]);
+  }, [addNotification, user, selectedAdminId, isSuperAdminUser, adminCompany, ownerCompanies]);
 
   // Cargar tipos de movimientos de fondo desde la base de datos (con caché y sincronización en tiempo real)
   useEffect(() => {
@@ -1104,7 +1134,7 @@ export function ProviderSection({ id }: { id?: string }) {
 
   const handleAdminCompanyChange = useCallback(
     (value: string) => {
-      if (!isAdminUser) return;
+      if (!canSelectCompany) return;
       setAdminCompany(value);
       try {
         localStorage.setItem(SHARED_COMPANY_STORAGE_KEY, value);
@@ -1134,7 +1164,7 @@ export function ProviderSection({ id }: { id?: string }) {
       setSearchTerm("");
       setItemsPerPage(10);
     },
-    [isAdminUser, adminCompany]
+    [canSelectCompany, adminCompany]
   );
 
   // provider creation is handled from the drawer UI below
@@ -1307,6 +1337,24 @@ export function ProviderSection({ id }: { id?: string }) {
               }
               className="w-full sm:min-w-[200px] lg:min-w-[220px] px-2.5 sm:px-3 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-xs sm:text-sm text-[var(--foreground)]"
             >
+              {(() => {
+                const getCompanyKey = (emp: Empresas) =>
+                  String(emp?.name || emp?.ubicacion || emp?.id || "").trim();
+                const getCompanyLabel = (emp: Empresas) => {
+                  const name = String(emp?.name || "").trim();
+                  const ubicacion = String(emp?.ubicacion || "").trim();
+                  if (
+                    name &&
+                    ubicacion &&
+                    name.toLowerCase() !== ubicacion.toLowerCase()
+                  ) {
+                    return `${name} (${ubicacion})`;
+                  }
+                  return name || ubicacion || getCompanyKey(emp) || "Sin nombre";
+                };
+
+                return (
+                  <>
               {ownerCompaniesLoading && (
                 <option value="">Cargando empresas...</option>
               )}
@@ -1320,14 +1368,17 @@ export function ProviderSection({ id }: { id?: string }) {
                   </option>
                   {sortedOwnerCompanies.map((emp, index) => (
                     <option
-                      key={emp.id || emp.name || `admin-company-${index}`}
-                      value={emp.name || ""}
+                      key={emp.id || emp.name || emp.ubicacion || `admin-company-${index}`}
+                      value={getCompanyKey(emp)}
                     >
-                      {emp.name || "Sin nombre"}
+                      {getCompanyLabel(emp)}
                     </option>
                   ))}
                 </>
               )}
+                  </>
+                );
+              })()}
             </select>
           )}
         </div>
@@ -1774,8 +1825,9 @@ export function ProviderSection({ id }: { id?: string }) {
                     </div>
                   ) : adminUsers.length === 0 ? (
                     <div className="text-xs text-red-500 p-2">
-                      No hay administradores disponibles con correo electrónico
-                      en tu organización.
+                      {isSuperAdminUser
+                        ? "No hay administradores disponibles con correo electrónico para la empresa seleccionada."
+                        : "No hay administradores disponibles con correo electrónico en tu organización."}
                     </div>
                   ) : (
                     <>
@@ -2304,6 +2356,8 @@ export function FondoSection({
     return "";
   }, [allowedOwnerIds, primaryOwnerId]);
   const isAdminUser = user?.role === "admin";
+  const isSuperAdminUser = user?.role === "superadmin";
+  const canSelectCompany = isAdminUser || isSuperAdminUser;
   const [adminCompany, setAdminCompany] = useState(() => {
     if (typeof window === "undefined") return assignedCompany;
     try {
@@ -2313,7 +2367,7 @@ export function FondoSection({
       return assignedCompany;
     }
   });
-  const company = isAdminUser ? adminCompany : assignedCompany;
+  const company = canSelectCompany ? adminCompany : assignedCompany;
   const {
     providers,
     loading: providersLoading,
@@ -2336,13 +2390,21 @@ export function FondoSection({
   }, [ownerCompanies]);
 
   useEffect(() => {
-    if (!isAdminUser) {
+    const normalizeCompanyKey = (value: unknown) =>
+      String(value || "")
+        .trim()
+        .toLowerCase();
+    const getEmpresaCompanyKey = (emp: Empresas) =>
+      String(emp?.name || emp?.ubicacion || emp?.id || "").trim();
+
+    if (!canSelectCompany) {
       setOwnerCompanies([]);
       setOwnerCompaniesLoading(false);
       setOwnerCompaniesError(null);
       return;
     }
-    if (allowedOwnerIds.size === 0) {
+
+    if (isAdminUser && allowedOwnerIds.size === 0) {
       setOwnerCompanies([]);
       setOwnerCompaniesLoading(false);
       setOwnerCompaniesError(
@@ -2358,22 +2420,28 @@ export function FondoSection({
     EmpresasService.getAllEmpresas()
       .then((empresas) => {
         if (!isMounted) return;
-        const filtered = empresas.filter((emp) => {
-          const owner = (emp.ownerId || "").trim();
-          if (!owner) return false;
-          return allowedOwnerIds.has(owner);
-        });
+        const filtered = isAdminUser
+          ? empresas.filter((emp) => {
+              const owner = (emp.ownerId || "").trim();
+              if (!owner) return false;
+              return allowedOwnerIds.has(owner);
+            })
+          : empresas;
         setOwnerCompanies(filtered);
         setAdminCompany((current) => {
-          const normalizedCurrent = (current || "").trim().toLowerCase();
+          const normalizedCurrent = normalizeCompanyKey(current);
           if (normalizedCurrent.length > 0) {
-            const exists = filtered.some(
-              (emp) =>
-                (emp.name || "").trim().toLowerCase() === normalizedCurrent
-            );
+            const exists = filtered.some((emp) => {
+              const candidates = [emp.name, emp.ubicacion, emp.id]
+                .map(normalizeCompanyKey)
+                .filter(Boolean);
+              return candidates.includes(normalizedCurrent);
+            });
             if (exists) return current;
           }
-          return filtered[0]?.name ?? "";
+
+          const fallback = filtered[0];
+          return fallback ? getEmpresaCompanyKey(fallback) : "";
         });
       })
       .catch((err) => {
@@ -2392,19 +2460,28 @@ export function FondoSection({
     return () => {
       isMounted = false;
     };
-  }, [allowedOwnerIds, isAdminUser]);
+  }, [allowedOwnerIds, canSelectCompany, isAdminUser]);
 
   const activeOwnerId = useMemo(() => {
-    if (isAdminUser) {
-      const normalizedCompany = (adminCompany || "").trim().toLowerCase();
+    const normalizeCompanyKey = (value: unknown) =>
+      String(value || "")
+        .trim()
+        .toLowerCase();
+
+    if (canSelectCompany) {
+      const normalizedCompany = normalizeCompanyKey(adminCompany);
       if (normalizedCompany.length > 0) {
-        const match = ownerCompanies.find(
-          (emp) => (emp.name || "").trim().toLowerCase() === normalizedCompany
-        );
+        const match = ownerCompanies.find((emp) => {
+          const candidates = [emp.name, emp.ubicacion, emp.id]
+            .map(normalizeCompanyKey)
+            .filter(Boolean);
+          return candidates.includes(normalizedCompany);
+        });
         const ownerId =
           typeof match?.ownerId === "string" ? match.ownerId.trim() : "";
         if (ownerId) return ownerId;
       }
+
       const fallbackAdminOwner =
         typeof ownerCompanies[0]?.ownerId === "string"
           ? ownerCompanies[0].ownerId.trim()
@@ -2412,7 +2489,7 @@ export function FondoSection({
       if (fallbackAdminOwner) return fallbackAdminOwner;
     }
     return resolvedOwnerId;
-  }, [adminCompany, isAdminUser, ownerCompanies, resolvedOwnerId]);
+  }, [adminCompany, canSelectCompany, ownerCompanies, resolvedOwnerId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -6055,7 +6132,7 @@ export function FondoSection({
 
   const handleAdminCompanyChange = useCallback(
     (value: string) => {
-      if (!isAdminUser) return;
+      if (!canSelectCompany) return;
       const previousValue = adminCompany;
       setAdminCompany(value);
       try {
@@ -6107,7 +6184,7 @@ export function FondoSection({
       setPageIndex(0);
     },
     [
-      isAdminUser,
+      canSelectCompany,
       mode,
       resetFondoForm,
       adminCompany,
@@ -6117,7 +6194,7 @@ export function FondoSection({
 
   // Escuchar cambios de empresa desde ProviderSection (sincronización bidireccional)
   useEffect(() => {
-    if (!isAdminUser) return;
+    if (!canSelectCompany) return;
 
     const handleStorageChange = (event: StorageEvent) => {
       if (
@@ -6166,7 +6243,7 @@ export function FondoSection({
     window.addEventListener("storage", handleStorageChange);
     return () => window.removeEventListener("storage", handleStorageChange);
   }, [
-    isAdminUser,
+    canSelectCompany,
     adminCompany,
     mode,
     resetFondoForm,
@@ -6472,13 +6549,24 @@ export function FondoSection({
 
   const companySelectId = `fg-company-select-${namespace}`;
   const showCompanySelector =
-    isAdminUser &&
+    canSelectCompany &&
     (ownerCompaniesLoading ||
       sortedOwnerCompanies.length > 0 ||
       !!ownerCompaniesError);
   const currentCompanyLabel = company || "Sin empresa seleccionada";
   const companySelectorContent = useMemo(() => {
     if (!showCompanySelector) return null;
+
+    const getCompanyKey = (emp: Empresas) =>
+      String(emp?.name || emp?.ubicacion || emp?.id || "").trim();
+    const getCompanyLabel = (emp: Empresas) => {
+      const name = String(emp?.name || "").trim();
+      const ubicacion = String(emp?.ubicacion || "").trim();
+      if (name && ubicacion && name.toLowerCase() !== ubicacion.toLowerCase()) {
+        return `${name} (${ubicacion})`;
+      }
+      return name || ubicacion || getCompanyKey(emp) || "Sin nombre";
+    };
 
     return (
       <div className="flex flex-col gap-2 text-sm text-[var(--foreground)] sm:flex-row sm:items-center sm:gap-4">
@@ -6525,10 +6613,10 @@ export function FondoSection({
                 </option>
                 {sortedOwnerCompanies.map((emp, index) => (
                   <option
-                    key={emp.id || emp.name || `company-${index}`}
-                    value={emp.name || ""}
+                    key={emp.id || emp.name || emp.ubicacion || `company-${index}`}
+                    value={getCompanyKey(emp)}
                   >
-                    {emp.name || "Sin nombre"}
+                    {getCompanyLabel(emp)}
                   </option>
                 ))}
               </>
@@ -7167,7 +7255,7 @@ export function FondoSection({
 
       {!authLoading && !company && (
         <p className="text-sm text-[var(--muted-foreground)] mb-4">
-          {isAdminUser
+          {canSelectCompany
             ? "Selecciona una empresa para continuar."
             : "Tu usuario no tiene una empresa asociada; registra una empresa para continuar."}
         </p>
