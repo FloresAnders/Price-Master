@@ -261,9 +261,8 @@ const buildDailyClosingStorageKey = (
   account: MovementAccountKey
 ) => {
   const normalizedCompany = company.trim().toLowerCase();
-  return `${DAILY_CLOSINGS_STORAGE_PREFIX}_${
-    normalizedCompany || "default"
-  }_${account}`;
+  return `${DAILY_CLOSINGS_STORAGE_PREFIX}_${normalizedCompany || "default"
+    }_${account}`;
 };
 
 const sanitizeMoneyNumber = (value: unknown) => {
@@ -713,10 +712,10 @@ export function ProviderSection({ id }: { id?: string }) {
         if (!isMounted) return;
         const filtered = isAdminUser
           ? empresas.filter((emp) => {
-              const owner = (emp.ownerId || "").trim();
-              if (!owner) return false;
-              return allowedOwnerIds.has(owner);
-            })
+            const owner = (emp.ownerId || "").trim();
+            if (!owner) return false;
+            return allowedOwnerIds.has(owner);
+          })
           : empresas;
         setOwnerCompanies(filtered);
         setAdminCompany((current) => {
@@ -1290,21 +1289,98 @@ export function ProviderSection({ id }: { id?: string }) {
 
   return (
     <div id={id} className="mt-3 sm:mt-6 lg:mt-10" style={{ color: "#ffffff" }}>
-      <div className="mb-3 sm:mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex flex-col">
-          <h2 className="text-base sm:text-lg lg:text-xl font-semibold text-[var(--foreground)] flex items-center gap-2">
-            <UserPlus className="w-4 h-4 sm:w-5 sm:h-5" /> Agregar proveedor
-          </h2>
-          {company && (
-            <p className="text-[10px] sm:text-xs text-[var(--muted-foreground)] mt-1">
-              Empresa asignada:{" "}
-              <span className="font-medium text-[var(--foreground)]">
-                {company}
+      <div className="mb-3 sm:mb-4 flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-sm sm:text-base font-medium text-[var(--muted-foreground)] flex items-center gap-2">
+              <UserPlus className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--muted-foreground)]" />
+              Proveedores
+            </h2>
+            {company && (
+              <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-[var(--input-border)] bg-[var(--input-bg)] px-2.5 py-1 text-[10px] sm:text-xs">
+                <span className="text-[var(--muted-foreground)]">Empresa</span>
+                <span className="font-semibold text-[var(--foreground)] truncate max-w-[160px] sm:max-w-none">
+                  {company}
+                </span>
               </span>
-            </p>
-          )}
+            )}
+          </div>
+          <p className="mt-1 text-[10px] sm:text-xs text-[var(--muted-foreground)]">
+            Administra proveedores del Fondo General.
+          </p>
         </div>
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+
+        <div className="flex w-full flex-col sm:w-auto sm:flex-row items-stretch sm:items-end gap-2 sm:gap-3">
+          {showCompanySelector && (
+            <div className="flex w-full sm:w-auto flex-col gap-1">
+              <label
+                htmlFor={companySelectId}
+                className="text-[10px] sm:text-xs text-[var(--muted-foreground)]"
+              >
+                Empresa
+              </label>
+              <select
+                id={companySelectId}
+                value={adminCompany}
+                onChange={(event) => handleAdminCompanyChange(event.target.value)}
+                disabled={
+                  ownerCompaniesLoading || sortedOwnerCompanies.length === 0
+                }
+                className="w-full sm:min-w-[220px] lg:min-w-[260px] px-3 py-2.5 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-xs sm:text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40"
+              >
+                {(() => {
+                  const getCompanyKey = (emp: Empresas) =>
+                    String(emp?.name || emp?.ubicacion || emp?.id || "").trim();
+                  const getCompanyLabel = (emp: Empresas) => {
+                    const name = String(emp?.name || "").trim();
+                    const ubicacion = String(emp?.ubicacion || "").trim();
+                    if (
+                      name &&
+                      ubicacion &&
+                      name.toLowerCase() !== ubicacion.toLowerCase()
+                    ) {
+                      return `${name} (${ubicacion})`;
+                    }
+                    return name || ubicacion || getCompanyKey(emp) || "Sin nombre";
+                  };
+
+                  return (
+                    <>
+                      {ownerCompaniesLoading && (
+                        <option value="">Cargando empresas...</option>
+                      )}
+                      {!ownerCompaniesLoading &&
+                        sortedOwnerCompanies.length === 0 && (
+                          <option value="">Sin empresas disponibles</option>
+                        )}
+                      {!ownerCompaniesLoading &&
+                        sortedOwnerCompanies.length > 0 && (
+                          <>
+                            <option value="" disabled>
+                              Selecciona una empresa
+                            </option>
+                            {sortedOwnerCompanies.map((emp, index) => (
+                              <option
+                                key={
+                                  emp.id ||
+                                  emp.name ||
+                                  emp.ubicacion ||
+                                  `admin-company-${index}`
+                                }
+                                value={getCompanyKey(emp)}
+                              >
+                                {getCompanyLabel(emp)}
+                              </option>
+                            ))}
+                          </>
+                        )}
+                    </>
+                  );
+                })()}
+              </select>
+            </div>
+          )}
+
           <button
             type="button"
             onClick={() => {
@@ -1323,65 +1399,11 @@ export function ProviderSection({ id }: { id?: string }) {
               setVisitFrequency("");
             }}
             disabled={!company || saving || providersLoading}
-            className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-[var(--accent)] text-white rounded shadow-sm disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-colors whitespace-nowrap"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--accent)] text-white rounded-lg shadow-sm ring-1 ring-white/10 hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold transition-colors whitespace-nowrap"
           >
-            <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <Plus className="w-4 h-4" />
             <span>Agregar proveedor</span>
           </button>
-          {showCompanySelector && (
-            <select
-              id={companySelectId}
-              value={adminCompany}
-              onChange={(event) => handleAdminCompanyChange(event.target.value)}
-              disabled={
-                ownerCompaniesLoading || sortedOwnerCompanies.length === 0
-              }
-              className="w-full sm:min-w-[200px] lg:min-w-[220px] px-2.5 sm:px-3 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-xs sm:text-sm text-[var(--foreground)]"
-            >
-              {(() => {
-                const getCompanyKey = (emp: Empresas) =>
-                  String(emp?.name || emp?.ubicacion || emp?.id || "").trim();
-                const getCompanyLabel = (emp: Empresas) => {
-                  const name = String(emp?.name || "").trim();
-                  const ubicacion = String(emp?.ubicacion || "").trim();
-                  if (
-                    name &&
-                    ubicacion &&
-                    name.toLowerCase() !== ubicacion.toLowerCase()
-                  ) {
-                    return `${name} (${ubicacion})`;
-                  }
-                  return name || ubicacion || getCompanyKey(emp) || "Sin nombre";
-                };
-
-                return (
-                  <>
-              {ownerCompaniesLoading && (
-                <option value="">Cargando empresas...</option>
-              )}
-              {!ownerCompaniesLoading && sortedOwnerCompanies.length === 0 && (
-                <option value="">Sin empresas disponibles</option>
-              )}
-              {!ownerCompaniesLoading && sortedOwnerCompanies.length > 0 && (
-                <>
-                  <option value="" disabled>
-                    Selecciona una empresa
-                  </option>
-                  {sortedOwnerCompanies.map((emp, index) => (
-                    <option
-                      key={emp.id || emp.name || emp.ubicacion || `admin-company-${index}`}
-                      value={getCompanyKey(emp)}
-                    >
-                      {getCompanyLabel(emp)}
-                    </option>
-                  ))}
-                </>
-              )}
-                  </>
-                );
-              })()}
-            </select>
-          )}
         </div>
       </div>
 
@@ -1402,48 +1424,60 @@ export function ProviderSection({ id }: { id?: string }) {
       )}
 
       <div>
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2 sm:mb-3">
-          <h3 className="text-xs sm:text-sm font-medium text-[var(--foreground)]">
-            Lista de Proveedores
+        <div className="flex items-center justify-between gap-2 mb-2 sm:mb-3">
+          <h3 className="text-[10px] sm:text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wide">
+            Lista de proveedores
           </h3>
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <input
-              type="checkbox"
-              id="filter-with-email"
-              checked={showOnlyWithEmail}
-              onChange={(e) => {
-                setShowOnlyWithEmail(e.target.checked);
-                setCurrentPage(1);  
-              }}
-              className="w-3.5 h-3.5 sm:w-4 sm:h-4 cursor-pointer"
-            />
-            <label
-              htmlFor="filter-with-email"
-              className="text-xs sm:text-sm text-[var(--foreground)] cursor-pointer"
-            >
-              Solo con correo
-            </label>
-          </div>
         </div>
         {!isLoading && (
           <div className="mb-3 sm:mb-4 space-y-2 sm:space-y-3">
-            <div className="relative">
-              <Search className="absolute left-2.5 sm:left-3 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-[var(--muted-foreground)]" />
-              <input
-                type="text"
-                placeholder="Buscar proveedores..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-8 sm:pl-10 pr-3 sm:pr-4 py-1.5 sm:py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-xs sm:text-sm text-[var(--foreground)]"
-              />
+            <div className="flex flex-col md:flex-row md:items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--foreground)]/70" />
+                <input
+                  type="text"
+                  placeholder="Buscar por nombre, código o correo…"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 h-10 sm:h-11 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40"
+                />
+              </div>
+
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <label
+                  htmlFor="filter-with-email"
+                  title="Muestra solo proveedores con correo de notificación"
+                  className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 px-3 py-2 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/30 cursor-pointer select-none"
+                >
+                  <input
+                    type="checkbox"
+                    id="filter-with-email"
+                    checked={showOnlyWithEmail}
+                    onChange={(e) => {
+                      setShowOnlyWithEmail(e.target.checked);
+                      setCurrentPage(1);
+                    }}
+                    className="mt-0.5 sm:mt-0 w-4 h-4 cursor-pointer"
+                  />
+                  <span className="text-xs sm:text-sm text-[var(--foreground)] whitespace-nowrap">
+                    Solo con correo
+                  </span>
+                  <span className="sm:hidden text-[10px] text-[var(--muted-foreground)] leading-tight">
+                    Solo proveedores con correo de notificación.
+                  </span>
+                </label>
+                <div className="hidden sm:block text-[10px] sm:text-xs text-[var(--muted-foreground)] leading-tight">
+                  Filtra por correo de notificación.
+                </div>
+              </div>
             </div>
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-0">
-              <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="mt-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div className="flex items-center gap-2">
                 <label
                   htmlFor="items-per-page"
-                  className="text-xs sm:text-sm text-[var(--foreground)] whitespace-nowrap"
+                  className="text-xs sm:text-sm text-[var(--muted-foreground)] whitespace-nowrap"
                 >
-                  Mostrar:
+                  Mostrar
                 </label>
                 <select
                   id="items-per-page"
@@ -1455,7 +1489,7 @@ export function ProviderSection({ id }: { id?: string }) {
                     setItemsPerPage(value === "all" ? "all" : parseInt(value));
                     setCurrentPage(1);
                   }}
-                  className="px-2 sm:px-3 py-1 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-xs sm:text-sm text-[var(--foreground)] flex-1 sm:flex-initial"
+                  className="w-full sm:w-auto px-3 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg text-xs sm:text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40"
                 >
                   <option value="all">Todos</option>
                   <option value="5">5</option>
@@ -1464,16 +1498,18 @@ export function ProviderSection({ id }: { id?: string }) {
                   <option value="20">20</option>
                 </select>
               </div>
+
               {itemsPerPage !== "all" && totalPages > 1 && (
-                <div className="flex items-center gap-1.5 sm:gap-2 justify-center sm:justify-end">
+                <div className="flex items-center gap-2 justify-center sm:justify-end">
                   <button
                     onClick={() =>
                       setCurrentPage((prev) => Math.max(prev - 1, 1))
                     }
                     disabled={currentPage === 1}
-                    className="p-1.5 sm:px-3 sm:py-1 bg-[var(--accent)] text-white rounded disabled:opacity-50 transition-colors"
+                    className="p-2.5 sm:p-2 bg-[var(--accent)] text-white rounded-lg disabled:opacity-50 transition-colors"
+                    aria-label="Página anterior"
                   >
-                    <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    <ChevronLeft className="w-4 h-4" />
                   </button>
                   <span className="text-[var(--foreground)] text-xs sm:text-sm whitespace-nowrap px-1">
                     {currentPage}/{totalPages}
@@ -1483,9 +1519,10 @@ export function ProviderSection({ id }: { id?: string }) {
                       setCurrentPage((prev) => Math.min(prev + 1, totalPages))
                     }
                     disabled={currentPage === totalPages}
-                    className="p-1.5 sm:px-3 sm:py-1 bg-[var(--accent)] text-white rounded disabled:opacity-50 transition-colors"
+                    className="p-2.5 sm:p-2 bg-[var(--accent)] text-white rounded-lg disabled:opacity-50 transition-colors"
+                    aria-label="Página siguiente"
                   >
-                    <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>
               )}
@@ -1509,62 +1546,76 @@ export function ProviderSection({ id }: { id?: string }) {
               {paginatedProviders.map((p) => (
                 <li
                   key={p.code}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between bg-[var(--muted)] p-2.5 sm:p-3 rounded gap-2 sm:gap-3"
+                  className="group overflow-hidden rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/35 hover:bg-[var(--card-bg)]/50 transition-colors"
                 >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                      <span className="text-sm sm:text-base text-[var(--foreground)] font-semibold truncate">
-                        {p.name}
-                      </span>
-                      {p.correonotifi?.trim() && (
-                        <span
-                          title={`Correo: ${p.correonotifi}`}
-                          className="inline-flex flex-shrink-0"
-                        >
-                          <Mail className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[var(--accent)]" />
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-[10px] sm:text-xs text-[var(--muted-foreground)] mt-0.5">
-                      Código: {p.code}
-                    </div>
-                    {p.type && (
-                      <div className="text-[10px] sm:text-xs text-[var(--muted-foreground)] mt-1 flex items-center gap-1.5 flex-wrap">
-                        <span>Tipo: {p.type}</span>
-                        {p.category && (
-                          <span className="px-1.5 sm:px-2 py-0.5 rounded bg-[var(--input-bg)] text-[9px] sm:text-[10px]">
-                            {p.category}
-                          </span>
-                        )}
+                  <div className="flex flex-col sm:flex-row">
+                    <div className="flex-1 min-w-0 px-3 sm:px-4 py-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm sm:text-base text-[var(--foreground)] font-semibold truncate">
+                              {p.name}
+                            </span>
+                            {p.correonotifi?.trim() && (
+                              <span
+                                title={`Correo: ${p.correonotifi}`}
+                                className="inline-flex max-w-full items-center gap-1 rounded-full border border-[var(--input-border)] bg-[var(--input-bg)] px-2 py-0.5 text-[10px] text-[var(--foreground)]"
+                              >
+                                <Mail className="w-3.5 h-3.5 text-[var(--accent)]" />
+                                <span className="truncate">Con correo</span>
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] sm:text-xs text-[var(--muted-foreground)]">
+                            <span className="inline-flex items-center rounded-full border border-[var(--input-border)] bg-[var(--input-bg)] px-2 py-0.5">
+                              Código: <span className="ml-1 text-[var(--foreground)]">{p.code}</span>
+                            </span>
+                            {p.type && (
+                              <span className="inline-flex items-center rounded-full border border-[var(--input-border)] bg-[var(--card-bg)]/25 px-2 py-0.5">
+                                Tipo: <span className="ml-1 text-[var(--foreground)]">{p.type}</span>
+                              </span>
+                            )}
+                            <span className="inline-flex items-center rounded-full border border-[var(--input-border)] bg-[var(--card-bg)]/25 px-2 py-0.5">
+                              Empresa: <span className="ml-1 text-[var(--foreground)]">{p.company}</span>
+                            </span>
+                            {p.category && (
+                              <span className="inline-flex items-center rounded-full border border-[var(--input-border)] bg-[var(--input-bg)] px-2 py-0.5">
+                                {p.category}
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3">
-                    <div className="text-[10px] sm:text-xs text-[var(--muted-foreground)] truncate">
-                      Empresa: {p.company}
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
+
+                    <div className="flex items-center justify-end gap-2 px-2.5 py-2 sm:px-3 sm:py-3 border-t sm:border-t-0 sm:border-l border-[var(--input-border)] bg-black/10">
                       <button
                         type="button"
-                        className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] disabled:opacity-50 p-1 transition-colors"
+                        className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] disabled:opacity-50 p-2.5 sm:p-2 rounded-md hover:bg-white/5 transition-colors"
                         onClick={() => openEditProvider(p.code)}
                         disabled={saving || deletingCode !== null}
-                        title="Editar"
+                        title="Editar proveedor"
+                        aria-label="Editar proveedor"
                       >
-                        <Pencil className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                        <Pencil className="w-4 h-4" />
                       </button>
+
+                      <div className="w-px h-7 bg-[var(--input-border)]" />
+
                       <button
                         type="button"
-                        className="text-red-500 hover:text-red-600 disabled:opacity-50 p-1 transition-colors"
+                        className="text-red-500 hover:text-red-400 disabled:opacity-50 p-2.5 sm:p-2 rounded-md border border-red-500/30 bg-red-500/10 hover:bg-red-500/15 transition-colors"
                         onClick={() => openRemoveModal(p.code, p.name)}
                         disabled={
                           deletingCode === p.code ||
                           saving ||
                           deletingCode !== null
                         }
-                        title="Eliminar"
+                        title="Eliminar (requiere confirmación)"
+                        aria-label="Eliminar proveedor"
                       >
-                        <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
@@ -1578,9 +1629,8 @@ export function ProviderSection({ id }: { id?: string }) {
       <ConfirmModal
         open={confirmState.open}
         title="Eliminar proveedor"
-        message={`Quieres eliminar el proveedor "${
-          confirmState.name || confirmState.code
-        }"? Esta accion no se puede deshacer.`}
+        message={`Quieres eliminar el proveedor "${confirmState.name || confirmState.code
+          }"? Esta accion no se puede deshacer.`}
         confirmText="Eliminar"
         cancelText="Cancelar"
         actionType="delete"
@@ -1760,11 +1810,10 @@ export function ProviderSection({ id }: { id?: string }) {
                     setVisitFrequency("");
                   }
                 }}
-                className={`w-full p-3 bg-[var(--input-bg)] border rounded ${
-                  providerTypeError
-                    ? "border-red-500"
-                    : "border-[var(--input-border)]"
-                }`}
+                className={`w-full p-3 bg-[var(--input-bg)] border rounded ${providerTypeError
+                  ? "border-red-500"
+                  : "border-[var(--input-border)]"
+                  }`}
                 disabled={!company || saving}
               >
                 <option value="">Seleccione un tipo</option>
@@ -1898,11 +1947,10 @@ export function ProviderSection({ id }: { id?: string }) {
                                   toggleVisitDay(day, setVisitCreateDays)
                                 }
                                 title={VISIT_DAY_TITLES[day]}
-                                className={`px-2 py-1 rounded border text-xs transition-colors ${
-                                  selected
-                                    ? "bg-[var(--accent)] text-white border-[var(--accent)]"
-                                    : "bg-[var(--input-bg)] text-[var(--foreground)] border-[var(--input-border)]"
-                                }`}
+                                className={`px-2 py-1 rounded border text-xs transition-colors ${selected
+                                  ? "bg-[var(--accent)] text-white border-[var(--accent)]"
+                                  : "bg-[var(--input-bg)] text-[var(--foreground)] border-[var(--input-border)]"
+                                  }`}
                               >
                                 {day}
                               </button>
@@ -1926,11 +1974,10 @@ export function ProviderSection({ id }: { id?: string }) {
                                   toggleVisitDay(day, setVisitReceiveDays)
                                 }
                                 title={VISIT_DAY_TITLES[day]}
-                                className={`px-2 py-1 rounded border text-xs transition-colors ${
-                                  selected
-                                    ? "bg-[var(--accent)] text-white border-[var(--accent)]"
-                                    : "bg-[var(--input-bg)] text-[var(--foreground)] border-[var(--input-border)]"
-                                }`}
+                                className={`px-2 py-1 rounded border text-xs transition-colors ${selected
+                                  ? "bg-[var(--accent)] text-white border-[var(--accent)]"
+                                  : "bg-[var(--input-bg)] text-[var(--foreground)] border-[var(--input-border)]"
+                                  }`}
                               >
                                 {day}
                               </button>
@@ -2309,8 +2356,8 @@ export function ProviderSection({ id }: { id?: string }) {
                     ? "Actualizando..."
                     : "Guardando..."
                   : editingProviderCode
-                  ? "Actualizar"
-                  : "Guardar"}
+                    ? "Actualizar"
+                    : "Guardar"}
               </button>
             </div>
           </Box>
@@ -2423,10 +2470,10 @@ export function FondoSection({
         if (!isMounted) return;
         const filtered = isAdminUser
           ? empresas.filter((emp) => {
-              const owner = (emp.ownerId || "").trim();
-              if (!owner) return false;
-              return allowedOwnerIds.has(owner);
-            })
+            const owner = (emp.ownerId || "").trim();
+            if (!owner) return false;
+            return allowedOwnerIds.has(owner);
+          })
           : empresas;
         setOwnerCompanies(filtered);
         setAdminCompany((current) => {
@@ -2560,8 +2607,8 @@ export function FondoSection({
     mode === "ingreso"
       ? FONDO_INGRESO_TYPES[0]
       : mode === "egreso"
-      ? FONDO_EGRESO_TYPES[0]
-      : "COMPRA INVENTARIO";
+        ? FONDO_EGRESO_TYPES[0]
+        : "COMPRA INVENTARIO";
   const [paymentType, setPaymentType] =
     useState<FondoEntry["paymentType"]>(defaultPaymentType);
   const [egreso, setEgreso] = useState("");
@@ -2920,8 +2967,8 @@ export function FondoSection({
     mode === "all"
       ? "all"
       : mode === "ingreso"
-      ? FONDO_INGRESO_TYPES[0]
-      : FONDO_EGRESO_TYPES[0];
+        ? FONDO_INGRESO_TYPES[0]
+        : FONDO_EGRESO_TYPES[0];
   const [filterPaymentType, setFilterPaymentType] = useState<
     FondoEntry["paymentType"] | "all"
   >(() => {
@@ -3305,8 +3352,8 @@ export function FondoSection({
       try {
         const legacyOwnerKey = resolvedOwnerId
           ? MovimientosFondosService.buildLegacyOwnerMovementsKey(
-              resolvedOwnerId
-            )
+            resolvedOwnerId
+          )
           : null;
         const parseTime = (value: string) => {
           const timestamp = Date.parse(value);
@@ -4172,12 +4219,12 @@ export function FondoSection({
       try {
         const baseStorage = storageSnapshotRef.current
           ? MovimientosFondosService.ensureMovementStorageShape<FondoEntry>(
-              storageSnapshotRef.current,
-              normalizedCompany
-            )
+            storageSnapshotRef.current,
+            normalizedCompany
+          )
           : MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(
-              normalizedCompany
-            );
+            normalizedCompany
+          );
 
         baseStorage.company = normalizedCompany;
 
@@ -5084,12 +5131,12 @@ export function FondoSection({
       try {
         const baseStorage = storageSnapshotRef.current
           ? MovimientosFondosService.ensureMovementStorageShape<FondoEntry>(
-              storageSnapshotRef.current,
-              normalizedCompany
-            )
+            storageSnapshotRef.current,
+            normalizedCompany
+          )
           : MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(
-              normalizedCompany
-            );
+            normalizedCompany
+          );
         baseStorage.company = normalizedCompany;
         // V2: movements are stored in a subcollection. Never persist movements array to main doc.
         baseStorage.operations = { movements: [] };
@@ -5466,7 +5513,7 @@ export function FondoSection({
       id: editingDailyClosingId ?? `${Date.now()}`,
       createdAt: editingDailyClosingId
         ? dailyClosings.find((d) => d.id === editingDailyClosingId)
-            ?.createdAt ?? createdAt
+          ?.createdAt ?? createdAt
         : createdAt,
       closingDate: closingDateValue.toISOString(),
       manager: managerName,
@@ -5653,11 +5700,9 @@ export function FondoSection({
           amountEgreso: isPositive ? 0 : Math.abs(diff),
           amountIngreso: isPositive ? diff : 0,
           manager: AUTO_ADJUSTMENT_MANAGER,
-          notes: `AJUSTE APLICADO AL SALDO ACTUAL\n[ALERT_ICON]Diferencia CRC: ${
-            diff >= 0 ? "+ " : "- "
-          }${formatByCurrency("CRC", Math.abs(diff))}.${
-            userNotes ? ` Notas: ${userNotes}` : ""
-          }`,
+          notes: `AJUSTE APLICADO AL SALDO ACTUAL\n[ALERT_ICON]Diferencia CRC: ${diff >= 0 ? "+ " : "- "
+            }${formatByCurrency("CRC", Math.abs(diff))}.${userNotes ? ` Notas: ${userNotes}` : ""
+            }`,
           createdAt,
           accountId: accountKey,
           currency: "CRC",
@@ -5680,11 +5725,9 @@ export function FondoSection({
           amountEgreso: isPositive ? 0 : Math.abs(diff),
           amountIngreso: isPositive ? diff : 0,
           manager: AUTO_ADJUSTMENT_MANAGER,
-          notes: `AJUSTE APLICADO AL SALDO ACTUAL\n[ALERT_ICON]Diferencia USD: ${
-            diff >= 0 ? "+ " : "- "
-          }${formatByCurrency("USD", Math.abs(diff))}.${
-            userNotes ? ` Notas: ${userNotes}` : ""
-          }`,
+          notes: `AJUSTE APLICADO AL SALDO ACTUAL\n[ALERT_ICON]Diferencia USD: ${diff >= 0 ? "+ " : "- "
+            }${formatByCurrency("USD", Math.abs(diff))}.${userNotes ? ` Notas: ${userNotes}` : ""
+            }`,
           createdAt,
           accountId: accountKey,
           currency: "USD",
@@ -5703,9 +5746,8 @@ export function FondoSection({
           amountEgreso: 0,
           amountIngreso: 0,
           manager: AUTO_ADJUSTMENT_MANAGER,
-          notes: `[CHECK_ICON]Sin diferencias.${
-            userNotes ? ` Notas: ${userNotes}` : ""
-          }`,
+          notes: `[CHECK_ICON]Sin diferencias.${userNotes ? ` Notas: ${userNotes}` : ""
+            }`,
           createdAt,
           accountId: accountKey,
           currency: "CRC",
@@ -5969,8 +6011,8 @@ export function FondoSection({
             (s, e) =>
               s +
               (e.originalEntryId === record.id &&
-              isAutoAdjustmentProvider(e.providerCode) &&
-              e.currency === "CRC"
+                isAutoAdjustmentProvider(e.providerCode) &&
+                e.currency === "CRC"
                 ? (e.amountIngreso || 0) - (e.amountEgreso || 0)
                 : 0),
             0
@@ -5979,8 +6021,8 @@ export function FondoSection({
             (s, e) =>
               s +
               (e.originalEntryId === record.id &&
-              isAutoAdjustmentProvider(e.providerCode) &&
-              e.currency === "USD"
+                isAutoAdjustmentProvider(e.providerCode) &&
+                e.currency === "USD"
                 ? (e.amountIngreso || 0) - (e.amountEgreso || 0)
                 : 0),
             0
@@ -6004,17 +6046,17 @@ export function FondoSection({
               if (d.id !== record.id) return d;
               const existingResolution = d.adjustmentResolution || {};
               const updatedResolution: DailyClosingRecord["adjustmentResolution"] =
-                {
-                  ...(existingResolution.removedAdjustments
-                    ? {
-                        removedAdjustments:
-                          existingResolution.removedAdjustments,
-                      }
-                    : {}),
-                  note,
-                  ...(hasCRCAdjustments ? { postAdjustmentBalanceCRC } : {}),
-                  ...(hasUSDAdjustments ? { postAdjustmentBalanceUSD } : {}),
-                };
+              {
+                ...(existingResolution.removedAdjustments
+                  ? {
+                    removedAdjustments:
+                      existingResolution.removedAdjustments,
+                  }
+                  : {}),
+                note,
+                ...(hasCRCAdjustments ? { postAdjustmentBalanceCRC } : {}),
+                ...(hasUSDAdjustments ? { postAdjustmentBalanceUSD } : {}),
+              };
               return {
                 ...d,
                 adjustmentResolution: updatedResolution,
@@ -6174,8 +6216,8 @@ export function FondoSection({
           mode === "all"
             ? "all"
             : mode === "ingreso"
-            ? FONDO_INGRESO_TYPES[0]
-            : FONDO_EGRESO_TYPES[0]
+              ? FONDO_INGRESO_TYPES[0]
+              : FONDO_EGRESO_TYPES[0]
         );
         setFilterEditedOnly(false);
         setSearchQuery("");
@@ -6229,8 +6271,8 @@ export function FondoSection({
             mode === "all"
               ? "all"
               : mode === "ingreso"
-              ? FONDO_INGRESO_TYPES[0]
-              : FONDO_EGRESO_TYPES[0]
+                ? FONDO_INGRESO_TYPES[0]
+                : FONDO_EGRESO_TYPES[0]
           );
           setFilterEditedOnly(false);
           setSearchQuery("");
@@ -6518,11 +6560,11 @@ export function FondoSection({
   const isFilterActive = useMemo(() => {
     return Boolean(
       fromFilter ||
-        toFilter ||
-        (filterProviderCode && filterProviderCode !== "all") ||
-        (filterPaymentType && filterPaymentType !== "all") ||
-        filterEditedOnly ||
-        (searchQuery || "").trim().length > 0
+      toFilter ||
+      (filterProviderCode && filterProviderCode !== "all") ||
+      (filterPaymentType && filterPaymentType !== "all") ||
+      filterEditedOnly ||
+      (searchQuery || "").trim().length > 0
     );
   }, [
     fromFilter,
@@ -6723,21 +6765,21 @@ export function FondoSection({
                 const filteredProviders =
                   providerFilter.length === 0
                     ? [
-                        { code: "all", name: "Todos los proveedores" },
-                        ...providers,
-                      ]
+                      { code: "all", name: "Todos los proveedores" },
+                      ...providers,
+                    ]
                     : [
-                        { code: "all", name: "Todos los proveedores" },
-                        ...providers.filter(
-                          (p) =>
-                            p.name
-                              .toLowerCase()
-                              .includes(providerFilter.toLowerCase()) ||
-                            p.code
-                              .toLowerCase()
-                              .includes(providerFilter.toLowerCase())
-                        ),
-                      ];
+                      { code: "all", name: "Todos los proveedores" },
+                      ...providers.filter(
+                        (p) =>
+                          p.name
+                            .toLowerCase()
+                            .includes(providerFilter.toLowerCase()) ||
+                          p.code
+                            .toLowerCase()
+                            .includes(providerFilter.toLowerCase())
+                      ),
+                    ];
                 return filteredProviders.length > 0 ? (
                   <div className="absolute z-10 w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded mt-1 max-h-60 overflow-y-auto shadow-lg">
                     {filteredProviders.map((p) => (
@@ -6792,35 +6834,35 @@ export function FondoSection({
                   label: string;
                   group: string;
                 }> = [
-                  { value: "all", label: "Todos los tipos", group: "" },
-                  ...FONDO_INGRESO_TYPES.map((t) => ({
-                    value: t,
-                    label: formatMovementType(t),
-                    group: "Ingresos",
-                  })),
-                  ...FONDO_GASTO_TYPES.map((t) => ({
-                    value: t,
-                    label: formatMovementType(t),
-                    group: "Gastos",
-                  })),
-                  ...FONDO_EGRESO_TYPES.map((t) => ({
-                    value: t,
-                    label: formatMovementType(t),
-                    group: "Egresos",
-                  })),
-                ];
+                    { value: "all", label: "Todos los tipos", group: "" },
+                    ...FONDO_INGRESO_TYPES.map((t) => ({
+                      value: t,
+                      label: formatMovementType(t),
+                      group: "Ingresos",
+                    })),
+                    ...FONDO_GASTO_TYPES.map((t) => ({
+                      value: t,
+                      label: formatMovementType(t),
+                      group: "Gastos",
+                    })),
+                    ...FONDO_EGRESO_TYPES.map((t) => ({
+                      value: t,
+                      label: formatMovementType(t),
+                      group: "Egresos",
+                    })),
+                  ];
                 const filteredTypes =
                   typeFilter.length === 0
                     ? allTypes
                     : allTypes.filter(
-                        (t) =>
-                          t.label
-                            .toLowerCase()
-                            .includes(typeFilter.toLowerCase()) ||
-                          t.value
-                            .toLowerCase()
-                            .includes(typeFilter.toLowerCase())
-                      );
+                      (t) =>
+                        t.label
+                          .toLowerCase()
+                          .includes(typeFilter.toLowerCase()) ||
+                        t.value
+                          .toLowerCase()
+                          .includes(typeFilter.toLowerCase())
+                    );
                 if (filteredTypes.length === 0) return null;
 
                 const groupedTypes = filteredTypes.reduce((acc, type) => {
@@ -7004,11 +7046,10 @@ export function FondoSection({
                                   setPageSize("all");
                                   setPageIndex(0);
                                 }}
-                                className={`py-1 rounded ${
-                                  isSelected
-                                    ? "bg-[var(--accent)] text-white"
-                                    : "hover:bg-[var(--muted)]"
-                                }`}
+                                className={`py-1 rounded ${isSelected
+                                  ? "bg-[var(--accent)] text-white"
+                                  : "hover:bg-[var(--muted)]"
+                                  }`}
                               >
                                 {day}
                               </button>
@@ -7148,11 +7189,10 @@ export function FondoSection({
                                   setPageSize("all");
                                   setPageIndex(0);
                                 }}
-                                className={`py-1 rounded ${
-                                  isSelected
-                                    ? "bg-[var(--accent)] text-white"
-                                    : "hover:bg-[var(--muted)]"
-                                }`}
+                                className={`py-1 rounded ${isSelected
+                                  ? "bg-[var(--accent)] text-white"
+                                  : "hover:bg-[var(--muted)]"
+                                  }`}
                               >
                                 {day}
                               </button>
@@ -7204,11 +7244,10 @@ export function FondoSection({
                   type="button"
                   onClick={handleOpenDailyClosing}
                   disabled={!pendingCierreDeCaja}
-                  className={`flex items-center justify-center gap-1.5 sm:gap-2 rounded px-3 sm:px-4 py-2 sm:py-2.5 text-white text-xs sm:text-sm w-full ${
-                    !pendingCierreDeCaja
-                      ? "bg-gray-400 cursor-not-allowed opacity-60"
-                      : "fg-add-mov-btn"
-                  }`}
+                  className={`flex items-center justify-center gap-1.5 sm:gap-2 rounded px-3 sm:px-4 py-2 sm:py-2.5 text-white text-xs sm:text-sm w-full ${!pendingCierreDeCaja
+                    ? "bg-gray-400 cursor-not-allowed opacity-60"
+                    : "fg-add-mov-btn"
+                    }`}
                 >
                   <Banknote className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   <span className="whitespace-nowrap">Registrar cierre</span>
@@ -7230,12 +7269,11 @@ export function FondoSection({
                   (accountKey === "FondoGeneral" && pendingCierreDeCaja) ||
                   !entriesHydrated
                 }
-                className={`flex items-center justify-center gap-1.5 sm:gap-2 rounded px-3 sm:px-4 py-2 sm:py-2.5 text-white text-xs sm:text-sm w-full ${
-                  (accountKey === "FondoGeneral" && pendingCierreDeCaja) ||
+                className={`flex items-center justify-center gap-1.5 sm:gap-2 rounded px-3 sm:px-4 py-2 sm:py-2.5 text-white text-xs sm:text-sm w-full ${(accountKey === "FondoGeneral" && pendingCierreDeCaja) ||
                   !entriesHydrated
-                    ? "bg-gray-400 cursor-not-allowed opacity-60"
-                    : "fg-add-mov-btn"
-                }`}
+                  ? "bg-gray-400 cursor-not-allowed opacity-60"
+                  : "fg-add-mov-btn"
+                  }`}
               >
                 <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 <span className="whitespace-nowrap">Agregar movimiento</span>
@@ -7428,8 +7466,8 @@ export function FondoSection({
                     pageSize === "all"
                       ? "all"
                       : pageSize === "daily"
-                      ? "daily"
-                      : String(pageSize)
+                        ? "daily"
+                        : String(pageSize)
                   }
                   onChange={(e) => {
                     const v = e.target.value;
@@ -7736,9 +7774,9 @@ export function FondoSection({
                       const balanceAfter =
                         entryCurrency === "USD"
                           ? balanceAfterByIdUSD.get(fe.id) ??
-                            (Number(initialAmountUSD) || 0)
+                          (Number(initialAmountUSD) || 0)
                           : balanceAfterByIdCRC.get(fe.id) ??
-                            (Number(initialAmount) || 0);
+                          (Number(initialAmount) || 0);
                       // compute the balance immediately before this movement was applied (in the movement currency)
                       const previousBalance = isEntryEgreso
                         ? balanceAfter + normalizedEgreso
@@ -7789,8 +7827,7 @@ export function FondoSection({
                               "providerCode" in after
                             ) {
                               parts.push(
-                                `Proveedor: ${before.providerCode ?? "—"} → ${
-                                  after.providerCode ?? "—"
+                                `Proveedor: ${before.providerCode ?? "—"} → ${after.providerCode ?? "—"
                                 }`
                               );
                             }
@@ -7799,8 +7836,7 @@ export function FondoSection({
                               "invoiceNumber" in after
                             ) {
                               parts.push(
-                                `Factura: ${before.invoiceNumber ?? "—"} → ${
-                                  after.invoiceNumber ?? "—"
+                                `Factura: ${before.invoiceNumber ?? "—"} → ${after.invoiceNumber ?? "—"
                                 }`
                               );
                             }
@@ -7809,8 +7845,7 @@ export function FondoSection({
                               "paymentType" in after
                             ) {
                               parts.push(
-                                `Tipo: ${before.paymentType ?? "—"} → ${
-                                  after.paymentType ?? "—"
+                                `Tipo: ${before.paymentType ?? "—"} → ${after.paymentType ?? "—"
                                 }`
                               );
                             }
@@ -7859,23 +7894,20 @@ export function FondoSection({
 
                             if ("manager" in before || "manager" in after) {
                               parts.push(
-                                `Encargado: ${before.manager ?? "—"} → ${
-                                  after.manager ?? "—"
+                                `Encargado: ${before.manager ?? "—"} → ${after.manager ?? "—"
                                 }`
                               );
                             }
                             if ("notes" in before || "notes" in after) {
                               parts.push(
-                                `Notas: "${before.notes ?? ""}" → "${
-                                  after.notes ?? ""
+                                `Notas: "${before.notes ?? ""}" → "${after.notes ?? ""
                                 }"`
                               );
                             }
 
-                            return `${at}: ${
-                              parts.join("; ") ||
+                            return `${at}: ${parts.join("; ") ||
                               "Editado (sin cambios detectados)"
-                            } `;
+                              } `;
                           });
                           auditTooltip = lines.join("\n");
                         } catch {
@@ -7886,9 +7918,8 @@ export function FondoSection({
                       return (
                         <tr
                           key={fe.id}
-                          className={`border-t border-[var(--input-border)] hover:bg-[var(--muted)] ${
-                            isMostRecent ? "bg-[#273238]" : ""
-                          } ${isMovementLocked(fe) ? "opacity-60" : ""}`}
+                          className={`border-t border-[var(--input-border)] hover:bg-[var(--muted)] ${isMostRecent ? "bg-[#273238]" : ""
+                            } ${isMovementLocked(fe) ? "opacity-60" : ""}`}
                         >
                           <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
                             {formattedDate}
@@ -7994,11 +8025,10 @@ export function FondoSection({
                                     <ArrowDownRight className="w-4 h-4 text-green-500" />
                                   )}
                                   <span
-                                    className={`font-semibold ${
-                                      isEntryEgreso
-                                        ? "text-red-500"
-                                        : "text-green-600"
-                                    }`}
+                                    className={`font-semibold ${isEntryEgreso
+                                      ? "text-red-500"
+                                      : "text-green-600"
+                                      }`}
                                   >
                                     {`${amountPrefix} ${formatByCurrency(
                                       entryCurrency,
@@ -8108,13 +8138,12 @@ export function FondoSection({
                             <div>
                               Neto:{" "}
                               <span
-                                className={`font-semibold ${
-                                  neto > 0
-                                    ? "text-green-500"
-                                    : neto < 0
+                                className={`font-semibold ${neto > 0
+                                  ? "text-green-500"
+                                  : neto < 0
                                     ? "text-red-500"
                                     : ""
-                                }`}
+                                  }`}
                               >
                                 {formatByCurrency(currency, neto)}
                               </span>
@@ -8241,9 +8270,8 @@ export function FondoSection({
       <ConfirmModal
         open={confirmOpenCreateMovement}
         title="Confirmar empresa y cuenta"
-        message={`Vas a registrar un movimiento en la empresa "${
-          company || ""
-        }" y en la cuenta "${accountKey}". Verifica que sea correcto antes de continuar.`}
+        message={`Vas a registrar un movimiento en la empresa "${company || ""
+          }" y en la cuenta "${accountKey}". Verifica que sea correcto antes de continuar.`}
         confirmText="Continuar"
         cancelText="Cancelar"
         actionType="change"
@@ -8254,9 +8282,8 @@ export function FondoSection({
       <ConfirmModal
         open={confirmDeleteEntry.open}
         title="Eliminar movimiento"
-        message={`¿Está seguro que desea eliminar el movimiento #${
-          confirmDeleteEntry.entry?.invoiceNumber || ""
-        }? Esta acción no se puede deshacer.`}
+        message={`¿Está seguro que desea eliminar el movimiento #${confirmDeleteEntry.entry?.invoiceNumber || ""
+          }? Esta acción no se puede deshacer.`}
         confirmText="Eliminar"
         onConfirm={confirmDeleteMovement}
         onCancel={cancelDeleteMovement}
@@ -8523,15 +8550,15 @@ export function FondoSection({
                                       <div>
                                         <strong>Diferencia:</strong>{" "}
                                         {record.diffCRC === 0 &&
-                                        record.diffUSD === 0
+                                          record.diffUSD === 0
                                           ? "Sin diferencias"
                                           : `${formatDailyClosingDiff(
-                                              "CRC",
-                                              record.diffCRC
-                                            )} / ${formatDailyClosingDiff(
-                                              "USD",
-                                              record.diffUSD
-                                            )}`}
+                                            "CRC",
+                                            record.diffCRC
+                                          )} / ${formatDailyClosingDiff(
+                                            "USD",
+                                            record.diffUSD
+                                          )}`}
                                       </div>
                                     </div>
                                     <div className="text-xs text-[var(--input-border)]">
@@ -8540,8 +8567,8 @@ export function FondoSection({
                                       </div>
                                       {record.adjustmentResolution
                                         ?.removedAdjustments &&
-                                      record.adjustmentResolution
-                                        .removedAdjustments.length > 0 ? (
+                                        record.adjustmentResolution
+                                          .removedAdjustments.length > 0 ? (
                                         <ul className="list-disc pl-5 text-[var(--muted-foreground)]">
                                           {record.adjustmentResolution.removedAdjustments.map(
                                             (adj, idx) => (
@@ -8550,39 +8577,39 @@ export function FondoSection({
                                                 {adj.amount && adj.amount !== 0
                                                   ? adj.amount > 0
                                                     ? `+ ${formatByCurrency(
-                                                        adj.currency as
-                                                          | "CRC"
-                                                          | "USD",
-                                                        adj.amount
-                                                      )}`
-                                                    : `- ${formatByCurrency(
-                                                        adj.currency as
-                                                          | "CRC"
-                                                          | "USD",
-                                                        Math.abs(adj.amount)
-                                                      )}`
-                                                  : `${formatByCurrency(
                                                       adj.currency as
-                                                        | "CRC"
-                                                        | "USD",
-                                                      (adj.amountIngreso || 0) -
-                                                        (adj.amountEgreso || 0)
-                                                    )}`}
+                                                      | "CRC"
+                                                      | "USD",
+                                                      adj.amount
+                                                    )}`
+                                                    : `- ${formatByCurrency(
+                                                      adj.currency as
+                                                      | "CRC"
+                                                      | "USD",
+                                                      Math.abs(adj.amount)
+                                                    )}`
+                                                  : `${formatByCurrency(
+                                                    adj.currency as
+                                                    | "CRC"
+                                                    | "USD",
+                                                    (adj.amountIngreso || 0) -
+                                                    (adj.amountEgreso || 0)
+                                                  )}`}
                                                 {adj.manager
                                                   ? ` — ${adj.manager}`
                                                   : ""}
                                                 {adj.createdAt
                                                   ? ` • ${(() => {
-                                                      try {
-                                                        return dateTimeFormatter.format(
-                                                          new Date(
-                                                            adj.createdAt
-                                                          )
-                                                        );
-                                                      } catch {
-                                                        return adj.createdAt;
-                                                      }
-                                                    })()}`
+                                                    try {
+                                                      return dateTimeFormatter.format(
+                                                        new Date(
+                                                          adj.createdAt
+                                                        )
+                                                      );
+                                                    } catch {
+                                                      return adj.createdAt;
+                                                    }
+                                                  })()}`
                                                   : ""}
                                               </li>
                                             )
@@ -8683,7 +8710,7 @@ export function FondoSection({
                                         </div>
                                         {adj.breakdown &&
                                           Object.keys(adj.breakdown).length >
-                                            0 && (
+                                          0 && (
                                             <div className="mt-2 text-xs text-[var(--muted-foreground)]">
                                               <div className="font-medium">
                                                 Detalle de billetes:
@@ -8707,18 +8734,18 @@ export function FondoSection({
                                                 const beforeAmt =
                                                   lastChange.before
                                                     ? (lastChange.before
-                                                        .amountIngreso || 0) -
-                                                      (lastChange.before
-                                                        .amountEgreso || 0)
+                                                      .amountIngreso || 0) -
+                                                    (lastChange.before
+                                                      .amountEgreso || 0)
                                                     : undefined;
                                                 return typeof beforeAmt ===
                                                   "number"
                                                   ? formatByCurrency(
-                                                      adj.currency as
-                                                        | "CRC"
-                                                        | "USD",
-                                                      Math.abs(beforeAmt)
-                                                    )
+                                                    adj.currency as
+                                                    | "CRC"
+                                                    | "USD",
+                                                    Math.abs(beforeAmt)
+                                                  )
                                                   : "—";
                                               })()}
                                             </div>
@@ -8728,18 +8755,18 @@ export function FondoSection({
                                                 const afterAmt =
                                                   lastChange.after
                                                     ? (lastChange.after
-                                                        .amountIngreso || 0) -
-                                                      (lastChange.after
-                                                        .amountEgreso || 0)
+                                                      .amountIngreso || 0) -
+                                                    (lastChange.after
+                                                      .amountEgreso || 0)
                                                     : undefined;
                                                 return typeof afterAmt ===
                                                   "number"
                                                   ? formatByCurrency(
-                                                      adj.currency as
-                                                        | "CRC"
-                                                        | "USD",
-                                                      Math.abs(afterAmt)
-                                                    )
+                                                    adj.currency as
+                                                    | "CRC"
+                                                    | "USD",
+                                                    Math.abs(afterAmt)
+                                                  )
                                                   : "—";
                                               })()}
                                             </div>
