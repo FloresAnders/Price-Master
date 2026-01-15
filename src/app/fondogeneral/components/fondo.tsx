@@ -975,6 +975,32 @@ export function ProviderSection({ id }: { id?: string }) {
     return () => window.removeEventListener("storage", handleStorageChange);
   }, [canSelectCompany, adminCompany]);
 
+  const notificationOwnerId = useMemo(() => {
+    const normalizeCompanyKey = (value: unknown) =>
+      String(value || "")
+        .trim()
+        .toLowerCase();
+
+    if (!user) return "";
+
+    // Superadmin: ownerId de la empresa seleccionada
+    if (isSuperAdminUser) {
+      const normalizedSelected = normalizeCompanyKey(adminCompany);
+      if (!normalizedSelected) return "";
+      const match = ownerCompanies.find((emp) => {
+        const candidates = [emp?.name, emp?.ubicacion, emp?.id]
+          .map(normalizeCompanyKey)
+          .filter(Boolean);
+        return candidates.includes(normalizedSelected);
+      });
+      return typeof match?.ownerId === "string" ? match.ownerId.trim() : "";
+    }
+
+    // Otros: si tiene ownerId usarlo, si no (dueño) usar su propio id
+    if (user.ownerId && user.ownerId.trim().length > 0) return user.ownerId.trim();
+    return (user.id || "").trim();
+  }, [adminCompany, isSuperAdminUser, ownerCompanies, user]);
+
   // Cargar admins cuando se necesite para notificaciones
   useEffect(() => {
     if (!addNotification || !user) {
@@ -985,30 +1011,7 @@ export function ProviderSection({ id }: { id?: string }) {
     let isMounted = true;
     setLoadingAdmins(true);
 
-    const normalizeCompanyKey = (value: unknown) =>
-      String(value || "")
-        .trim()
-        .toLowerCase();
-
-    // Determinar el ownerId de referencia:
-    // - Superadmin: el ownerId de la empresa seleccionada
-    // - Otros: basado en su ownerId (o su id si es dueño)
-    const referenceOwnerId = isSuperAdminUser
-      ? (() => {
-          const normalizedSelected = normalizeCompanyKey(adminCompany);
-          if (!normalizedSelected) return "";
-          const match = ownerCompanies.find((emp) => {
-            const candidates = [emp?.name, emp?.ubicacion, emp?.id]
-              .map(normalizeCompanyKey)
-              .filter(Boolean);
-            return candidates.includes(normalizedSelected);
-          });
-          return typeof match?.ownerId === "string" ? match.ownerId.trim() : "";
-        })()
-      : user.ownerId && user.ownerId.trim().length > 0
-        ? user.ownerId.trim()
-        : user.id || "";
-
+    const referenceOwnerId = notificationOwnerId;
     if (!referenceOwnerId) {
       setAdminUsers([]);
       setLoadingAdmins(false);
@@ -1039,9 +1042,7 @@ export function ProviderSection({ id }: { id?: string }) {
         });
 
         setAdminUsers(filtered);
-        if (filtered.length > 0 && !selectedAdminId) {
-          setSelectedAdminId(filtered[0].id || "");
-        }
+        setSelectedAdminId((prev) => prev || filtered[0]?.id || "");
       })
       .catch((err) => {
         if (!isMounted) return;
@@ -1055,7 +1056,7 @@ export function ProviderSection({ id }: { id?: string }) {
     return () => {
       isMounted = false;
     };
-  }, [addNotification, user, selectedAdminId, isSuperAdminUser, adminCompany, ownerCompanies]);
+  }, [addNotification, notificationOwnerId, user]);
 
   // Cargar tipos de movimientos de fondo desde la base de datos (con caché y sincronización en tiempo real)
   useEffect(() => {
