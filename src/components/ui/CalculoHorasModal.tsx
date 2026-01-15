@@ -212,13 +212,13 @@ export default function CalculoHorasModal({
               autoFocus
             />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Ejemplo: 08:30:00</p>
-            <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 font-medium">💡 00:00:00 eliminará este registro</p>
+            <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 font-medium">00:00:00 eliminará este registro</p>
           </div>
 
           <div className="mb-4 p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/20">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-gray-800 dark:text-gray-200">Cronómetro</span>
-              <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 tabular-nums">{timerDisplay}</span>
+              <input className="text-sm font-semibold text-gray-900 dark:text-gray-100 tabular-nums" readOnly value={timerDisplay} />
             </div>
             <div className="flex gap-3">
               <button

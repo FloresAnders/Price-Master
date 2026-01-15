@@ -23,6 +23,14 @@ function formatHHMMSS(totalSeconds: number): string {
   return `${pad2(hours)}:${pad2(minutes)}:${pad2(seconds)}`;
 }
 
+function normalizeKey(value: unknown): string {
+  return String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
 interface MappedEmpresa {
   id?: string;
   label: string;
@@ -546,14 +554,21 @@ export default function CalculoHorasPrecios() {
       try {
         const config = await CcssConfigService.getCcssConfig(resolvedOwnerId);
         const currentEmpresa = empresas.find((e) => e.value === empresa);
-        const candidates = [empresa, currentEmpresa?.label, currentEmpresa?.value]
-          .filter(Boolean)
-          .map((s) => String(s).trim().toLowerCase());
+        const candidates = [empresa, currentEmpresa?.value, currentEmpresa?.label, currentEmpresa?.id]
+          .map(normalizeKey)
+          .filter(Boolean);
 
-        const match = config?.companie?.find((c) => candidates.includes(String(c.ownerCompanie || '').trim().toLowerCase()));
-        const valorhora = match?.valorhora;
+        const match = config?.companie?.find((c) => candidates.includes(normalizeKey(c?.ownerCompanie)));
 
-        if (typeof valorhora === 'number' && Number.isFinite(valorhora) && valorhora > 0) {
+        const rawValorHora = (match as any)?.valorhora;
+        const valorhora =
+          typeof rawValorHora === 'number'
+            ? rawValorHora
+            : typeof rawValorHora === 'string'
+              ? Number(rawValorHora)
+              : NaN;
+
+        if (Number.isFinite(valorhora) && valorhora > 0) {
           setPricePerHour(valorhora);
         } else {
           setPricePerHour(DEFAULT_PRICE_PER_HOUR);
@@ -780,6 +795,12 @@ export default function CalculoHorasPrecios() {
                   </th>
                   {daysToShow.map((day) => {
                     const isToday = isCurrentMonthView && day === todayInfo.day;
+
+                    const dayDate = new Date(year, month, day);
+                    const dayName = dayDate.toLocaleDateString('es-CR', { weekday: 'long' });
+                    const monthNameFull = dayDate.toLocaleDateString('es-CR', { month: 'long' });
+                    const tooltip = `${dayName.charAt(0).toUpperCase() + dayName.slice(1)} ${day} de ${monthNameFull} de ${year}`;
+
                     return (
                       <th
                         key={day}
@@ -791,7 +812,15 @@ export default function CalculoHorasPrecios() {
                           height: '40px'
                         }}
                       >
-                        {day}
+                        <span className="relative group" style={{ cursor: 'pointer' }}>
+                          {day}
+                          <span
+                            className="absolute left-1/2 -translate-x-1/2 mt-2 px-2 py-1 rounded bg-gray-900 text-white text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 shadow-lg"
+                            style={{ bottom: '-2.2rem' }}
+                          >
+                            {tooltip}
+                          </span>
+                        </span>
                       </th>
                     );
                   })}
