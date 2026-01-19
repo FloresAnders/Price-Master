@@ -2380,6 +2380,7 @@ export function FondoSection({
   companySelectorPlacement?: "content" | "external";
   onCompanySelectorChange?: (node: React.ReactNode | null) => void;
 }) {
+  const [quickRange, setQuickRange] = React.useState<string | null>(null);
   const { user, loading: authLoading } = useAuth();
   const assignedCompany = user?.ownercompanie?.trim() ?? "";
   const { ownerIds: actorOwnerIds, primaryOwnerId } = useActorOwnership(user);
@@ -6211,6 +6212,7 @@ export function FondoSection({
       setSelectedProvider("");
       // Solo resetear filtros si no está activo keepFiltersAcrossCompanies
       if (!keepFiltersAcrossCompanies) {
+        const todayKey = dateKeyFromDate(new Date());
         setFilterProviderCode("all");
         setFilterPaymentType(
           mode === "all"
@@ -6221,8 +6223,9 @@ export function FondoSection({
         );
         setFilterEditedOnly(false);
         setSearchQuery("");
-        setFromFilter(null);
-        setToFilter(null);
+        setFromFilter(todayKey);
+        setToFilter(todayKey);
+        setQuickRange("today");
       }
       setPageIndex(0);
     },
@@ -6266,6 +6269,7 @@ export function FondoSection({
         setSelectedProvider("");
         // Solo resetear filtros si no está activo keepFiltersAcrossCompanies
         if (!keepFiltersAcrossCompanies) {
+          const todayKey = dateKeyFromDate(new Date());
           setFilterProviderCode("all");
           setFilterPaymentType(
             mode === "all"
@@ -6276,8 +6280,9 @@ export function FondoSection({
           );
           setFilterEditedOnly(false);
           setSearchQuery("");
-          setFromFilter(null);
-          setToFilter(null);
+          setFromFilter(todayKey);
+          setToFilter(todayKey);
+          setQuickRange("today");
         }
         setPageIndex(0);
       }
@@ -6932,12 +6937,14 @@ export function FondoSection({
               <button
                 type="button"
                 onClick={() => {
+                  const todayKey = dateKeyFromDate(new Date());
                   setFilterProviderCode("all");
                   setFilterPaymentType("all");
                   setFilterEditedOnly(false);
                   setSearchQuery("");
-                  setFromFilter(null);
-                  setToFilter(null);
+                  setFromFilter(todayKey);
+                  setToFilter(todayKey);
+                  setQuickRange("today");
                 }}
                 className="self-start sm:self-center px-2.5 sm:px-3 py-1 text-[10px] sm:text-xs font-semibold uppercase tracking-wide border border-[var(--input-border)] rounded hover:bg-[var(--muted)] transition-colors"
                 title="Limpiar filtros"
@@ -7073,7 +7080,8 @@ export function FondoSection({
                       <button
                         type="button"
                         onClick={() => {
-                          setFromFilter(null);
+                          const todayKey = dateKeyFromDate(new Date());
+                          setFromFilter(todayKey);
                           setCalendarFromOpen(false);
                         }}
                         className="px-2 py-1 rounded border border-[var(--input-border)] text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
@@ -7216,7 +7224,8 @@ export function FondoSection({
                       <button
                         type="button"
                         onClick={() => {
-                          setToFilter(null);
+                          const todayKey = dateKeyFromDate(new Date());
+                          setToFilter(todayKey);
                           setCalendarToOpen(false);
                         }}
                         className="px-2 py-1 rounded border border-[var(--input-border)] text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
@@ -7234,6 +7243,68 @@ export function FondoSection({
                   </div>
                 </div>
               )}
+            </div>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 mt-2">
+              <select
+                className="border border-[var(--input-border)] rounded px-2 py-1 text-xs sm:text-sm bg-[var(--input-bg)]"
+                value={quickRange || ''}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setQuickRange(v || null);
+                  const now = new Date();
+                  let from: Date | null = null;
+                  let to: Date | null = null;
+                  if (v === 'today') {
+                    const t = new Date(now);
+                    from = to = t;
+                  } else if (v === 'yesterday') {
+                    const y = new Date(now);
+                    y.setDate(now.getDate() - 1);
+                    from = to = y;
+                  } else if (v === 'thisweek') {
+                    const day = now.getDay();
+                    const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Lunes como inicio
+                    from = new Date(now.setDate(diff));
+                    to = new Date();
+                  } else if (v === 'lastweek') {
+                    const day = now.getDay();
+                    const diff = now.getDate() - day + (day === 0 ? -6 : 1) - 7;
+                    from = new Date(now.getFullYear(), now.getMonth(), diff);
+                    to = new Date(now.getFullYear(), now.getMonth(), diff + 6);
+                  } else if (v === 'lastmonth') {
+                    const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                    const last = new Date(now.getFullYear(), now.getMonth(), 0);
+                    from = first;
+                    to = last;
+                  } else if (v === 'month') {
+                    const first = new Date(now.getFullYear(), now.getMonth(), 1);
+                    const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                    from = first;
+                    to = last;
+                  } else if (v === 'last30') {
+                    const last = new Date();
+                    const first = new Date();
+                    first.setDate(last.getDate() - 29);
+                    from = first;
+                    to = last;
+                  }
+                  if (from && to) {
+                    setFromFilter(dateKeyFromDate(from));
+                    setToFilter(dateKeyFromDate(to));
+                    setPageSize("all");
+                    setPageIndex(0);
+                  }
+                }}
+              >
+                <option value="">Filtro de fecha</option>
+                <option value="today">Hoy</option>
+                <option value="yesterday">Ayer</option>
+                <option value="thisweek">Esta semana</option>
+                <option value="lastweek">Semana anterior</option>
+                <option value="lastmonth">Mes anterior</option>
+                <option value="last30">Últimos 30 días</option>
+                <option value="month">Mes actual</option>
+              </select>
             </div>
           </div>
 
@@ -8833,6 +8904,7 @@ export function FondoSection({
 }
 
 export function OtraSection({ id }: { id?: string }) {
+  // Estado para el filtro rápido
   return (
     <div id={id} className="mt-10">
       <h2 className="text-xl font-semibold text-[var(--foreground)] mb-3 flex items-center gap-2">
