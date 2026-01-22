@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Clock, Save, X } from 'lucide-react';
+import { Clock, Info, Save, X } from 'lucide-react';
 
 function pad2(n: number) {
   return String(n).padStart(2, '0');
@@ -71,6 +71,8 @@ export default function CalculoHorasModal({
   // Timer
   const [timerRunning, setTimerRunning] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [timerText, setTimerText] = useState<string>('00:00:00');
+  const [showTimerInfo, setShowTimerInfo] = useState(false);
   const startAtRef = useRef<number | null>(null);
   const intervalRef = useRef<number | null>(null);
 
@@ -86,6 +88,7 @@ export default function CalculoHorasModal({
     // Reset timer when opening
     setTimerRunning(false);
     setElapsedSeconds(0);
+    setTimerText('00:00:00');
     startAtRef.current = null;
     if (intervalRef.current) {
       window.clearInterval(intervalRef.current);
@@ -105,9 +108,11 @@ export default function CalculoHorasModal({
   const startTimer = () => {
     if (timerRunning) return;
     setError('');
+    setShowTimerInfo(false);
     setTimerRunning(true);
     startAtRef.current = Date.now();
     setElapsedSeconds(0);
+    setTimerText('00:00:00');
 
     if (intervalRef.current) {
       window.clearInterval(intervalRef.current);
@@ -124,24 +129,42 @@ export default function CalculoHorasModal({
   };
 
   const stopTimer = () => {
-    if (!timerRunning) return;
-    setTimerRunning(false);
-    if (intervalRef.current) {
-      window.clearInterval(intervalRef.current);
-      intervalRef.current = null;
+    // Can be used in 2 modes:
+    // 1) If running: stop and apply elapsedSeconds.
+    // 2) If not running: apply editable timerText (if > 0).
+    if (timerRunning) {
+      setTimerRunning(false);
+      if (intervalRef.current) {
+        window.clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    }
+
+    const parsedStopped = parseHHMMSS(timerRunning ? timerDisplay : timerText);
+    if (!parsedStopped.ok) {
+      setError(parsedStopped.error || 'Tiempo inválido');
+      return;
+    }
+    if (parsedStopped.seconds <= 0) {
+      // Nothing to apply
+      return;
     }
 
     // Freeze & add to manual input
-    const stopped = elapsedSeconds;
     const parsedBase = parseHHMMSS(timeText);
     if (!parsedBase.ok) {
       setError(parsedBase.error || 'Tiempo inválido');
       return;
     }
 
-    const combinedSeconds = parsedBase.seconds + stopped;
+    const combinedSeconds = parsedBase.seconds + parsedStopped.seconds;
     const hhmmss = formatHHMMSS(combinedSeconds);
     setTimeText(hhmmss);
+
+    // Reset editable timer display after applying
+    setElapsedSeconds(0);
+    setTimerText('00:00:00');
+    setShowTimerInfo(false);
   };
 
   const handleSave = async () => {
@@ -176,6 +199,8 @@ export default function CalculoHorasModal({
 
   const parsedNow = parseHHMMSS(timeText);
   const isDelete = parsedNow.ok && parsedNow.seconds <= 0;
+  const parsedTimer = parseHHMMSS(timerRunning ? timerDisplay : timerText);
+  const canFinishTimer = !saving && (timerRunning || (parsedTimer.ok && parsedTimer.seconds > 0));
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
@@ -217,8 +242,50 @@ export default function CalculoHorasModal({
 
           <div className="mb-4 p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/20">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-800 dark:text-gray-200">Cronómetro</span>
-              <input className="text-sm font-semibold text-gray-900 dark:text-gray-100 tabular-nums" readOnly value={timerDisplay} />
+              <div className="relative flex items-center gap-2">
+                <span className="text-sm font-medium text-gray-800 dark:text-gray-200">Cronómetro</span>
+                <button
+                  type="button"
+                  className="p-1 rounded-full text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  title="Info: cronómetro editable"
+                  aria-label="Info del cronómetro"
+                  onClick={() => setShowTimerInfo((v) => !v)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') setShowTimerInfo(false);
+                  }}
+                  disabled={saving}
+                >
+                  <Info className="w-4 h-4" />
+                </button>
+
+                {showTimerInfo && (
+                  <div className="absolute left-0 top-7 z-20 w-72 max-w-[80vw] p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
+                    <p className="text-xs text-gray-700 dark:text-gray-200">
+                      Ahora puedes escribir un tiempo (hh:mm:ss) en el cronómetro. Si el valor es distinto de 00:00:00,
+                      se habilita el botón Fin para sumar ese tiempo al campo manual.
+                    </p>
+                  </div>
+                )}
+              </div>
+              <input
+                type="text"
+                className="text-sm font-semibold text-gray-900 dark:text-gray-100 tabular-nums px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-right w-28"
+                value={timerRunning ? timerDisplay : timerText}
+                readOnly={timerRunning}
+                disabled={saving}
+                onChange={(e) => {
+                  setError('');
+                  setShowTimerInfo(false);
+                  setTimerText(e.target.value);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    stopTimer();
+                  } else if (e.key === 'Escape') {
+                    onClose();
+                  }
+                }}
+              />
             </div>
             <div className="flex gap-3">
               <button
@@ -230,13 +297,13 @@ export default function CalculoHorasModal({
               </button>
               <button
                 onClick={stopTimer}
-                disabled={saving || !timerRunning}
+                disabled={!canFinishTimer}
                 className="flex-1 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Fin
               </button>
             </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Al dar 'Fin', el tiempo se copia al campo manual.</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Al dar &apos;Fin&apos;, el tiempo se suma al campo manual.</p>
           </div>
 
           {error && (
