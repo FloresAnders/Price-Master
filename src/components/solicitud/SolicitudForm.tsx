@@ -13,6 +13,7 @@ export default function SolicitudForm() {
     const [empresaSelected, setEmpresaSelected] = useState('');
     // filtro para la lista de solicitudes ('' = todas)
     const [empresaFilter, setEmpresaFilter] = useState('');
+    const [searchText, setSearchText] = useState('');
     const [showListosOnly, setShowListosOnly] = useState(false);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -129,7 +130,13 @@ export default function SolicitudForm() {
     const visibleSolicitudes = (solicitudes || []).filter((s: any) => {
         if (empresaFilter && (s?.empresa || '') !== empresaFilter) return false;
         if (showListosOnly && !Boolean(s?.listo)) return false;
-        return true;
+
+        const q = searchText.trim().toLowerCase();
+        if (!q) return true;
+
+        const product = String(s?.productName || '').toLowerCase();
+        const empresa = String(s?.empresa || '').toLowerCase();
+        return product.includes(q) || empresa.includes(q);
     });
 
     const listosForSelectedEmpresa = (solicitudes || []).filter((s: any) => {
@@ -236,18 +243,28 @@ export default function SolicitudForm() {
 
             {/* Lista de solicitudes guardadas */}
             <div className="mt-6">
-                <div className="mb-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                <div className="mb-3 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-3">
                     <label className="text-sm font-medium whitespace-nowrap">Filtrar por empresa:</label>
                     <select
                         value={empresaFilter}
                         onChange={(e) => setEmpresaFilter(e.target.value)}
-                        className="w-full sm:w-auto p-2 text-sm sm:text-base border border-[var(--border)] rounded bg-[var(--input-bg)]"
+                        className="w-full sm:w-auto sm:min-w-56 p-2 text-sm sm:text-base border border-[var(--border)] rounded bg-[var(--input-bg)]"
                     >
                         <option value="">-- Todas las empresas --</option>
                         {empresas.map((emp) => (
                             <option key={emp.id || emp.name} value={emp.name}>{emp.name}</option>
                         ))}
                     </select>
+
+                    <div className="w-full sm:flex-1 sm:min-w-64">
+                        <label className="sr-only">Buscar</label>
+                        <input
+                            value={searchText}
+                            onChange={(e) => setSearchText(e.target.value)}
+                            placeholder="Buscar (producto o empresa)"
+                            className="w-full p-2 text-sm sm:text-base border border-[var(--border)] rounded bg-[var(--input-bg)]"
+                        />
+                    </div>
 
                     <label className="inline-flex items-center gap-2">
                         <input
@@ -264,7 +281,7 @@ export default function SolicitudForm() {
                             type="button"
                             onClick={confirmBulkDeleteListos}
                             disabled={bulkDeleting || !empresaFilter || listosForSelectedEmpresa.length === 0}
-                            className="w-full sm:w-auto px-3 py-2 bg-red-700 text-white rounded text-sm hover:bg-red-800 disabled:opacity-50"
+                            className="w-full sm:w-auto sm:ml-auto px-3 py-2 bg-red-700 text-white rounded text-sm hover:bg-red-800 disabled:opacity-50"
                             title={!empresaFilter ? 'Selecciona una empresa para borrar sus listos' : undefined}
                         >
                             {bulkDeleting
