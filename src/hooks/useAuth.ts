@@ -35,6 +35,10 @@ const MAX_INACTIVITY_MINUTES = {
   user: 480         // User: 8 horas
 };
 
+// Evita loops de recarga cuando expiró la sesión
+const SESSION_EXPIRED_RELOAD_KEY = 'pricemaster_session_expired_reload_at';
+const SESSION_EXPIRED_RELOAD_WINDOW_MS = 10_000;
+
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -94,12 +98,41 @@ export function useAuth() {
       localStorage.removeItem('pricemaster_session');
       localStorage.removeItem('pricemaster_session_id');
     }
-
     setUser(null);
     setIsAuthenticated(false);
     setSessionWarning(false);
     setUseTokenAuth(false);
-  }, [useTokenAuth]); const checkExistingSession = useCallback(() => {
+    setLoading(false);
+  }, [useTokenAuth]);
+
+  const logoutAndReloadOnce = useCallback((reason?: string) => {
+    // Limpia estado/almacenamiento primero
+    logout(reason);
+
+    // En cliente: recargar solo una vez por ventana de tiempo
+    if (typeof window === 'undefined') return;
+
+    try {
+      const now = Date.now();
+      const last = Number(sessionStorage.getItem(SESSION_EXPIRED_RELOAD_KEY) || '0');
+
+      // Si ya se recargó recientemente, evitar loop
+      if (last && now - last < SESSION_EXPIRED_RELOAD_WINDOW_MS) {
+        return;
+      }
+
+      sessionStorage.setItem(SESSION_EXPIRED_RELOAD_KEY, String(now));
+    } catch {
+      // Si sessionStorage falla, seguimos igual (preferible a quedar colgado)
+    }
+
+    // Dar un tick para que React aplique estado antes de recargar
+    setTimeout(() => {
+      window.location.reload();
+    }, 50);
+  }, [logout]);
+
+  const checkExistingSession = useCallback(() => {
     try {
       // Verificar primero si hay una sesión de token
       const tokenInfo = TokenService.getTokenInfo();
@@ -208,16 +241,21 @@ export function useAuth() {
 
         } else {
           // Sesión expirada o inactiva
-          logout();
+            logoutAndReloadOnce('expired_or_inactive');
+        }
+      } else {
+        // No hay sesión persistida (ni token válido). Asegurar estado consistente.
+        if (user || isAuthenticated || useTokenAuth) {
+            logoutAndReloadOnce('missing_session');
         }
       }
     } catch (error) {
       console.error('Error checking session:', error);
-      logout();
+        logoutAndReloadOnce('check_error');
     } finally {
       setLoading(false);
     }
-  }, [checkInactivity, logout, user, isAuthenticated, sessionWarning]);
+    }, [checkInactivity, logoutAndReloadOnce, user, isAuthenticated, sessionWarning, useTokenAuth]);
   useEffect(() => {
     let unsubscribeUser: (() => void) | null = null;
 
