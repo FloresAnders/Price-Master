@@ -269,6 +269,7 @@ export default function ReporteMovimientosPage() {
 
   const [fromDate, setFromDate] = useState(initialFrom);
   const [toDate, setToDate] = useState(initialTo);
+  const [quickRange, setQuickRange] = useState<string>("");
 
   const dateRangeInvalid = useMemo(() => {
     if (!fromDate || !toDate) return false;
@@ -891,7 +892,10 @@ export default function ReporteMovimientosPage() {
                   type="date"
                   value={fromDate}
                   max={toDate || undefined}
-                  onChange={(event) => setFromDate(event.target.value)}
+                  onChange={(event) => {
+                    setFromDate(event.target.value);
+                    setQuickRange("");
+                  }}
                   className="w-full rounded-md border border-[var(--input-border)] bg-transparent px-3 py-2 text-sm text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                 />
               </div>
@@ -903,9 +907,93 @@ export default function ReporteMovimientosPage() {
                   type="date"
                   value={toDate}
                   min={fromDate || undefined}
-                  onChange={(event) => setToDate(event.target.value)}
+                  onChange={(event) => {
+                    setToDate(event.target.value);
+                    setQuickRange("");
+                  }}
                   className="w-full rounded-md border border-[var(--input-border)] bg-transparent px-3 py-2 text-sm text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                 />
+              </div>
+              <div className="flex-1 min-w-[180px]">
+                <label className="block text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide mb-2">
+                  Filtro de fecha
+                </label>
+                <select
+                  className="w-full rounded-md border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                  style={{
+                    backgroundColor: "var(--card-bg)",
+                    color: "var(--foreground)",
+                  }}
+                  value={quickRange}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setQuickRange(v);
+                    if (!v) return;
+
+                    const now = new Date();
+                    let from: Date | null = null;
+                    let to: Date | null = null;
+
+                    if (v === "today") {
+                      const t = new Date(now);
+                      from = t;
+                      to = t;
+                    } else if (v === "yesterday") {
+                      const y = new Date(now);
+                      y.setDate(y.getDate() - 1);
+                      from = y;
+                      to = y;
+                    } else if (v === "thisweek") {
+                      const d = new Date(now);
+                      const day = d.getDay();
+                      const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+                      const start = new Date(d);
+                      start.setDate(diff);
+                      from = start;
+                      to = new Date(now);
+                    } else if (v === "lastweek") {
+                      const d = new Date(now);
+                      const day = d.getDay();
+                      const diff = d.getDate() - day + (day === 0 ? -6 : 1) - 7;
+                      const start = new Date(d);
+                      start.setDate(diff);
+                      const end = new Date(start);
+                      end.setDate(start.getDate() + 6);
+                      from = start;
+                      to = end;
+                    } else if (v === "lastmonth") {
+                      const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                      const last = new Date(now.getFullYear(), now.getMonth(), 0);
+                      from = first;
+                      to = last;
+                    } else if (v === "month") {
+                      const first = new Date(now.getFullYear(), now.getMonth(), 1);
+                      const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                      from = first;
+                      to = last;
+                    } else if (v === "last30") {
+                      const end = new Date(now);
+                      const start = new Date(now);
+                      start.setDate(start.getDate() - 29);
+                      from = start;
+                      to = end;
+                    }
+
+                    if (from && to) {
+                      setFromDate(buildDateString(from));
+                      setToDate(buildDateString(to));
+                    }
+                  }}
+                >
+                  <option value="">Filtro de fecha</option>
+                  <option value="today">Hoy</option>
+                  <option value="yesterday">Ayer</option>
+                  <option value="thisweek">Esta semana</option>
+                  <option value="lastweek">Semana anterior</option>
+                  <option value="lastmonth">Mes anterior</option>
+                  <option value="last30">Últimos 30 días</option>
+                  <option value="month">Mes actual</option>
+                </select>
               </div>
             </div>
           </div>
