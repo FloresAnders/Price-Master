@@ -103,9 +103,10 @@ const AUTO_ADJUSTMENT_MANAGER = "SISTEMA";
 const CIERRE_FONDO_VENTAS_PROVIDER_NAME = "CIERRE FONDO VENTAS";
 
 // Helper para verificar si un proveedor es un cierre/ajuste automático
-const isAutoAdjustmentProvider = (code: string) =>
-  code === AUTO_ADJUSTMENT_PROVIDER_CODE ||
-  code === AUTO_ADJUSTMENT_PROVIDER_CODE_LEGACY;
+const isAutoAdjustmentProvider = (code: unknown): boolean =>
+  typeof code === "string" &&
+  (code === AUTO_ADJUSTMENT_PROVIDER_CODE ||
+    code === AUTO_ADJUSTMENT_PROVIDER_CODE_LEGACY);
 
 export const isFondoMovementType = (
   value: string

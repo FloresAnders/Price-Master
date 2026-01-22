@@ -33,6 +33,7 @@ function normalizeKey(value: unknown): string {
 
 interface MappedEmpresa {
   id?: string;
+  ownerId?: string;
   label: string;
   value: string;
   names: string[];
@@ -384,6 +385,7 @@ export default function CalculoHorasPrecios() {
   const [selectedEmployee, setSelectedEmployee] = useState<string>('Todos');
   const [saving, setSaving] = useState(false);
   const [pricePerHour, setPricePerHour] = useState<number>(DEFAULT_PRICE_PER_HOUR);
+  const [pricePerHourStatus, setPricePerHourStatus] = useState<'loading' | 'config' | 'default'>('default');
 
   const [timeData, setTimeData] = useState<{ [employeeName: string]: { [day: string]: { seconds: number; timeHHMMSS: string } } }>({});
   const [modal, setModal] = useState<{ isOpen: boolean; employeeName: string; day: number; currentTimeHHMMSS: string }>(
@@ -489,6 +491,7 @@ export default function CalculoHorasPrecios() {
 
         const mapped: MappedEmpresa[] = (owned || []).map((e) => ({
           id: e.id,
+          ownerId: (e as any)?.ownerId ? String((e as any).ownerId) : undefined,
           label: e.name || e.ubicacion || e.id || 'Empresa',
           value: e.ubicacion || e.name || e.id || '',
           names: (e.empleados || [])
@@ -545,20 +548,29 @@ export default function CalculoHorasPrecios() {
 
   // Load valorhora (price per hour) for selected empresa (fallback to DEFAULT_PRICE_PER_HOUR)
   useEffect(() => {
+    let cancelled = false;
+
     const loadValorHora = async () => {
-      if (!empresa || !resolvedOwnerId) {
+      const currentEmpresa = empresas.find((e) => e.value === empresa);
+      const empresaOwnerId = currentEmpresa?.ownerId || resolvedOwnerId;
+
+      if (!empresa || !empresaOwnerId) {
         setPricePerHour(DEFAULT_PRICE_PER_HOUR);
+        setPricePerHourStatus('default');
         return;
       }
 
+      setPricePerHourStatus('loading');
+
       try {
-        const config = await CcssConfigService.getCcssConfig(resolvedOwnerId);
-        const currentEmpresa = empresas.find((e) => e.value === empresa);
         const candidates = [empresa, currentEmpresa?.value, currentEmpresa?.label, currentEmpresa?.id]
           .map(normalizeKey)
           .filter(Boolean);
 
-        const match = config?.companie?.find((c) => candidates.includes(normalizeKey(c?.ownerCompanie)));
+        const configs = await CcssConfigService.getAllCcssConfigsByOwner(empresaOwnerId);
+        const match = (configs || [])
+          .flatMap((cfg) => (cfg as any)?.companie || [])
+          .find((c: any) => candidates.includes(normalizeKey(c?.ownerCompanie)));
 
         const rawValorHora = (match as any)?.valorhora;
         const valorhora =
@@ -568,18 +580,27 @@ export default function CalculoHorasPrecios() {
               ? Number(rawValorHora)
               : NaN;
 
+        if (cancelled) return;
+
         if (Number.isFinite(valorhora) && valorhora > 0) {
           setPricePerHour(valorhora);
+          setPricePerHourStatus('config');
         } else {
           setPricePerHour(DEFAULT_PRICE_PER_HOUR);
+          setPricePerHourStatus('default');
         }
       } catch (err) {
         console.error('Error loading valorhora:', err);
         setPricePerHour(DEFAULT_PRICE_PER_HOUR);
+        setPricePerHourStatus('default');
       }
     };
 
-    loadValorHora();
+    void loadValorHora();
+
+    return () => {
+      cancelled = true;
+    };
   }, [empresa, empresas, resolvedOwnerId]);
 
   // Load calculohoras data for selected empresa/month
@@ -836,11 +857,18 @@ export default function CalculoHorasPrecios() {
                       {(() => {
                         const totalSeconds = daysToShow.reduce((acc, day) => acc + (timeData[name]?.[String(day)]?.seconds || 0), 0);
                         const totalHours = totalSeconds / 3600;
-                        const total = totalHours * pricePerHour;
+                        const hasPrice = pricePerHourStatus !== 'loading' && Number.isFinite(pricePerHour) && pricePerHour > 0;
+                        const total = hasPrice ? totalHours * pricePerHour : NaN;
+                        const priceLine =
+                          pricePerHourStatus === 'loading'
+                            ? 'Precio hora: cargando...'
+                            : `Precio hora: ${moneyFormatter.format(pricePerHour)}${pricePerHourStatus === 'default' ? ' (default)' : ''}`;
+                        const totalLine =
+                          hasPrice ? `Total: ${moneyFormatter.format(total)}` : 'Total: --';
                         const tooltip =
                           `Tiempo total (hh:mm:ss): ${formatHHMMSS(totalSeconds)}\n` +
-                          `Precio hora: ${moneyFormatter.format(pricePerHour)}\n` +
-                          `Total: ${moneyFormatter.format(total)}`;
+                          `${priceLine}\n` +
+                          `${totalLine}`;
 
                         return (
                           <TapTooltip content={<TooltipLines text={tooltip} />}>
