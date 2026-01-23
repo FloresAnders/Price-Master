@@ -54,6 +54,7 @@ import { EmpresasService } from "../../../services/empresas";
 import { UsersService } from "../../../services/users";
 import { FondoMovementTypesService } from "../../../services/fondo-movement-types";
 import { generateMovementNotificationEmail } from "../../../services/email-templates/notificacion-movimiento";
+import { generateEgresoProviderCreatedEmail } from "../../../services/email-templates/proveedor-egreso-creado";
 import {
   MovimientosFondosService,
   MovementAccountKey,
@@ -984,8 +985,8 @@ export function ProviderSection({ id }: { id?: string }) {
 
     if (!user) return "";
 
-    // Superadmin: ownerId de la empresa seleccionada
-    if (isSuperAdminUser) {
+    // Admin/Superadmin: ownerId de la empresa seleccionada
+    if (canSelectCompany) {
       const normalizedSelected = normalizeCompanyKey(adminCompany);
       if (!normalizedSelected) return "";
       const match = ownerCompanies.find((emp) => {
@@ -1000,7 +1001,47 @@ export function ProviderSection({ id }: { id?: string }) {
     // Otros: si tiene ownerId usarlo, si no (dueño) usar su propio id
     if (user.ownerId && user.ownerId.trim().length > 0) return user.ownerId.trim();
     return (user.id || "").trim();
-  }, [adminCompany, isSuperAdminUser, ownerCompanies, user]);
+  }, [adminCompany, canSelectCompany, ownerCompanies, user]);
+
+  const sendEgresoProviderCreatedEmailToOwner = useCallback(
+    async (providerName: string, providerType?: FondoMovementType): Promise<void> => {
+      try {
+        if (!providerType) return;
+        if (!isEgresoType(providerType)) return;
+
+        const ownerId = (notificationOwnerId || "").trim();
+        if (!ownerId) return;
+
+        const admin = await UsersService.getPrimaryAdminByOwner(ownerId);
+        const toEmail = typeof admin?.email === "string" ? admin.email.trim() : "";
+        if (!toEmail) return;
+
+        const createdBy =
+          (user?.name?.trim() || user?.email?.trim() || user?.id || "Sistema").toString();
+        const createdAt = new Date().toISOString();
+
+        const emailContent = generateEgresoProviderCreatedEmail({
+          company: company || "",
+          providerName,
+          providerType,
+          createdBy,
+          createdAt,
+        });
+
+        await addDoc(collection(db, "mail"), {
+          to: toEmail,
+          subject: emailContent.subject,
+          text: emailContent.text,
+          html: emailContent.html,
+          createdAt: serverTimestamp(),
+        });
+      } catch (err) {
+        console.error("[PROVIDER-EGRESO-EMAIL] Error sending owner notification:", err);
+        // La notificación es secundaria: no bloquear creación del proveedor
+      }
+    },
+    [company, notificationOwnerId, user]
+  );
 
   // Cargar admins cuando se necesite para notificaciones
   useEffect(() => {
@@ -1675,6 +1716,11 @@ export function ProviderSection({ id }: { id?: string }) {
                 pending.correonotifi,
                 pending.visit
               );
+
+              await sendEgresoProviderCreatedEmailToOwner(
+                pending.name,
+                pending.providerType
+              );
             }
 
             pendingProviderSaveRef.current = null;
@@ -2325,6 +2371,11 @@ export function ProviderSection({ id }: { id?: string }) {
                         normalizedProviderType,
                         correonotifi,
                         visit
+                      );
+
+                      await sendEgresoProviderCreatedEmailToOwner(
+                        name,
+                        normalizedProviderType
                       );
                     }
                     setProviderName("");
@@ -7373,7 +7424,7 @@ export function FondoSection({
                 pendingCierreDeCaja &&
                 entriesHydrated && (
                   <div className="hidden sm:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-yellow-500 text-black text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
-                    ⚠️ Debe realizar el &quot;Registrar cierre&quot; para seguir
+                    Debe realizar el &quot;Registrar cierre&quot; para seguir
                     agregando movimientos
                     <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-yellow-500"></div>
                   </div>
