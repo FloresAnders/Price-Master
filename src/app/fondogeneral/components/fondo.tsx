@@ -53,6 +53,7 @@ import DailyClosingHistoryModal from "../../../components/modals/DailyClosingHis
 import { EmpresasService } from "../../../services/empresas";
 import { UsersService } from "../../../services/users";
 import { FondoMovementTypesService } from "../../../services/fondo-movement-types";
+import { SchedulesService } from "../../../services/schedules";
 import { generateMovementNotificationEmail } from "../../../services/email-templates/notificacion-movimiento";
 import { generateEgresoProviderCreatedEmail } from "../../../services/email-templates/proveedor-egreso-creado";
 import {
@@ -891,6 +892,61 @@ export function ProviderSection({ id }: { id?: string }) {
     correonotifi?: string;
     visit?: ProviderVisitConfig;
   }>(null);
+
+  // Cache para evitar consultas repetidas (se mantiene en memoria por sesión)
+  const schedulesMonthCacheRef = useRef<
+    Map<
+      string,
+      {
+        at: number;
+        promise: Promise<Awaited<ReturnType<typeof SchedulesService.getSchedulesByLocationYearMonth>>>;
+      }
+    >
+  >(new Map());
+  const ownerAdminEmailCacheRef = useRef<
+    Map<string, { at: number; promise: Promise<string> }>
+  >(new Map());
+
+  const SCHEDULES_CACHE_TTL_MS = 5 * 60 * 1000; // 5 min
+  const OWNER_ADMIN_CACHE_TTL_MS = 10 * 60 * 1000; // 10 min
+
+  const getMonthlySchedulesCached = useCallback(
+    async (locationValue: string, year: number, month0: number) => {
+      const key = `${locationValue}__${year}__${month0}`;
+      const now = Date.now();
+      const cached = schedulesMonthCacheRef.current.get(key);
+      if (cached && now - cached.at < SCHEDULES_CACHE_TTL_MS) {
+        return cached.promise;
+      }
+      const promise = SchedulesService.getSchedulesByLocationYearMonth(
+        locationValue,
+        year,
+        month0
+      );
+      schedulesMonthCacheRef.current.set(key, { at: now, promise });
+      return promise;
+    },
+    []
+  );
+
+  const getOwnerPrimaryAdminEmailCached = useCallback(
+    async (ownerId: string): Promise<string> => {
+      const normalized = (ownerId || "").trim();
+      if (!normalized) return "";
+      const now = Date.now();
+      const cached = ownerAdminEmailCacheRef.current.get(normalized);
+      if (cached && now - cached.at < OWNER_ADMIN_CACHE_TTL_MS) {
+        return cached.promise;
+      }
+      const promise = (async () => {
+        const admin = await UsersService.getPrimaryAdminByOwner(normalized);
+        return typeof admin?.email === "string" ? admin.email.trim() : "";
+      })();
+      ownerAdminEmailCacheRef.current.set(normalized, { at: now, promise });
+      return promise;
+    },
+    []
+  );
   const [similarConfirmOpen, setSimilarConfirmOpen] = useState(false);
   const [similarConfirmMessage, setSimilarConfirmMessage] =
     useState<React.ReactNode>("");
@@ -1009,16 +1065,82 @@ export function ProviderSection({ id }: { id?: string }) {
         if (!providerType) return;
         if (!isEgresoType(providerType)) return;
 
+        const resolveCreatedByFromControlHorario = async (createdAtISO: string): Promise<string> => {
+          const fallback =
+            (user?.name?.trim() || user?.email?.trim() || user?.id || "Sistema").toString();
+
+          const normalizedCompany = (company || "").trim();
+          if (!normalizedCompany) return fallback;
+
+          const createdDate = new Date(createdAtISO);
+          if (Number.isNaN(createdDate.getTime())) return fallback;
+          const parts = new Intl.DateTimeFormat("en-US", {
+            timeZone: "America/Costa_Rica",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+          }).formatToParts(createdDate);
+
+          const getPart = (type: string) =>
+            parts.find((p) => p.type === type)?.value ?? "";
+
+          const year = Number(getPart("year"));
+          const month1 = Number(getPart("month"));
+          const day = Number(getPart("day"));
+          const hour = Number(getPart("hour"));
+
+          if (!Number.isFinite(year) || !Number.isFinite(month1) || !Number.isFinite(day) || !Number.isFinite(hour)) {
+            return fallback;
+          }
+
+          // Regla: cambio de turno a las 4pm (16:00) Costa Rica.
+          // Antes de las 4pm => turno "D". Desde las 4pm => turno "N".
+          const shift = hour >= 16 ? "N" : "D";
+
+          // En schedules se usa month en formato JS (0-11)
+          const month0 = Math.max(0, Math.min(11, month1 - 1));
+
+          try {
+            const monthSchedules = await getMonthlySchedulesCached(
+              normalizedCompany,
+              year,
+              month0
+            );
+
+            const matches = monthSchedules
+              .filter((entry) => entry.day === day && entry.shift === shift)
+              .map((entry) => (entry.employeeName || "").trim())
+              .filter(Boolean);
+
+            if (matches.length === 0) return fallback;
+
+            const normalizedUserName = (user?.name || "").trim().toLowerCase();
+            const direct = normalizedUserName
+              ? matches.find((name) => name.toLowerCase() === normalizedUserName)
+              : undefined;
+            if (direct) return direct;
+
+            return matches
+              .slice()
+              .sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }))
+              [0];
+          } catch (err) {
+            console.error("[PROVIDER-EGRESO-EMAIL] Error resolving createdBy from schedules:", err);
+            return fallback;
+          }
+        };
+
         const ownerId = (notificationOwnerId || "").trim();
         if (!ownerId) return;
 
-        const admin = await UsersService.getPrimaryAdminByOwner(ownerId);
-        const toEmail = typeof admin?.email === "string" ? admin.email.trim() : "";
+        const toEmail = await getOwnerPrimaryAdminEmailCached(ownerId);
         if (!toEmail) return;
 
-        const createdBy =
-          (user?.name?.trim() || user?.email?.trim() || user?.id || "Sistema").toString();
         const createdAt = new Date().toISOString();
+        const createdBy = await resolveCreatedByFromControlHorario(createdAt);
 
         const emailContent = generateEgresoProviderCreatedEmail({
           company: company || "",
@@ -1040,7 +1162,7 @@ export function ProviderSection({ id }: { id?: string }) {
         // La notificación es secundaria: no bloquear creación del proveedor
       }
     },
-    [company, notificationOwnerId, user]
+    [company, getMonthlySchedulesCached, getOwnerPrimaryAdminEmailCached, notificationOwnerId, user]
   );
 
   // Cargar admins cuando se necesite para notificaciones
