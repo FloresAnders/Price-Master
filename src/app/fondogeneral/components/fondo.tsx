@@ -1072,6 +1072,36 @@ export function ProviderSection({ id }: { id?: string }) {
           const normalizedCompany = (company || "").trim();
           if (!normalizedCompany) return fallback;
 
+          // En producción, `companieValue` en schedules puede estar guardado como `name`, `ubicacion` o `id`
+          // según cómo se haya seleccionado la empresa al registrar el horario.
+          // Si podemos, intentamos con varias claves para evitar mismatch.
+          const companyKeysToTry = (() => {
+            const set = new Set<string>();
+            set.add(normalizedCompany);
+
+            if (canSelectCompany && ownerCompanies.length > 0) {
+              const normalizeCompanyKey = (value: unknown) =>
+                String(value || "")
+                  .trim()
+                  .toLowerCase();
+
+              const selectedKey = normalizeCompanyKey(adminCompany);
+              const match = ownerCompanies.find((emp) => {
+                const candidates = [emp?.name, emp?.ubicacion, emp?.id]
+                  .map(normalizeCompanyKey)
+                  .filter(Boolean);
+                return candidates.includes(selectedKey);
+              });
+
+              [match?.name, match?.ubicacion, match?.id]
+                .map((v) => (typeof v === "string" ? v.trim() : String(v || "").trim()))
+                .filter(Boolean)
+                .forEach((v) => set.add(v));
+            }
+
+            return Array.from(set);
+          })();
+
           const createdDate = new Date(createdAtISO);
           if (Number.isNaN(createdDate.getTime())) return fallback;
           const parts = new Intl.DateTimeFormat("en-US", {
@@ -1104,11 +1134,12 @@ export function ProviderSection({ id }: { id?: string }) {
           const month0 = Math.max(0, Math.min(11, month1 - 1));
 
           try {
-            const monthSchedules = await getMonthlySchedulesCached(
-              normalizedCompany,
-              year,
-              month0
+            const schedulesLists = await Promise.all(
+              companyKeysToTry.map((key) =>
+                getMonthlySchedulesCached(key, year, month0)
+              )
             );
+            const monthSchedules = schedulesLists.flat();
 
             const matches = monthSchedules
               .filter((entry) => entry.day === day && entry.shift === shift)
@@ -1162,7 +1193,7 @@ export function ProviderSection({ id }: { id?: string }) {
         // La notificación es secundaria: no bloquear creación del proveedor
       }
     },
-    [company, getMonthlySchedulesCached, getOwnerPrimaryAdminEmailCached, notificationOwnerId, user]
+    [adminCompany, canSelectCompany, company, getMonthlySchedulesCached, getOwnerPrimaryAdminEmailCached, notificationOwnerId, ownerCompanies, user]
   );
 
   // Cargar admins cuando se necesite para notificaciones
