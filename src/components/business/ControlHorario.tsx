@@ -265,6 +265,8 @@ export default function ControlHorario({
   >(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [scheduleData, setScheduleData] = useState<ScheduleData>({});
+  const [incompletePastDaysSignature, setIncompletePastDaysSignature] =
+    useState<string>("");
   const [viewMode, setViewMode] = useState<"first" | "second">("first");
   const [saving, setSaving] = useState(false);
   const { showToast } = useToast();
@@ -311,11 +313,58 @@ export default function ControlHorario({
 
   // useRef hooks
   const autoQuincenaRef = React.useRef<boolean>(false);
+  const incompleteDaysToastTimerRef = React.useRef<number | null>(null);
 
   // notifications handled globally via ToastProvider (showToast)
 
   // Verificar si la empresa actual es DELIFOOD
   const isDelifoodEmpresa = empresa.toLowerCase().includes("delifood");
+
+  const getIncompletePastDaysForMonth = React.useCallback(
+    (data: ScheduleData, year: number, month: number, today: Date): number[] => {
+      const todayKey = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate()
+      ).getTime();
+
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const employeeNames = Object.keys(data);
+      const incompleteDays: number[] = [];
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dayKey = new Date(year, month, day).getTime();
+        if (dayKey >= todayKey) continue; // solo días anteriores al día actual
+
+        let hasN = false;
+        let hasD = false;
+
+        for (const employeeName of employeeNames) {
+          const shift = data[employeeName]?.[String(day)] || "";
+          if (shift === "N") hasN = true;
+          else if (shift === "D") hasD = true;
+          if (hasN && hasD) break;
+        }
+
+        if (!hasN || !hasD) incompleteDays.push(day);
+      }
+
+      return incompleteDays;
+    },
+    []
+  );
+
+  const formatIncompletePastDaysMessage = React.useCallback(
+    (days: number[]) => {
+      const MAX_LIST = 8;
+      const head = days.slice(0, MAX_LIST);
+      const rest = days.length - head.length;
+      const list =
+        rest > 0 ? `${head.join(", ")} (+${rest} más)` : head.join(", ");
+      return `Hay ${days.length} día(s) anterior(es) incompleto(s): ${list}. Deben tener ambos turnos N y D asignados.`;
+    },
+    []
+  );
 
   // All useEffect hooks must be declared before any conditional returns
   // Cargar datos desde Firebase
@@ -488,17 +537,38 @@ export default function ControlHorario({
       const month = currentDate.getMonth();
 
       try {
-        // Determinar el mes correcto para la consulta
-        // Si los datos históricos están guardados con JavaScript month (0-11), usar month
-        // Si están guardados con calendario month (1-12), usar month + 1
-        const dbMonth = month; // Temporal: usar month directamente para ver datos históricos
+        // --- Consultas robustas ---
+        // Históricamente, en Firestore existen datos guardados con:
+        // - month en formato JS (0-11)
+        // - month en formato calendario (1-12)
+        // y a veces companieValue guardado como value/label/id.
+        const empresaMeta = empresas.find((l) => l.value === empresa);
+        const companyCandidates = Array.from(
+          new Set(
+            [empresa, empresaMeta?.label, empresaMeta?.id]
+              .filter(Boolean)
+              .map((v) => String(v))
+          )
+        );
+        const monthCandidates = Array.from(
+          new Set([month, month + 1].filter((m) => m >= 0 && m <= 12))
+        );
 
-        const allEntries: ScheduleEntry[] =
-          await SchedulesService.getSchedulesByLocationYearMonth(
-            empresa,
-            year,
-            dbMonth
-          );
+        let allEntries: ScheduleEntry[] = [];
+        for (const companyValue of companyCandidates) {
+          for (const m of monthCandidates) {
+            const result = await SchedulesService.getSchedulesByLocationYearMonth(
+              companyValue,
+              year,
+              m
+            );
+            if (result && result.length > 0) {
+              allEntries = result;
+              break;
+            }
+          }
+          if (allEntries.length > 0) break;
+        }
 
         const newScheduleData: ScheduleData = {};
         const newDelifoodData: {
@@ -558,6 +628,82 @@ export default function ControlHorario({
     assignedEmpresaValue,
     showToast,
   ]); // Agregar user como dependencia
+
+  // Alertar si hay días anteriores al día actual incompletos (sin N y D cubiertos)
+  useEffect(() => {
+    if (!empresa) return;
+    if (isDelifoodEmpresa) return; // DELIFOOD usa horas, no aplica validación N/D
+
+    // Esperar a que la lista de empleados de la empresa esté disponible.
+    // Evita disparos prematuros cuando scheduleData aún está vacío.
+    const empresaEmployees = empresas.find((l) => l.value === empresa)?.names;
+    if (!empresaEmployees || empresaEmployees.length === 0) return;
+
+    // Debounce: scheduleData puede cambiar varias veces durante la carga.
+    if (incompleteDaysToastTimerRef.current) {
+      window.clearTimeout(incompleteDaysToastTimerRef.current);
+      incompleteDaysToastTimerRef.current = null;
+    }
+
+    incompleteDaysToastTimerRef.current = window.setTimeout(() => {
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+      const incompleteDays = getIncompletePastDaysForMonth(
+        scheduleData,
+        year,
+        month,
+        new Date()
+      );
+
+      // Key persistente para evitar duplicados por StrictMode (double-mount) en dev
+      const storageKey = "controlHorario:lastIncompletePastSignature";
+
+      if (incompleteDays.length === 0) {
+        if (incompletePastDaysSignature) setIncompletePastDaysSignature("");
+        try {
+          sessionStorage.removeItem(storageKey);
+        } catch {
+          // ignore
+        }
+        return;
+      }
+
+      const nextSignature = `${empresa}|${year}|${month}|${incompleteDays.join(",")}`;
+      if (nextSignature === incompletePastDaysSignature) return;
+
+      try {
+        const stored = sessionStorage.getItem(storageKey);
+        if (stored === nextSignature) return;
+        sessionStorage.setItem(storageKey, nextSignature);
+      } catch {
+        // ignore
+      }
+
+      showToast(
+        formatIncompletePastDaysMessage(incompleteDays),
+        "warning",
+        30000
+      );
+      setIncompletePastDaysSignature(nextSignature);
+    }, 250);
+
+    return () => {
+      if (incompleteDaysToastTimerRef.current) {
+        window.clearTimeout(incompleteDaysToastTimerRef.current);
+        incompleteDaysToastTimerRef.current = null;
+      }
+    };
+  }, [
+    empresa,
+    isDelifoodEmpresa,
+    currentDate,
+    scheduleData,
+    empresas,
+    getIncompletePastDaysForMonth,
+    formatIncompletePastDaysMessage,
+    showToast,
+    incompletePastDaysSignature,
+  ]);
 
   // --- AUTO-QUINCENA: Detectar y mostrar la quincena actual SOLO al cargar el mes actual por PRIMERA VEZ en la sesión ---
   useEffect(() => {
