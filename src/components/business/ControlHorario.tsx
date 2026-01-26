@@ -537,38 +537,17 @@ export default function ControlHorario({
       const month = currentDate.getMonth();
 
       try {
-        // --- Consultas robustas ---
-        // Históricamente, en Firestore existen datos guardados con:
-        // - month en formato JS (0-11)
-        // - month en formato calendario (1-12)
-        // y a veces companieValue guardado como value/label/id.
-        const empresaMeta = empresas.find((l) => l.value === empresa);
-        const companyCandidates = Array.from(
-          new Set(
-            [empresa, empresaMeta?.label, empresaMeta?.id]
-              .filter(Boolean)
-              .map((v) => String(v))
-          )
-        );
-        const monthCandidates = Array.from(
-          new Set([month, month + 1].filter((m) => m >= 0 && m <= 12))
-        );
+        // Determinar el mes correcto para la consulta
+        // Si los datos históricos están guardados con JavaScript month (0-11), usar month
+        // Si están guardados con calendario month (1-12), usar month + 1
+        const dbMonth = month; // Temporal: usar month directamente para ver datos históricos
 
-        let allEntries: ScheduleEntry[] = [];
-        for (const companyValue of companyCandidates) {
-          for (const m of monthCandidates) {
-            const result = await SchedulesService.getSchedulesByLocationYearMonth(
-              companyValue,
-              year,
-              m
-            );
-            if (result && result.length > 0) {
-              allEntries = result;
-              break;
-            }
-          }
-          if (allEntries.length > 0) break;
-        }
+        const allEntries: ScheduleEntry[] =
+          await SchedulesService.getSchedulesByLocationYearMonth(
+            empresa,
+            year,
+            dbMonth
+          );
 
         const newScheduleData: ScheduleData = {};
         const newDelifoodData: {
