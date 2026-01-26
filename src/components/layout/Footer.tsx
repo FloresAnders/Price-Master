@@ -6,27 +6,29 @@ import { useVersion } from "../../hooks/useVersion";
 import delikorLogo from "../../../public/Logos/delikor.png";
 
 export default function Footer() {
-  const { version, isLocalNewer } = useVersion();
+  const { version, isLocalNewer, releaseNotes } = useVersion();
   const [isGitHubModalOpen, setIsGitHubModalOpen] = useState(false);
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
   const [isNewsModalOpen, setIsNewsModalOpen] = useState(false);
 
-  // Handle ESC key to close modal
+  // Handle ESC key to close any open modal
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && isGitHubModalOpen) {
-        setIsGitHubModalOpen(false);
-      }
+      if (event.key !== "Escape") return;
+
+      if (isGitHubModalOpen) setIsGitHubModalOpen(false);
+      if (isAboutModalOpen) setIsAboutModalOpen(false);
+      if (isNewsModalOpen) setIsNewsModalOpen(false);
     };
 
-    if (isGitHubModalOpen) {
+    if (isGitHubModalOpen || isAboutModalOpen || isNewsModalOpen) {
       document.addEventListener("keydown", handleKeyDown);
     }
 
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isGitHubModalOpen]);
+  }, [isGitHubModalOpen, isAboutModalOpen, isNewsModalOpen]);
 
   return (
     <footer className="w-full mt-auto">
@@ -207,7 +209,7 @@ export default function Footer() {
         {/* News Modal */}
         {isNewsModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
-            <div className="bg-[var(--card-bg)] rounded-lg shadow-lg p-6 max-w-md w-full relative animate-fade-in">
+            <div className="bg-[var(--card-bg)] rounded-lg shadow-lg p-6 max-w-md w-full relative animate-fade-in max-h-[90vh] overflow-hidden">
               <button
                 className="absolute top-1 right-2 text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] text-2xl font-bold focus:outline-none"
                 onClick={() => setIsNewsModalOpen(false)}
@@ -219,9 +221,33 @@ export default function Footer() {
                 <h2 className="text-xl font-bold text-[var(--foreground)] mb-2">
                   Últimos Cambios
                 </h2>
-                <p className="text-[var(--tab-text)] mb-4 text-center">
-                  Próximamente...
+                <p className="text-[var(--tab-text)] -mt-2 mb-2 text-center">
+                  Novedades de la versión <span className="font-semibold">v{version}</span>
                 </p>
+
+                <div className="w-full space-y-3 max-h-[55vh] overflow-y-auto overscroll-contain pr-1">
+                  {releaseNotes.map((item, idx) => (
+                    <div
+                      key={`${idx}-${item.date}-${item.title}`}
+                      className="rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] p-3"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <h3 className="text-[var(--foreground)] font-semibold leading-snug">
+                            {item.title}
+                          </h3>
+                          <p className="text-[12px] text-[var(--muted-foreground)] mt-0.5">
+                            {item.date}
+                          </p>
+                        </div>
+                      </div>
+                      <p className="text-[var(--tab-text)] mt-2 text-sm leading-relaxed">
+                        {item.description}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
                 <button
                   onClick={() => setIsNewsModalOpen(false)}
                   className="w-full bg-[var(--input-bg)] hover:bg-[var(--input-border)] text-[var(--foreground)] rounded-lg py-2 px-4 transition-colors duration-200"
