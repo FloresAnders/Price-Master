@@ -1,15 +1,10 @@
 {
-    "version": "1.3.33",
+    "version": "1.3.34",
     "releaseNotes": [
         {
             "date": "26 Ene 2026",
-            "title": "Ordena el menú de Inicio a tu gusto",
-            "description": "Ahora puedes reordenar las tarjetas del menú de Inicio arrastrándolas y soltándolas. El orden se guarda en este dispositivo para tu usuario y se mantiene aunque actualices la página."
-        },
-        {
-            "date": "26 Ene 2026",
-            "title": "Aviso si faltan turnos en días anteriores",
-            "description": "Si en el mes actual hay días anteriores con turnos incompletos (por ejemplo, faltan N y/o D en algún empleado), el sistema te mostrará un aviso para ayudarte a corregirlo a tiempo. El aviso evita repetirse innecesariamente."
+            "title": "Correccion del error al dar click en las tarjetas del menú de Inicio",
+            "description": "Se corrigió un error que ocurría al hacer clic en las tarjetas del menú de Inicio, lo que mejoró la navegación y la experiencia del usuario."
         }
     ],
     "_comment": "hacer una pagina de 'en mantenimiento' para secciones en desarrollo y a exepcion de un usuario admin"

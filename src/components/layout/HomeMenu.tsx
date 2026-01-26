@@ -305,8 +305,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        delay: 0,
-        tolerance: 6,
+        distance: 50,
       },
     })
   );
