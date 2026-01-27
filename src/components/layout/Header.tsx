@@ -107,6 +107,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const [showSessionTimer, setShowSessionTimer] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
   const [showSupplierWeekInMenu, setShowSupplierWeekInMenu] = useState(false);
+  const [enableHomeMenuSortMobile, setEnableHomeMenuSortMobile] = useState(false);
   const [showCalculatorModal, setShowCalculatorModal] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const initializedSolicitudesRef = useRef(false);
@@ -153,6 +154,15 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     }
   }, []);
 
+  // Cargar preferencia para ordenar el HomeMenu en móvil
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedPreference = localStorage.getItem("enable-home-menu-sort-mobile");
+      // Por defecto está desactivado (false)
+      setEnableHomeMenuSortMobile(savedPreference === "true");
+    }
+  }, []);
+
   // Guardar preferencia del FloatingSessionTimer cuando cambie
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -184,6 +194,22 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       );
     }
   }, [showSupplierWeekInMenu]);
+
+  // Guardar preferencia para ordenar el HomeMenu en móvil cuando cambie
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(
+        "enable-home-menu-sort-mobile",
+        enableHomeMenuSortMobile.toString()
+      );
+
+      window.dispatchEvent(
+        new CustomEvent("pricemaster:preference-change", {
+          detail: { key: "enable-home-menu-sort-mobile" },
+        })
+      );
+    }
+  }, [enableHomeMenuSortMobile]);
 
   // Keep currentHash in sync in case some code manipulates history.hash
   useEffect(() => {
@@ -1077,6 +1103,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
         onToggleCalculator={setShowCalculator}
         showSupplierWeekInMenu={showSupplierWeekInMenu}
         onToggleSupplierWeekInMenu={setShowSupplierWeekInMenu}
+        enableHomeMenuSortMobile={enableHomeMenuSortMobile}
+        onToggleHomeMenuSortMobile={setEnableHomeMenuSortMobile}
         onLogoutClick={handleLogoutClick}
       />
 

@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   DndContext,
   PointerSensor,
+  TouchSensor,
   closestCenter,
   useSensor,
   useSensors,
@@ -144,12 +145,14 @@ function arraysEqual(a: string[], b: string[]) {
 function SortableHomeMenuCard({
   id,
   onClick,
+  lastDragEndAt,
   className,
   style,
   children,
 }: {
   id: string;
   onClick: () => void;
+  lastDragEndAt: number;
   className: string;
   style?: React.CSSProperties;
   children: React.ReactNode;
@@ -162,6 +165,7 @@ function SortableHomeMenuCard({
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.9 : undefined,
+    touchAction: "none",
   };
 
   return (
@@ -170,6 +174,7 @@ function SortableHomeMenuCard({
       type="button"
       onClick={() => {
         if (isDragging) return;
+        if (lastDragEndAt && Date.now() - lastDragEndAt < 250) return;
         onClick();
       }}
       className={className}
@@ -187,6 +192,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   const [clickCount, setClickCount] = useState(0);
   const [showStickman, setShowStickman] = useState(false);
   const [showSupplierWeekInMenu, setShowSupplierWeekInMenu] = useState(false);
+  const [enableHomeMenuSortMobile, setEnableHomeMenuSortMobile] = useState(false);
   const [currentHash, setCurrentHash] = useState("");
   const [supplierWeekAnchorKey, setSupplierWeekAnchorKey] = useState<number>(() =>
     dateToKey(new Date())
@@ -240,6 +246,33 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   }, [currentUser]);
 
   const [savedMenuOrder, setSavedMenuOrder] = useState<string[]>([]);
+
+  // Preference: allow HomeMenu reordering on mobile
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const readPreference = () => {
+      const savedPreference = localStorage.getItem("enable-home-menu-sort-mobile");
+      setEnableHomeMenuSortMobile(savedPreference === "true");
+    };
+
+    readPreference();
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "enable-home-menu-sort-mobile") readPreference();
+    };
+
+    const handlePrefChange = (e: Event) => {
+      const key = (e as CustomEvent)?.detail?.key;
+      if (key === "enable-home-menu-sort-mobile") readPreference();
+    };
+
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("pricemaster:preference-change", handlePrefChange);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("pricemaster:preference-change", handlePrefChange);
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -302,13 +335,23 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
       .filter(Boolean) as typeof visibleMenuItems;
   }, [visibleMenuItems, orderedVisibleMenuItemIds]);
 
+  const reorderEnabled = enableHomeMenuSortMobile;
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 50,
+        distance: 8,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200,
+        tolerance: 8,
       },
     })
   );
+
+  const [lastDragEndAt, setLastDragEndAt] = useState(0);
 
   const hasSupplierWeekPermission = Boolean(
     resolvedPermissions?.supplierorders || resolvedPermissions?.fondogeneral
@@ -1139,36 +1182,61 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
           )}
 
           {!showOnlySupplierWeek && orderedVisibleMenuItems.length > 0 && (
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={(event) => {
-                const { active, over } = event;
-                if (!over) return;
-                if (active.id === over.id) return;
+            reorderEnabled ? (
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={(event) => {
+                  setLastDragEndAt(Date.now());
+                  const { active, over } = event;
+                  if (!over) return;
+                  if (active.id === over.id) return;
 
-                const oldIndex = orderedVisibleMenuItemIds.indexOf(String(active.id));
-                const newIndex = orderedVisibleMenuItemIds.indexOf(String(over.id));
-                if (oldIndex < 0 || newIndex < 0) return;
+                  const oldIndex = orderedVisibleMenuItemIds.indexOf(String(active.id));
+                  const newIndex = orderedVisibleMenuItemIds.indexOf(String(over.id));
+                  if (oldIndex < 0 || newIndex < 0) return;
 
-                const nextOrder = arrayMove(orderedVisibleMenuItemIds, oldIndex, newIndex);
-                setSavedMenuOrder(nextOrder);
-                if (!homeMenuOrderStorageKey) return;
-                try {
-                  localStorage.setItem(homeMenuOrderStorageKey, JSON.stringify(nextOrder));
-                } catch {
-                  // ignore
-                }
-              }}
-            >
-              <SortableContext
-                items={orderedVisibleMenuItemIds}
-                strategy={rectSortingStrategy}
+                  const nextOrder = arrayMove(orderedVisibleMenuItemIds, oldIndex, newIndex);
+                  setSavedMenuOrder(nextOrder);
+                  if (!homeMenuOrderStorageKey) return;
+                  try {
+                    localStorage.setItem(homeMenuOrderStorageKey, JSON.stringify(nextOrder));
+                  } catch {
+                    // ignore
+                  }
+                }}
               >
+                <SortableContext
+                  items={orderedVisibleMenuItemIds}
+                  strategy={rectSortingStrategy}
+                >
+                  {orderedVisibleMenuItems.map((item) => (
+                    <SortableHomeMenuCard
+                      key={item.id}
+                      id={item.id}
+                      onClick={() => handleNavigate(item.id)}
+                      lastDragEndAt={lastDragEndAt}
+                      className="bg-[var(--card-bg)] dark:bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl shadow-md p-6 flex flex-col items-center transition hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-[var(--primary)] group touch-manipulation"
+                      style={{ minHeight: 160 }}
+                    >
+                      <item.icon className="w-10 h-10 mb-3 text-[var(--primary)] group-hover:scale-110 group-hover:text-[var(--button-hover)] transition-all" />
+                      <span className="text-lg font-semibold mb-1 text-[var(--foreground)] dark:text-[var(--foreground)]">
+                        {item.name}
+                      </span>
+                      <span className="text-sm text-[var(--muted-foreground)] text-center">
+                        {item.description}
+                      </span>
+                      {/* No badge shown here; navigation goes to the Fondo General page */}
+                    </SortableHomeMenuCard>
+                  ))}
+                </SortableContext>
+              </DndContext>
+            ) : (
+              <>
                 {orderedVisibleMenuItems.map((item) => (
-                  <SortableHomeMenuCard
+                  <button
                     key={item.id}
-                    id={item.id}
+                    type="button"
                     onClick={() => handleNavigate(item.id)}
                     className="bg-[var(--card-bg)] dark:bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl shadow-md p-6 flex flex-col items-center transition hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-[var(--primary)] group touch-manipulation"
                     style={{ minHeight: 160 }}
@@ -1180,11 +1248,10 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
                     <span className="text-sm text-[var(--muted-foreground)] text-center">
                       {item.description}
                     </span>
-                    {/* No badge shown here; navigation goes to the Fondo General page */}
-                  </SortableHomeMenuCard>
+                  </button>
                 ))}
-              </SortableContext>
-            </DndContext>
+              </>
+            )
           )}
         </div>
       )}
