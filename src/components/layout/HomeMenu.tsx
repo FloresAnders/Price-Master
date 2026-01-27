@@ -35,6 +35,7 @@ import { useProviders } from "../../hooks/useProviders";
 import { useControlPedido } from "../../hooks/useControlPedido";
 import { MovimientosFondosService } from "../../services/movimientos-fondos";
 import { EmpresasService } from "../../services/empresas";
+import type { ControlPedidoEntry } from "../../services/controlpedido";
 import {
   addDays,
   dateToKey,
@@ -439,6 +440,8 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
 
   useEffect(() => {
     // Cargar opciones de empresas para selector (solo admin/superadmin)
+    // Nota: solo se necesita en la ruta (no en el card del menú).
+    if (!isSupplierWeekRoute) return;
     if (!showExpandedSupplierWeek) return;
     if (!canChangeSupplierWeekCompany) return;
     if (!currentUser) return;
@@ -545,6 +548,8 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   useEffect(() => {
     // Fallback: si el admin selecciona una empresa y no hay proveedores bajo el "value",
     // intentar cargar usando el label (nombre) como key alternativo.
+    // Nota: solo tiene sentido en la ruta (donde hay selector de empresa).
+    if (!isSupplierWeekRoute) return;
     if (!showExpandedSupplierWeek) return;
     if (!canChangeSupplierWeekCompany) return;
     if (weeklyProvidersLoading) return;
@@ -600,10 +605,13 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
         ReturnType<typeof MovimientosFondosService.getDocument>
       >;
 
-      try {
-        resolved = await MovimientosFondosService.getDocument(companyKey);
-      } catch (err) {
-        console.error("Error reading Fondo General balances:", err);
+      // In menu mode, prefer local cache and avoid hitting Firestore.
+      if (isSupplierWeekRoute) {
+        try {
+          resolved = await MovimientosFondosService.getDocument(companyKey);
+        } catch (err) {
+          console.error("Error reading Fondo General balances:", err);
+        }
       }
 
       if (!resolved) {
@@ -844,6 +852,20 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     return `${fmt(start)} – ${fmt(end)}`;
   })();
 
+  // ControlPedido: avoid a live Firestore subscription unless we're on the SupplierWeek route.
+  const controlPedidoEnabled = showExpandedSupplierWeek && isSupplierWeekRoute;
+
+  const controlPedidoCacheKey = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    const c = (companyForProviders || "").trim();
+    if (!c) return null;
+    const wk = weekModel.weekStartKey;
+    if (!Number.isFinite(wk)) return null;
+    return `pricemaster:controlpedido:${c}__${wk}`;
+  }, [companyForProviders, weekModel.weekStartKey]);
+
+  const [cachedControlEntries, setCachedControlEntries] = useState<ControlPedidoEntry[]>([]);
+
   const {
     entries: controlEntries,
     loading: controlLoading,
@@ -851,10 +873,84 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     addOrder,
     deleteOrdersForProviderReceiveDay,
   } = useControlPedido(
-    showExpandedSupplierWeek ? companyForProviders : undefined,
-    showExpandedSupplierWeek ? weekModel.weekStartKey : undefined,
-    showExpandedSupplierWeek
+    controlPedidoEnabled ? companyForProviders : undefined,
+    controlPedidoEnabled ? weekModel.weekStartKey : undefined,
+    controlPedidoEnabled
   );
+
+  // Persist latest control entries to localStorage (for menu mode display) and keep in-memory cache.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!controlPedidoCacheKey) return;
+    if (!controlPedidoEnabled) return;
+
+    setCachedControlEntries(controlEntries || []);
+
+    try {
+      const safe = (controlEntries || []).map((e) => ({
+        id: String(e.id || ""),
+        providerCode: String(e.providerCode || "").trim(),
+        providerName: String(e.providerName || "").trim(),
+        createDateKey: Number(e.createDateKey),
+        receiveDateKey: Number(e.receiveDateKey),
+        amount: Number(e.amount),
+      }));
+      window.localStorage.setItem(controlPedidoCacheKey, JSON.stringify(safe));
+    } catch {
+      // ignore
+    }
+  }, [controlPedidoCacheKey, controlPedidoEnabled, controlEntries]);
+
+  // In menu mode (not route), read cached entries from localStorage to avoid Firestore reads.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (controlPedidoEnabled) return;
+    if (!showExpandedSupplierWeek) {
+      setCachedControlEntries([]);
+      return;
+    }
+    if (!controlPedidoCacheKey) {
+      setCachedControlEntries([]);
+      return;
+    }
+
+    try {
+      const raw = window.localStorage.getItem(controlPedidoCacheKey);
+      if (!raw) {
+        setCachedControlEntries([]);
+        return;
+      }
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) {
+        setCachedControlEntries([]);
+        return;
+      }
+      const normalized: ControlPedidoEntry[] = parsed
+        .map((e: any) => {
+          const providerCode = String(e?.providerCode || "").trim();
+          const providerName = String(e?.providerName || "").trim();
+          const createDateKey = Number(e?.createDateKey);
+          const receiveDateKey = Number(e?.receiveDateKey);
+          const amount = Number(e?.amount);
+          if (!providerCode || !providerName) return null;
+          if (!Number.isFinite(createDateKey) || !Number.isFinite(receiveDateKey) || !Number.isFinite(amount)) return null;
+          return {
+            id: String(e?.id || `${providerCode}__${receiveDateKey}`),
+            providerCode,
+            providerName,
+            createDateKey,
+            receiveDateKey,
+            amount,
+            createdAt: undefined,
+          } as ControlPedidoEntry;
+        })
+        .filter(Boolean) as ControlPedidoEntry[];
+
+      setCachedControlEntries(normalized);
+    } catch {
+      setCachedControlEntries([]);
+    }
+  }, [controlPedidoCacheKey, controlPedidoEnabled, showExpandedSupplierWeek]);
 
   // weekModel is computed above (needs weeklyProviders)
 
@@ -955,9 +1051,11 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     });
   };
 
+  const effectiveControlEntries = controlPedidoEnabled ? controlEntries : cachedControlEntries;
+
   const receiveAmountsByDateKey = useMemo(() => {
     const byDateKey = new Map<number, Map<string, number>>();
-    for (const entry of controlEntries || []) {
+    for (const entry of effectiveControlEntries || []) {
       const receiveDateKey = entry.receiveDateKey;
       if (!Number.isFinite(receiveDateKey)) continue;
 
@@ -976,7 +1074,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
       byProvider.set(providerCode, (byProvider.get(providerCode) || 0) + amount);
     }
     return byDateKey;
-  }, [controlEntries]);
+  }, [effectiveControlEntries]);
 
   const receiveAmountByProviderCodeForDay = useCallback(
     (dateKey: number) => receiveAmountsByDateKey.get(dateKey) || new Map<string, number>(),
