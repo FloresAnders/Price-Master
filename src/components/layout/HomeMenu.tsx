@@ -341,7 +341,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8,
+        distance: 50,
       },
     }),
     useSensor(TouchSensor, {
