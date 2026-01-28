@@ -1,25 +1,997 @@
 'use client';
 
-import React from 'react';
-import { FileCode, Info } from 'lucide-react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { FileCode, Upload, Trash2, AlertTriangle, ChevronDown, Eye, X, Download } from 'lucide-react';
+
+type FacturaParty = {
+  nombre?: string;
+  identificacionTipo?: string;
+  identificacionNumero?: string;
+  nombreComercial?: string;
+  correoElectronico?: string;
+  telefono?: string;
+  ubicacion?: string;
+};
+
+type FacturaMedioPago = {
+  tipo?: string;
+  otros?: string;
+  total?: string;
+};
+
+type FacturaImpuestoDesglose = {
+  codigo?: string;
+  codigoTarifaIVA?: string;
+  tarifa?: string;
+  totalMontoImpuesto?: string;
+};
+
+type FacturaResumen = {
+  moneda?: string;
+  tipoCambio?: string;
+  totalVenta?: string;
+  totalVentaNeta?: string;
+  totalGravado?: string;
+  totalMercanciasGravadas?: string;
+  totalOtrosCargos?: string;
+  totalImpuesto?: string;
+  totalComprobante?: string;
+  mediosPago?: FacturaMedioPago[];
+  desgloseImpuesto?: FacturaImpuestoDesglose[];
+};
+
+type FacturaInfo = {
+  tipoComprobanteCodigo?: string;
+  tipoComprobanteNombre?: string;
+  tiposTransaccion?: string[];
+  clave?: string;
+  numeroConsecutivo?: string;
+  fechaEmision?: string;
+  proveedorSistemas?: string;
+  codigoActividadEmisor?: string;
+  codigoActividadReceptor?: string;
+  condicionVenta?: string;
+  condicionVentaOtros?: string;
+  emisor?: FacturaParty;
+  receptor?: FacturaParty;
+  resumen?: FacturaResumen;
+};
+
+type ParsedXmlItem = {
+  id: string;
+  fileName: string;
+  fileSize: number;
+  lastModified: number;
+  status: 'ok' | 'error';
+  rawXml?: string;
+  factura?: FacturaInfo;
+  error?: string;
+};
+
+const TIPO_MEDIO_PAGO_LABEL: Record<string, string> = {
+  '01': 'Efectivo',
+  '02': 'Tarjeta (crédito o débito)',
+  '03': 'Cheque',
+  '04': 'Transferencia bancaria',
+  '05': 'Recaudado por terceros',
+  '06': 'Otros',
+};
+
+const TIPO_TRANSACCION_LABEL: Record<string, string> = {
+  '01': 'Venta de bienes o servicios',
+  '02': 'Devolución de mercadería',
+  '03': 'Bonificaciones',
+  '04': 'Descuentos',
+  '05': 'Otros',
+};
+
+const TIPO_COMPROBANTE_LABEL: Record<string, string> = {
+  '01': 'Factura electrónica',
+  '02': 'Nota de débito electrónica',
+  '03': 'Nota de crédito electrónica',
+  '04': 'Tiquete electrónico',
+  '05': 'Confirmación de aceptación',
+  '06': 'Confirmación de aceptación parcial',
+  '07': 'Confirmación de rechazo',
+};
+
+const IMPUESTO_CODIGO_LABEL: Record<string, string> = {
+  // En FE CR, Código 01 corresponde a IVA
+  '01': 'IVA',
+};
+
+// Catálogo: Código Tarifa IVA (Costa Rica)
+// Fuente: tabla provista por el usuario (códigos 01-11)
+const CODIGO_TARIFA_IVA_LABEL: Record<string, string> = {
+  '01': 'Tarifa reducida 1%',
+  '02': 'Tarifa reducida 2%',
+  '03': 'Tarifa reducida 4%',
+  '04': 'Transitorio 0%',
+  '05': 'Transitorio 4%',
+  '06': 'Tarifa transitoria 8%',
+  '07': 'Tarifa general 13%',
+  '08': 'Tarifa reducida 0.5%',
+  '09': 'Tarifa 0% (Artículo 32, num 1, RLIVA)',
+  '10': 'Tarifa Exenta',
+  '11': 'Tarifa 0% sin derecho a crédito',
+};
+
+function labelForCode(codeRaw: string | undefined, catalog: Record<string, string>): string {
+  const code = (codeRaw || '').trim();
+  if (!code) return '—';
+  const label = catalog[code];
+  return label ? `${code} - ${label}` : code;
+}
+
+function labelForImpuestoCodigo(codeRaw?: string): string {
+  const code = (codeRaw || '').trim();
+  if (!code) return '—';
+  const label = IMPUESTO_CODIGO_LABEL[code];
+  return label ? `${label} (${code})` : code;
+}
+
+function labelForCodigoTarifaIVA(codeRaw?: string): string {
+  return labelForCode(codeRaw, CODIGO_TARIFA_IVA_LABEL);
+}
+
+function inferTipoComprobanteFromRootLocalName(localName: string | null): { codigo?: string; nombre?: string } {
+  const ln = (localName || '').trim();
+  // Costa Rica comprobantes: infer from root element name.
+  // Not all schemas include an explicit <Tipo> for comprobante.
+  switch (ln) {
+    case 'FacturaElectronica':
+      return { codigo: '01', nombre: TIPO_COMPROBANTE_LABEL['01'] };
+    case 'NotaDebitoElectronica':
+      return { codigo: '02', nombre: TIPO_COMPROBANTE_LABEL['02'] };
+    case 'NotaCreditoElectronica':
+      return { codigo: '03', nombre: TIPO_COMPROBANTE_LABEL['03'] };
+    case 'TiqueteElectronico':
+      return { codigo: '04', nombre: TIPO_COMPROBANTE_LABEL['04'] };
+    case 'MensajeReceptor':
+      // Mensaje receptor suele mapear a 05-07; sin campo adicional no podemos distinguir.
+      return { codigo: undefined, nombre: 'Mensaje receptor (confirmación)' };
+    default:
+      return { codigo: undefined, nombre: ln || undefined };
+  }
+}
+
+function prettyPrintXml(xml: string): string {
+  const input = (xml || '').replace(/\r\n/g, '\n').trim();
+  if (!input) return '';
+
+  // If XML is invalid, keep original so user can inspect it.
+  try {
+    const doc = new DOMParser().parseFromString(input, 'text/xml');
+    if (doc.getElementsByTagName('parsererror').length > 0) return input;
+  } catch {
+    return input;
+  }
+
+  // Insert newlines between tags
+  const formatted = input
+    .replace(/\?>\s*</g, '?>\n<')
+    .replace(/(>)(<)(\/*)/g, '$1\n$2$3');
+
+  const lines = formatted
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  let indent = 0;
+  const pad = (n: number) => '  '.repeat(Math.max(0, n));
+
+  const out: string[] = [];
+  for (const line of lines) {
+    // Closing tag decreases indent first
+    if (/^<\//.test(line)) indent = Math.max(0, indent - 1);
+
+    out.push(pad(indent) + line);
+
+    // Opening tag that is not self-closing, not declaration, not comment, not doctype
+    const isOpening =
+      /^<[^!?/][^>]*>$/.test(line) &&
+      !/\/>$/.test(line) &&
+      !/^<[^>]+>.*<\//.test(line); // not <tag>text</tag> on one line
+
+    if (isOpening) indent += 1;
+  }
+
+  return out.join('\n');
+}
+
+const CR_NUMBER_2D = new Intl.NumberFormat('es-CR', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+const CR_CURRENCY_2D = new Intl.NumberFormat('es-CR', {
+  style: 'currency',
+  currency: 'CRC',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+function parseDecimal(raw?: string): number | null {
+  if (!raw) return null;
+  const cleaned = raw.trim().replace(/,/g, '');
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : null;
+}
+
+function formatNumber2(raw?: string): string {
+  const n = parseDecimal(raw);
+  if (n === null) return '—';
+  return CR_NUMBER_2D.format(n);
+}
+
+function formatMoney(raw?: string, currencyCode?: string): string {
+  const n = parseDecimal(raw);
+  if (n === null) return '—';
+
+  const code = (currencyCode || '').trim().toUpperCase();
+  if (!code || code === 'CRC') {
+    return CR_CURRENCY_2D.format(n);
+  }
+
+  // Try to format other currencies when possible
+  try {
+    return new Intl.NumberFormat('es-CR', {
+      style: 'currency',
+      currency: code,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(n);
+  } catch {
+    // Fallback: show number + currency code
+    return `${CR_NUMBER_2D.format(n)} ${code}`;
+  }
+}
+
+function firstElement(parent: Document | Element, localName: string): Element | null {
+  const nodes = parent.getElementsByTagNameNS('*', localName);
+  return nodes && nodes.length > 0 ? (nodes[0] as Element) : null;
+}
+
+function firstText(parent: Document | Element, localName: string): string | undefined {
+  const el = firstElement(parent, localName);
+  const text = el?.textContent?.trim();
+  return text ? text : undefined;
+}
+
+function formatPhone(codigoPais?: string, numTelefono?: string) {
+  const cp = (codigoPais || '').trim();
+  const nt = (numTelefono || '').trim();
+  if (!cp && !nt) return undefined;
+  if (cp && nt) return `+${cp} ${nt}`;
+  return nt || (cp ? `+${cp}` : undefined);
+}
+
+function joinDefined(parts: Array<string | undefined>, separator = ', ') {
+  const filtered = parts.map((p) => (p || '').trim()).filter(Boolean);
+  return filtered.length ? filtered.join(separator) : undefined;
+}
+
+function parseFacturaXml(xmlText: string): FacturaInfo {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xmlText, 'text/xml');
+
+  const parseErrors = doc.getElementsByTagName('parsererror');
+  if (parseErrors && parseErrors.length > 0) {
+    throw new Error('XML inválido o mal formado');
+  }
+
+  const root = doc.documentElement;
+  if (!root) throw new Error('XML vacío');
+
+  const inferredTipo = inferTipoComprobanteFromRootLocalName(root.localName);
+
+  // Collect TipoTransaccion values (without extracting products details)
+  const tipoTransaccionSet = new Set<string>();
+  const tipoTransEls = root.getElementsByTagNameNS('*', 'TipoTransaccion');
+  for (let i = 0; i < tipoTransEls.length; i++) {
+    const raw = (tipoTransEls[i]?.textContent || '').trim();
+    if (raw) tipoTransaccionSet.add(raw);
+  }
+
+  // Nota: deliberadamente NO leemos DetalleServicio/LineaDetalle (productos)
+  const emisorEl = firstElement(root, 'Emisor');
+  const receptorEl = firstElement(root, 'Receptor');
+  const resumenEl = firstElement(root, 'ResumenFactura');
+
+  // Infer tax rates from any <Impuesto> nodes without extracting products.
+  // We only use these to enrich the resumen breakdown.
+  const inferredTarifaByKey = new Map<string, string>();
+  const impuestoEls = root.getElementsByTagNameNS('*', 'Impuesto');
+  for (let i = 0; i < impuestoEls.length; i++) {
+    const imp = impuestoEls[i] as Element;
+    const codigo = firstText(imp, 'Codigo');
+    const codigoTarifaIVA = firstText(imp, 'CodigoTarifaIVA');
+    const tarifa = firstText(imp, 'Tarifa');
+    if (!codigo || !codigoTarifaIVA || !tarifa) continue;
+    const key = `${codigo}|${codigoTarifaIVA}`;
+    if (!inferredTarifaByKey.has(key)) inferredTarifaByKey.set(key, tarifa);
+  }
+
+  const buildParty = (partyEl: Element | null): FacturaParty | undefined => {
+    if (!partyEl) return undefined;
+
+    const identEl = firstElement(partyEl, 'Identificacion');
+    const ubicEl = firstElement(partyEl, 'Ubicacion');
+    const telEl = firstElement(partyEl, 'Telefono');
+
+    const telefono = formatPhone(
+      telEl ? firstText(telEl, 'CodigoPais') : undefined,
+      telEl ? firstText(telEl, 'NumTelefono') : undefined
+    );
+
+    const ubicacion = joinDefined(
+      [
+        ubicEl ? firstText(ubicEl, 'Provincia') : undefined,
+        ubicEl ? firstText(ubicEl, 'Canton') : undefined,
+        ubicEl ? firstText(ubicEl, 'Distrito') : undefined,
+        ubicEl ? firstText(ubicEl, 'Barrio') : undefined,
+        ubicEl ? firstText(ubicEl, 'OtrasSenas') : undefined,
+      ],
+      ' - '
+    );
+
+    return {
+      nombre: firstText(partyEl, 'Nombre'),
+      identificacionTipo: identEl ? firstText(identEl, 'Tipo') : undefined,
+      identificacionNumero: identEl ? firstText(identEl, 'Numero') : undefined,
+      nombreComercial: firstText(partyEl, 'NombreComercial'),
+      correoElectronico: firstText(partyEl, 'CorreoElectronico'),
+      telefono,
+      ubicacion,
+    };
+  };
+
+  const mediosPago: FacturaMedioPago[] = [];
+  if (resumenEl) {
+    const medioPagoEls = resumenEl.getElementsByTagNameNS('*', 'MedioPago');
+    for (let i = 0; i < medioPagoEls.length; i++) {
+      const mp = medioPagoEls[i] as Element;
+      mediosPago.push({
+        tipo: firstText(mp, 'TipoMedioPago'),
+        otros: firstText(mp, 'MedioPagoOtros'),
+        total: firstText(mp, 'TotalMedioPago'),
+      });
+    }
+  }
+
+  const monedaEl = resumenEl ? firstElement(resumenEl, 'CodigoTipoMoneda') : null;
+
+  const desgloseImpuesto: FacturaImpuestoDesglose[] = [];
+  if (resumenEl) {
+    const desgloseEls = resumenEl.getElementsByTagNameNS('*', 'TotalDesgloseImpuesto');
+    for (let i = 0; i < desgloseEls.length; i++) {
+      const d = desgloseEls[i] as Element;
+      const codigo = firstText(d, 'Codigo');
+      const codigoTarifaIVA = firstText(d, 'CodigoTarifaIVA');
+      const totalMontoImpuesto = firstText(d, 'TotalMontoImpuesto');
+
+      // If amount is explicitly zero, don't include it in the IVA breakdown.
+      const monto = parseDecimal(totalMontoImpuesto);
+      if (monto !== null && Math.abs(monto) < 1e-9) continue;
+
+      const key = codigo && codigoTarifaIVA ? `${codigo}|${codigoTarifaIVA}` : '';
+      const tarifa = key ? inferredTarifaByKey.get(key) : undefined;
+      desgloseImpuesto.push({
+        codigo,
+        codigoTarifaIVA,
+        tarifa,
+        totalMontoImpuesto,
+      });
+    }
+  }
+
+  const info: FacturaInfo = {
+    tipoComprobanteCodigo: inferredTipo.codigo,
+    tipoComprobanteNombre: inferredTipo.nombre,
+    tiposTransaccion: tipoTransaccionSet.size ? Array.from(tipoTransaccionSet) : undefined,
+    clave: firstText(root, 'Clave'),
+    proveedorSistemas: firstText(root, 'ProveedorSistemas'),
+    codigoActividadEmisor: firstText(root, 'CodigoActividadEmisor'),
+    codigoActividadReceptor: firstText(root, 'CodigoActividadReceptor'),
+    numeroConsecutivo: firstText(root, 'NumeroConsecutivo'),
+    fechaEmision: firstText(root, 'FechaEmision'),
+    condicionVenta: firstText(root, 'CondicionVenta'),
+    condicionVentaOtros: firstText(root, 'CondicionVentaOtros'),
+    emisor: buildParty(emisorEl),
+    receptor: buildParty(receptorEl),
+    resumen: resumenEl
+      ? {
+        moneda: monedaEl ? firstText(monedaEl, 'CodigoMoneda') : undefined,
+        tipoCambio: monedaEl ? firstText(monedaEl, 'TipoCambio') : undefined,
+        totalMercanciasGravadas: firstText(resumenEl, 'TotalMercanciasGravadas'),
+        totalGravado: firstText(resumenEl, 'TotalGravado'),
+        totalVenta: firstText(resumenEl, 'TotalVenta'),
+        totalVentaNeta: firstText(resumenEl, 'TotalVentaNeta'),
+          totalOtrosCargos: firstText(resumenEl, 'TotalOtrosCargos'),
+        totalImpuesto: firstText(resumenEl, 'TotalImpuesto'),
+        totalComprobante: firstText(resumenEl, 'TotalComprobante'),
+        mediosPago: mediosPago.length ? mediosPago : undefined,
+        desgloseImpuesto: desgloseImpuesto.length ? desgloseImpuesto : undefined,
+      }
+      : undefined,
+  };
+
+  return info;
+}
+
+function isLikelyXmlFile(file: File) {
+  const name = (file.name || '').toLowerCase();
+  const type = (file.type || '').toLowerCase();
+  if (type.includes('xml')) return true;
+  return name.endsWith('.xml');
+}
 
 export default function XmlPage() {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [items, setItems] = useState<ParsedXmlItem[]>([]);
+  const [xmlModalItemId, setXmlModalItemId] = useState<string | null>(null);
+
+  const idsSet = useMemo(() => new Set(items.map((i) => i.id)), [items]);
+
+  const addFiles = useCallback(async (files: FileList | File[]) => {
+    const list = Array.from(files || []);
+    const xmlFiles = list.filter(isLikelyXmlFile);
+    if (xmlFiles.length === 0) return;
+
+    const nextItems: ParsedXmlItem[] = [];
+
+    for (const file of xmlFiles) {
+      const id = `${file.name}:${file.size}:${file.lastModified}`;
+      if (idsSet.has(id)) continue;
+
+      try {
+        const text = await file.text();
+        const factura = parseFacturaXml(text);
+        nextItems.push({
+          id,
+          fileName: file.name,
+          fileSize: file.size,
+          lastModified: file.lastModified,
+          status: 'ok',
+          rawXml: text,
+          factura,
+        });
+      } catch (err) {
+        let rawXml: string | undefined;
+        try {
+          rawXml = await file.text();
+        } catch {
+          // ignore
+        }
+        const message = err instanceof Error ? err.message : 'Error desconocido parseando XML';
+        nextItems.push({
+          id,
+          fileName: file.name,
+          fileSize: file.size,
+          lastModified: file.lastModified,
+          status: 'error',
+          rawXml,
+          error: message,
+        });
+      }
+    }
+
+    if (nextItems.length > 0) {
+      setItems((prev) => [...nextItems, ...prev]);
+    }
+  }, [idsSet]);
+
+  const onPickFiles = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const onRemove = useCallback((id: string) => {
+    setItems((prev) => prev.filter((i) => i.id !== id));
+    setXmlModalItemId((prev) => (prev === id ? null : prev));
+  }, []);
+
+  const onClear = useCallback(() => {
+    setItems([]);
+    setXmlModalItemId(null);
+  }, []);
+
+  const onExportExcel = useCallback(async () => {
+    const okItems = items.filter((i) => i.status === 'ok' && i.factura);
+    if (okItems.length === 0) return;
+
+    type TaxKey = string;
+    const toTaxKey = (codigo?: string, codigoTarifaIVA?: string): TaxKey => `${(codigo || '').trim()}|${(codigoTarifaIVA || '').trim()}`;
+
+    const taxKeyToLabel = new Map<TaxKey, string>();
+    for (const item of okItems) {
+      const desglose = item.factura?.resumen?.desgloseImpuesto || [];
+      for (const d of desglose) {
+        const key = toTaxKey(d.codigo, d.codigoTarifaIVA);
+        if (!taxKeyToLabel.has(key)) {
+          const impuesto = labelForImpuestoCodigo(d.codigo);
+          const tarifa = d.codigoTarifaIVA ? labelForCodigoTarifaIVA(d.codigoTarifaIVA) : '—';
+          taxKeyToLabel.set(key, `${impuesto} | ${tarifa}`);
+        }
+      }
+    }
+
+    const taxKeys = Array.from(taxKeyToLabel.keys()).sort((a, b) => {
+      const la = taxKeyToLabel.get(a) || a;
+      const lb = taxKeyToLabel.get(b) || b;
+      return la.localeCompare(lb, 'es');
+    });
+
+    const header = [
+      'Proveedor',
+      'Correo',
+      'Total venta',
+      ...taxKeys.map((k) => taxKeyToLabel.get(k) || k),
+      'Otros cargos',
+      'Total comprobante',
+    ];
+    const rows: Array<Array<string | number>> = [header];
+
+    let sumTotalVenta = 0;
+    let sumOtrosCargos = 0;
+    let sumTotalComprobante = 0;
+    const sumByTaxKey = new Map<TaxKey, number>();
+
+    for (const item of okItems) {
+      const f = item.factura!;
+      const proveedor = f.emisor?.nombre || '—';
+      const correo = f.emisor?.correoElectronico || '—';
+
+      const totalVenta = parseDecimal(f.resumen?.totalVenta) || 0;
+      const otrosCargos = parseDecimal(f.resumen?.totalOtrosCargos) || 0;
+      const totalComprobante = parseDecimal(f.resumen?.totalComprobante) || 0;
+      sumTotalVenta += totalVenta;
+      sumOtrosCargos += otrosCargos;
+      sumTotalComprobante += totalComprobante;
+
+      const invoiceTaxSums = new Map<TaxKey, number>();
+      const desglose = f.resumen?.desgloseImpuesto || [];
+      for (const d of desglose) {
+        const monto = parseDecimal(d.totalMontoImpuesto);
+        if (monto === null) continue;
+        if (Math.abs(monto) < 1e-9) continue;
+        const key = toTaxKey(d.codigo, d.codigoTarifaIVA);
+        invoiceTaxSums.set(key, (invoiceTaxSums.get(key) || 0) + monto);
+        sumByTaxKey.set(key, (sumByTaxKey.get(key) || 0) + monto);
+      }
+
+      const taxCells = taxKeys.map((key) => {
+        const v = invoiceTaxSums.get(key);
+        return v && Math.abs(v) >= 1e-9 ? v : 0;
+      });
+
+      rows.push([proveedor, correo, totalVenta, ...taxCells, otrosCargos, totalComprobante]);
+    }
+
+    rows.push([
+      'TOTAL',
+      '',
+      sumTotalVenta,
+      ...taxKeys.map((k) => sumByTaxKey.get(k) || 0),
+      sumOtrosCargos,
+      sumTotalComprobante,
+    ]);
+
+    const date = new Date().toISOString().slice(0, 10);
+    const fileName = `facturas_xml_${date}.xlsx`;
+
+    const XLSX = await import('xlsx');
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [
+      { wch: 34 },
+      { wch: 30 },
+      { wch: 16 },
+      ...taxKeys.map(() => ({ wch: 22 })),
+      { wch: 16 },
+      { wch: 18 },
+    ];
+    XLSX.utils.book_append_sheet(wb, ws, 'Facturas');
+    XLSX.writeFile(wb, fileName);
+  }, [items]);
+
+  const onDrop = useCallback(
+    async (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragging(false);
+      const files = e.dataTransfer.files;
+      if (files && files.length > 0) {
+        await addFiles(files);
+      }
+    },
+    [addFiles]
+  );
+
+  const xmlModalItem = useMemo(() => {
+    if (!xmlModalItemId) return null;
+    return items.find((i) => i.id === xmlModalItemId) || null;
+  }, [items, xmlModalItemId]);
+
+  const xmlModalFormatted = useMemo(() => {
+    const raw = xmlModalItem?.rawXml;
+    return raw ? prettyPrintXml(raw) : '';
+  }, [xmlModalItem?.rawXml]);
+
   return (
-    <div className="max-w-4xl mx-auto bg-[var(--card-bg)] border border-[var(--input-border)] rounded-lg shadow p-6">
-      <div className="flex items-start gap-4">
-        <div className="w-12 h-12 rounded-full bg-blue-500/15 flex items-center justify-center flex-shrink-0">
-          <FileCode className="w-6 h-6 text-blue-600" />
-        </div>
-        <div className="flex-1">
-          <h2 className="text-2xl font-bold text-[var(--foreground)]">XML</h2>
-          <div className="mt-4 p-4 rounded border border-[var(--border)] bg-[var(--muted)] flex gap-3">
-            <Info className="w-5 h-5 text-[var(--muted-foreground)] mt-0.5" />
-            <div className="text-sm text-[var(--muted-foreground)]">
-              Si todavía no está implementado el flujo, esta pantalla sirve como placeholder para que la tarjeta y el header ya funcionen.
+    <div className="max-w-6xl mx-auto space-y-6">
+      <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-lg shadow p-6">
+        <div className="flex items-start gap-4">
+          <div className="w-12 h-12 rounded-full bg-blue-500/15 flex items-center justify-center flex-shrink-0">
+            <FileCode className="w-6 h-6 text-blue-600" />
+          </div>
+          <div className="flex-1">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-bold text-[var(--foreground)]">XML - Factura Electrónica</h2>
+                <p className="text-sm text-[var(--muted-foreground)] mt-1">
+                  Carga uno o varios XML (drag & drop o seleccionando). Se lee toda la factura excepto productos (DetalleServicio/LineaDetalle).
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={onPickFiles}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded bg-[var(--primary)] text-white hover:bg-[var(--button-hover)] transition-colors"
+                >
+                  <Upload className="w-4 h-4" />
+                  Seleccionar XML
+                </button>
+
+                <button
+                  type="button"
+                  onClick={onExportExcel}
+                  disabled={items.filter((i) => i.status === 'ok' && i.factura).length === 0}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                  title="Exporta las facturas cargadas a Excel"
+                >
+                  <Download className="w-4 h-4" />
+                  Exportar a Excel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={onClear}
+                  disabled={items.length === 0}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded border border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors disabled:opacity-50"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Limpiar
+                </button>
+              </div>
+            </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xml,text/xml,application/xml"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                const input = e.currentTarget;
+                const snapshot = Array.from(input.files || []);
+
+                // Clear after snapshot so the FileList isn't lost.
+                // This also allows selecting the same file again.
+                input.value = '';
+
+                if (snapshot.length > 0) {
+                  void addFiles(snapshot);
+                }
+              }}
+            />
+
+            <div
+              onDragEnter={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDragging(true);
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDragging(true);
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDragging(false);
+              }}
+              onDrop={onDrop}
+              className={`mt-4 rounded-lg border-2 border-dashed p-6 transition-colors ${isDragging
+                ? 'border-blue-500 bg-blue-500/10'
+                : 'border-[var(--border)] bg-[var(--muted)]'
+                }`}
+            >
+              <div className="flex items-center justify-center gap-3 text-center">
+                <Upload className="w-5 h-5 text-[var(--muted-foreground)]" />
+                <div className="text-sm text-[var(--muted-foreground)]">
+                  Arrastra y suelta archivos XML aquí, o usa “Seleccionar XML”.
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
+
+      {items.length > 0 && (
+        <div className="space-y-4">
+          {items.map((item) => {
+            const f = item.factura;
+            const total = f?.resumen?.totalComprobante;
+            const moneda = f?.resumen?.moneda;
+
+            return (
+              <div
+                key={item.id}
+                className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-lg shadow p-5"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <div className="font-semibold text-[var(--foreground)] truncate">
+                        {item.fileName}
+                      </div>
+                      {item.status === 'error' && (
+                        <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-red-500/15 text-red-600 border border-red-500/30">
+                          <AlertTriangle className="w-3.5 h-3.5" />
+                          Error
+                        </span>
+                      )}
+                      {item.status === 'ok' && (
+                        <span className="inline-flex items-center text-xs px-2 py-0.5 rounded bg-green-500/15 text-green-700 border border-green-500/30">
+                          OK
+                        </span>
+                      )}
+                    </div>
+
+                    {item.status === 'error' ? (
+                      <div className="text-sm text-red-600 mt-2">{item.error}</div>
+                    ) : (
+                      <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                        <div className="text-[var(--muted-foreground)]">
+                          <span className="font-medium text-[var(--foreground)]">Clave:</span>{' '}
+                          {f?.clave || '—'}
+                        </div>
+                        <div className="text-[var(--muted-foreground)]">
+                          <span className="font-medium text-[var(--foreground)]">Fecha:</span>{' '}
+                          {f?.fechaEmision || '—'}
+                        </div>
+                        <div className="text-[var(--muted-foreground)]">
+                          <span className="font-medium text-[var(--foreground)]">Total:</span>{' '}
+                          {formatMoney(total, moneda)}
+                        </div>
+
+                        <div className="text-[var(--muted-foreground)] md:col-span-3">
+                          <span className="font-medium text-[var(--foreground)]">Emisor → Receptor:</span>{' '}
+                          {(f?.emisor?.nombre || '—') + ' → ' + (f?.receptor?.nombre || '—')}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2 flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setXmlModalItemId(item.id)}
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded border border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors"
+                      aria-label={`Ver XML de ${item.fileName}`}
+                      title="Ver XML"
+                      disabled={!item.rawXml}
+                    >
+                      <Eye className="w-4 h-4" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => onRemove(item.id)}
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded border border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors"
+                      aria-label={`Eliminar ${item.fileName}`}
+                      title="Eliminar"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {item.status === 'ok' && f && (
+                  <details className="mt-4">
+                    <summary className="cursor-pointer select-none inline-flex items-center gap-2 text-sm text-[var(--foreground)]">
+                      <ChevronDown className="w-4 h-4" />
+                      Ver detalles
+                    </summary>
+
+                    <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      <div className="p-4 rounded border border-[var(--border)] bg-[var(--muted)]">
+                        <div className="font-semibold text-[var(--foreground)] mb-2">Encabezado</div>
+                        <div className="text-sm text-[var(--muted-foreground)] space-y-1">
+                          <div>
+                            <span className="font-medium text-[var(--foreground)]">Tipo comprobante:</span>{' '}
+                            {f.tipoComprobanteCodigo || f.tipoComprobanteNombre
+                              ? `${f.tipoComprobanteCodigo ? `${f.tipoComprobanteCodigo} - ` : ''}${f.tipoComprobanteNombre || ''}`.trim() || '—'
+                              : '—'}
+                          </div>
+                          <div><span className="font-medium text-[var(--foreground)]">Número consecutivo:</span> {f.numeroConsecutivo || '—'}</div>
+                          <div><span className="font-medium text-[var(--foreground)]">Proveedor sistemas:</span> {f.proveedorSistemas || '—'}</div>
+                          <div><span className="font-medium text-[var(--foreground)]">Actividad emisor:</span> {f.codigoActividadEmisor || '—'}</div>
+                          <div><span className="font-medium text-[var(--foreground)]">Actividad receptor:</span> {f.codigoActividadReceptor || '—'}</div>
+                          <div><span className="font-medium text-[var(--foreground)]">Condición venta:</span> {f.condicionVenta || '—'}</div>
+                          <div><span className="font-medium text-[var(--foreground)]">Condición otros:</span> {f.condicionVentaOtros || '—'}</div>
+                          <div>
+                            <span className="font-medium text-[var(--foreground)]">Tipo transacción:</span>{' '}
+                            {f.tiposTransaccion && f.tiposTransaccion.length > 0
+                              ? f.tiposTransaccion.map((t) => labelForCode(t, TIPO_TRANSACCION_LABEL)).join(' | ')
+                              : '—'}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="p-4 rounded border border-[var(--border)] bg-[var(--muted)]">
+                        <div className="font-semibold text-[var(--foreground)] mb-2">Resumen</div>
+                        <div className="text-sm text-[var(--muted-foreground)] space-y-1">
+                          <div><span className="font-medium text-[var(--foreground)]">Total gravado:</span> {formatMoney(f.resumen?.totalGravado, f.resumen?.moneda)}</div>
+                          <div><span className="font-medium text-[var(--foreground)]">Total merc. gravadas:</span> {formatMoney(f.resumen?.totalMercanciasGravadas, f.resumen?.moneda)}</div>
+                          <div><span className="font-medium text-[var(--foreground)]">Total venta:</span> {formatMoney(f.resumen?.totalVenta, f.resumen?.moneda)}</div>
+                          <div><span className="font-medium text-[var(--foreground)]">Total venta neta:</span> {formatMoney(f.resumen?.totalVentaNeta, f.resumen?.moneda)}</div>
+                          {f.resumen?.totalOtrosCargos && parseDecimal(f.resumen.totalOtrosCargos) !== null && parseDecimal(f.resumen.totalOtrosCargos) !== 0 && (
+                            <div><span className="font-medium text-[var(--foreground)]">Total otros cargos:</span> {formatMoney(f.resumen.totalOtrosCargos, f.resumen?.moneda)}</div>
+                          )}
+                          <div><span className="font-medium text-[var(--foreground)]">Total impuesto:</span> {formatMoney(f.resumen?.totalImpuesto, f.resumen?.moneda)}</div>
+                          <div><span className="font-medium text-[var(--foreground)]">Total comprobante:</span> {formatMoney(f.resumen?.totalComprobante, f.resumen?.moneda)}</div>
+                        </div>
+
+                        <div className="mt-3">
+                          <div className="font-medium text-[var(--foreground)] mb-1">IVA aplicado</div>
+                          <div className="text-sm text-[var(--muted-foreground)] space-y-1">
+                            <div>
+                              <span className="font-medium text-[var(--foreground)]">Total IVA:</span>{' '}
+                              {formatMoney(f.resumen?.totalImpuesto, f.resumen?.moneda)}
+                            </div>
+                            {(() => {
+                              const desgloseRaw = f.resumen?.desgloseImpuesto || [];
+                              const desglose = desgloseRaw.filter((d) => {
+                                const monto = parseDecimal(d.totalMontoImpuesto);
+                                return monto === null || Math.abs(monto) >= 1e-9;
+                              });
+
+                              if (desglose.length === 0) {
+                                return <div className="text-xs text-[var(--muted-foreground)]">Sin desglose de IVA en el XML.</div>;
+                              }
+
+                              const renderRow = (d: (typeof desglose)[number], idx?: number) => (
+                                <div key={idx} className="flex flex-wrap gap-x-3">
+                                  <div>
+                                    <span className="font-medium text-[var(--foreground)]">Impuesto:</span>{' '}
+                                    {labelForImpuestoCodigo(d.codigo)}
+                                  </div>
+                                  <div>
+                                    <span className="font-medium text-[var(--foreground)]">Tarifa IVA:</span>{' '}
+                                    {d.codigoTarifaIVA ? labelForCodigoTarifaIVA(d.codigoTarifaIVA) : '—'}
+                                  </div>
+                                  <div>
+                                    <span className="font-medium text-[var(--foreground)]">%:</span>{' '}
+                                    {d.tarifa ? `${formatNumber2(d.tarifa)}%` : '—'}
+                                  </div>
+                                  <div>
+                                    <span className="font-medium text-[var(--foreground)]">Monto:</span>{' '}
+                                    {formatMoney(d.totalMontoImpuesto, f.resumen?.moneda)}
+                                  </div>
+                                </div>
+                              );
+
+                              if (desglose.length === 1) {
+                                return <div className="mt-1">{renderRow(desglose[0])}</div>;
+                              }
+
+                              return (
+                                <details className="mt-1">
+                                  <summary className="cursor-pointer select-none inline-flex items-center gap-2 text-xs text-[var(--foreground)]">
+                                    <ChevronDown className="w-4 h-4" />
+                                    Ver desglose de IVA ({desglose.length})
+                                  </summary>
+                                  <div className="mt-2 space-y-1">
+                                    {desglose.map((d, idx) => renderRow(d, idx))}
+                                  </div>
+                                </details>
+                              );
+                            })()}
+                          </div>
+                        </div>
+
+                        {f.resumen?.mediosPago && f.resumen.mediosPago.length > 0 && (
+                          <div className="mt-3">
+                            <div className="font-medium text-[var(--foreground)] mb-1">Medios de pago</div>
+                            <div className="text-sm text-[var(--muted-foreground)] space-y-1">
+                              {f.resumen.mediosPago.map((mp, idx) => (
+                                <div key={idx} className="flex flex-wrap gap-x-3">
+                                  <div><span className="font-medium text-[var(--foreground)]">Tipo:</span> {labelForCode(mp.tipo, TIPO_MEDIO_PAGO_LABEL)}</div>
+                                  <div><span className="font-medium text-[var(--foreground)]">Otros:</span> {mp.otros || '—'}</div>
+                                  <div><span className="font-medium text-[var(--foreground)]">Total:</span> {formatMoney(mp.total, f.resumen?.moneda)}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="p-4 rounded border border-[var(--border)] bg-[var(--muted)]">
+                        <div className="font-semibold text-[var(--foreground)] mb-2">Emisor</div>
+                        <div className="text-sm text-[var(--muted-foreground)] space-y-1">
+                          <div><span className="font-medium text-[var(--foreground)]">Nombre:</span> {f.emisor?.nombre || '—'}</div>
+                          <div><span className="font-medium text-[var(--foreground)]">Identificación:</span> {(f.emisor?.identificacionTipo || '—') + ' ' + (f.emisor?.identificacionNumero || '')}</div>
+                          <div><span className="font-medium text-[var(--foreground)]">Nombre comercial:</span> {f.emisor?.nombreComercial || '—'}</div>
+                          <div><span className="font-medium text-[var(--foreground)]">Correo:</span> {f.emisor?.correoElectronico || '—'}</div>
+                          <div><span className="font-medium text-[var(--foreground)]">Teléfono:</span> {f.emisor?.telefono || '—'}</div>
+                          <div><span className="font-medium text-[var(--foreground)]">Ubicación:</span> {f.emisor?.ubicacion || '—'}</div>
+                        </div>
+                      </div>
+
+                      <div className="p-4 rounded border border-[var(--border)] bg-[var(--muted)]">
+                        <div className="font-semibold text-[var(--foreground)] mb-2">Receptor</div>
+                        <div className="text-sm text-[var(--muted-foreground)] space-y-1">
+                          <div><span className="font-medium text-[var(--foreground)]">Nombre:</span> {f.receptor?.nombre || '—'}</div>
+                          <div><span className="font-medium text-[var(--foreground)]">Identificación:</span> {(f.receptor?.identificacionTipo || '—') + ' ' + (f.receptor?.identificacionNumero || '')}</div>
+                          <div><span className="font-medium text-[var(--foreground)]">Nombre comercial:</span> {f.receptor?.nombreComercial || '—'}</div>
+                          <div><span className="font-medium text-[var(--foreground)]">Correo:</span> {f.receptor?.correoElectronico || '—'}</div>
+                          <div><span className="font-medium text-[var(--foreground)]">Teléfono:</span> {f.receptor?.telefono || '—'}</div>
+                          <div><span className="font-medium text-[var(--foreground)]">Ubicación:</span> {f.receptor?.ubicacion || '—'}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </details>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {xmlModalItem && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          onMouseDown={(e) => {
+            // close on backdrop click
+            if (e.target === e.currentTarget) setXmlModalItemId(null);
+          }}
+        >
+          <div className="absolute inset-0 bg-black/60" />
+
+          <div className="relative w-full max-w-4xl bg-[var(--card-bg)] border border-[var(--input-border)] rounded-lg shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[var(--border)]">
+              <div className="min-w-0">
+                <div className="text-sm text-[var(--muted-foreground)]">XML puro</div>
+                <div className="font-semibold text-[var(--foreground)] truncate">
+                  {xmlModalItem.fileName}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setXmlModalItemId(null)}
+                className="inline-flex items-center justify-center w-9 h-9 rounded border border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors"
+                aria-label="Cerrar"
+                title="Cerrar"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4">
+              <div className="max-h-[70vh] overflow-auto rounded border border-[var(--border)] bg-[var(--muted)] p-3">
+                <pre className="text-xs whitespace-pre-wrap break-words text-[var(--foreground)]">
+                  {xmlModalFormatted || xmlModalItem.rawXml || 'Sin contenido'}
+                </pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
