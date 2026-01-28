@@ -9,6 +9,7 @@ import {
   Scan,
   Calculator,
   Type,
+  FileCode,
   Banknote,
   Smartphone,
   Clock,
@@ -74,6 +75,7 @@ type ActiveTab =
   | "scanner"
   | "calculator"
   | "converter"
+  | "xml"
   | "cashcounter"
   | "timingcontrol"
   | "controlhorario"
@@ -393,6 +395,13 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       icon: Type,
       description: "Convertir y transformar texto",
       permission: "converter" as keyof UserPermissions,
+    },
+    {
+      id: "xml" as ActiveTab,
+      name: "XML",
+      icon: FileCode,
+      description: "Cargar archivos XML",
+      permission: "xml" as keyof UserPermissions,
     },
     {
       id: "cashcounter" as ActiveTab,

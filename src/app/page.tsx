@@ -29,9 +29,10 @@ const AgregarProveedorPage = dynamic(() => import('@/app/fondogeneral/agregarpro
 const ReportesPage = dynamic(() => import('@/app/fondogeneral/otra/page'), { ssr: false })
 const ConfiguracionFondoGeneralPage = dynamic(() => import('@/app/fondogeneral/configuracion/page'), { ssr: false })
 const SolicitudForm = dynamic(() => import('@/components/solicitud/SolicitudForm'), { ssr: false })
+const XmlPage = dynamic(() => import('@/components/xml/XmlPage'), { ssr: false })
 
 // 1) Ampliamos ActiveTab para incluir "cashcounter", "controlhorario", "supplierorders", "edit", "scanhistory", "solicitud", "agregarproveedor", "reportes"
-type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'calculohorasprecios' | 'supplierorders' | 'scanhistory' | 'edit' | 'solicitud' | 'fondogeneral' | 'agregarproveedor' | 'reportes' | 'configuracion' | 'pruebas'
+type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'xml' | 'cashcounter' | 'timingcontrol' | 'controlhorario' | 'calculohorasprecios' | 'supplierorders' | 'scanhistory' | 'edit' | 'solicitud' | 'fondogeneral' | 'agregarproveedor' | 'reportes' | 'configuracion' | 'pruebas'
 
 export default function HomePage() {
   // Hook para obtener el usuario autenticado
@@ -219,7 +220,7 @@ export default function HomePage() {
       if (typeof window !== 'undefined') {
         const hash = window.location.hash.replace('#', '') as ActiveTab;
         const validTabs = [
-          'scanner', 'calculator', 'converter', 'cashcounter', 'timingcontrol', 'controlhorario', 'calculohorasprecios', 'supplierorders', 'scanhistory', 'solicitud', 'fondogeneral', 'agregarproveedor', 'reportes', 'configuracion',
+          'scanner', 'calculator', 'converter', 'xml', 'cashcounter', 'timingcontrol', 'controlhorario', 'calculohorasprecios', 'supplierorders', 'scanhistory', 'solicitud', 'fondogeneral', 'agregarproveedor', 'reportes', 'configuracion',
           ...(isSuperAdmin ? ['pruebas'] : [])
         ];
         if (validTabs.includes(hash)) {
@@ -243,7 +244,7 @@ export default function HomePage() {
       const handleHashChange = () => {
         const hash = window.location.hash.replace('#', '') as ActiveTab;
         const validTabs = [
-          'scanner', 'calculator', 'converter', 'cashcounter', 'timingcontrol', 'controlhorario', 'calculohorasprecios', 'supplierorders', 'scanhistory', 'edit', 'solicitud', 'fondogeneral', 'agregarproveedor', 'reportes', 'configuracion',
+          'scanner', 'calculator', 'converter', 'xml', 'cashcounter', 'timingcontrol', 'controlhorario', 'calculohorasprecios', 'supplierorders', 'scanhistory', 'edit', 'solicitud', 'fondogeneral', 'agregarproveedor', 'reportes', 'configuracion',
           ...(isSuperAdmin ? ['pruebas'] : [])
         ];
         if (validTabs.includes(hash)) {
@@ -314,6 +315,11 @@ export default function HomePage() {
               {/* CONVERTER */}
               {activeTab === 'converter' && (
                 <TextConversion />
+              )}
+
+              {/* XML */}
+              {activeTab === 'xml' && (
+                <XmlPage />
               )}
 
               {/* CASHCOUNTER (Contador Efectivo) */}

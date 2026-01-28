@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Scan, Calculator, Type, Banknote, Smartphone, Clock, Truck, Settings, History, X } from 'lucide-react';
+import { Scan, Calculator, Type, FileCode, Banknote, Smartphone, Clock, Truck, Settings, History, X } from 'lucide-react';
 import AnimatedStickman from '@/components/ui/AnimatedStickman';
 import { User, UserPermissions } from '@/types/firestore';
 import { getDefaultPermissions } from '@/utils/permissions';
@@ -12,6 +12,7 @@ const menuItems = [
   { id: 'scanner', name: 'Escáner', icon: Scan, description: 'Escanear códigos de barras', permission: 'scanner' as keyof UserPermissions },
   { id: 'calculator', name: 'Calculadora', icon: Calculator, description: 'Calcular precios con descuentos', permission: 'calculator' as keyof UserPermissions },
   { id: 'converter', name: 'Conversor', icon: Type, description: 'Convertir y transformar texto', permission: 'converter' as keyof UserPermissions },
+  { id: 'xml', name: 'XML', icon: FileCode, description: 'Generar y exportar XML', permission: 'xml' as keyof UserPermissions },
   { id: 'cashcounter', name: 'Contador Efectivo', icon: Banknote, description: 'Contar billetes y monedas (CRC/USD)', permission: 'cashcounter' as keyof UserPermissions },
   { id: 'fondogeneral', name: 'Fondo General', icon: Banknote, description: 'Administrar el fondo general', permission: 'fondogeneral' as keyof UserPermissions },
   { id: 'timingcontrol', name: 'Control Tiempos', icon: Smartphone, description: 'Registro de venta de tiempos', permission: 'timingcontrol' as keyof UserPermissions },

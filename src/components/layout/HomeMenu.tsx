@@ -21,6 +21,7 @@ import {
   Scan,
   Calculator,
   Type,
+  FileCode,
   Banknote,
   Smartphone,
   Clock,
@@ -66,6 +67,13 @@ const menuItems = [
     icon: Type,
     description: "Convertir y transformar texto",
     permission: "converter" as keyof UserPermissions,
+  },
+  {
+    id: "xml",
+    name: "XML",
+    icon: FileCode,
+    description: "Cargar archivos XML",
+    permission: "xml" as keyof UserPermissions,
   },
   {
     id: "cashcounter",
