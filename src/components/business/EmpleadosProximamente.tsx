@@ -1,16 +1,25 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Users, Lock as LockIcon, Building2, Search } from 'lucide-react';
+import { Users, Lock as LockIcon, Building2, Search, Pencil } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useActorOwnership } from '../../hooks/useActorOwnership';
 import { hasPermission } from '../../utils/permissions';
 import { EmpresasService } from '../../services/empresas';
-import type { Empresas, EmpresaEmpleado } from '../../types/firestore';
+import { EmpleadosService } from '../../services/empleados';
+import EmpleadoDetailsModal from '../ui/EmpleadoDetailsModal';
+import type { Empresas, EmpresaEmpleado, Empleado } from '../../types/firestore';
 
 type EmpresaOption = {
   key: string;
   label: string;
+};
+
+type MergedEmpleadoEntry = {
+  key: string; // normalized name key
+  name: string;
+  doc?: Empleado;
+  embedded?: EmpresaEmpleado;
 };
 
 function normalizeStr(value: unknown) {
@@ -45,6 +54,57 @@ function sortEmpleados(list: EmpresaEmpleado[]) {
     .sort((a, b) => String(a.Empleado || '').localeCompare(String(b.Empleado || ''), 'es', { sensitivity: 'base' }));
 }
 
+function isEmpleadoDetailsComplete(e: Partial<Empleado>) {
+  const pagoOk = typeof e.pagoHoraBruta === 'number' && Number.isFinite(e.pagoHoraBruta);
+  const diaOk = String(e.diaContratacion || '').trim().length > 0;
+  const horasOk = typeof e.cantidadHorasTrabaja === 'number' && Number.isFinite(e.cantidadHorasTrabaja);
+  const stringsOk = [
+    e.paganAguinaldo,
+    e.danReciboPago,
+    e.contratoFisico,
+    e.espacioComida,
+    e.brindanVacaciones,
+  ].every((v) => typeof v === 'string' && v.trim().length > 0);
+
+  const boolsOk = [e.incluidoCCSS, e.incluidoINS].every((v) => typeof v === 'boolean');
+  return pagoOk && diaOk && horasOk && stringsOk && boolsOk;
+}
+
+function mergeEmpleadosForEmpresa(empresaId: string, embedded: EmpresaEmpleado[], docs: Empleado[]): MergedEmpleadoEntry[] {
+  const byKey = new Map<string, MergedEmpleadoEntry>();
+
+  for (const emp of sortEmpleados(embedded || [])) {
+    const name = String(emp?.Empleado ?? '').trim();
+    if (!name) continue;
+    const key = normalizeStr(name);
+    if (!key) continue;
+    byKey.set(key, {
+      key,
+      name,
+      embedded: emp,
+    });
+  }
+
+  for (const doc of docs || []) {
+    const name = String(doc?.Empleado ?? '').trim();
+    if (!name) continue;
+    const key = normalizeStr(name);
+    if (!key) continue;
+    const prev = byKey.get(key);
+    byKey.set(key, {
+      key,
+      name,
+      embedded: prev?.embedded,
+      doc: {
+        ...doc,
+        empresaId: String(doc.empresaId || empresaId).trim(),
+      },
+    });
+  }
+
+  return [...byKey.values()].sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
+}
+
 export default function EmpleadosProximamente() {
   const { user } = useAuth();
   const { ownerIds } = useActorOwnership(user || {});
@@ -55,6 +115,14 @@ export default function EmpleadosProximamente() {
 
   const [selectedEmpresaKey, setSelectedEmpresaKey] = useState<string>('');
   const [search, setSearch] = useState('');
+
+  const [empleadosByEmpresaId, setEmpleadosByEmpresaId] = useState<Record<string, Empleado[]>>({});
+  const [empleadosLoading, setEmpleadosLoading] = useState(false);
+  const [empleadosError, setEmpleadosError] = useState<string | null>(null);
+
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalEmpleado, setModalEmpleado] = useState<Empleado | null>(null);
+  const [modalReadOnly, setModalReadOnly] = useState(true);
 
   const canUse = hasPermission(user?.permissions, 'empleados');
 
@@ -161,40 +229,66 @@ export default function EmpleadosProximamente() {
     return allowedEmpresas;
   }, [allowedEmpresas, effectiveSelectedEmpresaKey, isAdmin, isSuperAdmin]);
 
+  // Load empleados docs from the new collection for the currently visible empresas
+  useEffect(() => {
+    if (!canUse) return;
+
+    const empresaIds = (visibleEmpresas || [])
+      .map((e) => String(e.id || '').trim())
+      .filter((id) => id.length > 0);
+
+    if (empresaIds.length === 0) return;
+
+    let cancelled = false;
+    const loadEmpleados = async () => {
+      setEmpleadosLoading(true);
+      setEmpleadosError(null);
+      try {
+        const pairs = await Promise.all(
+          empresaIds.map(async (empresaId) => {
+            const list = await EmpleadosService.getByEmpresaId(empresaId);
+            return [empresaId, (list || []) as Empleado[]] as const;
+          })
+        );
+
+        if (cancelled) return;
+        setEmpleadosByEmpresaId((prev) => {
+          const next = { ...prev };
+          for (const [empresaId, list] of pairs) next[empresaId] = list;
+          return next;
+        });
+      } catch (e) {
+        console.error('Error loading empleados:', e);
+        if (!cancelled) setEmpleadosError('No se pudieron cargar los empleados.');
+      } finally {
+        if (!cancelled) setEmpleadosLoading(false);
+      }
+    };
+
+    loadEmpleados();
+    return () => {
+      cancelled = true;
+    };
+  }, [canUse, visibleEmpresas]);
+
   const searchNorm = normalizeStr(search);
 
-  const renderEmpleadoList = (empleados: EmpresaEmpleado[]) => {
-    const sorted = sortEmpleados(empleados);
-    const filtered = searchNorm
-      ? sorted.filter((emp) => normalizeStr(emp.Empleado).includes(searchNorm))
-      : sorted;
+  const openEmpleadoModal = (emp: Empleado, readOnly: boolean) => {
+    setModalEmpleado(emp);
+    setModalReadOnly(readOnly);
+    setModalOpen(true);
+  };
 
-    if (filtered.length === 0) {
-      return (
-        <div className="text-sm text-[var(--muted-foreground)]">
-          {sorted.length === 0 ? 'No hay empleados registrados.' : 'No hay coincidencias para tu búsqueda.'}
-        </div>
-      );
-    }
+  const closeEmpleadoModal = () => {
+    setModalOpen(false);
+    setModalEmpleado(null);
+  };
 
-    return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {filtered.map((emp, idx) => (
-          <div
-            key={`${normalizeStr(emp.Empleado)}::${idx}`}
-            className="bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)] p-4"
-          >
-            <div className="font-semibold text-[var(--foreground)]">{String(emp.Empleado || '').trim()}</div>
-            <div className="mt-1 text-xs text-[var(--muted-foreground)]">
-              Horas/turno: {Number(emp.hoursPerShift || 0)} · CCSS: {String(emp.ccssType || 'TC')}
-            </div>
-            {Number(emp.extraAmount || 0) !== 0 && (
-              <div className="mt-1 text-xs text-[var(--muted-foreground)]">Extra: {Number(emp.extraAmount)}</div>
-            )}
-          </div>
-        ))}
-      </div>
-    );
+  const refreshEmpresaEmpleados = async (empresaId: string) => {
+    const id = String(empresaId || '').trim();
+    if (!id) return;
+    const list = await EmpleadosService.getByEmpresaId(id);
+    setEmpleadosByEmpresaId((prev) => ({ ...prev, [id]: (list || []) as Empleado[] }));
   };
 
   if (!canUse) {
@@ -212,6 +306,33 @@ export default function EmpleadosProximamente() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
+      <EmpleadoDetailsModal
+        isOpen={modalOpen}
+        onClose={closeEmpleadoModal}
+        empleado={modalEmpleado}
+        readOnly={modalReadOnly}
+        onSave={async (patch) => {
+          if (!modalEmpleado) return;
+          const empresaId = String(modalEmpleado.empresaId || '').trim();
+          if (!empresaId) throw new Error('empresaId faltante');
+
+          // If employee doc already exists, update; otherwise upsert by empresaId+name
+          if (modalEmpleado.id) {
+            await EmpleadosService.updateEmpleado(modalEmpleado.id, patch);
+          } else {
+            await EmpleadosService.upsertEmpleadoByEmpresaAndName({
+              ...modalEmpleado,
+              ...patch,
+              empresaId,
+              Empleado: String(modalEmpleado.Empleado || '').trim(),
+              ccssType: (modalEmpleado.ccssType === 'MT' ? 'MT' : 'TC'),
+            });
+          }
+
+          await refreshEmpresaEmpleados(empresaId);
+        }}
+      />
+
       <div className="bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)] p-6">
         <div className="flex flex-col md:flex-row md:items-center gap-4">
           <div className="flex items-center gap-3">
@@ -271,6 +392,12 @@ export default function EmpleadosProximamente() {
         </div>
       )}
 
+      {empleadosError && (
+        <div className="bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)] p-4 text-sm text-red-500">
+          {empleadosError}
+        </div>
+      )}
+
       {!loading && !error && visibleEmpresas.length === 0 && (
         <div className="bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)] p-6">
           <div className="text-[var(--foreground)] font-semibold">Sin empresas</div>
@@ -284,19 +411,105 @@ export default function EmpleadosProximamente() {
 
       {!loading && !error && visibleEmpresas.map((empresa) => {
         const label = getEmpresaLabel(empresa);
-        const empleados = Array.isArray(empresa.empleados) ? empresa.empleados : [];
+        const empresaId = String(empresa.id || '').trim();
+        const empleadosDocs = empresaId ? (empleadosByEmpresaId[empresaId] || []) : [];
+
+        const embedded = Array.isArray(empresa.empleados) ? empresa.empleados : [];
+        const merged = mergeEmpleadosForEmpresa(empresaId, embedded, empleadosDocs);
+        const filtered = searchNorm ? merged.filter((x) => normalizeStr(x.name).includes(searchNorm)) : merged;
+
         return (
           <div key={getEmpresaKey(empresa)} className="bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)] p-6">
             <div className="flex items-center justify-between gap-4">
               <div>
                 <div className="text-lg font-semibold text-[var(--foreground)]">{label}</div>
                 <div className="text-sm text-[var(--muted-foreground)]">
-                  {sortEmpleados(empleados).length} empleado(s)
+                  {merged.length} empleado(s)
+                  {empleadosLoading && <span className="ml-2 text-xs">(cargando...)</span>}
                 </div>
               </div>
             </div>
 
-            <div className="mt-4">{renderEmpleadoList(empleados)}</div>
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {filtered.length === 0 ? (
+                <div className="text-sm text-[var(--muted-foreground)]">
+                  {merged.length === 0 ? 'No hay empleados registrados.' : 'No hay coincidencias para tu búsqueda.'}
+                </div>
+              ) : (
+                filtered.map((entry) => {
+                  const doc = entry.doc;
+                  const emb = entry.embedded;
+                  const complete = doc ? isEmpleadoDetailsComplete(doc) : false;
+                  const ccss = String((doc?.ccssType || emb?.ccssType || 'TC') ?? 'TC');
+                  const horasDoc = typeof doc?.cantidadHorasTrabaja === 'number' ? doc.cantidadHorasTrabaja : undefined;
+                  const horasEmb = emb ? Number(emb.hoursPerShift || 0) : undefined;
+
+                  const fallbackEmpleado: Empleado = {
+                    empresaId,
+                    Empleado: String(entry.name || '').trim(),
+                    ccssType: (ccss === 'MT' ? 'MT' : 'TC'),
+                  };
+
+                  const modalEmp = doc || fallbackEmpleado;
+
+                  return (
+                    <div
+                      key={doc?.id || `${empresaId}::${entry.key}`}
+                      className="bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)] p-4"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="font-semibold text-[var(--foreground)] truncate">{String(entry.name || '').trim()}</div>
+                          <div className="mt-1 text-xs text-[var(--muted-foreground)]">
+                            CCSS: {ccss} ·{' '}
+                            {horasDoc !== undefined ? (
+                              <>Horas: {horasDoc}</>
+                            ) : (
+                              <>Horas/turno: {horasEmb !== undefined ? horasEmb : '—'}</>
+                            )}
+                          </div>
+                          {emb && Number(emb.extraAmount || 0) !== 0 && (
+                            <div className="mt-1 text-xs text-[var(--muted-foreground)]">Extra: {Number(emb.extraAmount)}</div>
+                          )}
+                          <div className="mt-1 text-xs">
+                            <span className={complete ? 'text-green-600' : 'text-yellow-600'}>
+                              {complete ? 'Ficha completa' : 'Ficha incompleta'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {isAdmin && (
+                          <button
+                            type="button"
+                            className="p-2 rounded-md border border-[var(--input-border)] hover:bg-[var(--hover-bg)]"
+                            title="Editar empleado"
+                            onClick={() => openEmpleadoModal(modalEmp, false)}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+
+                      {!isAdmin && (
+                        <button
+                          type="button"
+                          className="mt-3 w-full px-3 py-2 rounded bg-[var(--button-bg)] text-[var(--button-text)] hover:bg-[var(--button-hover)]"
+                          onClick={() => openEmpleadoModal(modalEmp, true)}
+                        >
+                          Ver información
+                        </button>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {isAdmin && empresaId && sortEmpleados(embedded).length > 0 && empleadosDocs.length === 0 && (
+              <div className="mt-4 text-xs text-[var(--muted-foreground)]">
+                Tip: esta empresa aún usa empleados embebidos en la colección de empresas. Al editar por primera vez, se creará el documento en la colección "empleados".
+              </div>
+            )}
           </div>
         );
       })}
