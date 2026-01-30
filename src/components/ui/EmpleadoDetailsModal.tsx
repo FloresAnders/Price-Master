@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Save, Trash2, X } from 'lucide-react';
 import type { Empleado } from '../../types/firestore';
+import useToast from '../../hooks/useToast';
 
 type ExtraQA = { pregunta: string; respuesta: string };
 
@@ -73,6 +74,11 @@ function normalizeYesNo(raw: string): string {
   return s;
 }
 
+function RequiredMark({ show, isEmpty }: { show: boolean; isEmpty: boolean }) {
+  if (!show) return null;
+  return <span className={isEmpty ? 'text-red-500' : 'text-[var(--muted-foreground)]'}> *</span>;
+}
+
 export default function EmpleadoDetailsModal({
   isOpen,
   onClose,
@@ -82,6 +88,7 @@ export default function EmpleadoDetailsModal({
 }: EmpleadoDetailsModalProps) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>('');
+  const { showToast } = useToast();
 
   const [pagoHoraBruta, setPagoHoraBruta] = useState<string>('');
   const [diaContratacion, setDiaContratacion] = useState<string>('');
@@ -176,17 +183,33 @@ export default function EmpleadoDetailsModal({
       setSaving(true);
       setError('');
       await onSave(patch);
+      showToast('Información guardada correctamente', 'success');
       onClose();
     } catch (e) {
       console.error('Error saving empleado details:', e);
       setError('Error al guardar el empleado');
+      showToast('Error al guardar la información', 'error');
     } finally {
       setSaving(false);
     }
   };
 
+  // Global keyboard listener for ESC key
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') onClose();
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       handleSave();
     }
@@ -213,7 +236,9 @@ export default function EmpleadoDetailsModal({
           {/* Required questions */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-[var(--foreground)] mb-1">Pago de hora en bruto *</label>
+              <label className="block text-sm font-medium text-[var(--foreground)] mb-1">
+                Pago de hora en bruto<RequiredMark show={!readOnly} isEmpty={!pagoHoraBruta.trim()} />
+              </label>
               <input
                 type="number"
                 step="0.01"
@@ -226,7 +251,9 @@ export default function EmpleadoDetailsModal({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-[var(--foreground)] mb-1">Día de contratación *</label>
+              <label className="block text-sm font-medium text-[var(--foreground)] mb-1">
+                Día de contratación<RequiredMark show={!readOnly} isEmpty={!diaContratacion.trim()} />
+              </label>
               <input
                 type="date"
                 value={diaContratacion}
@@ -237,7 +264,9 @@ export default function EmpleadoDetailsModal({
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-[var(--foreground)] mb-1">Cantidad de horas que trabaja a la semana? *</label>
+              <label className="block text-sm font-medium text-[var(--foreground)] mb-1">
+                Cantidad de horas que trabaja a la semana?<RequiredMark show={!readOnly} isEmpty={!cantidadHorasTrabaja.trim()} />
+              </label>
               <input
                 type="number"
                 step="0.25"
@@ -251,7 +280,9 @@ export default function EmpleadoDetailsModal({
 
             <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-md px-3 py-2">
-                <label className="block text-sm text-[var(--foreground)] mb-1">Pagan aguinaldo? *</label>
+                <label className="block text-sm text-[var(--foreground)] mb-1">
+                  Pagan aguinaldo?<RequiredMark show={!readOnly} isEmpty={!paganAguinaldo.trim()} />
+                </label>
                 {readOnly ? (
                   <span className="text-sm text-[var(--muted-foreground)]">{strLabel(empleado.paganAguinaldo)}</span>
                 ) : (
@@ -265,7 +296,9 @@ export default function EmpleadoDetailsModal({
               </div>
 
               <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-md px-3 py-2">
-                <label className="block text-sm text-[var(--foreground)] mb-1">Se da recibo de pago? *</label>
+                <label className="block text-sm text-[var(--foreground)] mb-1">
+                  Se da recibo de pago?<RequiredMark show={!readOnly} isEmpty={!danReciboPago.trim()} />
+                </label>
                 {readOnly ? (
                   <span className="text-sm text-[var(--muted-foreground)]">{strLabel(empleado.danReciboPago)}</span>
                 ) : (
@@ -279,7 +312,9 @@ export default function EmpleadoDetailsModal({
               </div>
 
               <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-md px-3 py-2">
-                <label className="block text-sm text-[var(--foreground)] mb-1">Se cuenta con contrato físico? *</label>
+                <label className="block text-sm text-[var(--foreground)] mb-1">
+                  Se cuenta con contrato físico?<RequiredMark show={!readOnly} isEmpty={!contratoFisico.trim()} />
+                </label>
                 {readOnly ? (
                   <span className="text-sm text-[var(--muted-foreground)]">{strLabel(empleado.contratoFisico)}</span>
                 ) : (
@@ -293,7 +328,9 @@ export default function EmpleadoDetailsModal({
               </div>
 
               <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-md px-3 py-2">
-                <label className="block text-sm text-[var(--foreground)] mb-1">Espacio comida? *</label>
+                <label className="block text-sm text-[var(--foreground)] mb-1">
+                  Espacio comida?<RequiredMark show={!readOnly} isEmpty={!espacioComida.trim()} />
+                </label>
                 {readOnly ? (
                   <span className="text-sm text-[var(--muted-foreground)]">{strLabel(empleado.espacioComida)}</span>
                 ) : (
@@ -307,7 +344,23 @@ export default function EmpleadoDetailsModal({
               </div>
 
               <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-md px-3 py-2">
-                <label className="block text-sm text-[var(--foreground)] mb-1">Incluido CCSS *</label>
+                <label className="block text-sm text-[var(--foreground)] mb-1">
+                  Se brindan vacaciones?<RequiredMark show={!readOnly} isEmpty={!brindanVacaciones.trim()} />
+                </label>
+                {readOnly ? (
+                  <span className="text-sm text-[var(--muted-foreground)]">{strLabel(empleado.brindanVacaciones)}</span>
+                ) : (
+                  <AutoResizeTextarea
+                    value={brindanVacaciones}
+                    onChange={(e) => setBrindanVacaciones(e.target.value)}
+                    minRows={1}
+                    className="w-full bg-[var(--background)] border border-[var(--input-border)] rounded-md px-2 py-1 text-[var(--foreground)] text-sm resize-none"
+                  />
+                )}
+              </div>
+
+              <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-md px-3 py-2">
+                <label className="block text-sm text-[var(--foreground)] mb-1">Incluido CCSS</label>
                 {readOnly ? (
                   <span className="text-sm text-[var(--muted-foreground)]">{boolLabel(empleado.incluidoCCSS)}</span>
                 ) : (
@@ -316,7 +369,7 @@ export default function EmpleadoDetailsModal({
               </div>
 
               <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-md px-3 py-2">
-                <label className="block text-sm text-[var(--foreground)] mb-1">Incluido INS *</label>
+                <label className="block text-sm text-[var(--foreground)] mb-1">Incluido INS</label>
                 {readOnly ? (
                   <span className="text-sm text-[var(--muted-foreground)]">{boolLabel(empleado.incluidoINS)}</span>
                 ) : (
@@ -337,7 +390,7 @@ export default function EmpleadoDetailsModal({
                   className="px-2 sm:px-3 py-1.5 sm:py-2 rounded bg-[var(--button-bg)] text-[var(--button-text)] hover:bg-[var(--button-hover)] flex items-center gap-1 sm:gap-2 text-sm"
                 >
                   <Plus className="w-4 h-4" />
-                  <span className="hidden xs:inline">Agregar</span>
+                  <span className="hidden sm:inline">Agregar</span>
                 </button>
               )}
             </div>

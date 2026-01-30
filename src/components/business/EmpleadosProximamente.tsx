@@ -287,7 +287,8 @@ export default function EmpleadosProximamente() {
   const refreshEmpresaEmpleados = async (empresaId: string) => {
     const id = String(empresaId || '').trim();
     if (!id) return;
-    const list = await EmpleadosService.getByEmpresaId(id);
+    // Use forceRefresh to bypass cache after updates
+    const list = await EmpleadosService.getByEmpresaId(id, true);
     setEmpleadosByEmpresaId((prev) => ({ ...prev, [id]: (list || []) as Empleado[] }));
   };
 

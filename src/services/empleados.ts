@@ -1,8 +1,35 @@
 import { FirestoreService } from './firestore';
 import type { Empleado } from '../types/firestore';
 
+// Cache configuration
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+}
+
 export class EmpleadosService {
   private static readonly COLLECTION_NAME = 'empleados';
+  
+  // In-memory cache for empleados by empresaId
+  private static cache = new Map<string, CacheEntry<Empleado[]>>();
+
+  private static isCacheValid(entry: CacheEntry<unknown> | undefined): boolean {
+    if (!entry) return false;
+    return Date.now() - entry.timestamp < CACHE_TTL_MS;
+  }
+
+  /**
+   * Clear cache for a specific empresaId or all cache if no id provided
+   */
+  static clearCache(empresaId?: string): void {
+    if (empresaId) {
+      this.cache.delete(empresaId);
+    } else {
+      this.cache.clear();
+    }
+  }
 
   private static slugifyForId(value: string): string {
     const raw = String(value || '').trim().toLowerCase();
@@ -39,12 +66,30 @@ export class EmpleadosService {
     };
   }
 
-  static async getByEmpresaId(empresaId: string): Promise<Empleado[]> {
+  static async getByEmpresaId(empresaId: string, forceRefresh = false): Promise<Empleado[]> {
     const id = String(empresaId || '').trim();
     if (!id) return [];
-    return await FirestoreService.query(this.COLLECTION_NAME, [
+
+    // Check cache first (unless force refresh)
+    if (!forceRefresh) {
+      const cached = this.cache.get(id);
+      if (this.isCacheValid(cached)) {
+        return cached!.data;
+      }
+    }
+
+    // Fetch from Firestore
+    const result = await FirestoreService.query(this.COLLECTION_NAME, [
       { field: 'empresaId', operator: '==', value: id },
     ]) as Empleado[];
+
+    // Store in cache
+    this.cache.set(id, {
+      data: result,
+      timestamp: Date.now(),
+    });
+
+    return result;
   }
 
   static async addEmpleado(empleado: Omit<Empleado, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
@@ -70,7 +115,10 @@ export class EmpleadosService {
       preguntasExtra: empleado.preguntasExtra,
     };
 
-    return await FirestoreService.add(this.COLLECTION_NAME, data);
+    const newId = await FirestoreService.add(this.COLLECTION_NAME, data);
+    // Invalidate cache for this empresa
+    this.clearCache(empresaId);
+    return newId;
   }
 
   /**
@@ -111,6 +159,8 @@ export class EmpleadosService {
     };
 
     await FirestoreService.addWithId(this.COLLECTION_NAME, id, data);
+    // Invalidate cache for this empresa
+    this.clearCache(empresaId);
     return id;
   }
 
@@ -131,12 +181,24 @@ export class EmpleadosService {
       updateData.ccssType = updateData.ccssType === 'MT' ? 'MT' : 'TC';
     }
 
-    return await FirestoreService.update(this.COLLECTION_NAME, docId, updateData);
+    await FirestoreService.update(this.COLLECTION_NAME, docId, updateData);
+    // Invalidate cache - clear all since we don't have empresaId in patch
+    if (patch.empresaId) {
+      this.clearCache(patch.empresaId);
+    } else {
+      this.clearCache(); // Clear all if empresaId not available
+    }
   }
 
-  static async deleteEmpleado(id: string): Promise<void> {
+  static async deleteEmpleado(id: string, empresaId?: string): Promise<void> {
     const docId = String(id || '').trim();
     if (!docId) return;
-    return await FirestoreService.delete(this.COLLECTION_NAME, docId);
+    await FirestoreService.delete(this.COLLECTION_NAME, docId);
+    // Invalidate cache
+    if (empresaId) {
+      this.clearCache(empresaId);
+    } else {
+      this.clearCache();
+    }
   }
 }
