@@ -395,55 +395,74 @@ export default function EmpleadoDetailsModal({
               )}
             </div>
 
-            {preguntasExtra.length === 0 ? (
-              <div className="text-sm text-[var(--muted-foreground)] mt-2">No hay preguntas adicionales.</div>
-            ) : (
-              <div className="mt-3 space-y-3">
-                {preguntasExtra.map((qa, idx) => (
-                  <div key={idx} className="grid grid-cols-1 gap-3 bg-[var(--card-bg)] border border-[var(--input-border)] rounded-md p-3">
-                    <div>
-                      <label className="block text-xs text-[var(--muted-foreground)] mb-1">Pregunta</label>
-                      <AutoResizeTextarea
-                        value={qa.pregunta}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          setPreguntasExtra((prev) => prev.map((x, i) => (i === idx ? { ...x, pregunta: v } : x)));
-                        }}
-                        disabled={readOnly}
-                        minRows={2}
-                        className="w-full px-3 py-2 rounded-md bg-[var(--background)] border border-[var(--input-border)] text-[var(--foreground)] text-sm resize-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-[var(--muted-foreground)] mb-1">Respuesta</label>
-                      <AutoResizeTextarea
-                        value={qa.respuesta}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          setPreguntasExtra((prev) => prev.map((x, i) => (i === idx ? { ...x, respuesta: v } : x)));
-                        }}
-                        disabled={readOnly}
-                        minRows={2}
-                        className="w-full px-3 py-2 rounded-md bg-[var(--background)] border border-[var(--input-border)] text-[var(--foreground)] text-sm resize-none"
-                      />
-                    </div>
+            {(() => {
+              const items = readOnly
+                ? preguntasExtra.filter((x) => String(x?.pregunta || '').trim() || String(x?.respuesta || '').trim())
+                : preguntasExtra;
 
-                    {!readOnly && (
-                      <div className="flex justify-end">
-                        <button
-                          type="button"
-                          onClick={() => setPreguntasExtra((prev) => prev.filter((_, i) => i !== idx))}
-                          className="px-3 py-1.5 rounded bg-red-600 hover:bg-red-700 text-white flex items-center gap-2 text-sm"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          Quitar
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+              if (items.length === 0) {
+                return <div className="text-sm text-[var(--muted-foreground)] mt-2">No hay preguntas adicionales.</div>;
+              }
+
+              return (
+                <div className="mt-3 space-y-3">
+                  {items.map((qa, idx) => (
+                    <div key={idx} className="grid grid-cols-1 gap-3 bg-[var(--card-bg)] border border-[var(--input-border)] rounded-md p-3">
+                      {readOnly ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <div className="text-xs text-[var(--muted-foreground)]">Pregunta</div>
+                            <div className="mt-1 text-sm text-[var(--muted-foreground)] break-words">{strLabel(String(qa.pregunta || ''))}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-[var(--muted-foreground)]">Respuesta</div>
+                            <div className="mt-1 text-sm text-[var(--muted-foreground)] break-words">{strLabel(String(qa.respuesta || ''))}</div>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div>
+                            <label className="block text-xs text-[var(--muted-foreground)] mb-1">Pregunta</label>
+                            <AutoResizeTextarea
+                              value={qa.pregunta}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setPreguntasExtra((prev) => prev.map((x, i) => (i === idx ? { ...x, pregunta: v } : x)));
+                              }}
+                              minRows={2}
+                              className="w-full px-3 py-2 rounded-md bg-[var(--background)] border border-[var(--input-border)] text-[var(--foreground)] text-sm resize-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-[var(--muted-foreground)] mb-1">Respuesta</label>
+                            <AutoResizeTextarea
+                              value={qa.respuesta}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setPreguntasExtra((prev) => prev.map((x, i) => (i === idx ? { ...x, respuesta: v } : x)));
+                              }}
+                              minRows={2}
+                              className="w-full px-3 py-2 rounded-md bg-[var(--background)] border border-[var(--input-border)] text-[var(--foreground)] text-sm resize-none"
+                            />
+                          </div>
+
+                          <div className="flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => setPreguntasExtra((prev) => prev.filter((_, i) => i !== idx))}
+                              className="px-3 py-1.5 rounded bg-red-600 hover:bg-red-700 text-white flex items-center gap-2 text-sm"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              Quitar
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
 
           {error && (
