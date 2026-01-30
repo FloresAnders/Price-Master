@@ -19,6 +19,7 @@ import {
   ChevronDown,
   Bell,
   UserPlus,
+  Users,
   Layers,
   Shield,
   Star,
@@ -79,6 +80,7 @@ type ActiveTab =
   | "cashcounter"
   | "timingcontrol"
   | "controlhorario"
+  | "empleados"
   | "calculohorasprecios"
   | "supplierorders"
   | "histoscans"
@@ -423,6 +425,13 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       icon: Clock,
       description: "Registro de horarios de trabajo",
       permission: "controlhorario" as keyof UserPermissions,
+    },
+    {
+      id: "empleados" as ActiveTab,
+      name: "Empleados",
+      icon: Users,
+      description: "Información de empleados (próximamente)",
+      permission: "empleados" as keyof UserPermissions,
     },
     {
       id: "calculohorasprecios" as ActiveTab,

@@ -28,6 +28,7 @@ import {
   Truck,
   Settings,
   History,
+  Users,
 } from "lucide-react";
 import AnimatedStickman from "../ui/AnimatedStickman";
 import { User, UserPermissions } from "../../types/firestore";
@@ -104,6 +105,13 @@ const menuItems = [
     permission: "controlhorario" as keyof UserPermissions,
   },
   {
+    id: "empleados",
+    name: "Empleados",
+    icon: Users,
+    description: "Información de empleados",
+    permission: "empleados" as keyof UserPermissions,
+  },
+  {
     id: "calculohorasprecios",
     name: "Cálculo Horas Precios",
     icon: Calculator,
@@ -125,18 +133,18 @@ const menuItems = [
     permission: "scanhistory" as keyof UserPermissions,
   },
   {
-    id: "edit",
-    name: "Mantenimiento",
-    icon: Settings,
-    description: "Gestión y mantenimiento del sistema",
-    permission: "mantenimiento" as keyof UserPermissions,
-  },
-  {
     id: "solicitud",
     name: "Solicitud",
     icon: Type,
     description: "Solicitudes y trámites",
     permission: "solicitud" as keyof UserPermissions,
+  },
+  {
+    id: "edit",
+    name: "Mantenimiento",
+    icon: Settings,
+    description: "Gestión y mantenimiento del sistema",
+    permission: "mantenimiento" as keyof UserPermissions,
   },
 ];
 
