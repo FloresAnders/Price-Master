@@ -56,6 +56,7 @@ export interface UserPermissions {
   timingcontrol: boolean; // Control Tiempos - Registro de venta de tiempos
   controlhorario: boolean; // Control Horario - Registro de horarios de trabajo
   calculohorasprecios: boolean; // Calculo horas precios - Cálculo de horas y precios/planilla
+  empleados: boolean; // Empleados - Información (próximamente)
   supplierorders: boolean; // Órdenes Proveedor - Gestión de órdenes de proveedores
   mantenimiento: boolean;  // Mantenimiento - Nueva sección de mantenimiento
   fondogeneral?: boolean; // Fondo General - Acceso a administración del fondo general
