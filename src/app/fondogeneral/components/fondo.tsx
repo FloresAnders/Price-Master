@@ -6022,7 +6022,8 @@ export function FondoSection({
                 try {
                   const updatedRecord = updated.find((d) => d.id === record.id);
                   if (updatedRecord && normalizedCompany.length > 0) {
-                    DailyClosingsService.saveClosing(
+                    // Fire-and-forget save for adjustment updates (non-critical)
+                    void DailyClosingsService.saveClosing(
                       normalizedCompany,
                       updatedRecord
                     ).then(() => {
@@ -6288,7 +6289,8 @@ export function FondoSection({
             try {
               const updatedRecord = updated.find((d) => d.id === record.id);
               if (updatedRecord && normalizedCompany.length > 0) {
-                DailyClosingsService.saveClosing(
+                // Fire-and-forget save for adjustment notes (non-critical)
+                void DailyClosingsService.saveClosing(
                   normalizedCompany,
                   updatedRecord
                 ).then(() => {

@@ -339,6 +339,8 @@ export class DailyClosingsService {
         await FirestoreService.addWithId(COLLECTION_NAME, docId, payload);
         
         // Verify the save was successful by reading back the data
+        // Note: This works reliably because Firestore SDK serves reads from local cache
+        // immediately after writes, ensuring consistency for the same client
         const verifyDoc = await this.getDocument(company);
         if (!verifyDoc) {
             throw new Error('Failed to verify closing save: document not found after save');
