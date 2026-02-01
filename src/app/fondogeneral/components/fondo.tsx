@@ -5735,25 +5735,38 @@ export function FondoSection({
       breakdownUSD: closing.breakdownUSD ?? {},
     };
 
-    setDailyClosings((prev) => mergeDailyClosingRecords(prev, [record]));
-    loadedDailyClosingKeysRef.current.add(closingDateKey);
-    loadingDailyClosingKeysRef.current.delete(closingDateKey);
-    setDailyClosingsHydrated(true);
-
-    setPendingCierreDeCaja(false);
-    setDailyClosingModalOpen(false);
-
     const normalizedCompany = (company || "").trim();
-    if (normalizedCompany.length === 0) return;
+    if (normalizedCompany.length === 0) {
+      setDailyClosingModalOpen(false);
+      showToast("Error: No se pudo identificar la empresa", "error");
+      return;
+    }
 
+    // Save to Firestore first and wait for confirmation
     beginDailyClosingsRequest();
-    void DailyClosingsService.saveClosing(normalizedCompany, record)
-      .catch((err) => {
-        console.error("Error saving daily closing to Firestore:", err);
-      })
-      .finally(() => {
-        finishDailyClosingsRequest();
-      });
+    try {
+      await DailyClosingsService.saveClosing(normalizedCompany, record);
+      console.log(`[CIERRE] ✅ Cierre guardado exitosamente en Firestore. ID: ${record.id}, Fecha: ${record.closingDate}`);
+      
+      // Only update local state after successful save
+      setDailyClosings((prev) => mergeDailyClosingRecords(prev, [record]));
+      loadedDailyClosingKeysRef.current.add(closingDateKey);
+      loadingDailyClosingKeysRef.current.delete(closingDateKey);
+      setDailyClosingsHydrated(true);
+
+      setPendingCierreDeCaja(false);
+      setDailyClosingModalOpen(false);
+    } catch (err) {
+      console.error("[CIERRE] ❌ Error guardando cierre en Firestore:", err);
+      showToast(
+        "Error al guardar el cierre. Por favor, intente de nuevo.",
+        "error",
+        5000
+      );
+      return;
+    } finally {
+      finishDailyClosingsRequest();
+    }
 
     const notificationRecipients = new Set<string>();
     const adminRecipient = ownerAdminEmail?.trim();
