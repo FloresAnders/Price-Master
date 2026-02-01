@@ -5758,6 +5758,47 @@ export function FondoSection({
       setDailyClosingModalOpen(false);
     } catch (err) {
       console.error("[CIERRE] ❌ Error guardando cierre en Firestore:", err);
+
+      // Alert email for save failures (non-blocking)
+      try {
+        const whenISO = new Date().toISOString();
+        const where = "FondoSection.handleConfirmDailyClosing -> DailyClosingsService.saveClosing";
+        const errorMessage =
+          err instanceof Error
+            ? `${err.name}: ${err.message}${err.stack ? `\n\nStack:\n${err.stack}` : ""}`
+            : typeof err === "string"
+              ? err
+              : JSON.stringify(err);
+
+        const subject = `[ALERTA][CIERRE] Error al guardar cierre (${normalizedCompany})`;
+        const text = [
+          `Dónde: ${where}`,
+          `Cuándo: ${whenISO}`,
+          `Empresa: ${normalizedCompany}`,
+          `Usuario: ${(user?.email || "N/A").toString()}`,
+          `Cierre ID: ${record.id}`,
+          `Fecha cierre: ${record.closingDate}`,
+          "",
+          `Error: ${errorMessage}`,
+        ].join("\n");
+
+        const recipients = ["chavesa698@gmail.com", "price.master.srl@gmail.com"];
+        void Promise.all(
+          recipients.map((to) =>
+            addDoc(collection(db, "mail"), {
+              to,
+              subject,
+              text,
+              createdAt: serverTimestamp(),
+            })
+          )
+        ).catch((mailErr) => {
+          console.error("[CIERRE] ❌ Error encolando email de alerta:", mailErr);
+        });
+      } catch (mailErr) {
+        console.error("[CIERRE] ❌ Error preparando email de alerta:", mailErr);
+      }
+
       showToast(
         "Error al guardar el cierre. Por favor, intente de nuevo.",
         "error",
