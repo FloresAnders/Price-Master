@@ -6022,19 +6022,21 @@ export function FondoSection({
                 try {
                   const updatedRecord = updated.find((d) => d.id === record.id);
                   if (updatedRecord && normalizedCompany.length > 0) {
-                    void DailyClosingsService.saveClosing(
+                    DailyClosingsService.saveClosing(
                       normalizedCompany,
                       updatedRecord
-                    ).catch((saveErr) => {
+                    ).then(() => {
+                      console.log(`[CIERRE] ✅ Ajuste de cierre guardado exitosamente. ID: ${updatedRecord.id}`);
+                    }).catch((saveErr) => {
                       console.error(
-                        "Error saving updated daily closing with resolution:",
+                        "[CIERRE] ❌ Error saving updated daily closing with resolution:",
                         saveErr
                       );
                     });
                   }
                 } catch (saveErr) {
                   console.error(
-                    "Error persisting daily closing resolution:",
+                    "[CIERRE] ❌ Error persisting daily closing resolution:",
                     saveErr
                   );
                 }
@@ -6286,19 +6288,21 @@ export function FondoSection({
             try {
               const updatedRecord = updated.find((d) => d.id === record.id);
               if (updatedRecord && normalizedCompany.length > 0) {
-                void DailyClosingsService.saveClosing(
+                DailyClosingsService.saveClosing(
                   normalizedCompany,
                   updatedRecord
-                ).catch((saveErr) => {
+                ).then(() => {
+                  console.log(`[CIERRE] ✅ Nota de ajuste guardada exitosamente. ID: ${updatedRecord.id}`);
+                }).catch((saveErr) => {
                   console.error(
-                    "Error saving daily closing with adjustment note:",
+                    "[CIERRE] ❌ Error saving daily closing with adjustment note:",
                     saveErr
                   );
                 });
               }
             } catch (saveErr) {
               console.error(
-                "Error persisting daily closing adjustment note:",
+                "[CIERRE] ❌ Error persisting daily closing adjustment note:",
                 saveErr
               );
             }
