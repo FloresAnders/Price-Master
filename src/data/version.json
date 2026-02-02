@@ -2,9 +2,9 @@
     "version": "1.3.40",
     "releaseNotes": [
         {
-            "date": "31 Ene 2026",
-            "title": "Mejoras al guardado de cierres y ajustes",
-            "description": "Se mejoró el guardado del cierre de caja y los ajustes: ahora se espera la confirmación de Firestore antes de actualizar la interfaz, se agregaron validaciones y verificación del guardado, y se mejoraron los mensajes de error y logs para facilitar el diagnóstico."
+            "date": "02 Feb 2026",
+            "title": "Empleados: fecha dinámica y menos consultas",
+            "description": "En la ficha del empleado, si no se selecciona CCSS ni INS, la fecha de contratación/ingreso se muestra como la fecha del día de la consulta (no se guarda fija en la base de datos)."
         }
     ],
     "_comment": "hacer una pagina de 'en mantenimiento' para secciones en desarrollo y a exepcion de un usuario admin"
