@@ -56,7 +56,8 @@ function sortEmpleados(list: EmpresaEmpleado[]) {
 
 function isEmpleadoDetailsComplete(e: Partial<Empleado>) {
   const pagoOk = typeof e.pagoHoraBruta === 'number' && Number.isFinite(e.pagoHoraBruta);
-  const diaOk = String(e.diaContratacion || '').trim().length > 0;
+  const sinSeguros = e.incluidoCCSS === false && e.incluidoINS === false;
+  const diaOk = String(e.diaContratacion || '').trim().length > 0 || sinSeguros;
   const horasOk = typeof e.cantidadHorasTrabaja === 'number' && Number.isFinite(e.cantidadHorasTrabaja);
   const stringsOk = [
     e.paganAguinaldo,
@@ -505,12 +506,6 @@ export default function EmpleadosProximamente() {
                 })
               )}
             </div>
-
-            {isAdmin && empresaId && sortEmpleados(embedded).length > 0 && empleadosDocs.length === 0 && (
-              <div className="mt-4 text-xs text-[var(--muted-foreground)]">
-                Tip: esta empresa aún usa empleados embebidos en la colección de empresas. Al editar por primera vez, se creará el documento en la colección "empleados".
-              </div>
-            )}
           </div>
         );
       })}

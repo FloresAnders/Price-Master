@@ -74,6 +74,13 @@ function normalizeYesNo(raw: string): string {
   return s;
 }
 
+function formatLocalISODate(d: Date = new Date()): string {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 function RequiredMark({ show, isEmpty }: { show: boolean; isEmpty: boolean }) {
   if (!show) return null;
   return <span className={isEmpty ? 'text-red-500' : 'text-[var(--muted-foreground)]'}> *</span>;
@@ -124,6 +131,9 @@ export default function EmpleadoDetailsModal({
     setPreguntasExtra(Array.isArray(empleado?.preguntasExtra) ? empleado!.preguntasExtra!.map(x => ({ pregunta: String(x.pregunta || ''), respuesta: String(x.respuesta || '') })) : []);
   }, [empleado, isOpen]);
 
+  const useDynamicIngresoDate = !incluidoCCSS && !incluidoINS;
+  const displayedDiaContratacion = String(diaContratacion || '').trim() || (useDynamicIngresoDate ? formatLocalISODate() : '');
+
   const canSave = !readOnly && typeof onSave === 'function';
 
   const validate = (): { ok: boolean; msg?: string } => {
@@ -131,7 +141,8 @@ export default function EmpleadoDetailsModal({
     if (pago === undefined) return { ok: false, msg: 'Pago de hora en bruto es obligatorio.' };
     if (pago < 0) return { ok: false, msg: 'Pago de hora en bruto no puede ser negativo.' };
 
-    if (!diaContratacion) return { ok: false, msg: 'Día de contratación es obligatorio.' };
+    const dia = String(diaContratacion || '').trim();
+    if (!dia && !useDynamicIngresoDate) return { ok: false, msg: 'Día de contratación es obligatorio.' };
 
     if (!String(paganAguinaldo || '').trim()) return { ok: false, msg: 'Pagan aguinaldo es obligatorio.' };
 
@@ -163,9 +174,12 @@ export default function EmpleadoDetailsModal({
       return;
     }
 
+    // If neither CCSS nor INS is selected, the ingreso date is dynamic (consult-day), so do not persist it.
+    const diaFinal = useDynamicIngresoDate ? '' : String(diaContratacion || '').trim();
+
     const patch: Partial<Empleado> = {
       pagoHoraBruta: asNumberOrUndefined(pagoHoraBruta),
-      diaContratacion: diaContratacion,
+      diaContratacion: diaFinal,
       paganAguinaldo: normalizeYesNo(paganAguinaldo),
       cantidadHorasTrabaja: asNumberOrUndefined(cantidadHorasTrabaja),
       danReciboPago: normalizeYesNo(danReciboPago),
@@ -256,9 +270,9 @@ export default function EmpleadoDetailsModal({
               </label>
               <input
                 type="date"
-                value={diaContratacion}
+                value={displayedDiaContratacion}
                 onChange={(e) => setDiaContratacion(e.target.value)}
-                disabled={readOnly}
+                disabled={readOnly || useDynamicIngresoDate}
                 className="w-full px-3 py-2 rounded-md bg-[var(--card-bg)] border border-[var(--input-border)] text-[var(--foreground)]"
               />
             </div>
@@ -492,11 +506,6 @@ export default function EmpleadoDetailsModal({
               </button>
             )}
           </div>
-
-          {readOnly && (
-            <div className="mt-3 text-xs text-[var(--muted-foreground)]">Tip: los admins pueden editar con el ícono de lápiz.</div>
-          )}
-
           <datalist id="yesno-options">
             <option value="Sí" />
             <option value="No" />
