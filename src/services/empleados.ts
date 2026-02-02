@@ -2,7 +2,8 @@ import { FirestoreService } from './firestore';
 import type { Empleado } from '../types/firestore';
 
 // Cache configuration
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+// Default TTL for list-by-empresaId lookups. Updates/inserts clear the cache.
+const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
 interface CacheEntry<T> {
   data: T;
@@ -15,6 +16,9 @@ export class EmpleadosService {
   // In-memory cache for empleados by empresaId
   private static cache = new Map<string, CacheEntry<Empleado[]>>();
 
+  // De-dupe concurrent requests (per empresaId)
+  private static inFlight = new Map<string, Promise<Empleado[]>>();
+
   private static isCacheValid(entry: CacheEntry<unknown> | undefined): boolean {
     if (!entry) return false;
     return Date.now() - entry.timestamp < CACHE_TTL_MS;
@@ -26,8 +30,10 @@ export class EmpleadosService {
   static clearCache(empresaId?: string): void {
     if (empresaId) {
       this.cache.delete(empresaId);
+      this.inFlight.delete(empresaId);
     } else {
       this.cache.clear();
+      this.inFlight.clear();
     }
   }
 
@@ -78,18 +84,32 @@ export class EmpleadosService {
       }
     }
 
-    // Fetch from Firestore
-    const result = await FirestoreService.query(this.COLLECTION_NAME, [
-      { field: 'empresaId', operator: '==', value: id },
-    ]) as Empleado[];
+    // De-dupe concurrent loads for the same empresaId
+    const existing = this.inFlight.get(id);
+    if (existing) return existing;
 
-    // Store in cache
-    this.cache.set(id, {
-      data: result,
-      timestamp: Date.now(),
-    });
+    const promise = (async () => {
+      // Fetch from Firestore
+      const result = await FirestoreService.query(this.COLLECTION_NAME, [
+        { field: 'empresaId', operator: '==', value: id },
+      ]) as Empleado[];
 
-    return result;
+      // Store in cache
+      this.cache.set(id, {
+        data: result,
+        timestamp: Date.now(),
+      });
+
+      return result;
+    })();
+
+    this.inFlight.set(id, promise);
+    try {
+      return await promise;
+    } finally {
+      // Always release in-flight marker, success or failure
+      this.inFlight.delete(id);
+    }
   }
 
   static async addEmpleado(empleado: Omit<Empleado, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
