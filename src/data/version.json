@@ -2,9 +2,9 @@
     "version": "1.3.40",
     "releaseNotes": [
         {
-            "date": "02 Feb 2026",
-            "title": "Empleados: fecha dinámica y menos consultas",
-            "description": "En la ficha del empleado, si no se selecciona CCSS ni INS, la fecha de contratación/ingreso se muestra como la fecha del día de la consulta (no se guarda fija en la base de datos)."
+            "date": "03 Feb 2026",
+            "title": "XML: soporte de descuentos",
+            "description": "En la vista de XML se muestra el total de descuentos cuando viene en la factura (TotalDescuentos). También se incluye en la exportación a Excel."
         }
     ],
     "_comment": "hacer una pagina de 'en mantenimiento' para secciones en desarrollo y a exepcion de un usuario admin"

@@ -30,6 +30,7 @@ type FacturaResumen = {
   moneda?: string;
   tipoCambio?: string;
   totalVenta?: string;
+  totalDescuentos?: string;
   totalVentaNeta?: string;
   totalGravado?: string;
   totalMercanciasGravadas?: string;
@@ -361,6 +362,30 @@ function parseFacturaXml(xmlText: string): FacturaInfo {
 
   const monedaEl = resumenEl ? firstElement(resumenEl, 'CodigoTipoMoneda') : null;
 
+  const computeTotalDescuentos = (): string | undefined => {
+    // Primary (FE CR): <ResumenFactura><TotalDescuentos>
+    const fromResumen = resumenEl ? firstText(resumenEl, 'TotalDescuentos') : undefined;
+    const parsedFromResumen = parseDecimal(fromResumen);
+    if (parsedFromResumen !== null) return fromResumen;
+
+    // Fallback: sum all <MontoDescuento> nodes across the XML.
+    // This does NOT extract product details; it only aggregates amounts.
+    const montoEls = root.getElementsByTagNameNS('*', 'MontoDescuento');
+    if (!montoEls || montoEls.length === 0) return undefined;
+    let sum = 0;
+    let found = false;
+    for (let i = 0; i < montoEls.length; i++) {
+      const raw = (montoEls[i]?.textContent || '').trim();
+      const n = parseDecimal(raw);
+      if (n === null) continue;
+      found = true;
+      sum += n;
+    }
+    if (!found) return undefined;
+    if (Math.abs(sum) < 1e-9) return '0.00';
+    return sum.toFixed(2);
+  };
+
   const desgloseImpuesto: FacturaImpuestoDesglose[] = [];
   if (resumenEl) {
     const desgloseEls = resumenEl.getElementsByTagNameNS('*', 'TotalDesgloseImpuesto');
@@ -406,8 +431,9 @@ function parseFacturaXml(xmlText: string): FacturaInfo {
         totalMercanciasGravadas: firstText(resumenEl, 'TotalMercanciasGravadas'),
         totalGravado: firstText(resumenEl, 'TotalGravado'),
         totalVenta: firstText(resumenEl, 'TotalVenta'),
+        totalDescuentos: computeTotalDescuentos(),
         totalVentaNeta: firstText(resumenEl, 'TotalVentaNeta'),
-          totalOtrosCargos: firstText(resumenEl, 'TotalOtrosCargos'),
+        totalOtrosCargos: firstText(resumenEl, 'TotalOtrosCargos'),
         totalImpuesto: firstText(resumenEl, 'TotalImpuesto'),
         totalComprobante: firstText(resumenEl, 'TotalComprobante'),
         mediosPago: mediosPago.length ? mediosPago : undefined,
@@ -526,6 +552,7 @@ export default function XmlPage() {
       'Proveedor',
       'Correo',
       'Total venta',
+      'Total descuentos',
       ...taxKeys.map((k) => taxKeyToLabel.get(k) || k),
       'Otros cargos',
       'Total comprobante',
@@ -533,6 +560,7 @@ export default function XmlPage() {
     const rows: Array<Array<string | number>> = [header];
 
     let sumTotalVenta = 0;
+    let sumTotalDescuentos = 0;
     let sumOtrosCargos = 0;
     let sumTotalComprobante = 0;
     const sumByTaxKey = new Map<TaxKey, number>();
@@ -543,9 +571,11 @@ export default function XmlPage() {
       const correo = f.emisor?.correoElectronico || '—';
 
       const totalVenta = parseDecimal(f.resumen?.totalVenta) || 0;
+      const totalDescuentos = parseDecimal(f.resumen?.totalDescuentos) || 0;
       const otrosCargos = parseDecimal(f.resumen?.totalOtrosCargos) || 0;
       const totalComprobante = parseDecimal(f.resumen?.totalComprobante) || 0;
       sumTotalVenta += totalVenta;
+      sumTotalDescuentos += totalDescuentos;
       sumOtrosCargos += otrosCargos;
       sumTotalComprobante += totalComprobante;
 
@@ -565,13 +595,14 @@ export default function XmlPage() {
         return v && Math.abs(v) >= 1e-9 ? v : 0;
       });
 
-      rows.push([proveedor, correo, totalVenta, ...taxCells, otrosCargos, totalComprobante]);
+      rows.push([proveedor, correo, totalVenta, totalDescuentos, ...taxCells, otrosCargos, totalComprobante]);
     }
 
     rows.push([
       'TOTAL',
       '',
       sumTotalVenta,
+      sumTotalDescuentos,
       ...taxKeys.map((k) => sumByTaxKey.get(k) || 0),
       sumOtrosCargos,
       sumTotalComprobante,
@@ -587,6 +618,7 @@ export default function XmlPage() {
       { wch: 34 },
       { wch: 30 },
       { wch: 16 },
+      { wch: 18 },
       ...taxKeys.map(() => ({ wch: 22 })),
       { wch: 16 },
       { wch: 18 },
@@ -767,6 +799,13 @@ export default function XmlPage() {
                           {formatMoney(total, moneda)}
                         </div>
 
+                        {f?.resumen?.totalDescuentos && parseDecimal(f.resumen.totalDescuentos) !== null && parseDecimal(f.resumen.totalDescuentos) !== 0 && (
+                          <div className="text-[var(--muted-foreground)]">
+                            <span className="font-medium text-[var(--foreground)]">Descuento:</span>{' '}
+                            {formatMoney(f.resumen.totalDescuentos, moneda)}
+                          </div>
+                        )}
+
                         <div className="text-[var(--muted-foreground)] md:col-span-3">
                           <span className="font-medium text-[var(--foreground)]">Emisor → Receptor:</span>{' '}
                           {(f?.emisor?.nombre || '—') + ' → ' + (f?.receptor?.nombre || '—')}
@@ -837,6 +876,9 @@ export default function XmlPage() {
                           <div><span className="font-medium text-[var(--foreground)]">Total gravado:</span> {formatMoney(f.resumen?.totalGravado, f.resumen?.moneda)}</div>
                           <div><span className="font-medium text-[var(--foreground)]">Total merc. gravadas:</span> {formatMoney(f.resumen?.totalMercanciasGravadas, f.resumen?.moneda)}</div>
                           <div><span className="font-medium text-[var(--foreground)]">Total venta:</span> {formatMoney(f.resumen?.totalVenta, f.resumen?.moneda)}</div>
+                          {f.resumen?.totalDescuentos && parseDecimal(f.resumen.totalDescuentos) !== null && parseDecimal(f.resumen.totalDescuentos) !== 0 && (
+                            <div><span className="font-medium text-[var(--foreground)]">Total descuentos:</span> {formatMoney(f.resumen.totalDescuentos, f.resumen?.moneda)}</div>
+                          )}
                           <div><span className="font-medium text-[var(--foreground)]">Total venta neta:</span> {formatMoney(f.resumen?.totalVentaNeta, f.resumen?.moneda)}</div>
                           {f.resumen?.totalOtrosCargos && parseDecimal(f.resumen.totalOtrosCargos) !== null && parseDecimal(f.resumen.totalOtrosCargos) !== 0 && (
                             <div><span className="font-medium text-[var(--foreground)]">Total otros cargos:</span> {formatMoney(f.resumen.totalOtrosCargos, f.resumen?.moneda)}</div>
