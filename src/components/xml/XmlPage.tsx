@@ -22,15 +22,10 @@ const TIPOS_EGRESO_XML: TipoEgresoXml[] = (tiposEgresoXmlCatalog as TipoEgresoXm
   }))
   .filter((t) => Boolean(t.codigo) && Boolean(t.nombre))
   .sort((a, b) => {
-    // Prefer numeric sort by codigo when possible, fallback to locale name.
-    const na = Number(a.codigo);
-    const nb = Number(b.codigo);
-    const aIsNum = Number.isFinite(na);
-    const bIsNum = Number.isFinite(nb);
-    if (aIsNum && bIsNum) return na - nb;
-    if (aIsNum && !bIsNum) return -1;
-    if (!aIsNum && bIsNum) return 1;
-    return a.nombre.localeCompare(b.nombre, 'es');
+    // Orden alfabético por nombre (lo que el usuario busca/ve).
+    const byName = a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' });
+    if (byName !== 0) return byName;
+    return a.codigo.localeCompare(b.codigo, 'es', { numeric: true });
   });
 
 type FacturaParty = {
@@ -572,7 +567,8 @@ export default function XmlPage() {
   const tipoEgresoCodigoToLabel = useMemo(() => {
     const map = new Map<string, string>();
     for (const t of TIPOS_EGRESO_XML) {
-      map.set(t.codigo, `${t.codigo} - ${t.nombre}${t.cuenta ? ` (${t.cuenta})` : ''}`);
+      // Label visible: nombre primero y el código al final. Sin cuenta.
+      map.set(t.codigo, `${t.nombre} (${t.codigo})`);
     }
     return map;
   }, []);
@@ -772,6 +768,31 @@ export default function XmlPage() {
       return;
     }
 
+    // Ordenar alfabéticamente por tipo de egreso (label visible)
+    okItems.sort((a, b) => {
+      const la = (a.tipoEgresoLabel || '').trim();
+      const lb = (b.tipoEgresoLabel || '').trim();
+      const cmp = la.localeCompare(lb, 'es', { sensitivity: 'base' });
+      if (cmp !== 0) return cmp;
+
+      const fa = (a.factura?.fechaEmision || '').trim();
+      const fb = (b.factura?.fechaEmision || '').trim();
+      const cFecha = fa.localeCompare(fb, 'es');
+      if (cFecha !== 0) return cFecha;
+
+      const pa = (a.factura?.emisor?.nombre || '').trim();
+      const pb = (b.factura?.emisor?.nombre || '').trim();
+      const cProv = pa.localeCompare(pb, 'es', { sensitivity: 'base' });
+      if (cProv !== 0) return cProv;
+
+      const na = (a.factura?.numeroConsecutivo || '').trim();
+      const nb = (b.factura?.numeroConsecutivo || '').trim();
+      const cNum = na.localeCompare(nb, 'es');
+      if (cNum !== 0) return cNum;
+
+      return (a.fileName || '').localeCompare((b.fileName || ''), 'es', { sensitivity: 'base' });
+    });
+
     type TaxKey = string;
     const toTaxKey = (codigo?: string, codigoTarifaIVA?: string): TaxKey => `${(codigo || '').trim()}|${(codigoTarifaIVA || '').trim()}`;
 
@@ -938,6 +959,31 @@ export default function XmlPage() {
       showToast(`No se pudo exportar: ${msg}`, 'error');
       return;
     }
+
+    // Ordenar alfabéticamente por tipo de egreso (label visible)
+    okItems.sort((a, b) => {
+      const la = (a.tipoEgresoLabel || '').trim();
+      const lb = (b.tipoEgresoLabel || '').trim();
+      const cmp = la.localeCompare(lb, 'es', { sensitivity: 'base' });
+      if (cmp !== 0) return cmp;
+
+      const fa = (a.factura?.fechaEmision || '').trim();
+      const fb = (b.factura?.fechaEmision || '').trim();
+      const cFecha = fa.localeCompare(fb, 'es');
+      if (cFecha !== 0) return cFecha;
+
+      const pa = (a.factura?.emisor?.nombre || '').trim();
+      const pb = (b.factura?.emisor?.nombre || '').trim();
+      const cProv = pa.localeCompare(pb, 'es', { sensitivity: 'base' });
+      if (cProv !== 0) return cProv;
+
+      const na = (a.factura?.numeroConsecutivo || '').trim();
+      const nb = (b.factura?.numeroConsecutivo || '').trim();
+      const cNum = na.localeCompare(nb, 'es');
+      if (cNum !== 0) return cNum;
+
+      return (a.fileName || '').localeCompare((b.fileName || ''), 'es', { sensitivity: 'base' });
+    });
 
     const date = new Date().toISOString().slice(0, 10);
     const fileName = `facturas_xml_${date}.pdf`;
@@ -1540,7 +1586,7 @@ export default function XmlPage() {
                             { value: '', label: 'Quitar selección', group: '' },
                             ...TIPOS_EGRESO_XML.map((t) => ({
                               value: t.codigo,
-                              label: `${t.codigo} - ${t.nombre}${t.cuenta ? ` (${t.cuenta})` : ''}`,
+                              label: `${t.nombre} (${t.codigo})`,
                               group: 'Tipos de egreso',
                             })),
                           ];
