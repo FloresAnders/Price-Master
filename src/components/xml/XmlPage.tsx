@@ -535,14 +535,22 @@ export default function XmlPage() {
     startY: number;
     moved: boolean;
   } | null>(null);
-  const [confirmAction, setConfirmAction] = useState<'clear' | 'export' | 'delete' | null>(null);
+  const [confirmAction, setConfirmAction] = useState<'clear' | 'export' | 'delete' | 'deleteReceptor' | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [exportMissingCount, setExportMissingCount] = useState(0);
   const [pendingDelete, setPendingDelete] = useState<{ id: string; fileName: string } | null>(null);
+  const [pendingDeleteReceptor, setPendingDeleteReceptor] = useState<{
+    key: string;
+    receptorId: string;
+    receptorLabel: string;
+    ids: string[];
+  } | null>(null);
   const [exportOptionsOpen, setExportOptionsOpen] = useState(false);
   const [exportOptionsLoading, setExportOptionsLoading] = useState(false);
   const [exportAllowMissingTipo, setExportAllowMissingTipo] = useState(false);
+
+  const [openReceptorGroupByKey, setOpenReceptorGroupByKey] = useState<Record<string, boolean>>({});
 
   type XmlDbRecord = {
     fileName: string;
@@ -576,6 +584,7 @@ export default function XmlPage() {
     setExportMissingCount(0);
     pendingExportRecordsRef.current = null;
     setPendingDelete(null);
+    setPendingDeleteReceptor(null);
   }, [confirmLoading]);
 
   const tipoEgresoCodigoToLabel = useMemo(() => {
@@ -717,6 +726,78 @@ export default function XmlPage() {
     setPendingDelete({ id, fileName });
     setConfirmAction('delete');
     setConfirmOpen(true);
+  }, []);
+
+  const performRemoveMany = useCallback(async (ids: string[]) => {
+    if (ids.length === 0) return;
+    try {
+      for (const id of ids) {
+        await remove(id);
+        cleanupAfterRemove(id);
+      }
+      showToast(`Se eliminaron ${ids.length} XML`, 'success');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error eliminando XML';
+      showToast(msg, 'error');
+    }
+  }, [remove, cleanupAfterRemove, showToast]);
+
+  const onRequestRemoveReceptor = useCallback((group: { key: string; receptorId: string; receptorLabel: string; ids: string[] }) => {
+    setPendingDeleteReceptor(group);
+    setConfirmAction('deleteReceptor');
+    setConfirmOpen(true);
+  }, []);
+
+  const receptorGroups = useMemo(() => {
+    type Group = {
+      key: string;
+      receptorId: string;
+      receptorLabel: string;
+      receptorName?: string;
+      items: ParsedXmlItem[];
+    };
+
+    const map = new Map<string, Group>();
+    for (const item of items) {
+      const receptorId = (item.factura?.receptor?.identificacionNumero || '').trim();
+      const receptorName = (item.factura?.receptor?.nombre || item.factura?.receptor?.nombreComercial || '').trim();
+      const key = receptorId || '__NO_RECEPTOR__';
+      const receptorLabel = receptorId || 'Sin cédula';
+
+      const existing = map.get(key);
+      if (existing) {
+        existing.items.push(item);
+        if (!existing.receptorName && receptorName) existing.receptorName = receptorName;
+      } else {
+        map.set(key, {
+          key,
+          receptorId,
+          receptorLabel,
+          receptorName: receptorName || undefined,
+          items: [item],
+        });
+      }
+    }
+
+    const groups = Array.from(map.values());
+    groups.sort((a, b) => {
+      const aMissing = a.key === '__NO_RECEPTOR__';
+      const bMissing = b.key === '__NO_RECEPTOR__';
+      if (aMissing !== bMissing) return aMissing ? 1 : -1;
+
+      return (a.receptorLabel || '').localeCompare((b.receptorLabel || ''), 'es', { sensitivity: 'base', numeric: true });
+    });
+    return groups;
+  }, [items]);
+
+  const receptorCedulaGroupCount = receptorGroups.reduce((acc, g) => acc + (((g.receptorId || '').trim() ? 1 : 0)), 0);
+  const canDeleteReceptorBlocks = receptorCedulaGroupCount > 1;
+
+  const toggleReceptorGroup = useCallback((key: string) => {
+    setOpenReceptorGroupByKey((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
   }, []);
 
   const performClearAll = useCallback(async () => {
@@ -1275,6 +1356,8 @@ export default function XmlPage() {
             ? 'Limpiar XML'
             : confirmAction === 'export'
               ? 'Exportar'
+              : confirmAction === 'deleteReceptor'
+                ? 'Eliminar receptor'
               : confirmAction === 'delete'
                 ? 'Eliminar XML'
               : 'Confirmar acción'
@@ -1289,6 +1372,22 @@ export default function XmlPage() {
               Faltan tipos de egreso en {exportMissingCount} XML.{"\n"}
               Si continúas, esos XML se exportarán como “SIN TIPO”.{"\n"}
               Al realizar esta acción se limpiarán los XML.
+            </>
+          ) : confirmAction === 'deleteReceptor' ? (
+            <>
+              ¿Seguro que deseas eliminar todos los XML del receptor?
+              {pendingDeleteReceptor?.receptorLabel ? (
+                <>
+                  <br />
+                  <span className="font-medium">{pendingDeleteReceptor.receptorLabel}</span>
+                </>
+              ) : null}
+              {pendingDeleteReceptor?.ids?.length ? (
+                <>
+                  <br />
+                  Se eliminarán <span className="font-medium">{pendingDeleteReceptor.ids.length}</span> XML.
+                </>
+              ) : null}
             </>
           ) : confirmAction === 'delete' ? (
             <>
@@ -1309,12 +1408,14 @@ export default function XmlPage() {
             ? 'Sí, limpiar'
             : confirmAction === 'export'
               ? 'Exportar igualmente'
+              : confirmAction === 'deleteReceptor'
+                ? 'Sí, eliminar receptor'
               : confirmAction === 'delete'
                 ? 'Sí, eliminar'
                 : 'Confirmar'
         }
         cancelText="Cancelar"
-        actionType={confirmAction === 'clear' ? 'delete' : confirmAction === 'export' ? 'change' : confirmAction === 'delete' ? 'delete' : 'assign'}
+        actionType={confirmAction === 'clear' ? 'delete' : confirmAction === 'export' ? 'change' : confirmAction === 'delete' || confirmAction === 'deleteReceptor' ? 'delete' : 'assign'}
         loading={confirmLoading}
         onCancel={closeConfirm}
         onConfirm={() => {
@@ -1335,6 +1436,10 @@ export default function XmlPage() {
                 if (pendingDelete) {
                   await performRemoveOne(pendingDelete.id);
                 }
+              } else if (action === 'deleteReceptor') {
+                if (pendingDeleteReceptor?.ids?.length) {
+                  await performRemoveMany(pendingDeleteReceptor.ids);
+                }
               }
             } finally {
               setConfirmLoading(false);
@@ -1343,6 +1448,7 @@ export default function XmlPage() {
               setExportMissingCount(0);
               pendingExportRecordsRef.current = null;
               setPendingDelete(null);
+              setPendingDeleteReceptor(null);
             }
           })();
         }}
@@ -1568,7 +1674,7 @@ export default function XmlPage() {
       {items.length > 0 && (
         <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-lg shadow p-4 sm:p-5">
           <div className="flex items-center justify-between gap-3">
-            <div className="text-sm font-medium text-[var(--foreground)]">XML cargados</div>
+            <div className="text-xl font-medium text-[var(--foreground)]">XML cargados</div>
             <div className="text-2xl font-bold text-[var(--foreground)] tabular-nums">{items.length}</div>
           </div>
           <div className="mt-1 text-xs text-[var(--muted-foreground)]">
@@ -1578,8 +1684,8 @@ export default function XmlPage() {
       )}
 
       {items.length > 0 && (
-        <div className="space-y-4">
-          {items.map((item) => {
+        (() => {
+          const renderItem = (item: ParsedXmlItem) => {
             const f = item.factura;
             const total = f?.resumen?.totalComprobante;
             const moneda = f?.resumen?.moneda;
@@ -1819,9 +1925,10 @@ export default function XmlPage() {
                       <button
                         type="button"
                         onClick={() => onRequestRemove(item.id, item.fileName)}
-                        className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded border border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors w-full sm:w-auto"
+                        className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded border border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors w-full sm:w-auto disabled:opacity-50"
                         aria-label={`Eliminar ${item.fileName}`}
                         title="Eliminar"
+                        disabled={addLoading}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -1980,8 +2087,73 @@ export default function XmlPage() {
                 )}
               </div>
             );
-          })}
-        </div>
+          };
+
+          if (receptorGroups.length === 1) {
+            return <div className="space-y-4">{receptorGroups[0]!.items.map(renderItem)}</div>;
+          }
+
+          return (
+            <div className="space-y-4">
+              {receptorGroups.map((group) => {
+                const isOpen = Boolean(openReceptorGroupByKey[group.key]);
+                const ids = group.items.map((i) => i.id);
+                return (
+                  <div key={group.key} className="space-y-3">
+                    <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-lg shadow p-4 sm:p-5">
+                      <div className="flex items-start justify-between gap-3">
+                        <button
+                          type="button"
+                          onClick={() => toggleReceptorGroup(group.key)}
+                          className="flex items-start gap-2 min-w-0 text-left"
+                        >
+                          <ChevronDown className={`w-4 h-4 mt-0.5 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                          <div className="min-w-0">
+                            <div className="font-semibold text-[var(--foreground)] truncate">
+                              Receptor: {group.receptorLabel}
+                            </div>
+                            {group.receptorName && (
+                              <div className="text-xs text-[var(--muted-foreground)] truncate">{group.receptorName}</div>
+                            )}
+                          </div>
+                        </button>
+
+                        <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2 flex-shrink-0">
+                          <span className="text-xs px-2 py-1 rounded border border-[var(--border)] text-[var(--muted-foreground)]">
+                            {group.items.length} XML
+                          </span>
+                          {canDeleteReceptorBlocks && Boolean((group.receptorId || '').trim()) && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                onRequestRemoveReceptor({
+                                  key: group.key,
+                                  receptorId: group.receptorId,
+                                  receptorLabel: group.receptorLabel,
+                                  ids,
+                                });
+                              }}
+                              disabled={addLoading}
+                              className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded border border-red-500/40 text-red-600 hover:bg-red-500/10 transition-colors disabled:opacity-50"
+                              title="Eliminar todos los XML de este receptor"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              Eliminar bloque
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {isOpen && <div className="space-y-4">{group.items.map(renderItem)}</div>}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()
       )}
 
       {xmlModalItem && (
