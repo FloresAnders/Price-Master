@@ -1,75 +1,10 @@
 {
-    "version": "1.3.42",
+    "version": "1.3.43",
     "releaseNotes": [
         {
-            "date": "04 Feb 2026",
-            "title": "XML: exportación protegida",
-            "description": "Si se cargan XML de varios receptores a la vez, se bloquea la exportación para evitar mezclar información por error."
-        },
-        {
-            "date": "04 Feb 2026",
-            "title": "XML: agrupado por receptor y borrado masivo",
-            "description": "Los XML importados ahora se agrupan por receptor, y se puede eliminar varios elementos en un solo paso."
-        },
-        {
             "date": "03 Feb 2026",
-            "title": "XML: tarjeta de resumen",
-            "description": "Se agregó un resumen de los XML cargados (por ejemplo, cantidad y totales) para tener una vista rápida antes de exportar o borrar."
-        },
-        {
-            "date": "03 Feb 2026",
-            "title": "XML: nombres de impuestos más claros",
-            "description": "Se ajustaron las etiquetas de códigos de impuestos/IVA (CR) para que sean más fáciles de entender."
-        },
-        {
-            "date": "03 Feb 2026",
-            "title": "XML: exportación con opciones + PDF",
-            "description": "Se agregó una ventana de opciones al exportar, incluyendo exportación en PDF además de las opciones existentes."
-        },
-        {
-            "date": "03 Feb 2026",
-            "title": "PDF: mejor formato en tablas",
-            "description": "Mejoras internas para generar PDFs con tablas más prolijas y consistentes."
-        },
-        {
-            "date": "03 Feb 2026",
-            "title": "XML: confirmación al eliminar",
-            "description": "Al borrar un XML individual ahora se pide confirmación para evitar eliminaciones accidentales."
-        },
-        {
-            "date": "03 Feb 2026",
-            "title": "XML: fechas más confiables y mejor en móvil",
-            "description": "Se mejoró el reconocimiento de fechas y se ajustó la experiencia táctil y el diseño responsive en la vista de XML."
-        },
-        {
-            "date": "03 Feb 2026",
-            "title": "XML: guardado automático local",
-            "description": "Los XML importados se guardan localmente en el navegador para no perderlos al recargar. También se agregaron opciones para exportar y limpiar lo guardado."
-        },
-        {
-            "date": "03 Feb 2026",
-            "title": "XML: base local de egresos",
-            "description": "Se incorporó la base/servicio local que maneja el almacenamiento de XML de egresos para que la información sea más estable."
-        },
-        {
-            "date": "03 Feb 2026",
-            "title": "XML: disponible en toda la app",
-            "description": "Se preparó el contexto para que los datos de XML estén disponibles de forma consistente mientras navegás por la aplicación."
-        },
-        {
-            "date": "03 Feb 2026",
-            "title": "XML: integración global del módulo",
-            "description": "Se integró la funcionalidad de XML a nivel general de la app para que el manejo de datos sea uniforme entre pantallas."
-        },
-        {
-            "date": "03 Feb 2026",
-            "title": "XML: selector de tipo de egreso",
-            "description": "Ahora se puede seleccionar el tipo de egreso para cada XML, facilitando la clasificación antes de exportar o revisar."
-        },
-        {
-            "date": "03 Feb 2026",
-            "title": "XML: catálogo inicial de tipos de egreso",
-            "description": "Se añadió un listado inicial de tipos de egreso y la opción de elegirlo desde la pantalla de XML."
+            "title": "XML: Añadido tipo de egreso",
+            "description": "Se añadió la totalizacion de cada tipo de egreso."
         }
     ],
     "_comment": "hacer una pagina de 'en mantenimiento' para secciones en desarrollo y a exepcion de un usuario admin"
