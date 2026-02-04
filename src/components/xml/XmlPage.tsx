@@ -531,6 +531,9 @@ export default function XmlPage() {
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [exportMissingCount, setExportMissingCount] = useState(0);
   const [pendingDelete, setPendingDelete] = useState<{ id: string; fileName: string } | null>(null);
+  const [exportOptionsOpen, setExportOptionsOpen] = useState(false);
+  const [exportOptionsLoading, setExportOptionsLoading] = useState(false);
+  const [exportAllowMissingTipo, setExportAllowMissingTipo] = useState(false);
 
   type XmlDbRecord = {
     fileName: string;
@@ -540,6 +543,7 @@ export default function XmlPage() {
   };
 
   const pendingExportRecordsRef = useRef<XmlDbRecord[] | null>(null);
+  const pendingExportAssignedRecordsRef = useRef<XmlDbRecord[] | null>(null);
 
   const { showToast } = useToast();
   const {
@@ -569,6 +573,14 @@ export default function XmlPage() {
     const map = new Map<string, string>();
     for (const t of TIPOS_EGRESO_XML) {
       map.set(t.codigo, `${t.codigo} - ${t.nombre}${t.cuenta ? ` (${t.cuenta})` : ''}`);
+    }
+    return map;
+  }, []);
+
+  const tipoEgresoCodigoToCuenta = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const t of TIPOS_EGRESO_XML) {
+      if (t.cuenta) map.set(t.codigo, t.cuenta);
     }
     return map;
   }, []);
@@ -875,7 +887,200 @@ export default function XmlPage() {
     }
   }, [isReady, dbError, getAllFromDb, tipoEgresoCodigoToLabel, clearAll, showToast]);
 
-  const onExportExcel = useCallback(() => {
+  const performExportPdf = useCallback(async (options?: { records?: XmlDbRecord[]; allowMissingTipo?: boolean }) => {
+    if (!isReady) return;
+    if (dbError) {
+      showToast('No se puede exportar: error abriendo IndexedDB', 'error');
+      return;
+    }
+
+    const allowMissingTipo = Boolean(options?.allowMissingTipo);
+    const records = options?.records ?? ((await getAllFromDb()) as XmlDbRecord[]);
+    if (records.length === 0) {
+      showToast('No hay XML para exportar', 'warning');
+      return;
+    }
+
+    const missingTipo = records.filter((r) => !(r.tipoEgreso || '').trim());
+    if (missingTipo.length > 0 && !allowMissingTipo) {
+      showToast(`Faltan tipos de egreso en ${missingTipo.length} XML. Asigna el tipo antes de exportar.`, 'warning');
+      return;
+    }
+
+    if (missingTipo.length > 0 && allowMissingTipo) {
+      showToast(`Exportando con faltantes: ${missingTipo.length} XML quedarán como “SIN TIPO”.`, 'warning');
+    }
+
+    let okItems: Array<{
+      fileName: string;
+      tipoEgreso: string;
+      tipoEgresoLabel: string;
+      cuenta: string;
+      factura: FacturaInfo;
+    }> = [];
+
+    try {
+      okItems = records.map((r) => {
+        const tipo = (r.tipoEgreso || '').trim();
+        const factura = parseFacturaXml(r.xmlText);
+        const tipoLabel = tipo ? (tipoEgresoCodigoToLabel.get(tipo) || tipo) : 'SIN TIPO';
+        const cuenta = tipo ? (tipoEgresoCodigoToCuenta.get(tipo) || '—') : '—';
+        return {
+          fileName: r.fileName,
+          tipoEgreso: tipo,
+          tipoEgresoLabel: tipoLabel,
+          cuenta,
+          factura,
+        };
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'XML inválido';
+      showToast(`No se pudo exportar: ${msg}`, 'error');
+      return;
+    }
+
+    const date = new Date().toISOString().slice(0, 10);
+    const fileName = `facturas_xml_${date}.pdf`;
+
+    try {
+      const { jsPDF } = await import('jspdf');
+      const autoTableMod: any = await import('jspdf-autotable');
+      const autoTable: any = autoTableMod?.default || autoTableMod?.autoTable || autoTableMod;
+
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'b4' });
+      doc.setFontSize(14);
+      doc.text('Exportación de facturas (XML)', 40, 40);
+
+      const head = [[
+        'Fecha',
+        'NumeroDeFactura',
+        'Proveedor',
+        'Iva',
+        'Descuento',
+        'Total',
+        'Cuenta',
+        'Tipo egreso',
+      ]];
+
+      // Evitar símbolos de moneda (p.ej. ₡) porque no siempre están soportados
+      // por las fuentes embebidas por defecto en jsPDF y pueden salir como caracteres raros.
+      const formatMoneyForPdf = (raw?: string, currencyCode?: string): string => {
+        const n = parseDecimal(raw);
+        if (n === null) return '—';
+        const code = (currencyCode || '').trim().toUpperCase();
+        const base = CR_NUMBER_2D.format(n);
+        if (!code || code === 'CRC') return base;
+        return `${base} ${code}`;
+      };
+
+      const addToSum = (map: Map<string, number>, currencyCode: string | undefined, raw?: string) => {
+        const n = parseDecimal(raw);
+        if (n === null) return;
+        const code = (currencyCode || 'CRC').trim().toUpperCase() || 'CRC';
+        map.set(code, (map.get(code) || 0) + n);
+      };
+
+      const formatTotalsForPdf = (map: Map<string, number>): string => {
+        if (map.size === 0) return '0.00';
+
+        const entries = Array.from(map.entries())
+          .filter(([, v]) => Number.isFinite(v) && Math.abs(v) >= 1e-9)
+          .sort(([a], [b]) => a.localeCompare(b, 'es'));
+
+        if (entries.length === 0) return '0.00';
+        if (entries.length === 1) {
+          const [code, sum] = entries[0];
+          const base = CR_NUMBER_2D.format(sum);
+          return code === 'CRC' ? base : `${base} ${code}`;
+        }
+
+        return entries
+          .map(([code, sum]) => `${code}: ${CR_NUMBER_2D.format(sum)}`)
+          .join(' | ');
+      };
+
+      const ivaSumByCurrency = new Map<string, number>();
+      const totalSumByCurrency = new Map<string, number>();
+
+      const body = okItems.map((item) => {
+        const f = item.factura;
+        const moneda = f.resumen?.moneda;
+        const consecutivo = (f.numeroConsecutivo || '').trim();
+        const numeroFactura = consecutivo ? `${consecutivo}` : '—';
+        const proveedor = (f.emisor?.nombre || '').trim() || '—';
+        const fecha = formatSimpleDate(f.fechaEmision);
+
+        addToSum(ivaSumByCurrency, moneda, f.resumen?.totalImpuesto);
+        addToSum(totalSumByCurrency, moneda, f.resumen?.totalComprobante);
+
+        const iva = formatMoneyForPdf(f.resumen?.totalImpuesto, moneda);
+        const descuento = formatMoneyForPdf(f.resumen?.totalDescuentos, moneda);
+        const total = formatMoneyForPdf(f.resumen?.totalComprobante, moneda);
+
+        return [fecha, numeroFactura, proveedor, iva, descuento, total, item.cuenta, item.tipoEgresoLabel];
+      });
+
+      // Fila final de totales (IVA y Total)
+      body.push([
+        'TOTAL',
+        '',
+        '',
+        formatTotalsForPdf(ivaSumByCurrency),
+        '',
+        formatTotalsForPdf(totalSumByCurrency),
+        '',
+        '',
+      ]);
+
+      autoTable(doc, {
+        head,
+        body,
+        startY: 60,
+        theme: 'plain',
+        styles: {
+          fontSize: 9,
+          cellPadding: 4,
+          overflow: 'linebreak',
+        },
+        headStyles: {
+          fillColor: [30, 64, 175],
+          textColor: 255,
+        },
+        didParseCell: (data: any) => {
+          // resaltar la última fila (totales)
+          const rowIndex = data?.row?.index;
+          const bodyLen = Array.isArray(body) ? body.length : 0;
+          if (typeof rowIndex === 'number' && rowIndex === bodyLen - 1) {
+            data.cell.styles.fontStyle = 'bold';
+          }
+        },
+        columnStyles: {
+          0: { cellWidth: 70 },
+          1: { cellWidth: 160 },
+          2: { cellWidth: 160 },
+          3: { cellWidth: 70, halign: 'center' },
+          4: { cellWidth: 80, halign: 'center' },
+          5: { cellWidth: 80, halign: 'center' },
+          6: { cellWidth: 80 },
+          7: { cellWidth: 200 },
+        },
+        margin: { left: 40, right: 40 },
+      });
+
+      doc.save(fileName);
+
+      await clearAll();
+      setXmlModalItemId(null);
+      setTipoEgresoQueryByItemId({});
+      setOpenTipoEgresoDropdownItemId(null);
+      showToast('Exportación PDF exitosa. XML eliminados.', 'success');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error exportando a PDF';
+      showToast(msg, 'error');
+    }
+  }, [isReady, dbError, getAllFromDb, tipoEgresoCodigoToLabel, tipoEgresoCodigoToCuenta, clearAll, showToast]);
+
+  const onExport = useCallback(() => {
     void (async () => {
       if (!isReady) return;
       if (dbError) {
@@ -884,6 +1089,7 @@ export default function XmlPage() {
       }
       if (files.length === 0) return;
       if (confirmLoading) return;
+      if (exportOptionsOpen || exportOptionsLoading) return;
 
       setConfirmLoading(true);
       try {
@@ -902,12 +1108,14 @@ export default function XmlPage() {
           return;
         }
 
-        await performExportExcel({ records, allowMissingTipo: false });
+        pendingExportAssignedRecordsRef.current = records;
+        setExportAllowMissingTipo(false);
+        setExportOptionsOpen(true);
       } finally {
         setConfirmLoading(false);
       }
     })();
-  }, [isReady, dbError, files.length, confirmLoading, getAllFromDb, showToast, performExportExcel]);
+  }, [isReady, dbError, files.length, confirmLoading, exportOptionsOpen, exportOptionsLoading, getAllFromDb, showToast]);
 
   const onDrop = useCallback(
     async (e: React.DragEvent<HTMLDivElement>) => {
@@ -940,7 +1148,7 @@ export default function XmlPage() {
           confirmAction === 'clear'
             ? 'Limpiar XML'
             : confirmAction === 'export'
-              ? 'Exportar a Excel'
+              ? 'Exportar'
               : confirmAction === 'delete'
                 ? 'Eliminar XML'
               : 'Confirmar acción'
@@ -992,10 +1200,11 @@ export default function XmlPage() {
               if (action === 'clear') {
                 await performClearAll();
               } else if (action === 'export') {
-                await performExportExcel({
-                  records: pendingExportRecordsRef.current ?? undefined,
-                  allowMissingTipo: true,
-                });
+                // Si faltan tipos y el usuario confirma, igual se debe mostrar
+                // la elección de exportación (PDF / Excel).
+                pendingExportAssignedRecordsRef.current = pendingExportRecordsRef.current ?? null;
+                setExportAllowMissingTipo(true);
+                setExportOptionsOpen(true);
               } else if (action === 'delete') {
                 if (pendingDelete) {
                   await performRemoveOne(pendingDelete.id);
@@ -1012,6 +1221,89 @@ export default function XmlPage() {
           })();
         }}
       />
+
+      {exportOptionsOpen && (
+        <div
+          className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 dark:bg-black/80"
+          style={{ pointerEvents: 'auto' }}
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget && !exportOptionsLoading) setExportOptionsOpen(false);
+          }}
+        >
+          <div
+            className="bg-[var(--card-bg)] text-[var(--foreground)] rounded-lg shadow-2xl p-4 sm:p-6 w-full max-w-xs sm:max-w-sm border border-[var(--input-border)] flex flex-col items-center mx-2 relative"
+            style={{ zIndex: 100000 }}
+          >
+            <h2 className="text-lg font-bold text-center w-full">Exportar</h2>
+            <div className="mt-2 text-sm sm:text-base text-center w-full break-words whitespace-pre-line text-[var(--muted-foreground)]">
+              Selecciona el formato de exportación.
+            </div>
+
+            <div className="flex flex-col sm:flex-row justify-center gap-2 mt-5 w-full">
+              <button
+                className="px-4 py-2 rounded bg-[var(--button-bg)] text-[var(--button-text)] hover:bg-[var(--button-hover)] disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 justify-center w-full sm:w-auto"
+                onClick={() => {
+                  if (exportOptionsLoading) return;
+                  setExportOptionsOpen(false);
+                  pendingExportAssignedRecordsRef.current = null;
+                }}
+                disabled={exportOptionsLoading}
+                type="button"
+              >
+                Cancelar
+              </button>
+
+              <button
+                className="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2 justify-center w-full sm:w-auto disabled:opacity-60 disabled:cursor-not-allowed"
+                onClick={() => {
+                  void (async () => {
+                    if (exportOptionsLoading) return;
+                    setExportOptionsLoading(true);
+                    try {
+                      await performExportPdf({
+                        records: pendingExportAssignedRecordsRef.current ?? undefined,
+                        allowMissingTipo: exportAllowMissingTipo,
+                      });
+                    } finally {
+                      setExportOptionsLoading(false);
+                      setExportOptionsOpen(false);
+                      pendingExportAssignedRecordsRef.current = null;
+                    }
+                  })();
+                }}
+                disabled={exportOptionsLoading}
+                type="button"
+              >
+                Pdf
+              </button>
+
+              <button
+                className="px-4 py-2 rounded bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-2 justify-center w-full sm:w-auto disabled:opacity-60 disabled:cursor-not-allowed"
+                onClick={() => {
+                  void (async () => {
+                    if (exportOptionsLoading) return;
+                    setExportOptionsLoading(true);
+                    try {
+                      await performExportExcel({
+                        records: pendingExportAssignedRecordsRef.current ?? undefined,
+                        allowMissingTipo: exportAllowMissingTipo,
+                      });
+                    } finally {
+                      setExportOptionsLoading(false);
+                      setExportOptionsOpen(false);
+                      pendingExportAssignedRecordsRef.current = null;
+                    }
+                  })();
+                }}
+                disabled={exportOptionsLoading}
+                type="button"
+              >
+                Excel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-lg shadow p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row items-start gap-4">
           <div className="w-12 h-12 rounded-full bg-blue-500/15 flex items-center justify-center flex-shrink-0">
@@ -1038,13 +1330,13 @@ export default function XmlPage() {
 
                 <button
                   type="button"
-                  onClick={onExportExcel}
-                  disabled={!isReady || Boolean(dbError) || files.length === 0 || confirmLoading}
+                  onClick={onExport}
+                  disabled={!isReady || Boolean(dbError) || files.length === 0 || confirmLoading || exportOptionsOpen || exportOptionsLoading}
                   className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50 w-full sm:w-auto"
-                  title="Exporta las facturas cargadas a Excel"
+                  title="Exporta las facturas cargadas"
                 >
                   <Download className="w-4 h-4" />
-                  Exportar a Excel
+                  Exportar
                 </button>
 
                 <button
