@@ -121,23 +121,33 @@ const TIPO_COMPROBANTE_LABEL: Record<string, string> = {
   '07': 'Confirmación de rechazo',
 };
 
+// Catálogo: Código de Impuesto (Costa Rica)
+// Fuente: docs/factura_v4.4.xml (CodigoImpuestoType)
 const IMPUESTO_CODIGO_LABEL: Record<string, string> = {
-  // En FE CR, Código 01 corresponde a IVA
-  '01': 'IVA',
+  '01': 'Impuesto al Valor Agregado',
+  '02': 'Impuesto Selectivo de Consumo',
+  '03': 'Impuesto único a los combustibles',
+  '04': 'Impuesto específico de bebidas alcohólicas',
+  '05': 'Impuesto específico sobre bebidas envasadas sin contenido alcohólico y jabones de tocador',
+  '06': 'Impuesto a los productos de tabaco',
+  '07': 'IVA (cálculo especial)',
+  '08': 'IVA Régimen de Bienes Usados (Factor)',
+  '12': 'Impuesto específico al Cemento',
+  '99': 'Otros',
 };
 
 // Catálogo: Código Tarifa IVA (Costa Rica)
-// Fuente: tabla provista por el usuario (códigos 01-11)
+// Fuente: docs/factura_v4.4.xml (CodigoTarifaIVAType)
 const CODIGO_TARIFA_IVA_LABEL: Record<string, string> = {
-  '01': 'Tarifa reducida 1%',
-  '02': 'Tarifa reducida 2%',
-  '03': 'Tarifa reducida 4%',
-  '04': 'Transitorio 0%',
-  '05': 'Transitorio 4%',
-  '06': 'Tarifa transitoria 8%',
-  '07': 'Tarifa general 13%',
-  '08': 'Tarifa reducida 0.5%',
-  '09': 'Tarifa 0% (Artículo 32, num 1, RLIVA)',
+  '01': 'Tarifa 0% (Artículo 32, num 1, RLIVA)',
+  '02': 'Tarifa reducida 1%',
+  '03': 'Tarifa reducida 2%',
+  '04': 'Tarifa reducida 4%',
+  '05': 'Transitorio 0%',
+  '06': 'Transitorio 4%',
+  '07': 'Tarifa transitoria 8%',
+  '08': 'Tarifa general 13%',
+  '09': 'Tarifa reducida 0.5%',
   '10': 'Tarifa Exenta',
   '11': 'Tarifa 0% sin derecho a crédito',
 };
