@@ -1522,6 +1522,18 @@ export default function XmlPage() {
       </div>
 
       {items.length > 0 && (
+        <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-lg shadow p-4 sm:p-5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-sm font-medium text-[var(--foreground)]">XML cargados</div>
+            <div className="text-2xl font-bold text-[var(--foreground)] tabular-nums">{items.length}</div>
+          </div>
+          <div className="mt-1 text-xs text-[var(--muted-foreground)]">
+            {items.length === 1 ? '1 XML cargado' : `${items.length} XML cargados`}
+          </div>
+        </div>
+      )}
+
+      {items.length > 0 && (
         <div className="space-y-4">
           {items.map((item) => {
             const f = item.factura;
