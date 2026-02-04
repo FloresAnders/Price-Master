@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { FileCode, Upload, Trash2, AlertTriangle, ChevronDown, Eye, X, Download, Search } from 'lucide-react';
+import { FileCode, Upload, Trash2, AlertTriangle, ChevronDown, Eye, X, Download, Search, Loader2 } from 'lucide-react';
 import tiposEgresoXmlCatalog from '@/data/tiposEgresoXml.json';
 import useToast from '@/hooks/useToast';
 import useXmlEgresos from '@/hooks/useXmlEgresos';
@@ -521,6 +521,10 @@ function isLikelyXmlFile(file: File) {
 export default function XmlPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [addLoading, setAddLoading] = useState(false);
+  const [addLoadingTotal, setAddLoadingTotal] = useState(0);
+  const [addLoadingDone, setAddLoadingDone] = useState(0);
+  const addLoadingOpIdRef = useRef(0);
   const [xmlModalItemId, setXmlModalItemId] = useState<string | null>(null);
   const [tipoEgresoQueryByItemId, setTipoEgresoQueryByItemId] = useState<Record<string, string>>({});
   const [openTipoEgresoDropdownItemId, setOpenTipoEgresoDropdownItemId] = useState<string | null>(null);
@@ -631,37 +635,54 @@ export default function XmlPage() {
     const xmlFiles = list.filter(isLikelyXmlFile);
     if (xmlFiles.length === 0) return;
 
-    for (const file of xmlFiles) {
-      try {
-        const fileName = file.name;
+    const opId = (addLoadingOpIdRef.current += 1);
+    setAddLoading(true);
+    setAddLoadingTotal(xmlFiles.length);
+    setAddLoadingDone(0);
 
-        // 1) Duplicado (fuente de verdad: IndexedDB)
-        const exists = await hasFile(fileName);
-        if (exists) {
-          showToast(`Duplicado: ${fileName} ya está cargado`, 'warning');
-          continue;
-        }
-
-        // 2) Leer texto
-        const text = await file.text();
-
-        // 3) Validar XML antes de persistir
+    try {
+      let done = 0;
+      for (const file of xmlFiles) {
         try {
-          parseFacturaXml(text);
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : 'XML inválido';
-          showToast(`XML inválido (${fileName}): ${msg}`, 'error');
-          continue;
-        }
+          const fileName = file.name;
 
-        // 4) Persistir en IndexedDB
-        const res = await addXmlText({ fileName, xmlText: text });
-        if (res.status === 'duplicate') {
-          showToast(`Duplicado: ${fileName} ya está cargado`, 'warning');
+          // 1) Duplicado (fuente de verdad: IndexedDB)
+          const exists = await hasFile(fileName);
+          if (exists) {
+            showToast(`Duplicado: ${fileName} ya está cargado`, 'warning');
+            continue;
+          }
+
+          // 2) Leer texto
+          const text = await file.text();
+
+          // 3) Validar XML antes de persistir
+          try {
+            parseFacturaXml(text);
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : 'XML inválido';
+            showToast(`XML inválido (${fileName}): ${msg}`, 'error');
+            continue;
+          }
+
+          // 4) Persistir en IndexedDB
+          const res = await addXmlText({ fileName, xmlText: text });
+          if (res.status === 'duplicate') {
+            showToast(`Duplicado: ${fileName} ya está cargado`, 'warning');
+          }
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'Error desconocido cargando XML';
+          showToast(message, 'error');
+        } finally {
+          done += 1;
+          if (opId === addLoadingOpIdRef.current) setAddLoadingDone(done);
         }
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Error desconocido cargando XML';
-        showToast(message, 'error');
+      }
+    } finally {
+      if (opId === addLoadingOpIdRef.current) {
+        setAddLoading(false);
+        setAddLoadingTotal(0);
+        setAddLoadingDone(0);
       }
     }
   }, [dbError, showToast, hasFile, addXmlText]);
@@ -1327,6 +1348,29 @@ export default function XmlPage() {
         }}
       />
 
+      {addLoading && (
+        <div
+          className="fixed inset-0 z-[99998] flex items-center justify-center bg-black/60 dark:bg-black/80"
+          style={{ pointerEvents: 'auto' }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Cargando XML"
+        >
+          <div className="bg-[var(--card-bg)] text-[var(--foreground)] rounded-lg shadow-2xl p-5 sm:p-6 w-full max-w-xs sm:max-w-sm border border-[var(--input-border)] flex flex-col items-center mx-2">
+            <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+            <div className="mt-3 text-base font-semibold text-center">Cargando XML…</div>
+            <div className="mt-1 text-sm text-center text-[var(--muted-foreground)]">
+              {addLoadingTotal > 0
+                ? `Procesando ${Math.min(addLoadingDone, addLoadingTotal)}/${addLoadingTotal}`
+                : 'Procesando archivos seleccionados'}
+            </div>
+            <div className="mt-3 text-xs text-center text-[var(--muted-foreground)]">
+              Espera un momento; esta acción bloquea la sección.
+            </div>
+          </div>
+        </div>
+      )}
+
       {exportOptionsOpen && (
         <div
           className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 dark:bg-black/80"
@@ -1426,7 +1470,7 @@ export default function XmlPage() {
                 <button
                   type="button"
                   onClick={onPickFiles}
-                  disabled={!isReady || Boolean(dbError)}
+                  disabled={!isReady || Boolean(dbError) || addLoading}
                   className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded bg-[var(--primary)] text-white hover:bg-[var(--button-hover)] transition-colors w-full sm:w-auto"
                 >
                   <Upload className="w-4 h-4" />
@@ -1436,7 +1480,7 @@ export default function XmlPage() {
                 <button
                   type="button"
                   onClick={onExport}
-                  disabled={!isReady || Boolean(dbError) || files.length === 0 || confirmLoading || exportOptionsOpen || exportOptionsLoading}
+                  disabled={!isReady || Boolean(dbError) || addLoading || files.length === 0 || confirmLoading || exportOptionsOpen || exportOptionsLoading}
                   className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50 w-full sm:w-auto"
                   title="Exporta las facturas cargadas"
                 >
@@ -1447,7 +1491,7 @@ export default function XmlPage() {
                 <button
                   type="button"
                   onClick={onClear}
-                  disabled={!isReady || Boolean(dbError) || files.length === 0 || confirmLoading}
+                  disabled={!isReady || Boolean(dbError) || addLoading || files.length === 0 || confirmLoading}
                   className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded border border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors disabled:opacity-50 w-full sm:w-auto"
                 >
                   <Trash2 className="w-4 h-4" />
