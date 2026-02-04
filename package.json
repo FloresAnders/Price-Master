@@ -13,6 +13,8 @@
     "start": "next start",
     "lint": "eslint .",
     "migrate": "node scripts/migrate.js",
+    "seed:tiposEgresoXml": "node scripts/seed-tiposEgresoXml.js",
+    "convert:tiposEgresoXml": "node scripts/convert-egresos-csv-to-json.js",
     "firebase:migrate": "curl -X POST http://localhost:3000/api/firebase-test",
     "firebase:test": "curl http://localhost:3000/api/firebase-test",
     "firebase:clear": "curl -X DELETE http://localhost:3000/api/firebase-test",

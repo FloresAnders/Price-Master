@@ -815,6 +815,14 @@ export default function XmlPage() {
                   </div>
 
                   <div className="flex gap-2 flex-shrink-0">
+                    <select
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded border border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors bg-[var(--card-bg)]"
+                      title="Seleccionar tipo de egreso"
+                    >
+                      <option value="">
+                        Seleccionar tipo de egreso
+                      </option>
+                    </select>
                     <button
                       type="button"
                       onClick={() => setXmlModalItemId(item.id)}
