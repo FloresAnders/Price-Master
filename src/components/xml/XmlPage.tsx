@@ -949,7 +949,6 @@ export default function XmlPage() {
     let sumTotalComprobante = 0;
     const sumByTaxKey = new Map<TaxKey, number>();
     const sumByTipoEgreso = new Map<string, number>();
-    const sumByCuenta = new Map<string, number>();
 
     for (const item of okItems) {
       const f = item.factura!;
@@ -968,10 +967,6 @@ export default function XmlPage() {
       // Acumular por tipo de egreso
       const tipoKey = item.tipoEgresoLabel;
       sumByTipoEgreso.set(tipoKey, (sumByTipoEgreso.get(tipoKey) || 0) + totalComprobante);
-
-      // Acumular por cuenta
-      const cuentaKey = item.cuenta;
-      sumByCuenta.set(cuentaKey, (sumByCuenta.get(cuentaKey) || 0) + totalComprobante);
 
       const invoiceTaxSums = new Map<TaxKey, number>();
       const desglose = f.resumen?.desgloseImpuesto || [];
@@ -995,20 +990,16 @@ export default function XmlPage() {
     // Helper para crear filas vacías
     const createEmptyRow = () => header.map(() => '');
 
-    // Añadir totales por cuenta
-    rows.push(createEmptyRow());
-    rows.push(['TOTALES POR CUENTA', '', '', '', '', '', ...taxKeys.map(() => ''), '', '']);
-    
-    const cuentaEntries = Array.from(sumByCuenta.entries()).sort((a, b) => a[0].localeCompare(b[0], 'es'));
-    for (const [cuenta, total] of cuentaEntries) {
-      rows.push(['', '', '', cuenta, '', '', ...taxKeys.map(() => ''), '', total]);
-    }
-
     // Añadir totales por tipo de egreso
     rows.push(createEmptyRow());
     rows.push(['TOTALES POR TIPO DE EGRESO', '', '', '', '', '', ...taxKeys.map(() => ''), '', '']);
-    
-    const tipoEgresoEntries = Array.from(sumByTipoEgreso.entries()).sort((a, b) => a[0].localeCompare(b[0], 'es'));
+
+    const tipoEgresoEntries = Array.from(sumByTipoEgreso.entries()).sort((a, b) => {
+      const va = a[1];
+      const vb = b[1];
+      if (va !== vb) return va - vb;
+      return a[0].localeCompare(b[0], 'es', { sensitivity: 'base' });
+    });
     for (const [tipoEgreso, total] of tipoEgresoEntries) {
       rows.push(['', '', tipoEgreso, '', '', '', ...taxKeys.map(() => ''), '', total]);
     }
@@ -1199,7 +1190,6 @@ export default function XmlPage() {
       const ivaSumByCurrency = new Map<string, number>();
       const totalSumByCurrency = new Map<string, number>();
       const sumByTipoEgreso = new Map<string, Map<string, number>>();
-      const sumByCuenta = new Map<string, Map<string, number>>();
 
       type TaxKey = string;
       const toTaxKey = (codigo?: string, codigoTarifaIVA?: string): TaxKey => `${(codigo || '').trim()}|${(codigoTarifaIVA || '').trim()}`;
@@ -1222,12 +1212,6 @@ export default function XmlPage() {
         const tipoMap = sumByTipoEgreso.get(tipoKey) || new Map<string, number>();
         addToSum(tipoMap, moneda, f.resumen?.totalComprobante);
         sumByTipoEgreso.set(tipoKey, tipoMap);
-
-        // Acumular por cuenta
-        const cuentaKey = item.cuenta;
-        const cuentaMap = sumByCuenta.get(cuentaKey) || new Map<string, number>();
-        addToSum(cuentaMap, moneda, f.resumen?.totalComprobante);
-        sumByCuenta.set(cuentaKey, cuentaMap);
 
         // Resumen por tipo de IVA usando el desglose del XML
         const desglose = f.resumen?.desgloseImpuesto || [];
@@ -1275,19 +1259,27 @@ export default function XmlPage() {
         }
       }
 
-      // Totales por cuenta
-      body.push(['', '', '', '', '', '', '', '']);
-      body.push(['', '', 'TOTALES POR CUENTA', '', '', '', '', '']);
-      const cuentaEntries = Array.from(sumByCuenta.entries()).sort((a, b) => a[0].localeCompare(b[0], 'es'));
-      for (const [cuenta, sumsMap] of cuentaEntries) {
-        const amount = formatTotalsForPdf(sumsMap);
-        body.push(['', '', '', '', '', amount, cuenta, '']);
-      }
-
       // Totales por tipo de egreso
       body.push(['', '', '', '', '', '', '', '']);
+      const tipoEgresoTitleRowIndex = body.length;
       body.push(['', '', 'TOTALES POR TIPO DE EGRESO', '', '', '', '', '']);
-      const tipoEgresoEntries = Array.from(sumByTipoEgreso.entries()).sort((a, b) => a[0].localeCompare(b[0], 'es'));
+      const tipoSortValue = (sums: Map<string, number>): number => {
+        if (!sums || sums.size === 0) return 0;
+        const crc = sums.get('CRC');
+        if (typeof crc === 'number' && Number.isFinite(crc)) return crc;
+        let sum = 0;
+        for (const v of sums.values()) {
+          if (typeof v === 'number' && Number.isFinite(v)) sum += v;
+        }
+        return sum;
+      };
+
+      const tipoEgresoEntries = Array.from(sumByTipoEgreso.entries()).sort((a, b) => {
+        const va = tipoSortValue(a[1]);
+        const vb = tipoSortValue(b[1]);
+        if (va !== vb) return va - vb;
+        return a[0].localeCompare(b[0], 'es', { sensitivity: 'base' });
+      });
       for (const [tipoEgreso, sumsMap] of tipoEgresoEntries) {
         const amount = formatTotalsForPdf(sumsMap);
         body.push(['', '', tipoEgreso, '', '', amount, '', '']);
@@ -1332,16 +1324,21 @@ export default function XmlPage() {
           if (typeof rowIndex === 'number' && rowIndex === summaryTitleRowIndex && ivaTaxKeyToLabel.size > 0) {
             data.cell.styles.fontStyle = 'bold';
           }
+
+          // Resaltar título de totales por tipo de egreso
+          if (typeof rowIndex === 'number' && rowIndex === tipoEgresoTitleRowIndex) {
+            data.cell.styles.fontStyle = 'bold';
+          }
         },
         columnStyles: {
-          0: { cellWidth: 70 },
-          1: { cellWidth: 160 },
-          2: { cellWidth: 160 },
+          0: { cellWidth: 55 },
+          1: { cellWidth: 120 },
+          2: { cellWidth: 210 },
           3: { cellWidth: 70, halign: 'center' },
           4: { cellWidth: 80, halign: 'center' },
-          5: { cellWidth: 80, halign: 'center' },
+          5: { cellWidth: 80, halign: 'right' },
           6: { cellWidth: 80 },
-          7: { cellWidth: 200 },
+          7: { cellWidth: 210 },
         },
         margin: { left: 40, right: 40 },
       });
@@ -1434,9 +1431,9 @@ export default function XmlPage() {
               ? 'Exportar'
               : confirmAction === 'deleteReceptor'
                 ? 'Eliminar receptor'
-              : confirmAction === 'delete'
-                ? 'Eliminar XML'
-              : 'Confirmar acción'
+                : confirmAction === 'delete'
+                  ? 'Eliminar XML'
+                  : 'Confirmar acción'
         }
         message={
           confirmAction === 'clear' ? (
@@ -1486,9 +1483,9 @@ export default function XmlPage() {
               ? 'Exportar igualmente'
               : confirmAction === 'deleteReceptor'
                 ? 'Sí, eliminar receptor'
-              : confirmAction === 'delete'
-                ? 'Sí, eliminar'
-                : 'Confirmar'
+                : confirmAction === 'delete'
+                  ? 'Sí, eliminar'
+                  : 'Confirmar'
         }
         cancelText="Cancelar"
         actionType={confirmAction === 'clear' ? 'delete' : confirmAction === 'export' ? 'change' : confirmAction === 'delete' || confirmAction === 'deleteReceptor' ? 'delete' : 'assign'}
