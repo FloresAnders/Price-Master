@@ -526,10 +526,11 @@ export default function XmlPage() {
     startY: number;
     moved: boolean;
   } | null>(null);
-  const [confirmAction, setConfirmAction] = useState<'clear' | 'export' | null>(null);
+  const [confirmAction, setConfirmAction] = useState<'clear' | 'export' | 'delete' | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [exportMissingCount, setExportMissingCount] = useState(0);
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; fileName: string } | null>(null);
 
   type XmlDbRecord = {
     fileName: string;
@@ -561,6 +562,7 @@ export default function XmlPage() {
     setConfirmAction(null);
     setExportMissingCount(0);
     pendingExportRecordsRef.current = null;
+    setPendingDelete(null);
   }, [confirmLoading]);
 
   const tipoEgresoCodigoToLabel = useMemo(() => {
@@ -650,16 +652,7 @@ export default function XmlPage() {
     fileInputRef.current?.click();
   }, []);
 
-  const onRemove = useCallback((id: string) => {
-    void (async () => {
-      try {
-        await remove(id);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Error eliminando XML';
-        showToast(msg, 'error');
-      }
-    })();
-
+  const cleanupAfterRemove = useCallback((id: string) => {
     setXmlModalItemId((prev) => (prev === id ? null : prev));
     setTipoEgresoQueryByItemId((prev) => {
       if (!(id in prev)) return prev;
@@ -668,7 +661,24 @@ export default function XmlPage() {
       return next;
     });
     setOpenTipoEgresoDropdownItemId((prev) => (prev === id ? null : prev));
-  }, [remove, showToast]);
+  }, []);
+
+  const performRemoveOne = useCallback(async (id: string) => {
+    try {
+      await remove(id);
+      showToast('XML eliminado correctamente', 'success');
+      cleanupAfterRemove(id);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error eliminando XML';
+      showToast(msg, 'error');
+    }
+  }, [remove, showToast, cleanupAfterRemove]);
+
+  const onRequestRemove = useCallback((id: string, fileName: string) => {
+    setPendingDelete({ id, fileName });
+    setConfirmAction('delete');
+    setConfirmOpen(true);
+  }, []);
 
   const performClearAll = useCallback(async () => {
     if (!isReady) return;
@@ -931,12 +941,14 @@ export default function XmlPage() {
             ? 'Limpiar XML'
             : confirmAction === 'export'
               ? 'Exportar a Excel'
+              : confirmAction === 'delete'
+                ? 'Eliminar XML'
               : 'Confirmar acción'
         }
         message={
           confirmAction === 'clear' ? (
             <>
-              ¿Seguro que deseas limpiar todo? Se borrarán los XML persistidos (IndexedDB).
+              ¿Seguro que deseas limpiar todo? Se borrarán los XML almacenados.
             </>
           ) : confirmAction === 'export' ? (
             <>
@@ -944,13 +956,31 @@ export default function XmlPage() {
               Si continúas, esos XML se exportarán como “SIN TIPO”.{"\n"}
               Al realizar esta acción se limpiarán los XML.
             </>
+          ) : confirmAction === 'delete' ? (
+            <>
+              ¿Seguro que deseas eliminar este XML? Se borrará de los XML almacenados.
+              {pendingDelete?.fileName ? (
+                <>
+                  <br />
+                  <span className="font-medium">{pendingDelete.fileName}</span>
+                </>
+              ) : null}
+            </>
           ) : (
             <>¿Confirmas esta acción?</>
           )
         }
-        confirmText={confirmAction === 'clear' ? 'Sí, limpiar' : confirmAction === 'export' ? 'Exportar igualmente' : 'Confirmar'}
+        confirmText={
+          confirmAction === 'clear'
+            ? 'Sí, limpiar'
+            : confirmAction === 'export'
+              ? 'Exportar igualmente'
+              : confirmAction === 'delete'
+                ? 'Sí, eliminar'
+                : 'Confirmar'
+        }
         cancelText="Cancelar"
-        actionType={confirmAction === 'clear' ? 'delete' : confirmAction === 'export' ? 'change' : 'assign'}
+        actionType={confirmAction === 'clear' ? 'delete' : confirmAction === 'export' ? 'change' : confirmAction === 'delete' ? 'delete' : 'assign'}
         loading={confirmLoading}
         onCancel={closeConfirm}
         onConfirm={() => {
@@ -966,6 +996,10 @@ export default function XmlPage() {
                   records: pendingExportRecordsRef.current ?? undefined,
                   allowMissingTipo: true,
                 });
+              } else if (action === 'delete') {
+                if (pendingDelete) {
+                  await performRemoveOne(pendingDelete.id);
+                }
               }
             } finally {
               setConfirmLoading(false);
@@ -973,6 +1007,7 @@ export default function XmlPage() {
               setConfirmAction(null);
               setExportMissingCount(0);
               pendingExportRecordsRef.current = null;
+              setPendingDelete(null);
             }
           })();
         }}
@@ -1330,7 +1365,7 @@ export default function XmlPage() {
 
                       <button
                         type="button"
-                        onClick={() => onRemove(item.id)}
+                        onClick={() => onRequestRemove(item.id, item.fileName)}
                         className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded border border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors w-full sm:w-auto"
                         aria-label={`Eliminar ${item.fileName}`}
                         title="Eliminar"
