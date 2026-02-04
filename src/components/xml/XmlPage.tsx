@@ -859,6 +859,7 @@ export default function XmlPage() {
       fileName: string;
       tipoEgreso: string;
       tipoEgresoLabel: string;
+      cuenta: string;
       factura: FacturaInfo;
     }> = [];
 
@@ -867,10 +868,12 @@ export default function XmlPage() {
         const tipo = (r.tipoEgreso || '').trim();
         const factura = parseFacturaXml(r.xmlText);
         const tipoLabel = tipo ? (tipoEgresoCodigoToLabel.get(tipo) || tipo) : 'SIN TIPO';
+        const cuenta = tipo ? (tipoEgresoCodigoToCuenta.get(tipo) || '—') : '—';
         return {
           fileName: r.fileName,
           tipoEgreso: tipo,
           tipoEgresoLabel: tipoLabel,
+          cuenta,
           factura,
         };
       });
@@ -931,6 +934,7 @@ export default function XmlPage() {
       'Proveedor',
       'Correo',
       'Tipo egreso',
+      'Cuenta',
       'Total venta',
       'Total descuentos',
       ...taxKeys.map((k) => taxKeyToLabel.get(k) || k),
@@ -944,6 +948,8 @@ export default function XmlPage() {
     let sumOtrosCargos = 0;
     let sumTotalComprobante = 0;
     const sumByTaxKey = new Map<TaxKey, number>();
+    const sumByTipoEgreso = new Map<string, number>();
+    const sumByCuenta = new Map<string, number>();
 
     for (const item of okItems) {
       const f = item.factura!;
@@ -958,6 +964,14 @@ export default function XmlPage() {
       sumTotalDescuentos += totalDescuentos;
       sumOtrosCargos += otrosCargos;
       sumTotalComprobante += totalComprobante;
+
+      // Acumular por tipo de egreso
+      const tipoKey = item.tipoEgresoLabel;
+      sumByTipoEgreso.set(tipoKey, (sumByTipoEgreso.get(tipoKey) || 0) + totalComprobante);
+
+      // Acumular por cuenta
+      const cuentaKey = item.cuenta;
+      sumByCuenta.set(cuentaKey, (sumByCuenta.get(cuentaKey) || 0) + totalComprobante);
 
       const invoiceTaxSums = new Map<TaxKey, number>();
       const desglose = f.resumen?.desgloseImpuesto || [];
@@ -975,11 +989,32 @@ export default function XmlPage() {
         return v && Math.abs(v) >= 1e-9 ? v : 0;
       });
 
-      rows.push([proveedor, correo, item.tipoEgresoLabel, totalVenta, totalDescuentos, ...taxCells, otrosCargos, totalComprobante]);
+      rows.push([proveedor, correo, item.tipoEgresoLabel, item.cuenta, totalVenta, totalDescuentos, ...taxCells, otrosCargos, totalComprobante]);
     }
 
+    // Añadir totales por cuenta
+    rows.push(['', '', '', '', '', '', ...taxKeys.map(() => ''), '', '']);
+    rows.push(['TOTALES POR CUENTA', '', '', '', '', '', ...taxKeys.map(() => ''), '', '']);
+    
+    const cuentaEntries = Array.from(sumByCuenta.entries()).sort((a, b) => a[0].localeCompare(b[0], 'es'));
+    for (const [cuenta, total] of cuentaEntries) {
+      rows.push(['', '', '', cuenta, '', '', ...taxKeys.map(() => ''), '', total]);
+    }
+
+    // Añadir totales por tipo de egreso
+    rows.push(['', '', '', '', '', '', ...taxKeys.map(() => ''), '', '']);
+    rows.push(['TOTALES POR TIPO DE EGRESO', '', '', '', '', '', ...taxKeys.map(() => ''), '', '']);
+    
+    const tipoEgresoEntries = Array.from(sumByTipoEgreso.entries()).sort((a, b) => a[0].localeCompare(b[0], 'es'));
+    for (const [tipoEgreso, total] of tipoEgresoEntries) {
+      rows.push(['', '', tipoEgreso, '', '', '', ...taxKeys.map(() => ''), '', total]);
+    }
+
+    // Añadir fila de TOTAL general
+    rows.push(['', '', '', '', '', '', ...taxKeys.map(() => ''), '', '']);
     rows.push([
       'TOTAL',
+      '',
       '',
       '',
       sumTotalVenta,
@@ -1001,6 +1036,7 @@ export default function XmlPage() {
         { wch: 34 },
         { wch: 30 },
         { wch: 16 },
+        { wch: 16 },
         { wch: 18 },
         ...taxKeys.map(() => ({ wch: 22 })),
         { wch: 16 },
@@ -1018,7 +1054,7 @@ export default function XmlPage() {
       const msg = err instanceof Error ? err.message : 'Error exportando a Excel';
       showToast(msg, 'error');
     }
-  }, [isReady, dbError, getAllFromDb, tipoEgresoCodigoToLabel, clearAll, showToast]);
+  }, [isReady, dbError, getAllFromDb, tipoEgresoCodigoToLabel, tipoEgresoCodigoToCuenta, clearAll, showToast]);
 
   const performExportPdf = useCallback(async (options?: { records?: XmlDbRecord[]; allowMissingTipo?: boolean }) => {
     if (!isReady) return;
@@ -1159,6 +1195,8 @@ export default function XmlPage() {
 
       const ivaSumByCurrency = new Map<string, number>();
       const totalSumByCurrency = new Map<string, number>();
+      const sumByTipoEgreso = new Map<string, Map<string, number>>();
+      const sumByCuenta = new Map<string, Map<string, number>>();
 
       type TaxKey = string;
       const toTaxKey = (codigo?: string, codigoTarifaIVA?: string): TaxKey => `${(codigo || '').trim()}|${(codigoTarifaIVA || '').trim()}`;
@@ -1175,6 +1213,18 @@ export default function XmlPage() {
 
         addToSum(ivaSumByCurrency, moneda, f.resumen?.totalImpuesto);
         addToSum(totalSumByCurrency, moneda, f.resumen?.totalComprobante);
+
+        // Acumular por tipo de egreso
+        const tipoKey = item.tipoEgresoLabel;
+        const tipoMap = sumByTipoEgreso.get(tipoKey) || new Map<string, number>();
+        addToSum(tipoMap, moneda, f.resumen?.totalComprobante);
+        sumByTipoEgreso.set(tipoKey, tipoMap);
+
+        // Acumular por cuenta
+        const cuentaKey = item.cuenta;
+        const cuentaMap = sumByCuenta.get(cuentaKey) || new Map<string, number>();
+        addToSum(cuentaMap, moneda, f.resumen?.totalComprobante);
+        sumByCuenta.set(cuentaKey, cuentaMap);
 
         // Resumen por tipo de IVA usando el desglose del XML
         const desglose = f.resumen?.desgloseImpuesto || [];
@@ -1222,7 +1272,26 @@ export default function XmlPage() {
         }
       }
 
+      // Totales por cuenta
+      body.push(['', '', '', '', '', '', '', '']);
+      body.push(['', '', 'TOTALES POR CUENTA', '', '', '', '', '']);
+      const cuentaEntries = Array.from(sumByCuenta.entries()).sort((a, b) => a[0].localeCompare(b[0], 'es'));
+      for (const [cuenta, sumsMap] of cuentaEntries) {
+        const amount = formatTotalsForPdf(sumsMap);
+        body.push(['', '', '', '', '', amount, cuenta, '']);
+      }
+
+      // Totales por tipo de egreso
+      body.push(['', '', '', '', '', '', '', '']);
+      body.push(['', '', 'TOTALES POR TIPO DE EGRESO', '', '', '', '', '']);
+      const tipoEgresoEntries = Array.from(sumByTipoEgreso.entries()).sort((a, b) => a[0].localeCompare(b[0], 'es'));
+      for (const [tipoEgreso, sumsMap] of tipoEgresoEntries) {
+        const amount = formatTotalsForPdf(sumsMap);
+        body.push(['', '', tipoEgreso, '', '', amount, '', '']);
+      }
+
       // Fila final de totales (IVA y Total)
+      body.push(['', '', '', '', '', '', '', '']);
       body.push([
         'TOTAL',
         '',
