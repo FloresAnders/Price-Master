@@ -278,6 +278,37 @@ function formatMoney(raw?: string, currencyCode?: string): string {
   }
 }
 
+const CR_DATE_SIMPLE = new Intl.DateTimeFormat('es-CR', {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+function formatSimpleDate(raw?: string): string {
+  const input = (raw || '').trim();
+  if (!input) return '—';
+
+  // If date comes as YYYY-MM-DD (without time), parse as local date to avoid TZ shifts.
+  const m = /^([0-9]{4})-([0-9]{2})-([0-9]{2})$/.exec(input);
+  if (m) {
+    const year = Number(m[1]);
+    const month = Number(m[2]);
+    const day = Number(m[3]);
+    if (Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day)) {
+      const d = new Date(year, month - 1, day);
+      if (Number.isFinite(d.getTime())) return CR_DATE_SIMPLE.format(d);
+    }
+  }
+
+  // Otherwise, try normal Date parse (ISO with time/timezone).
+  const d = new Date(input);
+  if (Number.isFinite(d.getTime())) return CR_DATE_SIMPLE.format(d);
+
+  // Fallback: keep only the date segment if it looks like ISO.
+  const datePart = input.split('T')[0];
+  return datePart || input;
+}
+
 function firstElement(parent: Document | Element, localName: string): Element | null {
   const nodes = parent.getElementsByTagNameNS('*', localName);
   return nodes && nodes.length > 0 ? (nodes[0] as Element) : null;
@@ -488,6 +519,13 @@ export default function XmlPage() {
   const [xmlModalItemId, setXmlModalItemId] = useState<string | null>(null);
   const [tipoEgresoQueryByItemId, setTipoEgresoQueryByItemId] = useState<Record<string, string>>({});
   const [openTipoEgresoDropdownItemId, setOpenTipoEgresoDropdownItemId] = useState<string | null>(null);
+  const tipoEgresoTouchRef = useRef<{
+    itemId: string;
+    value: string;
+    startX: number;
+    startY: number;
+    moved: boolean;
+  } | null>(null);
   const [confirmAction, setConfirmAction] = useState<'clear' | 'export' | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmLoading, setConfirmLoading] = useState(false);
@@ -885,15 +923,15 @@ export default function XmlPage() {
   }, [xmlModalItem?.rawXml]);
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6 px-3 sm:px-4 lg:px-0">
       <ConfirmModal
         open={confirmOpen}
         title={
           confirmAction === 'clear'
             ? 'Limpiar XML'
             : confirmAction === 'export'
-            ? 'Exportar a Excel'
-            : 'Confirmar acción'
+              ? 'Exportar a Excel'
+              : 'Confirmar acción'
         }
         message={
           confirmAction === 'clear' ? (
@@ -939,25 +977,25 @@ export default function XmlPage() {
           })();
         }}
       />
-      <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-lg shadow p-6">
-        <div className="flex items-start gap-4">
+      <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-lg shadow p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row items-start gap-4">
           <div className="w-12 h-12 rounded-full bg-blue-500/15 flex items-center justify-center flex-shrink-0">
             <FileCode className="w-6 h-6 text-blue-600" />
           </div>
           <div className="flex-1">
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-bold text-[var(--foreground)]">XML - Factura Electrónica</h2>
                 <p className="text-sm text-[var(--muted-foreground)] mt-1">
                   Carga uno o varios XML (drag & drop o seleccionando). Se lee toda la factura excepto productos (DetalleServicio/LineaDetalle).
                 </p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
                 <button
                   type="button"
                   onClick={onPickFiles}
                   disabled={!isReady || Boolean(dbError)}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded bg-[var(--primary)] text-white hover:bg-[var(--button-hover)] transition-colors"
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded bg-[var(--primary)] text-white hover:bg-[var(--button-hover)] transition-colors w-full sm:w-auto"
                 >
                   <Upload className="w-4 h-4" />
                   {pickFilesLabel}
@@ -967,7 +1005,7 @@ export default function XmlPage() {
                   type="button"
                   onClick={onExportExcel}
                   disabled={!isReady || Boolean(dbError) || files.length === 0 || confirmLoading}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50 w-full sm:w-auto"
                   title="Exporta las facturas cargadas a Excel"
                 >
                   <Download className="w-4 h-4" />
@@ -978,7 +1016,7 @@ export default function XmlPage() {
                   type="button"
                   onClick={onClear}
                   disabled={!isReady || Boolean(dbError) || files.length === 0 || confirmLoading}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded border border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded border border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors disabled:opacity-50 w-full sm:w-auto"
                 >
                   <Trash2 className="w-4 h-4" />
                   Limpiar todo
@@ -1040,7 +1078,7 @@ export default function XmlPage() {
                 : 'border-[var(--border)] bg-[var(--muted)]'
                 }`}
             >
-              <div className="flex items-center justify-center gap-3 text-center">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 text-center">
                 <Upload className="w-5 h-5 text-[var(--muted-foreground)]" />
                 <div className="text-sm text-[var(--muted-foreground)]">
                   Arrastra y suelta archivos XML aquí, o usa “{pickFilesLabel}”.
@@ -1062,11 +1100,11 @@ export default function XmlPage() {
             return (
               <div
                 key={item.id}
-                className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-lg shadow p-5"
+                className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-lg shadow p-4 sm:p-5"
               >
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <div className="font-semibold text-[var(--foreground)] truncate">
                         {item.fileName}
                       </div>
@@ -1092,13 +1130,17 @@ export default function XmlPage() {
                       <div className="text-sm text-red-600 mt-2">{item.error}</div>
                     ) : (
                       <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-                        <div className="text-[var(--muted-foreground)]">
-                          <span className="font-medium text-[var(--foreground)]">Clave:</span>{' '}
-                          {f?.clave || '—'}
+                        <div className="text-[var(--muted-foreground)] md:col-span-3">
+                          <div className='flex items-start '>
+                            <span className="font-medium text-[var(--foreground)] block sm:inline">Clave:</span>
+                            <span className="block sm:inline sm:ml-1 break-all md:break-normal md:whitespace-nowrap md:overflow-x-auto md:inline-block md:max-w-full">
+                              {f?.clave || '—'}
+                            </span>
+                          </div>
                         </div>
                         <div className="text-[var(--muted-foreground)]">
                           <span className="font-medium text-[var(--foreground)]">Fecha:</span>{' '}
-                          {f?.fechaEmision || '—'}
+                          {formatSimpleDate(f?.fechaEmision)}
                         </div>
                         <div className="text-[var(--muted-foreground)]">
                           <span className="font-medium text-[var(--foreground)]">Total:</span>{' '}
@@ -1120,8 +1162,8 @@ export default function XmlPage() {
                     )}
                   </div>
 
-                  <div className="flex gap-2 flex-shrink-0">
-                    <div className="relative w-72 sm:w-[28rem] max-w-[55vw]">
+                  <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto lg:flex-shrink-0">
+                    <div className="relative w-full sm:w-[28rem] lg:w-[32rem] max-w-full">
                       <input
                         value={(() => {
                           const selectedCodigo = item.tipoEgreso ?? '';
@@ -1217,7 +1259,41 @@ export default function XmlPage() {
                                         setTipoEgresoQueryByItemId((prev) => ({ ...prev, [item.id]: t.value ? t.label : '' }));
                                         setOpenTipoEgresoDropdownItemId(null);
                                       }}
+                                      onTouchStart={(e) => {
+                                        const touch = e.touches[0];
+                                        if (!touch) return;
+                                        tipoEgresoTouchRef.current = {
+                                          itemId: item.id,
+                                          value: t.value,
+                                          startX: touch.clientX,
+                                          startY: touch.clientY,
+                                          moved: false,
+                                        };
+                                      }}
+                                      onTouchMove={(e) => {
+                                        const state = tipoEgresoTouchRef.current;
+                                        if (!state || state.itemId !== item.id || state.value !== t.value) return;
+                                        const touch = e.touches[0];
+                                        if (!touch) return;
+                                        const dx = Math.abs(touch.clientX - state.startX);
+                                        const dy = Math.abs(touch.clientY - state.startY);
+                                        if (dx > 8 || dy > 8) {
+                                          state.moved = true;
+                                        }
+                                      }}
+                                      onTouchCancel={() => {
+                                        const state = tipoEgresoTouchRef.current;
+                                        if (!state || state.itemId !== item.id) return;
+                                        tipoEgresoTouchRef.current = null;
+                                      }}
                                       onTouchEnd={(e) => {
+                                        const state = tipoEgresoTouchRef.current;
+                                        tipoEgresoTouchRef.current = null;
+                                        if (!state) return;
+                                        if (state.itemId !== item.id || state.value !== t.value) return;
+                                        if (state.moved) return; // user was scrolling, do not select
+
+                                        // It's a tap: prevent the synthetic click + keep selection consistent.
                                         e.preventDefault();
                                         void (async () => {
                                           try {
@@ -1240,26 +1316,28 @@ export default function XmlPage() {
                           );
                         })()}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setXmlModalItemId(item.id)}
-                      className="inline-flex items-center gap-2 px-3 py-2 rounded border border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors"
-                      aria-label={`Ver XML de ${item.fileName}`}
-                      title="Ver XML"
-                      disabled={!item.rawXml}
-                    >
-                      <Eye className="w-4 h-4" />
-                    </button>
+                    <div className="flex gap-2 w-full sm:w-auto">
+                      <button
+                        type="button"
+                        onClick={() => setXmlModalItemId(item.id)}
+                        className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded border border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors w-full sm:w-auto"
+                        aria-label={`Ver XML de ${item.fileName}`}
+                        title="Ver XML"
+                        disabled={!item.rawXml}
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => onRemove(item.id)}
-                      className="inline-flex items-center gap-2 px-3 py-2 rounded border border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors"
-                      aria-label={`Eliminar ${item.fileName}`}
-                      title="Eliminar"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => onRemove(item.id)}
+                        className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded border border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors w-full sm:w-auto"
+                        aria-label={`Eliminar ${item.fileName}`}
+                        title="Eliminar"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
 
