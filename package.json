@@ -53,6 +53,8 @@
     "fireworks-js": "^2.10.8",
     "framer-motion": "^12.16.0",
     "html2canvas": "^1.4.1",
+    "jspdf": "^4.1.0",
+    "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.511.0",
     "lz-string": "^1.5.0",
     "ndarray-pixels": "^5.0.1",
