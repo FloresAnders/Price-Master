@@ -1294,6 +1294,10 @@ export default function XmlPage() {
         showToast('No se puede exportar: error abriendo IndexedDB', 'error');
         return;
       }
+      if (receptorGroups.length > 1) {
+        showToast('No se puede exportar cuando hay más de un receptor. Deja solo un receptor cargado para exportar.', 'warning');
+        return;
+      }
       if (files.length === 0) return;
       if (confirmLoading) return;
       if (exportOptionsOpen || exportOptionsLoading) return;
@@ -1322,7 +1326,7 @@ export default function XmlPage() {
         setConfirmLoading(false);
       }
     })();
-  }, [isReady, dbError, files.length, confirmLoading, exportOptionsOpen, exportOptionsLoading, getAllFromDb, showToast]);
+  }, [isReady, dbError, receptorGroups.length, files.length, confirmLoading, exportOptionsOpen, exportOptionsLoading, getAllFromDb, showToast]);
 
   const onDrop = useCallback(
     async (e: React.DragEvent<HTMLDivElement>) => {
@@ -1569,7 +1573,7 @@ export default function XmlPage() {
               <div>
                 <h2 className="text-2xl font-bold text-[var(--foreground)]">XML - Factura Electrónica</h2>
                 <p className="text-sm text-[var(--muted-foreground)] mt-1">
-                  Carga uno o varios XML (drag & drop o seleccionando). Se lee toda la factura excepto productos (DetalleServicio/LineaDetalle).
+                  Carga uno o varios XML. Se lee toda la factura excepto productos (DetalleServicio/LineaDetalle).
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
@@ -1577,28 +1581,53 @@ export default function XmlPage() {
                   type="button"
                   onClick={onPickFiles}
                   disabled={!isReady || Boolean(dbError) || addLoading}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded bg-[var(--primary)] text-white hover:bg-[var(--button-hover)] transition-colors w-full sm:w-auto"
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded bg-[var(--primary)] text-white hover:bg-[var(--button-hover)] transition-colors w-full sm:w-52 h-11 whitespace-nowrap"
                 >
                   <Upload className="w-4 h-4" />
                   {pickFilesLabel}
                 </button>
 
-                <button
-                  type="button"
-                  onClick={onExport}
-                  disabled={!isReady || Boolean(dbError) || addLoading || files.length === 0 || confirmLoading || exportOptionsOpen || exportOptionsLoading}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50 w-full sm:w-auto"
-                  title="Exporta las facturas cargadas"
-                >
-                  <Download className="w-4 h-4" />
-                  Exportar
-                </button>
+                {(() => {
+                  const exportBlockedByReceptor = receptorGroups.length > 1;
+                  const exportDisabled =
+                    !isReady ||
+                    Boolean(dbError) ||
+                    addLoading ||
+                    exportBlockedByReceptor ||
+                    files.length === 0 ||
+                    confirmLoading ||
+                    exportOptionsOpen ||
+                    exportOptionsLoading;
+
+                  return (
+                    <div className={`relative group w-full sm:w-52 ${exportBlockedByReceptor ? 'cursor-not-allowed' : ''}`}>
+                      <button
+                        type="button"
+                        onClick={onExport}
+                        disabled={exportDisabled}
+                        className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50 w-full h-11 whitespace-nowrap"
+                        title="Exporta las facturas cargadas"
+                      >
+                        <Download className="w-4 h-4" />
+                        Exportar
+                      </button>
+
+                      {exportBlockedByReceptor && (
+                        <div className="hidden group-hover:block absolute z-30 left-1/2 -translate-x-1/2 top-full mt-2 w-max max-w-[18rem]">
+                          <div className="rounded border border-yellow-400 bg-yellow-200 text-red-700 text-xs px-3 py-2 shadow-lg">
+                            No se puede exportar porque hay más de un receptor cargado.
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 <button
                   type="button"
                   onClick={onClear}
                   disabled={!isReady || Boolean(dbError) || addLoading || files.length === 0 || confirmLoading}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded border border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors disabled:opacity-50 w-full sm:w-auto"
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded border border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors disabled:opacity-50 w-full sm:w-52 h-11 whitespace-nowrap"
                 >
                   <Trash2 className="w-4 h-4" />
                   Limpiar todo
