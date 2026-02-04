@@ -1571,7 +1571,7 @@ export default function XmlPage() {
           <div className="flex-1">
             <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
               <div>
-                <h2 className="text-2xl font-bold text-[var(--foreground)]">XML - Factura Electrónica</h2>
+                <h2 className="text-2xl font-bold text-[var(--foreground)]">XML</h2>
                 <p className="text-sm text-[var(--muted-foreground)] mt-1">
                   Carga uno o varios XML. Se lee toda la factura excepto productos (DetalleServicio/LineaDetalle).
                 </p>
