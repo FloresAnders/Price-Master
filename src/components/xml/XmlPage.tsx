@@ -1,7 +1,34 @@
 'use client';
 
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { FileCode, Upload, Trash2, AlertTriangle, ChevronDown, Eye, X, Download } from 'lucide-react';
+import { FileCode, Upload, Trash2, AlertTriangle, ChevronDown, Eye, X, Download, Search } from 'lucide-react';
+import tiposEgresoXmlCatalog from '@/data/tiposEgresoXml.json';
+
+type TipoEgresoXml = {
+  codigo: string;
+  nombre: string;
+  cuenta?: string;
+};
+
+const TIPOS_EGRESO_XML: TipoEgresoXml[] = (tiposEgresoXmlCatalog as TipoEgresoXml[])
+  .filter((t) => t && typeof t.codigo === 'string' && typeof t.nombre === 'string')
+  .map((t) => ({
+    codigo: (t.codigo || '').trim(),
+    nombre: (t.nombre || '').trim(),
+    cuenta: (t.cuenta || '').trim() || undefined,
+  }))
+  .filter((t) => Boolean(t.codigo) && Boolean(t.nombre))
+  .sort((a, b) => {
+    // Prefer numeric sort by codigo when possible, fallback to locale name.
+    const na = Number(a.codigo);
+    const nb = Number(b.codigo);
+    const aIsNum = Number.isFinite(na);
+    const bIsNum = Number.isFinite(nb);
+    if (aIsNum && bIsNum) return na - nb;
+    if (aIsNum && !bIsNum) return -1;
+    if (!aIsNum && bIsNum) return 1;
+    return a.nombre.localeCompare(b.nombre, 'es');
+  });
 
 type FacturaParty = {
   nombre?: string;
@@ -457,6 +484,17 @@ export default function XmlPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [items, setItems] = useState<ParsedXmlItem[]>([]);
   const [xmlModalItemId, setXmlModalItemId] = useState<string | null>(null);
+  const [tipoEgresoByItemId, setTipoEgresoByItemId] = useState<Record<string, string>>({});
+  const [tipoEgresoQueryByItemId, setTipoEgresoQueryByItemId] = useState<Record<string, string>>({});
+  const [openTipoEgresoDropdownItemId, setOpenTipoEgresoDropdownItemId] = useState<string | null>(null);
+
+  const tipoEgresoCodigoToLabel = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const t of TIPOS_EGRESO_XML) {
+      map.set(t.codigo, `${t.codigo} - ${t.nombre}${t.cuenta ? ` (${t.cuenta})` : ''}`);
+    }
+    return map;
+  }, []);
 
   const idsSet = useMemo(() => new Set(items.map((i) => i.id)), [items]);
 
@@ -515,11 +553,27 @@ export default function XmlPage() {
   const onRemove = useCallback((id: string) => {
     setItems((prev) => prev.filter((i) => i.id !== id));
     setXmlModalItemId((prev) => (prev === id ? null : prev));
+    setTipoEgresoByItemId((prev) => {
+      if (!prev[id]) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    setTipoEgresoQueryByItemId((prev) => {
+      if (!(id in prev)) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    setOpenTipoEgresoDropdownItemId((prev) => (prev === id ? null : prev));
   }, []);
 
   const onClear = useCallback(() => {
     setItems([]);
     setXmlModalItemId(null);
+    setTipoEgresoByItemId({});
+    setTipoEgresoQueryByItemId({});
+    setOpenTipoEgresoDropdownItemId(null);
   }, []);
 
   const onExportExcel = useCallback(async () => {
@@ -815,14 +869,111 @@ export default function XmlPage() {
                   </div>
 
                   <div className="flex gap-2 flex-shrink-0">
-                    <select
-                      className="inline-flex items-center gap-2 px-3 py-2 rounded border border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors bg-[var(--card-bg)]"
-                      title="Seleccionar tipo de egreso"
-                    >
-                      <option value="">
-                        Seleccionar tipo de egreso
-                      </option>
-                    </select>
+                    <div className="relative w-72 sm:w-[28rem] max-w-[55vw]">
+                      <input
+                        value={(() => {
+                          const selectedCodigo = tipoEgresoByItemId[item.id] ?? '';
+                          const selectedLabel = selectedCodigo ? (tipoEgresoCodigoToLabel.get(selectedCodigo) || selectedCodigo) : '';
+                          return tipoEgresoQueryByItemId[item.id] ?? selectedLabel;
+                        })()}
+                        onChange={(e) => {
+                          const nextQuery = e.currentTarget.value;
+                          setTipoEgresoQueryByItemId((prev) => ({ ...prev, [item.id]: nextQuery }));
+                          setOpenTipoEgresoDropdownItemId(item.id);
+                        }}
+                        onFocus={(e) => {
+                          const inputEl = e.currentTarget;
+                          setOpenTipoEgresoDropdownItemId(item.id);
+                          const selectedCodigo = tipoEgresoByItemId[item.id] ?? '';
+                          const selectedLabel = selectedCodigo ? (tipoEgresoCodigoToLabel.get(selectedCodigo) || selectedCodigo) : '';
+                          setTipoEgresoQueryByItemId((prev) => ({ ...prev, [item.id]: prev[item.id] ?? selectedLabel }));
+
+                          // After React updates the input value, place caret at the end.
+                          setTimeout(() => {
+                            try {
+                              const end = inputEl.value.length;
+                              inputEl.setSelectionRange(end, end);
+                            } catch {
+                              // ignore
+                            }
+                          }, 0);
+                        }}
+                        onBlur={() => {
+                          // Delay closing so option onMouseDown can run.
+                          setTimeout(() => {
+                            setOpenTipoEgresoDropdownItemId((prev) => (prev === item.id ? null : prev));
+                          }, 200);
+                        }}
+                        disabled={item.status !== 'ok'}
+                        className="w-full px-2.5 sm:px-3 py-2 pr-8 bg-[var(--card-bg)] border border-[var(--border)] rounded text-xs sm:text-sm text-[var(--foreground)] disabled:opacity-50"
+                        placeholder="Tipo de egreso"
+                        title="Filtrar/seleccionar tipo de egreso"
+                        aria-label="Filtrar/seleccionar tipo de egreso"
+                      />
+                      <Search className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
+
+                      {openTipoEgresoDropdownItemId === item.id &&
+                        (() => {
+                          const query = (tipoEgresoQueryByItemId[item.id] || '').trim().toLowerCase();
+                          const allTypes: Array<{ value: string; label: string; group: string }> = [
+                            { value: '', label: 'Quitar selección', group: '' },
+                            ...TIPOS_EGRESO_XML.map((t) => ({
+                              value: t.codigo,
+                              label: `${t.codigo} - ${t.nombre}${t.cuenta ? ` (${t.cuenta})` : ''}`,
+                              group: 'Tipos de egreso',
+                            })),
+                          ];
+
+                          const filteredTypes =
+                            query.length === 0
+                              ? allTypes
+                              : allTypes.filter(
+                                (t) => t.label.toLowerCase().includes(query) || t.value.toLowerCase().includes(query)
+                              );
+
+                          if (filteredTypes.length === 0) return null;
+
+                          const groupedTypes = filteredTypes.reduce((acc, type) => {
+                            const group = type.group || 'general';
+                            if (!acc[group]) acc[group] = [];
+                            acc[group].push(type);
+                            return acc;
+                          }, {} as Record<string, typeof filteredTypes>);
+
+                          return (
+                            <div className="absolute z-10 w-full bg-[var(--card-bg)] border border-[var(--border)] rounded mt-1 max-h-60 overflow-y-auto shadow-lg">
+                              {Object.entries(groupedTypes).map(([group, types]) => (
+                                <React.Fragment key={group}>
+                                  {group !== 'general' && group !== '' && (
+                                    <div className="px-3 py-1 text-[10px] font-semibold text-[var(--muted-foreground)] bg-[var(--muted)] uppercase">
+                                      {group}
+                                    </div>
+                                  )}
+                                  {types.map((t) => (
+                                    <div
+                                      key={`${t.value}|${t.label}`}
+                                      className="p-2 hover:bg-blue-400/20 cursor-pointer transition-all duration-200 text-xs sm:text-sm"
+                                      onMouseDown={() => {
+                                        setTipoEgresoByItemId((prev) => ({ ...prev, [item.id]: t.value }));
+                                        setTipoEgresoQueryByItemId((prev) => ({ ...prev, [item.id]: t.value ? t.label : '' }));
+                                        setOpenTipoEgresoDropdownItemId(null);
+                                      }}
+                                      onTouchEnd={(e) => {
+                                        e.preventDefault();
+                                        setTipoEgresoByItemId((prev) => ({ ...prev, [item.id]: t.value }));
+                                        setTipoEgresoQueryByItemId((prev) => ({ ...prev, [item.id]: t.value ? t.label : '' }));
+                                        setOpenTipoEgresoDropdownItemId(null);
+                                      }}
+                                    >
+                                      {t.label}
+                                    </div>
+                                  ))}
+                                </React.Fragment>
+                              ))}
+                            </div>
+                          );
+                        })()}
+                    </div>
                     <button
                       type="button"
                       onClick={() => setXmlModalItemId(item.id)}
