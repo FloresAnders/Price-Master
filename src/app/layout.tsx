@@ -5,6 +5,7 @@ import { ToastProvider } from '../components/ui/ToastProvider';
 import { AuthWrapper } from '../components/auth';
 import VersionCheckInitializer from '../components/VersionCheckInitializer';
 import { XmlEgresosProvider } from '../components/xml/XmlEgresosProvider';
+import BackToTop from '../components/ui/BackToTop';
 
 export const metadata = {
   title: 'Time Master',
@@ -105,6 +106,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                       {children}
                     </div>
                   </main>
+                  <BackToTop />
                   <Footer />
                 </XmlEgresosProvider>
               </ToastProvider>
