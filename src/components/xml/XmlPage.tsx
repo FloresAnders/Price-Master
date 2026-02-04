@@ -3,6 +3,9 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { FileCode, Upload, Trash2, AlertTriangle, ChevronDown, Eye, X, Download, Search } from 'lucide-react';
 import tiposEgresoXmlCatalog from '@/data/tiposEgresoXml.json';
+import useToast from '@/hooks/useToast';
+import useXmlEgresos from '@/hooks/useXmlEgresos';
+import ConfirmModal from '@/components/ui/ConfirmModal';
 
 type TipoEgresoXml = {
   codigo: string;
@@ -88,12 +91,12 @@ type FacturaInfo = {
 type ParsedXmlItem = {
   id: string;
   fileName: string;
-  fileSize: number;
-  lastModified: number;
   status: 'ok' | 'error';
   rawXml?: string;
   factura?: FacturaInfo;
   error?: string;
+  tipoEgreso: string | null;
+  createdAt: number;
 };
 
 const TIPO_MEDIO_PAGO_LABEL: Record<string, string> = {
@@ -482,11 +485,45 @@ function isLikelyXmlFile(file: File) {
 export default function XmlPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [items, setItems] = useState<ParsedXmlItem[]>([]);
   const [xmlModalItemId, setXmlModalItemId] = useState<string | null>(null);
-  const [tipoEgresoByItemId, setTipoEgresoByItemId] = useState<Record<string, string>>({});
   const [tipoEgresoQueryByItemId, setTipoEgresoQueryByItemId] = useState<Record<string, string>>({});
   const [openTipoEgresoDropdownItemId, setOpenTipoEgresoDropdownItemId] = useState<string | null>(null);
+  const [confirmAction, setConfirmAction] = useState<'clear' | 'export' | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmLoading, setConfirmLoading] = useState(false);
+  const [exportMissingCount, setExportMissingCount] = useState(0);
+
+  type XmlDbRecord = {
+    fileName: string;
+    xmlText: string;
+    tipoEgreso?: string | null;
+    createdAt?: number;
+  };
+
+  const pendingExportRecordsRef = useRef<XmlDbRecord[] | null>(null);
+
+  const { showToast } = useToast();
+  const {
+    files,
+    isReady,
+    error: dbError,
+    hasFile,
+    addXmlText,
+    setTipoEgreso,
+    remove,
+    clearAll,
+    getAllFromDb,
+  } = useXmlEgresos();
+
+  const pickFilesLabel = files.length > 0 ? 'Agregar más archivos' : 'Seleccionar XML';
+
+  const closeConfirm = useCallback(() => {
+    if (confirmLoading) return;
+    setConfirmOpen(false);
+    setConfirmAction(null);
+    setExportMissingCount(0);
+    pendingExportRecordsRef.current = null;
+  }, [confirmLoading]);
 
   const tipoEgresoCodigoToLabel = useMemo(() => {
     const map = new Map<string, string>();
@@ -496,69 +533,96 @@ export default function XmlPage() {
     return map;
   }, []);
 
-  const idsSet = useMemo(() => new Set(items.map((i) => i.id)), [items]);
+  const items = useMemo<ParsedXmlItem[]>(() => {
+    const next: ParsedXmlItem[] = [];
+    for (const rec of files) {
+      try {
+        const factura = parseFacturaXml(rec.xmlText);
+        next.push({
+          id: rec.fileName,
+          fileName: rec.fileName,
+          status: 'ok',
+          rawXml: rec.xmlText,
+          factura,
+          tipoEgreso: rec.tipoEgreso ?? null,
+          createdAt: rec.createdAt || 0,
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Error desconocido parseando XML';
+        next.push({
+          id: rec.fileName,
+          fileName: rec.fileName,
+          status: 'error',
+          rawXml: rec.xmlText,
+          error: message,
+          tipoEgreso: rec.tipoEgreso ?? null,
+          createdAt: rec.createdAt || 0,
+        });
+      }
+    }
+    return next;
+  }, [files]);
 
   const addFiles = useCallback(async (files: FileList | File[]) => {
+    if (dbError) {
+      showToast('No se puede cargar XML: error abriendo IndexedDB', 'error');
+      return;
+    }
+
     const list = Array.from(files || []);
     const xmlFiles = list.filter(isLikelyXmlFile);
     if (xmlFiles.length === 0) return;
 
-    const nextItems: ParsedXmlItem[] = [];
-
     for (const file of xmlFiles) {
-      const id = `${file.name}:${file.size}:${file.lastModified}`;
-      if (idsSet.has(id)) continue;
-
       try {
-        const text = await file.text();
-        const factura = parseFacturaXml(text);
-        nextItems.push({
-          id,
-          fileName: file.name,
-          fileSize: file.size,
-          lastModified: file.lastModified,
-          status: 'ok',
-          rawXml: text,
-          factura,
-        });
-      } catch (err) {
-        let rawXml: string | undefined;
-        try {
-          rawXml = await file.text();
-        } catch {
-          // ignore
+        const fileName = file.name;
+
+        // 1) Duplicado (fuente de verdad: IndexedDB)
+        const exists = await hasFile(fileName);
+        if (exists) {
+          showToast(`Duplicado: ${fileName} ya está cargado`, 'warning');
+          continue;
         }
-        const message = err instanceof Error ? err.message : 'Error desconocido parseando XML';
-        nextItems.push({
-          id,
-          fileName: file.name,
-          fileSize: file.size,
-          lastModified: file.lastModified,
-          status: 'error',
-          rawXml,
-          error: message,
-        });
+
+        // 2) Leer texto
+        const text = await file.text();
+
+        // 3) Validar XML antes de persistir
+        try {
+          parseFacturaXml(text);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : 'XML inválido';
+          showToast(`XML inválido (${fileName}): ${msg}`, 'error');
+          continue;
+        }
+
+        // 4) Persistir en IndexedDB
+        const res = await addXmlText({ fileName, xmlText: text });
+        if (res.status === 'duplicate') {
+          showToast(`Duplicado: ${fileName} ya está cargado`, 'warning');
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Error desconocido cargando XML';
+        showToast(message, 'error');
       }
     }
-
-    if (nextItems.length > 0) {
-      setItems((prev) => [...nextItems, ...prev]);
-    }
-  }, [idsSet]);
+  }, [dbError, showToast, hasFile, addXmlText]);
 
   const onPickFiles = useCallback(() => {
     fileInputRef.current?.click();
   }, []);
 
   const onRemove = useCallback((id: string) => {
-    setItems((prev) => prev.filter((i) => i.id !== id));
+    void (async () => {
+      try {
+        await remove(id);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Error eliminando XML';
+        showToast(msg, 'error');
+      }
+    })();
+
     setXmlModalItemId((prev) => (prev === id ? null : prev));
-    setTipoEgresoByItemId((prev) => {
-      if (!prev[id]) return prev;
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
     setTipoEgresoQueryByItemId((prev) => {
       if (!(id in prev)) return prev;
       const next = { ...prev };
@@ -566,19 +630,87 @@ export default function XmlPage() {
       return next;
     });
     setOpenTipoEgresoDropdownItemId((prev) => (prev === id ? null : prev));
-  }, []);
+  }, [remove, showToast]);
+
+  const performClearAll = useCallback(async () => {
+    if (!isReady) return;
+    if (dbError) {
+      showToast('No se puede limpiar: error abriendo IndexedDB', 'error');
+      return;
+    }
+
+    try {
+      await clearAll();
+      showToast('XML eliminados correctamente', 'success');
+      setXmlModalItemId(null);
+      setTipoEgresoQueryByItemId({});
+      setOpenTipoEgresoDropdownItemId(null);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error limpiando XML';
+      showToast(msg, 'error');
+    }
+  }, [isReady, dbError, clearAll, showToast]);
 
   const onClear = useCallback(() => {
-    setItems([]);
-    setXmlModalItemId(null);
-    setTipoEgresoByItemId({});
-    setTipoEgresoQueryByItemId({});
-    setOpenTipoEgresoDropdownItemId(null);
-  }, []);
+    if (!isReady) return;
+    if (dbError) {
+      showToast('No se puede limpiar: error abriendo IndexedDB', 'error');
+      return;
+    }
+    if (files.length === 0) return;
 
-  const onExportExcel = useCallback(async () => {
-    const okItems = items.filter((i) => i.status === 'ok' && i.factura);
-    if (okItems.length === 0) return;
+    setConfirmAction('clear');
+    setConfirmOpen(true);
+  }, [isReady, dbError, files.length, showToast]);
+
+  const performExportExcel = useCallback(async (options?: { records?: XmlDbRecord[]; allowMissingTipo?: boolean }) => {
+    if (!isReady) return;
+    if (dbError) {
+      showToast('No se puede exportar: error abriendo IndexedDB', 'error');
+      return;
+    }
+
+    const allowMissingTipo = Boolean(options?.allowMissingTipo);
+    const records = options?.records ?? ((await getAllFromDb()) as XmlDbRecord[]);
+    if (records.length === 0) {
+      showToast('No hay XML para exportar', 'warning');
+      return;
+    }
+
+    const missingTipo = records.filter((r) => !(r.tipoEgreso || '').trim());
+    if (missingTipo.length > 0 && !allowMissingTipo) {
+      showToast(`Faltan tipos de egreso en ${missingTipo.length} XML. Asigna el tipo antes de exportar.`, 'warning');
+      return;
+    }
+
+    if (missingTipo.length > 0 && allowMissingTipo) {
+      showToast(`Exportando con faltantes: ${missingTipo.length} XML quedarán como “SIN TIPO”.`, 'warning');
+    }
+
+    let okItems: Array<{
+      fileName: string;
+      tipoEgreso: string;
+      tipoEgresoLabel: string;
+      factura: FacturaInfo;
+    }> = [];
+
+    try {
+      okItems = records.map((r) => {
+        const tipo = (r.tipoEgreso || '').trim();
+        const factura = parseFacturaXml(r.xmlText);
+        const tipoLabel = tipo ? (tipoEgresoCodigoToLabel.get(tipo) || tipo) : 'SIN TIPO';
+        return {
+          fileName: r.fileName,
+          tipoEgreso: tipo,
+          tipoEgresoLabel: tipoLabel,
+          factura,
+        };
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'XML inválido';
+      showToast(`No se pudo exportar: ${msg}`, 'error');
+      return;
+    }
 
     type TaxKey = string;
     const toTaxKey = (codigo?: string, codigoTarifaIVA?: string): TaxKey => `${(codigo || '').trim()}|${(codigoTarifaIVA || '').trim()}`;
@@ -605,6 +737,7 @@ export default function XmlPage() {
     const header = [
       'Proveedor',
       'Correo',
+      'Tipo egreso',
       'Total venta',
       'Total descuentos',
       ...taxKeys.map((k) => taxKeyToLabel.get(k) || k),
@@ -649,11 +782,12 @@ export default function XmlPage() {
         return v && Math.abs(v) >= 1e-9 ? v : 0;
       });
 
-      rows.push([proveedor, correo, totalVenta, totalDescuentos, ...taxCells, otrosCargos, totalComprobante]);
+      rows.push([proveedor, correo, item.tipoEgresoLabel, totalVenta, totalDescuentos, ...taxCells, otrosCargos, totalComprobante]);
     }
 
     rows.push([
       'TOTAL',
+      '',
       '',
       sumTotalVenta,
       sumTotalDescuentos,
@@ -665,21 +799,67 @@ export default function XmlPage() {
     const date = new Date().toISOString().slice(0, 10);
     const fileName = `facturas_xml_${date}.xlsx`;
 
-    const XLSX = await import('xlsx');
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols'] = [
-      { wch: 34 },
-      { wch: 30 },
-      { wch: 16 },
-      { wch: 18 },
-      ...taxKeys.map(() => ({ wch: 22 })),
-      { wch: 16 },
-      { wch: 18 },
-    ];
-    XLSX.utils.book_append_sheet(wb, ws, 'Facturas');
-    XLSX.writeFile(wb, fileName);
-  }, [items]);
+    try {
+      const XLSX = await import('xlsx');
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      ws['!cols'] = [
+        { wch: 30 },
+        { wch: 34 },
+        { wch: 30 },
+        { wch: 16 },
+        { wch: 18 },
+        ...taxKeys.map(() => ({ wch: 22 })),
+        { wch: 16 },
+        { wch: 18 },
+      ];
+      XLSX.utils.book_append_sheet(wb, ws, 'Facturas');
+      XLSX.writeFile(wb, fileName);
+
+      await clearAll();
+      setXmlModalItemId(null);
+      setTipoEgresoQueryByItemId({});
+      setOpenTipoEgresoDropdownItemId(null);
+      showToast('Exportación exitosa. XML eliminados.', 'success');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error exportando a Excel';
+      showToast(msg, 'error');
+    }
+  }, [isReady, dbError, getAllFromDb, tipoEgresoCodigoToLabel, clearAll, showToast]);
+
+  const onExportExcel = useCallback(() => {
+    void (async () => {
+      if (!isReady) return;
+      if (dbError) {
+        showToast('No se puede exportar: error abriendo IndexedDB', 'error');
+        return;
+      }
+      if (files.length === 0) return;
+      if (confirmLoading) return;
+
+      setConfirmLoading(true);
+      try {
+        const records = (await getAllFromDb()) as XmlDbRecord[];
+        if (records.length === 0) {
+          showToast('No hay XML para exportar', 'warning');
+          return;
+        }
+
+        const missing = records.filter((r) => !(r.tipoEgreso || '').trim()).length;
+        if (missing > 0) {
+          pendingExportRecordsRef.current = records;
+          setExportMissingCount(missing);
+          setConfirmAction('export');
+          setConfirmOpen(true);
+          return;
+        }
+
+        await performExportExcel({ records, allowMissingTipo: false });
+      } finally {
+        setConfirmLoading(false);
+      }
+    })();
+  }, [isReady, dbError, files.length, confirmLoading, getAllFromDb, showToast, performExportExcel]);
 
   const onDrop = useCallback(
     async (e: React.DragEvent<HTMLDivElement>) => {
@@ -706,6 +886,59 @@ export default function XmlPage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
+      <ConfirmModal
+        open={confirmOpen}
+        title={
+          confirmAction === 'clear'
+            ? 'Limpiar XML'
+            : confirmAction === 'export'
+            ? 'Exportar a Excel'
+            : 'Confirmar acción'
+        }
+        message={
+          confirmAction === 'clear' ? (
+            <>
+              ¿Seguro que deseas limpiar todo? Se borrarán los XML persistidos (IndexedDB).
+            </>
+          ) : confirmAction === 'export' ? (
+            <>
+              Faltan tipos de egreso en {exportMissingCount} XML.{"\n"}
+              Si continúas, esos XML se exportarán como “SIN TIPO”.{"\n"}
+              Al realizar esta acción se limpiarán los XML.
+            </>
+          ) : (
+            <>¿Confirmas esta acción?</>
+          )
+        }
+        confirmText={confirmAction === 'clear' ? 'Sí, limpiar' : confirmAction === 'export' ? 'Exportar igualmente' : 'Confirmar'}
+        cancelText="Cancelar"
+        actionType={confirmAction === 'clear' ? 'delete' : confirmAction === 'export' ? 'change' : 'assign'}
+        loading={confirmLoading}
+        onCancel={closeConfirm}
+        onConfirm={() => {
+          void (async () => {
+            if (confirmLoading) return;
+            const action = confirmAction;
+            setConfirmLoading(true);
+            try {
+              if (action === 'clear') {
+                await performClearAll();
+              } else if (action === 'export') {
+                await performExportExcel({
+                  records: pendingExportRecordsRef.current ?? undefined,
+                  allowMissingTipo: true,
+                });
+              }
+            } finally {
+              setConfirmLoading(false);
+              setConfirmOpen(false);
+              setConfirmAction(null);
+              setExportMissingCount(0);
+              pendingExportRecordsRef.current = null;
+            }
+          })();
+        }}
+      />
       <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-lg shadow p-6">
         <div className="flex items-start gap-4">
           <div className="w-12 h-12 rounded-full bg-blue-500/15 flex items-center justify-center flex-shrink-0">
@@ -723,16 +956,17 @@ export default function XmlPage() {
                 <button
                   type="button"
                   onClick={onPickFiles}
+                  disabled={!isReady || Boolean(dbError)}
                   className="inline-flex items-center gap-2 px-4 py-2 rounded bg-[var(--primary)] text-white hover:bg-[var(--button-hover)] transition-colors"
                 >
                   <Upload className="w-4 h-4" />
-                  Seleccionar XML
+                  {pickFilesLabel}
                 </button>
 
                 <button
                   type="button"
                   onClick={onExportExcel}
-                  disabled={items.filter((i) => i.status === 'ok' && i.factura).length === 0}
+                  disabled={!isReady || Boolean(dbError) || files.length === 0 || confirmLoading}
                   className="inline-flex items-center gap-2 px-4 py-2 rounded bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50"
                   title="Exporta las facturas cargadas a Excel"
                 >
@@ -743,14 +977,26 @@ export default function XmlPage() {
                 <button
                   type="button"
                   onClick={onClear}
-                  disabled={items.length === 0}
+                  disabled={!isReady || Boolean(dbError) || files.length === 0 || confirmLoading}
                   className="inline-flex items-center gap-2 px-4 py-2 rounded border border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors disabled:opacity-50"
                 >
                   <Trash2 className="w-4 h-4" />
-                  Limpiar
+                  Limpiar todo
                 </button>
               </div>
             </div>
+
+            {dbError && (
+              <div className="mt-4 p-3 rounded border border-red-500/30 bg-red-500/10 text-red-700 text-sm">
+                Error abriendo IndexedDB: {dbError}
+              </div>
+            )}
+
+            {!dbError && !isReady && (
+              <div className="mt-4 p-3 rounded border border-blue-500/30 bg-blue-500/10 text-blue-700 text-sm">
+                Cargando XML persistidos…
+              </div>
+            )}
 
             <input
               ref={fileInputRef}
@@ -797,7 +1043,7 @@ export default function XmlPage() {
               <div className="flex items-center justify-center gap-3 text-center">
                 <Upload className="w-5 h-5 text-[var(--muted-foreground)]" />
                 <div className="text-sm text-[var(--muted-foreground)]">
-                  Arrastra y suelta archivos XML aquí, o usa “Seleccionar XML”.
+                  Arrastra y suelta archivos XML aquí, o usa “{pickFilesLabel}”.
                 </div>
               </div>
             </div>
@@ -811,6 +1057,7 @@ export default function XmlPage() {
             const f = item.factura;
             const total = f?.resumen?.totalComprobante;
             const moneda = f?.resumen?.moneda;
+            const tipoAsignado = (item.tipoEgreso || '').trim();
 
             return (
               <div
@@ -832,6 +1079,11 @@ export default function XmlPage() {
                       {item.status === 'ok' && (
                         <span className="inline-flex items-center text-xs px-2 py-0.5 rounded bg-green-500/15 text-green-700 border border-green-500/30">
                           OK
+                        </span>
+                      )}
+                      {!tipoAsignado && (
+                        <span className="inline-flex items-center text-xs px-2 py-0.5 rounded bg-red-500 text-black border border-red-500">
+                          Tipo pendiente
                         </span>
                       )}
                     </div>
@@ -872,7 +1124,7 @@ export default function XmlPage() {
                     <div className="relative w-72 sm:w-[28rem] max-w-[55vw]">
                       <input
                         value={(() => {
-                          const selectedCodigo = tipoEgresoByItemId[item.id] ?? '';
+                          const selectedCodigo = item.tipoEgreso ?? '';
                           const selectedLabel = selectedCodigo ? (tipoEgresoCodigoToLabel.get(selectedCodigo) || selectedCodigo) : '';
                           return tipoEgresoQueryByItemId[item.id] ?? selectedLabel;
                         })()}
@@ -884,7 +1136,7 @@ export default function XmlPage() {
                         onFocus={(e) => {
                           const inputEl = e.currentTarget;
                           setOpenTipoEgresoDropdownItemId(item.id);
-                          const selectedCodigo = tipoEgresoByItemId[item.id] ?? '';
+                          const selectedCodigo = item.tipoEgreso ?? '';
                           const selectedLabel = selectedCodigo ? (tipoEgresoCodigoToLabel.get(selectedCodigo) || selectedCodigo) : '';
                           setTipoEgresoQueryByItemId((prev) => ({ ...prev, [item.id]: prev[item.id] ?? selectedLabel }));
 
@@ -954,13 +1206,27 @@ export default function XmlPage() {
                                       key={`${t.value}|${t.label}`}
                                       className="p-2 hover:bg-blue-400/20 cursor-pointer transition-all duration-200 text-xs sm:text-sm"
                                       onMouseDown={() => {
-                                        setTipoEgresoByItemId((prev) => ({ ...prev, [item.id]: t.value }));
+                                        void (async () => {
+                                          try {
+                                            await setTipoEgreso(item.fileName, t.value ? t.value : null);
+                                          } catch (err) {
+                                            const msg = err instanceof Error ? err.message : 'Error guardando tipo de egreso';
+                                            showToast(msg, 'error');
+                                          }
+                                        })();
                                         setTipoEgresoQueryByItemId((prev) => ({ ...prev, [item.id]: t.value ? t.label : '' }));
                                         setOpenTipoEgresoDropdownItemId(null);
                                       }}
                                       onTouchEnd={(e) => {
                                         e.preventDefault();
-                                        setTipoEgresoByItemId((prev) => ({ ...prev, [item.id]: t.value }));
+                                        void (async () => {
+                                          try {
+                                            await setTipoEgreso(item.fileName, t.value ? t.value : null);
+                                          } catch (err) {
+                                            const msg = err instanceof Error ? err.message : 'Error guardando tipo de egreso';
+                                            showToast(msg, 'error');
+                                          }
+                                        })();
                                         setTipoEgresoQueryByItemId((prev) => ({ ...prev, [item.id]: t.value ? t.label : '' }));
                                         setOpenTipoEgresoDropdownItemId(null);
                                       }}
