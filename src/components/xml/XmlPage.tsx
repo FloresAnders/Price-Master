@@ -1048,6 +1048,11 @@ export default function XmlPage() {
       const ivaSumByCurrency = new Map<string, number>();
       const totalSumByCurrency = new Map<string, number>();
 
+      type TaxKey = string;
+      const toTaxKey = (codigo?: string, codigoTarifaIVA?: string): TaxKey => `${(codigo || '').trim()}|${(codigoTarifaIVA || '').trim()}`;
+      const ivaTaxKeyToLabel = new Map<TaxKey, string>();
+      const ivaSumsByTaxKey = new Map<TaxKey, Map<string, number>>();
+
       const body = okItems.map((item) => {
         const f = item.factura;
         const moneda = f.resumen?.moneda;
@@ -1059,12 +1064,51 @@ export default function XmlPage() {
         addToSum(ivaSumByCurrency, moneda, f.resumen?.totalImpuesto);
         addToSum(totalSumByCurrency, moneda, f.resumen?.totalComprobante);
 
+        // Resumen por tipo de IVA usando el desglose del XML
+        const desglose = f.resumen?.desgloseImpuesto || [];
+        for (const d of desglose) {
+          const monto = parseDecimal(d.totalMontoImpuesto);
+          if (monto === null) continue;
+          if (Math.abs(monto) < 1e-9) continue;
+
+          const key = toTaxKey(d.codigo, d.codigoTarifaIVA);
+          if (!ivaTaxKeyToLabel.has(key)) {
+            const impuesto = labelForImpuestoCodigo(d.codigo);
+            const tarifa = d.codigoTarifaIVA ? labelForCodigoTarifaIVA(d.codigoTarifaIVA) : '—';
+            ivaTaxKeyToLabel.set(key, `${impuesto} | ${tarifa}`);
+          }
+
+          const curr = (moneda || 'CRC').trim().toUpperCase() || 'CRC';
+          const byCurrency = ivaSumsByTaxKey.get(key) || new Map<string, number>();
+          byCurrency.set(curr, (byCurrency.get(curr) || 0) + monto);
+          ivaSumsByTaxKey.set(key, byCurrency);
+        }
+
         const iva = formatMoneyForPdf(f.resumen?.totalImpuesto, moneda);
         const descuento = formatMoneyForPdf(f.resumen?.totalDescuentos, moneda);
         const total = formatMoneyForPdf(f.resumen?.totalComprobante, moneda);
 
         return [fecha, numeroFactura, proveedor, iva, descuento, total, item.cuenta, item.tipoEgresoLabel];
       });
+
+      const summaryTitleRowIndex = body.length;
+
+      // Resumen por tipo de IVA (solo si hay desglose)
+      const ivaTaxKeys = Array.from(ivaTaxKeyToLabel.keys()).sort((a, b) => {
+        const la = ivaTaxKeyToLabel.get(a) || a;
+        const lb = ivaTaxKeyToLabel.get(b) || b;
+        return la.localeCompare(lb, 'es', { sensitivity: 'base' });
+      });
+
+      if (ivaTaxKeys.length > 0) {
+        body.push(['', '', 'Resumen de IVA', '', '', '', '', '']);
+        for (const k of ivaTaxKeys) {
+          const label = ivaTaxKeyToLabel.get(k) || k;
+          const sums = ivaSumsByTaxKey.get(k) || new Map<string, number>();
+          const amount = formatTotalsForPdf(sums);
+          body.push(['', '', label, amount, '', '', '', '']);
+        }
+      }
 
       // Fila final de totales (IVA y Total)
       body.push([
@@ -1097,6 +1141,11 @@ export default function XmlPage() {
           const rowIndex = data?.row?.index;
           const bodyLen = Array.isArray(body) ? body.length : 0;
           if (typeof rowIndex === 'number' && rowIndex === bodyLen - 1) {
+            data.cell.styles.fontStyle = 'bold';
+          }
+
+          // Resaltar título del resumen IVA si existe
+          if (typeof rowIndex === 'number' && rowIndex === summaryTitleRowIndex && ivaTaxKeyToLabel.size > 0) {
             data.cell.styles.fontStyle = 'bold';
           }
         },
