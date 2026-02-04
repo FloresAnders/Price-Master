@@ -992,8 +992,11 @@ export default function XmlPage() {
       rows.push([proveedor, correo, item.tipoEgresoLabel, item.cuenta, totalVenta, totalDescuentos, ...taxCells, otrosCargos, totalComprobante]);
     }
 
+    // Helper para crear filas vacías
+    const createEmptyRow = () => header.map(() => '');
+
     // Añadir totales por cuenta
-    rows.push(['', '', '', '', '', '', ...taxKeys.map(() => ''), '', '']);
+    rows.push(createEmptyRow());
     rows.push(['TOTALES POR CUENTA', '', '', '', '', '', ...taxKeys.map(() => ''), '', '']);
     
     const cuentaEntries = Array.from(sumByCuenta.entries()).sort((a, b) => a[0].localeCompare(b[0], 'es'));
@@ -1002,7 +1005,7 @@ export default function XmlPage() {
     }
 
     // Añadir totales por tipo de egreso
-    rows.push(['', '', '', '', '', '', ...taxKeys.map(() => ''), '', '']);
+    rows.push(createEmptyRow());
     rows.push(['TOTALES POR TIPO DE EGRESO', '', '', '', '', '', ...taxKeys.map(() => ''), '', '']);
     
     const tipoEgresoEntries = Array.from(sumByTipoEgreso.entries()).sort((a, b) => a[0].localeCompare(b[0], 'es'));
@@ -1011,7 +1014,7 @@ export default function XmlPage() {
     }
 
     // Añadir fila de TOTAL general
-    rows.push(['', '', '', '', '', '', ...taxKeys.map(() => ''), '', '']);
+    rows.push(createEmptyRow());
     rows.push([
       'TOTAL',
       '',
