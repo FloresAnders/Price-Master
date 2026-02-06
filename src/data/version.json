@@ -1,6 +1,11 @@
 {
-    "version": "1.3.43",
+    "version": "1.3.44",
     "releaseNotes": [
+        {
+            "date": "06 Feb 2026",
+            "title": "XML: Notas de crédito en exportación",
+            "description": "Las notas de crédito (NC) ahora se exportan con montos negativos (-) y se agregan totales separados (Facturas, NC y Neto)."
+        },
         {
             "date": "03 Feb 2026",
             "title": "XML: Añadido tipo de egreso",

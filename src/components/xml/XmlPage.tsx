@@ -83,6 +83,19 @@ type FacturaInfo = {
   resumen?: FacturaResumen;
 };
 
+function isNotaCreditoFactura(f: FacturaInfo | undefined | null): boolean {
+  const codigo = (f?.tipoComprobanteCodigo || '').trim();
+  return codigo === '03';
+}
+
+function getFacturaSign(f: FacturaInfo | undefined | null): 1 | -1 {
+  return isNotaCreditoFactura(f) ? -1 : 1;
+}
+
+function applySign(value: number, sign: 1 | -1): number {
+  return sign === -1 ? -value : value;
+}
+
 type ParsedXmlItem = {
   id: string;
   fileName: string;
@@ -947,22 +960,33 @@ export default function XmlPage() {
     let sumTotalDescuentos = 0;
     let sumOtrosCargos = 0;
     let sumTotalComprobante = 0;
+
+    let sumFacturasTotalComprobante = 0;
+    let sumNotasCreditoTotalComprobante = 0;
+
+    const sumFacturasByTaxKey = new Map<TaxKey, number>();
+    const sumNotasCreditoByTaxKey = new Map<TaxKey, number>();
     const sumByTaxKey = new Map<TaxKey, number>();
     const sumByTipoEgreso = new Map<string, number>();
 
     for (const item of okItems) {
       const f = item.factura!;
+      const sign = getFacturaSign(f);
+      const isNotaCredito = sign === -1;
       const proveedor = f.emisor?.nombre || '—';
       const correo = f.emisor?.correoElectronico || '—';
 
-      const totalVenta = parseDecimal(f.resumen?.totalVenta) || 0;
-      const totalDescuentos = parseDecimal(f.resumen?.totalDescuentos) || 0;
-      const otrosCargos = parseDecimal(f.resumen?.totalOtrosCargos) || 0;
-      const totalComprobante = parseDecimal(f.resumen?.totalComprobante) || 0;
+      const totalVenta = applySign(parseDecimal(f.resumen?.totalVenta) || 0, sign);
+      const totalDescuentos = applySign(parseDecimal(f.resumen?.totalDescuentos) || 0, sign);
+      const otrosCargos = applySign(parseDecimal(f.resumen?.totalOtrosCargos) || 0, sign);
+      const totalComprobante = applySign(parseDecimal(f.resumen?.totalComprobante) || 0, sign);
       sumTotalVenta += totalVenta;
       sumTotalDescuentos += totalDescuentos;
       sumOtrosCargos += otrosCargos;
       sumTotalComprobante += totalComprobante;
+
+      if (isNotaCredito) sumNotasCreditoTotalComprobante += totalComprobante;
+      else sumFacturasTotalComprobante += totalComprobante;
 
       // Acumular por tipo de egreso
       const tipoKey = item.tipoEgresoLabel;
@@ -975,8 +999,15 @@ export default function XmlPage() {
         if (monto === null) continue;
         if (Math.abs(monto) < 1e-9) continue;
         const key = toTaxKey(d.codigo, d.codigoTarifaIVA);
-        invoiceTaxSums.set(key, (invoiceTaxSums.get(key) || 0) + monto);
-        sumByTaxKey.set(key, (sumByTaxKey.get(key) || 0) + monto);
+        const signedMonto = applySign(monto, sign);
+        invoiceTaxSums.set(key, (invoiceTaxSums.get(key) || 0) + signedMonto);
+        sumByTaxKey.set(key, (sumByTaxKey.get(key) || 0) + signedMonto);
+
+        if (isNotaCredito) {
+          sumNotasCreditoByTaxKey.set(key, (sumNotasCreditoByTaxKey.get(key) || 0) + signedMonto);
+        } else {
+          sumFacturasByTaxKey.set(key, (sumFacturasByTaxKey.get(key) || 0) + signedMonto);
+        }
       }
 
       const taxCells = taxKeys.map((key) => {
@@ -1006,6 +1037,13 @@ export default function XmlPage() {
 
     // Añadir fila de TOTAL general
     rows.push(createEmptyRow());
+
+    // Totales separados: facturas vs notas de crédito (NC) y neto.
+    rows.push(['TOTAL FACTURAS', '', '', '', '', '', ...taxKeys.map((k) => sumFacturasByTaxKey.get(k) || 0), '', sumFacturasTotalComprobante]);
+    rows.push(['TOTAL NOTAS DE CRÉDITO (NC)', '', '', '', '', '', ...taxKeys.map((k) => sumNotasCreditoByTaxKey.get(k) || 0), '', sumNotasCreditoTotalComprobante]);
+    rows.push(['TOTAL NETO (Facturas - NC)', '', '', '', '', '', ...taxKeys.map((k) => sumByTaxKey.get(k) || 0), '', sumTotalComprobante]);
+    rows.push(createEmptyRow());
+
     rows.push([
       'TOTAL',
       '',
@@ -1161,11 +1199,11 @@ export default function XmlPage() {
         return `${base} ${code}`;
       };
 
-      const addToSum = (map: Map<string, number>, currencyCode: string | undefined, raw?: string) => {
+      const addToSum = (map: Map<string, number>, currencyCode: string | undefined, raw: string | undefined, sign: 1 | -1) => {
         const n = parseDecimal(raw);
         if (n === null) return;
         const code = (currencyCode || 'CRC').trim().toUpperCase() || 'CRC';
-        map.set(code, (map.get(code) || 0) + n);
+        map.set(code, (map.get(code) || 0) + applySign(n, sign));
       };
 
       const formatTotalsForPdf = (map: Map<string, number>): string => {
@@ -1189,6 +1227,11 @@ export default function XmlPage() {
 
       const ivaSumByCurrency = new Map<string, number>();
       const totalSumByCurrency = new Map<string, number>();
+
+      const ivaFacturasSumByCurrency = new Map<string, number>();
+      const ivaNotasCreditoSumByCurrency = new Map<string, number>();
+      const totalFacturasSumByCurrency = new Map<string, number>();
+      const totalNotasCreditoSumByCurrency = new Map<string, number>();
       const sumByTipoEgreso = new Map<string, Map<string, number>>();
 
       type TaxKey = string;
@@ -1199,18 +1242,28 @@ export default function XmlPage() {
       const body = okItems.map((item) => {
         const f = item.factura;
         const moneda = f.resumen?.moneda;
+        const sign = getFacturaSign(f);
+        const isNotaCredito = sign === -1;
         const consecutivo = (f.numeroConsecutivo || '').trim();
         const numeroFactura = consecutivo ? `${consecutivo}` : '—';
         const proveedor = (f.emisor?.nombre || '').trim() || '—';
         const fecha = formatSimpleDate(f.fechaEmision);
 
-        addToSum(ivaSumByCurrency, moneda, f.resumen?.totalImpuesto);
-        addToSum(totalSumByCurrency, moneda, f.resumen?.totalComprobante);
+        addToSum(ivaSumByCurrency, moneda, f.resumen?.totalImpuesto, sign);
+        addToSum(totalSumByCurrency, moneda, f.resumen?.totalComprobante, sign);
+
+        if (isNotaCredito) {
+          addToSum(ivaNotasCreditoSumByCurrency, moneda, f.resumen?.totalImpuesto, sign);
+          addToSum(totalNotasCreditoSumByCurrency, moneda, f.resumen?.totalComprobante, sign);
+        } else {
+          addToSum(ivaFacturasSumByCurrency, moneda, f.resumen?.totalImpuesto, sign);
+          addToSum(totalFacturasSumByCurrency, moneda, f.resumen?.totalComprobante, sign);
+        }
 
         // Acumular por tipo de egreso
         const tipoKey = item.tipoEgresoLabel;
         const tipoMap = sumByTipoEgreso.get(tipoKey) || new Map<string, number>();
-        addToSum(tipoMap, moneda, f.resumen?.totalComprobante);
+        addToSum(tipoMap, moneda, f.resumen?.totalComprobante, sign);
         sumByTipoEgreso.set(tipoKey, tipoMap);
 
         // Resumen por tipo de IVA usando el desglose del XML
@@ -1229,13 +1282,13 @@ export default function XmlPage() {
 
           const curr = (moneda || 'CRC').trim().toUpperCase() || 'CRC';
           const byCurrency = ivaSumsByTaxKey.get(key) || new Map<string, number>();
-          byCurrency.set(curr, (byCurrency.get(curr) || 0) + monto);
+          byCurrency.set(curr, (byCurrency.get(curr) || 0) + applySign(monto, sign));
           ivaSumsByTaxKey.set(key, byCurrency);
         }
 
-        const iva = formatMoneyForPdf(f.resumen?.totalImpuesto, moneda);
-        const descuento = formatMoneyForPdf(f.resumen?.totalDescuentos, moneda);
-        const total = formatMoneyForPdf(f.resumen?.totalComprobante, moneda);
+        const iva = formatMoneyForPdf(String(applySign(parseDecimal(f.resumen?.totalImpuesto) || 0, sign)), moneda);
+        const descuento = formatMoneyForPdf(String(applySign(parseDecimal(f.resumen?.totalDescuentos) || 0, sign)), moneda);
+        const total = formatMoneyForPdf(String(applySign(parseDecimal(f.resumen?.totalComprobante) || 0, sign)), moneda);
 
         return [fecha, numeroFactura, proveedor, iva, descuento, total, item.cuenta, item.tipoEgresoLabel];
       });
@@ -1285,6 +1338,14 @@ export default function XmlPage() {
         body.push(['', '', tipoEgreso, '', '', amount, '', '']);
       }
 
+      // Totales separados Facturas / NC / Neto
+      body.push(['', '', '', '', '', '', '', '']);
+      const splitTotalsTitleRowIndex = body.length;
+      body.push(['', '', 'TOTALES (FACTURAS / NOTAS DE CRÉDITO / NETO)', '', '', '', '', '']);
+      body.push(['', '', 'TOTAL FACTURAS', formatTotalsForPdf(ivaFacturasSumByCurrency), '', formatTotalsForPdf(totalFacturasSumByCurrency), '', '']);
+      body.push(['', '', 'TOTAL NOTAS DE CRÉDITO (NC)', formatTotalsForPdf(ivaNotasCreditoSumByCurrency), '', formatTotalsForPdf(totalNotasCreditoSumByCurrency), '', '']);
+      body.push(['', '', 'TOTAL NETO (Facturas - NC)', formatTotalsForPdf(ivaSumByCurrency), '', formatTotalsForPdf(totalSumByCurrency), '', '']);
+
       // Fila final de totales (IVA y Total)
       body.push(['', '', '', '', '', '', '', '']);
       body.push([
@@ -1327,6 +1388,11 @@ export default function XmlPage() {
 
           // Resaltar título de totales por tipo de egreso
           if (typeof rowIndex === 'number' && rowIndex === tipoEgresoTitleRowIndex) {
+            data.cell.styles.fontStyle = 'bold';
+          }
+
+          // Resaltar título de totales separados
+          if (typeof rowIndex === 'number' && rowIndex === splitTotalsTitleRowIndex) {
             data.cell.styles.fontStyle = 'bold';
           }
         },
