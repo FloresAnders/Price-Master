@@ -7324,6 +7324,7 @@ export function FondoSection({
                                 key={key}
                                 type="button"
                                 onClick={() => {
+                                  setQuickRange(null);
                                   setFromFilter(key);
                                   setCalendarFromOpen(false);
                                   setPageSize("all");
@@ -7357,6 +7358,7 @@ export function FondoSection({
                         type="button"
                         onClick={() => {
                           const todayKey = dateKeyFromDate(new Date());
+                          setQuickRange(null);
                           setFromFilter(todayKey);
                           setCalendarFromOpen(false);
                         }}
@@ -7468,6 +7470,7 @@ export function FondoSection({
                                 key={key}
                                 type="button"
                                 onClick={() => {
+                                  setQuickRange(null);
                                   setToFilter(key);
                                   setCalendarToOpen(false);
                                   setPageSize("all");
@@ -7501,6 +7504,7 @@ export function FondoSection({
                         type="button"
                         onClick={() => {
                           const todayKey = dateKeyFromDate(new Date());
+                          setQuickRange(null);
                           setToFilter(todayKey);
                           setCalendarToOpen(false);
                         }}
