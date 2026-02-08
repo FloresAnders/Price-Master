@@ -2905,6 +2905,22 @@ export function FondoSection({
   const [hydratedCompany, setHydratedCompany] = useState("");
   const [hydratedAccountKey, setHydratedAccountKey] =
     useState<MovementAccountKey>(accountKey);
+  const [movementsLoading, setMovementsLoading] = useState(false);
+  const movementsLoadingCountRef = useRef(0);
+  const beginMovementsLoading = useCallback(() => {
+    movementsLoadingCountRef.current += 1;
+    setMovementsLoading(true);
+  }, []);
+  const endMovementsLoading = useCallback(() => {
+    movementsLoadingCountRef.current = Math.max(
+      0,
+      movementsLoadingCountRef.current - 1
+    );
+    if (!isComponentMountedRef.current) return;
+    if (movementsLoadingCountRef.current === 0) {
+      setMovementsLoading(false);
+    }
+  }, []);
   const [currencyEnabled, setCurrencyEnabled] = useState<
     Record<MovementCurrencyKey, boolean>
   >({
@@ -3083,6 +3099,7 @@ export function FondoSection({
 
       cached.loading = true;
       v2MovementsCacheRef.current[docKey] = cached;
+      beginMovementsLoading();
 
       try {
         // Safety cap: never loop forever.
@@ -3117,11 +3134,12 @@ export function FondoSection({
       } finally {
         cached.loading = false;
         v2MovementsCacheRef.current[docKey] = cached;
+        endMovementsLoading();
       }
 
       rebuildEntriesFromV2Cache(docKey, targetAccountKey);
     },
-    [rebuildEntriesFromV2Cache]
+    [rebuildEntriesFromV2Cache, beginMovementsLoading, endMovementsLoading]
   );
 
   useEffect(() => {
@@ -3557,6 +3575,7 @@ export function FondoSection({
     };
 
     const loadEntries = async () => {
+      beginMovementsLoading();
       try {
         const legacyOwnerKey = resolvedOwnerId
           ? MovimientosFondosService.buildLegacyOwnerMovementsKey(
@@ -3918,6 +3937,7 @@ export function FondoSection({
           setHydratedCompany(normalizedCompany);
           setHydratedAccountKey(accountKeyRef.current);
           setEntriesHydrated(true);
+          endMovementsLoading();
         }
       }
     };
@@ -3927,7 +3947,7 @@ export function FondoSection({
     return () => {
       isMounted = false;
     };
-  }, [namespace, resolvedOwnerId, company, applyLedgerStateFromStorage]);
+  }, [namespace, resolvedOwnerId, company, applyLedgerStateFromStorage, beginMovementsLoading, endMovementsLoading]);
 
   // When switching tabs, do not reload from Firestore: just filter cached v2 movements in-memory.
   useEffect(() => {
@@ -6799,6 +6819,10 @@ export function FondoSection({
   const closingsAreLoading =
     accountKey === "FondoGeneral" &&
     (!dailyClosingsHydrated || dailyClosingsRefreshing);
+
+  const isFondoMovementsLoading = useMemo(() => {
+    return Boolean(company) && (!entriesHydrated || movementsLoading);
+  }, [company, entriesHydrated, movementsLoading]);
   const visibleDailyClosings = useMemo(() => {
     if (accountKey !== "FondoGeneral") return [] as DailyClosingRecord[];
     if (!dailyClosingsHydrated) return [] as DailyClosingRecord[];
@@ -7837,9 +7861,16 @@ export function FondoSection({
           Movimientos recientes
         </h3>
         {fondoEntries.length === 0 ? (
-          <p className="text-xs sm:text-sm text-[var(--muted-foreground)] text-center py-4">
-            No hay movimientos aun.
-          </p>
+          isFondoMovementsLoading ? (
+            <div className="flex flex-col items-center justify-center py-6 text-[var(--muted-foreground)]">
+              <div className="h-6 w-6 rounded-full border-2 border-[var(--muted-foreground)] border-t-transparent animate-spin" />
+              <p className="mt-2 text-xs sm:text-sm">Cargando movimientos...</p>
+            </div>
+          ) : (
+            <p className="text-xs sm:text-sm text-[var(--muted-foreground)] text-center py-4">
+              No hay movimientos aun.
+            </p>
+          )
         ) : (
           <div className="overflow-x-auto rounded border border-[var(--input-border)] bg-[#1f262a] text-white">
             <div className="px-2 sm:px-3 py-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0 bg-transparent text-xs sm:text-sm text-[var(--muted-foreground)]">
@@ -7867,6 +7898,12 @@ export function FondoSection({
                   <option value="15">15</option>
                   <option value="all">Todos</option>
                 </select>
+                {isFondoMovementsLoading && (
+                  <span className="ml-2 inline-flex items-center gap-2 text-[10px] sm:text-xs text-[var(--muted-foreground)]">
+                    <span className="h-3.5 w-3.5 rounded-full border-2 border-[var(--muted-foreground)] border-t-transparent animate-spin" />
+                    Cargando...
+                  </span>
+                )}
               </div>
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 text-[var(--muted-foreground)]">
