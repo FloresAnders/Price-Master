@@ -2612,6 +2612,7 @@ export function FondoSection({
   }, [allowedOwnerIds, primaryOwnerId]);
   const isAdminUser = user?.role === "admin";
   const isSuperAdminUser = user?.role === "superadmin";
+  const [superAdminTotalsOpen, setSuperAdminTotalsOpen] = useState(false);
   const canSelectCompany = isAdminUser || isSuperAdminUser;
   const [adminCompany, setAdminCompany] = useState(() => {
     if (typeof window === "undefined") return assignedCompany;
@@ -6846,6 +6847,20 @@ export function FondoSection({
     searchQuery,
   ]);
 
+  const isSingleDayFilter = useMemo(() => {
+    return Boolean(fromFilter && toFilter && fromFilter === toFilter);
+  }, [fromFilter, toFilter]);
+
+  // Keep superadmin totals collapsed by default per-day.
+  useEffect(() => {
+    if (!isSuperAdminUser) return;
+    if (!isSingleDayFilter) {
+      setSuperAdminTotalsOpen(false);
+      return;
+    }
+    setSuperAdminTotalsOpen(false);
+  }, [isSuperAdminUser, isSingleDayFilter, fromFilter]);
+
   const totalsByCurrency = useMemo(() => {
     const acc: Record<"CRC" | "USD", { ingreso: number; egreso: number }> = {
       CRC: { ingreso: 0, egreso: 0 },
@@ -8463,66 +8478,89 @@ export function FondoSection({
       </div>
 
       {/* Totals for the current search / filters */}
-      {isFilterActive && filteredEntries.length > 0 && (
+      {isSingleDayFilter && filteredEntries.length > 0 && (isAdminUser || isSuperAdminUser) && (
         <div className="mt-4">
           <div className="flex justify-center">
             <div className="w-full max-w-2xl">
               <div className="px-4 py-3 rounded min-w-[220px] fg-balance-card">
-                <div className="mb-2 text-center font-semibold text-sm text-[var(--muted-foreground)]">
-                  Totales (según búsqueda)
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {(["CRC", "USD"] as ("CRC" | "USD")[]).map((currency) => {
-                    const ingreso = totalsByCurrency[currency].ingreso;
-                    const egreso = totalsByCurrency[currency].egreso;
-                    const neto = ingreso - egreso;
-                    return (
-                      <div
-                        key={currency}
-                        className="rounded border border-[var(--input-border)] bg-[var(--card-bg)] p-3"
-                      >
-                        <div className="text-xs uppercase tracking-wide">
-                          {currency === "CRC" ? "Colones" : "Dólares"}
-                        </div>
-                        <div className="mt-2 text-[var(--foreground)]">
-                          <div className="flex items-center gap-2">
-                            <ArrowDownRight className="w-4 h-4 text-green-500" />
-                            <div>
-                              Ingresos:{" "}
-                              <span className="font-semibold text-green-500">
-                                {formatByCurrency(currency, ingreso)}
-                              </span>
+                {isSuperAdminUser ? (
+                  <button
+                    type="button"
+                    onClick={() => setSuperAdminTotalsOpen((p) => !p)}
+                    className="w-full flex items-center justify-between gap-3"
+                    aria-expanded={superAdminTotalsOpen}
+                  >
+                    <div className="text-center font-semibold text-sm text-[var(--muted-foreground)] flex-1">
+                      Total del día
+                    </div>
+                    {superAdminTotalsOpen ? (
+                      <ChevronUp className="w-4 h-4 text-[var(--muted-foreground)]" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-[var(--muted-foreground)]" />
+                    )}
+                  </button>
+                ) : (
+                  <div className="mb-2 text-center font-semibold text-sm text-[var(--muted-foreground)]">
+                    Total del día
+                  </div>
+                )}
+
+                {(!isSuperAdminUser || superAdminTotalsOpen) && (
+                  <div className={isSuperAdminUser ? "mt-3" : ""}>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {(["CRC", "USD"] as ("CRC" | "USD")[]).map((currency) => {
+                        const ingreso = totalsByCurrency[currency].ingreso;
+                        const egreso = totalsByCurrency[currency].egreso;
+                        const neto = ingreso - egreso;
+                        return (
+                          <div
+                            key={currency}
+                            className="rounded border border-[var(--input-border)] bg-[var(--card-bg)] p-3"
+                          >
+                            <div className="text-xs uppercase tracking-wide">
+                              {currency === "CRC" ? "Colones" : "Dólares"}
+                            </div>
+                            <div className="mt-2 text-[var(--foreground)]">
+                              <div className="flex items-center gap-2">
+                                <ArrowDownRight className="w-4 h-4 text-green-500" />
+                                <div>
+                                  Entradas:{" "}
+                                  <span className="font-semibold text-green-500">
+                                    {formatByCurrency(currency, ingreso)}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 mt-1">
+                                <ArrowUpRight className="w-4 h-4 text-red-500" />
+                                <div>
+                                  Salidas:{" "}
+                                  <span className="font-semibold text-red-500">
+                                    {formatByCurrency(currency, egreso)}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="pt-2">
+                                <div>
+                                  Neto:{" "}
+                                  <span
+                                    className={`font-semibold ${neto > 0
+                                      ? "text-green-500"
+                                      : neto < 0
+                                        ? "text-red-500"
+                                        : ""
+                                      }`}
+                                  >
+                                    {formatByCurrency(currency, neto)}
+                                  </span>
+                                </div>
+                              </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 mt-1">
-                            <ArrowUpRight className="w-4 h-4 text-red-500" />
-                            <div>
-                              Egresos:{" "}
-                              <span className="font-semibold text-red-500">
-                                {formatByCurrency(currency, egreso)}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="pt-2">
-                            <div>
-                              Neto:{" "}
-                              <span
-                                className={`font-semibold ${neto > 0
-                                  ? "text-green-500"
-                                  : neto < 0
-                                    ? "text-red-500"
-                                    : ""
-                                  }`}
-                              >
-                                {formatByCurrency(currency, neto)}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
