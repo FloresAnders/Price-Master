@@ -3146,14 +3146,14 @@ export function FondoSection({
   const [fromFilter, setFromFilter] = useState<string | null>(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("fondogeneral-fromFilter");
-      return saved !== null ? saved : null;
+      return saved ? saved : null;
     }
     return null;
   });
   const [toFilter, setToFilter] = useState<string | null>(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("fondogeneral-toFilter");
-      return saved !== null ? saved : null;
+      return saved ? saved : null;
     }
     return null;
   });
@@ -7203,14 +7203,24 @@ export function FondoSection({
               <button
                 type="button"
                 onClick={() => {
-                  const todayKey = dateKeyFromDate(new Date());
                   setFilterProviderCode("all");
                   setFilterPaymentType("all");
                   setFilterEditedOnly(false);
                   setSearchQuery("");
-                  setFromFilter(todayKey);
-                  setToFilter(todayKey);
-                  setQuickRange("today");
+                  setFromFilter(null);
+                  setToFilter(null);
+                  setQuickRange(null);
+
+                  setCalendarFromOpen(false);
+                  setCalendarToOpen(false);
+                  const m = new Date();
+                  m.setDate(1);
+                  m.setHours(0, 0, 0, 0);
+                  setCalendarFromMonth(new Date(m));
+                  setCalendarToMonth(new Date(m));
+
+                  setPageSize("daily");
+                  setPageIndex(0);
                 }}
                 className="self-start sm:self-center px-2.5 sm:px-3 py-1 text-[10px] sm:text-xs font-semibold uppercase tracking-wide border border-[var(--input-border)] rounded hover:bg-[var(--muted)] transition-colors"
                 title="Limpiar filtros"
