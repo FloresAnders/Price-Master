@@ -26,6 +26,29 @@ function normalizeStr(value: unknown) {
   return String(value ?? '').trim().toLowerCase();
 }
 
+function formatLocalISODate(d: Date = new Date()): string {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${dd}/${mm}/${yyyy}`;
+}
+function formatYMDToDMY(value: string): string {
+  const s = String(value || '').trim();
+  // Esperado: YYYY-MM-DD
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (!m) return s; // si viene en otro formato, lo mostramos tal cual
+  const [, yyyy, mm, dd] = m;
+  return `${dd}/${mm}/${yyyy}`;
+}
+function getDisplayedIngresoDate(e: Partial<Empleado> | undefined): string {
+  const useDynamicIngresoDate = !Boolean(e?.incluidoCCSS) && !Boolean(e?.incluidoINS);
+  if (useDynamicIngresoDate) return formatLocalISODate();
+
+  const dia = String(e?.diaContratacion || '').trim();
+  if (!dia) return '—';
+  return formatYMDToDMY(dia);
+}
+
 function getEmpresaKey(e: Partial<Empresas>) {
   const id = String(e.id ?? '').trim();
   const ubic = String(e.ubicacion ?? '').trim();
@@ -56,7 +79,7 @@ function sortEmpleados(list: EmpresaEmpleado[]) {
 
 function isEmpleadoDetailsComplete(e: Partial<Empleado>) {
   const pagoOk = typeof e.pagoHoraBruta === 'number' && Number.isFinite(e.pagoHoraBruta);
-  const sinSeguros = e.incluidoCCSS === false && e.incluidoINS === false;
+  const sinSeguros = !Boolean(e.incluidoCCSS) && !Boolean(e.incluidoINS);
   const diaOk = String(e.diaContratacion || '').trim().length > 0 || sinSeguros;
   const horasOk = typeof e.cantidadHorasTrabaja === 'number' && Number.isFinite(e.cantidadHorasTrabaja);
   const stringsOk = [
@@ -465,14 +488,12 @@ export default function EmpleadosProximamente() {
                           <div className="mt-1 text-xs text-[var(--muted-foreground)]">
                             CCSS: {ccss} ·{' '}
                             {horasDoc !== undefined ? (
-                              <>Horas: {horasDoc}</>
+                              <>Horas: {horasDoc} ·{' '}</>
                             ) : (
-                              <>Horas/turno: {horasEmb !== undefined ? horasEmb : '—'}</>
+                              <>Horas/turno: {horasEmb !== undefined ? horasEmb : '—'} ·{' '}</>
                             )}
+                            Fecha Ingreso: {getDisplayedIngresoDate(modalEmp)}
                           </div>
-                          {emb && Number(emb.extraAmount || 0) !== 0 && (
-                            <div className="mt-1 text-xs text-[var(--muted-foreground)]">Extra: {Number(emb.extraAmount)}</div>
-                          )}
                           <div className="mt-1 text-xs">
                             <span className={complete ? 'text-green-600' : 'text-yellow-600'}>
                               {complete ? 'Ficha completa' : 'Ficha incompleta'}
