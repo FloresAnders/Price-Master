@@ -5,6 +5,27 @@ import { Plus, Save, Trash2, X } from 'lucide-react';
 import type { Empleado } from '../../types/firestore';
 import useToast from '../../hooks/useToast';
 
+type CcssType = Empleado['ccssType'];
+
+const CCSS_WEEKLY_HOURS: Record<CcssType, number> = {
+  TC: 48,
+  MT: 24,
+  PH: 8,
+};
+
+function isCcssType(v: unknown): v is CcssType {
+  return v === 'TC' || v === 'MT' || v === 'PH';
+}
+
+function inferCcssTypeFromHours(hours: unknown): CcssType | undefined {
+  const n = typeof hours === 'number' ? hours : Number(hours);
+  if (!Number.isFinite(n)) return undefined;
+  if (n === 48) return 'TC';
+  if (n === 24) return 'MT';
+  if (n === 8) return 'PH';
+  return undefined;
+}
+
 type ExtraQA = { pregunta: string; respuesta: string };
 
 interface AutoResizeTextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
@@ -101,6 +122,7 @@ export default function EmpleadoDetailsModal({
   const [diaContratacion, setDiaContratacion] = useState<string>('');
   const [paganAguinaldo, setPaganAguinaldo] = useState<string>('');
   const [cantidadHorasTrabaja, setCantidadHorasTrabaja] = useState<string>('');
+  const [ccssType, setCcssType] = useState<CcssType>('TC');
   const [danReciboPago, setDanReciboPago] = useState<string>('');
   const [contratoFisico, setContratoFisico] = useState<string>('');
   const [espacioComida, setEspacioComida] = useState<string>('');
@@ -118,10 +140,17 @@ export default function EmpleadoDetailsModal({
     if (!isOpen) return;
     setError('');
 
+    const initialType = (() => {
+      if (isCcssType(empleado?.ccssType)) return empleado!.ccssType;
+      const inferred = inferCcssTypeFromHours(empleado?.cantidadHorasTrabaja);
+      return inferred || 'TC';
+    })();
+
     setPagoHoraBruta(empleado?.pagoHoraBruta !== undefined ? String(empleado.pagoHoraBruta) : '');
     setDiaContratacion(String(empleado?.diaContratacion || ''));
     setPaganAguinaldo(normalizeYesNo(String(empleado?.paganAguinaldo || '')));
-    setCantidadHorasTrabaja(empleado?.cantidadHorasTrabaja !== undefined ? String(empleado.cantidadHorasTrabaja) : '');
+    setCcssType(initialType);
+    setCantidadHorasTrabaja(String(CCSS_WEEKLY_HOURS[initialType]));
     setDanReciboPago(normalizeYesNo(String(empleado?.danReciboPago || '')));
     setContratoFisico(normalizeYesNo(String(empleado?.contratoFisico || '')));
     setEspacioComida(normalizeYesNo(String(empleado?.espacioComida || '')));
@@ -146,9 +175,7 @@ export default function EmpleadoDetailsModal({
 
     if (!String(paganAguinaldo || '').trim()) return { ok: false, msg: 'Pagan aguinaldo es obligatorio.' };
 
-    const horas = asNumberOrUndefined(cantidadHorasTrabaja);
-    if (horas === undefined) return { ok: false, msg: 'Cantidad de horas que trabaja es obligatorio.' };
-    if (horas < 0) return { ok: false, msg: 'Cantidad de horas no puede ser negativo.' };
+  if (!isCcssType(ccssType)) return { ok: false, msg: 'Tipo de jornada (TC/MT/PH) es obligatorio.' };
 
     if (!String(danReciboPago || '').trim()) return { ok: false, msg: 'Le dan recibo de pago es obligatorio.' };
     if (!String(contratoFisico || '').trim()) return { ok: false, msg: 'Contrato físico es obligatorio.' };
@@ -181,7 +208,8 @@ export default function EmpleadoDetailsModal({
       pagoHoraBruta: asNumberOrUndefined(pagoHoraBruta),
       diaContratacion: diaFinal,
       paganAguinaldo: normalizeYesNo(paganAguinaldo),
-      cantidadHorasTrabaja: asNumberOrUndefined(cantidadHorasTrabaja),
+      ccssType,
+      cantidadHorasTrabaja: CCSS_WEEKLY_HOURS[ccssType],
       danReciboPago: normalizeYesNo(danReciboPago),
       contratoFisico: normalizeYesNo(contratoFisico),
       espacioComida: normalizeYesNo(espacioComida),
@@ -279,17 +307,29 @@ export default function EmpleadoDetailsModal({
 
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-[var(--foreground)] mb-1">
-                Cantidad de horas que trabaja a la semana?<RequiredMark show={!readOnly} isEmpty={!cantidadHorasTrabaja.trim()} />
+                Cantidad de horas que trabaja a la semana?<RequiredMark show={!readOnly} isEmpty={!String(ccssType || '').trim()} />
               </label>
-              <input
-                type="number"
-                step="0.25"
-                value={cantidadHorasTrabaja}
-                onChange={(e) => setCantidadHorasTrabaja(e.target.value)}
-                disabled={readOnly}
-                className="w-full px-3 py-2 rounded-md bg-[var(--card-bg)] border border-[var(--input-border)] text-[var(--foreground)]"
-                placeholder="Ej: 48"
-              />
+              {readOnly ? (
+                <div className="w-full px-3 py-2 rounded-md bg-[var(--card-bg)] border border-[var(--input-border)] text-[var(--muted-foreground)] text-sm">
+                  {ccssType} ({CCSS_WEEKLY_HOURS[ccssType]} horas)
+                </div>
+              ) : (
+                <select
+                  value={ccssType}
+                  onChange={(e) => {
+                    const next = e.target.value as CcssType;
+                    if (!isCcssType(next)) return;
+                    setCcssType(next);
+                    setCantidadHorasTrabaja(String(CCSS_WEEKLY_HOURS[next]));
+                  }}
+                  disabled={readOnly}
+                  className="w-full px-3 py-2 rounded-md bg-[var(--card-bg)] border border-[var(--input-border)] text-[var(--foreground)]"
+                >
+                  <option value="TC">TC (48 horas)</option>
+                  <option value="MT">MT (24 horas)</option>
+                  <option value="PH">PH (8 horas)</option>
+                </select>
+              )}
             </div>
 
             <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3">

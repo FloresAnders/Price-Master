@@ -327,7 +327,7 @@ export default function EmpleadosProximamente() {
               ...patch,
               empresaId,
               Empleado: String(modalEmpleado.Empleado || '').trim(),
-              ccssType: (modalEmpleado.ccssType === 'MT' ? 'MT' : 'TC'),
+              ccssType: patch.ccssType || modalEmpleado.ccssType || 'TC',
             });
           }
 

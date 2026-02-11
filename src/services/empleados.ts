@@ -62,7 +62,9 @@ export class EmpleadosService {
     const obj = (raw && typeof raw === 'object') ? (raw as Record<string, unknown>) : {};
     const nombre = String((obj as any).Empleado ?? (obj as any).name ?? '').trim();
     const ccssRaw = String((obj as any).ccssType ?? '').trim();
-    const ccssType: 'TC' | 'MT' = (ccssRaw === 'MT' || ccssRaw === 'TC') ? (ccssRaw as 'TC' | 'MT') : 'TC';
+    const ccssType: 'TC' | 'MT' | 'PH' = (ccssRaw === 'MT' || ccssRaw === 'TC' || ccssRaw === 'PH')
+      ? (ccssRaw as 'TC' | 'MT' | 'PH')
+      : 'TC';
     return {
       empresaId,
       Empleado: nombre,
@@ -198,7 +200,8 @@ export class EmpleadosService {
       updateData.Empleado = String(updateData.Empleado || '').trim();
     }
     if (updateData.ccssType !== undefined) {
-      updateData.ccssType = updateData.ccssType === 'MT' ? 'MT' : 'TC';
+      const raw = String(updateData.ccssType || '').trim();
+      updateData.ccssType = (raw === 'MT' || raw === 'PH' || raw === 'TC') ? (raw as 'TC' | 'MT' | 'PH') : 'TC';
     }
 
     await FirestoreService.update(this.COLLECTION_NAME, docId, updateData);

@@ -30,7 +30,7 @@ export interface Empleado {
   ownerId?: string;
   // Nombre del empleado
   Empleado: string;
-  ccssType: 'TC' | 'MT';
+  ccssType: 'TC' | 'MT' | 'PH'; // Tipo de cotización en CCSS (Tiempo Completo, Medio Tiempo, Pago por Hora)
 
   // --- Datos adicionales (sección Empleados) ---
   // 1) Pago de hora en bruto
