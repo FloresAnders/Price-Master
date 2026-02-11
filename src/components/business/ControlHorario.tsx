@@ -267,14 +267,20 @@ export default function ControlHorario({
   const [scheduleData, setScheduleData] = useState<ScheduleData>({});
   const [incompletePastDaysSignature, setIncompletePastDaysSignature] =
     useState<string>("");
-  const [viewMode, setViewMode] = useState<"first" | "second">("first");
+  const [viewMode, setViewMode] = useState<"first" | "second">(() => {
+    const today = new Date();
+    return today.getDate() > 15 ? "second" : "first";
+  });
   const [saving, setSaving] = useState(false);
   const { showToast } = useToast();
   const [selectedEmployee, setSelectedEmployee] = useState<string>("Todos");
   const [selectedPeriod, setSelectedPeriod] = useState<
     "1-15" | "16-30" | "monthly"
-  >("1-15");
-  const [fullMonthView, setFullMonthView] = useState(false);
+  >(() => {
+    const today = new Date();
+    return today.getDate() > 15 ? "16-30" : "1-15";
+  });
+  const [fullMonthView, setFullMonthView] = useState<boolean>(false);
   const [showEmployeeSummary, setShowEmployeeSummary] = useState<string | null>(
     null
   );
@@ -314,6 +320,7 @@ export default function ControlHorario({
   // useRef hooks
   const autoQuincenaRef = React.useRef<boolean>(false);
   const incompleteDaysToastTimerRef = React.useRef<number | null>(null);
+  const scheduleLoadInFlightKeyRef = React.useRef<string | null>(null);
 
   // notifications handled globally via ToastProvider (showToast)
 
@@ -468,7 +475,7 @@ export default function ControlHorario({
     };
 
     loadData();
-  }, [user, assignedEmpresa, empresa]);
+  }, [user, assignedEmpresa]);
 
   // Efecto principal para manejar la empresa del usuario
   useEffect(() => {
@@ -518,6 +525,21 @@ export default function ControlHorario({
       if (!empresa || !empresas.find((l) => l.value === empresa)?.names?.length)
         return;
 
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+      // Determinar rango a consultar (quincena por defecto, mes completo solo si se selecciona)
+      const isMonthly = fullMonthView || selectedPeriod === "monthly";
+      const startDay = isMonthly ? 1 : selectedPeriod === "1-15" ? 1 : 16;
+      const endDay = isMonthly ? daysInMonth : selectedPeriod === "1-15" ? 15 : daysInMonth;
+
+      const loadKey = `${empresa}|${year}|${month}|${isDelifoodEmpresa}|${startDay}-${endDay}`;
+
+      // Evita duplicar consultas en dev (React StrictMode) o por renders rápidos.
+      if (scheduleLoadInFlightKeyRef.current === loadKey) return;
+      scheduleLoadInFlightKeyRef.current = loadKey;
+
       // Validación de seguridad: usuarios con rol "user" solo pueden acceder a su empresa asignada (resolved value)
       if (
         user?.role === "user" &&
@@ -533,21 +555,25 @@ export default function ControlHorario({
       }
 
       const names = empresas.find((l) => l.value === empresa)?.names || [];
-      const year = currentDate.getFullYear();
-      const month = currentDate.getMonth();
-
       try {
         // Determinar el mes correcto para la consulta
         // Si los datos históricos están guardados con JavaScript month (0-11), usar month
         // Si están guardados con calendario month (1-12), usar month + 1
         const dbMonth = month; // Temporal: usar month directamente para ver datos históricos
 
-        const allEntries: ScheduleEntry[] =
-          await SchedulesService.getSchedulesByLocationYearMonth(
-            empresa,
-            year,
-            dbMonth
-          );
+        const allEntries: ScheduleEntry[] = isMonthly
+          ? await SchedulesService.getSchedulesByLocationYearMonth(
+              empresa,
+              year,
+              dbMonth
+            )
+          : await SchedulesService.getSchedulesByLocationYearMonthDayRange(
+              empresa,
+              year,
+              dbMonth,
+              startDay,
+              endDay
+            );
 
         const newScheduleData: ScheduleData = {};
         const newDelifoodData: {
@@ -593,6 +619,10 @@ export default function ControlHorario({
         setScheduleData(newScheduleData);
       } catch (error) {
         console.error("Error loading schedule data:", error);
+      } finally {
+        if (scheduleLoadInFlightKeyRef.current === loadKey) {
+          scheduleLoadInFlightKeyRef.current = null;
+        }
       }
     };
 
@@ -606,6 +636,8 @@ export default function ControlHorario({
     user,
     assignedEmpresaValue,
     showToast,
+    selectedPeriod,
+    fullMonthView,
   ]); // Agregar user como dependencia
 
   // Alertar si hay días anteriores al día actual incompletos (sin N y D cubiertos)
@@ -968,7 +1000,14 @@ export default function ControlHorario({
           year,
           month, // Usar JavaScript month (0-11) para consistencia
           parseInt(day),
-          newValue
+          newValue,
+          {
+            // Evita lecturas extra de empresas desde el service al guardar N/D.
+            // Tomamos el valor ya cargado en UI (config del empleado).
+            horasPorDia: empresas
+              .find((e) => e.value === empresa)
+              ?.employees?.find((e) => e.name === employeeName)?.hoursPerShift,
+          }
         );
 
         // Actualizar estado local de forma inmutable
