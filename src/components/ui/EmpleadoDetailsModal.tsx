@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, Save, Trash2, X } from 'lucide-react';
 import type { Empleado } from '../../types/firestore';
 import useToast from '../../hooks/useToast';
+import ConfirmModal from './ConfirmModal';
 
 type CcssType = Empleado['ccssType'];
 
@@ -27,6 +28,29 @@ function inferCcssTypeFromHours(hours: unknown): CcssType | undefined {
 }
 
 type ExtraQA = { pregunta: string; respuesta: string };
+
+type ComparableState = {
+  pagoHoraBruta?: number;
+  diaContratacion: string;
+  paganAguinaldo: string;
+  ccssType: CcssType;
+  danReciboPago: string;
+  contratoFisico: string;
+  espacioComida: string;
+  brindanVacaciones: string;
+  incluidoCCSS: boolean;
+  incluidoINS: boolean;
+  preguntasExtra: ExtraQA[];
+};
+
+function normalizeExtraList(list: Array<{ pregunta?: unknown; respuesta?: unknown }>): ExtraQA[] {
+  return list
+    .map((x) => ({
+      pregunta: String(x?.pregunta || '').trim(),
+      respuesta: String(x?.respuesta || '').trim(),
+    }))
+    .filter((x) => x.pregunta || x.respuesta);
+}
 
 interface AutoResizeTextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   value: string;
@@ -118,6 +142,9 @@ export default function EmpleadoDetailsModal({
   const [error, setError] = useState<string>('');
   const { showToast } = useToast();
 
+  const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
+  const [baseSnapshot, setBaseSnapshot] = useState<ComparableState | null>(null);
+
   const [pagoHoraBruta, setPagoHoraBruta] = useState<string>('');
   const [diaContratacion, setDiaContratacion] = useState<string>('');
   const [paganAguinaldo, setPaganAguinaldo] = useState<string>('');
@@ -146,6 +173,24 @@ export default function EmpleadoDetailsModal({
       return inferred || 'TC';
     })();
 
+    const baseIncluidoCCSS = Boolean(empleado?.incluidoCCSS);
+    const baseIncluidoINS = Boolean(empleado?.incluidoINS);
+    const baseDynamicIngresoDate = !baseIncluidoCCSS && !baseIncluidoINS;
+
+    setBaseSnapshot({
+      pagoHoraBruta: typeof empleado?.pagoHoraBruta === 'number' ? empleado.pagoHoraBruta : undefined,
+      diaContratacion: baseDynamicIngresoDate ? '' : String(empleado?.diaContratacion || '').trim(),
+      paganAguinaldo: normalizeYesNo(String(empleado?.paganAguinaldo || '')).trim(),
+      ccssType: initialType,
+      danReciboPago: normalizeYesNo(String(empleado?.danReciboPago || '')).trim(),
+      contratoFisico: normalizeYesNo(String(empleado?.contratoFisico || '')).trim(),
+      espacioComida: normalizeYesNo(String(empleado?.espacioComida || '')).trim(),
+      brindanVacaciones: normalizeYesNo(String(empleado?.brindanVacaciones || '')).trim(),
+      incluidoCCSS: baseIncluidoCCSS,
+      incluidoINS: baseIncluidoINS,
+      preguntasExtra: normalizeExtraList(Array.isArray(empleado?.preguntasExtra) ? empleado!.preguntasExtra! : []),
+    });
+
     setPagoHoraBruta(empleado?.pagoHoraBruta !== undefined ? String(empleado.pagoHoraBruta) : '');
     setDiaContratacion(String(empleado?.diaContratacion || ''));
     setPaganAguinaldo(normalizeYesNo(String(empleado?.paganAguinaldo || '')));
@@ -160,10 +205,66 @@ export default function EmpleadoDetailsModal({
     setPreguntasExtra(Array.isArray(empleado?.preguntasExtra) ? empleado!.preguntasExtra!.map(x => ({ pregunta: String(x.pregunta || ''), respuesta: String(x.respuesta || '') })) : []);
   }, [empleado, isOpen]);
 
+  useEffect(() => {
+    if (isOpen) return;
+    setConfirmCloseOpen(false);
+    setBaseSnapshot(null);
+  }, [isOpen]);
+
   const useDynamicIngresoDate = !incluidoCCSS && !incluidoINS;
   const displayedDiaContratacion = String(diaContratacion || '').trim() || (useDynamicIngresoDate ? formatLocalISODate() : '');
 
   const canSave = !readOnly && typeof onSave === 'function';
+
+  const currentSnapshot: ComparableState = useMemo(
+    () => ({
+      pagoHoraBruta: asNumberOrUndefined(pagoHoraBruta),
+      diaContratacion: useDynamicIngresoDate ? '' : String(diaContratacion || '').trim(),
+      paganAguinaldo: normalizeYesNo(paganAguinaldo).trim(),
+      ccssType,
+      danReciboPago: normalizeYesNo(danReciboPago).trim(),
+      contratoFisico: normalizeYesNo(contratoFisico).trim(),
+      espacioComida: normalizeYesNo(espacioComida).trim(),
+      brindanVacaciones: normalizeYesNo(brindanVacaciones).trim(),
+      incluidoCCSS,
+      incluidoINS,
+      preguntasExtra: normalizeExtraList(preguntasExtra),
+    }),
+    [
+      pagoHoraBruta,
+      diaContratacion,
+      useDynamicIngresoDate,
+      paganAguinaldo,
+      ccssType,
+      danReciboPago,
+      contratoFisico,
+      espacioComida,
+      brindanVacaciones,
+      incluidoCCSS,
+      incluidoINS,
+      preguntasExtra,
+    ]
+  );
+
+  const hasChanges = useMemo(() => {
+    if (readOnly) return false;
+    if (!baseSnapshot) return false;
+    return JSON.stringify(baseSnapshot) !== JSON.stringify(currentSnapshot);
+  }, [baseSnapshot, currentSnapshot, readOnly]);
+
+  const requestClose = useCallback(() => {
+    if (saving) return;
+    if (readOnly || !hasChanges) {
+      onClose();
+      return;
+    }
+    setConfirmCloseOpen(true);
+  }, [hasChanges, onClose, readOnly, saving]);
+
+  const handleBackdropMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target !== e.currentTarget) return;
+    requestClose();
+  };
 
   const validate = (): { ok: boolean; msg?: string } => {
     const pago = asNumberOrUndefined(pagoHoraBruta);
@@ -243,13 +344,13 @@ export default function EmpleadoDetailsModal({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
-        onClose();
+        requestClose();
       }
     };
     
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, requestClose]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
@@ -260,7 +361,12 @@ export default function EmpleadoDetailsModal({
   if (!isOpen || !empleado) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-2 sm:p-4" onKeyDown={handleKeyDown}>
+    <>
+      <div
+        className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-2 sm:p-4"
+        onKeyDown={handleKeyDown}
+        onMouseDown={handleBackdropMouseDown}
+      >
       <div className="bg-[var(--background)] rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-[var(--input-border)]">
         <div className="p-4 sm:p-6">
           <div className="flex items-start justify-between gap-2 mb-4 sm:mb-6">
@@ -270,7 +376,7 @@ export default function EmpleadoDetailsModal({
                 {readOnly ? 'Solo lectura' : 'Campos obligatorios'} · Empresa ID: {String(empleado.empresaId || '')}
               </div>
             </div>
-            <button onClick={onClose} className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors">
+            <button onClick={requestClose} className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors">
               <X className="w-6 h-6" />
             </button>
           </div>
@@ -528,7 +634,7 @@ export default function EmpleadoDetailsModal({
           <div className="mt-4 sm:mt-6 flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 sm:justify-end">
             <button
               type="button"
-              onClick={onClose}
+              onClick={requestClose}
               disabled={saving}
               className="w-full sm:w-auto px-4 py-2 rounded bg-[var(--hover-bg)] text-[var(--foreground)] border border-[var(--input-border)] hover:opacity-90 disabled:opacity-60 text-sm sm:text-base"
             >
@@ -552,6 +658,22 @@ export default function EmpleadoDetailsModal({
           </datalist>
         </div>
       </div>
-    </div>
+      </div>
+
+      <ConfirmModal
+        open={confirmCloseOpen}
+        title="Descartar cambios"
+        message="Tienes cambios sin guardar. ¿Deseas cerrar sin guardar?"
+        confirmText="Descartar"
+        cancelText="Seguir editando"
+        actionType="change"
+        loading={saving}
+        onCancel={() => setConfirmCloseOpen(false)}
+        onConfirm={() => {
+          setConfirmCloseOpen(false);
+          onClose();
+        }}
+      />
+    </>
   );
 }
