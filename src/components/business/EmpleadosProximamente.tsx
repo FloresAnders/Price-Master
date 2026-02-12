@@ -486,12 +486,15 @@ export default function EmpleadosProximamente() {
                         <div className="min-w-0">
                           <div className="font-semibold text-[var(--foreground)] truncate">{String(entry.name || '').trim()}</div>
                           <div className="mt-1 text-xs text-[var(--muted-foreground)]">
-                            CCSS: {ccss} ·{' '}
-                            {horasDoc !== undefined ? (
-                              <>Horas: {horasDoc} ·{' '}</>
-                            ) : (
-                              <>Horas/turno: {horasEmb !== undefined ? horasEmb : '—'} ·{' '}</>
-                            )}
+                            <div>
+                              CCSS: {ccss} ·{' '}
+                              {horasDoc !== undefined ? (
+                                <>Horas: {horasDoc}</>
+                              ) : (
+                                <>Horas/turno: {horasEmb !== undefined ? horasEmb : '—'}</>
+                              )}
+                            </div>
+
                             Fecha Ingreso: {getDisplayedIngresoDate(modalEmp)}
                           </div>
                           <div className="mt-1 text-xs">

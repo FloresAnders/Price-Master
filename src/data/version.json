@@ -1,11 +1,16 @@
 {
-    "version": "1.3.47",
+    "version": "1.3.48",
     "releaseNotes": [
         {
             "date": "11 Feb 2026",
             "title": "Empleados: Tipo CCSS 'PH' y horas por tipo",
             "description": "Se agregó soporte para el nuevo tipo de CCSS 'PH' (pago por hora) en empleados. El detalle del empleado ahora permite seleccionar TC/MT/PH (en lugar de digitar horas manualmente), infiere el tipo inicial según las horas existentes, valida/guarda la cantidad de horas trabajadas según el tipo, y se normaliza/persiste correctamente el campo ccssType."
+        },
+        {
+            "date": "08 Feb 2026",
+            "title": "Fondo General: Filtros y total del día",
+            "description": "Mostrada la fecha de ingreso del empleado."
         }
-    ],
+    ],  
     "_comment": "hacer una pagina de 'en mantenimiento' para secciones en desarrollo y a exepcion de un usuario admin"
 }
