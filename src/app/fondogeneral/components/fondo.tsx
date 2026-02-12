@@ -2966,6 +2966,22 @@ export function FondoSection({
     }
     return true;
   });
+
+  // Date range filters (YYYY-MM-DD). Only query the remote range when BOTH are set.
+  const [fromFilter, setFromFilter] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("fondogeneral-fromFilter");
+      return saved ? saved : null;
+    }
+    return null;
+  });
+  const [toFilter, setToFilter] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("fondogeneral-toFilter");
+      return saved ? saved : null;
+    }
+    return null;
+  });
   const storageSnapshotRef = useRef<MovementStorage<FondoEntry> | null>(null);
 
   // Keep latest accountKey without re-triggering full remote reloads on tab switch.
@@ -3020,9 +3036,78 @@ export function FondoSection({
         cursor: QueryDocumentSnapshot<DocumentData> | null;
         exhausted: boolean;
         loading: boolean;
+        queryKey?: string;
+        startIso?: string;
+        endIsoExclusive?: string;
       }
     >
   >({});
+
+  const buildLocalDayIsoRange = useCallback((isoDateKey: string) => {
+    const [yStr, mStr, dStr] = String(isoDateKey || "").split("-");
+    const y = Number(yStr);
+    const m = Number(mStr);
+    const d = Number(dStr);
+
+    if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) {
+      const now = new Date();
+      const start = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate(),
+        0,
+        0,
+        0,
+        0
+      );
+      const end = new Date(start);
+      end.setDate(end.getDate() + 1);
+      return { startIso: start.toISOString(), endIsoExclusive: end.toISOString() };
+    }
+
+    const start = new Date(y, m - 1, d, 0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
+    return {
+      startIso: start.toISOString(),
+      endIsoExclusive: end.toISOString(),
+    };
+  }, []);
+
+  const resolveActiveMovementsQuery = useCallback((): {
+    queryKey: string;
+    startIso: string;
+    endIsoExclusive: string;
+  } => {
+    if (fromFilter && toFilter) {
+      const fromKey = fromFilter.trim();
+      const toKey = toFilter.trim();
+      const startKey = fromKey > toKey ? toKey : fromKey;
+      const endKey = fromKey > toKey ? fromKey : toKey;
+      const startRange = buildLocalDayIsoRange(startKey);
+      const endRange = buildLocalDayIsoRange(endKey);
+      return {
+        queryKey: `range:${startKey}..${endKey}`,
+        startIso: startRange.startIso,
+        endIsoExclusive: endRange.endIsoExclusive,
+      };
+    }
+
+    const dayKey = pageSize === "daily" ? currentDailyKey : todayKey;
+    const range = buildLocalDayIsoRange(dayKey);
+    return {
+      queryKey: `day:${dayKey}`,
+      startIso: range.startIso,
+      endIsoExclusive: range.endIsoExclusive,
+    };
+  }, [
+    fromFilter,
+    toFilter,
+    pageSize,
+    currentDailyKey,
+    todayKey,
+    buildLocalDayIsoRange,
+  ]);
 
   const resolveV2DocKey = useCallback(() => {
     const normalizedCompany = (company || "").trim();
@@ -3071,18 +3156,12 @@ export function FondoSection({
   );
 
   const ensureV2MovementsLoaded = useCallback(
-    async (
-      docKey: string,
-      options?: {
-        minCount?: number;
-        loadAll?: boolean;
-      }
-    ) => {
+    async (docKey: string) => {
       if (!docKey) return;
 
       const targetAccountKey = accountKeyRef.current;
-      const loadAll = Boolean(options?.loadAll);
-      const minCount = Math.max(0, options?.minCount ?? 0);
+      const { queryKey, startIso, endIsoExclusive } =
+        resolveActiveMovementsQuery();
 
       const cached = v2MovementsCacheRef.current[docKey] ?? {
         loaded: false,
@@ -3090,56 +3169,127 @@ export function FondoSection({
         cursor: null as QueryDocumentSnapshot<DocumentData> | null,
         exhausted: false,
         loading: false,
+        queryKey: undefined as string | undefined,
+        startIso: undefined as string | undefined,
+        endIsoExclusive: undefined as string | undefined,
       };
 
       if (cached.loading) return;
-      if (!loadAll && cached.exhausted) return;
-      if (!loadAll && cached.loaded && cached.movements.length >= minCount)
-        return;
 
-      cached.loading = true;
-      v2MovementsCacheRef.current[docKey] = cached;
+      if (
+        cached.loaded &&
+        cached.queryKey === queryKey &&
+        cached.startIso === startIso &&
+        cached.endIsoExclusive === endIsoExclusive
+      ) {
+        rebuildEntriesFromV2Cache(docKey, targetAccountKey);
+        return;
+      }
+
+      console.log("[FG-QUERY] MovimientosFondos v2 query", {
+        docKey,
+        accountKey: targetAccountKey,
+        queryKey,
+        createdAt: {
+          gte: startIso,
+          lt: endIsoExclusive,
+        },
+        orderBy: "createdAt desc",
+        pageSize: 500,
+        ui: {
+          pageSizeMode: pageSize,
+          currentDailyKey,
+          todayKey,
+          fromFilter,
+          toFilter,
+        },
+      });
+
+      const nextCache = {
+        ...cached,
+        loaded: false,
+        movements: [] as FondoEntry[],
+        cursor: null as QueryDocumentSnapshot<DocumentData> | null,
+        exhausted: false,
+        loading: true,
+        queryKey,
+        startIso,
+        endIsoExclusive,
+      };
+
+      v2MovementsCacheRef.current[docKey] = nextCache;
       beginMovementsLoading();
 
       try {
-        // Safety cap: never loop forever.
-        let pages = 0;
-        const maxPages = 50; // aligns with listAllMovements safety cap (25k)
+        let cursor: QueryDocumentSnapshot<DocumentData> | null = null;
+        let exhausted = false;
+        const movements: FondoEntry[] = [];
 
-        while (
-          !cached.exhausted &&
-          (loadAll || cached.movements.length < minCount) &&
-          pages < maxPages
-        ) {
-          const page =
-            await MovimientosFondosService.listMovementsPage<FondoEntry>(
+        type MovementsPageResult = {
+          items: Array<FondoEntry & { id: string }>;
+          cursor: QueryDocumentSnapshot<DocumentData> | null;
+          exhausted: boolean;
+        };
+
+        // Safety cap: avoid unbounded reads.
+        let pages = 0;
+        const maxPages = 50; // 50 * 500 = 25k
+
+        while (!exhausted && pages < maxPages) {
+          const pageResult: MovementsPageResult =
+            await MovimientosFondosService.listMovementsPageByCreatedAtRange(
               docKey,
               {
+                startIso,
+                endIsoExclusive,
                 pageSize: 500,
-                cursor: cached.cursor,
+                cursor,
               }
             );
 
-          if (!page.items || page.items.length === 0) {
-            cached.exhausted = true;
+          if (!pageResult.items || pageResult.items.length === 0) {
+            exhausted = true;
             break;
           }
 
-          cached.movements.push(...(page.items as FondoEntry[]));
-          cached.cursor = page.cursor;
-          cached.exhausted = page.exhausted;
-          cached.loaded = true;
+          movements.push(...(pageResult.items as FondoEntry[]));
+          cursor = pageResult.cursor;
+          exhausted = pageResult.exhausted;
           pages += 1;
         }
+
+        v2MovementsCacheRef.current[docKey] = {
+          ...nextCache,
+          loaded: true,
+          movements,
+          cursor,
+          exhausted,
+          loading: false,
+        };
       } finally {
-        cached.loading = false;
-        v2MovementsCacheRef.current[docKey] = cached;
+        const latest = v2MovementsCacheRef.current[docKey];
+        if (latest) {
+          v2MovementsCacheRef.current[docKey] = {
+            ...latest,
+            loading: false,
+          };
+        }
         endMovementsLoading();
       }
 
       rebuildEntriesFromV2Cache(docKey, targetAccountKey);
     },
-    [rebuildEntriesFromV2Cache, beginMovementsLoading, endMovementsLoading]
+    [
+      rebuildEntriesFromV2Cache,
+      beginMovementsLoading,
+      endMovementsLoading,
+      resolveActiveMovementsQuery,
+      pageSize,
+      currentDailyKey,
+      todayKey,
+      fromFilter,
+      toFilter,
+    ]
   );
 
   useEffect(() => {
@@ -3160,21 +3310,6 @@ export function FondoSection({
     d.setDate(1);
     d.setHours(0, 0, 0, 0);
     return d;
-  });
-  // fromFilter / toFilter hold YYYY-MM-DD keys when a date is selected
-  const [fromFilter, setFromFilter] = useState<string | null>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("fondogeneral-fromFilter");
-      return saved ? saved : null;
-    }
-    return null;
-  });
-  const [toFilter, setToFilter] = useState<string | null>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("fondogeneral-toFilter");
-      return saved ? saved : null;
-    }
-    return null;
   });
 
   // Advanced filters
@@ -3662,46 +3797,12 @@ export function FondoSection({
                   ? cached.movements
                   : [];
               } else {
-                // Load only a small window first; fetch more pages on-demand (filters/pagination).
-                const initialPages = 2;
-                let cursor: QueryDocumentSnapshot<DocumentData> | null = null;
-                let exhausted = false;
-                const movements: FondoEntry[] = [];
-
-                for (
-                  let page = 0;
-                  page < initialPages && !exhausted;
-                  page += 1
-                ) {
-                  const pageResult: {
-                    items: Array<FondoEntry & { id: string }>;
-                    cursor: QueryDocumentSnapshot<DocumentData> | null;
-                    exhausted: boolean;
-                  } =
-                    await MovimientosFondosService.listMovementsPage<FondoEntry>(
-                      docKey,
-                      {
-                        pageSize: 500,
-                        cursor,
-                      }
-                    );
-                  if (!pageResult.items || pageResult.items.length === 0) {
-                    exhausted = true;
-                    break;
-                  }
-                  movements.push(...(pageResult.items as FondoEntry[]));
-                  cursor = pageResult.cursor;
-                  exhausted = pageResult.exhausted;
-                }
-
-                v2Movements = movements;
-                v2MovementsCacheRef.current[docKey] = {
-                  loaded: true,
-                  movements,
-                  cursor,
-                  exhausted,
-                  loading: false,
-                };
+                // Default remote load: only the active day/range (today unless both Desde/Hasta are set).
+                await ensureV2MovementsLoaded(docKey);
+                const next = v2MovementsCacheRef.current[docKey];
+                v2Movements = Array.isArray(next?.movements)
+                  ? (next!.movements as FondoEntry[])
+                  : [];
               }
             } catch (listErr) {
               console.error(
@@ -3745,46 +3846,12 @@ export function FondoSection({
                   cleaned.operations = { movements: [] };
                   await MovimientosFondosService.saveDocument(docKey, cleaned);
 
-                  // After migration, keep the same on-demand loading behavior (avoid full collection reads).
-                  const initialPages = 2;
-                  let cursor: QueryDocumentSnapshot<DocumentData> | null = null;
-                  let exhausted = false;
-                  const movements: FondoEntry[] = [];
-
-                  for (
-                    let page = 0;
-                    page < initialPages && !exhausted;
-                    page += 1
-                  ) {
-                    const pageResult: {
-                      items: Array<FondoEntry & { id: string }>;
-                      cursor: QueryDocumentSnapshot<DocumentData> | null;
-                      exhausted: boolean;
-                    } =
-                      await MovimientosFondosService.listMovementsPage<FondoEntry>(
-                        docKey,
-                        {
-                          pageSize: 500,
-                          cursor,
-                        }
-                      );
-                    if (!pageResult.items || pageResult.items.length === 0) {
-                      exhausted = true;
-                      break;
-                    }
-                    movements.push(...(pageResult.items as FondoEntry[]));
-                    cursor = pageResult.cursor;
-                    exhausted = pageResult.exhausted;
-                  }
-
-                  v2Movements = movements;
-                  v2MovementsCacheRef.current[docKey] = {
-                    loaded: true,
-                    movements,
-                    cursor,
-                    exhausted,
-                    loading: false,
-                  };
+                  // After migration, load only the active day/range.
+                  await ensureV2MovementsLoaded(docKey);
+                  const next = v2MovementsCacheRef.current[docKey];
+                  v2Movements = Array.isArray(next?.movements)
+                    ? (next!.movements as FondoEntry[])
+                    : [];
                 }
               }
             } catch (migrateErr) {
@@ -3988,57 +4055,22 @@ export function FondoSection({
     resolveV2DocKey,
   ]);
 
-  // On-demand v2 loading:
-  // - If user selects "all" or applies filters/search, we need full history for correct results.
-  // - If user paginates beyond the initially loaded window, load more pages.
+  // On-demand v2 loading: keep Firestore reads constrained to the active day/range.
   useEffect(() => {
     if (!entriesHydrated) return;
     const docKey = resolveV2DocKey();
     if (!docKey) return;
 
-    const hasActiveFilters =
-      Boolean(fromFilter && fromFilter.trim().length > 0) ||
-      Boolean(toFilter && toFilter.trim().length > 0) ||
-      Boolean(searchQuery && searchQuery.trim().length > 0) ||
-      Boolean(filterEditedOnly) ||
-      filterProviderCode !== "all" ||
-      filterPaymentType !== "all";
+    // Only query the remote range when BOTH Desde/Hasta are set.
+    if ((fromFilter && !toFilter) || (!fromFilter && toFilter)) return;
 
-    if (pageSize === "all" || hasActiveFilters) {
-      void ensureV2MovementsLoaded(docKey, { loadAll: true });
-    }
+    void ensureV2MovementsLoaded(docKey);
   }, [
     entriesHydrated,
     pageSize,
     fromFilter,
     toFilter,
-    searchQuery,
-    filterEditedOnly,
-    filterProviderCode,
-    filterPaymentType,
-    resolveV2DocKey,
-    ensureV2MovementsLoaded,
-  ]);
-
-  useEffect(() => {
-    if (!entriesHydrated) return;
-    if (pageSize === "daily" || pageSize === "all") return;
-    if (
-      typeof pageSize !== "number" ||
-      !Number.isFinite(pageSize) ||
-      pageSize <= 0
-    )
-      return;
-
-    const docKey = resolveV2DocKey();
-    if (!docKey) return;
-
-    const minCount = Math.max(0, (pageIndex + 1) * pageSize + 25);
-    void ensureV2MovementsLoaded(docKey, { minCount });
-  }, [
-    entriesHydrated,
-    pageIndex,
-    pageSize,
+    currentDailyKey,
     resolveV2DocKey,
     ensureV2MovementsLoaded,
   ]);
@@ -6744,9 +6776,7 @@ export function FondoSection({
   }, []);
 
   const disablePrevButton = isDailyMode
-    ? earliestEntryKey
-      ? currentDailyKey <= earliestEntryKey
-      : true
+    ? currentDailyKey <= "1970-01-01"
     : pageIndex <= 0;
   const disableNextButton = isDailyMode
     ? currentDailyKey >= todayKey
@@ -6754,16 +6784,14 @@ export function FondoSection({
 
   const handlePrevPage = useCallback(() => {
     if (isDailyMode) {
-      if (!earliestEntryKey) return;
       setCurrentDailyKey((prev) => {
-        if (prev <= earliestEntryKey) return earliestEntryKey;
-        const shifted = shiftDateKey(prev, -1);
-        return shifted < earliestEntryKey ? earliestEntryKey : shifted;
+        if (prev <= "1970-01-01") return "1970-01-01";
+        return shiftDateKey(prev, -1);
       });
       return;
     }
     setPageIndex((p) => Math.max(0, p - 1));
-  }, [earliestEntryKey, isDailyMode, shiftDateKey]);
+  }, [isDailyMode, shiftDateKey]);
 
   const handleNextPage = useCallback(() => {
     if (isDailyMode) {
@@ -7355,7 +7383,7 @@ export function FondoSection({
                         for (let day = 1; day <= daysInMonth; day++) {
                           const d = new Date(year, month, day);
                           const key = dateKeyFromDate(d);
-                          const enabled = daysWithMovements.has(key);
+                          const enabled = key <= todayKey;
                           const isSelected = fromFilter === key;
                           if (enabled) {
                             cells.push(
@@ -7501,7 +7529,7 @@ export function FondoSection({
                         for (let day = 1; day <= daysInMonth; day++) {
                           const d = new Date(year, month, day);
                           const key = dateKeyFromDate(d);
-                          const enabled = daysWithMovements.has(key);
+                          const enabled = key <= todayKey;
                           const isSelected = toFilter === key;
                           if (enabled) {
                             cells.push(
