@@ -2826,6 +2826,19 @@ export function FondoSection({
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [initialAmount, setInitialAmount] = useState("0");
   const [initialAmountUSD, setInitialAmountUSD] = useState("0");
+  // Snapshot de balances persistidos. NO depende de `fondoEntries` para evitar
+  // que filtros (rango de fecha) alteren el currentBalance.
+  const [ledgerSnapshot, setLedgerSnapshot] = useState<{
+    initialCRC: number;
+    currentCRC: number;
+    initialUSD: number;
+    currentUSD: number;
+  }>(() => ({
+    initialCRC: 0,
+    currentCRC: 0,
+    initialUSD: 0,
+    currentUSD: 0,
+  }));
   const [movementModalOpen, setMovementModalOpen] = useState(false);
   const [movementAutoCloseLocked, setMovementAutoCloseLocked] = useState(false);
   const [movementCurrency, setMovementCurrency] = useState<"CRC" | "USD">(
@@ -3021,6 +3034,13 @@ export function FondoSection({
 
       setInitialAmount(crcSettings.initialBalance.toString());
       setInitialAmountUSD(usdSettings.initialBalance.toString());
+
+      setLedgerSnapshot({
+        initialCRC: crcSettings.initialBalance,
+        currentCRC: crcSettings.currentBalance,
+        initialUSD: usdSettings.initialBalance,
+        currentUSD: usdSettings.currentBalance,
+      });
     },
     [accountKey]
   );
@@ -4465,7 +4485,11 @@ export function FondoSection({
     async (
       updatedEntries: FondoEntry[],
       operationType: "create" | "edit" | "delete",
-      change?: { upsert?: FondoEntry; deleteId?: string }
+      change?: {
+        upsert?: FondoEntry;
+        deleteId?: string;
+        before?: FondoEntry | null;
+      }
     ): Promise<{ ok: boolean; confirmed: boolean }> => {
       const normalizedCompany = (company || "").trim();
       if (normalizedCompany.length === 0) {
@@ -4491,21 +4515,31 @@ export function FondoSection({
         // V2: movements live in a subcollection. Never persist the array to the main document.
         baseStorage.operations = { movements: [] };
 
-        // Recalcular balances
-        let ingresosCRC = 0,
-          egresosCRC = 0,
-          ingresosUSD = 0,
-          egresosUSD = 0;
-        updatedEntries.forEach((entry) => {
-          const cur = (entry.currency as "CRC" | "USD") || "CRC";
-          if (cur === "USD") {
-            ingresosUSD += entry.amountIngreso;
-            egresosUSD += entry.amountEgreso;
-          } else {
-            ingresosCRC += entry.amountIngreso;
-            egresosCRC += entry.amountEgreso;
-          }
-        });
+        // IMPORTANTE:
+        // Con filtros de rango (Desde/Hasta) en v2, `updatedEntries` puede NO contener
+        // todos los movimientos históricos. Por eso NO podemos recalcular currentBalance
+        // sumando `updatedEntries`. En su lugar, actualizamos balances por delta:
+        // - create: + (ingreso-egreso)
+        // - delete: - (ingreso-egreso)
+        // - edit:   + (after - before)
+
+        const parseBalance = (value: unknown) => {
+          const parsed = typeof value === "number" ? value : Number(value);
+          return Number.isFinite(parsed) ? Math.trunc(parsed) : 0;
+        };
+
+        const normalizeCurrency = (value: unknown): MovementCurrencyKey =>
+          value === "USD" ? "USD" : "CRC";
+
+        const movementDelta = (
+          entry: Partial<FondoEntry> | null | undefined
+        ): { currency: MovementCurrencyKey; delta: number } | null => {
+          if (!entry) return null;
+          const currency = normalizeCurrency(entry.currency);
+          const ingreso = parseBalance((entry as any).amountIngreso ?? 0);
+          const egreso = parseBalance((entry as any).amountEgreso ?? 0);
+          return { currency, delta: ingreso - egreso };
+        };
 
         const normalizedInitialCRC =
           initialAmount.trim().length > 0 ? initialAmount.trim() : "0";
@@ -4513,14 +4547,69 @@ export function FondoSection({
           initialAmountUSD.trim().length > 0 ? initialAmountUSD.trim() : "0";
         const parsedInitialCRC = Number(normalizedInitialCRC) || 0;
         const parsedInitialUSD = Number(normalizedInitialUSD) || 0;
-        const newBalanceCRC = parsedInitialCRC + ingresosCRC - egresosCRC;
-        const newBalanceUSD = parsedInitialUSD + ingresosUSD - egresosUSD;
 
         const stateSnapshot =
           baseStorage.state ??
           MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(
             normalizedCompany
           ).state;
+
+        const existingCRC = stateSnapshot.balancesByAccount.find(
+          (balance) =>
+            balance.accountId === accountKey && balance.currency === "CRC"
+        );
+        const existingUSD = stateSnapshot.balancesByAccount.find(
+          (balance) =>
+            balance.accountId === accountKey && balance.currency === "USD"
+        );
+
+        const prevInitialCRC = existingCRC
+          ? parseBalance(existingCRC.initialBalance ?? 0)
+          : parseBalance(ledgerSnapshot.initialCRC);
+        const prevInitialUSD = existingUSD
+          ? parseBalance(existingUSD.initialBalance ?? 0)
+          : parseBalance(ledgerSnapshot.initialUSD);
+        const prevCurrentCRC = existingCRC
+          ? parseBalance(existingCRC.currentBalance ?? prevInitialCRC)
+          : parseBalance(ledgerSnapshot.currentCRC);
+        const prevCurrentUSD = existingUSD
+          ? parseBalance(existingUSD.currentBalance ?? prevInitialUSD)
+          : parseBalance(ledgerSnapshot.currentUSD);
+
+        const deltas: Record<MovementCurrencyKey, number> = { CRC: 0, USD: 0 };
+
+        const resolveBeforeFallback = (): FondoEntry | null => {
+          const targetId =
+            operationType === "delete"
+              ? change?.deleteId
+              : operationType === "edit"
+                ? change?.upsert?.id
+                : null;
+          if (!targetId) return null;
+          const cached = v2MovementsCacheRef.current[companyKey];
+          return cached?.movements?.find((m) => m.id === targetId) ?? null;
+        };
+
+        const beforeEntry = change?.before ?? resolveBeforeFallback();
+        const afterEntry = change?.upsert;
+
+        if (operationType === "create") {
+          const d = movementDelta(afterEntry);
+          if (d) deltas[d.currency] += d.delta;
+        } else if (operationType === "delete") {
+          const d = movementDelta(beforeEntry);
+          if (d) deltas[d.currency] -= d.delta;
+        } else if (operationType === "edit") {
+          const before = movementDelta(beforeEntry);
+          if (before) deltas[before.currency] -= before.delta;
+          const after = movementDelta(afterEntry);
+          if (after) deltas[after.currency] += after.delta;
+        }
+
+        const nextCurrentCRC =
+          prevCurrentCRC + (parsedInitialCRC - prevInitialCRC) + deltas.CRC;
+        const nextCurrentUSD =
+          prevCurrentUSD + (parsedInitialUSD - prevInitialUSD) + deltas.USD;
         const nextAccountBalances = stateSnapshot.balancesByAccount.filter(
           (balance) => balance.accountId !== accountKey
         );
@@ -4530,14 +4619,14 @@ export function FondoSection({
             currency: "CRC",
             enabled: currencyEnabled.CRC,
             initialBalance: parsedInitialCRC,
-            currentBalance: newBalanceCRC,
+            currentBalance: nextCurrentCRC,
           },
           {
             accountId: accountKey,
             currency: "USD",
             enabled: currencyEnabled.USD,
             initialBalance: parsedInitialUSD,
-            currentBalance: newBalanceUSD,
+            currentBalance: nextCurrentUSD,
           }
         );
         stateSnapshot.balancesByAccount = nextAccountBalances;
@@ -4654,6 +4743,14 @@ export function FondoSection({
         // Actualizar snapshot después de guardar
         storageSnapshotRef.current = baseStorage;
 
+        // Refrescar snapshot de balances para UI (independiente de filtros)
+        setLedgerSnapshot({
+          initialCRC: parsedInitialCRC,
+          currentCRC: nextCurrentCRC,
+          initialUSD: parsedInitialUSD,
+          currentUSD: nextCurrentUSD,
+        });
+
         return { ok: true, confirmed };
       } catch (err) {
         console.error(
@@ -4663,7 +4760,14 @@ export function FondoSection({
         return { ok: false, confirmed: false };
       }
     },
-    [company, accountKey, initialAmount, initialAmountUSD, currencyEnabled]
+    [
+      company,
+      accountKey,
+      initialAmount,
+      initialAmountUSD,
+      currencyEnabled,
+      setLedgerSnapshot,
+    ]
   );
 
   const persistCreatedMovement = useCallback(
@@ -4907,6 +5011,7 @@ export function FondoSection({
         // PRIMERO persistir a Firestore, LUEGO actualizar UI
         const saved = await persistMovementToFirestore(updatedEntries, "edit", {
           upsert: updatedEntry ?? undefined,
+          before: original,
         });
 
         if (!saved.ok) {
@@ -5208,6 +5313,7 @@ export function FondoSection({
       // PRIMERO persistir a Firestore, LUEGO actualizar UI
       const saved = await persistMovementToFirestore(updatedEntries, "delete", {
         deleteId: entry.id,
+        before: entry,
       });
 
       if (!saved.ok) {
@@ -5304,58 +5410,55 @@ export function FondoSection({
     : ingreso.trim().length > 0;
 
   const { currentBalanceCRC, currentBalanceUSD } = useMemo(() => {
-    let ingresosCRC = 0;
-    let egresosCRC = 0;
-    let ingresosUSD = 0;
-    let egresosUSD = 0;
-    fondoEntries.forEach((entry) => {
-      const cur = (entry.currency as "CRC" | "USD") || "CRC";
-      if (cur === "USD") {
-        ingresosUSD += entry.amountIngreso;
-        egresosUSD += entry.amountEgreso;
-      } else {
-        ingresosCRC += entry.amountIngreso;
-        egresosCRC += entry.amountEgreso;
-      }
-    });
-    const balanceCRC = (Number(initialAmount) || 0) + ingresosCRC - egresosCRC;
-    const balanceUSD =
-      (Number(initialAmountUSD) || 0) + ingresosUSD - egresosUSD;
     return {
-      currentBalanceCRC: balanceCRC,
-      currentBalanceUSD: balanceUSD,
+      // currentBalance debe ser el balance real persistido, no el del rango filtrado.
+      // Si el usuario ajusta initialBalance, reflejamos el delta sin depender de movimientos cargados.
+      currentBalanceCRC:
+        ledgerSnapshot.currentCRC +
+        ((Number(initialAmount) || 0) - ledgerSnapshot.initialCRC),
+      currentBalanceUSD:
+        ledgerSnapshot.currentUSD +
+        ((Number(initialAmountUSD) || 0) - ledgerSnapshot.initialUSD),
     };
-  }, [fondoEntries, initialAmount, initialAmountUSD]);
+  }, [ledgerSnapshot, initialAmount, initialAmountUSD]);
 
   const balanceAfterByIdCRC = useMemo(() => {
-    let running = Number(initialAmount) || 0;
-    const ordered = [...fondoEntries]
-      .slice()
-      .reverse()
-      .filter((e) => ((e.currency as any) || "CRC") === "CRC");
+    // Derivar balances desde el currentBalance real (persistido), no desde initialAmount + subset.
+    // Caminamos hacia atrás: balanceAfter(entry) se obtiene restando deltas de movimientos más recientes.
+    let running = Math.trunc(currentBalanceCRC);
+    const orderedDesc = [...fondoEntries]
+      .filter((e) => ((e.currency as any) || "CRC") === "CRC")
+      .sort((a, b) => {
+        const diff = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        if (diff !== 0) return diff;
+        return String(b.id).localeCompare(String(a.id));
+      });
     const map = new Map<string, number>();
-    ordered.forEach((entry) => {
-      running += entry.amountIngreso;
-      running -= entry.amountEgreso;
+    orderedDesc.forEach((entry) => {
       map.set(entry.id, running);
+      running -= Math.trunc(entry.amountIngreso || 0);
+      running += Math.trunc(entry.amountEgreso || 0);
     });
     return map;
-  }, [fondoEntries, initialAmount]);
+  }, [fondoEntries, currentBalanceCRC]);
 
   const balanceAfterByIdUSD = useMemo(() => {
-    let running = Number(initialAmountUSD) || 0;
-    const ordered = [...fondoEntries]
-      .slice()
-      .reverse()
-      .filter((e) => ((e.currency as any) || "CRC") === "USD");
+    let running = Math.trunc(currentBalanceUSD);
+    const orderedDesc = [...fondoEntries]
+      .filter((e) => ((e.currency as any) || "CRC") === "USD")
+      .sort((a, b) => {
+        const diff = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        if (diff !== 0) return diff;
+        return String(b.id).localeCompare(String(a.id));
+      });
     const map = new Map<string, number>();
-    ordered.forEach((entry) => {
-      running += entry.amountIngreso;
-      running -= entry.amountEgreso;
+    orderedDesc.forEach((entry) => {
       map.set(entry.id, running);
+      running -= Math.trunc(entry.amountIngreso || 0);
+      running += Math.trunc(entry.amountEgreso || 0);
     });
     return map;
-  }, [fondoEntries, initialAmountUSD]);
+  }, [fondoEntries, currentBalanceUSD]);
 
   useEffect(() => {
     if (!entriesHydrated || hydratedAccountKey !== accountKey) return;
@@ -5377,14 +5480,13 @@ export function FondoSection({
       const normalizedInitialUSD =
         initialAmountUSD.trim().length > 0 ? initialAmountUSD.trim() : "0";
       const hasSnapshot = Boolean(storageSnapshotRef.current);
-      const hasEntries = fondoEntries.length > 0;
       const metadataDiffers =
         normalizedInitialCRC !== "0" ||
         normalizedInitialUSD !== "0" ||
         !currencyEnabled.CRC ||
         !currencyEnabled.USD;
 
-      if (!hasSnapshot && !hasEntries && !metadataDiffers) {
+      if (!hasSnapshot && !metadataDiffers) {
         return;
       }
 
@@ -5409,19 +5511,9 @@ export function FondoSection({
         const parsedInitialCRC = Number(normalizedInitialCRC) || 0;
         const parsedInitialUSD = Number(normalizedInitialUSD) || 0;
 
-        const nextCRC = {
-          accountId: accountKey,
-          currency: "CRC" as const,
-          enabled: currencyEnabled.CRC,
-          initialBalance: parsedInitialCRC,
-          currentBalance: currentBalanceCRC,
-        };
-        const nextUSD = {
-          accountId: accountKey,
-          currency: "USD" as const,
-          enabled: currencyEnabled.USD,
-          initialBalance: parsedInitialUSD,
-          currentBalance: currentBalanceUSD,
+        const parseBalance = (value: unknown) => {
+          const parsed = typeof value === "number" ? value : Number(value);
+          return Number.isFinite(parsed) ? Math.trunc(parsed) : 0;
         };
 
         const existingCRC = stateSnapshot.balancesByAccount.find(
@@ -5432,6 +5524,37 @@ export function FondoSection({
           (balance) =>
             balance.accountId === accountKey && balance.currency === "USD"
         );
+
+        const prevInitialCRC = parseBalance(existingCRC?.initialBalance ?? 0);
+        const prevInitialUSD = parseBalance(existingUSD?.initialBalance ?? 0);
+        const prevCurrentCRC = parseBalance(
+          existingCRC?.currentBalance ?? prevInitialCRC
+        );
+        const prevCurrentUSD = parseBalance(
+          existingUSD?.currentBalance ?? prevInitialUSD
+        );
+
+        // Cambiar initialBalance ajusta currentBalance por el mismo delta.
+        // No dependemos de `fondoEntries` porque pueden ser parciales por filtros.
+        const nextCurrentCRC =
+          prevCurrentCRC + (parsedInitialCRC - prevInitialCRC);
+        const nextCurrentUSD =
+          prevCurrentUSD + (parsedInitialUSD - prevInitialUSD);
+
+        const nextCRC = {
+          accountId: accountKey,
+          currency: "CRC" as const,
+          enabled: currencyEnabled.CRC,
+          initialBalance: parsedInitialCRC,
+          currentBalance: nextCurrentCRC,
+        };
+        const nextUSD = {
+          accountId: accountKey,
+          currency: "USD" as const,
+          enabled: currencyEnabled.USD,
+          initialBalance: parsedInitialUSD,
+          currentBalance: nextCurrentUSD,
+        };
 
         const crcChanged =
           !existingCRC ||
@@ -5461,6 +5584,14 @@ export function FondoSection({
             storageSnapshotRef.current.state.lockedUntil;
         }
         baseStorage.state = stateSnapshot;
+
+        // Sync UI snapshot
+        setLedgerSnapshot({
+          initialCRC: parsedInitialCRC,
+          currentCRC: nextCurrentCRC,
+          initialUSD: parsedInitialUSD,
+          currentUSD: nextCurrentUSD,
+        });
 
         // Guardar snapshot liviano en localStorage
         try {
@@ -5505,7 +5636,6 @@ export function FondoSection({
 
     void persistEntries();
   }, [
-    fondoEntries,
     namespace,
     entriesHydrated,
     company,
@@ -5514,10 +5644,9 @@ export function FondoSection({
     currencyEnabled,
     initialAmount,
     initialAmountUSD,
-    currentBalanceCRC,
-    currentBalanceUSD,
     accountKey,
     hydratedAccountKey,
+    setLedgerSnapshot,
   ]);
 
   const isSubmitDisabled =
@@ -6076,6 +6205,27 @@ export function FondoSection({
           record.id,
           { beforeCount: fondoEntries.length }
         );
+
+        // Persistir eliminación de ajustes para que el currentBalance se revierta.
+        try {
+          const toRemoveNow = fondoEntries.filter(
+            (e) =>
+              e.originalEntryId === record.id &&
+              isAutoAdjustmentProvider(e.providerCode)
+          );
+          for (const removed of toRemoveNow) {
+            await persistMovementToFirestore(fondoEntries, "delete", {
+              deleteId: removed.id,
+              before: removed,
+            });
+          }
+        } catch (persistRemoveErr) {
+          console.error(
+            "[FG-DEBUG] Error persisting deletion of adjustment movements:",
+            persistRemoveErr
+          );
+        }
+
         setFondoEntries((prev) => {
           const toRemove = prev.filter(
             (e) =>
@@ -6152,6 +6302,85 @@ export function FondoSection({
       if (newMovements.length > 0) {
         // link movements to the daily closing via originalEntryId
         newMovements.forEach((m) => (m.originalEntryId = record.id));
+
+        // Persistir ajustes al documento principal para actualizar currentBalance.
+        // En edición: actualiza/elimina por moneda; en creación: crea movimientos nuevos.
+        try {
+          const normalizeCurrency = (value: unknown): MovementCurrencyKey =>
+            value === "USD" ? "USD" : "CRC";
+
+          const plannedCurrencies = new Set<MovementCurrencyKey>(
+            newMovements.map((m) => normalizeCurrency(m.currency))
+          );
+
+          const existingAdjustments = editingDailyClosingId
+            ? fondoEntries.filter(
+              (e) =>
+                e.originalEntryId === record.id &&
+                isAutoAdjustmentProvider(e.providerCode)
+            )
+            : [];
+
+          const existingByCurrency = new Map<MovementCurrencyKey, FondoEntry>();
+          existingAdjustments.forEach((e) => {
+            existingByCurrency.set(normalizeCurrency(e.currency), e);
+          });
+
+          // Remove previous adjustments that are no longer present (editing scenario)
+          if (editingDailyClosingId) {
+            for (const prevAdj of existingAdjustments) {
+              const cur = normalizeCurrency(prevAdj.currency);
+              if (!plannedCurrencies.has(cur)) {
+                await persistMovementToFirestore(fondoEntries, "delete", {
+                  deleteId: prevAdj.id,
+                  before: prevAdj,
+                });
+              }
+            }
+          }
+
+          // Upsert per currency
+          for (const movement of newMovements) {
+            const cur = normalizeCurrency(movement.currency);
+            const existing = existingByCurrency.get(cur);
+
+            if (editingDailyClosingId && existing) {
+              const updatedForPersist: FondoEntry = {
+                ...existing,
+                paymentType: movement.paymentType,
+                invoiceNumber: movement.invoiceNumber,
+                amountEgreso: movement.amountEgreso,
+                amountIngreso: movement.amountIngreso,
+                notes: movement.notes,
+                breakdown: movement.breakdown ?? existing.breakdown,
+                createdAt: movement.createdAt,
+                manager: AUTO_ADJUSTMENT_MANAGER,
+                providerCode: AUTO_ADJUSTMENT_PROVIDER_CODE,
+                accountId: accountKey,
+                currency: cur,
+                originalEntryId: record.id,
+              } as FondoEntry;
+
+              await persistMovementToFirestore(fondoEntries, "edit", {
+                upsert: updatedForPersist,
+                before: existing,
+              });
+            } else {
+              // Creating a new adjustment movement
+              await persistMovementToFirestore(
+                [movement, ...fondoEntries],
+                "create",
+                { upsert: movement }
+              );
+            }
+          }
+        } catch (persistAdjErr) {
+          console.error(
+            "[FG-DEBUG] Error persisting daily closing adjustments to main ledger:",
+            persistAdjErr
+          );
+        }
+
         if (editingDailyClosingId) {
           // update existing related movement(s), preserve audit history
           setFondoEntries((prev) => {
@@ -6267,30 +6496,7 @@ export function FondoSection({
             return next;
           });
 
-          // Persist v2 movement docs so the auto closing does not disappear after reload.
-          try {
-            const normalizedCompany = (company || "").trim();
-            if (normalizedCompany.length > 0) {
-              const companyKey =
-                MovimientosFondosService.buildCompanyMovementsKey(
-                  normalizedCompany
-                );
-              await Promise.all(
-                newMovements.map((movement) =>
-                  MovimientosFondosService.upsertMovement(companyKey, {
-                    ...(movement as any),
-                    accountId: accountKey,
-                    currency: (movement.currency ?? "CRC") as any,
-                  })
-                )
-              );
-            }
-          } catch (persistErr) {
-            console.error(
-              "[FG-DEBUG] Error persisting daily closing adjustment movements:",
-              persistErr
-            );
-          }
+          // Persistencia: ya se hizo vía persistMovementToFirestore (incluye subcolección v2 + documento principal)
         }
 
         // Build a human-readable summary of the adjustments we just applied
@@ -8223,9 +8429,9 @@ export function FondoSection({
                       const balanceAfter =
                         entryCurrency === "USD"
                           ? balanceAfterByIdUSD.get(fe.id) ??
-                          (Number(initialAmountUSD) || 0)
+                          Math.trunc(currentBalanceUSD)
                           : balanceAfterByIdCRC.get(fe.id) ??
-                          (Number(initialAmount) || 0);
+                          Math.trunc(currentBalanceCRC);
                       // compute the balance immediately before this movement was applied (in the movement currency)
                       const previousBalance = isEntryEgreso
                         ? balanceAfter + normalizedEgreso
