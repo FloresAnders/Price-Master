@@ -60,6 +60,7 @@
     "ndarray-pixels": "^5.0.1",
     "next": "16.0.7",
     "next-themes": "^0.4.6",
+    "node-firestore-import-export": "^1.1.0",
     "nodemailer": "^7.0.5",
     "qrcode": "^1.5.4",
     "react": "19.2.0",
@@ -78,7 +79,7 @@
     "cssnano": "^7.1.2",
     "eslint": "^9",
     "eslint-config-next": "16.0.7",
-    "firebase-admin": "^12.0.0",
+    "firebase-admin": "^12.7.0",
     "tailwindcss": "^3.4.0",
     "typescript": "^5"
   },
