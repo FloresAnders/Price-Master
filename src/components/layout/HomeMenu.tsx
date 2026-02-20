@@ -23,6 +23,7 @@ import {
   Type,
   FileCode,
   Banknote,
+  Layers,
   Smartphone,
   Clock,
   Truck,
@@ -110,6 +111,13 @@ const menuItems = [
     icon: Users,
     description: "Información de empleados",
     permission: "empleados" as keyof UserPermissions,
+  },
+  {
+    id: "platillos",
+    name: "Platillos",
+    icon: Layers,
+    description: "en mantenimiento",
+    permission: "platillos" as keyof UserPermissions,
   },
   {
     id: "calculohorasprecios",

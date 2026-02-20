@@ -78,6 +78,7 @@ type ActiveTab =
   | "converter"
   | "xml"
   | "cashcounter"
+  | "platillos"
   | "timingcontrol"
   | "controlhorario"
   | "empleados"
@@ -432,6 +433,13 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       icon: Users,
       description: "Información de empleados (próximamente)",
       permission: "empleados" as keyof UserPermissions,
+    },
+    {
+      id: "platillos" as ActiveTab,
+      name: "Platillos",
+      icon: Layers,
+      description: "en mantenimiento",
+      permission: "platillos" as keyof UserPermissions,
     },
     {
       id: "calculohorasprecios" as ActiveTab,

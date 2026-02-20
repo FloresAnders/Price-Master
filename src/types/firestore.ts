@@ -95,6 +95,7 @@ export interface UserPermissions {
   converter: boolean;    // Conversor - Convertir y transformar texto
   xml: boolean;          // XML - Exportación / generación de XML
   cashcounter: boolean;  // Contador Efectivo - Contar billetes y monedas
+  platillos: boolean;    // Platillos - (en mantenimiento)
   timingcontrol: boolean; // Control Tiempos - Registro de venta de tiempos
   controlhorario: boolean; // Control Horario - Registro de horarios de trabajo
   calculohorasprecios: boolean; // Calculo horas precios - Cálculo de horas y precios/planilla
