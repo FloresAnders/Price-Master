@@ -33,7 +33,8 @@ const SolicitudForm = dynamic(() => import('@/components/solicitud/SolicitudForm
 const XmlPage = dynamic(() => import('@/components/xml/XmlPage'), { ssr: false })
 
 // 1) Ampliamos ActiveTab para incluir "cashcounter", "controlhorario", "supplierorders", "edit", "scanhistory", "solicitud", "agregarproveedor", "reportes"
-type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'xml' | 'cashcounter' | 'platillos' | 'timingcontrol' | 'controlhorario' | 'empleados' | 'calculohorasprecios' | 'supplierorders' | 'scanhistory' | 'edit' | 'solicitud' | 'fondogeneral' | 'agregarproveedor' | 'reportes' | 'configuracion' | 'pruebas'
+type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'xml' | 'cashcounter' | 'recetas' | 'timingcontrol' | 'controlhorario' | 'empleados' | 'calculohorasprecios' | 'supplierorders' | 'scanhistory' | 'edit' | 'solicitud' | 'fondogeneral' | 'agregarproveedor' | 'reportes' | 'configuracion' | 'pruebas'
+
 
 export default function HomePage() {
   // Hook para obtener el usuario autenticado
@@ -221,7 +222,7 @@ export default function HomePage() {
       if (typeof window !== 'undefined') {
         const hash = window.location.hash.replace('#', '') as ActiveTab;
         const validTabs = [
-          'scanner', 'calculator', 'converter', 'xml', 'cashcounter', 'platillos', 'timingcontrol', 'controlhorario', 'empleados', 'calculohorasprecios', 'supplierorders', 'scanhistory', 'solicitud', 'fondogeneral', 'agregarproveedor', 'reportes', 'configuracion',
+          'scanner', 'calculator', 'converter', 'xml', 'cashcounter', 'recetas', 'timingcontrol', 'controlhorario', 'empleados', 'calculohorasprecios', 'supplierorders', 'scanhistory', 'solicitud', 'fondogeneral', 'agregarproveedor', 'reportes', 'configuracion',
           ...(isSuperAdmin ? ['pruebas'] : [])
         ];
         if (validTabs.includes(hash)) {
@@ -245,7 +246,7 @@ export default function HomePage() {
       const handleHashChange = () => {
         const hash = window.location.hash.replace('#', '') as ActiveTab;
         const validTabs = [
-          'scanner', 'calculator', 'converter', 'xml', 'cashcounter', 'platillos', 'timingcontrol', 'controlhorario', 'empleados', 'calculohorasprecios', 'supplierorders', 'scanhistory', 'edit', 'solicitud', 'fondogeneral', 'agregarproveedor', 'reportes', 'configuracion',
+          'scanner', 'calculator', 'converter', 'xml', 'cashcounter', 'recetas', 'timingcontrol', 'controlhorario', 'empleados', 'calculohorasprecios', 'supplierorders', 'scanhistory', 'edit', 'solicitud', 'fondogeneral', 'agregarproveedor', 'reportes', 'configuracion',
           ...(isSuperAdmin ? ['pruebas'] : [])
         ];
         if (validTabs.includes(hash)) {
@@ -328,10 +329,10 @@ export default function HomePage() {
                 <CashCounterTabs />
               )}
 
-              {/* PLATILLOS (en mantenimiento) */}
-              {activeTab === 'platillos' && (
+              {/* RECETAS (en mantenimiento) */}
+              {activeTab === 'recetas' && (
                 <div className="max-w-3xl mx-auto bg-[var(--card-bg)] border border-[var(--input-border)] rounded-lg shadow p-8">
-                  <h2 className="text-2xl font-bold text-[var(--foreground)] mb-2">Platillos</h2>
+                  <h2 className="text-2xl font-bold text-[var(--foreground)] mb-2">Recetas</h2>
                   <p className="text-[var(--muted-foreground)]">en mantenimiento</p>
                 </div>
               )}

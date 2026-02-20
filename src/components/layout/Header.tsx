@@ -78,7 +78,7 @@ type ActiveTab =
   | "converter"
   | "xml"
   | "cashcounter"
-  | "platillos"
+  | "recetas"
   | "timingcontrol"
   | "controlhorario"
   | "empleados"
@@ -435,11 +435,11 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       permission: "empleados" as keyof UserPermissions,
     },
     {
-      id: "platillos" as ActiveTab,
-      name: "Platillos",
+      id: "recetas" as ActiveTab,
+      name: "Recetas",
       icon: Layers,
       description: "en mantenimiento",
-      permission: "platillos" as keyof UserPermissions,
+      permission: "recetas" as keyof UserPermissions,
     },
     {
       id: "calculohorasprecios" as ActiveTab,

@@ -113,11 +113,11 @@ const menuItems = [
     permission: "empleados" as keyof UserPermissions,
   },
   {
-    id: "platillos",
-    name: "Platillos",
+    id: "recetas",
+    name: "Recetas",
     icon: Layers,
     description: "en mantenimiento",
-    permission: "platillos" as keyof UserPermissions,
+    permission: "recetas" as keyof UserPermissions,
   },
   {
     id: "calculohorasprecios",
