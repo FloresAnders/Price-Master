@@ -85,6 +85,23 @@ export interface ProviderEntry {
   };
 }
 
+export interface ProductEntry {
+  /**
+   * Firestore doc id (and also stored in the document for compatibility with JSON exports).
+   */
+  id: string;
+  nombre: string;
+  descripcion?: string;
+  pesoengramos: number;
+  precio: number;
+  precioxgramo: number;
+  createdAt?: string;
+  /**
+   * Kept as `updateAt` to match the existing JSON model (productos.json).
+   */
+  updateAt?: string;
+}
+
 export interface Sorteo {
   id?: string;
   name: string;
