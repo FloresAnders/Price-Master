@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 
+import ConfirmModal from '../../../components/ui/ConfirmModal';
+
 const CRC_DENOMINATIONS: readonly number[] = [20000, 10000, 5000, 2000, 1000, 500, 100, 50, 25];
 const USD_DENOMINATIONS: readonly number[] = [100, 50, 20, 10, 5, 1];
 
@@ -59,6 +61,9 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     const [crcCounts, setCrcCounts] = useState<CountState>(() => buildInitialCounts(CRC_DENOMINATIONS));
     const [usdCounts, setUsdCounts] = useState<CountState>(() => buildInitialCounts(USD_DENOMINATIONS));
 
+    const [confirmDiffOpen, setConfirmDiffOpen] = useState(false);
+    const [pendingSubmitValues, setPendingSubmitValues] = useState<DailyClosingFormValues | null>(null);
+
     const crcFormatter = useMemo(
         () => new Intl.NumberFormat('es-CR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }),
         [],
@@ -90,12 +95,43 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     const diffUSD = totalUSD - Math.trunc(currentBalanceUSD);
     const hasAnyCash = totalCRC > 0 || totalUSD > 0;
     const submitDisabled = manager.trim().length === 0 || !hasAnyCash;
+    const hasDifferences = diffCRC !== 0 || diffUSD !== 0;
+
+    const submitDisabledReason = useMemo(() => {
+        if (manager.trim().length === 0) {
+            return 'Selecciona un encargado para poder guardar.';
+        }
+        if (!hasAnyCash) {
+            return 'No se puede guardar: el efectivo está en 0. Ingresa el conteo en colones o dólares para realizar el cierre.';
+        }
+        return '';
+    }, [manager, hasAnyCash]);
 
     const differenceLabel = (currency: 'CRC' | 'USD', diff: number) => {
         if (diff === 0) return 'sin diferencias';
         const sign = diff > 0 ? '+' : '-';
         return `${sign} ${formatCurrency(currency, Math.abs(diff))}`;
     };
+
+    const differencesConfirmMessage = useMemo(() => {
+        if (!hasDifferences) return '';
+
+        const lines: string[] = ['Hay diferencias entre el efectivo contado y el saldo registrado.', ''];
+
+        if (diffCRC !== 0) {
+            lines.push(
+                `Colones: contado ${formatCurrency('CRC', totalCRC)} · registrado ${formatCurrency('CRC', currentBalanceCRC)} · diferencia ${differenceLabel('CRC', diffCRC)}`,
+            );
+        }
+        if (diffUSD !== 0) {
+            lines.push(
+                `Dólares: contado ${formatCurrency('USD', totalUSD)} · registrado ${formatCurrency('USD', currentBalanceUSD)} · diferencia ${differenceLabel('USD', diffUSD)}`,
+            );
+        }
+
+        lines.push('', '¿Deseas guardar el cierre de todos modos?');
+        return lines.join('\n');
+    }, [hasDifferences, totalCRC, totalUSD, currentBalanceCRC, currentBalanceUSD, diffCRC, diffUSD]);
 
     useEffect(() => {
         if (!open) return;
@@ -218,7 +254,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
         const trimmedManager = manager.trim();
         if (!trimmedManager || !hasAnyCash) return;
 
-        onConfirm({
+        const values: DailyClosingFormValues = {
             closingDate: closingDateISO,
             manager: trimmedManager,
             notes,
@@ -226,7 +262,30 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
             totalUSD,
             breakdownCRC: buildBreakdown(crcCounts, CRC_DENOMINATIONS),
             breakdownUSD: buildBreakdown(usdCounts, USD_DENOMINATIONS),
-        });
+        };
+
+        if (hasDifferences) {
+            setPendingSubmitValues(values);
+            setConfirmDiffOpen(true);
+            return;
+        }
+
+        onConfirm(values);
+    };
+
+    const handleConfirmDifferences = () => {
+        if (!pendingSubmitValues) {
+            setConfirmDiffOpen(false);
+            return;
+        }
+        onConfirm(pendingSubmitValues);
+        setConfirmDiffOpen(false);
+        setPendingSubmitValues(null);
+    };
+
+    const handleCancelDifferences = () => {
+        setConfirmDiffOpen(false);
+        setPendingSubmitValues(null);
     };
 
     const handleClearCounts = () => {
@@ -450,17 +509,38 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                         >
                             Cancelar
                         </button>
-                        <button
-                            type="button"
-                            onClick={handleSubmit}
-                            disabled={submitDisabled}
-                            className="rounded bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:opacity-50"
-                        >
-                            {editId ? 'Actualizar cierre' : 'Guardar cierre'}
-                        </button>
+                        <div className="relative group">
+                            <button
+                                type="button"
+                                onClick={handleSubmit}
+                                disabled={submitDisabled}
+                                className="rounded bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:opacity-50"
+                            >
+                                {editId ? 'Actualizar cierre' : 'Guardar cierre'}
+                            </button>
+                            {submitDisabled && submitDisabledReason ? (
+                                <div
+                                    className="pointer-events-none absolute bottom-full right-0 mb-2 w-72 rounded border border-yellow-300 bg-yellow-200 px-3 py-2 text-xs text-black opacity-0 shadow-lg transition-opacity group-hover:opacity-100 dark:border-yellow-600 dark:bg-yellow-500"
+                                    role="tooltip"
+                                >
+                                    {submitDisabledReason}
+                                </div>
+                            ) : null}
+                        </div>
                     </div>
                 </div>
             </div>
+
+            <ConfirmModal
+                open={confirmDiffOpen}
+                title="Confirmar cierre con diferencias"
+                message={differencesConfirmMessage}
+                confirmText={editId ? 'Actualizar de todos modos' : 'Guardar de todos modos'}
+                cancelText="Revisar"
+                actionType="change"
+                onConfirm={handleConfirmDifferences}
+                onCancel={handleCancelDifferences}
+            />
         </div>
     );
 };
