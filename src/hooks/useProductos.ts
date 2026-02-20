@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ProductosService } from "../services/productos";
 import type { ProductEntry } from "../types/firestore";
+import { useAuth } from "./useAuth";
 
 type MutationCallbacks<T> = {
   onSuccess?: (result: T) => void;
@@ -8,15 +9,31 @@ type MutationCallbacks<T> = {
 };
 
 export function useProductos() {
+  const { user, loading: authLoading } = useAuth();
+  const company = useMemo(() => (user?.ownercompanie || "").trim(), [user?.ownercompanie]);
+  const noCompanyMessage = "No se pudo determinar la empresa del usuario.";
+
   const [productos, setProductos] = useState<ProductEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchProductos = useCallback(async () => {
+    // Esperar a que auth resuelva para evitar consultas con empresa vacía.
+    if (authLoading) {
+      return;
+    }
+
+    if (!company) {
+      setProductos([]);
+      setError(user ? noCompanyMessage : null);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
-      const data = await ProductosService.getProductosOrderedByNombre();
+      const data = await ProductosService.getProductosOrderedByNombre(company);
       setProductos(data);
     } catch (err) {
       const message =
@@ -28,7 +45,7 @@ export function useProductos() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [authLoading, company]);
 
   const addProducto = useCallback(
     async (input: {
@@ -39,7 +56,10 @@ export function useProductos() {
     }, callbacks?: MutationCallbacks<ProductEntry>) => {
       try {
         setError(null);
-        const created = await ProductosService.addProducto(input);
+        if (!company) {
+          throw new Error(noCompanyMessage);
+        }
+        const created = await ProductosService.addProducto(company, input);
 
         setProductos((prev) => {
           const next = [...prev.filter((p) => p.id !== created.id), created];
@@ -62,7 +82,7 @@ export function useProductos() {
         throw asError;
       }
     },
-    []
+    [company, noCompanyMessage]
   );
 
   const updateProducto = useCallback(
@@ -74,7 +94,10 @@ export function useProductos() {
     , callbacks?: MutationCallbacks<ProductEntry>) => {
       try {
         setError(null);
-        const updated = await ProductosService.updateProducto(id, patch);
+        if (!company) {
+          throw new Error(noCompanyMessage);
+        }
+        const updated = await ProductosService.updateProducto(company, id, patch);
 
         setProductos((prev) => {
           const next = [...prev.filter((p) => p.id !== updated.id), updated];
@@ -97,14 +120,17 @@ export function useProductos() {
         throw asError;
       }
     },
-    []
+    [company, noCompanyMessage]
   );
 
   const removeProducto = useCallback(
     async (id: string, callbacks?: MutationCallbacks<void>) => {
       try {
         setError(null);
-        await ProductosService.deleteProducto(id);
+        if (!company) {
+          throw new Error(noCompanyMessage);
+        }
+        await ProductosService.deleteProducto(company, id);
 
         setProductos((prev) => prev.filter((p) => p.id !== id));
 
@@ -121,7 +147,7 @@ export function useProductos() {
         throw asError;
       }
     },
-    []
+    [company, noCompanyMessage]
   );
 
   useEffect(() => {

@@ -493,6 +493,14 @@ export class UsersService {
         }
       }
 
+      // One-time legacy migration: permissions.agregaproductodeli -> permissions.agregarproductosdeli
+      // Keep runtime checks strict (agregarproductosdeli only), but allow data cleanup via this routine.
+      const legacyAgregar = (currentPermissions as any)?.agregaproductodeli === true;
+      if (legacyAgregar && updatedPermissions.agregarproductosdeli !== true) {
+        updatedPermissions.agregarproductosdeli = true;
+        needsUpdate = true;
+      }
+
       if (needsUpdate) {
         await this.updateUser(user.id, { permissions: updatedPermissions });
         updated++;

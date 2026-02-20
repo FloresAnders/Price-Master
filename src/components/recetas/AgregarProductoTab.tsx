@@ -291,7 +291,7 @@ export function AgregarProductoTab() {
                             Productos
                         </h2>
                         <p className="text-[10px] sm:text-xs text-[var(--muted-foreground)]">
-                            Administra productos en la colección "productos".
+                            Administra productos para tu empresa.
                         </p>
                     </div>
                 </div>
@@ -492,7 +492,6 @@ export function AgregarProductoTab() {
                         <IconButton
                             aria-label="Cerrar"
                             onClick={() => {
-                                setDrawerOpen(false);
                                 resetForm();
                             }}
                             sx={{ color: "var(--foreground)" }}

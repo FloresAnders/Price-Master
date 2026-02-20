@@ -1,9 +1,42 @@
 import { FirestoreService } from "./firestore";
 import type { ProductEntry } from "../types/firestore";
 import { nowCostaRicaISO } from "../utils/costaRicaTime";
+import { doc, setDoc } from "firebase/firestore";
+import { db } from "@/config/firebase";
 
 export class ProductosService {
   private static readonly COLLECTION_NAME = "productos";
+  private static readonly ITEMS_SUBCOLLECTION = "items";
+
+  private static requireCompany(company: string): string {
+    const trimmed = String(company || "").trim();
+    if (!trimmed) {
+      throw new Error("No se pudo determinar la empresa del usuario.");
+    }
+    if (trimmed.includes("/")) {
+      throw new Error('Empresa inválida (no puede contener "/").');
+    }
+    return trimmed;
+  }
+
+  private static productosCollectionPath(company: string): string {
+    const companyKey = this.requireCompany(company);
+    return `${this.COLLECTION_NAME}/${companyKey}/${this.ITEMS_SUBCOLLECTION}`;
+  }
+
+  private static async ensureCompanyRootDoc(company: string): Promise<void> {
+    const companyKey = this.requireCompany(company);
+    const ref = doc(db, this.COLLECTION_NAME, companyKey);
+    const nowISO = nowCostaRicaISO();
+    await setDoc(
+      ref,
+      {
+        company: companyKey,
+        updatedAt: nowISO,
+      },
+      { merge: true }
+    );
+  }
 
   private static slugifyForId(value: string): string {
     const raw = String(value || "").trim().toLowerCase();
@@ -80,9 +113,10 @@ export class ProductosService {
     };
   }
 
-  static async getProductosOrderedByNombre(): Promise<ProductEntry[]> {
+  static async getProductosOrderedByNombre(company: string): Promise<ProductEntry[]> {
+    const collectionPath = this.productosCollectionPath(company);
     const rows = (await FirestoreService.query(
-      this.COLLECTION_NAME,
+      collectionPath,
       [],
       "nombre",
       "asc"
@@ -93,12 +127,16 @@ export class ProductosService {
       .filter((p): p is ProductEntry => p !== null);
   }
 
-  static async addProducto(input: {
+  static async addProducto(
+    company: string,
+    input: {
     nombre: string;
     descripcion?: string;
     pesoengramos: number;
     precio: number;
-  }): Promise<ProductEntry> {
+    }
+  ): Promise<ProductEntry> {
+    const collectionPath = this.productosCollectionPath(company);
     const nombre = String(input.nombre || "").trim();
     if (!nombre) throw new Error("Nombre requerido.");
 
@@ -109,7 +147,7 @@ export class ProductosService {
 
     const id = this.buildProductoId(nombre);
 
-    const exists = await FirestoreService.exists(this.COLLECTION_NAME, id);
+    const exists = await FirestoreService.exists(collectionPath, id);
     if (exists) {
       throw new Error(`Ya existe un producto con id "${id}".`);
     }
@@ -127,14 +165,17 @@ export class ProductosService {
       updateAt: nowISO,
     };
 
-    await FirestoreService.addWithId(this.COLLECTION_NAME, id, data);
+    await this.ensureCompanyRootDoc(company);
+    await FirestoreService.addWithId(collectionPath, id, data);
     return data;
   }
 
   static async updateProducto(
+    company: string,
     id: string,
     patch: Partial<Omit<ProductEntry, "id" | "createdAt" | "precioxgramo">>
   ): Promise<ProductEntry> {
+    const collectionPath = this.productosCollectionPath(company);
     const docId = String(id || "").trim();
     if (!docId) throw new Error("id requerido.");
 
@@ -166,7 +207,7 @@ export class ProductosService {
 
     // Recalcular precioxgramo si cambia precio o pesoengramos
     if (updateData.precio !== undefined || updateData.pesoengramos !== undefined) {
-      const current = (await FirestoreService.getById(this.COLLECTION_NAME, docId)) as Record<string, unknown> | null;
+      const current = (await FirestoreService.getById(collectionPath, docId)) as Record<string, unknown> | null;
       const normalized = current
         ? this.normalizeProductDoc(current, docId)
         : null;
@@ -175,10 +216,11 @@ export class ProductosService {
       updateData.precioxgramo = this.computePrecioXGramo(basePrecio, basePeso);
     }
 
-    await FirestoreService.update(this.COLLECTION_NAME, docId, updateData);
+    await this.ensureCompanyRootDoc(company);
+    await FirestoreService.update(collectionPath, docId, updateData);
 
     const updated = (await FirestoreService.getById(
-      this.COLLECTION_NAME,
+      collectionPath,
       docId
     )) as Record<string, unknown> | null;
 
@@ -189,9 +231,10 @@ export class ProductosService {
     return normalized;
   }
 
-  static async deleteProducto(id: string): Promise<void> {
+  static async deleteProducto(company: string, id: string): Promise<void> {
+    const collectionPath = this.productosCollectionPath(company);
     const docId = String(id || "").trim();
     if (!docId) return;
-    await FirestoreService.delete(this.COLLECTION_NAME, docId);
+    await FirestoreService.delete(collectionPath, docId);
   }
 }

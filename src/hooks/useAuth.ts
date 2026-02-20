@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { User, UserPermissions } from '../types/firestore';
 import { TokenService } from '../services/tokenService';
 import { UsersService } from '../services/users';
+import { normalizeUserPermissions } from '../utils/permissions';
 
 interface SessionData {
   id?: string;
@@ -145,7 +146,7 @@ export function useAuth() {
           name: tokenInfo.user.name,
           ownercompanie: tokenInfo.user.ownercompanie,
           role: tokenInfo.user.role,
-          permissions: tokenInfo.user.permissions,
+          permissions: normalizeUserPermissions(tokenInfo.user.permissions, tokenInfo.user.role || 'user'),
           // Ensure ownerId and eliminate are available for actor-aware logic
           ownerId: tokenInfo.user.ownerId || '',
           eliminate: tokenInfo.user.eliminate ?? false
@@ -208,7 +209,7 @@ export function useAuth() {
             name: session.name,
             ownercompanie: (sessionObj.ownercompanie as string) || session.ownercompanie,
             role: session.role,
-            permissions: session.permissions, // ¡Importante! Incluir los permisos desde la sesión
+            permissions: normalizeUserPermissions(session.permissions, (session.role as any) || 'user'),
             // Restore ownerId and eliminate if present in the stored session
             ownerId: (sessionObj.ownerId as string) || '',
             eliminate: (sessionObj.eliminate as boolean) ?? false
@@ -267,11 +268,12 @@ export function useAuth() {
         user.id,
         (updatedUserData) => {
           if (updatedUserData) {
+            const normalizedPerms = normalizeUserPermissions(updatedUserData.permissions, updatedUserData.role || 'user');
             setUser((prevUser) => {
               if (!prevUser) return prevUser;
 
               // Actualizar solo si hay cambios relevantes (especialmente permisos)
-              const hasPermissionsChanged = JSON.stringify(prevUser.permissions) !== JSON.stringify(updatedUserData.permissions);
+              const hasPermissionsChanged = JSON.stringify(prevUser.permissions) !== JSON.stringify(normalizedPerms);
               const hasDataChanged = 
                 prevUser.name !== updatedUserData.name ||
                 prevUser.ownercompanie !== updatedUserData.ownercompanie ||
@@ -292,7 +294,7 @@ export function useAuth() {
                 if (sessionData) {
                   try {
                     const session = JSON.parse(sessionData);
-                    session.permissions = updatedUserData.permissions;
+                    session.permissions = normalizedPerms;
                     session.name = updatedUserData.name;
                     session.role = updatedUserData.role;
                     localStorage.setItem('pricemaster_session', JSON.stringify(session));
@@ -305,7 +307,7 @@ export function useAuth() {
               return {
                 ...prevUser,
                 ...updatedUserData,
-                permissions: updatedUserData.permissions
+                permissions: normalizedPerms
               };
             });
           }
@@ -345,12 +347,14 @@ export function useAuth() {
     };
   }, [checkExistingSession, updateActivity, isAuthenticated, user?.id, useTokenAuth]);
   const login = (userData: User, keepActive: boolean = false, useTokens: boolean = false) => {
+    const normalizedPerms = normalizeUserPermissions(userData.permissions, userData.role || 'user');
     if (useTokens) {
       // Usar autenticación por tokens (una semana automáticamente)
       TokenService.createTokenSession(userData);
       const userObj = userData as unknown as Record<string, unknown>;
       const enrichedUser = {
         ...userData,
+        permissions: normalizedPerms,
         ownerId: (userObj.ownerId as string) || '',
         eliminate: (userObj.eliminate as boolean) ?? false
       };
@@ -369,7 +373,7 @@ export function useAuth() {
         name: userData.name,
         ownercompanie: (userData as unknown as Record<string, unknown>).ownercompanie as string | undefined,
         role: userData.role,
-        permissions: userData.permissions, // ¡Importante! Incluir los permisos
+        permissions: normalizedPerms,
         loginTime: new Date().toISOString(),
         lastActivity: new Date().toISOString(),
         sessionId,
@@ -389,6 +393,7 @@ export function useAuth() {
       const userObj2 = userData as unknown as Record<string, unknown>;
       const enrichedUser = {
         ...userData,
+        permissions: normalizedPerms,
         ownerId: (userObj2.ownerId as string) || '',
         eliminate: (userObj2.eliminate as boolean) ?? false
       };

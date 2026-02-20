@@ -13,6 +13,27 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 
+function parseArgs(argv) {
+    const args = { company: '' };
+    for (let i = 0; i < argv.length; i++) {
+        const token = argv[i];
+        if (token === '--company' || token === '-C') {
+            args.company = String(argv[i + 1] || '').trim();
+            i++;
+            continue;
+        }
+        if (token === '--help' || token === '-h') {
+            args.help = true;
+            continue;
+        }
+    }
+    return args;
+}
+
+function printHelp() {
+    console.log(`\nUso: node export.js --company <empresa>\n\nExporta productos desde Firestore usando el esquema multi-empresa:\n  productos/{empresa}/items\n\nOpciones:\n  -C, --company <empresa>   Id/nombre exacto del doc de empresa\n  -h, --help                Ayuda\n\nEjemplo:\n  node export.js --company DELIFOOD\n`);
+}
+
 function serializeFirestoreValue(value) {
     if (value === null || value === undefined) return value;
 
@@ -51,11 +72,24 @@ function serializeFirestoreValue(value) {
 }
 
 async function exportarColeccion() {
-    const collectionName = 'productos'; // <--- Verifica que se llame exactamente así
-    console.log(`Leyendo la colección "${collectionName}"...`);
+    const args = parseArgs(process.argv.slice(2));
+    if (args.help) {
+        printHelp();
+        return;
+    }
+
+    const company = String(args.company || '').trim();
+    if (!company) {
+        printHelp();
+        console.error('❌ Falta --company.');
+        process.exit(1);
+    }
+
+    const collectionPath = `productos/${company}/items`;
+    console.log(`Leyendo la colección "${collectionPath}"...`);
 
     try {
-        const snapshot = await db.collection(collectionName).get();
+        const snapshot = await db.collection(collectionPath).get();
         
         if (snapshot.empty) {
             console.log('No se encontraron documentos en esa colección.');
