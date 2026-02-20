@@ -3,7 +3,9 @@
     "id": "nombreReceta",
     "nombre": "nombreReceta",
     "descripcion": "recetica",
-    "productos": []
+    "productos": [],
+    "createdAt": "2026-02-18T01:05:38.688Z",
+    "updateAt": "2026-02-20T01:05:55.862Z"
   },
   {
     "id": "nombreReceta2",
