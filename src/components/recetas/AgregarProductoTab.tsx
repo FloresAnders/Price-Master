@@ -23,6 +23,8 @@ import ConfirmModal from "@/components/ui/ConfirmModal";
 import { useProductos } from "@/hooks/useProductos";
 import useToast from "@/hooks/useToast";
 import type { ProductEntry } from "@/types/firestore";
+import { EmpresasService } from "@/services/empresas";
+import { useActorOwnership } from "@/hooks/useActorOwnership";
 
 const sanitizeNumber = (value: string): number => {
     const trimmed = String(value || "").trim().replace(/,/g, ".");
@@ -46,11 +48,18 @@ const computePrecioXGramo = (precio: number, pesoengramos: number): number => {
 
 export function AgregarProductoTab() {
     const { user, loading: authLoading } = useAuth();
+    const { ownerIds: actorOwnerIds } = useActorOwnership(user || {});
     const permissions =
         user?.permissions || getDefaultPermissions(user?.role || "user");
     const canAgregarProductos = Boolean(permissions.agregarproductosdeli);
+    const isAdminLike = user?.role === "admin" || user?.role === "superadmin";
 
     const { showToast } = useToast();
+
+    const [empresaOptions, setEmpresaOptions] = useState<string[]>([]);
+    const [empresaLoading, setEmpresaLoading] = useState(false);
+    const [empresaError, setEmpresaError] = useState<string | null>(null);
+    const [selectedEmpresa, setSelectedEmpresa] = useState<string>("");
 
     const {
         productos,
@@ -59,7 +68,75 @@ export function AgregarProductoTab() {
         addProducto,
         updateProducto,
         removeProducto,
-    } = useProductos();
+    } = useProductos({ companyOverride: isAdminLike ? selectedEmpresa : undefined });
+
+    useEffect(() => {
+        if (authLoading) return;
+        if (!isAdminLike) return;
+
+        let cancelled = false;
+        const loadEmpresas = async () => {
+            setEmpresaLoading(true);
+            setEmpresaError(null);
+            try {
+                const all = await EmpresasService.getAllEmpresas();
+                const normalized = Array.isArray(all) ? all : [];
+
+                let filtered = normalized;
+                if (user?.role !== "superadmin") {
+                    const allowed = new Set((actorOwnerIds || []).map((id) => String(id)));
+                    if (allowed.size > 0) {
+                        filtered = normalized.filter((e: any) => e && e.ownerId && allowed.has(String(e.ownerId)));
+                    }
+                }
+
+                const names = filtered
+                    .map((e: any) => String(e?.name || "").trim())
+                    .filter((n: string) => n.length > 0);
+
+                // Asegurar que la empresa del usuario aparezca aunque no esté en la lista.
+                const userCompany = String(user?.ownercompanie || "").trim();
+                const merged = userCompany && !names.includes(userCompany) ? [userCompany, ...names] : names;
+
+                // Unicos preservando orden
+                const unique: string[] = [];
+                for (const n of merged) {
+                    if (!unique.includes(n)) unique.push(n);
+                }
+
+                if (cancelled) return;
+                setEmpresaOptions(unique);
+            } catch (err) {
+                if (cancelled) return;
+                const msg = err instanceof Error ? err.message : "No se pudieron cargar las empresas.";
+                setEmpresaError(msg);
+                setEmpresaOptions([]);
+            } finally {
+                if (!cancelled) setEmpresaLoading(false);
+            }
+        };
+
+        void loadEmpresas();
+        return () => {
+            cancelled = true;
+        };
+    }, [actorOwnerIds, authLoading, isAdminLike, user?.ownercompanie, user?.role]);
+
+    useEffect(() => {
+        if (!isAdminLike) return;
+        if (authLoading) return;
+
+        // Elegir empresa por defecto
+        const userCompany = String(user?.ownercompanie || "").trim();
+        if (selectedEmpresa) return;
+        if (userCompany) {
+            setSelectedEmpresa(userCompany);
+            return;
+        }
+        if (empresaOptions.length > 0) {
+            setSelectedEmpresa(empresaOptions[0]);
+        }
+    }, [authLoading, empresaOptions, isAdminLike, selectedEmpresa, user?.ownercompanie]);
 
     const [searchTerm, setSearchTerm] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
@@ -94,7 +171,7 @@ export function AgregarProductoTab() {
     }>(null);
 
     const isLoading = authLoading || productosLoading;
-    const resolvedError = formError || error;
+    const resolvedError = formError || error || empresaError;
 
     const filteredProductos = useMemo(() => {
         const term = searchTerm.trim().toLowerCase();
@@ -295,6 +372,40 @@ export function AgregarProductoTab() {
                         </p>
                     </div>
                 </div>
+
+                {isAdminLike && (
+                    <div className="flex flex-col gap-1 w-full sm:w-auto">
+                        <label className="text-[10px] sm:text-xs text-[var(--muted-foreground)]">
+                            Empresa
+                        </label>
+                        <select
+                            value={selectedEmpresa}
+                            onChange={(e) => {
+                                const next = e.target.value;
+                                setSelectedEmpresa(next);
+                                setSearchTerm("");
+                                setCurrentPage(1);
+                                setDrawerOpen(false);
+                                resetForm();
+                            }}
+                            disabled={empresaLoading}
+                            className="w-full sm:min-w-[260px] px-3 py-2.5 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40"
+                            aria-label="Seleccionar empresa"
+                        >
+                            {empresaOptions.length === 0 ? (
+                                <option value={selectedEmpresa || ""}>
+                                    {empresaLoading ? "Cargando empresas..." : "Sin empresas"}
+                                </option>
+                            ) : (
+                                empresaOptions.map((name) => (
+                                    <option key={name} value={name}>
+                                        {name}
+                                    </option>
+                                ))
+                            )}
+                        </select>
+                    </div>
+                )}
 
                 <div className="flex w-full sm:w-auto flex-col sm:flex-row items-stretch sm:items-end gap-2 sm:gap-3">
                     <div className="relative w-full sm:min-w-[260px]">

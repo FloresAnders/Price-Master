@@ -8,9 +8,15 @@ type MutationCallbacks<T> = {
   onError?: (error: Error) => void;
 };
 
-export function useProductos() {
+export function useProductos(options?: { companyOverride?: string }) {
   const { user, loading: authLoading } = useAuth();
-  const company = useMemo(() => (user?.ownercompanie || "").trim(), [user?.ownercompanie]);
+  const companyFromUser = useMemo(() => (user?.ownercompanie || "").trim(), [user?.ownercompanie]);
+  const isAdminLike = user?.role === 'admin' || user?.role === 'superadmin';
+  const requestedOverride = useMemo(() => String(options?.companyOverride || "").trim(), [options?.companyOverride]);
+  const company = useMemo(() => {
+    if (isAdminLike && requestedOverride) return requestedOverride;
+    return companyFromUser;
+  }, [companyFromUser, isAdminLike, requestedOverride]);
   const noCompanyMessage = "No se pudo determinar la empresa del usuario.";
 
   const [productos, setProductos] = useState<ProductEntry[]>([]);
@@ -45,7 +51,7 @@ export function useProductos() {
     } finally {
       setLoading(false);
     }
-  }, [authLoading, company]);
+  }, [authLoading, company, noCompanyMessage, user]);
 
   const addProducto = useCallback(
     async (input: {
