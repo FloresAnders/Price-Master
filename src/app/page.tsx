@@ -31,6 +31,8 @@ const ReportesPage = dynamic(() => import('@/app/fondogeneral/otra/page'), { ssr
 const ConfiguracionFondoGeneralPage = dynamic(() => import('@/app/fondogeneral/configuracion/page'), { ssr: false })
 const SolicitudForm = dynamic(() => import('@/components/solicitud/SolicitudForm'), { ssr: false })
 const XmlPage = dynamic(() => import('@/components/xml/XmlPage'), { ssr: false })
+const RecetasTab = dynamic(() => import('../components/recetas/RecetasTab').then(mod => ({ default: mod.RecetasTab })), { ssr: false })
+const AgregarProductoTab = dynamic(() => import('../components/recetas/AgregarProductoTab').then(mod => ({ default: mod.AgregarProductoTab })), { ssr: false })
 
 // 1) Ampliamos ActiveTab para incluir "cashcounter", "controlhorario", "supplierorders", "edit", "scanhistory", "solicitud", "agregarproveedor", "reportes"
 type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'xml' | 'cashcounter' | 'recetas' | 'agregarproducto' | 'timingcontrol' | 'controlhorario' | 'empleados' | 'calculohorasprecios' | 'supplierorders' | 'scanhistory' | 'edit' | 'solicitud' | 'fondogeneral' | 'agregarproveedor' | 'reportes' | 'configuracion' | 'pruebas'
@@ -331,18 +333,12 @@ export default function HomePage() {
 
               {/* RECETAS (en mantenimiento) */}
               {activeTab === 'recetas' && (
-                <div className="max-w-3xl mx-auto bg-[var(--card-bg)] border border-[var(--input-border)] rounded-lg shadow p-8">
-                  <h2 className="text-2xl font-bold text-[var(--foreground)] mb-2">Recetas</h2>
-                  <p className="text-[var(--muted-foreground)]">en mantenimiento</p>
-                </div>
+                <RecetasTab />
               )}
 
               {/* AGREGAR PRODUCTO (en mantenimiento) */}
               {activeTab === 'agregarproducto' && (
-                <div className="max-w-3xl mx-auto bg-[var(--card-bg)] border border-[var(--input-border)] rounded-lg shadow p-8">
-                  <h2 className="text-2xl font-bold text-[var(--foreground)] mb-2">Agregar producto</h2>
-                  <p className="text-[var(--muted-foreground)]">en mantenimiento en este momento</p>
-                </div>
+                <AgregarProductoTab />
               )}
 
               {/* CONTROL TIEMPOS */}
