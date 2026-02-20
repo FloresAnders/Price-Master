@@ -4,8 +4,8 @@ const path = require('path');
 
 function parseArgs(argv) {
   const args = {
-    file: 'productos.json',
-    collection: 'productos',
+    file: 'recetas.json',
+    collection: 'recetas',
     merge: false,
     dryRun: false,
     keepDateStrings: false,
