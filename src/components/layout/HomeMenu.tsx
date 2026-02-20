@@ -23,7 +23,6 @@ import {
   Type,
   FileCode,
   Banknote,
-  Layers,
   Smartphone,
   Clock,
   Truck,
@@ -32,6 +31,7 @@ import {
   Users,
 } from "lucide-react";
 import AnimatedStickman from "../ui/AnimatedStickman";
+import { CustomIcon } from "../../icons/icons";
 import { User, UserPermissions } from "../../types/firestore";
 import { getDefaultPermissions } from "../../utils/permissions";
 import { useProviders } from "../../hooks/useProviders";
@@ -115,7 +115,9 @@ const menuItems = [
   {
     id: "recetas",
     name: "Recetas",
-    icon: Layers,
+    icon: (props: { className?: string }) => (
+      <CustomIcon name="FoodAndSoda" {...props} />
+    ),
     description: "en mantenimiento",
     permission: "recetas" as keyof UserPermissions,
   },

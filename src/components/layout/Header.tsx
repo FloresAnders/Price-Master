@@ -25,7 +25,9 @@ import {
   Star,
   RefreshCw,
   Trash2,
+  Plus,
 } from "lucide-react";
+import { CustomIcon } from "@/icons/icons";
 import { useState, useEffect, useRef } from "react";
 import {
   collection,
@@ -79,6 +81,7 @@ type ActiveTab =
   | "xml"
   | "cashcounter"
   | "recetas"
+  | "agregarproducto"
   | "timingcontrol"
   | "controlhorario"
   | "empleados"
@@ -482,9 +485,20 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const userPermissions =
     user?.permissions || getDefaultPermissions(user?.role || "user");
   const canManageFondoGeneral = Boolean(userPermissions.fondogeneral);
+  const canUseRecetas = Boolean(userPermissions.recetas);
+  const canAgregarProducto = Boolean(userPermissions.agregarproductosdeli);
   const isFondoPrivileged =
     user?.role === "admin" || user?.role === "superadmin";
   const fondoMenuLabel = isFondoPrivileged ? "FG/Cuentas" : "Fondo General";
+
+  const isFondoSection =
+    currentHash === "#fondogeneral" ||
+    currentHash === "#agregarproveedor" ||
+    currentHash === "#reportes" ||
+    currentHash === "#configuracion";
+
+  const isRecetasSection =
+    currentHash === "#recetas" || currentHash === "#agregarproducto";
 
   // Filter tabs based on user permissions
   const visibleTabs = allTabs.filter((tab) => {
@@ -585,95 +599,135 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
           </a>
 
           {/* If we're on fondo-related sections, show quick actions in the header */}
-          {(currentHash === "#fondogeneral" ||
-            currentHash === "#agregarproveedor" ||
-            currentHash === "#reportes" ||
-            currentHash === "#configuracion") &&
-            canManageFondoGeneral && (
-              <nav className="hidden lg:flex items-center gap-1">
-                {/* Agregar proveedor */}
+          {isFondoSection && canManageFondoGeneral && (
+            <nav className="hidden lg:flex items-center gap-1">
+              {/* Agregar proveedor */}
+              <button
+                onClick={() => {
+                  window.location.hash = "#agregarproveedor";
+                }}
+                className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${currentHash === "#agregarproveedor"
+                  ? "text-[var(--tab-text-active)] font-semibold"
+                  : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
+                  }`}
+                title="Agregar proveedor"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span className="hidden xl:inline">Agregar proveedor</span>
+                {currentHash === "#agregarproveedor" && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
+                )}
+              </button>
+
+              {/* Fondo */}
+              <button
+                onClick={() => {
+                  window.location.hash = "#fondogeneral";
+                }}
+                className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${currentHash === "#fondogeneral"
+                  ? "text-[var(--tab-text-active)] font-semibold"
+                  : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
+                  }`}
+                title={fondoMenuLabel}
+              >
+                <Banknote className="w-4 h-4" />
+                <span className="hidden xl:inline">{fondoMenuLabel}</span>
+                {currentHash === "#fondogeneral" && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
+                )}
+              </button>
+
+              {/* Reportes */}
+              {isFondoPrivileged && (
                 <button
                   onClick={() => {
-                    window.location.hash = "#agregarproveedor";
+                    window.location.hash = "#reportes";
                   }}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${currentHash === "#agregarproveedor"
+                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${currentHash === "#reportes"
                     ? "text-[var(--tab-text-active)] font-semibold"
                     : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
                     }`}
-                  title="Agregar proveedor"
+                  title="Reportes"
                 >
-                  <UserPlus className="w-4 h-4" />
-                  <span className="hidden xl:inline">Agregar proveedor</span>
-                  {currentHash === "#agregarproveedor" && (
+                  <Layers className="w-4 h-4" />
+                  <span className="hidden xl:inline">Reportes</span>
+                  {currentHash === "#reportes" && (
                     <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
                   )}
                 </button>
+              )}
 
-                {/* Fondo */}
+              {/* Configuración */}
+              {isFondoPrivileged && (
                 <button
                   onClick={() => {
-                    window.location.hash = "#fondogeneral";
+                    window.location.hash = "#configuracion";
                   }}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${currentHash === "#fondogeneral"
+                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${currentHash === "#configuracion"
                     ? "text-[var(--tab-text-active)] font-semibold"
                     : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
                     }`}
-                  title={fondoMenuLabel}
+                  title="Configuración del fondo"
                 >
-                  <Banknote className="w-4 h-4" />
-                  <span className="hidden xl:inline">{fondoMenuLabel}</span>
-                  {currentHash === "#fondogeneral" && (
+                  <Settings className="w-4 h-4" />
+                  <span className="hidden xl:inline">Configuración</span>
+                  {currentHash === "#configuracion" && (
                     <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
                   )}
                 </button>
+              )}
+            </nav>
+          )}
 
-                {/* Reportes */}
-                {isFondoPrivileged && (
-                  <button
-                    onClick={() => {
-                      window.location.hash = "#reportes";
-                    }}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${currentHash === "#reportes"
-                      ? "text-[var(--tab-text-active)] font-semibold"
-                      : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
-                      }`}
-                    title="Reportes"
-                  >
-                    <Layers className="w-4 h-4" />
-                    <span className="hidden xl:inline">Reportes</span>
-                    {currentHash === "#reportes" && (
-                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
-                    )}
-                  </button>
+          {/* If we're on recetas-related sections, show only recetas sub-navigation in the header */}
+          {isRecetasSection && canUseRecetas && (
+            <nav className="hidden lg:flex items-center gap-1">
+              {/* Agregar producto (en mantenimiento) */}
+              {canAgregarProducto && (
+                <button
+                  onClick={() => {
+                    window.location.hash = "#agregarproducto";
+                  }}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${currentHash === "#agregarproducto"
+                    ? "text-[var(--tab-text-active)] font-semibold"
+                    : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
+                    }`}
+                  title="Agregar producto"
+                >
+                  <CustomIcon name="AddSquare" className="w-4 h-4" />
+                  <span className="hidden xl:inline">Agregar Productos</span>
+                  {currentHash === "#agregarproducto" && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
+                  )}
+                </button>
+              )}
+              {/* Recetas */}
+              <button
+                onClick={() => {
+                  window.location.hash = "#recetas";
+                }}
+                className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${currentHash === "#recetas"
+                  ? "text-[var(--tab-text-active)] font-semibold"
+                  : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
+                  }`}
+                title="Recetas"
+              >
+                <CustomIcon name="FoodAndSoda" className="w-4 h-4" />
+                <span className="hidden xl:inline">Recetas</span>
+                {currentHash === "#recetas" && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
                 )}
-
-                {/* Configuración */}
-                {isFondoPrivileged && (
-                  <button
-                    onClick={() => {
-                      window.location.hash = "#configuracion";
-                    }}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${currentHash === "#configuracion"
-                      ? "text-[var(--tab-text-active)] font-semibold"
-                      : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
-                      }`}
-                    title="Configuración del fondo"
-                  >
-                    <Settings className="w-4 h-4" />
-                    <span className="hidden xl:inline">Configuración</span>
-                    {currentHash === "#configuracion" && (
-                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
-                    )}
-                  </button>
-                )}
-              </nav>
-            )}
+              </button>
+            </nav>
+          )}
 
           {/* Desktop navigation tabs - only show when inside a card and NOT in fondogeneral/agregarproveedor/reportes */}
           {activeTab &&
             activeTab !== "fondogeneral" &&
             activeTab !== "agregarproveedor" &&
             activeTab !== "reportes" &&
+            activeTab !== "recetas" &&
+            activeTab !== "agregarproducto" &&
             visibleTabs.length > 0 && (
               <nav className="hidden lg:flex items-center gap-1">
                 {visibleTabs.map((tab) => {
@@ -896,111 +950,141 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
         {showMobileMenu && (
           <div className="lg:hidden border-t border-[var(--input-border)] bg-[var(--background)] p-4">
             {/* Main tabs - only show when NOT in fondo sections */}
-            {!(
-              currentHash === "#fondogeneral" ||
-              currentHash === "#agregarproveedor" ||
-              currentHash === "#reportes" ||
-              currentHash === "#configuracion"
-            ) && (
-                <div className="grid grid-cols-2 gap-2">
-                  {visibleTabs.map((tab) => {
-                    const IconComponent = tab.icon;
-                    return (
-                      <button
-                        key={tab.id}
-                        onClick={() => {
-                          handleTabClick(tab.id);
-                          setShowMobileMenu(false);
-                        }}
-                        className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${activeTab === tab.id
-                          ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
-                          : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
-                          }`}
-                      >
-                        <IconComponent className="w-4 h-4" />
-                        <span>{tab.name}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
+            {!isFondoSection && !isRecetasSection && (
+              <div className="grid grid-cols-2 gap-2">
+                {visibleTabs.map((tab) => {
+                  const IconComponent = tab.icon;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => {
+                        handleTabClick(tab.id);
+                        setShowMobileMenu(false);
+                      }}
+                      className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${activeTab === tab.id
+                        ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                        : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
+                        }`}
+                    >
+                      <IconComponent className="w-4 h-4" />
+                      <span>{tab.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Mobile fondo general navigation */}
-            {(currentHash === "#fondogeneral" ||
-              currentHash === "#agregarproveedor" ||
-              currentHash === "#reportes" ||
-              currentHash === "#configuracion") &&
-              canManageFondoGeneral && (
-                <div className="grid grid-cols-2 gap-2">
-                  {/* Agregar proveedor */}
+            {isFondoSection && canManageFondoGeneral && (
+              <div className="grid grid-cols-2 gap-2">
+                {/* Agregar proveedor */}
+                <button
+                  onClick={() => {
+                    window.location.hash = "#agregarproveedor";
+                    setShowMobileMenu(false);
+                  }}
+                  className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${currentHash === "#agregarproveedor"
+                    ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                    : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
+                    }`}
+                  title="Agregar proveedor"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>Agregar proveedor</span>
+                </button>
+
+                {/* Fondo */}
+                <button
+                  onClick={() => {
+                    window.location.hash = "#fondogeneral";
+                    setShowMobileMenu(false);
+                  }}
+                  className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${currentHash === "#fondogeneral"
+                    ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                    : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
+                    }`}
+                  title={fondoMenuLabel}
+                >
+                  <Banknote className="w-4 h-4" />
+                  <span>{fondoMenuLabel}</span>
+                </button>
+
+                {/* Reportes */}
+                {isFondoPrivileged && (
                   <button
                     onClick={() => {
-                      window.location.hash = "#agregarproveedor";
+                      window.location.hash = "#reportes";
                       setShowMobileMenu(false);
                     }}
-                    className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${currentHash === "#agregarproveedor"
+                    className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${currentHash === "#reportes"
                       ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
                       : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
                       }`}
-                    title="Agregar proveedor"
+                    title="Reportes"
                   >
-                    <UserPlus className="w-4 h-4" />
-                    <span>Agregar proveedor</span>
+                    <Layers className="w-4 h-4" />
+                    <span>Reportes</span>
                   </button>
+                )}
 
-                  {/* Fondo */}
+                {/* Configuración */}
+                {isFondoPrivileged && (
                   <button
                     onClick={() => {
-                      window.location.hash = "#fondogeneral";
+                      window.location.hash = "#configuracion";
                       setShowMobileMenu(false);
                     }}
-                    className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${currentHash === "#fondogeneral"
+                    className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${currentHash === "#configuracion"
                       ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
                       : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
                       }`}
-                    title={fondoMenuLabel}
+                    title="Configuración del fondo"
                   >
-                    <Banknote className="w-4 h-4" />
-                    <span>{fondoMenuLabel}</span>
+                    <Settings className="w-4 h-4" />
+                    <span>Configuración</span>
                   </button>
+                )}
+              </div>
+            )}
 
-                  {/* Reportes */}
-                  {isFondoPrivileged && (
-                    <button
-                      onClick={() => {
-                        window.location.hash = "#reportes";
-                        setShowMobileMenu(false);
-                      }}
-                      className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${currentHash === "#reportes"
-                        ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
-                        : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
-                        }`}
-                      title="Reportes"
-                    >
-                      <Layers className="w-4 h-4" />
-                      <span>Reportes</span>
-                    </button>
-                  )}
+            {/* Mobile recetas navigation */}
+            {isRecetasSection && canUseRecetas && (
+              <div className="grid grid-cols-2 gap-2">
+                {/* Recetas */}
+                <button
+                  onClick={() => {
+                    window.location.hash = "#recetas";
+                    setShowMobileMenu(false);
+                  }}
+                  className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${currentHash === "#recetas"
+                    ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                    : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
+                    }`}
+                  title="Recetas"
+                >
+                  <Layers className="w-4 h-4" />
+                  <span>Recetas</span>
+                </button>
 
-                  {/* Configuración */}
-                  {isFondoPrivileged && (
-                    <button
-                      onClick={() => {
-                        window.location.hash = "#configuracion";
-                        setShowMobileMenu(false);
-                      }}
-                      className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${currentHash === "#configuracion"
-                        ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
-                        : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
-                        }`}
-                      title="Configuración del fondo"
-                    >
-                      <Settings className="w-4 h-4" />
-                      <span>Configuración</span>
-                    </button>
-                  )}
-                </div>
-              )}
+                {/* Agregar producto (en mantenimiento) */}
+                {canAgregarProducto && (
+                  <button
+                    onClick={() => {
+                      window.location.hash = "#agregarproducto";
+                      setShowMobileMenu(false);
+                    }}
+                    className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${currentHash === "#agregarproducto"
+                      ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                      : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
+                      }`}
+                    title="Agregar producto"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>en mantenimiento</span>
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Mobile user section */}
             {user && (
