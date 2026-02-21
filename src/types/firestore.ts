@@ -137,6 +137,7 @@ export interface UserPermissions {
   xml: boolean;          // XML - Exportación / generación de XML
   cashcounter: boolean;  // Contador Efectivo - Contar billetes y monedas
   recetas: boolean;      // Recetas - (en mantenimiento)
+  notificaciones: boolean; // Notificaciones - Acceso a notificaciones (sin tarjeta en HomeMenu)
   agregarproductosdeli: boolean; // Agregar productos deli - permiso interno (sin tarjeta)
   timingcontrol: boolean; // Control Tiempos - Registro de venta de tiempos
   controlhorario: boolean; // Control Horario - Registro de horarios de trabajo
