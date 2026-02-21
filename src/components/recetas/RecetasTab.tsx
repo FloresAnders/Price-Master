@@ -14,7 +14,6 @@ import { getDefaultPermissions } from "@/utils/permissions";
 import useToast from "@/hooks/useToast";
 import { useRecetas } from "@/hooks/useRecetas";
 import { useProductos } from "@/hooks/useProductos";
-import { ProductosService } from "@/services/productos";
 import type { ProductEntry, RecetaEntry } from "@/types/firestore";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import { EmpresaSearchAddSection } from "@/components/recetas/component/EmpresaSearchAddSection";
@@ -107,44 +106,36 @@ export function RecetasTab() {
     const [productoSearchError, setProductoSearchError] = React.useState<string | null>(null);
 
     React.useEffect(() => {
-        let cancelled = false;
-        const run = async () => {
-            if (!company) {
-                setProductoResults([]);
-                setProductoSearchError(null);
-                setProductoSearching(false);
-                return;
-            }
-
-            const term = String(debouncedSearch || "").trim();
-            if (term.length < 2) {
-                setProductoResults([]);
-                setProductoSearchError(null);
-                setProductoSearching(false);
-                return;
-            }
-
-            setProductoSearching(true);
+        if (!company) {
+            setProductoResults([]);
             setProductoSearchError(null);
-            try {
-                const found = await ProductosService.searchProductosByNombrePrefix(company, term, 15);
-                if (cancelled) return;
-                setProductoResults(found);
-            } catch (err) {
-                if (cancelled) return;
-                const message = err instanceof Error ? err.message : "No se pudieron buscar productos.";
-                setProductoSearchError(message);
-                setProductoResults([]);
-            } finally {
-                if (!cancelled) setProductoSearching(false);
-            }
-        };
+            setProductoSearching(false);
+            return;
+        }
 
-        void run();
-        return () => {
-            cancelled = true;
-        };
-    }, [company, debouncedSearch]);
+        const term = String(debouncedSearch || "").trim().toLowerCase();
+        if (term.length < 2) {
+            setProductoResults([]);
+            setProductoSearchError(null);
+            setProductoSearching(false);
+            return;
+        }
+
+        if (productosLoading) {
+            setProductoResults([]);
+            setProductoSearchError(null);
+            setProductoSearching(true);
+            return;
+        }
+
+        setProductoSearching(false);
+        setProductoSearchError(null);
+
+        const found = productos
+            .filter((p) => (p?.nombre || "").toLowerCase().includes(term))
+            .slice(0, 15);
+        setProductoResults(found);
+    }, [company, debouncedSearch, productos, productosLoading]);
 
     const isLoading = authLoading || loading || productosLoading;
     const resolvedError = formError || error || productosError || empresaError;
