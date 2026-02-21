@@ -9,11 +9,9 @@ import Typography from "@mui/material/Typography";
 import {
     Lock,
     PackagePlus,
-    Plus,
     Pencil,
     Trash2,
     X,
-    Search,
     ChevronLeft,
     ChevronRight,
 } from "lucide-react";
@@ -23,8 +21,8 @@ import ConfirmModal from "@/components/ui/ConfirmModal";
 import { useProductos } from "@/hooks/useProductos";
 import useToast from "@/hooks/useToast";
 import type { ProductEntry } from "@/types/firestore";
-import { EmpresasService } from "@/services/empresas";
 import { useActorOwnership } from "@/hooks/useActorOwnership";
+import { EmpresaSearchAddSection } from "@/components/recetas/component/EmpresaSearchAddSection";
 
 const sanitizeNumber = (value: string): number => {
     const trimmed = String(value || "").trim().replace(/,/g, ".");
@@ -56,10 +54,10 @@ export function AgregarProductoTab() {
 
     const { showToast } = useToast();
 
-    const [empresaOptions, setEmpresaOptions] = useState<string[]>([]);
-    const [empresaLoading, setEmpresaLoading] = useState(false);
     const [empresaError, setEmpresaError] = useState<string | null>(null);
     const [selectedEmpresa, setSelectedEmpresa] = useState<string>("");
+
+    const companyFromUser = String(user?.ownercompanie || "").trim();
 
     const {
         productos,
@@ -70,73 +68,6 @@ export function AgregarProductoTab() {
         removeProducto,
     } = useProductos({ companyOverride: isAdminLike ? selectedEmpresa : undefined });
 
-    useEffect(() => {
-        if (authLoading) return;
-        if (!isAdminLike) return;
-
-        let cancelled = false;
-        const loadEmpresas = async () => {
-            setEmpresaLoading(true);
-            setEmpresaError(null);
-            try {
-                const all = await EmpresasService.getAllEmpresas();
-                const normalized = Array.isArray(all) ? all : [];
-
-                let filtered = normalized;
-                if (user?.role !== "superadmin") {
-                    const allowed = new Set((actorOwnerIds || []).map((id) => String(id)));
-                    if (allowed.size > 0) {
-                        filtered = normalized.filter((e: any) => e && e.ownerId && allowed.has(String(e.ownerId)));
-                    }
-                }
-
-                const names = filtered
-                    .map((e: any) => String(e?.name || "").trim())
-                    .filter((n: string) => n.length > 0);
-
-                // Asegurar que la empresa del usuario aparezca aunque no esté en la lista.
-                const userCompany = String(user?.ownercompanie || "").trim();
-                const merged = userCompany && !names.includes(userCompany) ? [userCompany, ...names] : names;
-
-                // Unicos preservando orden
-                const unique: string[] = [];
-                for (const n of merged) {
-                    if (!unique.includes(n)) unique.push(n);
-                }
-
-                if (cancelled) return;
-                setEmpresaOptions(unique);
-            } catch (err) {
-                if (cancelled) return;
-                const msg = err instanceof Error ? err.message : "No se pudieron cargar las empresas.";
-                setEmpresaError(msg);
-                setEmpresaOptions([]);
-            } finally {
-                if (!cancelled) setEmpresaLoading(false);
-            }
-        };
-
-        void loadEmpresas();
-        return () => {
-            cancelled = true;
-        };
-    }, [actorOwnerIds, authLoading, isAdminLike, user?.ownercompanie, user?.role]);
-
-    useEffect(() => {
-        if (!isAdminLike) return;
-        if (authLoading) return;
-
-        // Elegir empresa por defecto
-        const userCompany = String(user?.ownercompanie || "").trim();
-        if (selectedEmpresa) return;
-        if (userCompany) {
-            setSelectedEmpresa(userCompany);
-            return;
-        }
-        if (empresaOptions.length > 0) {
-            setSelectedEmpresa(empresaOptions[0]);
-        }
-    }, [authLoading, empresaOptions, isAdminLike, selectedEmpresa, user?.ownercompanie]);
 
     const [searchTerm, setSearchTerm] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
@@ -408,67 +339,29 @@ export function AgregarProductoTab() {
                     </div>
                 </div>
 
-                {isAdminLike && (
-                    <div className="flex flex-col gap-1 w-full md:w-auto">
-                        <label className="text-[10px] sm:text-xs text-[var(--muted-foreground)]">
-                            Empresas
-                        </label>
-                        <select
-                            value={selectedEmpresa}
-                            onChange={(e) => {
-                                const next = e.target.value;
-                                setSelectedEmpresa(next);
-                                setSearchTerm("");
-                                setCurrentPage(1);
-                                setDrawerOpen(false);
-                                resetForm();
-                            }}
-                            disabled={empresaLoading}
-                            className="w-full md:min-w-[260px] px-3 py-2.5 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40"
-                            aria-label="Seleccionar empresa"
-                        >
-                            {empresaOptions.length === 0 ? (
-                                <option value={selectedEmpresa || ""}>
-                                    {empresaLoading ? "Cargando empresas..." : "Sin empresas"}
-                                </option>
-                            ) : (
-                                empresaOptions.map((name) => (
-                                    <option key={name} value={name}>
-                                        {name}
-                                    </option>
-                                ))
-                            )}
-                        </select>
-                    </div>
-                )}
-
-                <div className="flex w-full md:flex-1 flex-col md:flex-row md:flex-nowrap items-stretch md:items-end gap-2 md:gap-3">
-                    <div className="w-full md:w-auto md:flex-1 md:min-w-0 lg:min-w-[260px]">
-                        <label className="text-[10px] sm:text-xs text-[var(--muted-foreground)] md:invisible">
-                            Buscar
-                        </label>
-                        <div className="relative">
-                            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
-                            <input
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full px-3 py-2.5 pr-10 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40"
-                                placeholder={productosLoading ? "Cargando..." : "Buscar producto"}
-                                aria-label="Buscar producto"
-                            />
-                        </div>
-                    </div>
-
-                    <button
-                        type="button"
-                        onClick={openAddDrawer}
-                        disabled={saving || productosLoading}
-                        className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--accent)] text-white rounded-lg shadow-sm ring-1 ring-white/10 hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold transition-colors whitespace-nowrap"
-                    >
-                        <Plus className="w-4 h-4" />
-                        <span>Agregar producto</span>
-                    </button>
-                </div>
+                <EmpresaSearchAddSection
+                    authLoading={authLoading}
+                    isAdminLike={isAdminLike}
+                    userRole={user?.role}
+                    actorOwnerIds={actorOwnerIds}
+                    companyFromUser={companyFromUser}
+                    selectedEmpresa={selectedEmpresa}
+                    setSelectedEmpresa={setSelectedEmpresa}
+                    setEmpresaError={setEmpresaError}
+                    onCompanyChanged={() => {
+                        setSearchTerm("");
+                        setCurrentPage(1);
+                        setDrawerOpen(false);
+                        resetForm();
+                    }}
+                    searchValue={searchTerm}
+                    onSearchValueChange={setSearchTerm}
+                    searchPlaceholder={productosLoading ? "Cargando..." : "Buscar producto"}
+                    searchAriaLabel="Buscar producto"
+                    addButtonText="Agregar producto"
+                    onAddClick={openAddDrawer}
+                    addDisabled={saving || productosLoading}
+                />
             </div>
 
             {resolvedError && (
@@ -757,7 +650,7 @@ export function AgregarProductoTab() {
                                                 disabled={saving || deletingId !== null}
                                             />
                                             <div className="px-3 grid place-items-center text-xs text-[var(--muted-foreground)] border-l border-[var(--input-border)]">
-                                                g
+                                                grms
                                             </div>
                                         </div>
                                         {(touched.peso || formError) && pesoError && (

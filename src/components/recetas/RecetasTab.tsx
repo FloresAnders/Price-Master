@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { ChevronLeft, ChevronRight, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, Trash2, X } from "lucide-react";
 import Box from "@mui/material/Box";
 import Drawer from "@mui/material/Drawer";
 import Divider from "@mui/material/Divider";
@@ -10,13 +10,13 @@ import Typography from "@mui/material/Typography";
 
 import { useAuth } from "@/hooks/useAuth";
 import { useActorOwnership } from "@/hooks/useActorOwnership";
-import { EmpresasService } from "@/services/empresas";
 import { getDefaultPermissions } from "@/utils/permissions";
 import useToast from "@/hooks/useToast";
 import { useRecetas } from "@/hooks/useRecetas";
 import { ProductosService } from "@/services/productos";
 import type { ProductEntry, RecetaEntry } from "@/types/firestore";
 import ConfirmModal from "@/components/ui/ConfirmModal";
+import { EmpresaSearchAddSection } from "@/components/recetas/component/EmpresaSearchAddSection";
 
 type IngredienteDraft = {
   productId: string;
@@ -47,74 +47,8 @@ export function RecetasTab() {
   const companyFromUser = String(user?.ownercompanie || "").trim();
   const isAdminLike = user?.role === "admin" || user?.role === "superadmin";
 
-  const [empresaOptions, setEmpresaOptions] = React.useState<string[]>([]);
-  const [empresaLoading, setEmpresaLoading] = React.useState(false);
   const [empresaError, setEmpresaError] = React.useState<string | null>(null);
   const [selectedEmpresa, setSelectedEmpresa] = React.useState<string>("");
-
-  React.useEffect(() => {
-    if (authLoading) return;
-    if (!isAdminLike) return;
-
-    let cancelled = false;
-    const loadEmpresas = async () => {
-      setEmpresaLoading(true);
-      setEmpresaError(null);
-      try {
-        const all = await EmpresasService.getAllEmpresas();
-        const normalized = Array.isArray(all) ? all : [];
-
-        let filtered = normalized;
-        if (user?.role !== "superadmin") {
-          const allowed = new Set((actorOwnerIds || []).map((id) => String(id)));
-          if (allowed.size > 0) {
-            filtered = normalized.filter((e: any) => e && e.ownerId && allowed.has(String(e.ownerId)));
-          }
-        }
-
-        const names = filtered
-          .map((e: any) => String(e?.name || "").trim())
-          .filter((n: string) => n.length > 0);
-
-        const merged = companyFromUser && !names.includes(companyFromUser) ? [companyFromUser, ...names] : names;
-
-        const unique: string[] = [];
-        for (const n of merged) {
-          if (!unique.includes(n)) unique.push(n);
-        }
-
-        if (cancelled) return;
-        setEmpresaOptions(unique);
-      } catch (err) {
-        if (cancelled) return;
-        const msg = err instanceof Error ? err.message : "No se pudieron cargar las empresas.";
-        setEmpresaError(msg);
-        setEmpresaOptions([]);
-      } finally {
-        if (!cancelled) setEmpresaLoading(false);
-      }
-    };
-
-    void loadEmpresas();
-    return () => {
-      cancelled = true;
-    };
-  }, [actorOwnerIds, authLoading, companyFromUser, isAdminLike, user?.role]);
-
-  React.useEffect(() => {
-    if (!isAdminLike) return;
-    if (authLoading) return;
-    if (selectedEmpresa) return;
-
-    if (companyFromUser) {
-      setSelectedEmpresa(companyFromUser);
-      return;
-    }
-
-    if (empresaOptions.length > 0) {
-      setSelectedEmpresa(empresaOptions[0]);
-    }
-  }, [authLoading, companyFromUser, empresaOptions, isAdminLike, selectedEmpresa]);
 
   const company = isAdminLike ? selectedEmpresa : companyFromUser;
 
@@ -392,67 +326,33 @@ export function RecetasTab() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
         <div>
           <h2 className="text-sm sm:text-base font-medium text-[var(--muted-foreground)]">Recetas</h2>
-          <p className="text-[10px] sm:text-xs text-[var(--muted-foreground)]">Creación basada en el modelo de recetas.json</p>
+          <p className="text-[10px] sm:text-xs text-[var(--muted-foreground)]">a</p>
         </div>
 
-        {isAdminLike && (
-          <div className="flex flex-col gap-1 w-full md:w-auto">
-            <label className="text-[10px] sm:text-xs text-[var(--muted-foreground)]">Empresas</label>
-            <select
-              value={selectedEmpresa}
-              onChange={(e) => {
-                const next = e.target.value;
-                setSelectedEmpresa(next);
-                setSearchTerm("");
-                  setCurrentPage(1);
-                setDrawerOpen(false);
-                resetForm();
-              }}
-              disabled={empresaLoading}
-              className="w-full md:min-w-[260px] px-3 py-2.5 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40"
-              aria-label="Seleccionar empresa"
-            >
-              {empresaOptions.length === 0 ? (
-                <option value={selectedEmpresa || ""}>
-                  {empresaLoading ? "Cargando empresas..." : "Sin empresas"}
-                </option>
-              ) : (
-                empresaOptions.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))
-              )}
-            </select>
-          </div>
-        )}
-
-        <div className="flex w-full md:flex-1 flex-col md:flex-row md:flex-nowrap items-stretch md:items-end gap-2 md:gap-3">
-          <div className="w-full md:w-auto md:flex-1 md:min-w-0 lg:min-w-[260px]">
-            <label className="text-[10px] sm:text-xs text-[var(--muted-foreground)] md:invisible">Buscar</label>
-            <div className="relative">
-              <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
-              <input
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-3 py-2.5 pr-10 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40"
-                placeholder={isLoading ? "Cargando..." : "Buscar receta"}
-                aria-label="Buscar receta"
-                disabled={isLoading}
-              />
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={openAddDrawer}
-            disabled={saving || isLoading || (isAdminLike && !selectedEmpresa)}
-            className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--accent)] text-white rounded-lg shadow-sm ring-1 ring-white/10 hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold transition-colors whitespace-nowrap"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Agregar receta</span>
-          </button>
-        </div>
+        <EmpresaSearchAddSection
+          authLoading={authLoading}
+          isAdminLike={isAdminLike}
+          userRole={user?.role}
+          actorOwnerIds={actorOwnerIds}
+          companyFromUser={companyFromUser}
+          selectedEmpresa={selectedEmpresa}
+          setSelectedEmpresa={setSelectedEmpresa}
+          setEmpresaError={setEmpresaError}
+          onCompanyChanged={() => {
+            setSearchTerm("");
+            setCurrentPage(1);
+            setDrawerOpen(false);
+            resetForm();
+          }}
+          searchValue={searchTerm}
+          onSearchValueChange={setSearchTerm}
+          searchPlaceholder={isLoading ? "Cargando..." : "Buscar receta"}
+          searchAriaLabel="Buscar receta"
+          searchDisabled={isLoading}
+          addButtonText="Agregar receta"
+          onAddClick={openAddDrawer}
+          addDisabled={saving || isLoading || (isAdminLike && !selectedEmpresa)}
+        />
       </div>
 
       {resolvedError && (
