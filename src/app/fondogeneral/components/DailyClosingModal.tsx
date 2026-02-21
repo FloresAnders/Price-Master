@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import ConfirmModal from '../../../components/ui/ConfirmModal';
 
@@ -55,6 +55,9 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     currentBalanceUSD,
     managerReadonly = false,
 }) => {
+    const modalRef = useRef<HTMLDivElement | null>(null);
+    const managerFieldRef = useRef<HTMLSelectElement | HTMLInputElement | null>(null);
+
     const [closingDateISO, setClosingDateISO] = useState(() => new Date().toISOString());
     const [manager, setManager] = useState('');
     const [notes, setNotes] = useState('');
@@ -233,7 +236,32 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
         }
     };
 
+    const focusAdjacentCashInput = (current: HTMLInputElement, direction: 1 | -1) => {
+        const root = modalRef.current;
+        if (!root) return;
+
+        const cashInputs = Array.from(root.querySelectorAll<HTMLInputElement>('input[data-cash-count-input="true"]'));
+        const currentIndex = cashInputs.indexOf(current);
+        if (currentIndex === -1) return;
+
+        const next = cashInputs[currentIndex + direction];
+        if (next) {
+            next.focus();
+            next.select();
+            return;
+        }
+
+        if (direction === 1) {
+            managerFieldRef.current?.focus();
+        }
+    };
+
     const handleCountKeyDown = (event: React.KeyboardEvent<HTMLInputElement>, currency: 'CRC' | 'USD', denom: number) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            focusAdjacentCashInput(event.currentTarget, event.shiftKey ? -1 : 1);
+            return;
+        }
         if (event.key === 'ArrowUp') {
             event.preventDefault();
             incrementCount(currency, denom);
@@ -303,6 +331,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
             <div
                 className="w-full max-w-full sm:max-w-3xl rounded border border-[var(--input-border)] bg-[#1f262a] text-white shadow-lg max-h-[80vh] overflow-hidden flex flex-col"
                 onClick={event => event.stopPropagation()}
+                ref={modalRef}
             >
                 <div className="flex items-center justify-between gap-4 p-5 pb-0">
                     <div className="flex-1" />
@@ -339,10 +368,12 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                                                     className="w-24 rounded border border-[var(--input-border)] bg-[var(--input-bg)] p-2 pr-8 text-sm text-center"
                                                     inputMode="numeric"
                                                     aria-label={`Cantidad ${denom} colones`}
+                                                    data-cash-count-input="true"
                                                 />
                                                 <div className="absolute right-1 top-1/2 -translate-y-1/2 flex flex-col items-center select-none">
                                                     <button
                                                         type="button"
+                                                        tabIndex={-1}
                                                         onClick={() => incrementCount('CRC', denom)}
                                                         className="w-5 h-4 leading-[10px] rounded-t bg-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
                                                         aria-label={`Aumentar ${denom}`}
@@ -351,6 +382,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                                                     </button>
                                                     <button
                                                         type="button"
+                                                        tabIndex={-1}
                                                         onClick={() => decrementCount('CRC', denom)}
                                                         className="w-5 h-4 leading-[10px] rounded-b bg-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
                                                         aria-label={`Disminuir ${denom}`}
@@ -393,10 +425,12 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                                                     className="w-24 rounded border border-[var(--input-border)] bg-[var(--input-bg)] p-2 pr-8 text-sm text-center"
                                                     inputMode="numeric"
                                                     aria-label={`Cantidad ${denom} dólares`}
+                                                    data-cash-count-input="true"
                                                 />
                                                 <div className="absolute right-1 top-1/2 -translate-y-1/2 flex flex-col items-center select-none">
                                                     <button
                                                         type="button"
+                                                        tabIndex={-1}
                                                         onClick={() => incrementCount('USD', denom)}
                                                         className="w-5 h-4 leading-[10px] rounded-t bg-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
                                                         aria-label={`Aumentar ${denom}`}
@@ -405,6 +439,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                                                     </button>
                                                     <button
                                                         type="button"
+                                                        tabIndex={-1}
                                                         onClick={() => decrementCount('USD', denom)}
                                                         className="w-5 h-4 leading-[10px] rounded-b bg-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
                                                         aria-label={`Disminuir ${denom}`}
@@ -448,6 +483,9 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                                     onChange={event => setManager(event.target.value)}
                                     className="rounded border border-[var(--input-border)] bg-[var(--input-bg)] p-2 text-sm"
                                     disabled={loadingEmployees || managerReadonly}
+                                    ref={el => {
+                                        managerFieldRef.current = el;
+                                    }}
                                 >
                                     <option value="">Seleccionar encargado</option>
                                     {employees.map(name => (
@@ -463,6 +501,9 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                                     className="rounded border border-[var(--input-border)] bg-[var(--input-bg)] p-2 text-sm"
                                     placeholder="Nombre del encargado"
                                     readOnly={managerReadonly}
+                                    ref={el => {
+                                        managerFieldRef.current = el;
+                                    }}
                                 />
                             )}
                         </div>
