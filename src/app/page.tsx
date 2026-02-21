@@ -335,8 +335,6 @@ export default function HomePage() {
               {activeTab === 'recetas' && (
                 <RecetasTab />
               )}
-
-              {/* AGREGAR PRODUCTO (en mantenimiento) */}
               {activeTab === 'agregarproducto' && (
                 <AgregarProductoTab />
               )}

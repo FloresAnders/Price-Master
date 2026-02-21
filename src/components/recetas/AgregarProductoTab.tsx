@@ -469,7 +469,7 @@ export function AgregarProductoTab() {
 
                         {paginatedProductos.map((p) => (
                             <li
-                                key={p.nombre}
+                                key={p.id}
                                 className="group flex flex-col sm:flex-row sm:items-stretch border border-[var(--input-border)] rounded-lg overflow-hidden bg-[var(--input-bg)] transition-colors duration-150 hover:bg-[var(--muted)] focus-within:ring-2 focus-within:ring-[var(--accent)]/40"
                             >
                                 <div className="flex-1 p-4 sm:p-5 min-w-0">

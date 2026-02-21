@@ -682,7 +682,6 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
           {/* If we're on recetas-related sections, show only recetas sub-navigation in the header */}
           {isRecetasSection && canUseRecetas && (
             <nav className="hidden lg:flex items-center gap-1">
-              {/* Agregar producto (en mantenimiento) */}
               {canAgregarProducto && (
                 <button
                   onClick={() => {
