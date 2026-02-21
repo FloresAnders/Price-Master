@@ -153,6 +153,16 @@ export function AgregarProductoTab() {
     const [pesoEnGramos, setPesoEnGramos] = useState("");
     const [precio, setPrecio] = useState("");
 
+    const [touched, setTouched] = useState({
+        nombre: false,
+        peso: false,
+        precio: false,
+    });
+    const [lastSaveFeedback, setLastSaveFeedback] = useState<null | {
+        type: "add" | "edit";
+        nombre: string;
+    }>(null);
+
     const [confirmState, setConfirmState] = useState<{
         open: boolean;
         id: string;
@@ -206,6 +216,7 @@ export function AgregarProductoTab() {
         setPesoEnGramos("");
         setPrecio("");
         setEditingProductId(null);
+        setTouched({ nombre: false, peso: false, precio: false });
     };
 
     const openAddDrawer = () => {
@@ -262,8 +273,8 @@ export function AgregarProductoTab() {
             setFormError("El peso en gramos debe ser mayor a 0.");
             return;
         }
-        if (precioVal < 0) {
-            setFormError("El precio no puede ser negativo.");
+        if (precioVal <= 0) {
+            setFormError("El precio debe ser mayor a 0.");
             return;
         }
         if (productosLoading) {
@@ -293,9 +304,11 @@ export function AgregarProductoTab() {
             if (saveConfirmState.mode === "edit" && saveConfirmState.productId) {
                 await updateProducto(saveConfirmState.productId, saveConfirmState.input);
                 showToast("Producto actualizado.", "success");
+                setLastSaveFeedback({ type: "edit", nombre: saveConfirmState.input.nombre });
             } else {
                 await addProducto(saveConfirmState.input);
                 showToast("Producto agregado.", "success");
+                setLastSaveFeedback({ type: "add", nombre: saveConfirmState.input.nombre });
             }
 
             closeSaveConfirmModal();
@@ -316,6 +329,28 @@ export function AgregarProductoTab() {
     const precioNum = sanitizeNumber(precio);
     const pesoNum = sanitizeNumber(pesoEnGramos);
     const precioXGramo = computePrecioXGramo(precioNum, pesoNum);
+
+    const nombreError = useMemo(() => {
+        return nombre.trim().length > 0 ? null : "Nombre requerido.";
+    }, [nombre]);
+
+    const pesoError = useMemo(() => {
+        const raw = String(pesoEnGramos || "").trim();
+        if (!raw) return "Peso requerido.";
+        const val = sanitizeNumber(raw);
+        return val > 0 ? null : "El peso debe ser mayor a 0.";
+    }, [pesoEnGramos]);
+
+    const precioError = useMemo(() => {
+        const raw = String(precio || "").trim();
+        if (!raw) return "Precio requerido.";
+        const val = sanitizeNumber(raw);
+        return val > 0 ? null : "El precio debe ser mayor a 0.";
+    }, [precio]);
+
+    const isFormValid = useMemo(() => {
+        return !nombreError && !pesoError && !precioError;
+    }, [nombreError, pesoError, precioError]);
 
     if (authLoading) {
         return (
@@ -360,7 +395,7 @@ export function AgregarProductoTab() {
                 onConfirm={confirmSaveProducto}
                 onCancel={closeSaveConfirmModal}
             />
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
                 <div className="flex items-center gap-2">
                     <PackagePlus className="w-5 h-5 text-[var(--muted-foreground)]" />
                     <div>
@@ -374,9 +409,9 @@ export function AgregarProductoTab() {
                 </div>
 
                 {isAdminLike && (
-                    <div className="flex flex-col gap-1 w-full sm:w-auto">
+                    <div className="flex flex-col gap-1 w-full md:w-auto">
                         <label className="text-[10px] sm:text-xs text-[var(--muted-foreground)]">
-                            Empresa
+                            Empresas
                         </label>
                         <select
                             value={selectedEmpresa}
@@ -389,7 +424,7 @@ export function AgregarProductoTab() {
                                 resetForm();
                             }}
                             disabled={empresaLoading}
-                            className="w-full sm:min-w-[260px] px-3 py-2.5 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40"
+                            className="w-full md:min-w-[260px] px-3 py-2.5 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40"
                             aria-label="Seleccionar empresa"
                         >
                             {empresaOptions.length === 0 ? (
@@ -407,38 +442,28 @@ export function AgregarProductoTab() {
                     </div>
                 )}
 
-                <div className="flex w-full sm:w-auto flex-col sm:flex-row items-stretch sm:items-end gap-2 sm:gap-3">
-                    <div className="relative w-full sm:min-w-[260px]">
-                        <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
-                        <input
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full px-3 py-2.5 pr-10 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40"
-                            placeholder={productosLoading ? "Cargando..." : "Buscar producto"}
-                            aria-label="Buscar producto"
-                        />
+                <div className="flex w-full md:flex-1 flex-col md:flex-row md:flex-nowrap items-stretch md:items-end gap-2 md:gap-3">
+                    <div className="w-full md:w-auto md:flex-1 md:min-w-0 lg:min-w-[260px]">
+                        <label className="text-[10px] sm:text-xs text-[var(--muted-foreground)] md:invisible">
+                            Buscar
+                        </label>
+                        <div className="relative">
+                            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
+                            <input
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full px-3 py-2.5 pr-10 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40"
+                                placeholder={productosLoading ? "Cargando..." : "Buscar producto"}
+                                aria-label="Buscar producto"
+                            />
+                        </div>
                     </div>
-
-                    <select
-                        value={itemsPerPage}
-                        onChange={(e) => {
-                            const val = e.target.value;
-                            setItemsPerPage(val === "all" ? "all" : Number(val));
-                        }}
-                        className="w-full sm:w-auto px-3 py-2.5 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
-                        aria-label="Items por página"
-                    >
-                        <option value={10}>10</option>
-                        <option value={25}>25</option>
-                        <option value={50}>50</option>
-                        <option value="all">Todos</option>
-                    </select>
 
                     <button
                         type="button"
                         onClick={openAddDrawer}
                         disabled={saving || productosLoading}
-                        className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--accent)] text-white rounded-lg shadow-sm ring-1 ring-white/10 hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold transition-colors whitespace-nowrap"
+                        className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--accent)] text-white rounded-lg shadow-sm ring-1 ring-white/10 hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold transition-colors whitespace-nowrap"
                     >
                         <Plus className="w-4 h-4" />
                         <span>Agregar producto</span>
@@ -451,87 +476,136 @@ export function AgregarProductoTab() {
             )}
 
             <div>
-                <div className="flex items-center justify-between gap-2 mb-2 sm:mb-3">
-                    <h3 className="text-[10px] sm:text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wide">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2 sm:mb-3">
+                    <h3 className="text-xs sm:text-sm font-semibold text-[var(--foreground)] leading-tight">
                         Lista de productos
+                        <span className="ml-2 text-xs font-medium text-[var(--muted-foreground)]">
+                            ({filteredProductos.length})
+                        </span>
                     </h3>
-                    {itemsPerPage !== "all" && filteredProductos.length > 0 && (
-                        <div className="flex items-center gap-2">
-                            <button
-                                type="button"
-                                className="p-2 rounded border border-[var(--input-border)] text-[var(--foreground)] disabled:opacity-50"
-                                disabled={currentPage <= 1}
-                                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                                aria-label="Página anterior"
-                                title="Anterior"
+                    {filteredProductos.length > 0 && (
+                        <div className="flex w-full sm:w-auto flex-wrap items-center justify-end gap-2">
+                            <select
+                                value={itemsPerPage}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setItemsPerPage(val === "all" ? "all" : Number(val));
+                                }}
+                                className="w-24 px-2.5 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
+                                aria-label="Items por página"
+                                title="Items por página"
                             >
-                                <ChevronLeft className="w-4 h-4" />
-                            </button>
-                            <div className="text-xs text-[var(--muted-foreground)]">
-                                {currentPage} / {totalPages}
-                            </div>
-                            <button
-                                type="button"
-                                className="p-2 rounded border border-[var(--input-border)] text-[var(--foreground)] disabled:opacity-50"
-                                disabled={currentPage >= totalPages}
-                                onClick={() =>
-                                    setCurrentPage((p) => Math.min(totalPages, p + 1))
-                                }
-                                aria-label="Página siguiente"
-                                title="Siguiente"
-                            >
-                                <ChevronRight className="w-4 h-4" />
-                            </button>
+                                <option value={10}>10</option>
+                                <option value={25}>25</option>
+                                <option value={50}>50</option>
+                                <option value="all">Todos</option>
+                            </select>
+
+                            {itemsPerPage !== "all" && (
+                                <>
+                                    <button
+                                        type="button"
+                                        className="p-2 rounded border border-[var(--input-border)] text-[var(--foreground)] disabled:opacity-50"
+                                        disabled={currentPage <= 1}
+                                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                                        aria-label="Página anterior"
+                                        title="Anterior"
+                                    >
+                                        <ChevronLeft className="w-4 h-4" />
+                                    </button>
+                                    <div className="text-xs text-[var(--muted-foreground)] whitespace-nowrap">
+                                        {currentPage} / {totalPages}
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className="p-2 rounded border border-[var(--input-border)] text-[var(--foreground)] disabled:opacity-50"
+                                        disabled={currentPage >= totalPages}
+                                        onClick={() =>
+                                            setCurrentPage((p) => Math.min(totalPages, p + 1))
+                                        }
+                                        aria-label="Página siguiente"
+                                        title="Siguiente"
+                                    >
+                                        <ChevronRight className="w-4 h-4" />
+                                    </button>
+                                </>
+                            )}
                         </div>
                     )}
                 </div>
 
                 {isLoading ? (
-                    <p className="text-xs sm:text-sm text-[var(--muted-foreground)] py-4 text-center">
-                        Cargando productos...
-                    </p>
+                    <ul className="space-y-2">
+                        {Array.from({ length: 6 }).map((_, idx) => (
+                            <li
+                                key={idx}
+                                className="animate-pulse flex flex-col sm:flex-row sm:items-stretch border border-[var(--input-border)] rounded-lg overflow-hidden bg-[var(--input-bg)]"
+                            >
+                                <div className="flex-1 p-4 sm:p-5 min-w-0">
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div className="min-w-0 flex-1">
+                                            <div className="h-4 w-1/2 rounded bg-black/20" />
+                                            <div className="mt-3 h-3 w-3/4 rounded bg-black/15" />
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="h-4 w-20 rounded bg-black/20 ml-auto" />
+                                            <div className="mt-2 h-3 w-28 rounded bg-black/15 ml-auto" />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="px-3 py-3 sm:px-3 sm:py-3 border-t sm:border-t-0 sm:border-l border-[var(--input-border)] bg-black/10">
+                                    <div className="h-8 w-20 rounded bg-black/20" />
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
                 ) : (
                     <ul className="space-y-1.5 sm:space-y-2">
                         {filteredProductos.length === 0 && (
-                            <li className="text-xs sm:text-sm text-[var(--muted-foreground)] py-4 text-center">
-                                {searchTerm
-                                    ? "No se encontraron productos."
-                                    : "Aún no hay productos."}
+                            <li className="border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] p-6 text-center">
+                                <div className="text-sm font-semibold text-[var(--foreground)]">
+                                    {searchTerm ? "Sin resultados" : "Aún no hay productos"}
+                                </div>
+                                <div className="mt-1 text-xs text-[var(--muted-foreground)]">
+                                    {searchTerm
+                                        ? "Prueba con otro nombre o descripción."
+                                        : "Agrega tu primer producto para empezar."}
+                                </div>
                             </li>
                         )}
 
                         {paginatedProductos.map((p) => (
                             <li
                                 key={p.nombre}
-                                className="flex flex-col sm:flex-row sm:items-stretch border border-[var(--input-border)] rounded-lg overflow-hidden bg-[var(--input-bg)]"
+                                className="group flex flex-col sm:flex-row sm:items-stretch border border-[var(--input-border)] rounded-lg overflow-hidden bg-[var(--input-bg)] transition-colors duration-150 hover:bg-[var(--muted)] focus-within:ring-2 focus-within:ring-[var(--accent)]/40"
                             >
-                                <div className="flex-1 p-3 sm:p-4 min-w-0">
+                                <div className="flex-1 p-4 sm:p-5 min-w-0">
                                     <div className="flex items-start justify-between gap-3">
                                         <div className="min-w-0">
-                                            <div className="font-semibold text-[var(--foreground)] truncate">
+                                            <div className="text-sm sm:text-base font-semibold text-[var(--foreground)] truncate">
                                                 {p.nombre}
                                             </div>
                                             {p.descripcion && (
-                                                <div className="mt-2 text-xs text-[var(--muted-foreground)] break-words">
+                                                <div className="mt-2 text-xs text-[var(--muted-foreground)] opacity-70 break-words">
                                                     {p.descripcion}
                                                 </div>
                                             )}
                                         </div>
-                                        <div className="text-right">
-                                            <div className="text-xs text-[var(--muted-foreground)]">
+                                        <div className="text-right shrink-0">
+                                            <div className="text-sm sm:text-base font-semibold text-[var(--foreground)] whitespace-nowrap">
                                                 ₡ {formatNumber(p.precio, 2)}
                                             </div>
-                                            <div className="text-[10px] sm:text-xs text-[var(--muted-foreground)]">
-                                                {formatNumber(p.pesoengramos, 0)} g · ₡ {formatNumber(p.precioxgramo, 4)}/g
+                                            <div className="mt-1 text-[10px] sm:text-xs text-[var(--muted-foreground)] whitespace-nowrap">
+                                                {formatNumber(p.pesoengramos, 0)} g • ₡ {formatNumber(p.precioxgramo, 4)}/g
                                             </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="flex items-center justify-end gap-2 px-2.5 py-2 sm:px-3 sm:py-3 border-t sm:border-t-0 sm:border-l border-[var(--input-border)] bg-black/10">
+                                <div className="flex items-center justify-end gap-2 px-2.5 py-2 sm:px-3 sm:py-3 border-t sm:border-t-0 sm:border-l border-[var(--input-border)] bg-black/10 transition-colors duration-150 group-hover:bg-black/20">
                                     <button
                                         type="button"
-                                        className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] disabled:opacity-50 p-2 rounded-md hover:bg-white/5 transition-colors"
+                                        className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] disabled:opacity-50 p-2.5 rounded-md hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 transition-colors"
                                         onClick={() => openEditDrawer(p)}
                                         disabled={saving || deletingId !== null}
                                         title="Editar producto"
@@ -544,7 +618,7 @@ export function AgregarProductoTab() {
 
                                     <button
                                         type="button"
-                                        className="text-red-400 hover:text-red-300 disabled:opacity-50 p-2 rounded-md hover:bg-red-500/10 transition-colors"
+                                        className="text-red-400 hover:text-red-300 disabled:opacity-50 p-2.5 rounded-md hover:bg-red-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 transition-colors"
                                         onClick={() => openRemoveModal(p)}
                                         disabled={saving || deletingId !== null}
                                         title="Eliminar producto"
@@ -597,12 +671,13 @@ export function AgregarProductoTab() {
                             py: 2,
                         }}
                     >
-                        <Typography variant="h6" component="h3" sx={{ fontWeight: 600 }}>
+                        <Typography variant="h5" component="h3" sx={{ fontWeight: 700 }}>
                             {editingProductId ? "Editar producto" : "Agregar producto"}
                         </Typography>
                         <IconButton
                             aria-label="Cerrar"
                             onClick={() => {
+                                setDrawerOpen(false);
                                 resetForm();
                             }}
                             sx={{ color: "var(--foreground)" }}
@@ -617,47 +692,113 @@ export function AgregarProductoTab() {
                             <div className="mb-4 text-sm text-red-400">{resolvedError}</div>
                         )}
 
-                        <div className="flex flex-col gap-3">
-                            <input
-                                className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
-                                placeholder="Nombre del producto"
-                                value={nombre}
-                                onChange={(e) => setNombre(e.target.value)}
-                                disabled={saving || deletingId !== null}
-                                autoFocus
-                            />
-                            <textarea
-                                className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)] min-h-[90px]"
-                                placeholder="Descripción (opcional)"
-                                value={descripcion}
-                                onChange={(e) => setDescripcion(e.target.value)}
-                                disabled={saving || deletingId !== null}
-                            />
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <input
-                                    className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
-                                    placeholder="Peso en gramos"
-                                    inputMode="decimal"
-                                    value={pesoEnGramos}
-                                    onChange={(e) => setPesoEnGramos(e.target.value)}
-                                    disabled={saving || deletingId !== null}
-                                />
-                                <input
-                                    className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
-                                    placeholder="Precio"
-                                    inputMode="decimal"
-                                    value={precio}
-                                    onChange={(e) => setPrecio(e.target.value)}
-                                    disabled={saving || deletingId !== null}
-                                />
+                        <div className="flex flex-col gap-4">
+                            <div>
+                                <div className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">
+                                    Información básica
+                                </div>
+                                <div className="mt-3 flex flex-col gap-4">
+                                    <div>
+                                        <label className="block text-xs text-[var(--muted-foreground)] mb-1">
+                                            Nombre
+                                        </label>
+                                        <input
+                                            className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
+                                            placeholder="Ej: Arroz 1kg"
+                                            value={nombre}
+                                            onChange={(e) => {
+                                                setNombre(e.target.value);
+                                                setLastSaveFeedback(null);
+                                            }}
+                                            onBlur={() => setTouched((t) => ({ ...t, nombre: true }))}
+                                            disabled={saving || deletingId !== null}
+                                            autoFocus
+                                        />
+                                        {(touched.nombre || formError) && nombreError && (
+                                            <div className="mt-1 text-xs text-red-400">{nombreError}</div>
+                                        )}
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs text-[var(--muted-foreground)] mb-1">
+                                            Descripción (opcional)
+                                        </label>
+                                        <textarea
+                                            className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)] min-h-[90px]"
+                                            placeholder="Ej: Marca, presentación, notas..."
+                                            value={descripcion}
+                                            onChange={(e) => setDescripcion(e.target.value)}
+                                            disabled={saving || deletingId !== null}
+                                        />
+                                    </div>
+                                </div>
                             </div>
 
-                            <div className="rounded border border-[var(--input-border)] p-3 bg-[var(--input-bg)]">
-                                <div className="text-xs text-[var(--muted-foreground)]">
-                                    Precio por gramo
+                            <div>
+                                <div className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">
+                                    Precio y peso
                                 </div>
-                                <div className="text-sm font-semibold text-[var(--foreground)]">
-                                    ₡ {formatNumber(precioXGramo, 6)} / g
+                                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs text-[var(--muted-foreground)] mb-1">
+                                            Peso
+                                        </label>
+                                        <div className="flex items-stretch rounded border border-[var(--input-border)] bg-[var(--input-bg)] overflow-hidden">
+                                            <input
+                                                className="flex-1 p-3 bg-transparent text-sm text-[var(--foreground)] focus:outline-none"
+                                                placeholder="Ej: 1000"
+                                                inputMode="decimal"
+                                                value={pesoEnGramos}
+                                                onChange={(e) => {
+                                                    setPesoEnGramos(e.target.value);
+                                                    setLastSaveFeedback(null);
+                                                }}
+                                                onBlur={() => setTouched((t) => ({ ...t, peso: true }))}
+                                                disabled={saving || deletingId !== null}
+                                            />
+                                            <div className="px-3 grid place-items-center text-xs text-[var(--muted-foreground)] border-l border-[var(--input-border)]">
+                                                g
+                                            </div>
+                                        </div>
+                                        {(touched.peso || formError) && pesoError && (
+                                            <div className="mt-1 text-xs text-red-400">{pesoError}</div>
+                                        )}
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs text-[var(--muted-foreground)] mb-1">
+                                            Precio
+                                        </label>
+                                        <div className="flex items-stretch rounded border border-[var(--input-border)] bg-[var(--input-bg)] overflow-hidden">
+                                            <div className="px-3 grid place-items-center text-xs text-[var(--muted-foreground)] border-r border-[var(--input-border)]">
+                                                ₡
+                                            </div>
+                                            <input
+                                                className="flex-1 p-3 bg-transparent text-sm text-[var(--foreground)] focus:outline-none"
+                                                placeholder="Ej: 1500"
+                                                inputMode="decimal"
+                                                value={precio}
+                                                onChange={(e) => {
+                                                    setPrecio(e.target.value);
+                                                    setLastSaveFeedback(null);
+                                                }}
+                                                onBlur={() => setTouched((t) => ({ ...t, precio: true }))}
+                                                disabled={saving || deletingId !== null}
+                                            />
+                                        </div>
+                                        {(touched.precio || formError) && precioError && (
+                                            <div className="mt-1 text-xs text-red-400">{precioError}</div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="mt-4 rounded border border-[var(--input-border)] p-3 bg-[var(--input-bg)]">
+                                    <div className="text-xs text-[var(--muted-foreground)]">
+                                        Precio por gramo (solo lectura)
+                                    </div>
+                                    <div className="text-sm font-semibold text-[var(--foreground)]">
+                                        ₡ {formatNumber(precioXGramo, 6)} / g
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -672,7 +813,7 @@ export function AgregarProductoTab() {
                                     setDrawerOpen(false);
                                     resetForm();
                                 }}
-                                className="px-4 py-2 border border-[var(--input-border)] rounded text-[var(--foreground)] hover:bg-[var(--muted)]"
+                                className="px-4 py-2 border border-[var(--input-border)] rounded text-[var(--foreground)] hover:bg-[var(--muted)] bg-transparent"
                                 disabled={saving}
                             >
                                 Cancelar
@@ -680,10 +821,15 @@ export function AgregarProductoTab() {
                             <button
                                 type="button"
                                 onClick={async () => {
+                                    setTouched({ nombre: true, peso: true, precio: true });
+                                    if (!isFormValid) {
+                                        setFormError("Revisa los campos marcados.");
+                                        return;
+                                    }
                                     requestSaveConfirm();
                                 }}
                                 className="px-4 py-2 bg-[var(--accent)] text-white rounded disabled:opacity-50"
-                                disabled={saving || deletingId !== null}
+                                disabled={saving || deletingId !== null || !isFormValid}
                             >
                                 {saving
                                     ? editingProductId
@@ -691,7 +837,7 @@ export function AgregarProductoTab() {
                                         : "Guardando..."
                                     : editingProductId
                                         ? "Actualizar"
-                                        : "Guardar"}
+                                        : "Guardar producto"}
                             </button>
                         </div>
                     </Box>
