@@ -2596,6 +2596,11 @@ export default function ControlHorario({
                 <EmployeeTooltipSummary
                   employeeName={showEmployeeSummary}
                   empresaValue={empresa}
+                  empresaLabel={empresas.find((e) => e.value === empresa)?.label}
+                  employeeConfig={empresas
+                    .find((e) => e.value === empresa)
+                    ?.employees?.find((e) => e.name === showEmployeeSummary)}
+                  shiftsByDay={scheduleData[showEmployeeSummary]}
                   year={year}
                   month={month}
                   daysToShow={daysToShow}
