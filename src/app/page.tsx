@@ -331,7 +331,6 @@ export default function HomePage() {
                 <CashCounterTabs />
               )}
 
-              {/* RECETAS (en mantenimiento) */}
               {activeTab === 'recetas' && (
                 <RecetasTab />
               )}

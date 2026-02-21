@@ -118,7 +118,7 @@ const menuItems = [
     icon: (props: { className?: string }) => (
       <CustomIcon name="FoodAndSoda" {...props} />
     ),
-    description: "en mantenimiento",
+    description: "Crear y editar recetas",
     permission: "recetas" as keyof UserPermissions,
   },
   {

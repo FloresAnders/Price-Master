@@ -41,7 +41,7 @@ const PERMISSION_DESCRIPTIONS = {
   converter: 'Convertir y transformar texto',
   xml: 'Generar y exportar XML',
   cashcounter: 'Contar billetes y monedas',
-  recetas: 'en mantenimiento',
+  recetas: 'Manipular recetas (crear, editar, eliminar)',
   agregarproductosdeli: 'Permite agregar productos deli (sin tarjeta)',
   timingcontrol: 'Registro de venta de tiempos',
   controlhorario: 'Registro de horarios de trabajo',
