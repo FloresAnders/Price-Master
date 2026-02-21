@@ -13,6 +13,7 @@ import { useActorOwnership } from "@/hooks/useActorOwnership";
 import { getDefaultPermissions } from "@/utils/permissions";
 import useToast from "@/hooks/useToast";
 import { useRecetas } from "@/hooks/useRecetas";
+import { useProductos } from "@/hooks/useProductos";
 import { ProductosService } from "@/services/productos";
 import type { ProductEntry, RecetaEntry } from "@/types/firestore";
 import ConfirmModal from "@/components/ui/ConfirmModal";
@@ -58,6 +59,21 @@ export function RecetasTab() {
     const { recetas, loading, error, addReceta, updateReceta, removeReceta } = useRecetas({
         companyOverride: isAdminLike ? selectedEmpresa : undefined,
     });
+
+    const {
+        productos,
+        loading: productosLoading,
+        error: productosError,
+    } = useProductos({ companyOverride: isAdminLike ? selectedEmpresa : undefined });
+
+    const productosById = React.useMemo(() => {
+        const map: Record<string, ProductEntry> = {};
+        for (const p of productos) {
+            if (!p?.id) continue;
+            map[p.id] = p;
+        }
+        return map;
+    }, [productos]);
 
     const [searchTerm, setSearchTerm] = React.useState("");
 
@@ -130,8 +146,8 @@ export function RecetasTab() {
         };
     }, [company, debouncedSearch]);
 
-    const isLoading = authLoading || loading;
-    const resolvedError = formError || error || empresaError;
+    const isLoading = authLoading || loading || productosLoading;
+    const resolvedError = formError || error || productosError || empresaError;
 
     const filteredRecetas = React.useMemo(() => {
         const term = searchTerm.trim().toLowerCase();
@@ -516,6 +532,7 @@ export function RecetasTab() {
                     filteredCount={filteredRecetas.length}
                     searchTerm={searchTerm}
                     recetas={paginatedRecetas}
+                    productosById={productosById}
                     saving={saving}
                     deletingId={deletingId}
                     onEdit={openEditDrawer}

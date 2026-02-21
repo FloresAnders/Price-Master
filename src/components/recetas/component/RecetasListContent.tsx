@@ -2,7 +2,7 @@
 
 import React from "react";
 
-import type { RecetaEntry } from "@/types/firestore";
+import type { ProductEntry, RecetaEntry } from "@/types/firestore";
 import { RecetasListItems } from "@/components/recetas/component/RecetasListItems";
 
 export function RecetasListContent(props: {
@@ -10,6 +10,7 @@ export function RecetasListContent(props: {
     filteredCount: number;
     searchTerm: string;
     recetas: RecetaEntry[];
+    productosById: Record<string, ProductEntry>;
     saving: boolean;
     deletingId: string | null;
     onEdit: (receta: RecetaEntry) => void;
@@ -20,6 +21,7 @@ export function RecetasListContent(props: {
         filteredCount,
         searchTerm,
         recetas,
+        productosById,
         saving,
         deletingId,
         onEdit,
@@ -72,6 +74,7 @@ export function RecetasListContent(props: {
 
             <RecetasListItems
                 recetas={recetas}
+                productosById={productosById}
                 saving={saving}
                 deletingId={deletingId}
                 onEdit={onEdit}
