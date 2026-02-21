@@ -5,9 +5,10 @@ import { Pencil, Trash2 } from "lucide-react";
 
 import type { ProductEntry, RecetaEntry } from "@/types/firestore";
 
-const formatNumber = (value: number, maxDecimals = 2): string => {
+const formatNumber = (value: number, maxDecimals = 2, minDecimals = 0): string => {
     if (!Number.isFinite(value)) return "0";
     return new Intl.NumberFormat("es-CR", {
+        minimumFractionDigits: minDecimals,
         maximumFractionDigits: maxDecimals,
     }).format(value);
 };
@@ -93,7 +94,7 @@ export function RecetasListItems(props: {
                                     {ingredientes.map((i, idx) => {
                                         const displayName = String(i.product?.nombre || i.productId || "Producto");
                                         const gramosLabel = i.gramos > 0 ? `${formatNumber(i.gramos, 0)} g` : "";
-                                        const unitLabel = i.precioXGramo > 0 ? `₡ ${formatNumber(i.precioXGramo, 4)}/g` : "";
+                                        const unitLabel = i.precioXGramo > 0 ? `₡ ${formatNumber(i.precioXGramo, 2, 2)}/g` : "";
                                         const meta = [gramosLabel, unitLabel].filter(Boolean).join(" • ");
                                         const costoLabel = i.costo > 0 ? `₡ ${formatNumber(roundCurrency(i.costo), 2)}` : "—";
 

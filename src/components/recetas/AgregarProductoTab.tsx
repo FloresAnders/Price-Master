@@ -31,9 +31,10 @@ const sanitizeNumber = (value: string): number => {
     return Number.isFinite(parsed) ? parsed : 0;
 };
 
-const formatNumber = (value: number, maxDecimals = 4): string => {
+const formatNumber = (value: number, maxDecimals = 4, minDecimals = 0): string => {
     if (!Number.isFinite(value)) return "0";
     return new Intl.NumberFormat("es-CR", {
+        minimumFractionDigits: minDecimals,
         maximumFractionDigits: maxDecimals,
     }).format(value);
 };
@@ -489,7 +490,7 @@ export function AgregarProductoTab() {
                                                 ₡ {formatNumber(p.precio, 2)}
                                             </div>
                                             <div className="mt-1 text-[10px] sm:text-xs text-[var(--muted-foreground)] whitespace-nowrap">
-                                                {formatNumber(p.pesoengramos, 0)} g • ₡ {formatNumber(p.precioxgramo, 4)}/g
+                                                {formatNumber(p.pesoengramos, 0)} g • ₡ {formatNumber(p.precioxgramo, 2, 2)}/g
                                             </div>
                                         </div>
                                     </div>
@@ -690,7 +691,7 @@ export function AgregarProductoTab() {
                                         Precio por gramo (solo lectura)
                                     </div>
                                     <div className="text-sm font-semibold text-[var(--foreground)]">
-                                        ₡ {formatNumber(precioXGramo, 6)} / g
+                                        ₡ {formatNumber(precioXGramo, 2, 2)} / g
                                     </div>
                                 </div>
                             </div>
