@@ -127,6 +127,58 @@ export class ProductosService {
       .filter((p): p is ProductEntry => p !== null);
   }
 
+  static async searchProductosByNombrePrefix(
+    company: string,
+    prefix: string,
+    limitCount = 20
+  ): Promise<ProductEntry[]> {
+    const collectionPath = this.productosCollectionPath(company);
+    const trimmed = String(prefix || "").trim();
+    if (!trimmed) return [];
+
+    const safeLimit = Math.max(1, Math.min(50, Math.trunc(limitCount)));
+
+    const runQuery = async (term: string) => {
+      const upperBound = `${term}\uf8ff`;
+      const rows = (await FirestoreService.query(
+        collectionPath,
+        [
+          { field: "nombre", operator: ">=", value: term },
+          { field: "nombre", operator: "<=", value: upperBound },
+        ],
+        "nombre",
+        "asc",
+        safeLimit
+      )) as Array<Record<string, unknown>>;
+
+      return rows
+        .map((row) => this.normalizeProductDoc(row, String(row?.id ?? "").trim()))
+        .filter((p): p is ProductEntry => p !== null);
+    };
+
+    const variants = new Set<string>();
+    variants.add(trimmed);
+    // Intento 2: capitalizar primera letra (ayuda cuando los nombres están con mayúscula inicial)
+    const cap = trimmed.length > 0 ? trimmed[0].toUpperCase() + trimmed.slice(1) : trimmed;
+    if (cap && cap !== trimmed) variants.add(cap);
+
+    const results = await Promise.all(Array.from(variants).map((v) => runQuery(v)));
+
+    const merged: ProductEntry[] = [];
+    const seen = new Set<string>();
+    for (const list of results) {
+      for (const item of list) {
+        if (seen.has(item.id)) continue;
+        seen.add(item.id);
+        merged.push(item);
+        if (merged.length >= safeLimit) break;
+      }
+      if (merged.length >= safeLimit) break;
+    }
+
+    return merged;
+  }
+
   static async addProducto(
     company: string,
     input: {

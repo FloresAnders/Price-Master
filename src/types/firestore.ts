@@ -102,6 +102,30 @@ export interface ProductEntry {
   updateAt?: string;
 }
 
+export interface RecetaProductoItem {
+  productId: string;
+  gramos: number;
+}
+
+export interface RecetaEntry {
+  /**
+   * Firestore doc id (and also stored in the document for compatibility with JSON exports).
+   */
+  id: string;
+  nombre: string;
+  descripcion?: string;
+  productos: RecetaProductoItem[];
+  /**
+   * Margen como decimal (0.35 = 35%).
+   */
+  margen: number;
+  createdAt?: string;
+  /**
+   * Kept as `updateAt` to match recetas.json.
+   */
+  updateAt?: string;
+}
+
 export interface Sorteo {
   id?: string;
   name: string;
