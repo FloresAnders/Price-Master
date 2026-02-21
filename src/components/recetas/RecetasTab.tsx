@@ -2,6 +2,7 @@
 
 import React from "react";
 import { RightDrawer } from "@/components/ui/RightDrawer";
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 
 import { useAuth } from "@/hooks/useAuth";
 import { useActorOwnership } from "@/hooks/useActorOwnership";
@@ -12,6 +13,7 @@ import { useProductos } from "@/hooks/useProductos";
 import type { ProductEntry, RecetaEntry } from "@/types/firestore";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import { EmpresaSearchAddSection } from "@/components/recetas/component/EmpresaSearchAddSection";
+import { storage } from "@/config/firebase";
 import {
     IngredientesEditorToReceip,
     createIngredientRow,
@@ -19,6 +21,16 @@ import {
 } from "@/components/recetas/component/IngredientesEditorToReceip";
 import { Paginacion } from "@/components/recetas/component/Paginacion";
 import { RecetasListContent } from "@/components/recetas/component/RecetasListContent";
+
+function buildFoodImageStoragePath(nombreReceta: string): string {
+    const trimmed = String(nombreReceta || "").trim();
+    // Mantener el nombre visible, pero evitar caracteres que rompen rutas.
+    const safe = trimmed
+        .replace(/[\\/]+/g, "-")
+        .replace(/\s+/g, " ")
+        .slice(0, 120);
+    return `FoodImages/${safe || "receta"}`;
+}
 
 function sanitizeNumber(value: string): number {
     const trimmed = String(value || "").trim().replace(/,/g, ".");
@@ -83,6 +95,14 @@ export function RecetasTab() {
     const [saving, setSaving] = React.useState(false);
     const [formError, setFormError] = React.useState<string | null>(null);
     const [deletingId, setDeletingId] = React.useState<string | null>(null);
+
+    const [imageFile, setImageFile] = React.useState<File | null>(null);
+    const [imagePreviewUrl, setImagePreviewUrl] = React.useState<string | null>(null);
+    const [existingImageUrl, setExistingImageUrl] = React.useState<string>("");
+    const [existingImagePath, setExistingImagePath] = React.useState<string>("");
+    const [imageMarkedForDeletion, setImageMarkedForDeletion] = React.useState(false);
+    const filePickerRef = React.useRef<HTMLInputElement | null>(null);
+    const cameraPickerRef = React.useRef<HTMLInputElement | null>(null);
 
     const [itemsPerPage, setItemsPerPage] = React.useState<number | "all">(10);
     const [currentPage, setCurrentPage] = React.useState(1);
@@ -179,6 +199,10 @@ export function RecetasTab() {
         setProductoResults([]);
         setProductoSearchError(null);
         setEditingRecetaId(null);
+        setImageFile(null);
+        setExistingImageUrl("");
+        setExistingImagePath("");
+        setImageMarkedForDeletion(false);
     };
 
     const openAddDrawer = () => {
@@ -206,7 +230,47 @@ export function RecetasTab() {
         setProductoSearchTerm("");
         setProductoResults([]);
         setProductoSearchError(null);
+        setImageFile(null);
+        setExistingImageUrl(String(receta.imageUrl || ""));
+        setExistingImagePath(String(receta.imagePath || ""));
+        setImageMarkedForDeletion(false);
         setDrawerOpen(true);
+    };
+
+    React.useEffect(() => {
+        if (!imageFile) {
+            setImagePreviewUrl(null);
+            return;
+        }
+
+        const url = URL.createObjectURL(imageFile);
+        setImagePreviewUrl(url);
+        return () => URL.revokeObjectURL(url);
+    }, [imageFile]);
+
+    const onPickImage = (file: File | null | undefined) => {
+        if (!file) return;
+        if (!file.type?.startsWith("image/")) {
+            setFormError("El archivo seleccionado no es una imagen.");
+            return;
+        }
+        setFormError(null);
+        setImageFile(file);
+        // Si el usuario selecciona una imagen nueva, ya no consideramos borrado.
+        setImageMarkedForDeletion(false);
+    };
+
+    const canDeleteExistingImage = Boolean(
+        editingRecetaId &&
+        (existingImagePath.trim() || existingImageUrl.trim()) &&
+        !imageMarkedForDeletion
+    );
+
+    const markImageForDeletion = () => {
+        if (!editingRecetaId) return;
+        if (!existingImagePath && !existingImageUrl) return;
+        setImageFile(null);
+        setImageMarkedForDeletion(true);
     };
 
     const closeAddDrawer = () => {
@@ -292,6 +356,32 @@ export function RecetasTab() {
 
         try {
             setSaving(true);
+
+            let imagePayload: { imagePath: string; imageUrl: string } | undefined;
+
+            // Si está editando y marcó la imagen para borrado, se elimina en Storage y se limpian campos.
+            if (editingRecetaId && imageMarkedForDeletion) {
+                const pathToDelete = existingImagePath.trim();
+                if (pathToDelete) {
+                    try {
+                        await deleteObject(ref(storage, pathToDelete));
+                    } catch {
+                        // Si no existe o no se pudo borrar, no bloqueamos el guardado.
+                    }
+                }
+                imagePayload = { imagePath: "", imageUrl: "" };
+            }
+
+            if (imageFile) {
+                const imagePath = buildFoodImageStoragePath(nombreTrim);
+                const imageRef = ref(storage, imagePath);
+                await uploadBytes(imageRef, imageFile, {
+                    contentType: imageFile.type || "image/*",
+                });
+                const imageUrl = await getDownloadURL(imageRef);
+                imagePayload = { imagePath, imageUrl };
+            }
+
             if (editingRecetaId) {
                 await updateReceta(editingRecetaId, {
                     nombre: nombreTrim,
@@ -299,6 +389,7 @@ export function RecetasTab() {
                     iva: ivaValue,
                     margen: margenValue,
                     productos,
+                    ...(imagePayload ? imagePayload : {}),
                 });
                 showToast("Receta actualizada.", "success");
             } else {
@@ -308,6 +399,7 @@ export function RecetasTab() {
                     iva: ivaValue,
                     margen: margenValue,
                     productos,
+                    ...(imagePayload ? imagePayload : {}),
                 });
                 showToast("Receta creada.", "success");
             }
@@ -434,6 +526,81 @@ export function RecetasTab() {
                                     onChange={(e) => setNombre(e.target.value)}
                                     disabled={saving}
                                     autoFocus
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs text-[var(--muted-foreground)] mb-1">
+                                    Imagen (opcional)
+                                </label>
+
+                                <div className="flex items-center gap-3">
+                                    {imagePreviewUrl ? (
+                                        <div className="shrink-0 w-14 h-14 rounded-md overflow-hidden border border-[var(--input-border)] bg-black/5 dark:bg-white/5">
+                                            <img
+                                                src={imagePreviewUrl}
+                                                alt="Preview"
+                                                className="w-full h-full object-cover"
+                                            />
+                                        </div>
+                                    ) : (
+                                        !imageMarkedForDeletion &&
+                                        existingImageUrl && (
+                                            <div className="shrink-0 w-14 h-14 rounded-md overflow-hidden border border-[var(--input-border)] bg-black/5 dark:bg-white/5">
+                                                <img
+                                                    src={existingImageUrl}
+                                                    alt="Imagen actual"
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            </div>
+                                        )
+                                    )}
+
+                                    <div className="flex flex-wrap gap-2">
+                                        <button
+                                            type="button"
+                                            className="px-3 py-2 text-xs rounded-md border border-[var(--input-border)] hover:bg-[var(--muted)] transition-colors"
+                                            onClick={() => filePickerRef.current?.click()}
+                                            disabled={saving}
+                                        >
+                                            Archivos
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="px-3 py-2 text-xs rounded-md border border-[var(--input-border)] hover:bg-[var(--muted)] transition-colors"
+                                            onClick={() => cameraPickerRef.current?.click()}
+                                            disabled={saving}
+                                        >
+                                            Cámara
+                                        </button>
+
+                                        {canDeleteExistingImage && !imagePreviewUrl && (
+                                            <button
+                                                type="button"
+                                                className="px-3 py-2 text-xs rounded-md border border-red-500/40 text-red-500 hover:bg-red-500/10 transition-colors"
+                                                onClick={markImageForDeletion}
+                                                disabled={saving}
+                                            >
+                                                Borrar imagen
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <input
+                                    ref={filePickerRef}
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={(e) => onPickImage(e.target.files?.[0])}
+                                />
+                                <input
+                                    ref={cameraPickerRef}
+                                    type="file"
+                                    accept="image/*"
+                                    capture="environment"
+                                    className="hidden"
+                                    onChange={(e) => onPickImage(e.target.files?.[0])}
                                 />
                             </div>
 

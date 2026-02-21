@@ -92,7 +92,18 @@ export function RecetasListItems(props: {
                                         </div>
                                     </div>
 
-                                    <div className="shrink-0 flex items-start gap-2">
+                                    <div className="shrink-0 flex items-start gap-3">
+                                        {r.imageUrl && (
+                                            <div className="shrink-0 w-24 h-24 sm:w-28 sm:h-28 rounded-md overflow-hidden border border-[var(--input-border)] bg-black/5 dark:bg-white/5">
+                                                <img
+                                                    src={r.imageUrl}
+                                                    alt={r.nombre}
+                                                    className="w-full h-full object-cover"
+                                                    loading="lazy"
+                                                />
+                                            </div>
+                                        )}
+
                                         <div className="flex flex-col gap-1 items-end">
                                             <div className="flex items-center gap-2">
                                                 <span className="text-xs text-[var(--muted-foreground)]">Margen</span>

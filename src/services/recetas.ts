@@ -126,6 +126,15 @@ export class RecetasService {
     const createdAt = typeof data.createdAt === "string" ? data.createdAt : undefined;
     const updateAt = typeof (data as any).updateAt === "string" ? (data as any).updateAt : undefined;
 
+    const hasImagePath = Object.prototype.hasOwnProperty.call(data, "imagePath");
+    const hasImageUrl = Object.prototype.hasOwnProperty.call(data, "imageUrl");
+    const imagePath = hasImagePath
+      ? (typeof (data as any).imagePath === "string" ? String((data as any).imagePath).trim() : "")
+      : undefined;
+    const imageUrl = hasImageUrl
+      ? (typeof (data as any).imageUrl === "string" ? String((data as any).imageUrl).trim() : "")
+      : undefined;
+
     return {
       id,
       nombre,
@@ -133,6 +142,8 @@ export class RecetasService {
       productos,
       iva,
       margen,
+      imagePath,
+      imageUrl,
       createdAt,
       updateAt,
     };
@@ -160,6 +171,8 @@ export class RecetasService {
       productos: Array<{ productId: string; gramos: number }>;
       iva?: number;
       margen: number;
+      imagePath?: string;
+      imageUrl?: string;
     }
   ): Promise<RecetaEntry> {
     const collectionPath = this.recetasCollectionPath(company);
@@ -195,6 +208,9 @@ export class RecetasService {
 
     const nowISO = nowCostaRicaISO();
 
+    const imagePath = typeof input.imagePath === "string" ? input.imagePath.trim() : "";
+    const imageUrl = typeof input.imageUrl === "string" ? input.imageUrl.trim() : "";
+
     const data: RecetaEntry = {
       id,
       nombre,
@@ -202,6 +218,8 @@ export class RecetasService {
       productos,
       iva,
       margen,
+      imagePath: imagePath || undefined,
+      imageUrl: imageUrl || undefined,
       createdAt: nowISO,
       updateAt: nowISO,
     };
@@ -227,6 +245,8 @@ export class RecetasService {
       productos: Array<{ productId: string; gramos: number }>;
       iva?: number;
       margen: number;
+      imagePath?: string;
+      imageUrl?: string;
     }
   ): Promise<RecetaEntry> {
     const collectionPath = this.recetasCollectionPath(company);
@@ -264,15 +284,29 @@ export class RecetasService {
 
     const nowISO = nowCostaRicaISO();
 
-    await this.ensureCompanyRootDoc(company);
-    await FirestoreService.update(collectionPath, docId, {
+    const updatePayload: Record<string, unknown> = {
       nombre,
       descripcion,
       productos,
       iva,
       margen,
       updateAt: nowISO,
-    });
+    };
+
+    // Permitir actualizar o limpiar explícitamente la imagen.
+    // - Si imagePath/imageUrl vienen omitidos, no tocamos los campos.
+    // - Si vienen como string vacío, se limpian ("sin imagen").
+    if (Object.prototype.hasOwnProperty.call(input, "imagePath")) {
+      const imagePath = typeof input.imagePath === "string" ? input.imagePath.trim() : "";
+      updatePayload.imagePath = imagePath;
+    }
+    if (Object.prototype.hasOwnProperty.call(input, "imageUrl")) {
+      const imageUrl = typeof input.imageUrl === "string" ? input.imageUrl.trim() : "";
+      updatePayload.imageUrl = imageUrl;
+    }
+
+    await this.ensureCompanyRootDoc(company);
+    await FirestoreService.update(collectionPath, docId, updatePayload);
 
     const updated: RecetaEntry = {
       id: docId,
@@ -283,6 +317,16 @@ export class RecetasService {
       margen,
       updateAt: nowISO,
     };
+
+    // Reflejar en el estado local solo si se incluyeron explícitamente.
+    if (Object.prototype.hasOwnProperty.call(input, "imagePath")) {
+      const imagePath = typeof input.imagePath === "string" ? input.imagePath.trim() : "";
+      updated.imagePath = imagePath;
+    }
+    if (Object.prototype.hasOwnProperty.call(input, "imageUrl")) {
+      const imageUrl = typeof input.imageUrl === "string" ? input.imageUrl.trim() : "";
+      updated.imageUrl = imageUrl;
+    }
 
     return updated;
   }

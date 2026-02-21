@@ -124,6 +124,17 @@ export interface RecetaEntry {
    * Margen como decimal (0.35 = 35%).
    */
   margen: number;
+
+  /**
+   * Ruta en Firebase Storage donde se guarda la imagen de la receta.
+   * Ej: FoodImages/<nombreReceta>
+   */
+  imagePath?: string;
+
+  /**
+   * URL de descarga (getDownloadURL) de la imagen en Storage.
+   */
+  imageUrl?: string;
   createdAt?: string;
   /**
    * Kept as `updateAt` to match recetas.json.
