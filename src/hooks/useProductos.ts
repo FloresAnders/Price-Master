@@ -2,6 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ProductosService } from "../services/productos";
 import type { ProductEntry } from "../types/firestore";
 import { useAuth } from "./useAuth";
+import {
+  bumpProductosVersion,
+  cargarProductos,
+  onProductosCacheChange,
+  readProductosCache,
+  refreshProductosCache,
+} from "@/services/productos-cache";
 
 type MutationCallbacks<T> = {
   onSuccess?: (result: T) => void;
@@ -39,7 +46,7 @@ export function useProductos(options?: { companyOverride?: string }) {
     setLoading(true);
     setError(null);
     try {
-      const data = await ProductosService.getProductosOrderedByNombre(company);
+      const data = await cargarProductos(company);
       setProductos(data);
     } catch (err) {
       const message =
@@ -52,6 +59,22 @@ export function useProductos(options?: { companyOverride?: string }) {
       setLoading(false);
     }
   }, [authLoading, company, noCompanyMessage, user]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    return onProductosCacheChange((changedCompany) => {
+      if (!changedCompany) return;
+      if (changedCompany !== company) return;
+
+      const cache = readProductosCache(company);
+      if (cache) {
+        setProductos(cache.items);
+        return;
+      }
+
+      void fetchProductos();
+    });
+  }, [company, fetchProductos]);
 
   const addProducto = useCallback(
     async (input: {
@@ -67,13 +90,17 @@ export function useProductos(options?: { companyOverride?: string }) {
         }
         const created = await ProductosService.addProducto(company, input);
 
+        let next: ProductEntry[] = [];
         setProductos((prev) => {
-          const next = [...prev.filter((p) => p.id !== created.id), created];
+          next = [...prev.filter((p) => p.id !== created.id), created];
           next.sort((a, b) =>
             a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" })
           );
           return next;
         });
+
+        const nextVersion = await bumpProductosVersion(company);
+        refreshProductosCache(company, { version: nextVersion, items: next });
 
         callbacks?.onSuccess?.(created);
       } catch (err) {
@@ -105,13 +132,17 @@ export function useProductos(options?: { companyOverride?: string }) {
         }
         const updated = await ProductosService.updateProducto(company, id, patch);
 
+        let next: ProductEntry[] = [];
         setProductos((prev) => {
-          const next = [...prev.filter((p) => p.id !== updated.id), updated];
+          next = [...prev.filter((p) => p.id !== updated.id), updated];
           next.sort((a, b) =>
             a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" })
           );
           return next;
         });
+
+        const nextVersion = await bumpProductosVersion(company);
+        refreshProductosCache(company, { version: nextVersion, items: next });
 
         callbacks?.onSuccess?.(updated);
       } catch (err) {
@@ -138,7 +169,14 @@ export function useProductos(options?: { companyOverride?: string }) {
         }
         await ProductosService.deleteProducto(company, id);
 
-        setProductos((prev) => prev.filter((p) => p.id !== id));
+        let next: ProductEntry[] = [];
+        setProductos((prev) => {
+          next = prev.filter((p) => p.id !== id);
+          return next;
+        });
+
+        const nextVersion = await bumpProductosVersion(company);
+        refreshProductosCache(company, { version: nextVersion, items: next });
 
         callbacks?.onSuccess?.(undefined);
       } catch (err) {
