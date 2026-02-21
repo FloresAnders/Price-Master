@@ -523,8 +523,9 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     if (!isClient) return;
 
     // Para todas las páginas, usar hash normal
-    onTabChange?.(tabId);
-    const hashId = tabId === "histoscans" ? "scanhistory" : tabId;
+    const resolvedTabId = tabId === "recetas" ? "agregarproducto" : tabId;
+    onTabChange?.(resolvedTabId);
+    const hashId = resolvedTabId === "histoscans" ? "scanhistory" : resolvedTabId;
     window.location.hash = `#${hashId}`;
   };
 

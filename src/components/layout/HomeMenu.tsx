@@ -1159,7 +1159,9 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   const handleNavigate = (id: string) => {
     if (typeof window !== "undefined") {
       // Redirigir a la ruta específica para la herramienta usando hash navigation
-      window.location.hash = `#${id}`;
+      // Nota: al entrar a "Recetas" se debe ir primero a "Agregar Producto".
+      const target = id === "recetas" ? "agregarproducto" : id;
+      window.location.hash = `#${target}`;
     }
   };
 
