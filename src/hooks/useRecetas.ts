@@ -55,6 +55,7 @@ export function useRecetas(options?: { companyOverride?: string }) {
         nombre: string;
         descripcion?: string;
         productos: Array<{ productId: string; gramos: number }>;
+        iva?: number;
         margen: number;
       },
       callbacks?: MutationCallbacks<RecetaEntry>
@@ -112,6 +113,7 @@ export function useRecetas(options?: { companyOverride?: string }) {
         nombre: string;
         descripcion?: string | null;
         productos: Array<{ productId: string; gramos: number }>;
+        iva?: number;
         margen: number;
       },
       callbacks?: MutationCallbacks<RecetaEntry>

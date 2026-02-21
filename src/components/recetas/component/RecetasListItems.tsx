@@ -27,12 +27,15 @@ export function RecetasListItems(props: {
     onRemove: (id: string, nombreLabel: string) => void;
 }) {
     const { recetas, productosById, saving, deletingId, onEdit, onRemove } = props;
+    const [collapsedById, setCollapsedById] = React.useState<Record<string, boolean>>({});
 
     return (
         <>
             {recetas.map((r) => (
                 (() => {
                     const margen = Number(r.margen) || 0;
+                    const ivaRate = Number(r.iva) || 0;
+                    const isProductsCollapsed = collapsedById[r.id] ?? true;
                     const ingredientes = (Array.isArray(r.productos) ? r.productos : []).map((item) => {
                         const productId = String(item.productId || "").trim();
                         const gramos = Number(item.gramos) || 0;
@@ -49,9 +52,12 @@ export function RecetasListItems(props: {
                     });
 
                     const costoTotal = ingredientes.reduce((sum, i) => sum + (Number(i.costo) || 0), 0);
-                    const precioFinal = costoTotal * (1 + margen);
+                    const ivaMonto = costoTotal * ivaRate;
+                    const totalConIva = costoTotal + ivaMonto;
+                    const precioFinal = totalConIva * (1 + margen);
                     const productosCount = r.productos?.length || 0;
                     const margenLabel = `${Math.round(margen * 100)}%`;
+                    const ivaLabel = `${Math.round(ivaRate * 100)}%`;
                     const costoLabel = `₡ ${formatNumber(roundCurrency(costoTotal), 2)}`;
                     const precioLabel = `₡ ${formatNumber(roundCurrency(precioFinal), 2)}`;
 
@@ -87,8 +93,19 @@ export function RecetasListItems(props: {
                                     </div>
 
                                     <div className="shrink-0 flex items-start gap-2">
-                                        <div className="inline-flex items-center rounded-full bg-[var(--badge-bg)] text-[var(--badge-text)] px-2.5 py-1 text-xs font-semibold whitespace-nowrap ring-1 ring-[var(--input-border)]/60">
-                                            {margenLabel}
+                                        <div className="flex flex-col gap-1 items-end">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs text-[var(--muted-foreground)]">Margen</span>
+                                                <div className="inline-flex items-center rounded-full bg-[var(--badge-bg)] text-[var(--badge-text)] px-2.5 py-1 text-xs font-semibold whitespace-nowrap ring-1 ring-[var(--input-border)]/60">
+                                                    {margenLabel}
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs text-[var(--muted-foreground)]">IVA</span>
+                                                <div className="inline-flex items-center rounded-full bg-[var(--badge-bg)] text-[var(--badge-text)] px-2.5 py-1 text-xs font-semibold whitespace-nowrap ring-1 ring-[var(--input-border)]/60">
+                                                    {ivaLabel}
+                                                </div>
+                                            </div>
                                         </div>
 
                                         <div className="flex flex-col items-center gap-1 rounded-lg bg-black/5 dark:bg-white/5 p-1 ring-1 ring-black/10 dark:ring-white/10">
@@ -118,46 +135,62 @@ export function RecetasListItems(props: {
 
                                 {ingredientes.length > 0 && (
                                     <div className="mt-4">
-                                        <div className="text-[10px] sm:text-[11px] font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">
-                                            Productos
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div className="text-[10px] sm:text-[11px] font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">
+                                                Productos
+                                            </div>
+                                            <button
+                                                type="button"
+                                                className="text-xs px-2.5 py-1 rounded-md border border-[var(--input-border)] hover:bg-[var(--muted)] transition-colors"
+                                                onClick={() =>
+                                                    setCollapsedById((prev) => ({
+                                                        ...prev,
+                                                        [r.id]: !(prev[r.id] ?? true),
+                                                    }))
+                                                }
+                                            >
+                                                {isProductsCollapsed ? "Mostrar" : "Minimizar"}
+                                            </button>
                                         </div>
 
-                                        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-                                            {ingredientes.map((i, idx) => {
-                                                const displayName = String(i.product?.nombre || i.productId || "Producto");
-                                                const gramosLabel = i.gramos > 0 ? `${formatNumber(i.gramos, 0)} g` : "";
-                                                const unitLabel =
-                                                    i.precioXGramo > 0
-                                                        ? `₡ ${formatNumber(i.precioXGramo, 2, 2)}/g`
-                                                        : "";
-                                                const meta = [gramosLabel, unitLabel].filter(Boolean).join(" • ");
-                                                const costoItemLabel =
-                                                    i.costo > 0
-                                                        ? `₡ ${formatNumber(roundCurrency(i.costo), 2)}`
-                                                        : "—";
+                                        {!isProductsCollapsed && (
+                                            <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                {ingredientes.map((i, idx) => {
+                                                    const displayName = String(i.product?.nombre || i.productId || "Producto");
+                                                    const gramosLabel = i.gramos > 0 ? `${formatNumber(i.gramos, 0)} g` : "";
+                                                    const unitLabel =
+                                                        i.precioXGramo > 0
+                                                            ? `₡ ${formatNumber(i.precioXGramo, 2, 2)}/g`
+                                                            : "";
+                                                    const meta = [gramosLabel, unitLabel].filter(Boolean).join(" • ");
+                                                    const costoItemLabel =
+                                                        i.costo > 0
+                                                            ? `₡ ${formatNumber(roundCurrency(i.costo), 2)}`
+                                                            : "—";
 
-                                                return (
-                                                    <div
-                                                        key={`${i.productId || "row"}-${idx}`}
-                                                        className="flex items-center justify-between gap-3 rounded-lg border border-[var(--input-border)] bg-black/5 dark:bg-white/5 px-3.5 py-2.5 transition-colors duration-150 hover:bg-black/10 dark:hover:bg-white/10"
-                                                    >
-                                                        <div className="min-w-0">
-                                                            <div className="text-sm font-medium text-[var(--foreground)]/90 truncate">
-                                                                {displayName}
-                                                            </div>
-                                                            {meta && (
-                                                                <div className="mt-0.5 text-xs text-[var(--muted-foreground)] truncate">
-                                                                    {meta}
+                                                    return (
+                                                        <div
+                                                            key={`${i.productId || "row"}-${idx}`}
+                                                            className="flex items-center justify-between gap-3 rounded-lg border border-[var(--input-border)] bg-black/5 dark:bg-white/5 px-3.5 py-2.5 transition-colors duration-150 hover:bg-black/10 dark:hover:bg-white/10"
+                                                        >
+                                                            <div className="min-w-0">
+                                                                <div className="text-sm font-medium text-[var(--foreground)]/90 truncate">
+                                                                    {displayName}
                                                                 </div>
-                                                            )}
+                                                                {meta && (
+                                                                    <div className="mt-0.5 text-xs text-[var(--muted-foreground)] truncate">
+                                                                        {meta}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            <div className="shrink-0 text-xs font-semibold text-[var(--foreground)] whitespace-nowrap">
+                                                                {costoItemLabel}
+                                                            </div>
                                                         </div>
-                                                        <div className="shrink-0 text-xs font-semibold text-[var(--foreground)] whitespace-nowrap">
-                                                            {costoItemLabel}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>

@@ -73,6 +73,7 @@ export function RecetasTab() {
 
     const [nombre, setNombre] = React.useState("");
     const [descripcion, setDescripcion] = React.useState("");
+    const [iva, setIva] = React.useState("0.13");
     const [margen, setMargen] = React.useState("0.35");
     const [drawerOpen, setDrawerOpen] = React.useState(false);
     const [editingRecetaId, setEditingRecetaId] = React.useState<string | null>(null);
@@ -169,6 +170,7 @@ export function RecetasTab() {
     const resetForm = () => {
         setNombre("");
         setDescripcion("");
+        setIva("0.13");
         setMargen("0.35");
         setIngredientes([createIngredientRow()]);
         setFormError(null);
@@ -189,6 +191,7 @@ export function RecetasTab() {
         setEditingRecetaId(receta.id);
         setNombre(String(receta.nombre || ""));
         setDescripcion(String(receta.descripcion || ""));
+        setIva(String(typeof receta.iva === "number" ? receta.iva : 0.13));
         setMargen(String(typeof receta.margen === "number" ? receta.margen : 0));
         const nextIngredientes: IngredienteDraft[] = Array.isArray(receta.productos)
             ? receta.productos.map((p) => ({
@@ -264,6 +267,17 @@ export function RecetasTab() {
             return;
         }
 
+        const ivaTrim = String(iva || "").trim();
+        let ivaValue = ivaTrim ? sanitizeNumber(ivaTrim) : 0.13;
+        // Soportar entrada tipo "13" (porcentaje)
+        if (ivaValue > 1 && ivaValue <= 100) {
+            ivaValue = ivaValue / 100;
+        }
+        if (!(ivaValue >= 0 && ivaValue <= 1)) {
+            setFormError("El IVA debe estar entre 0 y 1 (ej: 0.13) o 0-100 (ej: 13).");
+            return;
+        }
+
         const productos = ingredientes
             .map((row) => ({
                 productId: String(row.productId || "").trim(),
@@ -282,6 +296,7 @@ export function RecetasTab() {
                 await updateReceta(editingRecetaId, {
                     nombre: nombreTrim,
                     descripcion: descripcion.trim() ? descripcion.trim() : null,
+                    iva: ivaValue,
                     margen: margenValue,
                     productos,
                 });
@@ -290,6 +305,7 @@ export function RecetasTab() {
                 await addReceta({
                     nombre: nombreTrim,
                     descripcion: descripcion.trim() ? descripcion.trim() : undefined,
+                    iva: ivaValue,
                     margen: margenValue,
                     productos,
                 });
@@ -433,16 +449,33 @@ export function RecetasTab() {
                             </div>
 
                             <div>
-                                <label className="block text-xs text-[var(--muted-foreground)] mb-1">Margen</label>
-                                <input
-                                    className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
-                                    placeholder="0.35 ó 35"
-                                    value={margen}
-                                    onChange={(e) => setMargen(e.target.value)}
-                                    disabled={saving}
-                                    inputMode="decimal"
-                                />
-                                <div className="text-xs text-[var(--muted-foreground)] mt-1">0.35 = 35% (también acepta 35)</div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs text-[var(--muted-foreground)] mb-1">IVA</label>
+                                        <input
+                                            className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
+                                            placeholder="0.13 ó 13"
+                                            value={iva}
+                                            onChange={(e) => setIva(e.target.value)}
+                                            disabled={saving}
+                                            inputMode="decimal"
+                                        />
+                                        <div className="text-xs text-[var(--muted-foreground)] mt-1">0.13 = 13% (también acepta 13)</div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs text-[var(--muted-foreground)] mb-1">Margen</label>
+                                        <input
+                                            className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
+                                            placeholder="0.35 ó 35"
+                                            value={margen}
+                                            onChange={(e) => setMargen(e.target.value)}
+                                            disabled={saving}
+                                            inputMode="decimal"
+                                        />
+                                        <div className="text-xs text-[var(--muted-foreground)] mt-1">0.35 = 35% (también acepta 35)</div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

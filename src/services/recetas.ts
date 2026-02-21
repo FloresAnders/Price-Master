@@ -8,6 +8,25 @@ import { nowCostaRicaISO } from "@/utils/costaRicaTime";
 export class RecetasService {
   private static readonly COLLECTION_NAME = "recetas";
   private static readonly ITEMS_SUBCOLLECTION = "items";
+  private static readonly DEFAULT_IVA_RATE = 0.13;
+
+  private static normalizeRate(value: unknown, fallback: number): number {
+    let rate = this.sanitizeNumber(value);
+    // Soportar entrada tipo "13" (porcentaje)
+    if (rate > 1 && rate <= 100) rate = rate / 100;
+    if (!(rate >= 0 && rate <= 1)) {
+      throw new Error("El IVA debe estar entre 0 y 1 (ej: 0.13) o 0-100 (ej: 13)." );
+    }
+    // Si llega vacío (0) y se desea fallback explícito
+    return Number.isFinite(rate) ? rate : fallback;
+  }
+
+  private static coerceRateOrFallback(value: unknown, fallback: number): number {
+    let rate = this.sanitizeNumber(value);
+    if (rate > 1 && rate <= 100) rate = rate / 100;
+    if (!(rate >= 0 && rate <= 1)) return fallback;
+    return Number.isFinite(rate) ? rate : fallback;
+  }
 
   private static requireCompany(company: string): string {
     const trimmed = String(company || "").trim();
@@ -99,6 +118,9 @@ export class RecetasService {
       typeof data.descripcion === "string" ? data.descripcion.trim() : undefined;
 
     const margen = this.sanitizeNumber(data.margen);
+    const iva = Object.prototype.hasOwnProperty.call(data, "iva")
+      ? this.coerceRateOrFallback(data.iva, this.DEFAULT_IVA_RATE)
+      : this.DEFAULT_IVA_RATE;
     const productos = this.normalizeProductos(data.productos);
 
     const createdAt = typeof data.createdAt === "string" ? data.createdAt : undefined;
@@ -109,6 +131,7 @@ export class RecetasService {
       nombre,
       descripcion,
       productos,
+      iva,
       margen,
       createdAt,
       updateAt,
@@ -135,6 +158,7 @@ export class RecetasService {
       nombre: string;
       descripcion?: string;
       productos: Array<{ productId: string; gramos: number }>;
+      iva?: number;
       margen: number;
     }
   ): Promise<RecetaEntry> {
@@ -146,6 +170,11 @@ export class RecetasService {
     if (!(margen >= 0 && margen <= 1)) {
       throw new Error("El margen debe estar entre 0 y 1 (ej: 0.35)." );
     }
+
+    const iva =
+      typeof input.iva === "number" || typeof input.iva === "string"
+        ? this.normalizeRate(input.iva, this.DEFAULT_IVA_RATE)
+        : this.DEFAULT_IVA_RATE;
 
     const productos = (Array.isArray(input.productos) ? input.productos : [])
       .map((p) => ({
@@ -171,6 +200,7 @@ export class RecetasService {
       nombre,
       descripcion: input.descripcion ? String(input.descripcion).trim() : undefined,
       productos,
+      iva,
       margen,
       createdAt: nowISO,
       updateAt: nowISO,
@@ -195,6 +225,7 @@ export class RecetasService {
       nombre: string;
       descripcion?: string | null;
       productos: Array<{ productId: string; gramos: number }>;
+      iva?: number;
       margen: number;
     }
   ): Promise<RecetaEntry> {
@@ -209,6 +240,11 @@ export class RecetasService {
     if (!(margen >= 0 && margen <= 1)) {
       throw new Error('El margen debe estar entre 0 y 1 (ej: 0.35).');
     }
+
+    const iva =
+      typeof input.iva === "number" || typeof input.iva === "string"
+        ? this.normalizeRate(input.iva, this.DEFAULT_IVA_RATE)
+        : this.DEFAULT_IVA_RATE;
 
     const productos = (Array.isArray(input.productos) ? input.productos : [])
       .map((p) => ({
@@ -233,6 +269,7 @@ export class RecetasService {
       nombre,
       descripcion,
       productos,
+      iva,
       margen,
       updateAt: nowISO,
     });
@@ -242,6 +279,7 @@ export class RecetasService {
       nombre,
       descripcion: descripcion ?? undefined,
       productos,
+      iva,
       margen,
       updateAt: nowISO,
     };

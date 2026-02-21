@@ -116,6 +116,11 @@ export interface RecetaEntry {
   descripcion?: string;
   productos: RecetaProductoItem[];
   /**
+   * IVA como decimal (0.13 = 13%).
+   * Opcional por compatibilidad con recetas existentes.
+   */
+  iva?: number;
+  /**
    * Margen como decimal (0.35 = 35%).
    */
   margen: number;
