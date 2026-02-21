@@ -1,23 +1,18 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import Box from "@mui/material/Box";
-import Drawer from "@mui/material/Drawer";
-import Divider from "@mui/material/Divider";
-import IconButton from "@mui/material/IconButton";
-import Typography from "@mui/material/Typography";
 import {
     Lock,
     PackagePlus,
     Pencil,
     Trash2,
-    X,
     ChevronLeft,
     ChevronRight,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { getDefaultPermissions } from "@/utils/permissions";
 import ConfirmModal from "@/components/ui/ConfirmModal";
+import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useProductos } from "@/hooks/useProductos";
 import useToast from "@/hooks/useToast";
 import type { ProductEntry } from "@/types/firestore";
@@ -164,6 +159,11 @@ export function AgregarProductoTab() {
         setPesoEnGramos(String(p.pesoengramos ?? ""));
         setPrecio(String(p.precio ?? ""));
         setDrawerOpen(true);
+    };
+
+    const closeDrawer = () => {
+        setDrawerOpen(false);
+        resetForm();
     };
 
     const openRemoveModal = (p: ProductEntry) => {
@@ -539,204 +539,155 @@ export function AgregarProductoTab() {
                 onCancel={closeRemoveModal}
             />
 
-            <Drawer
-                anchor="right"
+            <RightDrawer
                 open={drawerOpen}
-                onClose={() => {
-                    setDrawerOpen(false);
-                    resetForm();
-                }}
-                PaperProps={{
-                    sx: {
-                        width: { xs: "100vw", sm: 480 },
-                        maxWidth: "100vw",
-                        bgcolor: "#1f262a",
-                        color: "#ffffff",
-                    },
-                }}
-            >
-                <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-                    <Box
-                        sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            px: 3,
-                            py: 2,
-                        }}
-                    >
-                        <Typography variant="h5" component="h3" sx={{ fontWeight: 700 }}>
-                            {editingProductId ? "Editar producto" : "Agregar producto"}
-                        </Typography>
-                        <IconButton
-                            aria-label="Cerrar"
-                            onClick={() => {
-                                setDrawerOpen(false);
-                                resetForm();
-                            }}
-                            sx={{ color: "var(--foreground)" }}
+                onClose={closeDrawer}
+                title={editingProductId ? "Editar producto" : "Agregar producto"}
+                footer={
+                    <div className="flex justify-end gap-2">
+                        <button
+                            type="button"
+                            onClick={closeDrawer}
+                            className="px-4 py-2 border border-[var(--input-border)] rounded text-[var(--foreground)] hover:bg-[var(--muted)] bg-transparent"
+                            disabled={saving}
                         >
-                            <X className="w-4 h-4" />
-                        </IconButton>
-                    </Box>
-                    <Divider sx={{ borderColor: "var(--input-border)" }} />
+                            Cancelar
+                        </button>
+                        <button
+                            type="button"
+                            onClick={async () => {
+                                setTouched({ nombre: true, peso: true, precio: true });
+                                if (!isFormValid) {
+                                    setFormError("Revisa los campos marcados.");
+                                    return;
+                                }
+                                requestSaveConfirm();
+                            }}
+                            className="px-4 py-2 bg-[var(--accent)] text-white rounded disabled:opacity-50"
+                            disabled={saving || deletingId !== null || !isFormValid}
+                        >
+                            {saving
+                                ? editingProductId
+                                    ? "Actualizando..."
+                                    : "Guardando..."
+                                : editingProductId
+                                    ? "Actualizar"
+                                    : "Guardar producto"}
+                        </button>
+                    </div>
+                }
+            >
+                {resolvedError && <div className="mb-4 text-sm text-red-400">{resolvedError}</div>}
 
-                    <Box sx={{ flex: 1, overflowY: "auto", px: 3, py: 3 }}>
-                        {resolvedError && (
-                            <div className="mb-4 text-sm text-red-400">{resolvedError}</div>
-                        )}
-
-                        <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-4">
+                    <div>
+                        <div className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">
+                            Información básica
+                        </div>
+                        <div className="mt-3 flex flex-col gap-4">
                             <div>
-                                <div className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">
-                                    Información básica
-                                </div>
-                                <div className="mt-3 flex flex-col gap-4">
-                                    <div>
-                                        <label className="block text-xs text-[var(--muted-foreground)] mb-1">
-                                            Nombre
-                                        </label>
-                                        <input
-                                            className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
-                                            placeholder="Ej: Arroz 1kg"
-                                            value={nombre}
-                                            onChange={(e) => {
-                                                setNombre(e.target.value);
-                                                setLastSaveFeedback(null);
-                                            }}
-                                            onBlur={() => setTouched((t) => ({ ...t, nombre: true }))}
-                                            disabled={saving || deletingId !== null}
-                                            autoFocus
-                                        />
-                                        {(touched.nombre || formError) && nombreError && (
-                                            <div className="mt-1 text-xs text-red-400">{nombreError}</div>
-                                        )}
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-xs text-[var(--muted-foreground)] mb-1">
-                                            Descripción (opcional)
-                                        </label>
-                                        <textarea
-                                            className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)] min-h-[90px]"
-                                            placeholder="Ej: Marca, presentación, notas..."
-                                            value={descripcion}
-                                            onChange={(e) => setDescripcion(e.target.value)}
-                                            disabled={saving || deletingId !== null}
-                                        />
-                                    </div>
-                                </div>
+                                <label className="block text-xs text-[var(--muted-foreground)] mb-1">
+                                    Nombre
+                                </label>
+                                <input
+                                    className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
+                                    placeholder="Ej: Arroz 1kg"
+                                    value={nombre}
+                                    onChange={(e) => {
+                                        setNombre(e.target.value);
+                                        setLastSaveFeedback(null);
+                                    }}
+                                    onBlur={() => setTouched((t) => ({ ...t, nombre: true }))}
+                                    disabled={saving || deletingId !== null}
+                                    autoFocus
+                                />
+                                {(touched.nombre || formError) && nombreError && (
+                                    <div className="mt-1 text-xs text-red-400">{nombreError}</div>
+                                )}
                             </div>
 
                             <div>
-                                <div className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">
-                                    Precio y peso
-                                </div>
-                                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-xs text-[var(--muted-foreground)] mb-1">
-                                            Peso
-                                        </label>
-                                        <div className="flex items-stretch rounded border border-[var(--input-border)] bg-[var(--input-bg)] overflow-hidden">
-                                            <input
-                                                className="flex-1 p-3 bg-transparent text-sm text-[var(--foreground)] focus:outline-none"
-                                                placeholder="Ej: 1000"
-                                                inputMode="decimal"
-                                                value={pesoEnGramos}
-                                                onChange={(e) => {
-                                                    setPesoEnGramos(e.target.value);
-                                                    setLastSaveFeedback(null);
-                                                }}
-                                                onBlur={() => setTouched((t) => ({ ...t, peso: true }))}
-                                                disabled={saving || deletingId !== null}
-                                            />
-                                            <div className="px-3 grid place-items-center text-xs text-[var(--muted-foreground)] border-l border-[var(--input-border)]">
-                                                grms
-                                            </div>
-                                        </div>
-                                        {(touched.peso || formError) && pesoError && (
-                                            <div className="mt-1 text-xs text-red-400">{pesoError}</div>
-                                        )}
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-xs text-[var(--muted-foreground)] mb-1">
-                                            Precio
-                                        </label>
-                                        <div className="flex items-stretch rounded border border-[var(--input-border)] bg-[var(--input-bg)] overflow-hidden">
-                                            <div className="px-3 grid place-items-center text-xs text-[var(--muted-foreground)] border-r border-[var(--input-border)]">
-                                                ₡
-                                            </div>
-                                            <input
-                                                className="flex-1 p-3 bg-transparent text-sm text-[var(--foreground)] focus:outline-none"
-                                                placeholder="Ej: 1500"
-                                                inputMode="decimal"
-                                                value={precio}
-                                                onChange={(e) => {
-                                                    setPrecio(e.target.value);
-                                                    setLastSaveFeedback(null);
-                                                }}
-                                                onBlur={() => setTouched((t) => ({ ...t, precio: true }))}
-                                                disabled={saving || deletingId !== null}
-                                            />
-                                        </div>
-                                        {(touched.precio || formError) && precioError && (
-                                            <div className="mt-1 text-xs text-red-400">{precioError}</div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="mt-4 rounded border border-[var(--input-border)] p-3 bg-[var(--input-bg)]">
-                                    <div className="text-xs text-[var(--muted-foreground)]">
-                                        Precio por gramo (solo lectura)
-                                    </div>
-                                    <div className="text-sm font-semibold text-[var(--foreground)]">
-                                        ₡ {formatNumber(precioXGramo, 2, 2)} / g
-                                    </div>
-                                </div>
+                                <label className="block text-xs text-[var(--muted-foreground)] mb-1">
+                                    Descripción (opcional)
+                                </label>
+                                <textarea
+                                    className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)] min-h-[90px]"
+                                    placeholder="Ej: Marca, presentación, notas..."
+                                    value={descripcion}
+                                    onChange={(e) => setDescripcion(e.target.value)}
+                                    disabled={saving || deletingId !== null}
+                                />
                             </div>
                         </div>
-                    </Box>
+                    </div>
 
-                    <Divider sx={{ borderColor: "var(--input-border)" }} />
-                    <Box sx={{ px: 3, py: 2 }}>
-                        <div className="flex justify-end gap-2">
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setDrawerOpen(false);
-                                    resetForm();
-                                }}
-                                className="px-4 py-2 border border-[var(--input-border)] rounded text-[var(--foreground)] hover:bg-[var(--muted)] bg-transparent"
-                                disabled={saving}
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                type="button"
-                                onClick={async () => {
-                                    setTouched({ nombre: true, peso: true, precio: true });
-                                    if (!isFormValid) {
-                                        setFormError("Revisa los campos marcados.");
-                                        return;
-                                    }
-                                    requestSaveConfirm();
-                                }}
-                                className="px-4 py-2 bg-[var(--accent)] text-white rounded disabled:opacity-50"
-                                disabled={saving || deletingId !== null || !isFormValid}
-                            >
-                                {saving
-                                    ? editingProductId
-                                        ? "Actualizando..."
-                                        : "Guardando..."
-                                    : editingProductId
-                                        ? "Actualizar"
-                                        : "Guardar producto"}
-                            </button>
+                    <div>
+                        <div className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">
+                            Precio y peso
                         </div>
-                    </Box>
-                </Box>
-            </Drawer>
+                        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs text-[var(--muted-foreground)] mb-1">
+                                    Peso
+                                </label>
+                                <div className="flex items-stretch rounded border border-[var(--input-border)] bg-[var(--input-bg)] overflow-hidden">
+                                    <input
+                                        className="flex-1 p-3 bg-transparent text-sm text-[var(--foreground)] focus:outline-none"
+                                        placeholder="Ej: 1000"
+                                        inputMode="decimal"
+                                        value={pesoEnGramos}
+                                        onChange={(e) => {
+                                            setPesoEnGramos(e.target.value);
+                                            setLastSaveFeedback(null);
+                                        }}
+                                        onBlur={() => setTouched((t) => ({ ...t, peso: true }))}
+                                        disabled={saving || deletingId !== null}
+                                    />
+                                    <div className="px-3 grid place-items-center text-xs text-[var(--muted-foreground)] border-l border-[var(--input-border)]">
+                                        grms
+                                    </div>
+                                </div>
+                                {(touched.peso || formError) && pesoError && (
+                                    <div className="mt-1 text-xs text-red-400">{pesoError}</div>
+                                )}
+                            </div>
+
+                            <div>
+                                <label className="block text-xs text-[var(--muted-foreground)] mb-1">
+                                    Precio
+                                </label>
+                                <div className="flex items-stretch rounded border border-[var(--input-border)] bg-[var(--input-bg)] overflow-hidden">
+                                    <div className="px-3 grid place-items-center text-xs text-[var(--muted-foreground)] border-r border-[var(--input-border)]">
+                                        ₡
+                                    </div>
+                                    <input
+                                        className="flex-1 p-3 bg-transparent text-sm text-[var(--foreground)] focus:outline-none"
+                                        placeholder="Ej: 1500"
+                                        inputMode="decimal"
+                                        value={precio}
+                                        onChange={(e) => {
+                                            setPrecio(e.target.value);
+                                            setLastSaveFeedback(null);
+                                        }}
+                                        onBlur={() => setTouched((t) => ({ ...t, precio: true }))}
+                                        disabled={saving || deletingId !== null}
+                                    />
+                                </div>
+                                {(touched.precio || formError) && precioError && (
+                                    <div className="mt-1 text-xs text-red-400">{precioError}</div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="mt-4 rounded border border-[var(--input-border)] p-3 bg-[var(--input-bg)]">
+                            <div className="text-xs text-[var(--muted-foreground)]">Precio por gramo (solo lectura)</div>
+                            <div className="text-sm font-semibold text-[var(--foreground)]">
+                                ₡ {formatNumber(precioXGramo, 2, 2)} / g
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </RightDrawer>
         </div>
     );
 }

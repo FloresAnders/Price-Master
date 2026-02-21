@@ -1,12 +1,7 @@
 "use client";
 
 import React from "react";
-import { X } from "lucide-react";
-import Box from "@mui/material/Box";
-import Drawer from "@mui/material/Drawer";
-import Divider from "@mui/material/Divider";
-import IconButton from "@mui/material/IconButton";
-import Typography from "@mui/material/Typography";
+import { RightDrawer } from "@/components/ui/RightDrawer";
 
 import { useAuth } from "@/hooks/useAuth";
 import { useActorOwnership } from "@/hooks/useActorOwnership";
@@ -348,7 +343,7 @@ export function RecetasTab() {
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
                 <div>
                     <h2 className="text-sm sm:text-base font-medium text-[var(--muted-foreground)]">Recetas</h2>
-                    <p className="text-[10px] sm:text-xs text-[var(--muted-foreground)]">a</p>
+                    <p className="text-[10px] sm:text-xs text-[var(--muted-foreground)]">Administra recetas para tu empresa.</p>
                 </div>
 
                 <EmpresaSearchAddSection
@@ -381,124 +376,92 @@ export function RecetasTab() {
                 <div className="mb-4 text-sm text-red-500">{resolvedError}</div>
             )}
 
-            <Drawer
-                anchor="right"
+            <RightDrawer
                 open={drawerOpen}
                 onClose={closeAddDrawer}
-                PaperProps={{
-                    sx: {
-                        width: { xs: "100vw", sm: 480 },
-                        maxWidth: "100vw",
-                        bgcolor: "#1f262a",
-                        color: "#ffffff",
-                    },
-                }}
+                title={editingRecetaId ? "Editar receta" : "Agregar receta"}
+                footer={
+                    <div className="flex justify-end gap-2">
+                        <button
+                            type="button"
+                            onClick={closeAddDrawer}
+                            className="px-4 py-2 border border-[var(--input-border)] rounded text-[var(--foreground)] hover:bg-[var(--muted)] bg-transparent"
+                            disabled={saving}
+                        >
+                            Cancelar
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleSave}
+                            className="px-4 py-2 bg-[var(--accent)] text-white rounded disabled:opacity-50"
+                            disabled={saving || isLoading || (isAdminLike && !selectedEmpresa)}
+                        >
+                            {saving ? "Guardando..." : editingRecetaId ? "Guardar cambios" : "Guardar receta"}
+                        </button>
+                    </div>
+                }
             >
-                <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-                    <Box
-                        sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            px: 3,
-                            py: 2,
-                        }}
-                    >
-                        <Typography variant="h5" component="h3" sx={{ fontWeight: 700 }}>
-                            {editingRecetaId ? "Editar receta" : "Agregar receta"}
-                        </Typography>
-                        <IconButton aria-label="Cerrar" onClick={closeAddDrawer} sx={{ color: "var(--foreground)" }}>
-                            <X className="w-4 h-4" />
-                        </IconButton>
-                    </Box>
-                    <Divider sx={{ borderColor: "var(--input-border)" }} />
+                {resolvedError && <div className="mb-4 text-sm text-red-400">{resolvedError}</div>}
 
-                    <Box sx={{ flex: 1, overflowY: "auto", px: 3, py: 3 }}>
-                        {resolvedError && <div className="mb-4 text-sm text-red-400">{resolvedError}</div>}
-
-                        <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-4">
+                    <div>
+                        <div className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">
+                            Información básica
+                        </div>
+                        <div className="mt-3 flex flex-col gap-4">
                             <div>
-                                <div className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">
-                                    Información básica
-                                </div>
-                                <div className="mt-3 flex flex-col gap-4">
-                                    <div>
-                                        <label className="block text-xs text-[var(--muted-foreground)] mb-1">Nombre</label>
-                                        <input
-                                            className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
-                                            placeholder="Ej: Hamburguesa clásica"
-                                            value={nombre}
-                                            onChange={(e) => setNombre(e.target.value)}
-                                            disabled={saving}
-                                            autoFocus
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-xs text-[var(--muted-foreground)] mb-1">Descripción (opcional)</label>
-                                        <textarea
-                                            className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)] min-h-[90px]"
-                                            placeholder="Notas o detalles"
-                                            value={descripcion}
-                                            onChange={(e) => setDescripcion(e.target.value)}
-                                            disabled={saving}
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-xs text-[var(--muted-foreground)] mb-1">Margen</label>
-                                        <input
-                                            className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
-                                            placeholder="0.35 ó 35"
-                                            value={margen}
-                                            onChange={(e) => setMargen(e.target.value)}
-                                            disabled={saving}
-                                            inputMode="decimal"
-                                        />
-                                        <div className="text-xs text-[var(--muted-foreground)] mt-1">0.35 = 35% (también acepta 35)</div>
-                                    </div>
-                                </div>
+                                <label className="block text-xs text-[var(--muted-foreground)] mb-1">Nombre</label>
+                                <input
+                                    className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
+                                    placeholder="Ej: Hamburguesa clásica"
+                                    value={nombre}
+                                    onChange={(e) => setNombre(e.target.value)}
+                                    disabled={saving}
+                                    autoFocus
+                                />
                             </div>
 
-                            <IngredientesEditorToReceip
-                                ingredientes={ingredientes}
-                                saving={saving}
-                                activeIngredientIndex={activeIngredientIndex}
-                                setActiveIngredientIndex={setActiveIngredientIndex}
-                                setProductoSearchTerm={setProductoSearchTerm}
-                                productoResults={productoResults}
-                                productoSearching={productoSearching}
-                                productoSearchError={productoSearchError}
-                                onAddIngredient={addIngredientRow}
-                                onRemoveIngredientByRowId={removeIngredientRowByRowId}
-                                onUpdateIngredient={updateIngredient}
-                            />
-                        </div>
-                    </Box>
+                            <div>
+                                <label className="block text-xs text-[var(--muted-foreground)] mb-1">Descripción (opcional)</label>
+                                <textarea
+                                    className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)] min-h-[90px]"
+                                    placeholder="Notas o detalles"
+                                    value={descripcion}
+                                    onChange={(e) => setDescripcion(e.target.value)}
+                                    disabled={saving}
+                                />
+                            </div>
 
-                    <Divider sx={{ borderColor: "var(--input-border)" }} />
-                    <Box sx={{ px: 3, py: 2 }}>
-                        <div className="flex justify-end gap-2">
-                            <button
-                                type="button"
-                                onClick={closeAddDrawer}
-                                className="px-4 py-2 border border-[var(--input-border)] rounded text-[var(--foreground)] hover:bg-[var(--muted)] bg-transparent"
-                                disabled={saving}
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleSave}
-                                className="px-4 py-2 bg-[var(--accent)] text-white rounded disabled:opacity-50"
-                                disabled={saving || isLoading || (isAdminLike && !selectedEmpresa)}
-                            >
-                                {saving ? "Guardando..." : editingRecetaId ? "Guardar cambios" : "Guardar receta"}
-                            </button>
+                            <div>
+                                <label className="block text-xs text-[var(--muted-foreground)] mb-1">Margen</label>
+                                <input
+                                    className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
+                                    placeholder="0.35 ó 35"
+                                    value={margen}
+                                    onChange={(e) => setMargen(e.target.value)}
+                                    disabled={saving}
+                                    inputMode="decimal"
+                                />
+                                <div className="text-xs text-[var(--muted-foreground)] mt-1">0.35 = 35% (también acepta 35)</div>
+                            </div>
                         </div>
-                    </Box>
-                </Box>
-            </Drawer>
+                    </div>
+
+                    <IngredientesEditorToReceip
+                        ingredientes={ingredientes}
+                        saving={saving}
+                        activeIngredientIndex={activeIngredientIndex}
+                        setActiveIngredientIndex={setActiveIngredientIndex}
+                        setProductoSearchTerm={setProductoSearchTerm}
+                        productoResults={productoResults}
+                        productoSearching={productoSearching}
+                        productoSearchError={productoSearchError}
+                        onAddIngredient={addIngredientRow}
+                        onRemoveIngredientByRowId={removeIngredientRowByRowId}
+                        onUpdateIngredient={updateIngredient}
+                    />
+                </div>
+            </RightDrawer>
 
             <div className="mt-6">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2 sm:mb-3">
