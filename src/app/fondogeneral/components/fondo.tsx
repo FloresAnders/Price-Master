@@ -2858,11 +2858,14 @@ export function FondoSection({
   const [dailyClosingsHydrated, setDailyClosingsHydrated] = useState(false);
   const [dailyClosingsRefreshing, setDailyClosingsRefreshing] = useState(false);
   const [dailyClosingHistoryOpen, setDailyClosingHistoryOpen] = useState(false);
+  const [dailyClosingHistoryRange, setDailyClosingHistoryRange] =
+    useState<string>("today");
   const [expandedClosings, setExpandedClosings] = useState<Set<string>>(
     new Set()
   );
   const [pendingCierreDeCaja, setPendingCierreDeCaja] = useState(false);
   const dailyClosingsRequestCountRef = useRef(0);
+  const dailyClosingHistoryRequestIdRef = useRef(0);
   const isComponentMountedRef = useRef(true);
   const loadedDailyClosingKeysRef = useRef<Set<string>>(new Set());
   const loadingDailyClosingKeysRef = useRef<Set<string>>(new Set());
@@ -4142,154 +4145,199 @@ export function FondoSection({
   }, [providers, selectedProvider, editingEntryId, editingProviderCode]);
 
   useEffect(() => {
+    // Reset cached results when switching company/account.
     loadedDailyClosingKeysRef.current = new Set();
     loadingDailyClosingKeysRef.current = new Set();
     dailyClosingsRequestCountRef.current = 0;
+    dailyClosingHistoryRequestIdRef.current += 1;
     setDailyClosingsRefreshing(false);
     setDailyClosingsHydrated(false);
     setDailyClosings([]);
+  }, [company, accountKey]);
 
-    if (accountKey !== "FondoGeneral") {
-      setDailyClosingsHydrated(true);
-      return;
-    }
+  const resolveDailyClosingRangeBounds = useCallback(
+    (range: string): { fromTs: number; toTs: number } | null => {
+      if (!range || range === "todo") return null;
+      const now = new Date();
+      let from: Date | null = null;
+      let to: Date | null = null;
 
-    const normalizedCompany = (company || "").trim();
-    if (normalizedCompany.length === 0) {
-      setDailyClosingsHydrated(true);
-      return;
-    }
+      if (range === "today") {
+        const t = new Date(now);
+        from = t;
+        to = t;
+      } else if (range === "yesterday") {
+        const y = new Date(now);
+        y.setDate(y.getDate() - 1);
+        from = y;
+        to = y;
+      } else if (range === "thisweek") {
+        const d = new Date(now);
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+        const start = new Date(d);
+        start.setDate(diff);
+        from = start;
+        to = new Date(now);
+      } else if (range === "lastweek") {
+        const d = new Date(now);
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1) - 7;
+        const start = new Date(d);
+        start.setDate(diff);
+        const end = new Date(start);
+        end.setDate(start.getDate() + 6);
+        from = start;
+        to = end;
+      } else if (range === "lastmonth") {
+        from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        to = new Date(now.getFullYear(), now.getMonth(), 0);
+      } else if (range === "month") {
+        from = new Date(now.getFullYear(), now.getMonth(), 1);
+        to = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      } else if (range === "last30") {
+        const end = new Date(now);
+        const start = new Date(now);
+        start.setDate(start.getDate() - 29);
+        from = start;
+        to = end;
+      }
 
-    let isActive = true;
-    beginDailyClosingsRequest();
+      if (!from || !to) return null;
+      const fromTs = new Date(
+        from.getFullYear(),
+        from.getMonth(),
+        from.getDate(),
+        0,
+        0,
+        0,
+        0
+      ).getTime();
+      const toTs = new Date(
+        to.getFullYear(),
+        to.getMonth(),
+        to.getDate(),
+        23,
+        59,
+        59,
+        999
+      ).getTime();
+      return { fromTs, toTs };
+    },
+    []
+  );
 
-    const loadClosings = async () => {
+  const loadDailyClosingsForHistoryRange = useCallback(
+    async (range: string) => {
+      if (accountKey !== "FondoGeneral") {
+        setDailyClosings([]);
+        setDailyClosingsHydrated(true);
+        return;
+      }
+
+      const normalizedCompany = (company || "").trim();
+      if (normalizedCompany.length === 0) {
+        setDailyClosings([]);
+        setDailyClosingsHydrated(true);
+        return;
+      }
+
+      const resolvedRange = range && range.length > 0 ? range : "today";
+
+      dailyClosingHistoryRequestIdRef.current += 1;
+      const requestId = dailyClosingHistoryRequestIdRef.current;
+      setDailyClosingsHydrated(false);
+      beginDailyClosingsRequest();
+
       try {
+        const bounds = resolveDailyClosingRangeBounds(resolvedRange);
         const document = await DailyClosingsService.getDocument(
           normalizedCompany
         );
-        if (!isActive) return;
-        if (document) {
-          const { records, loadedKeys } =
-            flattenDailyClosingsDocument(document);
-          setDailyClosings(records);
-          loadedDailyClosingKeysRef.current = loadedKeys;
-          return;
-        }
+        if (!isComponentMountedRef.current) return;
+        if (requestId !== dailyClosingHistoryRequestIdRef.current) return;
 
-        if (!closingsStorageKey) {
-          setDailyClosings([]);
-          return;
-        }
-
-        const stored = localStorage.getItem(closingsStorageKey);
-        if (!stored) {
-          setDailyClosings([]);
-          return;
-        }
-        const parsed = JSON.parse(stored) as unknown;
-        setDailyClosings(sanitizeDailyClosings(parsed));
-      } catch (err) {
-        console.error("Error reading daily closings from Firestore:", err);
-        if (!isActive) return;
+        const base = document
+          ? DailyClosingsService.extractAllClosings(document)
+          : [];
 
         if (closingsStorageKey) {
           try {
+            localStorage.setItem(closingsStorageKey, JSON.stringify(base));
+          } catch (storageErr) {
+            console.error("Error storing daily closings:", storageErr);
+          }
+        }
+        const filtered = bounds
+          ? base.filter((record) => {
+              const ts = Date.parse(record?.closingDate ?? "");
+              if (Number.isNaN(ts)) return true;
+              if (ts < bounds.fromTs) return false;
+              if (ts > bounds.toTs) return false;
+              return true;
+            })
+          : base;
+        setDailyClosings(filtered);
+      } catch (err) {
+        console.error("Error reading daily closings from Firestore:", err);
+        if (!isComponentMountedRef.current) return;
+        if (requestId !== dailyClosingHistoryRequestIdRef.current) return;
+
+        try {
+          if (closingsStorageKey) {
             const stored = localStorage.getItem(closingsStorageKey);
             if (stored) {
               const parsed = JSON.parse(stored) as unknown;
-              setDailyClosings(sanitizeDailyClosings(parsed));
-              return;
+              const all = sanitizeDailyClosings(parsed);
+              const bounds = resolveDailyClosingRangeBounds(resolvedRange);
+              const filtered = bounds
+                ? all.filter((record) => {
+                    const ts = Date.parse(record?.closingDate ?? "");
+                    if (Number.isNaN(ts)) return true;
+                    if (ts < bounds.fromTs) return false;
+                    if (ts > bounds.toTs) return false;
+                    return true;
+                  })
+                : all;
+              setDailyClosings(filtered);
+            } else {
+              setDailyClosings([]);
             }
-          } catch (storageErr) {
-            console.error("Error reading stored daily closings:", storageErr);
+          } else {
+            setDailyClosings([]);
           }
+        } catch (storageErr) {
+          console.error("Error reading stored daily closings:", storageErr);
+          setDailyClosings([]);
         }
-        setDailyClosings([]);
       } finally {
-        if (isActive) {
+        if (
+          isComponentMountedRef.current &&
+          requestId === dailyClosingHistoryRequestIdRef.current
+        ) {
           setDailyClosingsHydrated(true);
         }
         finishDailyClosingsRequest();
       }
-    };
-
-    void loadClosings();
-
-    return () => {
-      isActive = false;
-    };
-  }, [
-    company,
-    accountKey,
-    closingsStorageKey,
-    beginDailyClosingsRequest,
-    finishDailyClosingsRequest,
-  ]);
+    },
+    [
+      accountKey,
+      company,
+      closingsStorageKey,
+      beginDailyClosingsRequest,
+      finishDailyClosingsRequest,
+      resolveDailyClosingRangeBounds,
+    ]
+  );
 
   useEffect(() => {
-    if (
-      !dailyClosingsHydrated ||
-      !closingsStorageKey ||
-      accountKey !== "FondoGeneral"
-    )
-      return;
-    try {
-      localStorage.setItem(closingsStorageKey, JSON.stringify(dailyClosings));
-    } catch (err) {
-      console.error("Error storing daily closings:", err);
-    }
-  }, [closingsStorageKey, dailyClosings, accountKey, dailyClosingsHydrated]);
-
-  useEffect(() => {
-    if (accountKey !== "FondoGeneral") return;
-    if (!dailyClosingsHydrated) return;
-    const normalizedCompany = (company || "").trim();
-    if (normalizedCompany.length === 0) return;
-    const targetKey = currentDailyKey;
-    if (!targetKey) return;
-    if (loadedDailyClosingKeysRef.current.has(targetKey)) return;
-    if (loadingDailyClosingKeysRef.current.has(targetKey)) return;
-
-    let isActive = true;
-    let shouldMarkLoaded = false;
-    loadingDailyClosingKeysRef.current.add(targetKey);
-    beginDailyClosingsRequest();
-
-    const loadByDay = async () => {
-      try {
-        const records = await DailyClosingsService.getClosingsForDate(
-          normalizedCompany,
-          targetKey
-        );
-        if (!isActive) return;
-        if (records.length > 0) {
-          setDailyClosings((prev) => mergeDailyClosingRecords(prev, records));
-        }
-        shouldMarkLoaded = true;
-      } catch (err) {
-        console.error("Error loading daily closings for selected day:", err);
-      } finally {
-        loadingDailyClosingKeysRef.current.delete(targetKey);
-        if (isActive && shouldMarkLoaded) {
-          loadedDailyClosingKeysRef.current.add(targetKey);
-        }
-        finishDailyClosingsRequest();
-      }
-    };
-
-    void loadByDay();
-
-    return () => {
-      isActive = false;
-    };
+    // Lazy-load: only query when the history modal is open.
+    if (!dailyClosingHistoryOpen) return;
+    void loadDailyClosingsForHistoryRange(dailyClosingHistoryRange);
   }, [
-    accountKey,
-    company,
-    currentDailyKey,
-    dailyClosingsHydrated,
-    beginDailyClosingsRequest,
-    finishDailyClosingsRequest,
+    dailyClosingHistoryOpen,
+    dailyClosingHistoryRange,
+    loadDailyClosingsForHistoryRange,
   ]);
 
   useEffect(() => {
@@ -7052,39 +7100,12 @@ export function FondoSection({
 
   const closingsAreLoading =
     accountKey === "FondoGeneral" &&
+    dailyClosingHistoryOpen &&
     (!dailyClosingsHydrated || dailyClosingsRefreshing);
 
   const isFondoMovementsLoading = useMemo(() => {
     return Boolean(company) && (!entriesHydrated || movementsLoading);
   }, [company, entriesHydrated, movementsLoading]);
-  const visibleDailyClosings = useMemo(() => {
-    if (accountKey !== "FondoGeneral") return [] as DailyClosingRecord[];
-    if (!dailyClosingsHydrated) return [] as DailyClosingRecord[];
-    let base = dailyClosings;
-    if (isDailyMode) {
-      base = base.filter((record) => {
-        const key = dateKeyFromDate(new Date(record.closingDate));
-        return key === currentDailyKey;
-      });
-    } else if (fromFilter || toFilter) {
-      base = base.filter((record) => {
-        const key = dateKeyFromDate(new Date(record.closingDate));
-        if (fromFilter && toFilter) return key >= fromFilter && key <= toFilter;
-        if (fromFilter && !toFilter) return key === fromFilter;
-        if (!fromFilter && toFilter) return key === toFilter;
-        return true;
-      });
-    }
-    return base;
-  }, [
-    accountKey,
-    dailyClosings,
-    dailyClosingsHydrated,
-    isDailyMode,
-    currentDailyKey,
-    fromFilter,
-    toFilter,
-  ]);
 
   // Totals computed from the filtered entries (not only the current page)
   const isFilterActive = useMemo(() => {
@@ -7863,7 +7884,10 @@ export function FondoSection({
               <div className="relative group mt-2 sm:mt-0">
                 <button
                   type="button"
-                  onClick={() => setDailyClosingHistoryOpen(true)}
+                  onClick={() => {
+                    setDailyClosingHistoryRange("today");
+                    setDailyClosingHistoryOpen(true);
+                  }}
                   disabled={closingsAreLoading}
                   className="inline-flex items-center justify-center h-8 w-8 rounded border border-[var(--input-border)] bg-[var(--input-bg)] hover:bg-[var(--muted)] transition-colors disabled:opacity-60"
                   title="Cierres anteriores"
@@ -8937,7 +8961,10 @@ export function FondoSection({
         onConfirm={handleConfirmDailyClosing}
         initialValues={dailyClosingInitialValues}
         editId={editingDailyClosingId}
-        onShowHistory={() => setDailyClosingHistoryOpen(true)}
+        onShowHistory={() => {
+          setDailyClosingHistoryRange("today");
+          setDailyClosingHistoryOpen(true);
+        }}
         employees={employeeOptions}
         loadingEmployees={employeesLoading}
         currentBalanceCRC={currentBalanceCRC}
@@ -8973,7 +9000,8 @@ export function FondoSection({
         onClose={() => setDailyClosingHistoryOpen(false)}
         closingsAreLoading={closingsAreLoading}
         dailyClosings={dailyClosings}
-        visibleDailyClosings={visibleDailyClosings}
+        quickRange={dailyClosingHistoryRange}
+        onQuickRangeChange={setDailyClosingHistoryRange}
         dailyClosingDateFormatter={dailyClosingDateFormatter}
         dateTimeFormatter={dateTimeFormatter}
         buildBreakdownLines={buildBreakdownLines}
