@@ -26,6 +26,10 @@ type EmpresaSearchAddSectionProps = {
   addButtonText: string;
   onAddClick: () => void;
   addDisabled?: boolean;
+
+  onRefreshClick?: () => void;
+  refreshDisabled?: boolean;
+  refreshButtonText?: string;
 };
 
 export function EmpresaSearchAddSection({
@@ -46,6 +50,10 @@ export function EmpresaSearchAddSection({
   addButtonText,
   onAddClick,
   addDisabled,
+
+  onRefreshClick,
+  refreshDisabled,
+  refreshButtonText = "Actualizar",
 }: EmpresaSearchAddSectionProps) {
   return (
     <>
@@ -76,6 +84,17 @@ export function EmpresaSearchAddSection({
             />
           </div>
         </div>
+
+        {onRefreshClick && (
+          <button
+            type="button"
+            onClick={onRefreshClick}
+            disabled={Boolean(refreshDisabled)}
+            className="w-full md:w-auto flex items-center justify-center px-4 py-2.5 border border-[var(--input-border)] rounded-lg bg-transparent text-[var(--foreground)] hover:bg-[var(--muted)] disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold transition-colors whitespace-nowrap"
+          >
+            {refreshButtonText}
+          </button>
+        )}
 
         <button
           type="button"

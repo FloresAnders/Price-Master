@@ -48,6 +48,17 @@ function useDebouncedValue<T>(value: T, delayMs: number) {
     return debounced;
 }
 
+function isFirestoreNotFoundError(err: unknown): boolean {
+    const anyErr = err as any;
+    const code = typeof anyErr?.code === "string" ? anyErr.code : "";
+    const message = typeof anyErr?.message === "string" ? anyErr.message : "";
+    return (
+        code === "not-found" ||
+        /No document to update/i.test(message) ||
+        /NOT_FOUND/i.test(message)
+    );
+}
+
 export function RecetasTab() {
     const { user, loading: authLoading } = useAuth();
     const { ownerIds: actorOwnerIds } = useActorOwnership(user || {});
@@ -62,7 +73,7 @@ export function RecetasTab() {
     const company = isAdminLike ? selectedEmpresa : companyFromUser;
 
     const { showToast } = useToast();
-    const { recetas, loading, error, addReceta, updateReceta, removeReceta } = useRecetas({
+    const { recetas, loading, error, addReceta, updateReceta, removeReceta, evictReceta, refetch } = useRecetas({
         companyOverride: isAdminLike ? selectedEmpresa : undefined,
     });
 
@@ -406,6 +417,19 @@ export function RecetasTab() {
             resetForm();
             setDrawerOpen(false);
         } catch (err) {
+            // Si otro usuario eliminó la receta mientras se editaba.
+            if (editingRecetaId && isFirestoreNotFoundError(err)) {
+                evictReceta(editingRecetaId);
+                resetForm();
+                setDrawerOpen(false);
+                showToast(
+                    "No se pudo editar la receta porque ya no existe (fue eliminada por otro usuario).",
+                    "warning",
+                    6000
+                );
+                return;
+            }
+
             const message = err instanceof Error ? err.message : "No se pudo guardar la receta.";
             setFormError(message);
             showToast(message, "error");
@@ -474,6 +498,9 @@ export function RecetasTab() {
                     searchPlaceholder={isLoading ? "Cargando..." : "Buscar receta"}
                     searchAriaLabel="Buscar receta"
                     searchDisabled={isLoading}
+                    onRefreshClick={() => void refetch()}
+                    refreshDisabled={saving || isLoading || (isAdminLike && !selectedEmpresa)}
+                    refreshButtonText={isLoading ? "Actualizando..." : "Actualizar"}
                     addButtonText="Agregar receta"
                     onAddClick={openAddDrawer}
                     addDisabled={saving || isLoading || (isAdminLike && !selectedEmpresa)}
