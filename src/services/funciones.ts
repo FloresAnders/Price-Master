@@ -162,6 +162,52 @@ export class FuncionesService {
     await FirestoreService.addWithId(this.COLLECTION_NAME, empresaId, doc);
   }
 
+  static async getEmpresaFunciones(params: {
+    empresaId: string;
+  }): Promise<({ docId: string } & FuncionesEmpresaDoc) | null> {
+    const empresaId = String(params.empresaId || '').trim();
+    if (!empresaId) return null;
+
+    const doc = await FirestoreService.getById(this.COLLECTION_NAME, empresaId);
+    if (!doc) return null;
+
+    if (doc.type !== 'empresa') {
+      throw new Error('El documento de funciones por empresa no es válido (type != empresa).');
+    }
+
+    return { docId: empresaId, ...(doc as FuncionesEmpresaDoc) };
+  }
+
+  static async upsertEmpresaFunciones(params: {
+    ownerId: string;
+    empresaId: string;
+    funciones: string[];
+  }): Promise<void> {
+    const ownerId = String(params.ownerId || '').trim();
+    const empresaId = String(params.empresaId || '').trim();
+    if (!ownerId) throw new Error('ownerId requerido para guardar funciones por empresa.');
+    if (!empresaId) throw new Error('empresaId requerido para guardar funciones por empresa.');
+
+    await this.ensureEmpresaDoc({ ownerId, empresaId });
+
+    const existing = await FirestoreService.getById(this.COLLECTION_NAME, empresaId);
+    if (existing && existing.type !== 'empresa') {
+      throw new Error('No se puede guardar: el docId de empresa colisiona con otro tipo de documento.');
+    }
+
+    const unique = Array.from(
+      new Set((params.funciones || []).map((x) => String(x).trim()).filter(Boolean))
+    );
+
+    await FirestoreService.update(this.COLLECTION_NAME, empresaId, {
+      type: 'empresa',
+      ownerId,
+      empresaId,
+      funciones: unique,
+      updatedAt: new Date().toISOString(),
+    } satisfies Partial<FuncionesEmpresaDoc>);
+  }
+
   static async removeFuncionFromEmpresas(params: {
     ownerId: string;
     empresaIds: string[];

@@ -12,6 +12,7 @@ import { EmpresaSearchAddSection } from '@/components/recetas/component/EmpresaS
 import { Paginacion } from '@/components/recetas/component/Paginacion';
 import { RecetasListContent } from './funciones/RecetasListContent';
 import type { FuncionListItem } from './funciones/RecetasListItems';
+import EmpresaFuncionesModal from './funciones/EmpresaFuncionesModal';
 import { RightDrawer } from '@/components/ui/RightDrawer';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 
@@ -47,6 +48,9 @@ export default function FuncionesEditorSection() {
     id: '',
     nombre: '',
   });
+
+  const [empresaModalOpen, setEmpresaModalOpen] = React.useState(false);
+  const [empresaModalEmpresa, setEmpresaModalEmpresa] = React.useState<Empresas | null>(null);
 
   const debouncedSearch = searchValue.trim().toLowerCase();
   const filteredFunciones = React.useMemo(() => {
@@ -325,6 +329,33 @@ export default function FuncionesEditorSection() {
     });
   }, [closeRemoveModal, confirmState.id, ownerEmpresas, recetasListItems, resolvedOwnerId, showToast]);
 
+  const openEmpresaModal = React.useCallback(
+    (empresa: Empresas) => {
+      if (!isAdminLike) {
+        showToast('No tienes permisos para editar funciones por empresa.', 'error');
+        return;
+      }
+      const empresaId = String(empresa?.id || '').trim();
+      if (!empresaId) {
+        showToast('Empresa inválida.', 'error');
+        return;
+      }
+      if (!resolvedOwnerId) {
+        showToast('No se pudo resolver el ownerId.', 'error');
+        return;
+      }
+
+      setEmpresaModalEmpresa(empresa);
+      setEmpresaModalOpen(true);
+    },
+    [isAdminLike, resolvedOwnerId, showToast]
+  );
+
+  const closeEmpresaModal = React.useCallback(() => {
+    setEmpresaModalOpen(false);
+    setEmpresaModalEmpresa(null);
+  }, []);
+
   return (
     <div className="space-y-3 sm:space-y-4">
       <div className="flex flex-col gap-1">
@@ -337,9 +368,9 @@ export default function FuncionesEditorSection() {
       <div className="border border-[var(--input-border)] rounded-lg p-2.5 sm:p-4 lg:p-5">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h5 className="text-sm sm:text-base font-semibold">Empresas donde soy owner</h5>
+            <h5 className="text-sm sm:text-base font-semibold">Empresas a mi cargo</h5>
             <p className="text-[11px] sm:text-xs text-[var(--muted-foreground)] mt-0.5">
-              Se muestran las empresas cuyo ownerId coincide con tus ownerIds
+              Seleccionar una empresa para editar sus funciones asignadas
             </p>
           </div>
           <div className="text-xs text-[var(--muted-foreground)] whitespace-nowrap">
@@ -358,13 +389,16 @@ export default function FuncionesEditorSection() {
         {!ownerEmpresasLoading && ownerEmpresas.length > 0 && (
           <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
             {ownerEmpresas.map((e) => (
-              <div
+              <button
                 key={e.id || `${e.ownerId}-${e.name}`}
-                className="border border-[var(--input-border)] rounded-md px-3 py-2 bg-[var(--card)]"
+                type="button"
+                onClick={() => openEmpresaModal(e)}
+                className="text-left border border-[var(--input-border)] rounded-md px-3 py-2 bg-[var(--card)] hover:bg-[var(--muted)] transition-colors"
+                aria-label={`Editar funciones de ${e.name}`}
               >
                 <div className="text-sm font-medium text-[var(--foreground)] truncate">{e.name}</div>
                 <div className="text-[11px] text-[var(--muted-foreground)] truncate">{e.ubicacion || '—'}</div>
-              </div>
+              </button>
             ))}
           </div>
         )}
@@ -385,7 +419,7 @@ export default function FuncionesEditorSection() {
             setSelectedEmpresa={setSelectedEmpresa}
             searchValue={searchValue}
             onSearchValueChange={setSearchValue}
-            searchPlaceholder="Nombre de la función"
+            searchPlaceholder="Buscar función"
             searchAriaLabel="Buscar función general"
             addButtonText="Agregar función"
             onAddClick={openAddDrawer}
@@ -440,14 +474,6 @@ export default function FuncionesEditorSection() {
             >
               Cancelar
             </button>
-            <button
-              type="button"
-              onClick={handleSaveDrawer}
-              className="px-4 py-2 bg-[var(--accent)] text-white rounded disabled:opacity-50"
-              disabled={!isAdminLike}
-            >
-              {editingId ? 'Guardar cambios' : 'Guardar función'}
-            </button>
           </div>
         }
       >
@@ -474,6 +500,17 @@ export default function FuncionesEditorSection() {
               onChange={(e) => setDraftDescripcion(e.target.value)}
             />
           </div>
+
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={handleSaveDrawer}
+              className="px-4 py-2 bg-[var(--accent)] text-white rounded disabled:opacity-50"
+              disabled={!isAdminLike}
+            >
+              {editingId ? 'Guardar cambios' : 'Guardar función'}
+            </button>
+          </div>
         </div>
       </RightDrawer>
 
@@ -487,6 +524,16 @@ export default function FuncionesEditorSection() {
         loading={false}
         onConfirm={confirmRemove}
         onCancel={closeRemoveModal}
+      />
+
+      <EmpresaFuncionesModal
+        open={empresaModalOpen}
+        empresaId={String(empresaModalEmpresa?.id || '')}
+        empresaNombre={String(empresaModalEmpresa?.name || 'Empresa')}
+        ownerId={resolvedOwnerId}
+        funcionesGenerales={recetasListItems}
+        onClose={closeEmpresaModal}
+        showToast={showToast}
       />
     </div>
   );
