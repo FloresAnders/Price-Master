@@ -14,7 +14,11 @@ export type FuncionesEmpresaDoc = {
   type: 'empresa';
   ownerId: string;
   empresaId: string;
-  funciones: string[];
+  // Legacy (backward compatibility): older docs may still have this union field
+  funciones?: string[];
+  // Split by shift
+  funcionesApertura?: string[];
+  funcionesCierre?: string[];
   updatedAt?: string; // ISO
 };
 
@@ -155,7 +159,8 @@ export class FuncionesService {
       type: 'empresa',
       ownerId: String(params.ownerId || '').trim(),
       empresaId,
-      funciones: [],
+      funcionesApertura: [],
+      funcionesCierre: [],
       updatedAt: new Date().toISOString(),
     };
 
@@ -182,6 +187,11 @@ export class FuncionesService {
     ownerId: string;
     empresaId: string;
     funciones: string[];
+  } | {
+    ownerId: string;
+    empresaId: string;
+    funcionesApertura: string[];
+    funcionesCierre: string[];
   }): Promise<void> {
     const ownerId = String(params.ownerId || '').trim();
     const empresaId = String(params.empresaId || '').trim();
@@ -195,17 +205,36 @@ export class FuncionesService {
       throw new Error('No se puede guardar: el docId de empresa colisiona con otro tipo de documento.');
     }
 
-    const unique = Array.from(
-      new Set((params.funciones || []).map((x) => String(x).trim()).filter(Boolean))
-    );
+    const isSplit = 'funcionesApertura' in params || 'funcionesCierre' in params;
 
-    await FirestoreService.update(this.COLLECTION_NAME, empresaId, {
+    const aperturaRaw = isSplit
+      ? (params as { funcionesApertura: string[] }).funcionesApertura
+      : (params as { funciones: string[] }).funciones;
+    const cierreRaw = isSplit
+      ? (params as { funcionesCierre: string[] }).funcionesCierre
+      : [];
+
+    const uniqueApertura = Array.from(new Set((aperturaRaw || []).map((x) => String(x).trim()).filter(Boolean)));
+    const uniqueCierre = Array.from(new Set((cierreRaw || []).map((x) => String(x).trim()).filter(Boolean)));
+
+    // Ensure exclusivity (a function can't be in both lists)
+    const cierreSet = new Set(uniqueCierre);
+    const apertura = uniqueApertura.filter((x) => !cierreSet.has(x));
+    const aperturaSet = new Set(apertura);
+    const cierre = uniqueCierre.filter((x) => !aperturaSet.has(x));
+
+    // IMPORTANT: We intentionally do NOT persist the legacy `funciones` field.
+    // We overwrite the doc to avoid keeping duplicated data.
+    const nextDoc: FuncionesEmpresaDoc = {
       type: 'empresa',
       ownerId,
       empresaId,
-      funciones: unique,
+      funcionesApertura: apertura,
+      funcionesCierre: cierre,
       updatedAt: new Date().toISOString(),
-    } satisfies Partial<FuncionesEmpresaDoc>);
+    };
+
+    await FirestoreService.addWithId(this.COLLECTION_NAME, empresaId, nextDoc);
   }
 
   static async removeFuncionFromEmpresas(params: {
@@ -222,13 +251,34 @@ export class FuncionesService {
         const doc = await FirestoreService.getById(this.COLLECTION_NAME, empresaId);
         if (!doc) return;
         if (doc.type !== 'empresa') return;
-        const current = Array.isArray(doc.funciones) ? (doc.funciones as unknown[]).map((x) => String(x)) : [];
-        const next = current.filter((x) => x !== funcionId);
-        if (next.length === current.length) return;
-        await FirestoreService.update(this.COLLECTION_NAME, empresaId, {
-          funciones: next,
+
+        const currentAperturaRaw = Array.isArray(doc.funcionesApertura)
+          ? (doc.funcionesApertura as unknown[]).map((x) => String(x))
+          : Array.isArray(doc.funciones)
+          ? (doc.funciones as unknown[]).map((x) => String(x))
+          : [];
+        const currentCierreRaw = Array.isArray(doc.funcionesCierre)
+          ? (doc.funcionesCierre as unknown[]).map((x) => String(x))
+          : [];
+
+        const nextApertura = currentAperturaRaw.filter((x) => x !== funcionId);
+        const nextCierre = currentCierreRaw.filter((x) => x !== funcionId);
+
+        const changed =
+          nextApertura.length !== currentAperturaRaw.length || nextCierre.length !== currentCierreRaw.length;
+        if (!changed) return;
+
+        // Overwrite doc to avoid keeping legacy `funciones` duplicates.
+        const nextDoc: FuncionesEmpresaDoc = {
+          type: 'empresa',
+          ownerId: String(doc.ownerId || params.ownerId || '').trim(),
+          empresaId: String(doc.empresaId || empresaId).trim(),
+          funcionesApertura: nextApertura,
+          funcionesCierre: nextCierre,
           updatedAt: new Date().toISOString(),
-        });
+        };
+
+        await FirestoreService.addWithId(this.COLLECTION_NAME, empresaId, nextDoc);
       })
     );
   }

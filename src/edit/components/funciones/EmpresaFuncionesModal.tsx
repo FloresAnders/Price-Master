@@ -22,7 +22,8 @@ type EmpresaFuncionesModalProps = {
 };
 
 const AVAILABLE_ID = 'funciones-available';
-const ASSIGNED_ID = 'funciones-assigned';
+const APERTURA_ID = 'funciones-apertura';
+const CIERRE_ID = 'funciones-cierre';
 
 function DraggableFuncionItem({ item }: { item: FuncionListItem }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -71,8 +72,10 @@ function DroppableColumn({
       <div
         ref={setNodeRef}
         className={
-          'min-h-[320px] max-h-[60vh] overflow-auto rounded-lg border border-[var(--input-border)] p-2 bg-[var(--background)] ' +
-          (isOver ? 'ring-2 ring-[var(--primary)]' : '')
+          'min-h-[180px] max-h-[60vh] overflow-auto rounded-lg border border-[var(--input-border)] p-2 bg-[var(--background)] transition-all duration-150 ease-out ' +
+          (isOver
+            ? 'ring-4 ring-[var(--primary)] bg-[var(--muted)] scale-[1.01]'
+            : 'ring-0 scale-100')
         }
       >
         <div className="flex flex-col gap-2">{children}</div>
@@ -98,8 +101,10 @@ export default function EmpresaFuncionesModal({
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  const [assignedIds, setAssignedIds] = React.useState<string[]>([]);
-  const [initialAssignedKey, setInitialAssignedKey] = React.useState<string>('[]');
+  const [aperturaIds, setAperturaIds] = React.useState<string[]>([]);
+  const [cierreIds, setCierreIds] = React.useState<string[]>([]);
+  const [initialAperturaKey, setInitialAperturaKey] = React.useState<string>('[]');
+  const [initialCierreKey, setInitialCierreKey] = React.useState<string>('[]');
 
   const [saveLoading, setSaveLoading] = React.useState(false);
 
@@ -113,23 +118,30 @@ export default function EmpresaFuncionesModal({
     return map;
   }, [funcionesGenerales]);
 
-  const assignedItems = React.useMemo(() => {
-    return assignedIds
+  const aperturaItems = React.useMemo(() => {
+    return aperturaIds
       .map((id) => funcionesById.get(String(id)))
       .filter(Boolean) as FuncionListItem[];
-  }, [assignedIds, funcionesById]);
+  }, [aperturaIds, funcionesById]);
+
+  const cierreItems = React.useMemo(() => {
+    return cierreIds
+      .map((id) => funcionesById.get(String(id)))
+      .filter(Boolean) as FuncionListItem[];
+  }, [cierreIds, funcionesById]);
 
   const availableItems = React.useMemo(() => {
-    const assignedSet = new Set(assignedIds.map(String));
+    const assignedSet = new Set([...aperturaIds, ...cierreIds].map(String));
     const items = (funcionesGenerales || []).filter((f) => f?.id && !assignedSet.has(String(f.id)));
     items.sort((a, b) => String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es'));
     return items;
-  }, [assignedIds, funcionesGenerales]);
+  }, [aperturaIds, cierreIds, funcionesGenerales]);
 
   const dirty = React.useMemo(() => {
-    const currentKey = normalizeIdsKey(assignedIds);
-    return currentKey !== initialAssignedKey;
-  }, [assignedIds, initialAssignedKey]);
+    const currentA = normalizeIdsKey(aperturaIds);
+    const currentC = normalizeIdsKey(cierreIds);
+    return currentA !== initialAperturaKey || currentC !== initialCierreKey;
+  }, [aperturaIds, cierreIds, initialAperturaKey, initialCierreKey]);
 
   const requestClose = React.useCallback(() => {
     if (dirty) {
@@ -163,17 +175,34 @@ export default function EmpresaFuncionesModal({
       setError(null);
       try {
         const doc = await FuncionesService.getEmpresaFunciones({ empresaId });
-        const current = Array.isArray(doc?.funciones) ? doc!.funciones.map((x) => String(x)) : [];
-        const onlyKnown = current.filter((id) => funcionesById.has(String(id)));
+        const aperturaRaw = Array.isArray((doc as any)?.funcionesApertura)
+          ? (doc as any).funcionesApertura
+          : Array.isArray(doc?.funciones)
+          ? doc!.funciones
+          : [];
+        const cierreRaw = Array.isArray((doc as any)?.funcionesCierre) ? (doc as any).funcionesCierre : [];
+
+        const onlyKnownA = (aperturaRaw as unknown[]).map((x) => String(x)).filter((id) => funcionesById.has(String(id)));
+        const onlyKnownC = (cierreRaw as unknown[]).map((x) => String(x)).filter((id) => funcionesById.has(String(id)));
+
+        // ensure exclusivity
+        const cierreSet = new Set(onlyKnownC);
+        const apertura = onlyKnownA.filter((x) => !cierreSet.has(x));
+        const aperturaSet = new Set(apertura);
+        const cierre = onlyKnownC.filter((x) => !aperturaSet.has(x));
         if (cancelled) return;
-        setAssignedIds(onlyKnown);
-        setInitialAssignedKey(normalizeIdsKey(onlyKnown));
+        setAperturaIds(apertura);
+        setCierreIds(cierre);
+        setInitialAperturaKey(normalizeIdsKey(apertura));
+        setInitialCierreKey(normalizeIdsKey(cierre));
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'No se pudieron cargar las funciones de la empresa.';
         if (!cancelled) {
           setError(msg);
-          setAssignedIds([]);
-          setInitialAssignedKey('[]');
+          setAperturaIds([]);
+          setCierreIds([]);
+          setInitialAperturaKey('[]');
+          setInitialCierreKey('[]');
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -194,16 +223,27 @@ export default function EmpresaFuncionesModal({
       const funcionId = String(active.id);
       const overId = String(over.id);
 
-      if (overId === ASSIGNED_ID) {
-        setAssignedIds((prev) => {
-          if (prev.includes(funcionId)) return prev;
-          return [...prev, funcionId];
-        });
+      if (overId === AVAILABLE_ID) {
+        setAperturaIds((prev) => prev.filter((x) => String(x) !== funcionId));
+        setCierreIds((prev) => prev.filter((x) => String(x) !== funcionId));
         return;
       }
 
-      if (overId === AVAILABLE_ID) {
-        setAssignedIds((prev) => prev.filter((x) => String(x) !== funcionId));
+      if (overId === APERTURA_ID) {
+        setAperturaIds((prev) => {
+          if (prev.includes(funcionId)) return prev;
+          return [...prev, funcionId];
+        });
+        setCierreIds((prev) => prev.filter((x) => String(x) !== funcionId));
+        return;
+      }
+
+      if (overId === CIERRE_ID) {
+        setCierreIds((prev) => {
+          if (prev.includes(funcionId)) return prev;
+          return [...prev, funcionId];
+        });
+        setAperturaIds((prev) => prev.filter((x) => String(x) !== funcionId));
       }
     },
     []
@@ -218,11 +258,12 @@ export default function EmpresaFuncionesModal({
         await FuncionesService.upsertEmpresaFunciones({
           ownerId,
           empresaId,
-          funciones: assignedIds.filter((id) => funcionesById.has(String(id))),
+          funcionesApertura: aperturaIds.filter((id) => funcionesById.has(String(id))),
+          funcionesCierre: cierreIds.filter((id) => funcionesById.has(String(id))),
         });
 
-        const nextKey = normalizeIdsKey(assignedIds);
-        setInitialAssignedKey(nextKey);
+        setInitialAperturaKey(normalizeIdsKey(aperturaIds));
+        setInitialCierreKey(normalizeIdsKey(cierreIds));
         showToast('Funciones guardadas.', 'success');
         onSaved?.();
         onClose();
@@ -235,7 +276,7 @@ export default function EmpresaFuncionesModal({
     };
 
     void run();
-  }, [assignedIds, empresaId, funcionesById, onClose, onSaved, ownerId, showToast]);
+  }, [aperturaIds, cierreIds, empresaId, funcionesById, onClose, onSaved, ownerId, showToast]);
 
   if (!open) return null;
 
@@ -287,13 +328,23 @@ export default function EmpresaFuncionesModal({
                   )}
                 </DroppableColumn>
 
-                <DroppableColumn id={ASSIGNED_ID} title={`Asignadas a ${empresaNombre} (${assignedItems.length})`}>
-                  {assignedItems.length === 0 ? (
-                    <div className="text-xs text-[var(--muted-foreground)] p-2">Arrastra funciones aquí.</div>
-                  ) : (
-                    assignedItems.map((item) => <DraggableFuncionItem key={item.id} item={item} />)
-                  )}
-                </DroppableColumn>
+                <div className="flex flex-col gap-4">
+                  <DroppableColumn id={APERTURA_ID} title={`Turno de apertura (${aperturaItems.length})`}>
+                    {aperturaItems.length === 0 ? (
+                      <div className="text-xs text-[var(--muted-foreground)] p-2">Arrastra funciones aquí.</div>
+                    ) : (
+                      aperturaItems.map((item) => <DraggableFuncionItem key={item.id} item={item} />)
+                    )}
+                  </DroppableColumn>
+
+                  <DroppableColumn id={CIERRE_ID} title={`Turno de cierre (${cierreItems.length})`}>
+                    {cierreItems.length === 0 ? (
+                      <div className="text-xs text-[var(--muted-foreground)] p-2">Arrastra funciones aquí.</div>
+                    ) : (
+                      cierreItems.map((item) => <DraggableFuncionItem key={item.id} item={item} />)
+                    )}
+                  </DroppableColumn>
+                </div>
               </div>
             </DndContext>
           )}
