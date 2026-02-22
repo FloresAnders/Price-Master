@@ -12,6 +12,8 @@ type EmpresaSearchAddSectionProps = {
   actorOwnerIds?: Array<string | number>;
   companyFromUser: string;
 
+  showEmpresaSelector?: boolean;
+
   selectedEmpresa: string;
   setSelectedEmpresa: (next: string) => void;
   setEmpresaError?: (msg: string | null) => void;
@@ -38,6 +40,7 @@ export function EmpresaSearchAddSection({
   userRole,
   actorOwnerIds,
   companyFromUser,
+  showEmpresaSelector = true,
   selectedEmpresa,
   setSelectedEmpresa,
   setEmpresaError,
@@ -57,17 +60,19 @@ export function EmpresaSearchAddSection({
 }: EmpresaSearchAddSectionProps) {
   return (
     <>
-      <EmpresaSelector
-        authLoading={authLoading}
-        isAdminLike={isAdminLike}
-        userRole={userRole}
-        actorOwnerIds={actorOwnerIds}
-        companyFromUser={companyFromUser}
-        selectedEmpresa={selectedEmpresa}
-        setSelectedEmpresa={setSelectedEmpresa}
-        setEmpresaError={setEmpresaError}
-        onCompanyChanged={onCompanyChanged}
-      />
+      {showEmpresaSelector && (
+        <EmpresaSelector
+          authLoading={authLoading}
+          isAdminLike={isAdminLike}
+          userRole={userRole}
+          actorOwnerIds={actorOwnerIds}
+          companyFromUser={companyFromUser}
+          selectedEmpresa={selectedEmpresa}
+          setSelectedEmpresa={setSelectedEmpresa}
+          setEmpresaError={setEmpresaError}
+          onCompanyChanged={onCompanyChanged}
+        />
+      )}
 
       <div className="flex w-full md:flex-1 flex-col md:flex-row md:flex-nowrap items-stretch md:items-end gap-2 md:gap-3">
         <div className="w-full md:w-auto md:flex-1 md:min-w-0 lg:min-w-[260px]">
