@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useActorOwnership } from '@/hooks/useActorOwnership';
 import { getDefaultPermissions } from '@/utils/permissions';
 import { EmpresasService } from '@/services/empresas';
-import { FuncionesService } from '@/services/funciones';
+import { FuncionesService, getFuncionIdLookupKeys } from '@/services/funciones';
 import type { Empresas, UserPermissions } from '@/types/firestore';
 
 type EmpresaFuncionesResolved = {
@@ -81,17 +81,23 @@ export function FuncionesTab() {
           role: currentUser.role,
         });
 
-        const generalById = new Map(
-          generalDocs
-            .map((d) => ({
-              funcionId: String(d.funcionId || '').trim(),
-              nombre: String(d.nombre || '').trim(),
-              descripcion: d.descripcion ? String(d.descripcion).trim() : '',
-              reminderTimeCr: d.reminderTimeCr ? String(d.reminderTimeCr).trim() : '',
-            }))
-            .filter((x) => x.funcionId && x.nombre)
-            .map((x) => [x.funcionId, x] as const)
-        );
+        const generalById = new Map<string, { funcionId: string; nombre: string; descripcion?: string; reminderTimeCr?: string }>();
+        for (const d of generalDocs) {
+          const funcionId = String(d.funcionId || '').trim();
+          const nombre = String(d.nombre || '').trim();
+          if (!funcionId || !nombre) continue;
+
+          const value = {
+            funcionId,
+            nombre,
+            descripcion: d.descripcion ? String(d.descripcion).trim() : '',
+            reminderTimeCr: d.reminderTimeCr ? String(d.reminderTimeCr).trim() : '',
+          };
+
+          for (const key of getFuncionIdLookupKeys(funcionId)) {
+            if (!generalById.has(key)) generalById.set(key, value);
+          }
+        }
 
         const resolved = await Promise.all(
           empresas.map(async (empresa) => {

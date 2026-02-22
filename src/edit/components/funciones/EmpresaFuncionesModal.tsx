@@ -16,7 +16,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { X } from 'lucide-react';
 
 import ConfirmModal from '@/components/ui/ConfirmModal';
-import { FuncionesService } from '@/services/funciones';
+import { FuncionesService, getFuncionIdLookupKeys } from '@/services/funciones';
 
 import type { FuncionListItem } from './RecetasListItems';
 
@@ -129,7 +129,11 @@ export default function EmpresaFuncionesModal({
   const funcionesById = React.useMemo(() => {
     const map = new Map<string, FuncionListItem>();
     for (const f of funcionesGenerales || []) {
-      if (f?.id) map.set(String(f.id), f);
+      if (!f?.id) continue;
+      const baseId = String(f.id).trim();
+      for (const key of getFuncionIdLookupKeys(baseId)) {
+        if (!map.has(key)) map.set(key, f);
+      }
     }
     return map;
   }, [funcionesGenerales]);

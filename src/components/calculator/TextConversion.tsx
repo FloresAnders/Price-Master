@@ -10,6 +10,19 @@ export default function TextConversion() {
 
   const [text, setText] = useState('');
   const [copySuccess, setCopySuccess] = useState(false);
+
+  const readClipboardText = async (): Promise<string | null> => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        return await navigator.clipboard.readText();
+      }
+      return null;
+    } catch (error) {
+      console.error('Error reading from clipboard:', error);
+      return null;
+    }
+  };
+
   const copyToClipboard = async (value: string) => {
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -37,17 +50,40 @@ export default function TextConversion() {
 
   const pasteFromClipboard = async () => {
     try {
-      if (navigator.clipboard && navigator.clipboard.readText) {
-        const clipboardText = await navigator.clipboard.readText();
-        setText(clipboardText);
-      } else {
-        // Fallback message for older browsers
+      const clipboardText = await readClipboardText();
+      if (clipboardText === null) {
         alert('Paste functionality not supported in this browser. Please paste manually.');
+        return;
       }
+      setText(clipboardText);
     } catch (error) {
       console.error('Error reading from clipboard:', error);
       alert('Unable to access clipboard. Please paste manually.');
     }
+  };
+
+  const uppercaseFromClipboardAndCopy = async () => {
+    const clipboardText = await readClipboardText();
+    if (clipboardText === null && !text) {
+      alert('No se pudo leer el portapapeles. Pega manualmente o usa el botón “Pegar”.');
+      return;
+    }
+    const sourceText = clipboardText ?? text;
+    const upper = sourceText.toUpperCase();
+    setText(upper);
+    await copyToClipboard(upper);
+  };
+
+  const lowercaseFromClipboardAndCopy = async () => {
+    const clipboardText = await readClipboardText();
+    if (clipboardText === null && !text) {
+      alert('No se pudo leer el portapapeles. Pega manualmente o usa el botón “Pegar”.');
+      return;
+    }
+    const sourceText = clipboardText ?? text;
+    const lower = sourceText.toLowerCase();
+    setText(lower);
+    await copyToClipboard(lower);
   };
 
   const toTitleCase = (str: string) => {
@@ -111,10 +147,7 @@ export default function TextConversion() {
       />
       <div className="flex flex-col sm:flex-row gap-4 w-full mt-4">
         <button
-          onClick={() => {
-            setText(text.toUpperCase());
-            copyToClipboard(text.toUpperCase());
-          }}
+          onClick={uppercaseFromClipboardAndCopy}
           className="w-full px-6 py-4 text-xl rounded-md transition-colors font-medium"
           style={{
             background: 'var(--button-bg)',
@@ -126,10 +159,7 @@ export default function TextConversion() {
           To Uppercase
         </button>
         <button
-          onClick={() => {
-            setText(text.toLowerCase());
-            copyToClipboard(text.toLowerCase());
-          }}
+          onClick={lowercaseFromClipboardAndCopy}
           className="w-full px-6 py-4 text-xl rounded-md transition-colors font-medium"
           style={{
             background: 'var(--button-bg)',

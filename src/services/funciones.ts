@@ -287,3 +287,29 @@ export class FuncionesService {
     );
   }
 }
+
+export function getFuncionIdLookupKeys(rawFuncionId: string): string[] {
+  const base = String(rawFuncionId || '').trim();
+  if (!base) return [];
+
+  const keys: string[] = [];
+  const add = (k: string) => {
+    const kk = String(k || '').trim();
+    if (!kk) return;
+    if (!keys.includes(kk)) keys.push(kk);
+  };
+
+  add(base);
+
+  // Legacy: some docs store numeric ids without padding (e.g. "1") or even as numbers.
+  if (/^\d+$/.test(base)) {
+    const n = Number.parseInt(base, 10);
+    if (Number.isFinite(n)) {
+      add(String(n));
+      // Common padded format used by the app.
+      add(FuncionesService.formatNumericFuncionId(n, 4));
+    }
+  }
+
+  return keys;
+}
