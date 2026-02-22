@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import useToast from '../hooks/useToast';
-import { Save, Download, FileText, Users, Clock, DollarSign, Eye, EyeOff, Settings, Check, X, Lock, Edit, Smartphone, Clipboard, Trash2, Plus, UserPlus, Building, Info, List } from 'lucide-react';
+import { Download, FileText, Users, Clock, DollarSign, Building, List, Check, X, Lock, Edit, Smartphone, Clipboard } from 'lucide-react';
 import { EmpresasService } from '../services/empresas';
 import { SorteosService } from '../services/sorteos';
 import { UsersService } from '../services/users';
@@ -17,7 +17,14 @@ import ScheduleReportTab from '../components/business/ScheduleReportTab';
 import ConfirmModal from '../components/ui/ConfirmModal';
 import ExportModal from '../components/export/ExportModal';
 
-type DataFile = 'sorteos' | 'users' | 'schedules' | 'ccss' | 'empresas' | 'fondoTypes';
+import EmpresasEditorSection from './components/EmpresasEditorSection';
+import SorteosEditorSection from './components/SorteosEditorSection';
+import FondoTypesEditorSection from './components/FondoTypesEditorSection';
+import UsersEditorSection from './components/UsersEditorSection';
+import CcssEditorSection from './components/CcssEditorSection';
+import FuncionesEditorSection from './components/FuncionesEditorSection';
+
+type DataFile = 'sorteos' | 'users' | 'schedules' | 'ccss' | 'empresas' | 'fondoTypes'| 'funciones';
 
 export default function DataEditor() {
     const [activeFile, setActiveFile] = useState<DataFile>('empresas');
@@ -1372,6 +1379,20 @@ export default function DataEditor() {
                                 <List className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                 <span>Tipos Fondo ({fondoTypesData.length})</span>
                             </button>
+
+                        )}
+                        {currentUser?.role !== 'user' && (
+                            <button
+                                onClick={() => setActiveFile('funciones')}
+                                className={`py-1.5 sm:py-2 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-1 sm:gap-2 whitespace-nowrap transition-colors ${activeFile === 'funciones'
+                                    ? 'border-blue-500 text-blue-600'
+                                    : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-[var(--border)]'
+                                    }`}
+                            >
+                                <List className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                <span>Funciones</span>
+                            </button>
+                            
                         )}
                         <button
                             onClick={openExportModal}
@@ -1390,770 +1411,62 @@ export default function DataEditor() {
 
 
             {activeFile === 'empresas' && (
-                <div className="space-y-3 sm:space-y-4">
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
-                        <div>
-                            <h4 className="text-base sm:text-lg lg:text-xl font-semibold">Configuración de Empresas</h4>
-                            <p className="text-xs sm:text-sm text-[var(--muted-foreground)] mt-0.5 sm:mt-1">
-                                Gestiona las empresas y sus configuraciones
-                            </p>
-                        </div>
-                        <button
-                            onClick={() =>
-                                setEmpresasData(prev => [
-                                    ...prev,
-                                    {
-                                        ownerId: currentUser && currentUser.eliminate === false ? currentUser.id : '',
-                                        name: '',
-                                        ubicacion: '',
-                                        empleados: [
-                                            {
-                                                Empleado: '',
-                                                hoursPerShift: 8,
-                                                extraAmount: 0,
-                                                ccssType: 'TC',
-                                                calculoprecios: false,
-                                                amboshorarios: false
-                                            }
-                                        ]
-                                    }
-                                ])
-                            }
-                            className="px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-xs sm:text-sm w-full sm:w-auto flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap"
-                        >
-                            <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                            <span>Agregar Empresa</span>
-                        </button>
-                    </div>
-
-                    {empresasData.map((empresa, idx) => (
-                        <div key={empresa.id || idx} className="border border-[var(--input-border)] rounded-lg p-2.5 sm:p-4 lg:p-5 relative">
-                            <div className="grid grid-cols-1 gap-3 sm:gap-4 mb-3 sm:mb-4">
-                                <div>
-                                    <label className="block text-xs sm:text-sm font-medium mb-1">Nombre de la empresa:</label>
-                                    <input
-                                        type="text"
-                                        value={empresa.name || ''}
-                                        onChange={(e) => {
-                                            const copy = [...empresasData];
-                                            copy[idx] = { ...copy[idx], name: e.target.value };
-                                            setEmpresasData(copy);
-                                        }}
-                                        className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
-                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs sm:text-sm font-medium mb-1">Ubicación:</label>
-                                    <input
-                                        type="text"
-                                        value={empresa.ubicacion || ''}
-                                        onChange={(e) => {
-                                            const copy = [...empresasData];
-                                            copy[idx] = { ...copy[idx], ubicacion: e.target.value };
-                                            setEmpresasData(copy);
-                                        }}
-                                        className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
-                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="mt-4 sm:mt-5">
-                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-3">
-                                    <label className="block text-xs sm:text-sm font-medium">Empleados:</label>
-                                    <button
-                                        onClick={() => {
-                                            const copy = [...empresasData];
-                                            if (!copy[idx].empleados) copy[idx].empleados = [];
-                                            copy[idx].empleados.push({
-                                                Empleado: '',
-                                                hoursPerShift: 8,
-                                                extraAmount: 0,
-                                                ccssType: 'TC',
-                                                calculoprecios: false,
-                                                amboshorarios: false
-                                            });
-                                            setEmpresasData(copy);
-                                        }}
-                                        className="text-xs sm:text-sm bg-green-600 text-white px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-md hover:bg-green-700 transition-colors w-full sm:w-auto flex items-center justify-center gap-1.5 whitespace-nowrap"
-                                    >
-                                        <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                                        <span>Agregar Empleado</span>
-                                    </button>
-                                </div>
-
-                                <div className="space-y-2 sm:space-y-3">
-                                    {empresa.empleados?.map((emp: any, eIdx: number) => (
-                                        <div key={eIdx} className="p-2 sm:p-3 border border-[var(--input-border)] rounded-lg bg-[var(--card-bg)]">
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-                                                <div className="sm:col-span-2">
-                                                    <label className="block text-[10px] sm:text-xs font-medium mb-1">Empleado</label>
-                                                    <input
-                                                        type="text"
-                                                        value={emp.Empleado}
-                                                        onChange={(ev) => {
-                                                            const copy = [...empresasData];
-                                                            copy[idx].empleados[eIdx].Empleado = ev.target.value;
-                                                            setEmpresasData(copy);
-                                                        }}
-                                                        className="w-full px-2 sm:px-2.5 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
-                                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                                        placeholder="Nombre"
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-[10px] sm:text-xs font-medium mb-1">Horas/turno</label>
-                                                    <input
-                                                        type="number"
-                                                        value={emp.hoursPerShift ?? 8}
-                                                        onChange={(ev) => {
-                                                            const copy = [...empresasData];
-                                                            copy[idx].empleados[eIdx].hoursPerShift = parseInt(ev.target.value) || 0;
-                                                            setEmpresasData(copy);
-                                                        }}
-                                                        className="w-full px-2 sm:px-2.5 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
-                                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                                        min="0"
-                                                        step="0.5"
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-[10px] sm:text-xs font-medium mb-1">Monto extra</label>
-                                                    <input
-                                                        type="number"
-                                                        value={emp.extraAmount ?? 0}
-                                                        onChange={(ev) => {
-                                                            const copy = [...empresasData];
-                                                            copy[idx].empleados[eIdx].extraAmount = parseFloat(ev.target.value) || 0;
-                                                            setEmpresasData(copy);
-                                                        }}
-                                                        className="w-full px-2 sm:px-2.5 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
-                                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                                        min="0"
-                                                        step="0.01"
-                                                    />
-                                                </div>
-                                                <div className="sm:col-span-2">
-                                                    <label className="block text-[10px] sm:text-xs font-medium mb-1">Tipo CCSS</label>
-                                                    <select
-                                                        value={emp.ccssType || 'TC'}
-                                                        onChange={(ev) => {
-                                                            const copy = [...empresasData];
-                                                            copy[idx].empleados[eIdx].ccssType = ev.target.value;
-                                                            setEmpresasData(copy);
-                                                        }}
-                                                        className="w-full px-2 sm:px-2.5 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
-                                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                                    >
-                                                        <option value="TC">Tiempo Completo</option>
-                                                        <option value="MT">Medio Tiempo</option>
-                                                    </select>
-                                                </div>
-
-                                                <div className="sm:col-span-2">
-                                                    <label className="block text-[10px] sm:text-xs font-medium mb-1">Horarios</label>
-                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                                        <label className="flex items-center gap-2 text-xs sm:text-sm">
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={Boolean(emp.amboshorarios)}
-                                                                onChange={(ev) => {
-                                                                    const copy = [...empresasData];
-                                                                    copy[idx].empleados[eIdx].amboshorarios = ev.target.checked;
-                                                                    setEmpresasData(copy);
-                                                                }}
-                                                            />
-                                                            Ambos horarios
-                                                        </label>
-
-                                                        <label className="flex items-center gap-2 text-xs sm:text-sm">
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={Boolean(emp.calculoprecios)}
-                                                                onChange={(ev) => {
-                                                                    const copy = [...empresasData];
-                                                                    copy[idx].empleados[eIdx].calculoprecios = ev.target.checked;
-                                                                    setEmpresasData(copy);
-                                                                }}
-                                                            />
-                                                            Cálculo precios
-                                                        </label>
-                                                    </div>
-                                                    <p className="text-[10px] sm:text-xs text-[var(--muted-foreground)] mt-1">
-                                                        Si “Ambos horarios” está activo, tiene prioridad.
-                                                    </p>
-                                                </div>
-                                                <div className="sm:col-span-2 flex justify-end mt-2 pt-2 border-t border-[var(--input-border)]">
-                                                    <button
-                                                        onClick={() => {
-                                                            openConfirmModal(
-                                                                'Eliminar Empleado',
-                                                                `¿Desea eliminar al empleado ${emp.Empleado || `N°${eIdx + 1}`}?`,
-                                                                () => {
-                                                                    const copy = [...empresasData];
-                                                                    copy[idx].empleados = copy[idx].empleados.filter((_: unknown, i: number) => i !== eIdx);
-                                                                    setEmpresasData(copy);
-                                                                }
-                                                            );
-                                                        }}
-                                                        className="text-xs sm:text-sm px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors flex items-center gap-1"
-                                                    >
-                                                        <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
-                                                        <span className="hidden sm:inline">Eliminar</span>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className="flex flex-col sm:flex-row justify-end gap-2 mt-2">
-                                <button
-                                    onClick={async () => {
-                                        // Save single empresa
-                                        try {
-                                            const e = empresasData[idx];
-                                            if (e.id) {
-                                                await EmpresasService.updateEmpresa(e.id, e);
-                                                showToast('Empresa actualizada', 'success');
-                                            } else {
-                                                const ownerIdToUse = resolveOwnerIdForActor(e.ownerId);
-                                                const idToUse = e.name && e.name.trim() !== '' ? e.name.trim() : undefined;
-                                                if (!idToUse) {
-                                                    showToast('El nombre (name) es requerido para crear la empresa con id igual a name', 'error');
-                                                } else {
-                                                    try {
-                                                        await EmpresasService.addEmpresa({ id: idToUse, ownerId: ownerIdToUse, name: e.name || '', ubicacion: e.ubicacion || '', empleados: e.empleados || [] });
-                                                        await loadData();
-                                                        showToast('Empresa creada', 'success');
-                                                    } catch (err) {
-                                                        const message = err && (err as Error).message ? (err as Error).message : 'Error al guardar empresa';
-                                                        // If it's owner limit, show modal with explanation; otherwise fallback to notification
-                                                        if (message.includes('maximum allowed companies') || message.toLowerCase().includes('max')) {
-                                                            openConfirmModal('Límite de empresas', message, () => { /* sólo cerrar */ }, { singleButton: true, singleButtonText: 'Cerrar' });
-                                                        } else {
-                                                            showToast('Error al guardar empresa', 'error');
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        } catch (err) {
-                                            console.error('Error saving empresa:', err);
-                                            showToast('Error al guardar empresa', 'error');
-                                        }
-                                    }}
-                                    className="px-3 py-2 sm:px-4 rounded-md bg-green-600 hover:bg-green-700 text-white transition-colors text-sm sm:text-base"
-                                >
-                                    Guardar Empresa
-                                </button>
-                                <button
-                                    onClick={() => openConfirmModal('Eliminar Empresa', '¿Desea eliminar esta empresa?', async () => {
-                                        try {
-                                            const e = empresasData[idx];
-                                            if (e.id) await EmpresasService.deleteEmpresa(e.id);
-                                            setEmpresasData(prev => prev.filter((_, i) => i !== idx));
-                                            showToast('Empresa eliminada', 'success');
-                                        } catch (err) {
-                                            console.error('Error deleting empresa:', err);
-                                            showToast('Error al eliminar empresa', 'error');
-                                        }
-                                    })}
-                                    className="px-3 py-2 sm:px-4 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm sm:text-base"
-                                >
-                                    Eliminar Empresa
-                                </button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+                <EmpresasEditorSection
+                    empresasData={empresasData}
+                    setEmpresasData={setEmpresasData}
+                    currentUser={currentUser}
+                    openConfirmModal={openConfirmModal}
+                    showToast={showToast}
+                    resolveOwnerIdForActor={resolveOwnerIdForActor}
+                    loadData={loadData}
+                />
             )}
 
             {activeFile === 'sorteos' && (
-                <div className="space-y-4">
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mb-4 sm:mb-6">
-                        <div>
-                            <h4 className="text-lg sm:text-xl font-semibold">Configuración de Sorteos</h4>
-                            <p className="text-sm text-[var(--muted-foreground)] mt-1">
-                                Gestiona los sorteos disponibles en el sistema
-                            </p>
-                        </div>
-                        <button
-                            onClick={addSorteo}
-                            className="px-4 py-2 sm:px-6 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm sm:text-base w-full sm:w-auto"
-                        >
-                            <span className="hidden sm:inline">Agregar Sorteo</span>
-                            <span className="sm:hidden">+ Sorteo</span>
-                        </button>
-                    </div>
-
-                    {sorteosData.map((sorteo, index) => (
-                        <div key={sorteo.id || index} className="border border-[var(--input-border)] rounded-lg p-3 sm:p-4 md:p-6">
-                            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-start sm:items-center">
-                                <div className="flex-1 w-full">
-                                    <label className="block text-sm font-medium mb-1">Nombre del Sorteo:</label>
-                                    <input
-                                        type="text"
-                                        value={sorteo.name}
-                                        onChange={(e) => updateSorteo(index, 'name', e.target.value)}
-                                        className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
-                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                        placeholder="Ingrese el nombre del sorteo"
-                                    />
-                                </div>
-
-                                <button
-                                    onClick={() => removeSorteo(index)}
-                                    className="px-3 py-2 sm:px-4 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm sm:text-base w-full sm:w-auto mt-2 sm:mt-0 whitespace-nowrap"
-                                >
-                                    <span className="hidden sm:inline">Eliminar</span>
-                                    <span className="sm:hidden">Delete</span>
-                                </button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+                <SorteosEditorSection
+                    sorteosData={sorteosData}
+                    addSorteo={addSorteo}
+                    updateSorteo={updateSorteo}
+                    removeSorteo={removeSorteo}
+                />
             )}
 
             {activeFile === 'fondoTypes' && currentUser?.role !== 'user' && (
-                <div className="space-y-3 sm:space-y-4 lg:space-y-6">
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
-                        <div>
-                            <h4 className="text-base sm:text-lg lg:text-xl font-semibold">Tipos de Movimientos de Fondo</h4>
-                            <p className="text-xs sm:text-sm text-[var(--muted-foreground)] mt-0.5 sm:mt-1">
-                                Gestiona los tipos de movimientos disponibles
-                            </p>
-                        </div>
-                        {fondoTypesData.length === 0 && (
-                            <button
-                                onClick={seedFondoTypes}
-                                className="px-3 py-1.5 sm:px-4 sm:py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors text-xs sm:text-sm flex items-center justify-center gap-1.5 sm:gap-2 w-full sm:w-auto whitespace-nowrap"
-                            >
-                                <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                                Inicializar Tipos
-                            </button>
-                        )}
-                    </div>
-
-                    {/* Sección INGRESO */}
-                    <div className="border border-green-200 dark:border-green-700 rounded-lg p-2.5 sm:p-3 lg:p-4 bg-green-50 dark:bg-green-900/10">
-                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2 sm:mb-3">
-                            <h5 className="text-sm sm:text-base lg:text-lg font-semibold text-green-700 dark:text-green-300">INGRESO</h5>
-                            <button
-                                onClick={() => addFondoType('INGRESO')}
-                                className="px-2.5 sm:px-3 py-1 sm:py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-xs sm:text-sm flex items-center justify-center gap-1 sm:gap-1.5 w-full sm:w-auto whitespace-nowrap"
-                            >
-                                <Plus className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                                Agregar
-                            </button>
-                        </div>
-                        <div className="space-y-1.5 sm:space-y-2">
-                            {fondoTypesData
-                                .map((type, index) => ({ type, originalIndex: index }))
-                                .filter(({ type }) => type.category === 'INGRESO')
-                                .map(({ type, originalIndex }, relativeIndex, arr) => (
-                                    <div key={type.id || originalIndex} className="flex items-center gap-1.5 sm:gap-2 bg-white dark:bg-gray-800 p-2 sm:p-2.5 lg:p-3 rounded-md border border-green-300 dark:border-green-600">
-                                        <div className="flex flex-col gap-0.5 sm:gap-1 flex-shrink-0">
-                                            <button
-                                                onClick={() => moveFondoTypeUp(originalIndex)}
-                                                disabled={relativeIndex === 0}
-                                                className="p-0.5 sm:p-1 text-green-600 hover:text-green-800 disabled:opacity-30 disabled:cursor-not-allowed text-xs sm:text-sm"
-                                                title="Arriba"
-                                            >
-                                                ▲
-                                            </button>
-                                            <button
-                                                onClick={() => moveFondoTypeDown(originalIndex)}
-                                                disabled={relativeIndex === arr.length - 1}
-                                                className="p-0.5 sm:p-1 text-green-600 hover:text-green-800 disabled:opacity-30 disabled:cursor-not-allowed text-xs sm:text-sm"
-                                                title="Abajo"
-                                            >
-                                                ▼
-                                            </button>
-                                        </div>
-                                        <input
-                                            type="text"
-                                            value={type.name}
-                                            onChange={(e) => updateFondoType(originalIndex, 'name', e.target.value)}
-                                            className="flex-1 min-w-0 px-2 sm:px-2.5 lg:px-3 py-1.5 sm:py-2 border border-green-300 dark:border-green-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-xs sm:text-sm"
-                                            placeholder="Nombre"
-                                        />
-                                        <button
-                                            onClick={() => removeFondoType(originalIndex)}
-                                            className="p-1.5 sm:px-2.5 sm:py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors flex-shrink-0"
-                                            title="Eliminar"
-                                        >
-                                            <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                                        </button>
-                                    </div>
-                                ))}
-                        </div>
-                    </div>
-
-                    {/* Sección GASTO */}
-                    <div className="border border-orange-200 dark:border-orange-700 rounded-lg p-2.5 sm:p-3 lg:p-4 bg-orange-50 dark:bg-orange-900/10">
-                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2 sm:mb-3">
-                            <h5 className="text-sm sm:text-base lg:text-lg font-semibold text-orange-700 dark:text-orange-300">GASTO</h5>
-                            <button
-                                onClick={() => addFondoType('GASTO')}
-                                className="px-2.5 sm:px-3 py-1 sm:py-1.5 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors text-xs sm:text-sm flex items-center justify-center gap-1 sm:gap-1.5 w-full sm:w-auto whitespace-nowrap"
-                            >
-                                <Plus className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                                Agregar
-                            </button>
-                        </div>
-                        <div className="space-y-1.5 sm:space-y-2">
-                            {fondoTypesData
-                                .map((type, index) => ({ type, originalIndex: index }))
-                                .filter(({ type }) => type.category === 'GASTO')
-                                .map(({ type, originalIndex }, relativeIndex, arr) => (
-                                    <div key={type.id || originalIndex} className="flex items-center gap-1.5 sm:gap-2 bg-white dark:bg-gray-800 p-2 sm:p-2.5 lg:p-3 rounded-md border border-orange-300 dark:border-orange-600">
-                                        <div className="flex flex-col gap-0.5 sm:gap-1 flex-shrink-0">
-                                            <button
-                                                onClick={() => moveFondoTypeUp(originalIndex)}
-                                                disabled={relativeIndex === 0}
-                                                className="p-0.5 sm:p-1 text-orange-600 hover:text-orange-800 disabled:opacity-30 disabled:cursor-not-allowed text-xs sm:text-sm"
-                                                title="Arriba"
-                                            >
-                                                ▲
-                                            </button>
-                                            <button
-                                                onClick={() => moveFondoTypeDown(originalIndex)}
-                                                disabled={relativeIndex === arr.length - 1}
-                                                className="p-0.5 sm:p-1 text-orange-600 hover:text-orange-800 disabled:opacity-30 disabled:cursor-not-allowed text-xs sm:text-sm"
-                                                title="Abajo"
-                                            >
-                                                ▼
-                                            </button>
-                                        </div>
-                                        <input
-                                            type="text"
-                                            value={type.name}
-                                            onChange={(e) => updateFondoType(originalIndex, 'name', e.target.value)}
-                                            className="flex-1 min-w-0 px-2 sm:px-2.5 lg:px-3 py-1.5 sm:py-2 border border-orange-300 dark:border-orange-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-xs sm:text-sm"
-                                            placeholder="Nombre"
-                                        />
-                                        <button
-                                            onClick={() => removeFondoType(originalIndex)}
-                                            className="p-1.5 sm:px-2.5 sm:py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors flex-shrink-0"
-                                            title="Eliminar"
-                                        >
-                                            <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                                        </button>
-                                    </div>
-                                ))}
-                        </div>
-                    </div>
-
-                    {/* Sección EGRESO */}
-                    <div className="border border-blue-200 dark:border-blue-700 rounded-lg p-2.5 sm:p-3 lg:p-4 bg-blue-50 dark:bg-blue-900/10">
-                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2 sm:mb-3">
-                            <h5 className="text-sm sm:text-base lg:text-lg font-semibold text-blue-700 dark:text-blue-300">EGRESO</h5>
-                            <button
-                                onClick={() => addFondoType('EGRESO')}
-                                className="px-2.5 sm:px-3 py-1 sm:py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-xs sm:text-sm flex items-center justify-center gap-1 sm:gap-1.5 w-full sm:w-auto whitespace-nowrap"
-                            >
-                                <Plus className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                                Agregar
-                            </button>
-                        </div>
-                        <div className="space-y-1.5 sm:space-y-2">
-                            {fondoTypesData
-                                .map((type, index) => ({ type, originalIndex: index }))
-                                .filter(({ type }) => type.category === 'EGRESO')
-                                .map(({ type, originalIndex }, relativeIndex, arr) => (
-                                    <div key={type.id || originalIndex} className="flex items-center gap-1.5 sm:gap-2 bg-white dark:bg-gray-800 p-2 sm:p-2.5 lg:p-3 rounded-md border border-blue-300 dark:border-blue-600">
-                                        <div className="flex flex-col gap-0.5 sm:gap-1 flex-shrink-0">
-                                            <button
-                                                onClick={() => moveFondoTypeUp(originalIndex)}
-                                                disabled={relativeIndex === 0}
-                                                className="p-0.5 sm:p-1 text-blue-600 hover:text-blue-800 disabled:opacity-30 disabled:cursor-not-allowed text-xs sm:text-sm"
-                                                title="Arriba"
-                                            >
-                                                ▲
-                                            </button>
-                                            <button
-                                                onClick={() => moveFondoTypeDown(originalIndex)}
-                                                disabled={relativeIndex === arr.length - 1}
-                                                className="p-0.5 sm:p-1 text-blue-600 hover:text-blue-800 disabled:opacity-30 disabled:cursor-not-allowed text-xs sm:text-sm"
-                                                title="Abajo"
-                                            >
-                                                ▼
-                                            </button>
-                                        </div>
-                                        <input
-                                            type="text"
-                                            value={type.name}
-                                            onChange={(e) => updateFondoType(originalIndex, 'name', e.target.value)}
-                                            className="flex-1 min-w-0 px-2 sm:px-2.5 lg:px-3 py-1.5 sm:py-2 border border-blue-300 dark:border-blue-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-xs sm:text-sm"
-                                            placeholder="Nombre"
-                                        />
-                                        <button
-                                            onClick={() => removeFondoType(originalIndex)}
-                                            className="p-1.5 sm:px-2.5 sm:py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors flex-shrink-0"
-                                            title="Eliminar"
-                                        >
-                                            <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                                        </button>
-                                    </div>
-                                ))}
-                        </div>
-                    </div>
-                </div>
+                <FondoTypesEditorSection
+                    fondoTypesData={fondoTypesData}
+                    seedFondoTypes={seedFondoTypes}
+                    addFondoType={addFondoType}
+                    updateFondoType={updateFondoType}
+                    removeFondoType={removeFondoType}
+                    moveFondoTypeUp={moveFondoTypeUp}
+                    moveFondoTypeDown={moveFondoTypeDown}
+                />
             )}
+             {activeFile === 'funciones' && currentUser?.role !== 'user' && (
+                <FuncionesEditorSection />
+             )}
 
             {activeFile === 'users' && (
-                <div className="space-y-3 sm:space-y-4">
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
-                        <div>
-                            <h4 className="text-base sm:text-lg lg:text-xl font-semibold">Configuración de Usuarios</h4>
-                            <p className="text-xs sm:text-sm text-[var(--muted-foreground)] mt-0.5 sm:mt-1">
-                                Gestiona usuarios, roles y permisos del sistema
-                            </p>
-                        </div>
-                        <button
-                            onClick={addUser}
-                            className="px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-xs sm:text-sm w-full sm:w-auto flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap"
-                        >
-                            <UserPlus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                            <span>Agregar Usuario</span>
-                        </button>
-                    </div>
-
-                    {usersData.map((user, index) => (
-                        <div key={user.id || index} className="border border-[var(--input-border)] rounded-lg p-2.5 sm:p-4 lg:p-5 relative">
-                            {hasUserChanged(index) && (
-                                <div className="absolute top-2 right-2 sm:top-3 sm:right-3 flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 bg-yellow-100 text-yellow-800 rounded-full text-[10px] sm:text-xs font-medium">
-                                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-orange-500 rounded-full animate-pulse"></div>
-                                    <span>Pendiente</span>
-                                </div>
-                            )}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
-                                <div>
-                                    <label className="block text-xs sm:text-sm font-medium mb-1">Usuario:</label>
-                                    <input
-                                        type="text"
-                                        value={user.name}
-                                        onChange={(e) => updateUser(index, 'name', e.target.value)}
-                                        className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
-                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                        placeholder="Nombre de usuario"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs sm:text-sm font-medium mb-1">Nombre Completo:</label>
-                                    <input
-                                        type="text"
-                                        value={user.fullName || ''}
-                                        onChange={(e) => updateUser(index, 'fullName', e.target.value)}
-                                        className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
-                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                        placeholder="Nombre completo"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs sm:text-sm font-medium mb-1">Correo:</label>
-                                    <input
-                                        type="email"
-                                        value={user.email || ''}
-                                        onChange={(e) => updateUser(index, 'email', e.target.value)}
-                                        className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
-                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                        placeholder="correo@ejemplo.com"
-                                    />
-                                </div>
-                                {/* Ubicación removed visually as requested */}
-                                <div>
-                                    <label className="block text-xs sm:text-sm font-medium mb-1">Empresa Dueña:</label>
-                                    {/* Only show empresas whose ownerId matches the user's ownerId (or resolved owner) */}
-                                    {(() => {
-                                        // resolvedOwnerId must not change: use user.ownerId (the tenant) or fallback to currentUser owner
-                                        const resolvedOwnerId = user.ownerId || (currentUser?.ownerId ?? (currentUser && currentUser.eliminate === false ? currentUser.id : '')) || '';
-                                        const allowedEmpresas = empresasData.filter(e => (e?.ownerId || '') === resolvedOwnerId);
-                                        return (
-                                            <>
-                                                <select
-                                                    value={user.ownercompanie || ''}
-                                                    onChange={(e) => updateUser(index, 'ownercompanie', e.target.value)}
-                                                    className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
-                                                    style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                                >
-                                                    <option value="">Seleccionar empresa</option>
-                                                    {allowedEmpresas.map((empresa) => (
-                                                        <option key={empresa.id || empresa.name} value={empresa.name}>
-                                                            {empresa.name}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                                {allowedEmpresas.length === 0 && (
-                                                    <p className="text-[10px] sm:text-xs mt-1 text-yellow-600">No hay empresas disponibles.</p>
-                                                )}
-                                            </>
-                                        );
-                                    })()}
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
-                                <div>
-                                    <label className="block text-xs sm:text-sm font-medium mb-1">Contraseña:</label>
-                                    {!user.id ? (
-                                        // Usuario nuevo: mostrar campo de contraseña sin ocultar
-                                        <input
-                                            type="text"
-                                            value={user.password || ''}
-                                            onChange={(e) => updateUser(index, 'password', e.target.value)}
-                                            className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
-                                            style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                            placeholder="Contraseña"
-                                        />
-                                    ) : changePasswordMode[getUserKey(user, index)] ? (
-                                        // Usuario existente en modo cambio de contraseña
-                                        <div className="space-y-1.5 sm:space-y-2">
-                                            <div className="relative">
-                                                <input
-                                                    type={passwordVisibility[getUserKey(user, index)] ? 'text' : 'password'}
-                                                    value={user.password || ''}
-                                                    onChange={(e) => updateUser(index, 'password', e.target.value)}
-                                                    className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 pr-10 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
-                                                    style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                                    placeholder="Nueva contraseña"
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => togglePasswordVisibility(user, index)}
-                                                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
-                                                    title={passwordVisibility[getUserKey(user, index)] ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                                                >
-                                                    {passwordVisibility[getUserKey(user, index)] ? (
-                                                        <EyeOff className="w-4 h-4" />
-                                                    ) : (
-                                                        <Eye className="w-4 h-4" />
-                                                    )}
-                                                </button>
-                                            </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    const key = getUserKey(user, index);
-                                                    setChangePasswordMode(prev => ({ ...prev, [key]: false }));
-                                                    // Restaurar contraseña original
-                                                    const updated = [...usersData];
-                                                    updated[index] = { ...updated[index], password: '' };
-                                                    setUsersData(updated);
-                                                    setPasswordStore(prev => ({ ...prev, [key]: passwordBaseline[key] ?? '' }));
-                                                }}
-                                                className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
-                                            >
-                                                Cancelar
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        // Usuario existente: mostrar mensaje informativo
-                                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5 sm:gap-0 px-2.5 sm:px-3 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md" style={{ background: 'var(--muted)', color: 'var(--foreground)' }}>
-                                            <span className="text-xs sm:text-sm">Contraseña configurada</span>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    const key = getUserKey(user, index);
-                                                    setChangePasswordMode(prev => ({ ...prev, [key]: true }));
-                                                }}
-                                                className="text-[10px] sm:text-xs px-2 py-1 bg-[var(--primary)] text-white rounded hover:bg-[var(--button-hover)] transition-colors whitespace-nowrap flex items-center justify-center gap-1"
-                                            >
-                                                <Edit className="w-3 h-3" />
-                                                Cambiar
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                                <div>
-                                    <label className="block text-xs sm:text-sm font-medium mb-1">Rol:</label>
-                                    <select
-                                        value={user.role || 'user'} onChange={(e) => updateUser(index, 'role', e.target.value as 'admin' | 'user' | 'superadmin')}
-                                        className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
-                                        style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                    >
-                                        {/* If currentUser is superadmin and this is a newly created local user (no id), do not show 'user' option */}
-                                        {!(currentUser?.role === 'superadmin' && !user.id) && (
-                                            <option value="user">Usuario</option>
-                                        )}
-                                        <option value="admin">Administrador</option>
-                                        {currentUser?.role === 'superadmin' && (
-                                            <option value="superadmin">Super Administrador</option>
-                                        )}
-                                    </select>
-                                </div>
-                                {/* Only show maxCompanies field if current user is superadmin */}
-                                {user.role === 'admin' && user.eliminate === false && currentUser?.role === 'superadmin' && (
-                                    <div>
-                                        <label className="block text-xs sm:text-sm font-medium mb-1">Máx. Empresas:</label>
-                                        <input
-                                            type="number"
-                                            min={0}
-                                            value={user.maxCompanies ?? ''}
-                                            onChange={(e) => updateUser(index, 'maxCompanies', e.target.value === '' ? undefined : Number(e.target.value))}
-                                            className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
-                                            style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
-                                            placeholder="Máx. empresas"
-                                        />
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="grid grid-cols-1 gap-3 sm:gap-4 mb-3 sm:mb-4">
-                                <div>
-                                    <label className="block text-xs sm:text-sm font-medium mb-1">Estado:</label>
-                                    <div className="flex items-center gap-1.5 sm:gap-2">
-                                        <input
-                                            type="checkbox"
-                                            checked={user.isActive ?? true}
-                                            onChange={(e) => updateUser(index, 'isActive', e.target.checked)}
-                                            className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600 bg-[var(--background)] border-[var(--border)] rounded focus:ring-blue-500"
-                                        />
-                                        <span className="text-xs sm:text-sm">Usuario activo</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Sección de Permisos */}
-                            <div className="mb-3 sm:mb-4 p-2 sm:p-3 lg:p-4 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg">
-                                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3">
-                                    <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-600 dark:text-gray-400" />
-                                    <h5 className="text-xs sm:text-sm font-medium" style={{ color: 'var(--foreground)' }}>Permisos del Usuario</h5>
-                                    <span className="text-[10px] sm:text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded">
-                                        {user.role || 'user'}
-                                    </span>
-                                </div>
-                                {renderUserPermissions(user, index)}
-                                <div className="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-gray-200 dark:border-gray-700">
-                                    <p className="text-[10px] sm:text-xs" style={{ color: 'var(--muted-foreground)' }}>
-                                        <strong>Nota:</strong> Edita los permisos y presiona &quot;Guardar&quot; para aplicar cambios.
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="flex flex-col sm:flex-row justify-end gap-2 mt-2">
-                                <button
-                                    onClick={() => saveIndividualUser(index)}
-                                    className="px-3 py-1.5 sm:px-4 sm:py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm"
-                                    disabled={savingUserKey === getUserKey(user, index)}
-                                >
-                                    <Save className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                                    {savingUserKey === getUserKey(user, index) ? 'Guardando...' : 'Guardar'}
-                                </button>
-                                <button
-                                    onClick={() => removeUser(index)}
-                                    className="px-3 py-2 sm:px-4 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm sm:text-base"
-                                    disabled={savingUserKey === getUserKey(user, index) || (currentUser?.role === 'admin' && (user.eliminate === false || user.eliminate === undefined))}
-                                    title={currentUser?.role === 'admin' && (user.eliminate === false || user.eliminate === undefined) ? 'No puedes eliminar este usuario: marcado como protegido' : 'Eliminar Usuario'}
-                                >
-                                    Eliminar Usuario
-                                </button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+                <UsersEditorSection
+                    usersData={usersData}
+                    empresasData={empresasData}
+                    currentUser={currentUser}
+                    addUser={addUser}
+                    updateUser={updateUser}
+                    removeUser={removeUser}
+                    saveIndividualUser={saveIndividualUser}
+                    hasUserChanged={hasUserChanged}
+                    getUserKey={getUserKey}
+                    savingUserKey={savingUserKey}
+                    changePasswordMode={changePasswordMode}
+                    passwordVisibility={passwordVisibility}
+                    togglePasswordVisibility={togglePasswordVisibility}
+                    setChangePasswordMode={setChangePasswordMode}
+                    setUsersData={setUsersData}
+                    setPasswordStore={setPasswordStore}
+                    passwordBaseline={passwordBaseline}
+                    renderUserPermissions={renderUserPermissions}
+                />
             )}
 
             {/* Schedule Report Content */}
@@ -2161,273 +1474,21 @@ export default function DataEditor() {
                 <ScheduleReportTab />
             )}            {/* CCSS Payment Configuration */}
             {activeFile === 'ccss' && (
-                <div className="space-y-6">
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mb-4 sm:mb-6">
-                        <div>
-                            <h4 className="text-lg sm:text-xl font-semibold flex items-center gap-2">
-                                <DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
-                                Configuración de Pago CCSS
-                            </h4>
-                            <p className="text-sm text-[var(--muted-foreground)] mt-1">
-                                Configurar los montos de pago CCSS específicos para cada empresa
-                            </p>
-                        </div>
-                        <button
-                            onClick={addCcssConfig}
-                            className="px-4 py-2 sm:px-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl font-semibold w-full sm:w-auto"
-                        >
-                            <span className="hidden sm:inline">Agregar Configuración</span>
-                            <span className="sm:hidden">+ Config</span>
-                        </button>
-                    </div>
-
-                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-2 sm:p-4">
-                        <div className="flex items-start gap-3">
-                            <div className="flex-shrink-0">
-                                <Info className="w-5 h-5 text-blue-600 mt-0.5" />
-                            </div>
-                            <div>
-                                <h5 className="font-medium text-blue-900 dark:text-blue-300">Configuración por Empresa</h5>
-                                <p className="text-sm text-blue-700 dark:text-blue-400 mt-1">
-                                    Cada empresa puede tener configuraciones CCSS específicas. Los valores se aplicarán automáticamente según la empresa seleccionada en los cálculos de nómina.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {getFlattenedCcssData().length === 0 ? (
-                        <div className="text-center py-16 bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-800 dark:to-blue-900/20 rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-600">
-                            <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full mx-auto mb-6 flex items-center justify-center shadow-lg">
-                                <DollarSign className="w-10 h-10 text-white" />
-                            </div>
-                            <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-                                No hay configuraciones CCSS
-                            </h3>
-                            <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-md mx-auto leading-relaxed">
-                                Comienza creando tu primera configuración CCSS para gestionar los pagos de tus empresas de manera eficiente
-                            </p>
-                            <button
-                                onClick={addCcssConfig}
-                                className="px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl font-semibold text-lg flex items-center gap-3 mx-auto"
-                            >
-                                <Plus className="w-5 h-5" />
-                                Crear Primera Configuración
-                            </button>
-                        </div>
-                    ) : (
-                        <div className="space-y-6">
-                            {getFlattenedCcssData().map((item, flatIndex) => (
-                                <div key={`${item.config.id || item.configIndex}-${item.companyIndex}`} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-lg hover:shadow-xl transition-all duration-200 relative">
-                                    {/* Header con botones */}
-                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-start mb-4 sm:mb-6 gap-3 sm:gap-0">
-                                        <div className="min-w-0 flex-1">
-                                            <h5 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-2 truncate">
-                                                Configuración CCSS #{flatIndex + 1}
-                                            </h5>
-                                            <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                                                {item.company.ownerCompanie || 'Nueva empresa'}
-                                            </p>
-                                        </div>
-                                        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
-                                            <button
-                                                onClick={async () => {
-                                                    try {
-                                                        // Crear una nueva copia del config completo con la company actualizada
-                                                        const updatedConfig = {
-                                                            ...item.config,
-                                                            companie: item.config.companie.map((comp, idx) =>
-                                                                idx === item.companyIndex ? item.company : comp
-                                                            )
-                                                        };
-                                                        await CcssConfigService.updateCcssConfig(updatedConfig);
-                                                        showToast(`Configuración para ${item.company.ownerCompanie || 'empresa'} guardada exitosamente`, 'success');
-                                                        await loadData();
-                                                    } catch (error) {
-                                                        console.error('Error saving CCSS config:', error);
-                                                        showToast('Error al guardar la configuración', 'error');
-                                                    }
-                                                }}
-                                                className="px-3 py-2 sm:px-4 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-200 shadow-md hover:shadow-lg font-medium text-sm flex items-center justify-center gap-2 whitespace-nowrap"
-                                            >
-                                                <Check className="w-4 h-4" />
-                                                <span className="hidden sm:inline">Guardar</span>
-                                                <span className="sm:hidden">Save</span>
-                                            </button>
-                                            <button
-                                                onClick={() => removeCcssConfig(item.configIndex, item.companyIndex)}
-                                                className="px-3 py-2 sm:px-4 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-md hover:shadow-lg font-medium text-sm flex items-center justify-center gap-2 whitespace-nowrap"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                                <span className="hidden sm:inline">Eliminar</span>
-                                                <span className="sm:hidden">Delete</span>
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {/* Selector de Empresa con mejor diseño */}
-                                    <div className="mb-8">
-                                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-700 rounded-xl p-4">
-                                            <label className="text-sm font-semibold text-blue-900 dark:text-blue-200 mb-3 flex items-center gap-2">
-                                                <Building className="w-5 h-5" />
-                                                Empresa:
-                                            </label>
-                                            <select
-                                                value={item.company.ownerCompanie || ''}
-                                                onChange={(e) => updateCcssConfig(item.configIndex, item.companyIndex, 'ownerCompanie', e.target.value)}
-                                                className="w-full px-4 py-3 border border-blue-300 dark:border-blue-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm"
-                                            >
-                                                <option value="">Seleccionar empresa...</option>
-                                                {(() => {
-                                                    if (!currentUser || currentUser.role === 'superadmin') {
-                                                        return (empresasData || []).map((empresa, idx) => (
-                                                            <option key={empresa.id || idx} value={empresa.name}>{empresa.name}</option>
-                                                        ));
-                                                    }
-
-                                                    return (empresasData || [])
-                                                        .filter(empresa => {
-                                                            if (!empresa || !empresa.ownerId) return false;
-                                                            if (actorOwnerIdSet.size > 0) {
-                                                                return actorOwnerIdSet.has(String(empresa.ownerId));
-                                                            }
-                                                            return (
-                                                                (currentUser.id && String(empresa.ownerId) === String(currentUser.id)) ||
-                                                                (currentUser.ownerId && String(empresa.ownerId) === String(currentUser.ownerId))
-                                                            );
-                                                        })
-                                                        .map((empresa, idx) => (
-                                                            <option key={empresa.id || idx} value={empresa.name}>{empresa.name}</option>
-                                                        ));
-                                                })()}
-                                            </select>
-
-                                        </div>
-                                    </div>
-
-                                    {/* Grid de valores CCSS mejorado */}
-                                    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
-                                        {/* Tiempo Completo */}
-                                        <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200 dark:border-green-700 rounded-xl p-6 hover:shadow-lg transition-all duration-200">
-                                            <div className="flex items-center gap-3 mb-4">
-                                                <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
-                                                    <Clock className="w-6 h-6 text-white" />
-                                                </div>
-                                                <div>
-                                                    <h6 className="font-bold text-green-900 dark:text-green-200">Tiempo Completo</h6>
-                                                    <p className="text-xs text-green-700 dark:text-green-400">(TC)</p>
-                                                </div>
-                                            </div>
-                                            <div className="relative">
-                                                <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-green-600 dark:text-green-400 font-bold text-lg">₡</span>
-                                                <input
-                                                    type="number"
-                                                    step="0.01"
-                                                    min="0"
-                                                    value={item.company.tc || 0}
-                                                    onChange={(e) => updateCcssConfig(item.configIndex, item.companyIndex, 'tc', parseFloat(e.target.value) || 0)}
-                                                    className="w-full pl-10 pr-4 py-3 border-2 border-green-300 dark:border-green-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-bold text-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200"
-                                                    placeholder="11017.39"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        {/* Medio Tiempo */}
-                                        <div className="bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 border border-orange-200 dark:border-orange-700 rounded-xl p-6 hover:shadow-lg transition-all duration-200">
-                                            <div className="flex items-center gap-3 mb-4">
-                                                <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-amber-600 rounded-xl flex items-center justify-center shadow-lg">
-                                                    <Clock className="w-6 h-6 text-white" />
-                                                </div>
-                                                <div>
-                                                    <h6 className="font-bold text-orange-900 dark:text-orange-200">Medio Tiempo</h6>
-                                                    <p className="text-xs text-orange-700 dark:text-orange-400">(MT)</p>
-                                                </div>
-                                            </div>
-                                            <div className="relative">
-                                                <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-orange-600 dark:text-orange-400 font-bold text-lg">₡</span>
-                                                <input
-                                                    type="number"
-                                                    step="0.01"
-                                                    min="0"
-                                                    value={item.company.mt || 0}
-                                                    onChange={(e) => updateCcssConfig(item.configIndex, item.companyIndex, 'mt', parseFloat(e.target.value) || 0)}
-                                                    className="w-full pl-10 pr-4 py-3 border-2 border-orange-300 dark:border-orange-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-bold text-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
-                                                    placeholder="3672.46"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        {/* Valor por Hora */}
-                                        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-700 rounded-xl p-6 hover:shadow-lg transition-all duration-200">
-                                            <div className="flex items-center gap-3 mb-4">
-                                                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                                                    <DollarSign className="w-6 h-6 text-white" />
-                                                </div>
-                                                <div>
-                                                    <h6 className="font-bold text-blue-900 dark:text-blue-200">Valor por Hora</h6>
-                                                    <p className="text-xs text-blue-700 dark:text-blue-400">Tarifa horaria</p>
-                                                </div>
-                                            </div>
-                                            <div className="relative">
-                                                <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-blue-600 dark:text-blue-400 font-bold text-lg">₡</span>
-                                                <input
-                                                    type="number"
-                                                    step="0.01"
-                                                    min="0"
-                                                    value={item.company.valorhora || 0}
-                                                    onChange={(e) => updateCcssConfig(item.configIndex, item.companyIndex, 'valorhora', parseFloat(e.target.value) || 0)}
-                                                    className="w-full pl-10 pr-4 py-3 border-2 border-blue-300 dark:border-blue-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-bold text-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                                                    placeholder="1441"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        {/* Hora Bruta */}
-                                        <div className="bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 border border-purple-200 dark:border-purple-700 rounded-xl p-6 hover:shadow-lg transition-all duration-200">
-                                            <div className="flex items-center gap-3 mb-4">
-                                                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-violet-600 rounded-xl flex items-center justify-center shadow-lg">
-                                                    <DollarSign className="w-6 h-6 text-white" />
-                                                </div>
-                                                <div>
-                                                    <h6 className="font-bold text-purple-900 dark:text-purple-200">Hora Bruta</h6>
-                                                    <p className="text-xs text-purple-700 dark:text-purple-400">Tarifa bruta</p>
-                                                </div>
-                                            </div>
-                                            <div className="relative">
-                                                <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-purple-600 dark:text-purple-400 font-bold text-lg">₡</span>
-                                                <input
-                                                    type="number"
-                                                    step="0.01"
-                                                    min="0"
-                                                    value={item.company.horabruta || 0}
-                                                    onChange={(e) => updateCcssConfig(item.configIndex, item.companyIndex, 'horabruta', parseFloat(e.target.value) || 0)}
-                                                    className="w-full pl-10 pr-4 py-3 border-2 border-purple-300 dark:border-purple-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-bold text-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
-                                                    placeholder="1529.62"
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* Botón global de guardado mejorado */}
-                    {ccssConfigsData.length > 0 && (
-                        <div className="flex justify-center pt-8">
-                            <button
-                                onClick={saveData}
-                                disabled={!hasChanges || isSaving}
-                                className={`px-8 py-4 rounded-xl flex items-center gap-3 transition-all duration-200 shadow-lg hover:shadow-xl font-semibold text-lg ${hasChanges && !isSaving
-                                    ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white'
-                                    : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
-                                    }`}
-                            >
-                                <Save className="w-6 h-6" />
-                                {isSaving ? 'Guardando...' : 'Guardar Todas las Configuraciones'}
-                            </button>
-                        </div>
-                    )}
-                </div>
+                <CcssEditorSection
+                    currentUser={currentUser}
+                    empresasData={empresasData}
+                    actorOwnerIdSet={actorOwnerIdSet}
+                    ccssConfigsData={ccssConfigsData}
+                    hasChanges={hasChanges}
+                    isSaving={isSaving}
+                    addCcssConfig={addCcssConfig}
+                    getFlattenedCcssData={getFlattenedCcssData}
+                    updateCcssConfig={updateCcssConfig}
+                    removeCcssConfig={removeCcssConfig}
+                    saveData={saveData}
+                    loadData={loadData}
+                    showToast={showToast}
+                />
             )}
 
             <ExportModal open={showExportModal} onClose={closeExportModal} />
