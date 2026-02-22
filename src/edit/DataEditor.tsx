@@ -291,7 +291,7 @@ export default function DataEditor() {
         // Solo ejecutar la carga (loadData) cuando React haya inicializado el componente.
         // loadData internamente chequea `currentUser` antes de pedir usuarios.
         loadData();
-        
+
         // Listener para actualizaciones en tiempo real de tipos de fondo
         const handleFondoTypesUpdate = async () => {
             if (currentUser?.role !== 'user') {
@@ -305,9 +305,9 @@ export default function DataEditor() {
                 }
             }
         };
-        
+
         window.addEventListener('fondoMovementTypesUpdated', handleFondoTypesUpdate);
-        
+
         return () => {
             window.removeEventListener('fondoMovementTypesUpdated', handleFondoTypesUpdate);
         };
@@ -473,7 +473,7 @@ export default function DataEditor() {
             name: '',
             order: maxOrder + 1
         };
-        
+
         try {
             // Agregar a la base de datos inmediatamente
             const newId = await FondoMovementTypesService.addMovementType({
@@ -481,12 +481,12 @@ export default function DataEditor() {
                 name: '',
                 order: maxOrder + 1
             });
-            
+
             // Actualizar el estado local con el ID asignado
             const typeWithId = { ...newType, id: newId };
             setFondoTypesData([...fondoTypesData, typeWithId]);
             setOriginalFondoTypesData([...originalFondoTypesData, typeWithId]);
-            
+
             showToast(`Nuevo tipo de ${category} agregado`, 'success');
         } catch (error) {
             console.error('Error adding fondo type:', error);
@@ -498,7 +498,7 @@ export default function DataEditor() {
         const updated = [...fondoTypesData];
         updated[index] = { ...updated[index], [field]: value };
         setFondoTypesData(updated);
-        
+
         // Si el tipo tiene ID, guardar automáticamente en la base de datos
         if (updated[index].id && field === 'name') {
             try {
@@ -524,7 +524,7 @@ export default function DataEditor() {
                     if (fondoType.id) {
                         await FondoMovementTypesService.deleteMovementType(fondoType.id);
                     }
-                    
+
                     const filtered = fondoTypesData.filter((_, i) => i !== index);
                     setFondoTypesData(filtered);
                     setOriginalFondoTypesData(filtered);
@@ -546,7 +546,7 @@ export default function DataEditor() {
             item.order = idx;
         });
         setFondoTypesData(updated);
-        
+
         // Guardar cambios de orden en la base de datos
         try {
             const promises = [];
@@ -573,7 +573,7 @@ export default function DataEditor() {
             item.order = idx;
         });
         setFondoTypesData(updated);
-        
+
         // Guardar cambios de orden en la base de datos
         try {
             const promises = [];
