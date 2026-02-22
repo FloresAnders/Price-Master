@@ -103,7 +103,7 @@ export function RecetasTab() {
             return;
         }
 
-        const handle = window.setTimeout(() => setDebouncedRecetaSearch(raw), 2000);
+        const handle = window.setTimeout(() => setDebouncedRecetaSearch(raw), 20);
         return () => window.clearTimeout(handle);
     }, [searchTerm]);
 
