@@ -328,18 +328,24 @@ export default function ControlHorario({
   const isDelifoodEmpresa = empresa.toLowerCase().includes("delifood");
 
   const getIncompletePastDaysForMonth = React.useCallback(
-    (data: ScheduleData, year: number, month: number, today: Date): number[] => {
+    (
+      data: ScheduleData,
+      year: number,
+      month: number,
+      today: Date,
+      startDay: number,
+      endDay: number
+    ): number[] => {
       const todayKey = new Date(
         today.getFullYear(),
         today.getMonth(),
         today.getDate()
       ).getTime();
 
-      const daysInMonth = new Date(year, month + 1, 0).getDate();
       const employeeNames = Object.keys(data);
       const incompleteDays: number[] = [];
 
-      for (let day = 1; day <= daysInMonth; day++) {
+      for (let day = startDay; day <= endDay; day++) {
         const dayKey = new Date(year, month, day).getTime();
         if (dayKey >= todayKey) continue; // solo días anteriores al día actual
 
@@ -659,14 +665,23 @@ export default function ControlHorario({
     incompleteDaysToastTimerRef.current = window.setTimeout(() => {
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth();
+
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const isMonthly = fullMonthView || selectedPeriod === "monthly";
+      const startDay = isMonthly ? 1 : selectedPeriod === "1-15" ? 1 : 16;
+      const endDay = isMonthly ? daysInMonth : selectedPeriod === "1-15" ? 15 : daysInMonth;
+
       const incompleteDays = getIncompletePastDaysForMonth(
         scheduleData,
         year,
         month,
-        new Date()
+        new Date(),
+        startDay,
+        endDay
       );
 
-      // Key persistente para evitar duplicados por StrictMode (double-mount) en dev
+      // Evitar duplicados inmediatos por StrictMode (double-mount) en dev,
+      // pero permitir que al re-entrar más tarde se vuelva a mostrar.
       const storageKey = "controlHorario:lastIncompletePastSignature";
 
       if (incompleteDays.length === 0) {
@@ -679,13 +694,38 @@ export default function ControlHorario({
         return;
       }
 
-      const nextSignature = `${empresa}|${year}|${month}|${incompleteDays.join(",")}`;
+      const nextSignature = `${empresa}|${year}|${month}|${startDay}-${endDay}|${incompleteDays.join(",")}`;
       if (nextSignature === incompletePastDaysSignature) return;
 
       try {
-        const stored = sessionStorage.getItem(storageKey);
-        if (stored === nextSignature) return;
-        sessionStorage.setItem(storageKey, nextSignature);
+        const storedRaw = sessionStorage.getItem(storageKey);
+        const now = Date.now();
+        const DUP_WINDOW_MS = 1500;
+
+        if (storedRaw) {
+          // Nuevo formato: JSON con { sig, at }
+          try {
+            const parsed = JSON.parse(storedRaw) as {
+              sig?: string;
+              at?: number;
+            };
+            if (
+              parsed?.sig === nextSignature &&
+              typeof parsed?.at === "number" &&
+              now - parsed.at < DUP_WINDOW_MS
+            ) {
+              return;
+            }
+          } catch {
+            // Formato antiguo (string plano): no podemos inferir cuándo se mostró,
+            // así que NO bloqueamos; se sobrescribirá con el formato nuevo.
+          }
+        }
+
+        sessionStorage.setItem(
+          storageKey,
+          JSON.stringify({ sig: nextSignature, at: now })
+        );
       } catch {
         // ignore
       }
@@ -714,6 +754,8 @@ export default function ControlHorario({
     formatIncompletePastDaysMessage,
     showToast,
     incompletePastDaysSignature,
+    selectedPeriod,
+    fullMonthView,
   ]);
 
   // --- AUTO-QUINCENA: Detectar y mostrar la quincena actual SOLO al cargar el mes actual por PRIMERA VEZ en la sesión ---
