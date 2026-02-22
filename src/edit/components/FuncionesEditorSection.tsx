@@ -41,6 +41,8 @@ export default function FuncionesEditorSection() {
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [draftNombre, setDraftNombre] = React.useState('');
   const [draftDescripcion, setDraftDescripcion] = React.useState('');
+  const [draftHasReminder, setDraftHasReminder] = React.useState(false);
+  const [draftReminderTimeCr, setDraftReminderTimeCr] = React.useState('');
   const [formError, setFormError] = React.useState<string | null>(null);
 
   const [confirmState, setConfirmState] = React.useState<{ open: boolean; id: string; nombre: string }>({
@@ -162,6 +164,7 @@ export default function FuncionesEditorSection() {
             docId: String(d.docId || ''),
             nombre: String(d.nombre || ''),
             descripcion: String(d.descripcion || ''),
+            reminderTimeCr: d.reminderTimeCr ? String(d.reminderTimeCr) : '',
             createdAt: String(d.createdAt || ''),
           }))
           .filter((x) => x.id && x.docId && x.nombre);
@@ -205,6 +208,8 @@ export default function FuncionesEditorSection() {
     setEditingId(null);
     setDraftNombre(searchValue.trim());
     setDraftDescripcion('');
+    setDraftHasReminder(false);
+    setDraftReminderTimeCr('');
     setDrawerOpen(true);
   }, [isAdminLike, searchValue]);
 
@@ -214,6 +219,9 @@ export default function FuncionesEditorSection() {
     setEditingId(item.id);
     setDraftNombre(String(item.nombre || ''));
     setDraftDescripcion(String(item.descripcion || ''));
+    const timeCr = String(item.reminderTimeCr || '').trim();
+    setDraftHasReminder(Boolean(timeCr));
+    setDraftReminderTimeCr(timeCr);
     setDrawerOpen(true);
   }, [isAdminLike]);
 
@@ -222,6 +230,8 @@ export default function FuncionesEditorSection() {
     setEditingId(null);
     setDraftNombre('');
     setDraftDescripcion('');
+    setDraftHasReminder(false);
+    setDraftReminderTimeCr('');
     setFormError(null);
   }, []);
 
@@ -234,6 +244,18 @@ export default function FuncionesEditorSection() {
     if (!name) {
       setFormError('Nombre requerido.');
       return;
+    }
+
+    const reminderTimeCr = draftHasReminder ? draftReminderTimeCr.trim() : '';
+    if (draftHasReminder) {
+      if (!reminderTimeCr) {
+        setFormError('Selecciona una hora para el recordatorio.');
+        return;
+      }
+      if (!/^\d{2}:\d{2}$/.test(reminderTimeCr)) {
+        setFormError('Hora de recordatorio inválida (usa HH:mm).');
+        return;
+      }
     }
 
     const persist = async () => {
@@ -257,6 +279,7 @@ export default function FuncionesEditorSection() {
         funcionId,
         nombre: name,
         descripcion,
+        reminderTimeCr: draftHasReminder ? reminderTimeCr : undefined,
         createdAt: createdAtIso,
       });
 
@@ -265,6 +288,7 @@ export default function FuncionesEditorSection() {
         docId: saved.docId,
         nombre: saved.nombre,
         descripcion: saved.descripcion || '',
+        reminderTimeCr: saved.reminderTimeCr ? String(saved.reminderTimeCr) : '',
         createdAt: saved.createdAt,
       };
 
@@ -283,7 +307,7 @@ export default function FuncionesEditorSection() {
       setFormError(msg);
       showToast(msg, 'error');
     });
-  }, [closeDrawer, draftDescripcion, draftNombre, editingId, isAdminLike, recetasListItems, resolvedOwnerId, showToast]);
+  }, [closeDrawer, draftDescripcion, draftHasReminder, draftNombre, draftReminderTimeCr, editingId, isAdminLike, recetasListItems, resolvedOwnerId, showToast]);
 
   const openRemoveModal = React.useCallback((id: string, nombreLabel: string) => {
     setConfirmState({ open: true, id, nombre: nombreLabel });
@@ -499,6 +523,35 @@ export default function FuncionesEditorSection() {
               value={draftDescripcion}
               onChange={(e) => setDraftDescripcion(e.target.value)}
             />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label className="flex items-center gap-2 text-sm text-[var(--foreground)] select-none">
+              <input
+                type="checkbox"
+                className="h-4 w-4"
+                checked={draftHasReminder}
+                onChange={(e) => {
+                  const next = e.target.checked;
+                  setDraftHasReminder(next);
+                  if (!next) setDraftReminderTimeCr('');
+                }}
+              />
+              Agregar recordatorio
+            </label>
+
+            {draftHasReminder ? (
+              <div>
+                <label className="block text-xs text-[var(--muted-foreground)] mb-1">Hora (Costa Rica)</label>
+                <input
+                  type="time"
+                  step={60}
+                  className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
+                  value={draftReminderTimeCr}
+                  onChange={(e) => setDraftReminderTimeCr(e.target.value)}
+                />
+              </div>
+            ) : null}
           </div>
 
           <div className="flex justify-end">

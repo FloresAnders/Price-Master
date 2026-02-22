@@ -8,6 +8,7 @@ export type FuncionListItem = {
   docId: string;
   nombre: string;
   descripcion?: string;
+  reminderTimeCr?: string;
   createdAt?: string;
 };
 

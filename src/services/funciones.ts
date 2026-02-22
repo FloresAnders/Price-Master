@@ -6,6 +6,8 @@ export type FuncionGeneralDoc = {
   funcionId: string;
   nombre: string;
   descripcion?: string;
+  // Optional reminder time in Costa Rica local time (HH:mm)
+  reminderTimeCr?: string;
   createdAt: string; // ISO
   updatedAt?: string; // ISO
 };
@@ -105,6 +107,7 @@ export class FuncionesService {
     funcionId: string;
     nombre: string;
     descripcion?: string;
+    reminderTimeCr?: string;
     createdAt?: string;
   }): Promise<{ docId: string } & FuncionGeneralDoc> {
     const nowIso = new Date().toISOString();
@@ -116,6 +119,7 @@ export class FuncionesService {
       funcionId: String(params.funcionId || '').trim(),
       nombre: String(params.nombre || '').trim(),
       descripcion: params.descripcion ? String(params.descripcion).trim() : '',
+      reminderTimeCr: params.reminderTimeCr ? String(params.reminderTimeCr).trim() : undefined,
       createdAt,
       updatedAt: nowIso,
     };
