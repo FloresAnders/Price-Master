@@ -1,7 +1,17 @@
 'use client';
 
 import React from 'react';
-import { DndContext, PointerSensor, useSensor, useSensors, useDraggable, useDroppable, closestCenter, type DragEndEvent } from '@dnd-kit/core';
+import {
+  DndContext,
+  MouseSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  useDraggable,
+  useDroppable,
+  closestCenter,
+  type DragEndEvent,
+} from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { X } from 'lucide-react';
 
@@ -32,6 +42,8 @@ function DraggableFuncionItem({ item }: { item: FuncionListItem }) {
 
   const style: React.CSSProperties = {
     transform: CSS.Translate.toString(transform),
+    // En mobile, evitamos bloquear scroll normal; al arrastrar, sí deshabilitamos gestos.
+    touchAction: isDragging ? 'none' : 'manipulation',
   };
 
   return (
@@ -96,7 +108,11 @@ export default function EmpresaFuncionesModal({
   onSaved,
   showToast,
 }: EmpresaFuncionesModalProps) {
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    // Long-press para iniciar drag en touch (permite scroll normal sin arrastre accidental)
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 6 } })
+  );
 
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
