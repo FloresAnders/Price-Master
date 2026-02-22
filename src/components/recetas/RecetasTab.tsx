@@ -93,7 +93,19 @@ export function RecetasTab() {
     }, [productos]);
 
     const [searchTerm, setSearchTerm] = React.useState("");
-    const debouncedRecetaSearch = useDebouncedValue(searchTerm, 2000);
+    const [debouncedRecetaSearch, setDebouncedRecetaSearch] = React.useState("");
+
+    React.useEffect(() => {
+        const raw = String(searchTerm || "");
+        if (!raw.trim()) {
+            // Si se queda en blanco, mostrar todo inmediatamente.
+            setDebouncedRecetaSearch("");
+            return;
+        }
+
+        const handle = window.setTimeout(() => setDebouncedRecetaSearch(raw), 2000);
+        return () => window.clearTimeout(handle);
+    }, [searchTerm]);
 
     const [nombre, setNombre] = React.useState("");
     const [descripcion, setDescripcion] = React.useState("");
