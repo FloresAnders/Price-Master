@@ -85,6 +85,7 @@ type ActiveTab =
   | "timingcontrol"
   | "controlhorario"
   | "empleados"
+  | "funciones"
   | "calculohorasprecios"
   | "supplierorders"
   | "histoscans"
@@ -429,6 +430,13 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       icon: Clock,
       description: "Registro de horarios de trabajo",
       permission: "controlhorario" as keyof UserPermissions,
+    },
+    {
+      id: "funciones" as ActiveTab,
+      name: "Funciones",
+      icon: Bell,
+      description: "Funciones por empresa",
+      permission: "notificaciones" as keyof UserPermissions,
     },
     {
       id: "empleados" as ActiveTab,

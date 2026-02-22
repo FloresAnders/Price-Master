@@ -113,6 +113,13 @@ const menuItems = [
     permission: "empleados" as keyof UserPermissions,
   },
   {
+    id: "funciones",
+    name: "Funciones",
+    icon: Clock,
+    description: "Ver funciones por empresa",
+    permission: "notificaciones" as keyof UserPermissions,
+  },
+  {
     id: "recetas",
     name: "Recetas",
     icon: (props: { className?: string }) => (

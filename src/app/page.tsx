@@ -25,6 +25,7 @@ const EmpleadosProximamente = dynamic(() => import('@/components/business').then
 const SupplierOrders = dynamic(() => import('@/components/business').then(mod => ({ default: mod.SupplierOrders })), { ssr: false })
 const Mantenimiento = dynamic(() => import('@/components/admin').then(mod => ({ default: mod.Mantenimiento })), { ssr: false })
 const ScanHistoryTable = dynamic(() => import('@/components/scanner').then(mod => ({ default: mod.ScanHistoryTable })), { ssr: false })
+const FuncionesTab = dynamic(() => import('@/components/funciones/FuncionesTab').then(mod => ({ default: mod.FuncionesTab })), { ssr: false })
 const FondoPage = dynamic(() => import('@/app/fondogeneral/fondogeneral/page'), { ssr: false })
 const AgregarProveedorPage = dynamic(() => import('@/app/fondogeneral/agregarproveedor/page'), { ssr: false })
 const ReportesPage = dynamic(() => import('@/app/fondogeneral/otra/page'), { ssr: false })
@@ -35,7 +36,7 @@ const RecetasTab = dynamic(() => import('../components/recetas/RecetasTab').then
 const AgregarProductoTab = dynamic(() => import('../components/recetas/AgregarProductoTab').then(mod => ({ default: mod.AgregarProductoTab })), { ssr: false })
 
 // 1) Ampliamos ActiveTab para incluir "cashcounter", "controlhorario", "supplierorders", "edit", "scanhistory", "solicitud", "agregarproveedor", "reportes"
-type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'xml' | 'cashcounter' | 'recetas' | 'agregarproducto' | 'timingcontrol' | 'controlhorario' | 'empleados' | 'calculohorasprecios' | 'supplierorders' | 'scanhistory' | 'edit' | 'solicitud' | 'fondogeneral' | 'agregarproveedor' | 'reportes' | 'configuracion' | 'pruebas'
+type ActiveTab = 'scanner' | 'calculator' | 'converter' | 'xml' | 'cashcounter' | 'recetas' | 'agregarproducto' | 'timingcontrol' | 'controlhorario' | 'empleados' | 'funciones' | 'calculohorasprecios' | 'supplierorders' | 'scanhistory' | 'edit' | 'solicitud' | 'fondogeneral' | 'agregarproveedor' | 'reportes' | 'configuracion' | 'pruebas'
 
 
 export default function HomePage() {
@@ -224,7 +225,7 @@ export default function HomePage() {
       if (typeof window !== 'undefined') {
         const hash = window.location.hash.replace('#', '') as ActiveTab;
         const validTabs = [
-          'scanner', 'calculator', 'converter', 'xml', 'cashcounter', 'recetas', 'agregarproducto', 'timingcontrol', 'controlhorario', 'empleados', 'calculohorasprecios', 'supplierorders', 'scanhistory', 'solicitud', 'fondogeneral', 'agregarproveedor', 'reportes', 'configuracion',
+          'scanner', 'calculator', 'converter', 'xml', 'cashcounter', 'recetas', 'agregarproducto', 'timingcontrol', 'controlhorario', 'empleados', 'funciones', 'calculohorasprecios', 'supplierorders', 'scanhistory', 'solicitud', 'fondogeneral', 'agregarproveedor', 'reportes', 'configuracion',
           ...(isSuperAdmin ? ['pruebas'] : [])
         ];
         if (validTabs.includes(hash)) {
@@ -248,7 +249,7 @@ export default function HomePage() {
       const handleHashChange = () => {
         const hash = window.location.hash.replace('#', '') as ActiveTab;
         const validTabs = [
-          'scanner', 'calculator', 'converter', 'xml', 'cashcounter', 'recetas', 'agregarproducto', 'timingcontrol', 'controlhorario', 'empleados', 'calculohorasprecios', 'supplierorders', 'scanhistory', 'edit', 'solicitud', 'fondogeneral', 'agregarproveedor', 'reportes', 'configuracion',
+          'scanner', 'calculator', 'converter', 'xml', 'cashcounter', 'recetas', 'agregarproducto', 'timingcontrol', 'controlhorario', 'empleados', 'funciones', 'calculohorasprecios', 'supplierorders', 'scanhistory', 'edit', 'solicitud', 'fondogeneral', 'agregarproveedor', 'reportes', 'configuracion',
           ...(isSuperAdmin ? ['pruebas'] : [])
         ];
         if (validTabs.includes(hash)) {
@@ -353,6 +354,11 @@ export default function HomePage() {
               {/* EMPLEADOS (próximamente) */}
               {activeTab === 'empleados' && (
                 <EmpleadosProximamente />
+              )}
+
+              {/* FUNCIONES */}
+              {activeTab === 'funciones' && (
+                <FuncionesTab />
               )}
 
               {/* CALCULO HORAS PRECIOS */}

@@ -4,6 +4,7 @@ import { ThemeProvider, HeaderWrapper, Footer, PermissionsManager } from '../com
 import { ToastProvider } from '../components/ui/ToastProvider';
 import { AuthWrapper } from '../components/auth';
 import VersionCheckInitializer from '../components/VersionCheckInitializer';
+import ReminderNotificationsInitializer from '../components/funciones/ReminderNotificationsInitializer';
 import { XmlEgresosProvider } from '../components/xml/XmlEgresosProvider';
 import BackToTop from '../components/ui/BackToTop';
 
@@ -100,6 +101,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <ToastProvider>
                 <XmlEgresosProvider>
                   <VersionCheckInitializer />
+                  <ReminderNotificationsInitializer />
                   <HeaderWrapper />
                   <main role="main" className="flex-1 flex flex-col w-full">
                     <div className="w-full" suppressHydrationWarning>
