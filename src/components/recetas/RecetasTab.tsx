@@ -93,6 +93,7 @@ export function RecetasTab() {
     }, [productos]);
 
     const [searchTerm, setSearchTerm] = React.useState("");
+    const debouncedRecetaSearch = useDebouncedValue(searchTerm, 2000);
 
     const [nombre, setNombre] = React.useState("");
     const [descripcion, setDescripcion] = React.useState("");
@@ -168,19 +169,14 @@ export function RecetasTab() {
     const resolvedError = formError || error || productosError || empresaError;
 
     const filteredRecetas = React.useMemo(() => {
-        const term = searchTerm.trim().toLowerCase();
+        const term = debouncedRecetaSearch.trim().toLowerCase();
         if (!term) return recetas;
-        return recetas.filter((r) => {
-            const n = (r.nombre || "").toLowerCase();
-            const d = (r.descripcion || "").toLowerCase();
-            const i = (r.id || "").toLowerCase();
-            return n.includes(term) || d.includes(term) || i.includes(term);
-        });
-    }, [recetas, searchTerm]);
+        return recetas.filter((r) => (r.nombre || "").toLowerCase().includes(term));
+    }, [debouncedRecetaSearch, recetas]);
 
     React.useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, company]);
+    }, [debouncedRecetaSearch, company]);
 
     const totalPages = React.useMemo(() => {
         if (itemsPerPage === "all") return 1;
@@ -711,7 +707,7 @@ export function RecetasTab() {
                 <RecetasListContent
                     isLoading={isLoading}
                     filteredCount={filteredRecetas.length}
-                    searchTerm={searchTerm}
+                    searchTerm={debouncedRecetaSearch}
                     recetas={paginatedRecetas}
                     productosById={productosById}
                     saving={saving}
