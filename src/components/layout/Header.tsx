@@ -449,7 +449,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       id: "recetas" as ActiveTab,
       name: "Recetas",
       icon: Layers,
-      description: "en mantenimiento",
+      description: "Agregar y gestionar recetas",
       permission: "recetas" as keyof UserPermissions,
     },
     {
@@ -1088,7 +1088,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                     title="Agregar producto"
                   >
                     <Plus className="w-4 h-4" />
-                    <span>en mantenimiento</span>
+                    <span>Agregar producto</span>
                   </button>
                 )}
               </div>
