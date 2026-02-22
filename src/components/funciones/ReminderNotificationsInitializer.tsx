@@ -1,20 +1,22 @@
 'use client';
 
 import React from 'react';
+import { Check } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useActorOwnership } from '@/hooks/useActorOwnership';
-import useToast from '@/hooks/useToast';
 import { getDefaultPermissions } from '@/utils/permissions';
 import { EmpresasService } from '@/services/empresas';
 import { FuncionesService } from '@/services/funciones';
 import type { Empresas, UserPermissions } from '@/types/firestore';
 
 type ReminderItem = {
+  key: string; // unique per day
   empresaId: string;
   empresaName: string;
   turno: 'apertura' | 'cierre';
   funcionId: string;
   funcionNombre: string;
+  funcionDescripcion?: string;
   reminderTimeCr: string; // HH:mm
 };
 
@@ -56,11 +58,13 @@ const getCostaRicaNow = (): { timeHHmm: string; dateKey: string } => {
 export default function ReminderNotificationsInitializer() {
   const { user: currentUser, loading: authLoading } = useAuth();
   const { ownerIds: actorOwnerIds } = useActorOwnership(currentUser);
-  const { showToast } = useToast();
 
-  const [items, setItems] = React.useState<ReminderItem[]>([]);
+  const [items, setItems] = React.useState<Array<Omit<ReminderItem, 'key'>>>([]);
+  const [queue, setQueue] = React.useState<ReminderItem[]>([]);
+  const [active, setActive] = React.useState<ReminderItem | null>(null);
 
   const firedRef = React.useRef<{ dateKey: string; set: Set<string> }>({ dateKey: '', set: new Set() });
+  const pendingRef = React.useRef<Set<string>>(new Set());
   const lastMinuteRef = React.useRef<string>('');
 
   const hasNotificacionesPermission = React.useMemo(() => {
@@ -147,13 +151,14 @@ export default function ReminderNotificationsInitializer() {
         .map((d) => ({
           funcionId: String(d.funcionId || '').trim(),
           nombre: String(d.nombre || '').trim(),
+          descripcion: d.descripcion ? String(d.descripcion).trim() : '',
           reminderTimeCr: d.reminderTimeCr ? String(d.reminderTimeCr).trim() : '',
         }))
         .filter((x) => x.funcionId && x.nombre)
         .map((x) => [x.funcionId, x] as const)
     );
 
-    const nextItems: ReminderItem[] = [];
+    const nextItems: Array<Omit<ReminderItem, 'key'>> = [];
 
     await Promise.all(
       empresas
@@ -190,6 +195,7 @@ export default function ReminderNotificationsInitializer() {
                 turno,
                 funcionId,
                 funcionNombre: String(g?.nombre || funcionId),
+                funcionDescripcion: String(g?.descripcion || '').trim() || undefined,
                 reminderTimeCr,
               });
             }
@@ -250,24 +256,32 @@ export default function ReminderNotificationsInitializer() {
       // Reset daily fired keys.
       if (firedRef.current.dateKey !== dateKey) {
         firedRef.current = { dateKey, set: new Set() };
+        pendingRef.current = new Set();
         persistFired();
       }
 
       const matching = items.filter((it) => it.reminderTimeCr === timeHHmm);
       if (matching.length === 0) return;
 
+      const nextToEnqueue: ReminderItem[] = [];
       for (const it of matching) {
         const key = `${dateKey}|${it.empresaId}|${it.turno}|${it.funcionId}|${it.reminderTimeCr}`;
         if (firedRef.current.set.has(key)) continue;
-        firedRef.current.set.add(key);
-
-        showToast(
-          `Recordatorio (${it.turno === 'apertura' ? 'Apertura' : 'Cierre'}): ${it.funcionNombre} — ${it.empresaName}`,
-          'info'
-        );
+        if (pendingRef.current.has(key)) continue;
+        pendingRef.current.add(key);
+        nextToEnqueue.push({ key, ...it });
       }
 
-      persistFired();
+      if (nextToEnqueue.length === 0) return;
+
+      setQueue((prev) => {
+        const prevKeys = new Set(prev.map((x) => x.key));
+        const merged = [...prev];
+        for (const n of nextToEnqueue) {
+          if (!prevKeys.has(n.key) && active?.key !== n.key) merged.push(n);
+        }
+        return merged;
+      });
     };
 
     tick();
@@ -276,7 +290,68 @@ export default function ReminderNotificationsInitializer() {
     return () => {
       window.clearInterval(interval);
     };
-  }, [authLoading, currentUser, hasNotificacionesPermission, items, persistFired, showToast]);
+  }, [active?.key, authLoading, currentUser, hasNotificacionesPermission, items, persistFired]);
 
-  return null;
+  // Promote from queue to active.
+  React.useEffect(() => {
+    if (active) return;
+    if (queue.length === 0) return;
+    setActive(queue[0]);
+    setQueue((prev) => prev.slice(1));
+  }, [active, queue]);
+
+  const handleDone = React.useCallback(() => {
+    if (!active) return;
+
+    const dateKey = firedRef.current.dateKey;
+    if (dateKey) {
+      firedRef.current.set.add(active.key);
+      persistFired();
+    }
+
+    pendingRef.current.delete(active.key);
+    setActive(null);
+  }, [active, persistFired]);
+
+  if (!active) return null;
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60">
+      <div className="relative w-full h-full max-w-5xl max-h-[92vh] bg-[var(--card-bg)] border border-[var(--input-border)] rounded-2xl shadow-2xl p-6 md:p-10 overflow-auto">
+        <button
+          type="button"
+          onClick={handleDone}
+          className="absolute top-4 right-4 inline-flex items-center gap-2 rounded-full border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] hover:opacity-90"
+          aria-label="Listo"
+          title="Listo"
+        >
+          <Check className="w-4 h-4" />
+          <span className="text-xs">Listo</span>
+        </button>
+
+        <div className="space-y-4">
+          <div className="text-sm text-[var(--muted-foreground)]">
+            Recordatorio {active.turno === 'apertura' ? 'de Apertura' : 'de Cierre'} — {active.empresaName}
+          </div>
+          <div className="text-3xl md:text-4xl font-bold text-[var(--foreground)] leading-tight">
+            {active.funcionNombre}
+          </div>
+          {active.funcionDescripcion ? (
+            <div className="text-base md:text-lg text-[var(--foreground)] whitespace-pre-wrap">
+              {active.funcionDescripcion}
+            </div>
+          ) : (
+            <div className="text-base md:text-lg text-[var(--muted-foreground)]">
+              (Sin descripción)
+            </div>
+          )}
+
+          <div className="pt-4 text-sm text-[var(--muted-foreground)]">
+            Hora CR: {active.reminderTimeCr}
+            {queue.length > 0 ? ` · Pendientes: ${queue.length}` : ''}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }

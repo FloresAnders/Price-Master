@@ -10,8 +10,8 @@ import type { Empresas, UserPermissions } from '@/types/firestore';
 
 type EmpresaFuncionesResolved = {
   empresa: Empresas;
-  apertura: Array<{ funcionId: string; nombre: string; reminderTimeCr?: string }>;
-  cierre: Array<{ funcionId: string; nombre: string; reminderTimeCr?: string }>;
+  apertura: Array<{ funcionId: string; nombre: string; descripcion?: string; reminderTimeCr?: string }>;
+  cierre: Array<{ funcionId: string; nombre: string; descripcion?: string; reminderTimeCr?: string }>;
 };
 
 export function FuncionesTab() {
@@ -86,6 +86,7 @@ export function FuncionesTab() {
             .map((d) => ({
               funcionId: String(d.funcionId || '').trim(),
               nombre: String(d.nombre || '').trim(),
+              descripcion: d.descripcion ? String(d.descripcion).trim() : '',
               reminderTimeCr: d.reminderTimeCr ? String(d.reminderTimeCr).trim() : '',
             }))
             .filter((x) => x.funcionId && x.nombre)
@@ -124,6 +125,7 @@ export function FuncionesTab() {
                   return {
                     funcionId,
                     nombre: g?.nombre || funcionId,
+                    descripcion: String(g?.descripcion || '').trim() || undefined,
                     reminderTimeCr: g?.reminderTimeCr ? g.reminderTimeCr : undefined,
                   };
                 })
@@ -218,12 +220,21 @@ export function FuncionesTab() {
                     {row.apertura.length === 0 ? (
                       <div className="text-sm text-[var(--muted-foreground)]">Sin funciones asignadas.</div>
                     ) : (
-                      <ul className="space-y-1">
+                      <ul className="divide-y divide-[var(--input-border)]">
                         {row.apertura.map((f) => (
-                          <li key={`a-${f.funcionId}`} className="text-sm text-[var(--foreground)] flex items-center justify-between gap-2">
-                            <span className="truncate">{f.nombre}</span>
+                          <li key={`a-${f.funcionId}`} className="py-2 text-sm text-[var(--foreground)] flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="truncate">{f.nombre}</div>
+                              {f.descripcion ? (
+                                <div className="text-xs text-[var(--muted-foreground)] leading-snug break-words">
+                                  {f.descripcion}
+                                </div>
+                              ) : null}
+                            </div>
                             {f.reminderTimeCr ? (
-                              <span className="text-xs text-[var(--muted-foreground)]">{f.reminderTimeCr}</span>
+                              <span className="text-xs text-[var(--muted-foreground)] whitespace-nowrap">
+                                {f.reminderTimeCr}
+                              </span>
                             ) : null}
                           </li>
                         ))}
@@ -236,12 +247,21 @@ export function FuncionesTab() {
                     {row.cierre.length === 0 ? (
                       <div className="text-sm text-[var(--muted-foreground)]">Sin funciones asignadas.</div>
                     ) : (
-                      <ul className="space-y-1">
+                      <ul className="divide-y divide-[var(--input-border)]">
                         {row.cierre.map((f) => (
-                          <li key={`c-${f.funcionId}`} className="text-sm text-[var(--foreground)] flex items-center justify-between gap-2">
-                            <span className="truncate">{f.nombre}</span>
+                          <li key={`c-${f.funcionId}`} className="py-2 text-sm text-[var(--foreground)] flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="truncate">{f.nombre}</div>
+                              {f.descripcion ? (
+                                <div className="text-xs text-[var(--muted-foreground)] leading-snug break-words">
+                                  {f.descripcion}
+                                </div>
+                              ) : null}
+                            </div>
                             {f.reminderTimeCr ? (
-                              <span className="text-xs text-[var(--muted-foreground)]">{f.reminderTimeCr}</span>
+                              <span className="text-xs text-[var(--muted-foreground)] whitespace-nowrap">
+                                {f.reminderTimeCr}
+                              </span>
                             ) : null}
                           </li>
                         ))}
