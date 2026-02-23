@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useActorOwnership } from '@/hooks/useActorOwnership';
 import { getDefaultPermissions } from '@/utils/permissions';
 import { EmpresasService } from '@/services/empresas';
-import { FuncionesService, getFuncionIdLookupKeys } from '@/services/funciones';
+import { FuncionesService, getFuncionIdLookupKeys, lookupGeneralByFuncionId } from '@/services/funciones';
 import type { Empresas, UserPermissions } from '@/types/firestore';
 
 type EmpresaFuncionesResolved = {
@@ -127,11 +127,14 @@ export function FuncionesTab() {
             const mapIds = (ids: string[]) =>
               ids
                 .map((funcionId) => {
-                  const g = generalById.get(funcionId);
+                  const g = lookupGeneralByFuncionId(generalById, funcionId);
+                  const isResolved = Boolean(g?.nombre);
                   return {
                     funcionId,
-                    nombre: g?.nombre || funcionId,
-                    descripcion: String(g?.descripcion || '').trim() || undefined,
+                    nombre: isResolved ? g!.nombre : 'Función no encontrada',
+                    descripcion: isResolved
+                      ? (String(g?.descripcion || '').trim() || undefined)
+                      : `ID: ${funcionId}`,
                     reminderTimeCr: g?.reminderTimeCr ? g.reminderTimeCr : undefined,
                   };
                 })

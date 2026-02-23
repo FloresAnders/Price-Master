@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useActorOwnership } from '@/hooks/useActorOwnership';
 import { getDefaultPermissions } from '@/utils/permissions';
 import { EmpresasService } from '@/services/empresas';
-import { FuncionesService, getFuncionIdLookupKeys } from '@/services/funciones';
+import { FuncionesService, getFuncionIdLookupKeys, lookupGeneralByFuncionId } from '@/services/funciones';
 import type { Empresas, UserPermissions } from '@/types/firestore';
 
 type ReminderItem = {
@@ -191,7 +191,7 @@ export default function ReminderNotificationsInitializer() {
 
           const pushItems = (turno: 'apertura' | 'cierre', funcionIds: string[]) => {
             for (const funcionId of funcionIds) {
-              const g = generalById.get(funcionId);
+              const g = lookupGeneralByFuncionId(generalById, funcionId);
               const reminderTimeCr = String(g?.reminderTimeCr || '').trim();
               if (!reminderTimeCr) continue;
 
@@ -200,8 +200,9 @@ export default function ReminderNotificationsInitializer() {
                 empresaName: String(empresa?.name || empresaId),
                 turno,
                 funcionId,
-                funcionNombre: String(g?.nombre || funcionId),
-                funcionDescripcion: String(g?.descripcion || '').trim() || undefined,
+                funcionNombre: String(g?.nombre || 'Función no encontrada'),
+                funcionDescripcion:
+                  String(g?.descripcion || '').trim() || (g ? undefined : `ID: ${funcionId}`),
                 reminderTimeCr,
               });
             }

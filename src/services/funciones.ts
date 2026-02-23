@@ -313,3 +313,38 @@ export function getFuncionIdLookupKeys(rawFuncionId: string): string[] {
 
   return keys;
 }
+
+export function lookupGeneralByFuncionId<T>(
+  generalById: Map<string, T>,
+  rawFuncionId: string
+): T | undefined {
+  const raw = String(rawFuncionId || '').trim();
+  if (!raw) return undefined;
+
+  // Fast path: exact match.
+  const direct = generalById.get(raw);
+  if (direct !== undefined) return direct;
+
+  // Try numeric/padded variants.
+  for (const key of getFuncionIdLookupKeys(raw)) {
+    const v = generalById.get(key);
+    if (v !== undefined) return v;
+  }
+
+  // Backward compatibility: some legacy docs may have stored the Firestore docId
+  // (e.g. "0001_nombre") instead of the plain funcionId. Try prefix before "_".
+  if (raw.includes('_')) {
+    const prefix = raw.split('_')[0]?.trim();
+    if (prefix) {
+      const byPrefix = generalById.get(prefix);
+      if (byPrefix !== undefined) return byPrefix;
+
+      for (const key of getFuncionIdLookupKeys(prefix)) {
+        const v = generalById.get(key);
+        if (v !== undefined) return v;
+      }
+    }
+  }
+
+  return undefined;
+}
