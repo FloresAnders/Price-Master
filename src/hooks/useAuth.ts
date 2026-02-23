@@ -5,7 +5,6 @@ import { UsersService } from '../services/users';
 import { normalizeUserPermissions } from '../utils/permissions';
 import { db } from '@/config/firebase';
 import { doc, getDoc, onSnapshot } from 'firebase/firestore';
-import versionData from '../data/version.json';
 
 type StorageVersionChangeHandler = (newVersionstorage: string) => void;
 
@@ -25,26 +24,13 @@ const notifyStorageVersionHandlers = (newVersionstorage: string) => {
   }
 };
 
-const ensureStorageVersionListener = async (fallbackVersionstorage: string) => {
+const ensureStorageVersionListener = async () => {
   if (typeof window === 'undefined') return;
   if (storageVersionUnsubscribe) return;
   if (storageVersionStartPromise) return storageVersionStartPromise;
 
   storageVersionStartPromise = (async () => {
     const versionRef = doc(db, 'version', 'current');
-
-    try {
-      const snap = await getDoc(versionRef);
-      if (snap.exists()) {
-        const v = String((snap.data() as any)?.versionstorage || '').trim();
-        storageVersionInitial = v || fallbackVersionstorage || '';
-      } else {
-        storageVersionInitial = fallbackVersionstorage || '';
-      }
-    } catch (error) {
-      console.warn('Error obtaining initial versionstorage:', error);
-      storageVersionInitial = fallbackVersionstorage || '';
-    }
 
     storageVersionUnsubscribe = onSnapshot(
       versionRef,
@@ -75,12 +61,9 @@ const ensureStorageVersionListener = async (fallbackVersionstorage: string) => {
   return storageVersionStartPromise;
 };
 
-const subscribeStorageVersionChanges = (
-  handler: StorageVersionChangeHandler,
-  fallbackVersionstorage: string
-) => {
+const subscribeStorageVersionChanges = (handler: StorageVersionChangeHandler) => {
   storageVersionHandlers.add(handler);
-  void ensureStorageVersionListener(fallbackVersionstorage);
+  void ensureStorageVersionListener();
 
   return () => {
     storageVersionHandlers.delete(handler);
@@ -134,7 +117,6 @@ const SESSION_EXPIRED_RELOAD_WINDOW_MS = 10_000;
 
 // Forzar re-login cuando cambia el versionado de storage (version.json)
 // Solo se activa con `versionstorage`.
-const STORAGE_VERSION_FALLBACK = (versionData as unknown as { versionstorage?: string }).versionstorage || '';
 const STORAGE_VERSION_KEY = 'pricemaster_storage_version';
 const STORAGE_VERSION_INVALIDATION_SESSION_KEY = 'pricemaster_storage_version_invalidated';
 
@@ -145,7 +127,7 @@ export function useAuth() {
   const [sessionWarning, setSessionWarning] = useState(false);
   const [useTokenAuth, setUseTokenAuth] = useState(false); // Estado para controlar el tipo de autenticación
   const tokenHydratedRef = useRef<Set<string>>(new Set());
-  const storageVersionRef = useRef<string>(String(STORAGE_VERSION_FALLBACK || '').trim());
+  const storageVersionRef = useRef<string>('');
   // Función para generar ID de sesión único (short format)
   const generateSessionId = () => {
     // Generate a short session ID: timestamp base36 + random string
@@ -314,8 +296,8 @@ export function useAuth() {
   const checkExistingSession = useCallback(() => {
     try {
       // Si la app se actualizó (versionstorage cambió), limpiar storage y forzar re-login.
-      // Fuente: listener de Firestore (cuando está disponible) o fallback en version.json.
-      const effectiveStorageVersion = String(storageVersionRef.current || STORAGE_VERSION_FALLBACK || '').trim();
+      // Fuente: SOLO Firestore.
+      const effectiveStorageVersion = String(storageVersionRef.current || '').trim();
       if (effectiveStorageVersion) {
         const didInvalidate = maybeInvalidateForStorageVersion(effectiveStorageVersion, 'checkExistingSession');
         if (didInvalidate) return;
@@ -468,17 +450,36 @@ export function useAuth() {
     }, [checkInactivity, logoutAndReloadOnce, user, isAuthenticated, sessionWarning, useTokenAuth]);
 
   useEffect(() => {
-    // Escuchar cambios en Firestore para invalidación inmediata de storage.
-    // Patrón: similar a versionChecker, pero aquí la reacción es logout+reload.
-    const unsubscribe = subscribeStorageVersionChanges(
-      (newVersionstorage) => {
-        storageVersionRef.current = String(newVersionstorage || '').trim();
-        maybeInvalidateForStorageVersion(storageVersionRef.current, 'firestore_versionstorage_change');
-      },
-      String(STORAGE_VERSION_FALLBACK || '').trim()
-    );
+    // 1) Obtener versionstorage actual desde Firestore (solo BD) y validar inmediatamente.
+    // 2) Suscribirse a cambios (tiempo real) para invalidación inmediata.
+    let mounted = true;
+    const versionRef = doc(db, 'version', 'current');
+
+    void (async () => {
+      try {
+        const snap = await getDoc(versionRef);
+        if (!mounted) return;
+        if (!snap.exists()) return;
+
+        const serverVersionstorage = String((snap.data() as any)?.versionstorage || '').trim();
+        if (!serverVersionstorage) return;
+
+        storageVersionRef.current = serverVersionstorage;
+        if (!storageVersionInitial) storageVersionInitial = serverVersionstorage;
+        maybeInvalidateForStorageVersion(serverVersionstorage, 'firestore_versionstorage_initial');
+      } catch (error) {
+        // Sin fallback: si Firestore falla, no invalidamos.
+        console.warn('Error fetching versionstorage from Firestore:', error);
+      }
+    })();
+
+    const unsubscribe = subscribeStorageVersionChanges((newVersionstorage) => {
+      storageVersionRef.current = String(newVersionstorage || '').trim();
+      maybeInvalidateForStorageVersion(storageVersionRef.current, 'firestore_versionstorage_change');
+    });
 
     return () => {
+      mounted = false;
       unsubscribe();
     };
   }, [maybeInvalidateForStorageVersion]);
