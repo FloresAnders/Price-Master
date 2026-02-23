@@ -177,10 +177,12 @@ export function useAuth() {
         }
 
         if (!newUserData.ownerId && newUserData.id && !tokenHydratedRef.current.has(newUserData.id)) {
-          tokenHydratedRef.current.add(newUserData.id);
+          const userId = newUserData.id;
+          if (!userId) return;
+          tokenHydratedRef.current.add(userId);
           void (async () => {
             try {
-              const fresh = await UsersService.getUserById(newUserData.id);
+              const fresh = await UsersService.getUserById(userId);
               if (!fresh) return;
               const enriched = {
                 ...newUserData,
