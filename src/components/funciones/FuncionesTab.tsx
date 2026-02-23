@@ -45,9 +45,9 @@ export function FuncionesTab() {
         const allEmpresas = await EmpresasService.getAllEmpresas();
         const normalized = Array.isArray(allEmpresas) ? allEmpresas : [];
 
-        const role = currentUser.role || 'user';
+        const role = String(currentUser.role || 'user').trim().toLowerCase();
         let empresas: Empresas[] = [];
-        if (role === 'superadmin') {
+        if (role === 'superadmin' || role === 'admin') {
           empresas = normalized;
         } else if (role === 'user') {
           const companyKey = String(currentUser.ownercompanie || '').trim().toLowerCase();

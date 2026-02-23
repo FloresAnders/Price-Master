@@ -6,6 +6,8 @@ interface TokenPayload {
   userId: string;
   name: string;
   ownercompanie?: string;
+  ownerId?: string;
+  eliminate?: boolean;
   role: 'admin' | 'user' | 'superadmin';
   permissions?: UserPermissions;
   sessionId: string;
@@ -129,14 +131,18 @@ export class TokenService {
       id: userData.id,
       name: userData.name,
       ownercompanie: userData.ownercompanie,
+      ownerId: userData.ownerId,
       role: userData.role,
       permissions: userData.permissions,
+      eliminate: userData.eliminate,
     };
 
     const tokenPayload: TokenPayload = {
       userId: userData.id!,
       name: userData.name,
       ownercompanie: userData.ownercompanie,
+      ownerId: userData.ownerId,
+      eliminate: userData.eliminate,
       role: userData.role!,
       permissions: userData.permissions,
       sessionId,
@@ -293,6 +299,8 @@ export class TokenService {
         userId: ((sessionData.user as unknown) as Record<string, unknown>).id as string || '',
         name: ((sessionData.user as unknown) as Record<string, unknown>).name as string,
         ownercompanie: (userRec.ownercompanie as string | undefined),
+        ownerId: (userRec.ownerId as string | undefined),
+        eliminate: (userRec.eliminate as boolean | undefined),
         role: sessionData.user.role as 'admin' | 'user' | 'superadmin',
         permissions: sessionData.user.permissions,
         sessionId: sessionData.sessionId,

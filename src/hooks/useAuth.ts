@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { User, UserPermissions } from '../types/firestore';
 import { TokenService } from '../services/tokenService';
 import { UsersService } from '../services/users';
@@ -46,6 +46,7 @@ export function useAuth() {
   const [loading, setLoading] = useState(true);
   const [sessionWarning, setSessionWarning] = useState(false);
   const [useTokenAuth, setUseTokenAuth] = useState(false); // Estado para controlar el tipo de autenticación
+  const tokenHydratedRef = useRef<Set<string>>(new Set());
   // Función para generar ID de sesión único (short format)
   const generateSessionId = () => {
     // Generate a short session ID: timestamp base36 + random string
@@ -173,6 +174,27 @@ export function useAuth() {
         const shouldShowWarning = hoursLeft <= 24 && hoursLeft > 0;
         if (shouldShowWarning !== sessionWarning) {
           setSessionWarning(shouldShowWarning);
+        }
+
+        if (!newUserData.ownerId && newUserData.id && !tokenHydratedRef.current.has(newUserData.id)) {
+          tokenHydratedRef.current.add(newUserData.id);
+          void (async () => {
+            try {
+              const fresh = await UsersService.getUserById(newUserData.id);
+              if (!fresh) return;
+              const enriched = {
+                ...newUserData,
+                ownerId: String(fresh.ownerId || newUserData.ownerId || ''),
+                eliminate: fresh.eliminate ?? newUserData.eliminate,
+                role: fresh.role || newUserData.role,
+                ownercompanie: fresh.ownercompanie || newUserData.ownercompanie,
+                permissions: normalizeUserPermissions(fresh.permissions, (fresh.role as any) || newUserData.role || 'user')
+              };
+              setUser(enriched);
+            } catch (error) {
+              console.warn('Failed to hydrate token session user:', error);
+            }
+          })();
         }
 
         return;

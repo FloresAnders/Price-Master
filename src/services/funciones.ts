@@ -86,7 +86,8 @@ export class FuncionesService {
 
     const general = docs.filter((d) => d && (d.type === 'general' || (d.funcionId && d.nombre && !d.empresaId)));
 
-    if (actor.role === 'superadmin') {
+    const role = String(actor.role || '').trim().toLowerCase();
+    if (role === 'superadmin' || role === 'admin') {
       return general.map((d) => ({ docId: String(d.id), ...(d as FuncionGeneralDoc) }));
     }
 
