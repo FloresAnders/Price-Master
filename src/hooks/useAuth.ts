@@ -3,7 +3,98 @@ import type { User, UserPermissions } from '../types/firestore';
 import { TokenService } from '../services/tokenService';
 import { UsersService } from '../services/users';
 import { normalizeUserPermissions } from '../utils/permissions';
+import { db } from '@/config/firebase';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import versionData from '../data/version.json';
+
+type StorageVersionChangeHandler = (newVersionstorage: string) => void;
+
+let storageVersionUnsubscribe: (() => void) | null = null;
+let storageVersionInitial: string | null = null;
+let storageVersionLastNotified: string | null = null;
+let storageVersionStartPromise: Promise<void> | null = null;
+const storageVersionHandlers = new Set<StorageVersionChangeHandler>();
+
+const notifyStorageVersionHandlers = (newVersionstorage: string) => {
+  for (const handler of Array.from(storageVersionHandlers)) {
+    try {
+      handler(newVersionstorage);
+    } catch (err) {
+      console.warn('Error in storage version handler:', err);
+    }
+  }
+};
+
+const ensureStorageVersionListener = async (fallbackVersionstorage: string) => {
+  if (typeof window === 'undefined') return;
+  if (storageVersionUnsubscribe) return;
+  if (storageVersionStartPromise) return storageVersionStartPromise;
+
+  storageVersionStartPromise = (async () => {
+    const versionRef = doc(db, 'version', 'current');
+
+    try {
+      const snap = await getDoc(versionRef);
+      if (snap.exists()) {
+        const v = String((snap.data() as any)?.versionstorage || '').trim();
+        storageVersionInitial = v || fallbackVersionstorage || '';
+      } else {
+        storageVersionInitial = fallbackVersionstorage || '';
+      }
+    } catch (error) {
+      console.warn('Error obtaining initial versionstorage:', error);
+      storageVersionInitial = fallbackVersionstorage || '';
+    }
+
+    storageVersionUnsubscribe = onSnapshot(
+      versionRef,
+      (snap) => {
+        if (!snap.exists()) return;
+        const serverVersionstorage = String((snap.data() as any)?.versionstorage || '').trim();
+        if (!serverVersionstorage) return;
+
+        if (!storageVersionInitial) {
+          storageVersionInitial = serverVersionstorage;
+          return;
+        }
+
+        if (
+          serverVersionstorage !== storageVersionInitial &&
+          serverVersionstorage !== storageVersionLastNotified
+        ) {
+          storageVersionLastNotified = serverVersionstorage;
+          notifyStorageVersionHandlers(serverVersionstorage);
+        }
+      },
+      (error) => {
+        console.warn('Error listening versionstorage changes:', error);
+      }
+    );
+  })();
+
+  return storageVersionStartPromise;
+};
+
+const subscribeStorageVersionChanges = (
+  handler: StorageVersionChangeHandler,
+  fallbackVersionstorage: string
+) => {
+  storageVersionHandlers.add(handler);
+  void ensureStorageVersionListener(fallbackVersionstorage);
+
+  return () => {
+    storageVersionHandlers.delete(handler);
+    if (storageVersionHandlers.size === 0) {
+      if (storageVersionUnsubscribe) {
+        storageVersionUnsubscribe();
+      }
+      storageVersionUnsubscribe = null;
+      storageVersionInitial = null;
+      storageVersionLastNotified = null;
+      storageVersionStartPromise = null;
+    }
+  };
+};
 
 interface SessionData {
   id?: string;
@@ -43,7 +134,7 @@ const SESSION_EXPIRED_RELOAD_WINDOW_MS = 10_000;
 
 // Forzar re-login cuando cambia el versionado de storage (version.json)
 // Solo se activa con `versionstorage`.
-const STORAGE_VERSION = (versionData as unknown as { versionstorage?: string }).versionstorage || '';
+const STORAGE_VERSION_FALLBACK = (versionData as unknown as { versionstorage?: string }).versionstorage || '';
 const STORAGE_VERSION_KEY = 'pricemaster_storage_version';
 const STORAGE_VERSION_INVALIDATION_SESSION_KEY = 'pricemaster_storage_version_invalidated';
 
@@ -54,6 +145,7 @@ export function useAuth() {
   const [sessionWarning, setSessionWarning] = useState(false);
   const [useTokenAuth, setUseTokenAuth] = useState(false); // Estado para controlar el tipo de autenticación
   const tokenHydratedRef = useRef<Set<string>>(new Set());
+  const storageVersionRef = useRef<string>(String(STORAGE_VERSION_FALLBACK || '').trim());
   // Función para generar ID de sesión único (short format)
   const generateSessionId = () => {
     // Generate a short session ID: timestamp base36 + random string
@@ -141,62 +233,92 @@ export function useAuth() {
     }, 50);
   }, [logout]);
 
-  const checkExistingSession = useCallback(() => {
-    try {
-      // Si la app se actualizó (version.json cambió), limpiar storage y forzar re-login.
-      // Esto evita inconsistencias por sesiones/tokens viejos entre dispositivos.
-      if (typeof window !== 'undefined' && STORAGE_VERSION) {
+  const maybeInvalidateForStorageVersion = useCallback(
+    (targetVersionstorage: string, reason?: string) => {
+      if (typeof window === 'undefined') return false;
+
+      const desired = String(targetVersionstorage || '').trim();
+      if (!desired) return false;
+
+      try {
+        const invalidatedFor = sessionStorage.getItem(STORAGE_VERSION_INVALIDATION_SESSION_KEY);
+        if (invalidatedFor === desired) {
+          return false;
+        }
+      } catch {
+        // ignore
+      }
+
+      let storedVersion: string | null = null;
+      try {
+        storedVersion = localStorage.getItem(STORAGE_VERSION_KEY);
+      } catch {
+        // ignore
+      }
+
+      if (storedVersion === desired) {
+        // Marcar para evitar loops en la misma pestaña
         try {
-          const invalidatedFor = sessionStorage.getItem(STORAGE_VERSION_INVALIDATION_SESSION_KEY);
-          if (invalidatedFor !== STORAGE_VERSION) {
-            const storedVersion = localStorage.getItem(STORAGE_VERSION_KEY);
-            if (storedVersion !== STORAGE_VERSION) {
-              try {
-                TokenService.revokeToken();
-              } catch {
-                // ignore
-              }
-
-              try {
-                localStorage.clear();
-              } catch {
-                // ignore
-              }
-
-              try {
-                sessionStorage.clear();
-              } catch {
-                // ignore
-              }
-
-              // Marcar como invalidado (evita loops) y guardar nueva versión.
-              try {
-                sessionStorage.setItem(STORAGE_VERSION_INVALIDATION_SESSION_KEY, STORAGE_VERSION);
-              } catch {
-                // ignore
-              }
-
-              try {
-                localStorage.setItem(STORAGE_VERSION_KEY, STORAGE_VERSION);
-              } catch {
-                // ignore
-              }
-
-              setUser(null);
-              setIsAuthenticated(false);
-              setSessionWarning(false);
-              setUseTokenAuth(false);
-              setLoading(false);
-
-              setTimeout(() => {
-                window.location.reload();
-              }, 50);
-              return;
-            }
-          }
+          sessionStorage.setItem(STORAGE_VERSION_INVALIDATION_SESSION_KEY, desired);
         } catch {
           // ignore
         }
+        return false;
+      }
+
+      try {
+        TokenService.revokeToken();
+      } catch {
+        // ignore
+      }
+
+      try {
+        localStorage.clear();
+      } catch {
+        // ignore
+      }
+
+      try {
+        sessionStorage.clear();
+      } catch {
+        // ignore
+      }
+
+      try {
+        sessionStorage.setItem(STORAGE_VERSION_INVALIDATION_SESSION_KEY, desired);
+      } catch {
+        // ignore
+      }
+
+      try {
+        localStorage.setItem(STORAGE_VERSION_KEY, desired);
+      } catch {
+        // ignore
+      }
+
+      setUser(null);
+      setIsAuthenticated(false);
+      setSessionWarning(false);
+      setUseTokenAuth(false);
+      setLoading(false);
+
+      setTimeout(() => {
+        window.location.reload();
+      }, 50);
+
+      return true;
+    },
+    []
+  );
+
+  const checkExistingSession = useCallback(() => {
+    try {
+      // Si la app se actualizó (versionstorage cambió), limpiar storage y forzar re-login.
+      // Fuente: listener de Firestore (cuando está disponible) o fallback en version.json.
+      const effectiveStorageVersion = String(storageVersionRef.current || STORAGE_VERSION_FALLBACK || '').trim();
+      if (effectiveStorageVersion) {
+        const didInvalidate = maybeInvalidateForStorageVersion(effectiveStorageVersion, 'checkExistingSession');
+        if (didInvalidate) return;
       }
 
       // Verificar primero si hay una sesión de token
@@ -344,6 +466,22 @@ export function useAuth() {
       setLoading(false);
     }
     }, [checkInactivity, logoutAndReloadOnce, user, isAuthenticated, sessionWarning, useTokenAuth]);
+
+  useEffect(() => {
+    // Escuchar cambios en Firestore para invalidación inmediata de storage.
+    // Patrón: similar a versionChecker, pero aquí la reacción es logout+reload.
+    const unsubscribe = subscribeStorageVersionChanges(
+      (newVersionstorage) => {
+        storageVersionRef.current = String(newVersionstorage || '').trim();
+        maybeInvalidateForStorageVersion(storageVersionRef.current, 'firestore_versionstorage_change');
+      },
+      String(STORAGE_VERSION_FALLBACK || '').trim()
+    );
+
+    return () => {
+      unsubscribe();
+    };
+  }, [maybeInvalidateForStorageVersion]);
   useEffect(() => {
     let unsubscribeUser: (() => void) | null = null;
 

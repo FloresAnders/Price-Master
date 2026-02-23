@@ -21,6 +21,7 @@
     "firebase:clear": "curl -X DELETE http://localhost:3000/api/firebase-test",
     "test:users": "start test-users-functionality.html",
     "update": "node scripts/update-version.js",
+    "update-versionstorage": "node scripts/update-versionstorage.js",
     "check": "node scripts/check-version.js"
   },
   "dependencies": {
