@@ -3,6 +3,7 @@ import type { User, UserPermissions } from '../types/firestore';
 import { TokenService } from '../services/tokenService';
 import { UsersService } from '../services/users';
 import { normalizeUserPermissions } from '../utils/permissions';
+import versionData from '../data/version.json';
 
 interface SessionData {
   id?: string;
@@ -39,6 +40,12 @@ const MAX_INACTIVITY_MINUTES = {
 // Evita loops de recarga cuando expiró la sesión
 const SESSION_EXPIRED_RELOAD_KEY = 'pricemaster_session_expired_reload_at';
 const SESSION_EXPIRED_RELOAD_WINDOW_MS = 10_000;
+
+// Forzar re-login cuando cambia el versionado de storage (version.json)
+// Solo se activa con `versionstorage`.
+const STORAGE_VERSION = (versionData as unknown as { versionstorage?: string }).versionstorage || '';
+const STORAGE_VERSION_KEY = 'pricemaster_storage_version';
+const STORAGE_VERSION_INVALIDATION_SESSION_KEY = 'pricemaster_storage_version_invalidated';
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
@@ -136,6 +143,62 @@ export function useAuth() {
 
   const checkExistingSession = useCallback(() => {
     try {
+      // Si la app se actualizó (version.json cambió), limpiar storage y forzar re-login.
+      // Esto evita inconsistencias por sesiones/tokens viejos entre dispositivos.
+      if (typeof window !== 'undefined' && STORAGE_VERSION) {
+        try {
+          const invalidatedFor = sessionStorage.getItem(STORAGE_VERSION_INVALIDATION_SESSION_KEY);
+          if (invalidatedFor !== STORAGE_VERSION) {
+            const storedVersion = localStorage.getItem(STORAGE_VERSION_KEY);
+            if (storedVersion !== STORAGE_VERSION) {
+              try {
+                TokenService.revokeToken();
+              } catch {
+                // ignore
+              }
+
+              try {
+                localStorage.clear();
+              } catch {
+                // ignore
+              }
+
+              try {
+                sessionStorage.clear();
+              } catch {
+                // ignore
+              }
+
+              // Marcar como invalidado (evita loops) y guardar nueva versión.
+              try {
+                sessionStorage.setItem(STORAGE_VERSION_INVALIDATION_SESSION_KEY, STORAGE_VERSION);
+              } catch {
+                // ignore
+              }
+
+              try {
+                localStorage.setItem(STORAGE_VERSION_KEY, STORAGE_VERSION);
+              } catch {
+                // ignore
+              }
+
+              setUser(null);
+              setIsAuthenticated(false);
+              setSessionWarning(false);
+              setUseTokenAuth(false);
+              setLoading(false);
+
+              setTimeout(() => {
+                window.location.reload();
+              }, 50);
+              return;
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+
       // Verificar primero si hay una sesión de token
       const tokenInfo = TokenService.getTokenInfo();
       if (tokenInfo.isValid && tokenInfo.user) {
