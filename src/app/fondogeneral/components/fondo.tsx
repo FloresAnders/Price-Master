@@ -163,6 +163,9 @@ export type FondoEntry = {
   accountId?: MovementAccountKey;
   currency?: "CRC" | "USD";
   breakdown?: Record<number, number>;
+  // Para cierres: saldos al momento del cierre (persistidos en el movimiento)
+  closingBalanceCRC?: number;
+  closingBalanceUSD?: number;
   // audit fields: when an edit is recorded, we create an audit movement
   isAudit?: boolean;
   originalEntryId?: string;
@@ -6203,6 +6206,9 @@ export function FondoSection({
         currentUSD: number;
       } | null = null;
 
+      const closingBalanceCRC = Math.trunc(record.totalCRC ?? 0);
+      const closingBalanceUSD = Math.trunc(record.totalUSD ?? 0);
+
       const buildCierreMovementBaseId = (when: Date) => {
         // Local time, URL-safe: 2025_12_15-02_10_38_929_CIERRE
         const yyyy = when.getFullYear();
@@ -6295,6 +6301,8 @@ export function FondoSection({
           accountId: accountKey,
           currency: "CRC",
           breakdown: closing.breakdownCRC ?? {},
+          closingBalanceCRC,
+          closingBalanceUSD,
         } as FondoEntry;
         newMovements.push(entry);
       }
@@ -6320,6 +6328,8 @@ export function FondoSection({
           createdAt,
           accountId: accountKey,
           currency: "USD",
+          closingBalanceCRC,
+          closingBalanceUSD,
         } as FondoEntry;
         if ((entry as any).currency === "USD")
           (entry as any).breakdown = closing.breakdownUSD ?? {};
@@ -6342,6 +6352,8 @@ export function FondoSection({
           accountId: accountKey,
           currency: "CRC",
           breakdown: closing.breakdownCRC ?? {},
+          closingBalanceCRC,
+          closingBalanceUSD,
         } as FondoEntry;
         newMovements.push(entry);
       }
@@ -6517,6 +6529,8 @@ export function FondoSection({
                 accountId: accountKey,
                 currency: cur,
                 originalEntryId: record.id,
+                closingBalanceCRC: movement.closingBalanceCRC,
+                closingBalanceUSD: movement.closingBalanceUSD,
               } as FondoEntry;
 
               const saved = await persistMovementToFirestore(fondoEntries, "edit", {
@@ -6620,6 +6634,8 @@ export function FondoSection({
                   notes: match.notes,
                   createdAt: match.createdAt,
                   manager: AUTO_ADJUSTMENT_MANAGER,
+                  closingBalanceCRC: match.closingBalanceCRC,
+                  closingBalanceUSD: match.closingBalanceUSD,
                   isAudit: true,
                   originalEntryId: e.originalEntryId ?? e.id,
                   auditDetails: JSON.stringify({ history: compressedHistory }),
@@ -8812,7 +8828,118 @@ export function FondoSection({
                             #{fe.invoiceNumber}
                           </td>
                           <td className="px-3 py-2 align-top">
-                            {isSuccessfulClosing ? (
+                            {isAutoAdjustment ? (
+                              (() => {
+                                const closingRecord = fe.originalEntryId
+                                  ? dailyClosings.find(
+                                      (d) => d.id === fe.originalEntryId
+                                    )
+                                  : null;
+
+                                const hasPersistedClosingBalance =
+                                  fe.closingBalanceCRC !== undefined ||
+                                  fe.closingBalanceUSD !== undefined ||
+                                  Boolean(closingRecord);
+
+                                if (!hasPersistedClosingBalance) {
+                                  if (isSuccessfulClosing) {
+                                    return (
+                                      <div className="text-center text-[var(--muted-foreground)]">
+                                        —
+                                      </div>
+                                    );
+                                  }
+
+                                  return (
+                                    <div className="flex flex-col gap-1 text-right">
+                                      <div className="flex items-center justify-end gap-2">
+                                        {isEntryEgreso ? (
+                                          <ArrowUpRight className="w-4 h-4 text-red-500" />
+                                        ) : (
+                                          <ArrowDownRight className="w-4 h-4 text-green-500" />
+                                        )}
+                                        <span
+                                          className={`font-semibold ${isEntryEgreso
+                                            ? "text-red-500"
+                                            : "text-green-600"
+                                            }`}
+                                        >
+                                          {`${amountPrefix} ${formatByCurrency(
+                                            entryCurrency,
+                                            movementAmount
+                                          )}`}
+                                        </span>
+                                      </div>
+                                      <span className="text-xs text-[var(--muted-foreground)]">
+                                        Saldo anterior:{" "}
+                                        {formatByCurrency(
+                                          entryCurrency,
+                                          previousBalance
+                                        )}
+                                      </span>
+                                    </div>
+                                  );
+                                }
+
+                                const closingCRC = Math.trunc(
+                                  fe.closingBalanceCRC ??
+                                    closingRecord?.totalCRC ??
+                                    closingRecord?.recordedBalanceCRC ??
+                                    0
+                                );
+                                const closingUSD = Math.trunc(
+                                  fe.closingBalanceUSD ??
+                                    closingRecord?.totalUSD ??
+                                    closingRecord?.recordedBalanceUSD ??
+                                    0
+                                );
+
+                                return (
+                                  <div className="flex flex-col gap-1 text-right">
+                                    <div className="flex items-center justify-end gap-2">
+                                      {movementAmount !== 0 ? (
+                                        isEntryEgreso ? (
+                                          <ArrowUpRight className="w-4 h-4 text-red-500" />
+                                        ) : (
+                                          <ArrowDownRight className="w-4 h-4 text-green-500" />
+                                        )
+                                      ) : null}
+                                      <span
+                                        className={`font-semibold ${movementAmount === 0
+                                          ? "text-[var(--muted-foreground)]"
+                                          : isEntryEgreso
+                                            ? "text-red-500"
+                                            : "text-green-600"
+                                          }`}
+                                      >
+                                        {movementAmount === 0
+                                          ? formatByCurrency(entryCurrency, 0)
+                                          : `${amountPrefix} ${formatByCurrency(
+                                              entryCurrency,
+                                              movementAmount
+                                            )}`}
+                                      </span>
+                                    </div>
+
+                                    <div className="text-xs text-[var(--muted-foreground)]">
+                                      Saldo al cierre
+                                    </div>
+                                    <div className="text-sm font-semibold text-[var(--foreground)] flex flex-col gap-0.5">
+                                      {currencyEnabled.CRC && (
+                                        <div>
+                                          {formatByCurrency("CRC", closingCRC)}
+                                        </div>
+                                      )}
+                                      {currencyEnabled.USD && (
+                                        <div>
+                                          {formatByCurrency("USD", closingUSD)}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })()
+                            ) : isSuccessfulClosing ? (
                               <div className="text-center text-[var(--muted-foreground)]">
                                 —
                               </div>
