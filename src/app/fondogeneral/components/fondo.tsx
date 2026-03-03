@@ -5775,26 +5775,75 @@ export function FondoSection({
     return "border-[var(--input-border)]";
   };
 
+  const getTodayInvoiceDDMM = (date: Date = new Date()) => {
+    const dd = String(date.getDate()).padStart(2, "0");
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    return `${dd}${mm}`;
+  };
+
+  const selectedProviderData = useMemo(() => {
+    if (!selectedProvider) return null;
+    return providers.find((p) => p.code === selectedProvider) ?? null;
+  }, [providers, selectedProvider]);
+
+  const isInvoiceAutoDateLocked = useMemo(() => {
+    if (!selectedProvider) return false;
+    if (isAutoAdjustmentProvider(selectedProvider)) return true;
+    if (selectedProvider.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME)
+      return true;
+    return (
+      selectedProviderData?.name?.toUpperCase() ===
+      CIERRE_FONDO_VENTAS_PROVIDER_NAME
+    );
+  }, [selectedProvider, selectedProviderData]);
+
+  // Si el proveedor es un cierre/ajuste automático, usar DDMM como N° factura y bloquear edición.
+  useEffect(() => {
+    if (!isInvoiceAutoDateLocked) return;
+    // Al editar un movimiento existente, no sobrescribir el N° factura guardado.
+    if (editingEntryId) return;
+    const today = getTodayInvoiceDDMM();
+    if (invoiceNumber !== today) {
+      setInvoiceNumber(today);
+      setInvoiceError("");
+    }
+  }, [isInvoiceAutoDateLocked, editingEntryId, invoiceNumber]);
+
   const handleProviderChange = (value: string) => {
     setSelectedProvider(value);
     setProviderError(""); // Clear error when user starts typing
     const oldPaymentType = paymentType;
+    let nextPaymentType: FondoEntry["paymentType"] = "COMPRA INVENTARIO";
+    let shouldAutoDateInvoice = false;
     try {
       const prov = providers.find((p) => p.code === value);
+      shouldAutoDateInvoice =
+        isAutoAdjustmentProvider(value) ||
+        prov?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME;
       if (prov && prov.type && isFondoMovementType(prov.type)) {
-        setPaymentType(prov.type as FondoEntry["paymentType"]);
+        nextPaymentType = prov.type as FondoEntry["paymentType"];
+        setPaymentType(nextPaymentType);
       } else {
         // fallback to default when provider has no type or it's invalid
-        setPaymentType("COMPRA INVENTARIO");
+        nextPaymentType = "COMPRA INVENTARIO";
+        setPaymentType(nextPaymentType);
       }
     } catch {
       // defensive: ensure UI remains usable on unexpected provider shapes
-      setPaymentType("COMPRA INVENTARIO");
+      nextPaymentType = "COMPRA INVENTARIO";
+      setPaymentType(nextPaymentType);
     }
+
+    if (shouldAutoDateInvoice) {
+      setInvoiceNumber(getTodayInvoiceDDMM());
+      setInvoiceError("");
+    }
+
     // Move amount between egreso and ingreso fields if type changes
     const oldIsEgreso =
       isEgresoType(oldPaymentType) || isGastoType(oldPaymentType);
-    const newIsEgreso = isEgresoType(paymentType) || isGastoType(paymentType);
+    const newIsEgreso =
+      isEgresoType(nextPaymentType) || isGastoType(nextPaymentType);
     if (oldIsEgreso && !newIsEgreso && egreso.trim()) {
       setIngreso(egreso);
       setEgreso("");
@@ -5804,6 +5853,7 @@ export function FondoSection({
     }
   };
   const handleInvoiceNumberChange = (value: string) => {
+    if (isInvoiceAutoDateLocked) return;
     setInvoiceNumber(value.replace(/\D/g, "").slice(0, 4));
     setInvoiceError(""); // Clear error when user starts typing
   };
@@ -5824,7 +5874,7 @@ export function FondoSection({
 
   const managerSelectDisabled =
     !company || employeesLoading || employeeOptions.length === 0;
-  const invoiceDisabled = !company;
+  const invoiceDisabled = !company || isInvoiceAutoDateLocked;
   const egresoBorderClass = amountClass(
     isEgreso,
     egreso.trim().length > 0,
@@ -6183,10 +6233,11 @@ export function FondoSection({
         const paymentType = isPositive
           ? AUTO_ADJUSTMENT_MOVEMENT_TYPE_INGRESO
           : AUTO_ADJUSTMENT_MOVEMENT_TYPE_EGRESO;
+        const invoiceDDMM = getTodayInvoiceDDMM(createdAtDate);
         const entry: FondoEntry = {
           id: cierreBaseId,
           providerCode: AUTO_ADJUSTMENT_PROVIDER_CODE,
-          invoiceNumber: String(Math.abs(diff)).padStart(4, "0"),
+          invoiceNumber: invoiceDDMM,
           paymentType,
           amountEgreso: isPositive ? 0 : Math.abs(diff),
           amountIngreso: isPositive ? diff : 0,
@@ -6208,10 +6259,11 @@ export function FondoSection({
         const paymentType = isPositive
           ? AUTO_ADJUSTMENT_MOVEMENT_TYPE_INGRESO
           : AUTO_ADJUSTMENT_MOVEMENT_TYPE_EGRESO;
+        const invoiceDDMM = getTodayInvoiceDDMM(createdAtDate);
         const entry: FondoEntry = {
           id: plannedCount > 1 ? `${cierreBaseId}_USD` : cierreBaseId,
           providerCode: AUTO_ADJUSTMENT_PROVIDER_CODE,
-          invoiceNumber: String(Math.abs(diff)).padStart(4, "0"),
+          invoiceNumber: invoiceDDMM,
           paymentType,
           amountEgreso: isPositive ? 0 : Math.abs(diff),
           amountIngreso: isPositive ? diff : 0,
@@ -6229,10 +6281,11 @@ export function FondoSection({
       }
 
       if (adjustedDiffCRC === 0 && adjustedDiffUSD === 0) {
+        const invoiceDDMM = getTodayInvoiceDDMM(createdAtDate);
         const entry: FondoEntry = {
           id: cierreBaseId,
           providerCode: AUTO_ADJUSTMENT_PROVIDER_CODE,
-          invoiceNumber: "0000",
+          invoiceNumber: invoiceDDMM,
           paymentType: "INFORMATIVO" as any, // Tipo especial para cierres sin diferencias
           amountEgreso: 0,
           amountIngreso: 0,
