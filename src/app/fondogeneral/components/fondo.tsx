@@ -2956,6 +2956,11 @@ export function FondoSection({
   });
   const [confirmOpenCreateMovement, setConfirmOpenCreateMovement] =
     useState(false);
+
+  // Modal: primer movimiento después del último cierre de Fondo General
+  const [confirmPhysicalCountOpen, setConfirmPhysicalCountOpen] =
+    useState(false);
+  const [physicalCountWasDone, setPhysicalCountWasDone] = useState(false);
   // Estado para indicar que se está guardando un movimiento y prevenir múltiples envíos
   const [isSaving, setIsSaving] = useState(false);
   const enabledBalanceCurrencies = useMemo(
@@ -2965,6 +2970,90 @@ export function FondoSection({
       ),
     [currencyEnabled]
   );
+
+  // Marca en localStorage para confirmar conteo físico antes del primer movimiento
+  // después del cierre de hoy. IMPORTANTE: debe leerse en tiempo real (no memoizada)
+  // porque localStorage puede cambiar sin alterar dependencias de React.
+  const buildLegacyPhysicalCountStorageKey = useCallback(() => {
+    if (accountKey !== "FondoGeneral") return null;
+    const normalizedCompany = (company || "").trim();
+    if (normalizedCompany.length === 0) return null;
+    return `fondogeneral-lastClosing:${normalizedCompany}:${accountKey}`;
+  }, [company, accountKey]);
+
+  const buildPhysicalCountStorageKey = useCallback(
+    (dateKey: string) => {
+      if (accountKey !== "FondoGeneral") return null;
+      const normalizedCompany = (company || "").trim();
+      if (normalizedCompany.length === 0) return null;
+      const normalizedDateKey = String(dateKey || "").trim();
+      if (normalizedDateKey.length === 0) return null;
+      return `fondogeneral-lastClosing:${normalizedCompany}:${accountKey}:${normalizedDateKey}`;
+    },
+    [company, accountKey]
+  );
+
+  const shouldPromptPhysicalCountToday = useCallback((): boolean => {
+    if (accountKey !== "FondoGeneral") return false;
+    if (typeof window === "undefined") return false;
+
+    const currentTodayKey = dateKeyFromDate(new Date());
+    const todayKeyScoped = buildPhysicalCountStorageKey(currentTodayKey);
+    if (!todayKeyScoped) return false;
+
+    const normalizeBoolean = (raw: string | null): boolean | null => {
+      if (raw === "true") return true;
+      if (raw === "false") return false;
+      if (raw === null) return null;
+      return null;
+    };
+
+    const tryMigrateLegacyValue = (raw: string | null): boolean => {
+      const asBool = normalizeBoolean(raw);
+      if (asBool === true) return true;
+      if (asBool === false || raw === null) return false;
+
+      // Compatibilidad con el formato anterior: JSON { dateKey, id, at }
+      try {
+        const parsed = JSON.parse(raw) as any;
+        const dateKey = typeof parsed?.dateKey === "string" ? parsed.dateKey : "";
+        return dateKey === currentTodayKey;
+      } catch {
+        return false;
+      }
+    };
+
+    try {
+      // Nuevo formato (por fecha): valor "true"/"false"
+      const rawToday = localStorage.getItem(todayKeyScoped);
+      const boolToday = normalizeBoolean(rawToday);
+      if (boolToday !== null) return boolToday;
+
+      // Si por alguna razón se guardó un JSON en la key nueva, tratarlo como legacy.
+      if (tryMigrateLegacyValue(rawToday)) {
+        localStorage.setItem(todayKeyScoped, "true");
+        return true;
+      }
+
+      // Legacy (sin fecha): migrar si corresponde a hoy.
+      const legacyKey = buildLegacyPhysicalCountStorageKey();
+      if (!legacyKey) return false;
+      const rawLegacy = localStorage.getItem(legacyKey);
+      const legacyMatchesToday = tryMigrateLegacyValue(rawLegacy);
+      if (legacyMatchesToday) {
+        localStorage.setItem(todayKeyScoped, "true");
+      }
+
+      // Limpiar legacy para evitar confusiones.
+      if (rawLegacy !== null) {
+        localStorage.removeItem(legacyKey);
+      }
+
+      return legacyMatchesToday;
+    } catch {
+      return false;
+    }
+  }, [accountKey, buildPhysicalCountStorageKey, buildLegacyPhysicalCountStorageKey]);
   const closingsStorageKey = useMemo(() => {
     if (accountKey !== "FondoGeneral") return null;
     const normalizedCompany = (company || "").trim();
@@ -4893,6 +4982,24 @@ export function FondoSection({
         );
       });
 
+      // Si hubo un cierre hoy (marca en localStorage), al crear un movimiento manual se borra.
+      if (
+        accountKey === "FondoGeneral" &&
+        !isAutoAdjustmentProvider(entry.providerCode)
+      ) {
+        try {
+          const today = dateKeyFromDate(new Date());
+          const scopedKey = buildPhysicalCountStorageKey(today);
+          if (scopedKey) localStorage.setItem(scopedKey, "false");
+
+          // Limpiar legacy por compatibilidad.
+          const legacyKey = buildLegacyPhysicalCountStorageKey();
+          if (legacyKey) localStorage.removeItem(legacyKey);
+        } catch {
+          // ignore storage errors
+        }
+      }
+
       const selectedProviderData = providers.find(
         (p) => p.code === entry.providerCode
       );
@@ -4912,6 +5019,9 @@ export function FondoSection({
       showToast,
       sendMovementNotification,
       providers,
+      accountKey,
+      buildPhysicalCountStorageKey,
+      buildLegacyPhysicalCountStorageKey,
       resetFondoForm,
       movementAutoCloseLocked,
       setFondoEntries,
@@ -5971,6 +6081,14 @@ export function FondoSection({
       return;
     }
 
+    // Si hubo un cierre hoy (guardado en localStorage), solicitar confirmación de conteo físico.
+    // Si hoy no ha habido cierres, se ignora este modal.
+    if (shouldPromptPhysicalCountToday()) {
+      setPhysicalCountWasDone(false);
+      setConfirmPhysicalCountOpen(true);
+      return;
+    }
+
     openCreateMovementDrawer();
   };
 
@@ -6010,6 +6128,15 @@ export function FondoSection({
     setEditingDailyClosingId(null);
     setDailyClosingInitialValues(null);
   };
+
+  const handleCancelPhysicalCount = useCallback(() => {
+    setConfirmPhysicalCountOpen(false);
+  }, []);
+
+  const handleConfirmPhysicalCount = useCallback(() => {
+    setConfirmPhysicalCountOpen(false);
+    openCreateMovementDrawer();
+  }, [openCreateMovementDrawer]);
 
   const handleConfirmDailyClosing = async (closing: DailyClosingFormValues) => {
     if (accountKey !== "FondoGeneral") {
@@ -6076,6 +6203,26 @@ export function FondoSection({
       loadedDailyClosingKeysRef.current.add(closingDateKey);
       loadingDailyClosingKeysRef.current.delete(closingDateKey);
       setDailyClosingsHydrated(true);
+
+      // Guardar en localStorage el último cierre (para pedir confirmación en el primer movimiento del día)
+      if (typeof window !== "undefined") {
+        try {
+          // Solo aplica si el cierre corresponde al día de hoy.
+          const today = dateKeyFromDate(new Date());
+          if (closingDateKey === today) {
+            const scopedKey = buildPhysicalCountStorageKey(closingDateKey);
+            if (scopedKey) {
+              localStorage.setItem(scopedKey, "true");
+            }
+          }
+
+          // Limpiar legacy (formato anterior) si existiera.
+          const legacyKey = buildLegacyPhysicalCountStorageKey();
+          if (legacyKey) localStorage.removeItem(legacyKey);
+        } catch {
+          // ignore storage errors
+        }
+      }
 
       setPendingCierreDeCaja(false);
       setDailyClosingModalOpen(false);
@@ -6238,10 +6385,14 @@ export function FondoSection({
             isAutoAdjustmentProvider(e.providerCode)
           ) {
             const contrib = (e.amountIngreso || 0) - (e.amountEgreso || 0);
-            if (e.currency === "USD") prevUSDContribution += contrib;
-            else prevCRCContribution += contrib;
+            if ((e.currency as any) === "USD") {
+              prevUSDContribution += contrib;
+            } else {
+              prevCRCContribution += contrib;
+            }
           }
         });
+
         const baseBalanceCRC = currentBalanceCRC - prevCRCContribution;
         const baseBalanceUSD = currentBalanceUSD - prevUSDContribution;
         adjustedDiffCRC =
@@ -8896,30 +9047,26 @@ export function FondoSection({
 
                                 return (
                                   <div className="flex flex-col gap-1 text-right">
-                                    <div className="flex items-center justify-end gap-2">
-                                      {movementAmount !== 0 ? (
-                                        isEntryEgreso ? (
+                                    {movementAmount !== 0 ? (
+                                      <div className="flex items-center justify-end gap-2">
+                                        {isEntryEgreso ? (
                                           <ArrowUpRight className="w-4 h-4 text-red-500" />
                                         ) : (
                                           <ArrowDownRight className="w-4 h-4 text-green-500" />
-                                        )
-                                      ) : null}
-                                      <span
-                                        className={`font-semibold ${movementAmount === 0
-                                          ? "text-[var(--muted-foreground)]"
-                                          : isEntryEgreso
+                                        )}
+                                        <span
+                                          className={`font-semibold ${isEntryEgreso
                                             ? "text-red-500"
                                             : "text-green-600"
-                                          }`}
-                                      >
-                                        {movementAmount === 0
-                                          ? formatByCurrency(entryCurrency, 0)
-                                          : `${amountPrefix} ${formatByCurrency(
-                                              entryCurrency,
-                                              movementAmount
-                                            )}`}
-                                      </span>
-                                    </div>
+                                            }`}
+                                        >
+                                          {`${amountPrefix} ${formatByCurrency(
+                                            entryCurrency,
+                                            movementAmount
+                                          )}`}
+                                        </span>
+                                      </div>
+                                    ) : null}
 
                                     <div className="text-xs text-[var(--muted-foreground)]">
                                       Saldo al cierre
@@ -9218,6 +9365,36 @@ export function FondoSection({
         currentBalanceCRC={currentBalanceCRC}
         currentBalanceUSD={currentBalanceUSD}
         managerReadonly={!editingDailyClosingId}
+      />
+
+      <ConfirmModal
+        open={confirmPhysicalCountOpen}
+        title="Confirmar conteo físico"
+        message={
+          <div className="text-left space-y-3">
+            <div className="text-sm text-[var(--muted-foreground)]">
+              Antes de registrar el primer movimiento después del último cierre,
+              confirma que el fondo fue contado físicamente.
+            </div>
+
+            <label className="flex items-start gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                className="mt-0.5 cursor-pointer"
+                checked={physicalCountWasDone}
+                onChange={(e) => setPhysicalCountWasDone(e.target.checked)}
+                aria-label="Confirmar que el fondo fue contado físicamente"
+              />
+              <span className="text-sm">Sí, el fondo fue contado físicamente</span>
+            </label>
+          </div>
+        }
+        confirmText="Continuar"
+        cancelText="Cancelar"
+        actionType="change"
+        confirmDisabled={!physicalCountWasDone}
+        onConfirm={handleConfirmPhysicalCount}
+        onCancel={handleCancelPhysicalCount}
       />
 
       <ConfirmModal

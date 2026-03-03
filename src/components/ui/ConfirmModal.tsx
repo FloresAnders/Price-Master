@@ -8,6 +8,7 @@ interface ConfirmModalProps {
   confirmText?: string;
   cancelText?: string;
   loading?: boolean;
+  confirmDisabled?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
   actionType?: "assign" | "delete" | "change";
@@ -23,6 +24,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   confirmText = "Confirmar",
   cancelText = "Cancelar",
   loading = false,
+  confirmDisabled = false,
   onConfirm,
   onCancel,
   actionType = "assign",
@@ -99,7 +101,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
                     : "bg-indigo-600 hover:bg-indigo-700"
                 }`}
                 onClick={onConfirm}
-                disabled={loading}
+                disabled={loading || confirmDisabled}
                 type="button"
               >
                 {loading ? (
