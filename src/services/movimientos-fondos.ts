@@ -464,6 +464,46 @@ export class MovimientosFondosService {
     await deleteDoc(movementRef);
   }
 
+  /**
+   * V2 atomic write: updates the main ledger document (balances/config/state) and a movement doc
+   * in the v2 subcollection in a single batch commit. This prevents cases where a movement exists
+   * but the aggregated balance document did not update (or vice versa) under intermittent networks.
+   */
+  static async commitLedgerAndMovement<TMovement extends Partial<MovementRecordBase>, TStorage = unknown>(
+    docId: string,
+    ledger: MovementStorage<TStorage>,
+    change:
+      | { type: 'upsert'; movement: TMovement & { id: string } }
+      | { type: 'delete'; movementId: string }
+      | { type: 'none' },
+  ): Promise<void> {
+    if (!docId) return;
+
+    const batch = writeBatch(db);
+    const mainRef = doc(db, this.COLLECTION_NAME, docId);
+    batch.set(mainRef, ledger as any);
+
+    if (change.type === 'upsert') {
+      const movement = change.movement;
+      if (!movement?.id) {
+        throw new Error('[MovimientosFondosService.commitLedgerAndMovement] upsert requires movement.id');
+      }
+      const movementRef = doc(this.movementsCollectionRef(docId), movement.id);
+      const record = { ...(movement as Record<string, unknown>) };
+      delete (record as any).id;
+      batch.set(movementRef, record as any);
+    } else if (change.type === 'delete') {
+      const movementId = change.movementId;
+      if (!movementId) {
+        throw new Error('[MovimientosFondosService.commitLedgerAndMovement] delete requires movementId');
+      }
+      const movementRef = doc(this.movementsCollectionRef(docId), movementId);
+      batch.delete(movementRef);
+    }
+
+    await batch.commit();
+  }
+
   static async hasAnyV2Movements(docId: string): Promise<boolean> {
     if (!docId) return false;
     const snap = await getDocs(query(this.movementsCollectionRef(docId), limit(1)));
