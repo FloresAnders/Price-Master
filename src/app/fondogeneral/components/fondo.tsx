@@ -4538,7 +4538,16 @@ export function FondoSection({
         deleteId?: string;
         before?: FondoEntry | null;
       }
-    ): Promise<{ ok: boolean; confirmed: boolean }> => {
+    ): Promise<{
+      ok: boolean;
+      confirmed: boolean;
+      ledgerSnapshot?: {
+        initialCRC: number;
+        currentCRC: number;
+        initialUSD: number;
+        currentUSD: number;
+      };
+    }> => {
       const normalizedCompany = (company || "").trim();
       if (normalizedCompany.length === 0) {
         console.error("[PERSIST-IMMEDIATE] No company specified");
@@ -4687,18 +4696,22 @@ export function FondoSection({
         }
         baseStorage.state = stateSnapshot;
 
-        // Guardar en localStorage primero (solo snapshot/config/state; los movimientos viven en Firestore v2 cache)
-        try {
-          localStorage.setItem(companyKey, JSON.stringify(baseStorage));
-        } catch (storageError) {
-          // El snapshot ahora es pequeño; si falla, solo reportar.
-          console.warn(
-            "[PERSIST-IMMEDIATE] localStorage write failed:",
-            storageError
-          );
-        }
+        // Guardar en Firestore (ledger + movimiento) de forma ATÓMICA
+        console.log(
+          `[PERSIST-IMMEDIATE] Guardando ${operationType} a Firestore...`,
+          {
+            company: normalizedCompany,
+            accountKey,
+            entriesCount: updatedEntries.length,
+          }
+        );
 
-        // Persist movement change to v2 subcollection
+        let cacheUpdater: (() => void) | null = null;
+        let movementChange:
+          | { type: "upsert"; movement: FondoEntry & { id: string } }
+          | { type: "delete"; movementId: string }
+          | { type: "none" } = { type: "none" };
+
         if (operationType === "delete") {
           const deleteId = change?.deleteId;
           if (!deleteId) {
@@ -4706,16 +4719,17 @@ export function FondoSection({
               "[PERSIST-IMMEDIATE] delete requires change.deleteId"
             );
           }
-          await MovimientosFondosService.deleteMovement(companyKey, deleteId);
-
-          const cached = v2MovementsCacheRef.current[companyKey];
-          if (cached?.loaded) {
-            v2MovementsCacheRef.current[companyKey] = {
-              ...cached,
-              loaded: true,
-              movements: cached.movements.filter((m) => m.id !== deleteId),
-            };
-          }
+          movementChange = { type: "delete", movementId: deleteId };
+          cacheUpdater = () => {
+            const cached = v2MovementsCacheRef.current[companyKey];
+            if (cached?.loaded) {
+              v2MovementsCacheRef.current[companyKey] = {
+                ...cached,
+                loaded: true,
+                movements: cached.movements.filter((m) => m.id !== deleteId),
+              };
+            }
+          };
         } else {
           const movement = change?.upsert;
           if (!movement) {
@@ -4730,36 +4744,50 @@ export function FondoSection({
             accountId: accountKey,
             currency: normalizedCurrency,
           };
-          await MovimientosFondosService.upsertMovement(
-            companyKey,
-            storedMovement
-          );
+          movementChange = { type: "upsert", movement: storedMovement };
+          cacheUpdater = () => {
+            const cached = v2MovementsCacheRef.current[companyKey];
+            if (cached?.loaded) {
+              const next = [
+                storedMovement,
+                ...cached.movements.filter((m) => m.id !== storedMovement.id),
+              ];
+              v2MovementsCacheRef.current[companyKey] = {
+                ...cached,
+                loaded: true,
+                movements: next,
+              };
+            }
+          };
+        }
 
-          const cached = v2MovementsCacheRef.current[companyKey];
-          if (cached?.loaded) {
-            const next = [
-              storedMovement,
-              ...cached.movements.filter((m) => m.id !== storedMovement.id),
-            ];
-            v2MovementsCacheRef.current[companyKey] = {
-              ...cached,
-              loaded: true,
-              movements: next,
-            };
+        await MovimientosFondosService.commitLedgerAndMovement(
+          companyKey,
+          baseStorage,
+          movementChange
+        );
+
+        if (cacheUpdater) {
+          try {
+            cacheUpdater();
+          } catch (cacheErr) {
+            console.warn(
+              "[PERSIST-IMMEDIATE] cache update failed after commit:",
+              cacheErr
+            );
           }
         }
 
-        // Guardar en Firestore - ESTA ES LA PARTE CRÍTICA
-        console.log(
-          `[PERSIST-IMMEDIATE] Guardando ${operationType} a Firestore...`,
-          {
-            company: normalizedCompany,
-            accountKey,
-            entriesCount: updatedEntries.length,
-          }
-        );
-
-        await MovimientosFondosService.saveDocument(companyKey, baseStorage);
+        // Guardar snapshot liviano en localStorage DESPUÉS del commit.
+        // Esto evita que un fallo de Firestore deje un snapshot local inconsistente.
+        try {
+          localStorage.setItem(companyKey, JSON.stringify(baseStorage));
+        } catch (storageError) {
+          console.warn(
+            "[PERSIST-IMMEDIATE] localStorage write failed:",
+            storageError
+          );
+        }
 
         // setDoc puede resolver con escritura local; esperamos un poco por confirmación del backend
         // para evitar casos de "se guardó" cuando el usuario estaba offline/intermitente.
@@ -4791,15 +4819,16 @@ export function FondoSection({
         // Actualizar snapshot después de guardar
         storageSnapshotRef.current = baseStorage;
 
-        // Refrescar snapshot de balances para UI (independiente de filtros)
-        setLedgerSnapshot({
-          initialCRC: parsedInitialCRC,
-          currentCRC: nextCurrentCRC,
-          initialUSD: parsedInitialUSD,
-          currentUSD: nextCurrentUSD,
-        });
-
-        return { ok: true, confirmed };
+        return {
+          ok: true,
+          confirmed,
+          ledgerSnapshot: {
+            initialCRC: parsedInitialCRC,
+            currentCRC: nextCurrentCRC,
+            initialUSD: parsedInitialUSD,
+            currentUSD: nextCurrentUSD,
+          },
+        };
       } catch (err) {
         console.error(
           `[PERSIST-IMMEDIATE] ❌ Error guardando ${operationType} a Firestore:`,
@@ -4814,7 +4843,7 @@ export function FondoSection({
       initialAmount,
       initialAmountUSD,
       currencyEnabled,
-      setLedgerSnapshot,
+      ledgerSnapshot,
     ]
   );
 
@@ -4840,6 +4869,9 @@ export function FondoSection({
 
       // Solo actualizar la UI si el guardado fue exitoso
       setFondoEntries(updatedEntries);
+      if (saved.ledgerSnapshot) {
+        setLedgerSnapshot(saved.ledgerSnapshot);
+      }
       if (saved.confirmed) {
         showToast("Movimiento guardado correctamente", "success", 3000);
       } else {
@@ -4880,6 +4912,7 @@ export function FondoSection({
       resetFondoForm,
       movementAutoCloseLocked,
       setFondoEntries,
+      setLedgerSnapshot,
     ]
   );
 
@@ -5079,6 +5112,9 @@ export function FondoSection({
 
         // Solo actualizar la UI si el guardado fue exitoso
         setFondoEntries(updatedEntries);
+        if (saved.ledgerSnapshot) {
+          setLedgerSnapshot(saved.ledgerSnapshot);
+        }
         if (saved.confirmed) {
           showToast("Movimiento editado correctamente", "success", 3000);
         } else {
@@ -5375,6 +5411,9 @@ export function FondoSection({
 
       // Solo actualizar la UI si el guardado fue exitoso
       setFondoEntries(updatedEntries);
+      if (saved.ledgerSnapshot) {
+        setLedgerSnapshot(saved.ledgerSnapshot);
+      }
 
       // Close modal
       setConfirmDeleteEntry({ open: false, entry: null });
@@ -5397,6 +5436,7 @@ export function FondoSection({
     fondoEntries,
     isSaving,
     persistMovementToFirestore,
+    setLedgerSnapshot,
   ]);
 
   const cancelDeleteMovement = useCallback(() => {
@@ -6156,6 +6196,12 @@ export function FondoSection({
     // using the existing edit flow which marks entries as 'Editado').
     try {
       const newMovements: FondoEntry[] = [];
+      let latestLedgerSnapshot: {
+        initialCRC: number;
+        currentCRC: number;
+        initialUSD: number;
+        currentUSD: number;
+      } | null = null;
 
       const buildCierreMovementBaseId = (when: Date) => {
         // Local time, URL-safe: 2025_12_15-02_10_38_929_CIERRE
@@ -6315,10 +6361,13 @@ export function FondoSection({
               isAutoAdjustmentProvider(e.providerCode)
           );
           for (const removed of toRemoveNow) {
-            await persistMovementToFirestore(fondoEntries, "delete", {
+            const saved = await persistMovementToFirestore(fondoEntries, "delete", {
               deleteId: removed.id,
               before: removed,
             });
+            if (saved.ok && saved.ledgerSnapshot) {
+              latestLedgerSnapshot = saved.ledgerSnapshot;
+            }
           }
         } catch (persistRemoveErr) {
           console.error(
@@ -6398,6 +6447,11 @@ export function FondoSection({
 
           return filtered;
         });
+
+        // Aplicar balances junto con la actualización de movimientos para evitar saltos visuales.
+        if (latestLedgerSnapshot) {
+          setLedgerSnapshot(latestLedgerSnapshot);
+        }
       }
 
       if (newMovements.length > 0) {
@@ -6432,10 +6486,13 @@ export function FondoSection({
             for (const prevAdj of existingAdjustments) {
               const cur = normalizeCurrency(prevAdj.currency);
               if (!plannedCurrencies.has(cur)) {
-                await persistMovementToFirestore(fondoEntries, "delete", {
+                const saved = await persistMovementToFirestore(fondoEntries, "delete", {
                   deleteId: prevAdj.id,
                   before: prevAdj,
                 });
+                if (saved.ok && saved.ledgerSnapshot) {
+                  latestLedgerSnapshot = saved.ledgerSnapshot;
+                }
               }
             }
           }
@@ -6462,17 +6519,23 @@ export function FondoSection({
                 originalEntryId: record.id,
               } as FondoEntry;
 
-              await persistMovementToFirestore(fondoEntries, "edit", {
+              const saved = await persistMovementToFirestore(fondoEntries, "edit", {
                 upsert: updatedForPersist,
                 before: existing,
               });
+              if (saved.ok && saved.ledgerSnapshot) {
+                latestLedgerSnapshot = saved.ledgerSnapshot;
+              }
             } else {
               // Creating a new adjustment movement
-              await persistMovementToFirestore(
+              const saved = await persistMovementToFirestore(
                 [movement, ...fondoEntries],
                 "create",
                 { upsert: movement }
               );
+              if (saved.ok && saved.ledgerSnapshot) {
+                latestLedgerSnapshot = saved.ledgerSnapshot;
+              }
             }
           }
         } catch (persistAdjErr) {
@@ -6598,6 +6661,11 @@ export function FondoSection({
           });
 
           // Persistencia: ya se hizo vía persistMovementToFirestore (incluye subcolección v2 + documento principal)
+        }
+
+        // Aplicar balances junto con la actualización de movimientos para evitar saltos visuales.
+        if (latestLedgerSnapshot) {
+          setLedgerSnapshot(latestLedgerSnapshot);
         }
 
         // Build a human-readable summary of the adjustments we just applied
