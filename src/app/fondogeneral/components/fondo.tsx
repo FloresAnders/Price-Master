@@ -505,6 +505,17 @@ const coerceNotes = (value: unknown): string => {
   return "";
 };
 
+const coerceTruncNumber = (value: unknown): number | undefined => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Math.trunc(value);
+  }
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? Math.trunc(parsed) : undefined;
+  }
+  return undefined;
+};
+
 const resolveCreatedAt = (value: unknown): string | undefined => {
   if (!value) return undefined;
   if (typeof value === "string") {
@@ -556,6 +567,9 @@ export const sanitizeFondoEntries = (
     const manager = coerceIdentifier(entry.manager);
     const createdAt = resolveCreatedAt(entry.createdAt);
 
+    const closingBalanceCRC = coerceTruncNumber((entry as any).closingBalanceCRC);
+    const closingBalanceUSD = coerceTruncNumber((entry as any).closingBalanceUSD);
+
     if (!id || !providerCode || !manager || !createdAt) return acc;
 
     const rawEgreso =
@@ -603,6 +617,8 @@ export const sanitizeFondoEntries = (
       manager,
       notes: coerceNotes(entry.notes),
       createdAt,
+      closingBalanceCRC,
+      closingBalanceUSD,
       isAudit: !!entry.isAudit,
       originalEntryId:
         typeof entry.originalEntryId === "string"
@@ -2974,32 +2990,57 @@ export function FondoSection({
   // Marca en localStorage para confirmar conteo físico antes del primer movimiento
   // después del cierre de hoy. IMPORTANTE: debe leerse en tiempo real (no memoizada)
   // porque localStorage puede cambiar sin alterar dependencias de React.
+  // Legacy keys (previous formats)
   const buildLegacyPhysicalCountStorageKey = useCallback(() => {
     if (accountKey !== "FondoGeneral") return null;
     const normalizedCompany = (company || "").trim();
     if (normalizedCompany.length === 0) return null;
+    // Legacy format (no date, with accountKey)
     return `fondogeneral-lastClosing:${normalizedCompany}:${accountKey}`;
   }, [company, accountKey]);
 
-  const buildPhysicalCountStorageKey = useCallback(
-    (dateKey: string) => {
-      if (accountKey !== "FondoGeneral") return null;
-      const normalizedCompany = (company || "").trim();
-      if (normalizedCompany.length === 0) return null;
-      const normalizedDateKey = String(dateKey || "").trim();
-      if (normalizedDateKey.length === 0) return null;
-      return `fondogeneral-lastClosing:${normalizedCompany}:${accountKey}:${normalizedDateKey}`;
-    },
-    [company, accountKey]
-  );
+  // New key: one per company (feature only applies to FondoGeneral)
+  const buildPhysicalCountStorageKey = useCallback(() => {
+    if (accountKey !== "FondoGeneral") return null;
+    const normalizedCompany = (company || "").trim();
+    if (normalizedCompany.length === 0) return null;
+    return `fondogeneral-lastClosing:${normalizedCompany}`;
+  }, [company, accountKey]);
 
-  const shouldPromptPhysicalCountToday = useCallback((): boolean => {
+  const cleanupPhysicalCountLegacyKeys = useCallback(() => {
+    if (typeof window === "undefined") return;
+    if (accountKey !== "FondoGeneral") return;
+    const normalizedCompany = (company || "").trim();
+    if (normalizedCompany.length === 0) return;
+
+    // Remove per-day keys: fondogeneral-lastClosing:<company>:FondoGeneral:<YYYY-MM-DD>
+    const dateScopedPrefix = `fondogeneral-lastClosing:${normalizedCompany}:FondoGeneral:`;
+    try {
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith(dateScopedPrefix)) {
+          localStorage.removeItem(k);
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    // Also remove legacy key (no date, with accountKey)
+    try {
+      const legacyKey = buildLegacyPhysicalCountStorageKey();
+      if (legacyKey) localStorage.removeItem(legacyKey);
+    } catch {
+      // ignore
+    }
+  }, [accountKey, company, buildLegacyPhysicalCountStorageKey]);
+
+  const shouldPromptPhysicalCount = useCallback((): boolean => {
     if (accountKey !== "FondoGeneral") return false;
     if (typeof window === "undefined") return false;
 
-    const currentTodayKey = dateKeyFromDate(new Date());
-    const todayKeyScoped = buildPhysicalCountStorageKey(currentTodayKey);
-    if (!todayKeyScoped) return false;
+    const newKey = buildPhysicalCountStorageKey();
+    if (!newKey) return false;
 
     const normalizeBoolean = (raw: string | null): boolean | null => {
       if (raw === "true") return true;
@@ -3016,44 +3057,60 @@ export function FondoSection({
       // Compatibilidad con el formato anterior: JSON { dateKey, id, at }
       try {
         const parsed = JSON.parse(raw) as any;
-        const dateKey = typeof parsed?.dateKey === "string" ? parsed.dateKey : "";
-        return dateKey === currentTodayKey;
+        // Si hay un JSON, asumir que hubo cierre => pedir confirmación.
+        // En el esquema anterior esto era por día; ahora lo volvemos global.
+        return Boolean(parsed);
       } catch {
         return false;
       }
     };
 
     try {
-      // Nuevo formato (por fecha): valor "true"/"false"
-      const rawToday = localStorage.getItem(todayKeyScoped);
-      const boolToday = normalizeBoolean(rawToday);
-      if (boolToday !== null) return boolToday;
+      // New format: value "true"/"false" (global per company)
+      const rawNew = localStorage.getItem(newKey);
+      const boolNew = normalizeBoolean(rawNew);
+      if (boolNew !== null) return boolNew;
 
-      // Si por alguna razón se guardó un JSON en la key nueva, tratarlo como legacy.
-      if (tryMigrateLegacyValue(rawToday)) {
-        localStorage.setItem(todayKeyScoped, "true");
+      // If for some reason JSON was stored in the new key, treat it as pending.
+      if (tryMigrateLegacyValue(rawNew)) {
+        localStorage.setItem(newKey, "true");
         return true;
       }
 
-      // Legacy (sin fecha): migrar si corresponde a hoy.
+      // Migrate legacy key (no date, with accountKey)
       const legacyKey = buildLegacyPhysicalCountStorageKey();
-      if (!legacyKey) return false;
-      const rawLegacy = localStorage.getItem(legacyKey);
-      const legacyMatchesToday = tryMigrateLegacyValue(rawLegacy);
-      if (legacyMatchesToday) {
-        localStorage.setItem(todayKeyScoped, "true");
+      const rawLegacy = legacyKey ? localStorage.getItem(legacyKey) : null;
+      const legacyPending = tryMigrateLegacyValue(rawLegacy);
+
+      // Migrate date-scoped keys (older format): if any is true, make it global.
+      const normalizedCompany = (company || "").trim();
+      const dateScopedPrefix = `fondogeneral-lastClosing:${normalizedCompany}:FondoGeneral:`;
+      let dateScopedPending = false;
+      if (normalizedCompany.length > 0) {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (!k || !k.startsWith(dateScopedPrefix)) continue;
+          const v = localStorage.getItem(k);
+          if (normalizeBoolean(v) === true || tryMigrateLegacyValue(v)) {
+            dateScopedPending = true;
+            break;
+          }
+        }
       }
 
-      // Limpiar legacy para evitar confusiones.
-      if (rawLegacy !== null) {
-        localStorage.removeItem(legacyKey);
+      const pending = legacyPending || dateScopedPending;
+      if (pending) {
+        localStorage.setItem(newKey, "true");
       }
 
-      return legacyMatchesToday;
+      // Cleanup old keys to enforce the new single-key scheme
+      cleanupPhysicalCountLegacyKeys();
+
+      return pending;
     } catch {
       return false;
     }
-  }, [accountKey, buildPhysicalCountStorageKey, buildLegacyPhysicalCountStorageKey]);
+  }, [accountKey, buildPhysicalCountStorageKey, buildLegacyPhysicalCountStorageKey, cleanupPhysicalCountLegacyKeys, company]);
   const closingsStorageKey = useMemo(() => {
     if (accountKey !== "FondoGeneral") return null;
     const normalizedCompany = (company || "").trim();
@@ -4982,19 +5039,15 @@ export function FondoSection({
         );
       });
 
-      // Si hubo un cierre hoy (marca en localStorage), al crear un movimiento manual se borra.
+      // Si hubo un cierre pendiente (marca en localStorage), al crear un movimiento manual se borra.
       if (
         accountKey === "FondoGeneral" &&
         !isAutoAdjustmentProvider(entry.providerCode)
       ) {
         try {
-          const today = dateKeyFromDate(new Date());
-          const scopedKey = buildPhysicalCountStorageKey(today);
-          if (scopedKey) localStorage.setItem(scopedKey, "false");
-
-          // Limpiar legacy por compatibilidad.
-          const legacyKey = buildLegacyPhysicalCountStorageKey();
-          if (legacyKey) localStorage.removeItem(legacyKey);
+          const key = buildPhysicalCountStorageKey();
+          if (key) localStorage.setItem(key, "false");
+          cleanupPhysicalCountLegacyKeys();
         } catch {
           // ignore storage errors
         }
@@ -5021,7 +5074,7 @@ export function FondoSection({
       providers,
       accountKey,
       buildPhysicalCountStorageKey,
-      buildLegacyPhysicalCountStorageKey,
+      cleanupPhysicalCountLegacyKeys,
       resetFondoForm,
       movementAutoCloseLocked,
       setFondoEntries,
@@ -6081,9 +6134,8 @@ export function FondoSection({
       return;
     }
 
-    // Si hubo un cierre hoy (guardado en localStorage), solicitar confirmación de conteo físico.
-    // Si hoy no ha habido cierres, se ignora este modal.
-    if (shouldPromptPhysicalCountToday()) {
+    // Si hubo un cierre pendiente (guardado en localStorage), solicitar confirmación de conteo físico.
+    if (shouldPromptPhysicalCount()) {
       setPhysicalCountWasDone(false);
       setConfirmPhysicalCountOpen(true);
       return;
@@ -6135,8 +6187,19 @@ export function FondoSection({
 
   const handleConfirmPhysicalCount = useCallback(() => {
     setConfirmPhysicalCountOpen(false);
+    // Marcar como confirmado inmediatamente para no volver a solicitar el conteo
+    // aunque el usuario cierre el formulario sin guardar un movimiento.
+    if (typeof window !== "undefined" && accountKey === "FondoGeneral") {
+      try {
+        const key = buildPhysicalCountStorageKey();
+        if (key) localStorage.setItem(key, "false");
+        cleanupPhysicalCountLegacyKeys();
+      } catch {
+        // ignore
+      }
+    }
     openCreateMovementDrawer();
-  }, [openCreateMovementDrawer]);
+  }, [openCreateMovementDrawer, accountKey, buildPhysicalCountStorageKey, cleanupPhysicalCountLegacyKeys]);
 
   const handleConfirmDailyClosing = async (closing: DailyClosingFormValues) => {
     if (accountKey !== "FondoGeneral") {
@@ -6204,21 +6267,12 @@ export function FondoSection({
       loadingDailyClosingKeysRef.current.delete(closingDateKey);
       setDailyClosingsHydrated(true);
 
-      // Guardar en localStorage el último cierre (para pedir confirmación en el primer movimiento del día)
+      // Guardar en localStorage el último cierre (para pedir confirmación en el primer movimiento después del cierre)
       if (typeof window !== "undefined") {
         try {
-          // Solo aplica si el cierre corresponde al día de hoy.
-          const today = dateKeyFromDate(new Date());
-          if (closingDateKey === today) {
-            const scopedKey = buildPhysicalCountStorageKey(closingDateKey);
-            if (scopedKey) {
-              localStorage.setItem(scopedKey, "true");
-            }
-          }
-
-          // Limpiar legacy (formato anterior) si existiera.
-          const legacyKey = buildLegacyPhysicalCountStorageKey();
-          if (legacyKey) localStorage.removeItem(legacyKey);
+          const key = buildPhysicalCountStorageKey();
+          if (key) localStorage.setItem(key, "true");
+          cleanupPhysicalCountLegacyKeys();
         } catch {
           // ignore storage errors
         }
