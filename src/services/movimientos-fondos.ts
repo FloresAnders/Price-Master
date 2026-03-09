@@ -32,6 +32,39 @@ export type MovementRecordBase = {
 const ACCOUNT_KEYS: MovementAccountKey[] = ['FondoGeneral', 'BCR', 'BN', 'BAC'];
 const CURRENCY_KEYS: MovementCurrencyKey[] = ['CRC', 'USD'];
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (!value || typeof value !== 'object') return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
+
+/**
+ * Firestore does not accept `undefined` anywhere in the payload.
+ * This removes `undefined` keys deeply while preserving non-plain objects
+ * (Timestamp, Date, GeoPoint, DocumentReference, FieldValue, etc.).
+ */
+function stripUndefinedDeep<T>(value: T): T {
+  if (value === undefined) return value;
+
+  if (Array.isArray(value)) {
+    return value
+      .map((v) => stripUndefinedDeep(v))
+      // Firestore doesn't support `undefined` items either.
+      .filter((v) => v !== undefined) as any;
+  }
+
+  if (isPlainObject(value)) {
+    const out: Record<string, unknown> = {};
+    Object.entries(value).forEach(([k, v]) => {
+      const cleaned = stripUndefinedDeep(v as any);
+      if (cleaned !== undefined) out[k] = cleaned;
+    });
+    return out as any;
+  }
+
+  return value;
+}
+
 type LegacyMovementBucket<T = unknown> = {
   movements?: T[];
 };
@@ -454,7 +487,7 @@ export class MovimientosFondosService {
     // Do not duplicate id (docId already contains it). Keep the stored document clean.
     const record = { ...(movement as Record<string, unknown>) };
     delete (record as any).id;
-    await setDoc(movementRef, record as any);
+    await setDoc(movementRef, stripUndefinedDeep(record) as any);
   }
 
   static async deleteMovement(docId: string, movementId: string): Promise<void> {
@@ -481,7 +514,7 @@ export class MovimientosFondosService {
 
     const batch = writeBatch(db);
     const mainRef = doc(db, this.COLLECTION_NAME, docId);
-    batch.set(mainRef, ledger as any);
+    batch.set(mainRef, stripUndefinedDeep(ledger) as any);
 
     if (change.type === 'upsert') {
       const movement = change.movement;
@@ -491,7 +524,7 @@ export class MovimientosFondosService {
       const movementRef = doc(this.movementsCollectionRef(docId), movement.id);
       const record = { ...(movement as Record<string, unknown>) };
       delete (record as any).id;
-      batch.set(movementRef, record as any);
+      batch.set(movementRef, stripUndefinedDeep(record) as any);
     } else if (change.type === 'delete') {
       const movementId = change.movementId;
       if (!movementId) {
@@ -666,7 +699,7 @@ export class MovimientosFondosService {
         // Do not duplicate id inside the document.
         delete (record as any).id;
         const ref = doc(this.movementsCollectionRef(docId), id);
-        batch.set(ref, record as any);
+        batch.set(ref, stripUndefinedDeep(record) as any);
       });
       await batch.commit();
       migrated += chunk.length;
