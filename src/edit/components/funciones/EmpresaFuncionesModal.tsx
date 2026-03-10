@@ -42,10 +42,14 @@ const ASSIGNED_ID = 'funciones-assigned';
 
 function DraggableFuncionItem({
   item,
+  expanded,
+  onToggleExpanded,
   showRemove,
   onRemove,
 }: {
   item: FuncionListItem;
+  expanded?: boolean;
+  onToggleExpanded?: (id: string) => void;
   showRemove?: boolean;
   onRemove?: (item: FuncionListItem) => void;
 }) {
@@ -65,16 +69,44 @@ function DraggableFuncionItem({
       style={style}
       {...listeners}
       {...attributes}
+      role="button"
+      tabIndex={0}
+      aria-expanded={expanded ? 'true' : 'false'}
+      onClick={() => {
+        if (!item?.id) return;
+        onToggleExpanded?.(String(item.id));
+      }}
+      onKeyDown={(e) => {
+        if (!item?.id) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onToggleExpanded?.(String(item.id));
+        }
+      }}
       className={
-        'select-none border border-[var(--input-border)] rounded-md px-3 py-2 bg-[var(--card-bg)] ' +
+        'select-none cursor-pointer border border-[var(--input-border)] rounded-md px-3 py-2 bg-[var(--card-bg)] ' +
         (isDragging ? 'opacity-70' : 'opacity-100')
       }
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <div className="text-sm font-medium text-[var(--foreground)] truncate">{item.nombre}</div>
+          <div
+            className={
+              'text-sm font-medium text-[var(--foreground)] ' +
+              (expanded ? 'whitespace-normal break-words' : 'truncate')
+            }
+          >
+            {item.nombre}
+          </div>
           {item.descripcion ? (
-            <div className="text-[11px] text-[var(--muted-foreground)] truncate">{item.descripcion}</div>
+            <div
+              className={
+                'text-[11px] text-[var(--muted-foreground)] ' +
+                (expanded ? 'whitespace-pre-wrap break-words' : 'truncate')
+              }
+            >
+              {item.descripcion}
+            </div>
           ) : null}
         </div>
 
@@ -157,6 +189,14 @@ export default function EmpresaFuncionesModal({
   const [initialAssignedKey, setInitialAssignedKey] = React.useState<string>('[]');
 
   const [saveLoading, setSaveLoading] = React.useState(false);
+
+  const [expandedIds, setExpandedIds] = React.useState<string[]>([]);
+
+  const toggleExpanded = React.useCallback((id: string) => {
+    const key = String(id || '').trim();
+    if (!key) return;
+    setExpandedIds((prev) => (prev.includes(key) ? prev.filter((x) => x !== key) : [...prev, key]));
+  }, []);
 
   const [confirmExit, setConfirmExit] = React.useState(false);
 
@@ -547,7 +587,14 @@ export default function EmpresaFuncionesModal({
                   {availableItems.length === 0 ? (
                     <div className="text-xs text-[var(--muted-foreground)] p-2">No hay funciones disponibles.</div>
                   ) : (
-                    availableItems.map((item) => <DraggableFuncionItem key={item.id} item={item} />)
+                    availableItems.map((item) => (
+                      <DraggableFuncionItem
+                        key={item.id}
+                        item={item}
+                        expanded={expandedIds.includes(String(item.id))}
+                        onToggleExpanded={toggleExpanded}
+                      />
+                    ))
                   )}
                 </DroppableColumn>
 
@@ -559,6 +606,8 @@ export default function EmpresaFuncionesModal({
                       <DraggableFuncionItem
                         key={item.id}
                         item={item}
+                        expanded={expandedIds.includes(String(item.id))}
+                        onToggleExpanded={toggleExpanded}
                         showRemove
                         onRemove={requestRemoveAssigned}
                       />
