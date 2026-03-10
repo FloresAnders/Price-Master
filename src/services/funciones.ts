@@ -6,6 +6,14 @@ export type FuncionGeneralDoc = {
   funcionId: string;
   nombre: string;
   descripcion?: string;
+  /**
+   * Audience/scope for the function definition.
+   * - DELIFOOD: only visible/assignable to empresaId === 'DELIFOOD'
+   * - DELIKOR: visible to all other empresas with the same ownerId (unless empresaIds restricts it)
+   */
+  audience?: 'DELIKOR' | 'DELIFOOD';
+  /** Optional restriction for DELIKOR functions: if present, only these empresaIds can see/assign it. */
+  empresaIds?: string[];
   // Optional reminder time in Costa Rica local time (HH:mm)
   reminderTimeCr?: string;
   createdAt: string; // ISO
@@ -16,13 +24,69 @@ export type FuncionesEmpresaDoc = {
   type: 'empresa';
   ownerId: string;
   empresaId: string;
-  // Legacy (backward compatibility): older docs may still have this union field
+  /**
+   * Current schema mode for empresa assignments.
+   * 0 = single list (`funciones`) without apertura/cierre split.
+   */
+  mode?: 0;
+  /** Single list of function ids assigned to the empresa. */
   funciones?: string[];
-  // Split by shift
-  funcionesApertura?: string[];
-  funcionesCierre?: string[];
   updatedAt?: string; // ISO
 };
+
+export type FuncionAudience = 'DELIKOR' | 'DELIFOOD';
+
+export const DELIFOOD_EMPRESA_ID = 'DELIFOOD';
+
+export function isDelifoodEmpresaId(empresaId: string): boolean {
+  return String(empresaId || '').trim().toUpperCase() === DELIFOOD_EMPRESA_ID;
+}
+
+function normalizeAudience(raw: unknown): FuncionAudience {
+  const v = String(raw || '').trim().toUpperCase();
+  return v === 'DELIFOOD' ? 'DELIFOOD' : 'DELIKOR';
+}
+
+function normalizeEmpresaIds(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const unique = new Set(
+    raw
+      .map((x) => String(x).trim())
+      .filter(Boolean)
+      .map((x) => x.toUpperCase())
+  );
+  // Never allow scoping to DELIFOOD from the DELIKOR path.
+  unique.delete(DELIFOOD_EMPRESA_ID);
+  return Array.from(unique.values());
+}
+
+export function filterFuncionesGeneralesForEmpresa<T extends { ownerId?: unknown; audience?: unknown; empresaIds?: unknown }>(
+  generalDocs: T[],
+  params: { ownerId: string; empresaId: string }
+): T[] {
+  const ownerId = String(params.ownerId || '').trim();
+  const empresaId = String(params.empresaId || '').trim();
+  if (!empresaId) return [];
+
+  const delifoodEmpresa = isDelifoodEmpresaId(empresaId);
+
+  return (generalDocs || []).filter((d) => {
+    if (!d) return false;
+    const docOwnerId = String((d as any).ownerId || '').trim();
+    if (ownerId && docOwnerId && docOwnerId !== ownerId) return false;
+
+    const audience = normalizeAudience((d as any).audience);
+    if (delifoodEmpresa) {
+      return audience === 'DELIFOOD';
+    }
+
+    if (audience === 'DELIFOOD') return false;
+
+    const empresaIds = normalizeEmpresaIds((d as any).empresaIds);
+    if (empresaIds.length === 0) return true;
+    return empresaIds.includes(String(empresaId).trim().toUpperCase());
+  });
+}
 
 const normalizeDocIdPart = (raw: string): string => {
   const base = String(raw || '')
@@ -109,10 +173,15 @@ export class FuncionesService {
     nombre: string;
     descripcion?: string;
     reminderTimeCr?: string;
+    audience?: FuncionAudience;
+    empresaIds?: string[];
     createdAt?: string;
   }): Promise<{ docId: string } & FuncionGeneralDoc> {
     const nowIso = new Date().toISOString();
     const createdAt = params.createdAt || nowIso;
+
+    const audience = normalizeAudience(params.audience);
+    const empresaIds = audience === 'DELIKOR' ? normalizeEmpresaIds(params.empresaIds) : [];
 
     const doc: FuncionGeneralDoc = {
       type: 'general',
@@ -121,6 +190,8 @@ export class FuncionesService {
       nombre: String(params.nombre || '').trim(),
       descripcion: params.descripcion ? String(params.descripcion).trim() : '',
       reminderTimeCr: params.reminderTimeCr ? String(params.reminderTimeCr).trim() : undefined,
+      audience,
+      empresaIds: empresaIds.length > 0 ? empresaIds : undefined,
       createdAt,
       updatedAt: nowIso,
     };
@@ -136,12 +207,9 @@ export class FuncionesService {
     }
 
     // If doc exists, update; otherwise set.
-    const exists = await FirestoreService.exists(this.COLLECTION_NAME, nextDocId);
-    if (exists) {
-      await FirestoreService.update(this.COLLECTION_NAME, nextDocId, doc);
-    } else {
-      await FirestoreService.addWithId(this.COLLECTION_NAME, nextDocId, doc);
-    }
+    // IMPORTANT: overwrite the entire doc so fields removed in the UI (e.g. empresaIds)
+    // are actually deleted in Firestore. updateDoc() would keep old fields.
+    await FirestoreService.addWithId(this.COLLECTION_NAME, nextDocId, doc);
 
     return { docId: nextDocId, ...doc };
   }
@@ -164,8 +232,8 @@ export class FuncionesService {
       type: 'empresa',
       ownerId: String(params.ownerId || '').trim(),
       empresaId,
-      funcionesApertura: [],
-      funcionesCierre: [],
+      mode: 0,
+      funciones: [],
       updatedAt: new Date().toISOString(),
     };
 
@@ -185,18 +253,23 @@ export class FuncionesService {
       throw new Error('El documento de funciones por empresa no es válido (type != empresa).');
     }
 
-    return { docId: empresaId, ...(doc as FuncionesEmpresaDoc) };
+    const typed = doc as FuncionesEmpresaDoc;
+    const funciones = Array.isArray((typed as any).funciones)
+      ? (typed as any).funciones.map((x: unknown) => String(x).trim()).filter(Boolean)
+      : [];
+
+    return {
+      docId: empresaId,
+      ...typed,
+      mode: 0,
+      funciones,
+    };
   }
 
   static async upsertEmpresaFunciones(params: {
     ownerId: string;
     empresaId: string;
     funciones: string[];
-  } | {
-    ownerId: string;
-    empresaId: string;
-    funcionesApertura: string[];
-    funcionesCierre: string[];
   }): Promise<void> {
     const ownerId = String(params.ownerId || '').trim();
     const empresaId = String(params.empresaId || '').trim();
@@ -210,32 +283,17 @@ export class FuncionesService {
       throw new Error('No se puede guardar: el docId de empresa colisiona con otro tipo de documento.');
     }
 
-    const isSplit = 'funcionesApertura' in params || 'funcionesCierre' in params;
+    const funciones = Array.from(
+      new Set((params.funciones || []).map((x) => String(x).trim()).filter(Boolean))
+    );
 
-    const aperturaRaw = isSplit
-      ? (params as { funcionesApertura: string[] }).funcionesApertura
-      : (params as { funciones: string[] }).funciones;
-    const cierreRaw = isSplit
-      ? (params as { funcionesCierre: string[] }).funcionesCierre
-      : [];
-
-    const uniqueApertura = Array.from(new Set((aperturaRaw || []).map((x) => String(x).trim()).filter(Boolean)));
-    const uniqueCierre = Array.from(new Set((cierreRaw || []).map((x) => String(x).trim()).filter(Boolean)));
-
-    // Ensure exclusivity (a function can't be in both lists)
-    const cierreSet = new Set(uniqueCierre);
-    const apertura = uniqueApertura.filter((x) => !cierreSet.has(x));
-    const aperturaSet = new Set(apertura);
-    const cierre = uniqueCierre.filter((x) => !aperturaSet.has(x));
-
-    // IMPORTANT: We intentionally do NOT persist the legacy `funciones` field.
-    // We overwrite the doc to avoid keeping duplicated data.
+    // Overwrite the doc to keep a single source of truth.
     const nextDoc: FuncionesEmpresaDoc = {
       type: 'empresa',
       ownerId,
       empresaId,
-      funcionesApertura: apertura,
-      funcionesCierre: cierre,
+      mode: 0,
+      funciones,
       updatedAt: new Date().toISOString(),
     };
 
@@ -250,6 +308,10 @@ export class FuncionesService {
     const funcionId = String(params.funcionId || '').trim();
     if (!funcionId) return;
 
+     const removalKeys = new Set(getFuncionIdLookupKeys(funcionId));
+     // Also remove exact raw value just in case.
+     removalKeys.add(funcionId);
+
     const empresaIds = Array.from(new Set((params.empresaIds || []).map((x) => String(x).trim()).filter(Boolean)));
     await Promise.all(
       empresaIds.map(async (empresaId) => {
@@ -257,29 +319,22 @@ export class FuncionesService {
         if (!doc) return;
         if (doc.type !== 'empresa') return;
 
-        const currentAperturaRaw = Array.isArray(doc.funcionesApertura)
-          ? (doc.funcionesApertura as unknown[]).map((x) => String(x))
-          : Array.isArray(doc.funciones)
-          ? (doc.funciones as unknown[]).map((x) => String(x))
-          : [];
-        const currentCierreRaw = Array.isArray(doc.funcionesCierre)
-          ? (doc.funcionesCierre as unknown[]).map((x) => String(x))
+        const currentFuncionesRaw = Array.isArray((doc as any).funciones)
+          ? ((doc as any).funciones as unknown[]).map((x) => String(x).trim()).filter(Boolean)
           : [];
 
-        const nextApertura = currentAperturaRaw.filter((x) => x !== funcionId);
-        const nextCierre = currentCierreRaw.filter((x) => x !== funcionId);
+        const nextFunciones = currentFuncionesRaw.filter((x) => !removalKeys.has(String(x)));
 
-        const changed =
-          nextApertura.length !== currentAperturaRaw.length || nextCierre.length !== currentCierreRaw.length;
+        const changed = nextFunciones.length !== currentFuncionesRaw.length;
         if (!changed) return;
 
-        // Overwrite doc to avoid keeping legacy `funciones` duplicates.
+        // Overwrite doc.
         const nextDoc: FuncionesEmpresaDoc = {
           type: 'empresa',
           ownerId: String(doc.ownerId || params.ownerId || '').trim(),
           empresaId: String(doc.empresaId || empresaId).trim(),
-          funcionesApertura: nextApertura,
-          funcionesCierre: nextCierre,
+          mode: 0,
+          funciones: nextFunciones,
           updatedAt: new Date().toISOString(),
         };
 

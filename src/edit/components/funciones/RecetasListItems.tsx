@@ -6,10 +6,13 @@ import { Pencil, Trash2 } from "lucide-react";
 export type FuncionListItem = {
   id: string;
   docId: string;
+  ownerId?: string;
   nombre: string;
   descripcion?: string;
   reminderTimeCr?: string;
   createdAt?: string;
+  audience?: 'DELIKOR' | 'DELIFOOD';
+  empresaIds?: string[];
 };
 
 export function RecetasListItems(props: {

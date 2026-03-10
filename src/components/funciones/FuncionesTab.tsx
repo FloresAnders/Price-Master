@@ -5,13 +5,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { useActorOwnership } from '@/hooks/useActorOwnership';
 import { getDefaultPermissions } from '@/utils/permissions';
 import { EmpresasService } from '@/services/empresas';
-import { FuncionesService, getFuncionIdLookupKeys, lookupGeneralByFuncionId } from '@/services/funciones';
+import { filterFuncionesGeneralesForEmpresa, FuncionesService, getFuncionIdLookupKeys, lookupGeneralByFuncionId } from '@/services/funciones';
 import type { Empresas, UserPermissions } from '@/types/firestore';
 
 type EmpresaFuncionesResolved = {
   empresa: Empresas;
-  apertura: Array<{ funcionId: string; nombre: string; descripcion?: string; reminderTimeCr?: string }>;
-  cierre: Array<{ funcionId: string; nombre: string; descripcion?: string; reminderTimeCr?: string }>;
+  funciones: Array<{ funcionId: string; nombre: string; descripcion?: string; reminderTimeCr?: string }>;
 };
 
 export function FuncionesTab() {
@@ -81,24 +80,6 @@ export function FuncionesTab() {
           role: currentUser.role,
         });
 
-        const generalById = new Map<string, { funcionId: string; nombre: string; descripcion?: string; reminderTimeCr?: string }>();
-        for (const d of generalDocs) {
-          const funcionId = String(d.funcionId || '').trim();
-          const nombre = String(d.nombre || '').trim();
-          if (!funcionId || !nombre) continue;
-
-          const value = {
-            funcionId,
-            nombre,
-            descripcion: d.descripcion ? String(d.descripcion).trim() : '',
-            reminderTimeCr: d.reminderTimeCr ? String(d.reminderTimeCr).trim() : '',
-          };
-
-          for (const key of getFuncionIdLookupKeys(funcionId)) {
-            if (!generalById.has(key)) generalById.set(key, value);
-          }
-        }
-
         const resolved = await Promise.all(
           empresas.map(async (empresa) => {
             const empresaId = String(empresa?.id || '').trim();
@@ -106,20 +87,38 @@ export function FuncionesTab() {
               return null;
             }
 
+            const visibleGeneralDocs = filterFuncionesGeneralesForEmpresa(generalDocs as any, {
+              ownerId: String(empresa?.ownerId || '').trim(),
+              empresaId,
+            });
+
+            const generalById = new Map<
+              string,
+              { funcionId: string; nombre: string; descripcion?: string; reminderTimeCr?: string }
+            >();
+            for (const d of visibleGeneralDocs as any[]) {
+              const funcionId = String((d as any).funcionId || '').trim();
+              const nombre = String((d as any).nombre || '').trim();
+              if (!funcionId || !nombre) continue;
+
+              const value = {
+                funcionId,
+                nombre,
+                descripcion: (d as any).descripcion ? String((d as any).descripcion).trim() : '',
+                reminderTimeCr: (d as any).reminderTimeCr ? String((d as any).reminderTimeCr).trim() : '',
+              };
+
+              for (const key of getFuncionIdLookupKeys(funcionId)) {
+                if (!generalById.has(key)) generalById.set(key, value);
+              }
+            }
+
             const doc = await FuncionesService.getEmpresaFunciones({ empresaId });
 
-            const aperturaIds = Array.from(
+            const funcionesIds: string[] = Array.from(
               new Set(
-                (Array.isArray(doc?.funcionesApertura) ? doc!.funcionesApertura! : (Array.isArray(doc?.funciones) ? doc!.funciones! : []))
-                  .map((x) => String(x).trim())
-                  .filter(Boolean)
-              )
-            );
-
-            const cierreIds = Array.from(
-              new Set(
-                (Array.isArray(doc?.funcionesCierre) ? doc!.funcionesCierre! : [])
-                  .map((x) => String(x).trim())
+                (Array.isArray((doc as any)?.funciones) ? (doc as any).funciones : [])
+                  .map((x: unknown) => String(x).trim())
                   .filter(Boolean)
               )
             );
@@ -128,22 +127,25 @@ export function FuncionesTab() {
               ids
                 .map((funcionId) => {
                   const g = lookupGeneralByFuncionId(generalById, funcionId);
-                  const isResolved = Boolean(g?.nombre);
+                  if (!g?.nombre) return null;
                   return {
                     funcionId,
-                    nombre: isResolved ? g!.nombre : 'Función no encontrada',
-                    descripcion: isResolved
-                      ? (String(g?.descripcion || '').trim() || undefined)
-                      : `ID: ${funcionId}`,
-                    reminderTimeCr: g?.reminderTimeCr ? g.reminderTimeCr : undefined,
+                    nombre: g.nombre,
+                    descripcion: String(g.descripcion || '').trim() || undefined,
+                    reminderTimeCr: g.reminderTimeCr ? g.reminderTimeCr : undefined,
                   };
                 })
-                .sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), 'es'));
+                .filter(Boolean)
+                .sort((a, b) => String((a as any).nombre).localeCompare(String((b as any).nombre), 'es')) as Array<{
+                funcionId: string;
+                nombre: string;
+                descripcion?: string;
+                reminderTimeCr?: string;
+              }>;
 
             return {
               empresa,
-              apertura: mapIds(aperturaIds),
-              cierre: mapIds(cierreIds),
+              funciones: mapIds(funcionesIds),
             } satisfies EmpresaFuncionesResolved;
           })
         );
@@ -196,7 +198,7 @@ export function FuncionesTab() {
       <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-lg shadow p-6">
         <h2 className="text-xl font-semibold text-[var(--foreground)]">Funciones</h2>
         <p className="text-sm text-[var(--muted-foreground)]">
-          Funciones asignadas por empresa (Apertura / Cierre)
+          Funciones asignadas por empresa
         </p>
       </div>
 
@@ -223,60 +225,31 @@ export function FuncionesTab() {
                   </div>
                 </div>
 
-                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="border border-[var(--input-border)] rounded-lg p-3">
-                    <div className="text-sm font-semibold text-[var(--foreground)] mb-2">Turno de apertura</div>
-                    {row.apertura.length === 0 ? (
-                      <div className="text-sm text-[var(--muted-foreground)]">Sin funciones asignadas.</div>
-                    ) : (
-                      <ul className="divide-y divide-[var(--input-border)]">
-                        {row.apertura.map((f) => (
-                          <li key={`a-${f.funcionId}`} className="py-2 text-sm text-[var(--foreground)] flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="truncate">{f.nombre}</div>
-                              {f.descripcion ? (
-                                <div className="text-xs text-[var(--muted-foreground)] leading-snug break-words">
-                                  {f.descripcion}
-                                </div>
-                              ) : null}
-                            </div>
-                            {f.reminderTimeCr ? (
-                              <span className="text-xs text-[var(--muted-foreground)] whitespace-nowrap">
-                                {f.reminderTimeCr}
-                              </span>
+                <div className="mt-4 border border-[var(--input-border)] rounded-lg p-3">
+                  <div className="text-sm font-semibold text-[var(--foreground)] mb-2">Funciones</div>
+                  {row.funciones.length === 0 ? (
+                    <div className="text-sm text-[var(--muted-foreground)]">Sin funciones asignadas.</div>
+                  ) : (
+                    <ul className="divide-y divide-[var(--input-border)]">
+                      {row.funciones.map((f) => (
+                        <li key={`f-${f.funcionId}`} className="py-2 text-sm text-[var(--foreground)] flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="truncate">{f.nombre}</div>
+                            {f.descripcion ? (
+                              <div className="text-xs text-[var(--muted-foreground)] leading-snug break-words">
+                                {f.descripcion}
+                              </div>
                             ) : null}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-
-                  <div className="border border-[var(--input-border)] rounded-lg p-3">
-                    <div className="text-sm font-semibold text-[var(--foreground)] mb-2">Turno de cierre</div>
-                    {row.cierre.length === 0 ? (
-                      <div className="text-sm text-[var(--muted-foreground)]">Sin funciones asignadas.</div>
-                    ) : (
-                      <ul className="divide-y divide-[var(--input-border)]">
-                        {row.cierre.map((f) => (
-                          <li key={`c-${f.funcionId}`} className="py-2 text-sm text-[var(--foreground)] flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="truncate">{f.nombre}</div>
-                              {f.descripcion ? (
-                                <div className="text-xs text-[var(--muted-foreground)] leading-snug break-words">
-                                  {f.descripcion}
-                                </div>
-                              ) : null}
-                            </div>
-                            {f.reminderTimeCr ? (
-                              <span className="text-xs text-[var(--muted-foreground)] whitespace-nowrap">
-                                {f.reminderTimeCr}
-                              </span>
-                            ) : null}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
+                          </div>
+                          {f.reminderTimeCr ? (
+                            <span className="text-xs text-[var(--muted-foreground)] whitespace-nowrap">
+                              {f.reminderTimeCr}
+                            </span>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               </div>
             ))}

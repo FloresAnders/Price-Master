@@ -25,8 +25,8 @@ type EmpresaSearchAddSectionProps = {
   searchAriaLabel: string;
   searchDisabled?: boolean;
 
-  addButtonText: string;
-  onAddClick: () => void;
+  addButtonText?: string;
+  onAddClick?: () => void;
   addDisabled?: boolean;
 
   onRefreshClick?: () => void;
@@ -101,15 +101,17 @@ export function EmpresaSearchAddSection({
           </button>
         )}
 
-        <button
-          type="button"
-          onClick={onAddClick}
-          disabled={Boolean(addDisabled)}
-          className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--accent)] text-white rounded-lg shadow-sm ring-1 ring-white/10 hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold transition-colors whitespace-nowrap"
-        >
-          <Plus className="w-4 h-4" />
-          <span>{addButtonText}</span>
-        </button>
+        {addButtonText && onAddClick ? (
+          <button
+            type="button"
+            onClick={onAddClick}
+            disabled={Boolean(addDisabled)}
+            className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--accent)] text-white rounded-lg shadow-sm ring-1 ring-white/10 hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold transition-colors whitespace-nowrap"
+          >
+            <Plus className="w-4 h-4" />
+            <span>{addButtonText}</span>
+          </button>
+        ) : null}
       </div>
     </>
   );

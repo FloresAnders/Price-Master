@@ -13,10 +13,16 @@ import {
   type DragEndEvent,
 } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { X } from 'lucide-react';
+import { Trash2, X } from 'lucide-react';
 
 import ConfirmModal from '@/components/ui/ConfirmModal';
-import { FuncionesService, getFuncionIdLookupKeys } from '@/services/funciones';
+import {
+  DELIFOOD_EMPRESA_ID,
+  filterFuncionesGeneralesForEmpresa,
+  FuncionesService,
+  getFuncionIdLookupKeys,
+  isDelifoodEmpresaId,
+} from '@/services/funciones';
 
 import type { FuncionListItem } from './RecetasListItems';
 
@@ -32,10 +38,17 @@ type EmpresaFuncionesModalProps = {
 };
 
 const AVAILABLE_ID = 'funciones-available';
-const APERTURA_ID = 'funciones-apertura';
-const CIERRE_ID = 'funciones-cierre';
+const ASSIGNED_ID = 'funciones-assigned';
 
-function DraggableFuncionItem({ item }: { item: FuncionListItem }) {
+function DraggableFuncionItem({
+  item,
+  showRemove,
+  onRemove,
+}: {
+  item: FuncionListItem;
+  showRemove?: boolean;
+  onRemove?: (item: FuncionListItem) => void;
+}) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: item.id,
   });
@@ -57,10 +70,33 @@ function DraggableFuncionItem({ item }: { item: FuncionListItem }) {
         (isDragging ? 'opacity-70' : 'opacity-100')
       }
     >
-      <div className="text-sm font-medium text-[var(--foreground)] truncate">{item.nombre}</div>
-      {item.descripcion ? (
-        <div className="text-[11px] text-[var(--muted-foreground)] truncate">{item.descripcion}</div>
-      ) : null}
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-sm font-medium text-[var(--foreground)] truncate">{item.nombre}</div>
+          {item.descripcion ? (
+            <div className="text-[11px] text-[var(--muted-foreground)] truncate">{item.descripcion}</div>
+          ) : null}
+        </div>
+
+        {showRemove ? (
+          <button
+            type="button"
+            className="shrink-0 p-1.5 rounded hover:bg-[var(--muted)] text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+            aria-label={`Eliminar ${item.nombre}`}
+            onPointerDown={(e) => {
+              // Evitar que el click active drag
+              e.stopPropagation();
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove?.(item);
+            }}
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -117,18 +153,33 @@ export default function EmpresaFuncionesModal({
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  const [aperturaIds, setAperturaIds] = React.useState<string[]>([]);
-  const [cierreIds, setCierreIds] = React.useState<string[]>([]);
-  const [initialAperturaKey, setInitialAperturaKey] = React.useState<string>('[]');
-  const [initialCierreKey, setInitialCierreKey] = React.useState<string>('[]');
+  const [assignedIds, setAssignedIds] = React.useState<string[]>([]);
+  const [initialAssignedKey, setInitialAssignedKey] = React.useState<string>('[]');
 
   const [saveLoading, setSaveLoading] = React.useState(false);
 
   const [confirmExit, setConfirmExit] = React.useState(false);
 
+  const [createOpen, setCreateOpen] = React.useState(false);
+  const [createNombre, setCreateNombre] = React.useState('');
+  const [createDescripcion, setCreateDescripcion] = React.useState('');
+  const [createHasReminder, setCreateHasReminder] = React.useState(false);
+  const [createReminderTimeCr, setCreateReminderTimeCr] = React.useState('');
+  const [createLoading, setCreateLoading] = React.useState(false);
+
+  const [localExtras, setLocalExtras] = React.useState<FuncionListItem[]>([]);
+
+  const visibleFuncionesGenerales = React.useMemo(() => {
+    const combined = [...(funcionesGenerales || []), ...(localExtras || [])];
+    return filterFuncionesGeneralesForEmpresa(combined, {
+      ownerId,
+      empresaId,
+    });
+  }, [empresaId, funcionesGenerales, localExtras, ownerId]);
+
   const funcionesById = React.useMemo(() => {
     const map = new Map<string, FuncionListItem>();
-    for (const f of funcionesGenerales || []) {
+    for (const f of visibleFuncionesGenerales || []) {
       if (!f?.id) continue;
       const baseId = String(f.id).trim();
       for (const key of getFuncionIdLookupKeys(baseId)) {
@@ -136,32 +187,25 @@ export default function EmpresaFuncionesModal({
       }
     }
     return map;
-  }, [funcionesGenerales]);
+  }, [visibleFuncionesGenerales]);
 
-  const aperturaItems = React.useMemo(() => {
-    return aperturaIds
+  const assignedItems = React.useMemo(() => {
+    return assignedIds
       .map((id) => funcionesById.get(String(id)))
       .filter(Boolean) as FuncionListItem[];
-  }, [aperturaIds, funcionesById]);
-
-  const cierreItems = React.useMemo(() => {
-    return cierreIds
-      .map((id) => funcionesById.get(String(id)))
-      .filter(Boolean) as FuncionListItem[];
-  }, [cierreIds, funcionesById]);
+  }, [assignedIds, funcionesById]);
 
   const availableItems = React.useMemo(() => {
-    const assignedSet = new Set([...aperturaIds, ...cierreIds].map(String));
-    const items = (funcionesGenerales || []).filter((f) => f?.id && !assignedSet.has(String(f.id)));
+    const assignedSet = new Set([...assignedIds].map(String));
+    const items = (visibleFuncionesGenerales || []).filter((f) => f?.id && !assignedSet.has(String(f.id)));
     items.sort((a, b) => String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es'));
     return items;
-  }, [aperturaIds, cierreIds, funcionesGenerales]);
+  }, [assignedIds, visibleFuncionesGenerales]);
 
   const dirty = React.useMemo(() => {
-    const currentA = normalizeIdsKey(aperturaIds);
-    const currentC = normalizeIdsKey(cierreIds);
-    return currentA !== initialAperturaKey || currentC !== initialCierreKey;
-  }, [aperturaIds, cierreIds, initialAperturaKey, initialCierreKey]);
+    const current = normalizeIdsKey(assignedIds);
+    return current !== initialAssignedKey;
+  }, [assignedIds, initialAssignedKey]);
 
   const requestClose = React.useCallback(() => {
     if (dirty) {
@@ -195,34 +239,21 @@ export default function EmpresaFuncionesModal({
       setError(null);
       try {
         const doc = await FuncionesService.getEmpresaFunciones({ empresaId });
-        const aperturaRaw = Array.isArray((doc as any)?.funcionesApertura)
-          ? (doc as any).funcionesApertura
-          : Array.isArray(doc?.funciones)
-          ? doc!.funciones
-          : [];
-        const cierreRaw = Array.isArray((doc as any)?.funcionesCierre) ? (doc as any).funcionesCierre : [];
+        const raw = Array.isArray((doc as any)?.funciones) ? (doc as any).funciones : [];
+        const onlyKnown = (raw as unknown[])
+          .map((x) => String(x))
+          .filter((id) => funcionesById.has(String(id)));
 
-        const onlyKnownA = (aperturaRaw as unknown[]).map((x) => String(x)).filter((id) => funcionesById.has(String(id)));
-        const onlyKnownC = (cierreRaw as unknown[]).map((x) => String(x)).filter((id) => funcionesById.has(String(id)));
-
-        // ensure exclusivity
-        const cierreSet = new Set(onlyKnownC);
-        const apertura = onlyKnownA.filter((x) => !cierreSet.has(x));
-        const aperturaSet = new Set(apertura);
-        const cierre = onlyKnownC.filter((x) => !aperturaSet.has(x));
+        const unique = Array.from(new Set(onlyKnown));
         if (cancelled) return;
-        setAperturaIds(apertura);
-        setCierreIds(cierre);
-        setInitialAperturaKey(normalizeIdsKey(apertura));
-        setInitialCierreKey(normalizeIdsKey(cierre));
+        setAssignedIds(unique);
+        setInitialAssignedKey(normalizeIdsKey(unique));
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'No se pudieron cargar las funciones de la empresa.';
         if (!cancelled) {
           setError(msg);
-          setAperturaIds([]);
-          setCierreIds([]);
-          setInitialAperturaKey('[]');
-          setInitialCierreKey('[]');
+          setAssignedIds([]);
+          setInitialAssignedKey('[]');
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -235,39 +266,25 @@ export default function EmpresaFuncionesModal({
     };
   }, [empresaId, funcionesById, open]);
 
-  const onDragEnd = React.useCallback(
-    (event: DragEndEvent) => {
-      const { active, over } = event;
-      if (!over) return;
+  const onDragEnd = React.useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over) return;
 
-      const funcionId = String(active.id);
-      const overId = String(over.id);
+    const funcionId = String(active.id);
+    const overId = String(over.id);
 
-      if (overId === AVAILABLE_ID) {
-        setAperturaIds((prev) => prev.filter((x) => String(x) !== funcionId));
-        setCierreIds((prev) => prev.filter((x) => String(x) !== funcionId));
-        return;
-      }
+    if (overId === AVAILABLE_ID) {
+      setAssignedIds((prev) => prev.filter((x) => String(x) !== funcionId));
+      return;
+    }
 
-      if (overId === APERTURA_ID) {
-        setAperturaIds((prev) => {
-          if (prev.includes(funcionId)) return prev;
-          return [...prev, funcionId];
-        });
-        setCierreIds((prev) => prev.filter((x) => String(x) !== funcionId));
-        return;
-      }
-
-      if (overId === CIERRE_ID) {
-        setCierreIds((prev) => {
-          if (prev.includes(funcionId)) return prev;
-          return [...prev, funcionId];
-        });
-        setAperturaIds((prev) => prev.filter((x) => String(x) !== funcionId));
-      }
-    },
-    []
-  );
+    if (overId === ASSIGNED_ID) {
+      setAssignedIds((prev) => {
+        if (prev.includes(funcionId)) return prev;
+        return [...prev, funcionId];
+      });
+    }
+  }, []);
 
   const handleSave = React.useCallback(() => {
     if (!empresaId || !ownerId) return;
@@ -278,12 +295,10 @@ export default function EmpresaFuncionesModal({
         await FuncionesService.upsertEmpresaFunciones({
           ownerId,
           empresaId,
-          funcionesApertura: aperturaIds.filter((id) => funcionesById.has(String(id))),
-          funcionesCierre: cierreIds.filter((id) => funcionesById.has(String(id))),
+          funciones: assignedIds.filter((id) => funcionesById.has(String(id))),
         });
 
-        setInitialAperturaKey(normalizeIdsKey(aperturaIds));
-        setInitialCierreKey(normalizeIdsKey(cierreIds));
+        setInitialAssignedKey(normalizeIdsKey(assignedIds));
         showToast('Funciones guardadas.', 'success');
         onSaved?.();
         onClose();
@@ -296,7 +311,119 @@ export default function EmpresaFuncionesModal({
     };
 
     void run();
-  }, [aperturaIds, cierreIds, empresaId, funcionesById, onClose, onSaved, ownerId, showToast]);
+  }, [assignedIds, empresaId, funcionesById, onClose, onSaved, ownerId, showToast]);
+
+  const handleCreateExclusive = React.useCallback(() => {
+    const nombre = String(createNombre || '').trim();
+    const descripcion = String(createDescripcion || '').trim();
+    if (!nombre) {
+      showToast('Nombre requerido.', 'error');
+      return;
+    }
+
+    const reminderTimeCr = createHasReminder ? String(createReminderTimeCr || '').trim() : '';
+    if (createHasReminder) {
+      if (!reminderTimeCr) {
+        showToast('Selecciona una hora para el recordatorio.', 'error');
+        return;
+      }
+      if (!/^\d{2}:\d{2}$/.test(reminderTimeCr)) {
+        showToast('Hora de recordatorio inválida (usa HH:mm).', 'error');
+        return;
+      }
+    }
+
+    if (!ownerId) {
+      showToast('ownerId requerido.', 'error');
+      return;
+    }
+    if (!empresaId) {
+      showToast('Empresa inválida.', 'error');
+      return;
+    }
+
+    const run = async () => {
+      setCreateLoading(true);
+      try {
+        const funcionId = await FuncionesService.getNextNumericFuncionId({ ownerId, padLength: 4 });
+
+        const audience = isDelifoodEmpresaId(empresaId) ? 'DELIFOOD' : 'DELIKOR';
+        const empresaIds = audience === 'DELIKOR' ? [String(empresaId).trim()] : [];
+
+        const saved = await FuncionesService.upsertFuncionGeneral({
+          ownerId,
+          funcionId,
+          nombre,
+          descripcion,
+          reminderTimeCr: createHasReminder ? reminderTimeCr : undefined,
+          audience,
+          empresaIds,
+          createdAt: new Date().toISOString(),
+        });
+
+        const nextItem: FuncionListItem = {
+          id: String(saved.funcionId),
+          docId: String(saved.docId),
+          ownerId: String(saved.ownerId),
+          nombre: String(saved.nombre),
+          descripcion: String(saved.descripcion || ''),
+          reminderTimeCr: saved.reminderTimeCr ? String(saved.reminderTimeCr) : '',
+          createdAt: String(saved.createdAt || ''),
+          audience: String(saved.audience || '').toUpperCase() === 'DELIFOOD' ? 'DELIFOOD' : 'DELIKOR',
+          empresaIds: Array.isArray(saved.empresaIds) ? saved.empresaIds.map((x) => String(x)) : [],
+        };
+
+        // Add locally and persist the assignment immediately for this empresa.
+        setLocalExtras((prev) => [nextItem, ...(prev || [])]);
+
+        const nextAssigned = Array.from(new Set([...assignedIds.map(String), nextItem.id]));
+        await FuncionesService.upsertEmpresaFunciones({
+          ownerId,
+          empresaId,
+          funciones: nextAssigned,
+        });
+
+        setAssignedIds(nextAssigned);
+        setInitialAssignedKey(normalizeIdsKey(nextAssigned));
+        setCreateNombre('');
+        setCreateDescripcion('');
+        setCreateHasReminder(false);
+        setCreateReminderTimeCr('');
+        setCreateOpen(false);
+        showToast('Función creada para esta empresa.', 'success');
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'No se pudo crear la función.';
+        showToast(msg, 'error');
+      } finally {
+        setCreateLoading(false);
+      }
+    };
+
+    void run();
+  }, [assignedIds, createDescripcion, createHasReminder, createNombre, createReminderTimeCr, empresaId, ownerId, showToast]);
+
+  const [removeConfirm, setRemoveConfirm] = React.useState<{
+    open: boolean;
+    item?: FuncionListItem;
+  }>({ open: false });
+
+  const requestRemoveAssigned = React.useCallback((item: FuncionListItem) => {
+    if (!item?.id) return;
+    setRemoveConfirm({ open: true, item });
+  }, []);
+
+  const confirmRemoveAssigned = React.useCallback(() => {
+    const id = String(removeConfirm.item?.id || '').trim();
+    if (!id) {
+      setRemoveConfirm({ open: false });
+      return;
+    }
+
+    const removalKeys = new Set(getFuncionIdLookupKeys(id));
+    removalKeys.add(id);
+    setAssignedIds((prev) => prev.filter((x) => !removalKeys.has(String(x).trim())));
+    setRemoveConfirm({ open: false });
+  }, [removeConfirm.item?.id]);
 
   if (!open) return null;
 
@@ -318,7 +445,7 @@ export default function EmpresaFuncionesModal({
               {empresaNombre}
             </div>
             <div className="text-xs text-[var(--muted-foreground)] truncate">
-              Asigna funciones generales a esta empresa
+              Asigna funciones a esta empresa
             </div>
           </div>
 
@@ -335,12 +462,88 @@ export default function EmpresaFuncionesModal({
         <div className="px-4 py-4">
           {error ? <div className="mb-3 text-sm text-red-500">{error}</div> : null}
 
+          <div className="mb-4 border border-[var(--input-border)] rounded-lg p-3 bg-[var(--background)]">
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm font-semibold text-[var(--foreground)]">Función exclusiva</div>
+              <button
+                type="button"
+                className="text-xs px-3 py-1.5 rounded border border-[var(--input-border)] text-[var(--foreground)] hover:bg-[var(--muted)]"
+                onClick={() => setCreateOpen((v) => !v)}
+                disabled={createLoading}
+              >
+                {createOpen ? 'Cerrar' : 'Agregar'}
+              </button>
+            </div>
+
+            {createOpen ? (
+              <div className="mt-3 space-y-2">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  <input
+                    className="w-full p-2.5 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
+                    placeholder="Nombre"
+                    value={createNombre}
+                    onChange={(e) => setCreateNombre(e.target.value)}
+                  />
+                  <input
+                    className="w-full p-2.5 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
+                    placeholder="Descripción (opcional)"
+                    value={createDescripcion}
+                    onChange={(e) => setCreateDescripcion(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleCreateExclusive}
+                    className="px-4 py-2 bg-[var(--accent)] text-white rounded disabled:opacity-60"
+                    disabled={createLoading}
+                  >
+                    {createLoading ? 'Creando…' : 'Crear y asignar'}
+                  </button>
+                </div>
+
+                <label className="flex items-center gap-2 text-sm text-[var(--foreground)] select-none">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={createHasReminder}
+                    onChange={(e) => {
+                      const next = e.target.checked;
+                      setCreateHasReminder(next);
+                      if (!next) setCreateReminderTimeCr('');
+                    }}
+                    disabled={createLoading}
+                  />
+                  Agregar recordatorio
+                </label>
+
+                {createHasReminder ? (
+                  <div className="max-w-xs">
+                    <label className="block text-xs text-[var(--muted-foreground)] mb-1">Hora (Costa Rica)</label>
+                    <input
+                      type="time"
+                      step={60}
+                      className="w-full p-2.5 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
+                      value={createReminderTimeCr}
+                      onChange={(e) => setCreateReminderTimeCr(e.target.value)}
+                      disabled={createLoading}
+                    />
+                  </div>
+                ) : null}
+
+                <div className="text-[11px] text-[var(--muted-foreground)]">
+                  {isDelifoodEmpresaId(empresaId)
+                    ? `Se creará como ${DELIFOOD_EMPRESA_ID}.`
+                    : 'Se creará solo para esta empresa.'}
+                </div>
+              </div>
+            ) : null}
+          </div>
+
           {loading ? (
             <div className="text-sm text-[var(--muted-foreground)]">Cargando…</div>
           ) : (
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <DroppableColumn id={AVAILABLE_ID} title={`Funciones generales (${availableItems.length})`}>
+                <DroppableColumn id={AVAILABLE_ID} title={`Disponibles (${availableItems.length})`}>
                   {availableItems.length === 0 ? (
                     <div className="text-xs text-[var(--muted-foreground)] p-2">No hay funciones disponibles.</div>
                   ) : (
@@ -348,23 +551,20 @@ export default function EmpresaFuncionesModal({
                   )}
                 </DroppableColumn>
 
-                <div className="flex flex-col gap-4">
-                  <DroppableColumn id={APERTURA_ID} title={`Turno de apertura (${aperturaItems.length})`}>
-                    {aperturaItems.length === 0 ? (
-                      <div className="text-xs text-[var(--muted-foreground)] p-2">Arrastra funciones aquí.</div>
-                    ) : (
-                      aperturaItems.map((item) => <DraggableFuncionItem key={item.id} item={item} />)
-                    )}
-                  </DroppableColumn>
-
-                  <DroppableColumn id={CIERRE_ID} title={`Turno de cierre (${cierreItems.length})`}>
-                    {cierreItems.length === 0 ? (
-                      <div className="text-xs text-[var(--muted-foreground)] p-2">Arrastra funciones aquí.</div>
-                    ) : (
-                      cierreItems.map((item) => <DraggableFuncionItem key={item.id} item={item} />)
-                    )}
-                  </DroppableColumn>
-                </div>
+                <DroppableColumn id={ASSIGNED_ID} title={`Asignadas (${assignedItems.length})`}>
+                  {assignedItems.length === 0 ? (
+                    <div className="text-xs text-[var(--muted-foreground)] p-2">Arrastra funciones aquí.</div>
+                  ) : (
+                    assignedItems.map((item) => (
+                      <DraggableFuncionItem
+                        key={item.id}
+                        item={item}
+                        showRemove
+                        onRemove={requestRemoveAssigned}
+                      />
+                    ))
+                  )}
+                </DroppableColumn>
               </div>
             </DndContext>
           )}
@@ -395,6 +595,18 @@ export default function EmpresaFuncionesModal({
           onClose();
         }}
         onCancel={() => setConfirmExit(false)}
+      />
+
+      <ConfirmModal
+        open={removeConfirm.open}
+        title="Descartar función"
+        message={`¿Quieres quitar la función "${String(removeConfirm.item?.nombre || '')}" de esta empresa?`}
+        confirmText="Quitar"
+        cancelText="Cancelar"
+        actionType="delete"
+        loading={false}
+        onConfirm={confirmRemoveAssigned}
+        onCancel={() => setRemoveConfirm({ open: false })}
       />
     </div>
   );

@@ -6,14 +6,13 @@ import { useAuth } from '@/hooks/useAuth';
 import { useActorOwnership } from '@/hooks/useActorOwnership';
 import { getDefaultPermissions } from '@/utils/permissions';
 import { EmpresasService } from '@/services/empresas';
-import { FuncionesService, getFuncionIdLookupKeys, lookupGeneralByFuncionId } from '@/services/funciones';
+import { filterFuncionesGeneralesForEmpresa, FuncionesService, getFuncionIdLookupKeys, lookupGeneralByFuncionId } from '@/services/funciones';
 import type { Empresas, UserPermissions } from '@/types/firestore';
 
 type ReminderItem = {
   key: string; // unique per day
   empresaId: string;
   empresaName: string;
-  turno: 'apertura' | 'cierre';
   funcionId: string;
   funcionNombre: string;
   funcionDescripcion?: string;
@@ -146,24 +145,6 @@ export default function ReminderNotificationsInitializer() {
       role: currentUser.role,
     });
 
-    const generalById = new Map<string, { funcionId: string; nombre: string; descripcion?: string; reminderTimeCr?: string }>();
-    for (const d of generalDocs) {
-      const funcionId = String(d.funcionId || '').trim();
-      const nombre = String(d.nombre || '').trim();
-      if (!funcionId || !nombre) continue;
-
-      const value = {
-        funcionId,
-        nombre,
-        descripcion: d.descripcion ? String(d.descripcion).trim() : '',
-        reminderTimeCr: d.reminderTimeCr ? String(d.reminderTimeCr).trim() : '',
-      };
-
-      for (const key of getFuncionIdLookupKeys(funcionId)) {
-        if (!generalById.has(key)) generalById.set(key, value);
-      }
-    }
-
     const nextItems: Array<Omit<ReminderItem, 'key'>> = [];
 
     await Promise.all(
@@ -173,43 +154,54 @@ export default function ReminderNotificationsInitializer() {
         .map(async ({ empresa, empresaId }) => {
           const doc = await FuncionesService.getEmpresaFunciones({ empresaId });
 
-          const aperturaIds = Array.from(
-            new Set(
-              (Array.isArray(doc?.funcionesApertura) ? doc!.funcionesApertura! : (Array.isArray(doc?.funciones) ? doc!.funciones! : []))
-                .map((x) => String(x).trim())
-                .filter(Boolean)
-            )
-          );
+          const visibleGeneralDocs = filterFuncionesGeneralesForEmpresa(generalDocs as any, {
+            ownerId: String(empresa?.ownerId || '').trim(),
+            empresaId,
+          });
 
-          const cierreIds = Array.from(
-            new Set(
-              (Array.isArray(doc?.funcionesCierre) ? doc!.funcionesCierre! : [])
-                .map((x) => String(x).trim())
-                .filter(Boolean)
-            )
-          );
+          const generalById = new Map<
+            string,
+            { funcionId: string; nombre: string; descripcion?: string; reminderTimeCr?: string }
+          >();
+          for (const d of visibleGeneralDocs as any[]) {
+            const funcionId = String((d as any).funcionId || '').trim();
+            const nombre = String((d as any).nombre || '').trim();
+            if (!funcionId || !nombre) continue;
 
-          const pushItems = (turno: 'apertura' | 'cierre', funcionIds: string[]) => {
-            for (const funcionId of funcionIds) {
-              const g = lookupGeneralByFuncionId(generalById, funcionId);
-              const reminderTimeCr = String(g?.reminderTimeCr || '').trim();
-              if (!reminderTimeCr) continue;
+            const value = {
+              funcionId,
+              nombre,
+              descripcion: (d as any).descripcion ? String((d as any).descripcion).trim() : '',
+              reminderTimeCr: (d as any).reminderTimeCr ? String((d as any).reminderTimeCr).trim() : '',
+            };
 
-              nextItems.push({
-                empresaId,
-                empresaName: String(empresa?.name || empresaId),
-                turno,
-                funcionId,
-                funcionNombre: String(g?.nombre || 'Función no encontrada'),
-                funcionDescripcion:
-                  String(g?.descripcion || '').trim() || (g ? undefined : `ID: ${funcionId}`),
-                reminderTimeCr,
-              });
+            for (const key of getFuncionIdLookupKeys(funcionId)) {
+              if (!generalById.has(key)) generalById.set(key, value);
             }
-          };
+          }
 
-          pushItems('apertura', aperturaIds);
-          pushItems('cierre', cierreIds);
+          const funcionesIds: string[] = Array.from(
+            new Set(
+              (Array.isArray((doc as any)?.funciones) ? (doc as any).funciones : [])
+                .map((x: unknown) => String(x).trim())
+                .filter(Boolean)
+            )
+          );
+
+          for (const funcionId of funcionesIds) {
+            const g = lookupGeneralByFuncionId(generalById, funcionId);
+            const reminderTimeCr = String(g?.reminderTimeCr || '').trim();
+            if (!reminderTimeCr) continue;
+
+            nextItems.push({
+              empresaId,
+              empresaName: String(empresa?.name || empresaId),
+              funcionId,
+              funcionNombre: String(g?.nombre || 'Función no encontrada'),
+              funcionDescripcion: String(g?.descripcion || '').trim() || (g ? undefined : `ID: ${funcionId}`),
+              reminderTimeCr,
+            });
+          }
         })
     );
 
@@ -272,7 +264,7 @@ export default function ReminderNotificationsInitializer() {
 
       const nextToEnqueue: ReminderItem[] = [];
       for (const it of matching) {
-        const key = `${dateKey}|${it.empresaId}|${it.turno}|${it.funcionId}|${it.reminderTimeCr}`;
+        const key = `${dateKey}|${it.empresaId}|${it.funcionId}|${it.reminderTimeCr}`;
         if (firedRef.current.set.has(key)) continue;
         if (pendingRef.current.has(key)) continue;
         pendingRef.current.add(key);
@@ -338,7 +330,7 @@ export default function ReminderNotificationsInitializer() {
 
         <div className="space-y-4">
           <div className="text-sm text-[var(--muted-foreground)]">
-            Recordatorio {active.turno === 'apertura' ? 'de Apertura' : 'de Cierre'} — {active.empresaName}
+            Recordatorio — {active.empresaName}
           </div>
           <div className="text-3xl md:text-4xl font-bold text-[var(--foreground)] leading-tight">
             {active.funcionNombre}
