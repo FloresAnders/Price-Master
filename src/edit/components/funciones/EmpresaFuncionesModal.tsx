@@ -198,6 +198,11 @@ export default function EmpresaFuncionesModal({
     setExpandedIds((prev) => (prev.includes(key) ? prev.filter((x) => x !== key) : [...prev, key]));
   }, []);
 
+  React.useEffect(() => {
+    if (!open) return;
+    setExpandedIds([]);
+  }, [empresaId, open]);
+
   const [confirmExit, setConfirmExit] = React.useState(false);
 
   const [createOpen, setCreateOpen] = React.useState(false);
