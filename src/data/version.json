@@ -1,16 +1,11 @@
 {
-    "version": "1.4.13",
+    "version": "1.4.14",
     "versionstorage": "1.1.7",
     "releaseNotes": [
         {
-            "date": "2026-03-03",
-            "title": "Fondo General: cierre más claro (saldo al cierre)",
-            "description": "En los movimientos automáticos de cierre de Fondo General, ahora el sistema muestra el ‘Saldo al cierre’ (CRC y USD en el mismo espacio) y lo guarda para que se mantenga igual al recargar. Además, se conserva la información de entrada/salida del ajuste (flecha y monto +/−) para que sea más fácil entender qué se registró en ese cierre."
-        },
-        {
-            "date": "2026-03-02",
-            "title": "Fondo General: cierres y saldos más consistentes",
-            "description": "Se corrigió un problema que, en ciertos momentos, hacía que el saldo mostrado cambiara por unos segundos al guardar un cierre (por ejemplo, el ‘Saldo anterior’ podía verse incrementado temporalmente). Ahora el saldo y la lista de movimientos se actualizan al mismo tiempo. Además, se mejoró la forma de guardar la información para que el movimiento y el saldo queden sincronizados incluso con conexión inestable, reduciendo diferencias inesperadas al día siguiente."
+            "date": "2026-03-10",
+            "title": "Funciones: DELIKOR vs DELIFOOD + exclusivas por empresa",
+            "description": "Se renovó la administración de Funciones: ahora se separan por grupo (DELIKOR/DELIFOOD) y las DELIFOOD solo aplican a la empresa DELIFOOD. Las funciones generales se pueden crear desde el editor y se asignan automáticamente (a todas las empresas DELIKOR o a empresas específicas si se seleccionan). Las funciones exclusivas se crean únicamente dentro de cada empresa y ahora permiten definir recordatorio (hora CR). En la lista de asignadas se agregó botón de quitar por función con confirmación. Además, al cambiar una función entre DELIKOR↔DELIFOOD se sincronizan asignaciones inmediatamente y se limpia correctamente el alcance (empresaIds) cuando corresponde."
         }
     ],  
     "_comment": "hacer una pagina de 'en mantenimiento' para secciones en desarrollo y a exepcion de un usuario admin"
