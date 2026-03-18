@@ -117,6 +117,17 @@ export class EmpresasService {
         return this.cloneEmpresas(normalized);
     }
 
+    static async getEmpresaById(id: string): Promise<Empresas | null> {
+        const empresaId = String(id || '').trim();
+        if (!empresaId) return null;
+        const doc = await FirestoreService.getById(this.COLLECTION_NAME, empresaId);
+        if (!doc) return null;
+        return {
+            ...(doc as Empresas),
+            empleados: EmpresasService.normalizeEmpleados((doc as any).empleados as unknown),
+        } as Empresas;
+    }
+
     /**
      * Add a new empresa. If empresa.id is provided, create with that id.
      */
