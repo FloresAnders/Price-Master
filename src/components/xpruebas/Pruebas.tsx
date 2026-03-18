@@ -9,12 +9,15 @@ import type { MovementCurrencyKey, MovementStorage } from '@/services/movimiento
 
 type MovimientosCompanyRecord = MovementStorage<unknown> & { id: string };
 
-const summarizeCompanyMovements = (storage?: MovementStorage<unknown> | null) => {
-    if (!storage) {
+const summarizeCompanyMovements = (
+    storage?: MovementStorage<unknown> | null,
+    movementsOverride?: Array<unknown> | null,
+) => {
+    if (!storage && !movementsOverride) {
         return { totalCRC: 0, totalUSD: 0, totalMovements: 0 };
     }
 
-    const movements = storage.operations?.movements ?? [];
+    const movements = movementsOverride ?? storage?.operations?.movements ?? [];
     let totalCRC = 0;
     let totalUSD = 0;
 
@@ -43,6 +46,50 @@ const createMovementsFilename = (label: string) => {
     return `movimientos-${normalized || 'sin-nombre'}-${timestamp}.json`;
 };
 
+const createCollectionFilename = (collectionName: string) => {
+    const normalized = (collectionName || 'coleccion')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    return `firestore-${normalized || 'sin-nombre'}-${timestamp}.json`;
+};
+
+const downloadJson = (filename: string, payload: unknown) => {
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(url);
+};
+
+const FIRESTORE_COLLECTIONS: Array<{ name: string; label: string; notes?: string }> = [
+    { name: 'users', label: 'users' },
+    { name: 'empresas', label: 'empresas' },
+    { name: 'empleados', label: 'empleados' },
+    { name: 'schedules', label: 'schedules' },
+    { name: 'productos', label: 'productos' },
+    { name: 'recetas', label: 'recetas' },
+    { name: 'proveedores', label: 'proveedores' },
+    { name: 'ordenes', label: 'ordenes' },
+    { name: 'solicitudes', label: 'solicitudes' },
+    { name: 'controlpedido', label: 'controlpedido' },
+    { name: 'cierres', label: 'cierres' },
+    { name: 'scans', label: 'scans' },
+    { name: 'session_status', label: 'session_status' },
+    { name: 'ccss-config', label: 'ccss-config' },
+    { name: 'calculohoras', label: 'calculohoras' },
+    { name: 'funciones', label: 'funciones' },
+    { name: 'fondoMovementTypes', label: 'fondoMovementTypes' },
+    { name: 'payroll-records', label: 'payroll-records' },
+    { name: 'sorteos', label: 'sorteos' },
+    { name: 'MovimientosFondos', label: 'MovimientosFondos', notes: 'Incluye subcolección movements' },
+];
+
 export default function Pruebas() {
     const [activeTest, setActiveTest] = useState<string | null>(null);
     const [testResults, setTestResults] = useState<{ [key: string]: string }>({});
@@ -55,6 +102,9 @@ export default function Pruebas() {
     const [movimientosLoading, setMovimientosLoading] = useState<boolean>(false);
     const [movimientosError, setMovimientosError] = useState<string | null>(null);
     const [exportingCompanyId, setExportingCompanyId] = useState<string | null>(null);
+    const [importingCompanyId, setImportingCompanyId] = useState<string | null>(null);
+    const [movimientosCounts, setMovimientosCounts] = useState<Record<string, number | null>>({});
+    const [dbBackupActive, setDbBackupActive] = useState<string | null>(null);
 
     // Hook para funcionalidad de correo
     const { sendEmail, checkEmailConfig, error: emailError } = useEmail();
@@ -62,11 +112,31 @@ export default function Pruebas() {
     const fetchMovimientosCompanies = useCallback(async () => {
         setMovimientosLoading(true);
         setMovimientosError(null);
+        setMovimientosCounts({});
 
         try {
             const { MovimientosFondosService } = await import('@/services/movimientos-fondos');
             const docs = await MovimientosFondosService.getAllDocuments();
             setMovimientosCompanies(docs);
+
+            // Load subcollection counts (cheap aggregation query)
+            const initial: Record<string, number | null> = {};
+            docs.forEach((d) => {
+                initial[d.id] = null;
+            });
+            setMovimientosCounts(initial);
+
+            await Promise.all(
+                docs.map(async (d) => {
+                    try {
+                        const count = await MovimientosFondosService.countMovements(d.id);
+                        setMovimientosCounts((prev) => ({ ...prev, [d.id]: count }));
+                    } catch {
+                        // If rules block the count aggregation, keep as unknown
+                        setMovimientosCounts((prev) => ({ ...prev, [d.id]: null }));
+                    }
+                }),
+            );
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Error desconocido';
             setMovimientosError(message);
@@ -94,26 +164,18 @@ export default function Pruebas() {
 
         try {
             const { MovimientosFondosService } = await import('@/services/movimientos-fondos');
-            const storageDoc = await MovimientosFondosService.getDocument(docId);
+            const bundle = await MovimientosFondosService.exportBundle(docId);
 
-            if (!storageDoc) {
-                throw new Error('Documento no encontrado en Firebase');
+            if (!bundle) {
+                throw new Error('Documento no encontrado en Firebase o sin acceso');
             }
 
-            const summary = summarizeCompanyMovements(storageDoc);
-            const blob = new Blob([JSON.stringify(storageDoc, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const anchor = document.createElement('a');
-            anchor.href = url;
-            anchor.download = createMovementsFilename(readableLabel);
-            document.body.appendChild(anchor);
-            anchor.click();
-            document.body.removeChild(anchor);
-            URL.revokeObjectURL(url);
+            const summary = summarizeCompanyMovements(bundle.ledger, bundle.movements);
+            downloadJson(createMovementsFilename(readableLabel), bundle);
 
             setTestResults(prev => ({
                 ...prev,
-                [`movimientos-export-${docId}`]: `✅ Exportación completada (${summary.totalMovements} movimientos)`
+                [`movimientos-export-${docId}`]: `✅ Exportación completada (${summary.totalMovements} movimientos en subcolección)`
             }));
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Error desconocido';
@@ -123,6 +185,253 @@ export default function Pruebas() {
             }));
         } finally {
             setExportingCompanyId(null);
+        }
+    }, [setTestResults]);
+
+    const handleImportMovimientosCompany = useCallback(async (docId: string, companyLabel: string) => {
+        setImportingCompanyId(docId);
+        const readableLabel = companyLabel && companyLabel.trim().length > 0 ? companyLabel : docId;
+        const key = `movimientos-import-${docId}`;
+
+        setTestResults(prev => ({
+            ...prev,
+            [key]: `📂 Selecciona un JSON para importar en ${readableLabel}...`,
+        }));
+
+        try {
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = '.json,application/json';
+            fileInput.style.display = 'none';
+
+            fileInput.onchange = async (e) => {
+                const file = (e.target as HTMLInputElement).files?.[0];
+                if (!file) {
+                    setImportingCompanyId(null);
+                    return;
+                }
+
+                try {
+                    const rawText = await file.text();
+                    const json = JSON.parse(rawText);
+
+                    const confirmImport = confirm(
+                        `¿Importar MovimientosFondos en "${readableLabel}"?\n\n` +
+                        `Esto sobrescribe el documento principal (ledger) y hace upsert de movements en la subcolección.\n` +
+                        `No elimina movements existentes que no estén en el archivo.`,
+                    );
+                    if (!confirmImport) {
+                        setTestResults(prev => ({
+                            ...prev,
+                            [key]: '❎ Importación cancelada por el usuario',
+                        }));
+                        return;
+                    }
+
+                    const { MovimientosFondosService } = await import('@/services/movimientos-fondos');
+
+                    if (json?.kind === 'MovimientosFondosExportBundle') {
+                        const bundleDocId = String(json.docId || '').trim();
+                        if (bundleDocId && bundleDocId !== docId) {
+                            const ok = confirm(
+                                `⚠️ Este archivo es para docId "${bundleDocId}".\n` +
+                                `¿Quieres importarlo de todos modos en "${docId}"?`,
+                            );
+                            if (!ok) {
+                                setTestResults(prev => ({
+                                    ...prev,
+                                    [key]: `❎ Importación cancelada (docId no coincide: ${bundleDocId})`,
+                                }));
+                                return;
+                            }
+                            json.docId = docId;
+                        }
+
+                        const result = await MovimientosFondosService.importBundle(json);
+                        setTestResults(prev => ({
+                            ...prev,
+                            [key]: `✅ Importación completada (ledger + ${result.upsertedMovements} movements)`,
+                        }));
+                        return;
+                    }
+
+                    if (json?.kind === 'MovimientosFondosCollectionBackup') {
+                        const docs = Array.isArray(json.documents) ? json.documents : [];
+                        const bundle = docs.find((b: any) => String(b?.docId || '').trim() === docId);
+                        if (!bundle) {
+                            throw new Error(`El backup no contiene un documento con docId "${docId}"`);
+                        }
+                        const result = await MovimientosFondosService.importBundle(bundle);
+                        setTestResults(prev => ({
+                            ...prev,
+                            [key]: `✅ Importación completada (desde backup): ledger + ${result.upsertedMovements} movements`,
+                        }));
+                        return;
+                    }
+
+                    throw new Error('Formato inválido: se esperaba MovimientosFondosExportBundle o MovimientosFondosCollectionBackup');
+                } catch (innerError) {
+                    const message = innerError instanceof Error ? innerError.message : 'Error desconocido';
+                    setTestResults(prev => ({
+                        ...prev,
+                        [key]: `❌ Error al importar ${readableLabel}: ${message}`,
+                    }));
+                } finally {
+                    setImportingCompanyId(null);
+                }
+            };
+
+            document.body.appendChild(fileInput);
+            fileInput.click();
+            document.body.removeChild(fileInput);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Error desconocido';
+            setTestResults(prev => ({
+                ...prev,
+                [key]: `❌ Error al iniciar importación: ${message}`,
+            }));
+            setImportingCompanyId(null);
+        }
+    }, [setTestResults]);
+
+    const handleExportFirestoreCollection = useCallback(async (collectionName: string) => {
+        const key = `db-export-${collectionName}`;
+        setDbBackupActive(key);
+        setTestResults(prev => ({
+            ...prev,
+            [key]: `🔄 Exportando colección ${collectionName}...`,
+        }));
+
+        try {
+            if (collectionName === 'MovimientosFondos') {
+                const { MovimientosFondosService } = await import('@/services/movimientos-fondos');
+                const docs = await MovimientosFondosService.getAllDocuments();
+
+                const bundles = [] as any[];
+                for (const doc of docs) {
+                    const bundle = await MovimientosFondosService.exportBundle(doc.id);
+                    if (bundle) bundles.push(bundle);
+                }
+
+                const payload = {
+                    kind: 'MovimientosFondosCollectionBackup',
+                    version: 1,
+                    exportedAt: new Date().toISOString(),
+                    collection: 'MovimientosFondos',
+                    documents: bundles,
+                };
+                downloadJson(createCollectionFilename(collectionName), payload);
+
+                setTestResults(prev => ({
+                    ...prev,
+                    [key]: `✅ Exportación completada: ${bundles.length} documentos (incluye subcolección movements)`,
+                }));
+                return;
+            }
+
+            const { DbBackupService } = await import('@/services/db-backup');
+            const backup = await DbBackupService.exportCollection(collectionName);
+            downloadJson(createCollectionFilename(collectionName), backup);
+            setTestResults(prev => ({
+                ...prev,
+                [key]: `✅ Exportación completada: ${backup.documents.length} documentos`,
+            }));
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Error desconocido';
+            setTestResults(prev => ({
+                ...prev,
+                [key]: `❌ Error exportando ${collectionName}: ${message}`,
+            }));
+        } finally {
+            setDbBackupActive(null);
+        }
+    }, [setTestResults]);
+
+    const handleImportFirestoreCollection = useCallback(async (collectionName: string) => {
+        const key = `db-import-${collectionName}`;
+        setDbBackupActive(key);
+        setTestResults(prev => ({
+            ...prev,
+            [key]: `📂 Selecciona un archivo JSON para importar en ${collectionName}...`,
+        }));
+
+        try {
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = '.json,application/json';
+            fileInput.style.display = 'none';
+
+            fileInput.onchange = async (e) => {
+                const file = (e.target as HTMLInputElement).files?.[0];
+                if (!file) {
+                    setDbBackupActive(null);
+                    return;
+                }
+
+                try {
+                    const rawText = await file.text();
+                    const json = JSON.parse(rawText);
+
+                    if (json?.kind === 'MovimientosFondosExportBundle') {
+                        const { MovimientosFondosService } = await import('@/services/movimientos-fondos');
+                        const result = await MovimientosFondosService.importBundle(json);
+                        setTestResults(prev => ({
+                            ...prev,
+                            [key]: `✅ Importación completada (1 doc MovimientosFondos, ${result.upsertedMovements} movements)`,
+                        }));
+                        return;
+                    }
+
+                    if (json?.kind === 'MovimientosFondosCollectionBackup') {
+                        const { MovimientosFondosService } = await import('@/services/movimientos-fondos');
+                        const docs = Array.isArray(json.documents) ? json.documents : [];
+                        let totalMovs = 0;
+                        for (const bundle of docs) {
+                            const result = await MovimientosFondosService.importBundle(bundle);
+                            totalMovs += result.upsertedMovements;
+                        }
+                        setTestResults(prev => ({
+                            ...prev,
+                            [key]: `✅ Importación completada (${docs.length} docs MovimientosFondos, ${totalMovs} movements)`,
+                        }));
+                        return;
+                    }
+
+                    const { DbBackupService } = await import('@/services/db-backup');
+                    if (json?.kind !== 'CollectionBackup') {
+                        throw new Error('Formato inválido: se esperaba CollectionBackup');
+                    }
+
+                    if (String(json.collection || '').trim() !== String(collectionName || '').trim()) {
+                        throw new Error(`El archivo es de la colección "${json.collection}", no "${collectionName}"`);
+                    }
+
+                    const result = await DbBackupService.importCollection(json);
+                    setTestResults(prev => ({
+                        ...prev,
+                        [key]: `✅ Importación completada: ${result.imported} documentos`,
+                    }));
+                } catch (innerError) {
+                    const message = innerError instanceof Error ? innerError.message : 'Error desconocido';
+                    setTestResults(prev => ({
+                        ...prev,
+                        [key]: `❌ Error importando ${collectionName}: ${message}`,
+                    }));
+                } finally {
+                    setDbBackupActive(null);
+                }
+            };
+
+            document.body.appendChild(fileInput);
+            fileInput.click();
+            document.body.removeChild(fileInput);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Error desconocido';
+            setTestResults(prev => ({
+                ...prev,
+                [key]: `❌ Error al iniciar importación: ${message}`,
+            }));
+            setDbBackupActive(null);
         }
     }, [setTestResults]);
 
@@ -1715,7 +2024,8 @@ export default function Pruebas() {
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {movimientosCompanies.map(company => {
-                            const summary = summarizeCompanyMovements(company);
+                                    const count = movimientosCounts[company.id];
+                                    const summary = summarizeCompanyMovements(company);
                             return (
                                 <div key={company.id} className="p-4 rounded-lg border border-[var(--border)] bg-[var(--background)] flex flex-col">
                                     <div className="flex items-center justify-between mb-2">
@@ -1724,28 +2034,95 @@ export default function Pruebas() {
                                             <p className="text-xs text-[var(--muted-foreground)] break-all">ID: {company.id}</p>
                                         </div>
                                         <span className="text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded-full">
-                                            {summary.totalMovements} movs
+                                            {typeof count === 'number' ? `${count} movs` : 'movs: ...'}
                                         </span>
                                     </div>
                                     <div className="grid grid-cols-2 gap-2 text-xs text-[var(--muted-foreground)] mb-4">
                                         <p>CRC: {summary.totalCRC}</p>
                                         <p>USD: {summary.totalUSD}</p>
                                     </div>
-                                    <button
-                                        onClick={() => handleExportMovimientos(company.id, company.company || company.id)}
-                                        disabled={exportingCompanyId === company.id}
-                                        className={`mt-auto px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center ${exportingCompanyId === company.id
-                                            ? 'bg-gray-400 text-gray-700 cursor-not-allowed'
-                                            : 'bg-amber-600 hover:bg-amber-700 text-white'
-                                            }`}
-                                    >
-                                        {exportingCompanyId === company.id ? 'Exportando...' : 'Exportar JSON'}
-                                    </button>
+                                    <div className="mt-auto grid grid-cols-2 gap-2">
+                                        <button
+                                            onClick={() => handleExportMovimientos(company.id, company.company || company.id)}
+                                            disabled={exportingCompanyId === company.id || importingCompanyId === company.id}
+                                            className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center ${exportingCompanyId === company.id
+                                                ? 'bg-gray-400 text-gray-700 cursor-not-allowed'
+                                                : 'bg-amber-600 hover:bg-amber-700 text-white'
+                                                }`}
+                                        >
+                                            {exportingCompanyId === company.id ? 'Exportando...' : 'Exportar JSON'}
+                                        </button>
+
+                                        <button
+                                            onClick={() => handleImportMovimientosCompany(company.id, company.company || company.id)}
+                                            disabled={importingCompanyId === company.id || exportingCompanyId === company.id}
+                                            className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center ${importingCompanyId === company.id
+                                                ? 'bg-gray-400 text-gray-700 cursor-not-allowed'
+                                                : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                                }`}
+                                        >
+                                            {importingCompanyId === company.id ? 'Importando...' : 'Importar JSON'}
+                                        </button>
+                                    </div>
                                 </div>
                             );
                         })}
                     </div>
                 )}
+            </div>
+
+            {/* Firestore Collections Backup Section */}
+            <div className="bg-[var(--input-bg)] rounded-lg border border-[var(--border)] p-6 mb-8">
+                <div className="mb-4">
+                    <h3 className="text-lg font-semibold text-[var(--foreground)] flex items-center">
+                        <Database className="w-5 h-5 mr-2 text-slate-600" />
+                        Exportar / Importar Colecciones (Firestore)
+                    </h3>
+                    <p className="text-sm text-[var(--muted-foreground)]">
+                        Exporta o importa cada colección en JSON. Para <span className="font-medium">MovimientosFondos</span> se incluye la subcolección <span className="font-medium">movements</span>.
+                    </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {FIRESTORE_COLLECTIONS.map((c) => (
+                        <div key={c.name} className="p-4 rounded-lg border border-[var(--border)] bg-[var(--background)]">
+                            <div className="flex items-start justify-between gap-3">
+                                <div>
+                                    <p className="text-sm font-semibold text-[var(--foreground)]">{c.label}</p>
+                                    {c.notes && (
+                                        <p className="text-xs text-[var(--muted-foreground)] mt-1">{c.notes}</p>
+                                    )}
+                                </div>
+                                <span className="text-[10px] px-2 py-1 rounded-full bg-slate-100 text-slate-700">
+                                    {c.name}
+                                </span>
+                            </div>
+
+                            <div className="mt-3 flex gap-2">
+                                <button
+                                    onClick={() => handleExportFirestoreCollection(c.name)}
+                                    disabled={dbBackupActive !== null}
+                                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${dbBackupActive
+                                        ? 'bg-gray-300 text-gray-700 cursor-not-allowed'
+                                        : 'bg-slate-700 hover:bg-slate-800 text-white'
+                                        }`}
+                                >
+                                    Exportar
+                                </button>
+                                <button
+                                    onClick={() => handleImportFirestoreCollection(c.name)}
+                                    disabled={dbBackupActive !== null}
+                                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${dbBackupActive
+                                        ? 'bg-gray-300 text-gray-700 cursor-not-allowed'
+                                        : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                        }`}
+                                >
+                                    Importar
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
             </div>
 
             {/* Schedule Management Help Section */}

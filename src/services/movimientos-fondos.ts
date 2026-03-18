@@ -3,6 +3,7 @@ import {
   deleteDoc,
   doc,
   getDocs,
+  getCountFromServer,
   limit,
   orderBy,
   query,
@@ -120,6 +121,15 @@ export type MovementStorage<T = unknown> = {
   configuration: MovementConfiguration;
   operations: MovementOperations<T>;
   state: MovementStorageState;
+};
+
+export type MovimientosFondosExportBundle<TMovement = unknown, TLedgerMovement = unknown> = {
+  kind: 'MovimientosFondosExportBundle';
+  version: 1;
+  exportedAt: string;
+  docId: string;
+  ledger: MovementStorage<TLedgerMovement>;
+  movements: Array<TMovement & { id: string }>;
 };
 
 const MOVEMENT_STORAGE_PREFIX = 'movements';
@@ -450,6 +460,45 @@ export class MovimientosFondosService {
     return this.ensureMovementStorageShape<T>(doc, company);
   }
 
+  static async exportBundle<TMovement = unknown, TLedgerMovement = unknown>(
+    docId: string,
+  ): Promise<MovimientosFondosExportBundle<TMovement, TLedgerMovement> | null> {
+    if (!docId) return null;
+    const ledger = await this.getDocument<TLedgerMovement>(docId);
+    if (!ledger) return null;
+    const movements = await this.listAllMovements<TMovement>(docId);
+    return {
+      kind: 'MovimientosFondosExportBundle',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      docId,
+      ledger,
+      movements,
+    };
+  }
+
+  static async importBundle<TMovement extends { id: string }, TLedgerMovement = unknown>(
+    bundle: MovimientosFondosExportBundle<TMovement, TLedgerMovement>,
+  ): Promise<{ upsertedMovements: number }> {
+    if (!bundle?.docId) {
+      throw new Error('[MovimientosFondosService.importBundle] bundle.docId is required');
+    }
+    if (!bundle.ledger) {
+      throw new Error('[MovimientosFondosService.importBundle] bundle.ledger is required');
+    }
+
+    // Save ledger first
+    await this.saveDocument(bundle.docId, bundle.ledger);
+
+    const movements = Array.isArray(bundle.movements) ? bundle.movements : [];
+    if (movements.length === 0) {
+      return { upsertedMovements: 0 };
+    }
+
+    const migrated = await this.bulkUpsertMovements(bundle.docId, movements);
+    return { upsertedMovements: migrated.upserted };
+  }
+
   static async getAllDocuments<T = unknown>(): Promise<Array<MovementStorage<T> & { id: string }>> {
     const documents = await FirestoreService.getAll(this.COLLECTION_NAME);
     return documents.map(rawDoc => {
@@ -475,6 +524,12 @@ export class MovimientosFondosService {
 
   private static movementsCollectionRef(docId: string) {
     return collection(db, this.COLLECTION_NAME, docId, this.MOVEMENTS_SUBCOLLECTION);
+  }
+
+  static async countMovements(docId: string): Promise<number> {
+    if (!docId) return 0;
+    const snapshot = await getCountFromServer(this.movementsCollectionRef(docId));
+    return snapshot.data().count;
   }
 
   static async upsertMovement<T extends Partial<MovementRecordBase>>(
@@ -706,5 +761,35 @@ export class MovimientosFondosService {
     }
 
     return { migrated };
+  }
+
+  static async bulkUpsertMovements<T extends { id: string }>(
+    docId: string,
+    movements: T[],
+    options?: { chunkSize?: number },
+  ): Promise<{ upserted: number }> {
+    if (!docId) return { upserted: 0 };
+    if (!Array.isArray(movements) || movements.length === 0) return { upserted: 0 };
+
+    // Batch writes (<=500 ops). Use 450 to stay safe.
+    const chunkSize = Math.max(1, Math.min(options?.chunkSize ?? 450, 450));
+    let upserted = 0;
+
+    for (let offset = 0; offset < movements.length; offset += chunkSize) {
+      const chunk = movements.slice(offset, offset + chunkSize);
+      const batch = writeBatch(db);
+      chunk.forEach((movement) => {
+        const id = typeof movement?.id === 'string' ? movement.id.trim() : '';
+        if (!id) return;
+        const record = movement && typeof movement === 'object' ? { ...(movement as Record<string, unknown>) } : {};
+        delete (record as any).id;
+        const ref = doc(this.movementsCollectionRef(docId), id);
+        batch.set(ref, stripUndefinedDeep(record) as any);
+      });
+      await batch.commit();
+      upserted += chunk.length;
+    }
+
+    return { upserted };
   }
 }
