@@ -6,6 +6,8 @@ import { SolicitudesService } from '@/services/solicitudes';
 import type { Empresas } from '@/types/firestore';
 import useToast from '@/hooks/useToast';
 
+const STORAGE_KEY_EMPRESA_SELECTED = 'solicitud.empresaSelected';
+
 export default function SolicitudForm() {
     const { showToast } = useToast();
     const [productName, setProductName] = useState('');
@@ -18,6 +20,31 @@ export default function SolicitudForm() {
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
     const messageTimer = useRef<number | null>(null);
+
+    // Cargar la última empresa seleccionada desde localStorage
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        try {
+            const saved = window.localStorage.getItem(STORAGE_KEY_EMPRESA_SELECTED);
+            if (saved) setEmpresaSelected(saved);
+        } catch {
+            // ignore
+        }
+    }, []);
+
+    // Persistir empresa seleccionada en localStorage
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        try {
+            if (empresaSelected) {
+                window.localStorage.setItem(STORAGE_KEY_EMPRESA_SELECTED, empresaSelected);
+            } else {
+                window.localStorage.removeItem(STORAGE_KEY_EMPRESA_SELECTED);
+            }
+        } catch {
+            // ignore
+        }
+    }, [empresaSelected]);
 
     // Helper to show a temporary message for 2 seconds
     const showTempMessage = (msg: { type: 'success' | 'error'; text: string }) => {
@@ -53,7 +80,19 @@ export default function SolicitudForm() {
                 const list = await EmpresasService.getAllEmpresas();
                 setEmpresas(list || []);
                 // default de empresa para envío (no para el filtro)
-                if (list && list.length > 0) setEmpresaSelected(list[0].name || '');
+                // Respetar la empresa guardada/seleccionada si existe y es válida.
+                if (list && list.length > 0) {
+                    const isValid = (name: string) => (list || []).some((e) => e?.name === name);
+                    const saved = typeof window !== 'undefined'
+                        ? window.localStorage.getItem(STORAGE_KEY_EMPRESA_SELECTED)
+                        : null;
+
+                    setEmpresaSelected((current) => {
+                        const candidate = (current || saved || '').trim();
+                        if (candidate && isValid(candidate)) return candidate;
+                        return (list?.[0]?.name || '').trim();
+                    });
+                }
             } catch (err) {
                 console.error('Error loading empresas for solicitud:', err);
                 setEmpresas([]);
