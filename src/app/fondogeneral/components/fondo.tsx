@@ -56,6 +56,7 @@ import { FondoMovementTypesService } from "../../../services/fondo-movement-type
 import { SchedulesService } from "../../../services/schedules";
 import { generateMovementNotificationEmail } from "../../../services/email-templates/notificacion-movimiento";
 import { generateEgresoProviderCreatedEmail } from "../../../services/email-templates/proveedor-egreso-creado";
+import { AuditHistoryModal } from "./AuditHistoryModal";
 import {
   MovimientosFondosService,
   MovementAccountKey,
@@ -9348,61 +9349,14 @@ export function FondoSection({
         </div>
       </div>
 
-      {auditModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-gray-800/60 px-4"
-          onClick={() => setAuditModalOpen(false)}
-        >
-          <div
-            className="w-full max-w-2xl rounded border border-[var(--input-border)] bg-[#1f262a] p-6 shadow-lg text-white"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="audit-modal-title"
-          >
-            <h3 id="audit-modal-title" className="text-lg font-semibold">
-              Historial de edición
-            </h3>
-            <div className="mt-4 space-y-3 max-h-[60vh] overflow-auto">
-              {auditModalData?.history?.map((h, idx) => (
-                <div key={idx} className="p-3 bg-[#0f1516] rounded">
-                  <div className="text-xs text-[var(--muted-foreground)]">
-                    Cambio {idx + 1} —{" "}
-                    {h?.at ? dateTimeFormatter.format(new Date(h.at)) : "—"}
-                  </div>
-                  <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <div className="text-xs text-[var(--muted-foreground)]">
-                        Antes
-                      </div>
-                      <pre className="mt-2 text-sm bg-[#0b1011] p-3 rounded overflow-auto max-h-48">
-                        {JSON.stringify(h?.before ?? {}, null, 2)}
-                      </pre>
-                    </div>
-                    <div>
-                      <div className="text-xs text-[var(--muted-foreground)]">
-                        Después
-                      </div>
-                      <pre className="mt-2 text-sm bg-[#0b1011] p-3 rounded overflow-auto max-h-48">
-                        {JSON.stringify(h?.after ?? {}, null, 2)}
-                      </pre>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="flex justify-end mt-4">
-              <button
-                type="button"
-                onClick={() => setAuditModalOpen(false)}
-                className="px-4 py-2 border border-[var(--input-border)] rounded"
-              >
-                Cerrar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AuditHistoryModal
+        open={auditModalOpen}
+        onClose={() => setAuditModalOpen(false)}
+        auditModalData={auditModalData}
+        dateTimeFormatter={dateTimeFormatter}
+        formatByCurrency={formatByCurrency}
+        providersMap={providersMap}
+      />
       {/* daily closings block removed from inline view */}
       <DailyClosingModal
         open={dailyClosingModalOpen}

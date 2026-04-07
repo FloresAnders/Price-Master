@@ -1,12 +1,12 @@
 {
-    "version": "1.4.18",
+    "version": "1.4.19",
     "versionstorage": "1.1.7",
     "releaseNotes": [
         {
-            "date": "2026-03-10",
-            "title": "Funciones: DELIKOR vs DELIFOOD + exclusivas por empresa",
-            "description": "Se renovó la administración de Funciones: ahora se separan por grupo (DELIKOR/DELIFOOD) y las DELIFOOD solo aplican a la empresa DELIFOOD. Las funciones generales se pueden crear desde el editor y se asignan automáticamente (a todas las empresas DELIKOR o a empresas específicas si se seleccionan). Las funciones exclusivas se crean únicamente dentro de cada empresa y ahora permiten definir recordatorio (hora CR). En la lista de asignadas se agregó botón de quitar por función con confirmación. Además, al cambiar una función entre DELIKOR↔DELIFOOD se sincronizan asignaciones inmediatamente y se limpia correctamente el alcance (empresaIds) cuando corresponde."
+            "date": "2026-04-07",
+            "title": "Fondo General: Historial de edición mejorado",
+            "description": "Se mejoró la visualización del Historial de edición: ahora muestra una vista comparativa tipo diff (Campo / Antes / Después) con resaltado por impacto, tarjetas ANTES/DESPUÉS con campos clave, e indicadores de cambio (Ingreso/Egreso con flechas). El campo providerCode ahora muestra también el nombre del proveedor correspondiente."
         }
-    ],  
+    ],
     "_comment": "hacer una pagina de 'en mantenimiento' para secciones en desarrollo y a exepcion de un usuario admin"
 }
