@@ -2891,6 +2891,17 @@ export function FondoSection({
   const loadingDailyClosingKeysRef = useRef<Set<string>>(new Set());
   const lastEditSaveTimestampRef = useRef<number>(0);
   const editingInProgressRef = useRef<boolean>(false);
+  const dailyClosingSubmitInProgressRef = useRef<boolean>(false);
+  const lastDailyClosingSavedAtRef = useRef<number>(0);
+  const movementSubmitInProgressRef = useRef<boolean>(false);
+  const lastMovementDedupeRef = useRef<{ at: number; fingerprint: string } | null>(
+    null
+  );
+  const lastMovementCreatedAtRef = useRef<number>(0);
+
+  const DAILY_CLOSING_MIN_INTERVAL_MS = 60_000;
+  const MOVEMENT_DUPLICATE_WINDOW_MS = 60_000;
+  const MOVEMENT_MIN_INTERVAL_MS = 60_000;
 
   const [pageSize, setPageSize] = useState<"daily" | number | "all">(() => {
     if (typeof window !== "undefined") {
@@ -4998,7 +5009,7 @@ export function FondoSection({
   );
 
   const persistCreatedMovement = useCallback(
-    async (entry: FondoEntry, updatedEntries: FondoEntry[]): Promise<void> => {
+    async (entry: FondoEntry, updatedEntries: FondoEntry[]): Promise<boolean> => {
       // PRIMERO persistir a Firestore, LUEGO actualizar UI
       const saved = await persistMovementToFirestore(updatedEntries, "create", {
         upsert: entry,
@@ -5011,7 +5022,41 @@ export function FondoSection({
           5000
         );
         editingInProgressRef.current = false;
-        return;
+        return false;
+      }
+
+      // Mark a dedupe window after a successful save (prevents instant duplicates)
+      try {
+        const normalizedCompany = (company || "").trim();
+        if (normalizedCompany.length > 0) {
+          const savedAtMs = Date.now();
+          const fingerprintParts = [
+            `provider=${entry.providerCode || ""}`,
+            `invoice=${entry.invoiceNumber || ""}`,
+            `type=${entry.paymentType || ""}`,
+            `egreso=${Math.trunc(entry.amountEgreso || 0)}`,
+            `ingreso=${Math.trunc(entry.amountIngreso || 0)}`,
+            `manager=${(entry.manager || "").trim()}`,
+            `currency=${(entry as any).currency || "CRC"}`,
+            `notes=${(entry.notes || "").trim()}`,
+          ];
+          const fingerprint = fingerprintParts.join("|");
+          const payload = { at: savedAtMs, fingerprint };
+          lastMovementDedupeRef.current = payload;
+          lastMovementCreatedAtRef.current = savedAtMs;
+          if (typeof window !== "undefined") {
+            const key = `fondogeneral-lastMovementDedupe:${normalizedCompany}:${accountKey}`;
+            const createdKey = `fondogeneral-lastMovementCreatedAt:${normalizedCompany}:${accountKey}`;
+            try {
+              localStorage.setItem(key, JSON.stringify(payload));
+              localStorage.setItem(createdKey, String(savedAtMs));
+            } catch {
+              // ignore storage errors
+            }
+          }
+        }
+      } catch {
+        // ignore
       }
 
       // Limpiar flag de edición en progreso
@@ -5067,6 +5112,8 @@ export function FondoSection({
       if (!movementAutoCloseLocked) {
         setMovementModalOpen(false);
       }
+
+      return true;
     },
     [
       persistMovementToFirestore,
@@ -5074,6 +5121,7 @@ export function FondoSection({
       sendMovementNotification,
       providers,
       accountKey,
+      company,
       buildPhysicalCountStorageKey,
       cleanupPhysicalCountLegacyKeys,
       resetFondoForm,
@@ -5089,7 +5137,7 @@ export function FondoSection({
 
   const handleSubmitFondo = async () => {
     if (!company) return;
-    if (isSaving) return; // Prevenir múltiples envíos
+    if (isSaving || movementSubmitInProgressRef.current) return; // Prevenir múltiples envíos
 
     let hasErrors = false;
 
@@ -5143,6 +5191,98 @@ export function FondoSection({
     if (isIngreso && (Number.isNaN(ingresoValue) || ingresoValue <= 0)) return;
 
     const paddedInvoice = invoiceNumber.padStart(4, "0");
+
+    // Dedupe window only for NEW movements (edits remain allowed)
+    if (!editingEntryId) {
+      try {
+        const normalizedCompany = (company || "").trim();
+        if (normalizedCompany.length > 0) {
+          // Enforce minimum interval between ANY new movements
+          const nowMs = Date.now();
+          const createdKey = `fondogeneral-lastMovementCreatedAt:${normalizedCompany}:${accountKey}`;
+          let lastCreatedAtMs = lastMovementCreatedAtRef.current;
+          if (typeof window !== "undefined") {
+            try {
+              const stored = Number(localStorage.getItem(createdKey));
+              if (Number.isFinite(stored) && stored > 0) {
+                lastCreatedAtMs = Math.max(lastCreatedAtMs, stored);
+              }
+            } catch {
+              // ignore
+            }
+          }
+
+          if (
+            lastCreatedAtMs > 0 &&
+            nowMs - lastCreatedAtMs < MOVEMENT_MIN_INTERVAL_MS
+          ) {
+            const remainingMs =
+              MOVEMENT_MIN_INTERVAL_MS - (nowMs - lastCreatedAtMs);
+            const remainingSec = Math.ceil(remainingMs / 1000);
+            showToast(
+              `Espere ${remainingSec}s para agregar otro movimiento.`,
+              "warning",
+              5000
+            );
+            return;
+          }
+
+          const fingerprintParts = [
+            `provider=${selectedProvider || ""}`,
+            `invoice=${paddedInvoice || ""}`,
+            `type=${paymentType || ""}`,
+            `egreso=${Math.trunc(isEgreso ? egresoValue : 0)}`,
+            `ingreso=${Math.trunc(isIngreso ? ingresoValue : 0)}`,
+            `manager=${(manager || "").trim()}`,
+            `currency=${movementCurrency || "CRC"}`,
+            `notes=${trimmedNotes}`,
+          ];
+          const fingerprint = fingerprintParts.join("|");
+          const key = `fondogeneral-lastMovementDedupe:${normalizedCompany}:${accountKey}`;
+
+          let last = lastMovementDedupeRef.current;
+          if (!last && typeof window !== "undefined") {
+            try {
+              const raw = localStorage.getItem(key);
+              if (raw) {
+                const parsed = JSON.parse(raw) as any;
+                if (
+                  parsed &&
+                  typeof parsed.at === "number" &&
+                  typeof parsed.fingerprint === "string"
+                ) {
+                  last = { at: parsed.at, fingerprint: parsed.fingerprint };
+                }
+              }
+            } catch {
+              // ignore
+            }
+          }
+
+          if (
+            last &&
+            last.fingerprint === fingerprint &&
+            nowMs - last.at < MOVEMENT_DUPLICATE_WINDOW_MS
+          ) {
+            const remainingMs =
+              MOVEMENT_DUPLICATE_WINDOW_MS - (nowMs - last.at);
+            const remainingSec = Math.ceil(remainingMs / 1000);
+            showToast(
+              `Movimiento duplicado detectado. Espere ${remainingSec}s para volver a guardarlo.`,
+              "warning",
+              5000
+            );
+            return;
+          }
+
+          // lock immediately to avoid double-click duplicates before state updates
+          movementSubmitInProgressRef.current = true;
+        }
+      } catch {
+        // If dedupe fails for any reason, still lock to prevent double-submit
+        movementSubmitInProgressRef.current = true;
+      }
+    }
 
     setIsSaving(true);
 
@@ -5372,6 +5512,7 @@ export function FondoSection({
       await persistCreatedMovement(entry, updatedEntries);
     } finally {
       setIsSaving(false);
+      movementSubmitInProgressRef.current = false;
     }
   };
 
@@ -6256,11 +6397,73 @@ export function FondoSection({
       return;
     }
 
+    // Prevent duplicate daily closings created almost instantly.
+    // Requirement: enforce at least 1 minute between NEW closings (edits are allowed).
+    const isEditingClosing = Boolean(editingDailyClosingId);
+    const dailyClosingCooldownKey = `fondogeneral-lastDailyClosingSavedAt:${normalizedCompany}`;
+    if (!isEditingClosing) {
+      if (
+        dailyClosingSubmitInProgressRef.current ||
+        dailyClosingsRequestCountRef.current > 0
+      ) {
+        showToast(
+          "Ya hay un cierre guardándose. Espere un momento.",
+          "warning",
+          4000
+        );
+        return;
+      }
+
+      const nowMs = Date.now();
+      let lastSavedAtMs = lastDailyClosingSavedAtRef.current;
+      if (typeof window !== "undefined") {
+        try {
+          const stored = Number(localStorage.getItem(dailyClosingCooldownKey));
+          if (Number.isFinite(stored) && stored > 0) {
+            lastSavedAtMs = Math.max(lastSavedAtMs, stored);
+          }
+        } catch {
+          // ignore storage errors
+        }
+      }
+
+      if (
+        lastSavedAtMs > 0 &&
+        nowMs - lastSavedAtMs < DAILY_CLOSING_MIN_INTERVAL_MS
+      ) {
+        const remainingMs =
+          DAILY_CLOSING_MIN_INTERVAL_MS - (nowMs - lastSavedAtMs);
+        const remainingSec = Math.ceil(remainingMs / 1000);
+        showToast(
+          `Ya se registró un cierre hace poco. Espere ${remainingSec}s para crear otro.`,
+          "warning",
+          5000
+        );
+        return;
+      }
+
+      // Lock immediately to avoid double-click / double-submit duplicates.
+      dailyClosingSubmitInProgressRef.current = true;
+    }
+
     // Save to Firestore first and wait for confirmation
     beginDailyClosingsRequest();
     try {
       await DailyClosingsService.saveClosing(normalizedCompany, record);
       console.log(`[CIERRE] ✅ Cierre guardado exitosamente en Firestore. ID: ${record.id}, Fecha: ${record.closingDate}`);
+
+      // Mark cooldown only after a successful save (so retries after errors are allowed).
+      if (!isEditingClosing) {
+        const savedAt = Date.now();
+        lastDailyClosingSavedAtRef.current = savedAt;
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem(dailyClosingCooldownKey, String(savedAt));
+          } catch {
+            // ignore storage errors
+          }
+        }
+      }
       
       // Only update local state after successful save
       setDailyClosings((prev) => mergeDailyClosingRecords(prev, [record]));
@@ -6332,6 +6535,9 @@ export function FondoSection({
       return;
     } finally {
       finishDailyClosingsRequest();
+      if (!isEditingClosing) {
+        dailyClosingSubmitInProgressRef.current = false;
+      }
     }
 
     const notificationRecipients = new Set<string>();
