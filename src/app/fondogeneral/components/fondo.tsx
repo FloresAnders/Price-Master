@@ -79,6 +79,8 @@ import { dateKeyToISODate, dateToKey, isoDateToDateKey } from "../../../utils/da
 import {
   addDoc,
   collection,
+  doc,
+  runTransaction,
   serverTimestamp,
   type QueryDocumentSnapshot,
   type DocumentData,
@@ -104,6 +106,8 @@ const AUTO_ADJUSTMENT_PROVIDER_CODE_LEGACY = "AJUSTE FONDO GENERAL"; // Para com
 const AUTO_ADJUSTMENT_MANAGER = "SISTEMA";
 
 const CIERRE_FONDO_VENTAS_PROVIDER_NAME = "CIERRE FONDO VENTAS";
+
+type ClosingGuardKind = "FONDO_GENERAL" | "FONDO_VENTAS";
 
 // Helper para verificar si un proveedor es un cierre/ajuste automático
 const isAutoAdjustmentProvider = (code: unknown): boolean =>
@@ -2902,6 +2906,104 @@ export function FondoSection({
   const DAILY_CLOSING_MIN_INTERVAL_MS = 60_000;
   const MOVEMENT_DUPLICATE_WINDOW_MS = 60_000;
   const MOVEMENT_MIN_INTERVAL_MS = 60_000;
+  const CLOSING_GUARD_LOCK_MS = 30 * 60_000;
+
+  const buildClosingGuardDocId = useCallback(
+    (normalizedCompany: string, kind: ClosingGuardKind) => {
+      // Ensure a Firestore-safe doc id (avoid '/').
+      // Include kind so Fondo Ventas and Fondo General are distinct locks.
+      const companyPart = encodeURIComponent(
+        normalizedCompany.trim().toLowerCase()
+      );
+      return `${companyPart}__${kind}`;
+    },
+    []
+  );
+
+  const acquireClosingGuard = useCallback(
+    async (
+      normalizedCompany: string,
+      kind: ClosingGuardKind
+    ): Promise<
+      | { ok: true; token: string; docId: string }
+      | {
+          ok: false;
+          remainingSec: number;
+          lockedKind?: ClosingGuardKind;
+          lockedBy?: string;
+        }
+    > => {
+      const docId = buildClosingGuardDocId(normalizedCompany, kind);
+      const lockRef = doc(db, "closingGuards", docId);
+      const token = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+      try {
+        const result = await runTransaction(db, async (tx) => {
+          const snap = await tx.get(lockRef);
+          const nowMs = Date.now();
+          const current = snap.exists() ? (snap.data() as any) : null;
+          const lockedUntilMs = Number(current?.lockedUntilMs || 0);
+          const lockedKind =
+            (current?.kind as ClosingGuardKind | undefined) ?? undefined;
+          const lockedBy = typeof current?.by === "string" ? current.by : undefined;
+          const lockedToken = typeof current?.token === "string" ? current.token : undefined;
+
+          if (lockedUntilMs > nowMs && lockedToken && lockedToken.length > 0) {
+            const remainingSec = Math.max(1, Math.ceil((lockedUntilMs - nowMs) / 1000));
+            return { ok: false as const, remainingSec, lockedKind, lockedBy };
+          }
+
+          tx.set(
+            lockRef,
+            {
+              token,
+              kind,
+              lockedUntilMs: nowMs + CLOSING_GUARD_LOCK_MS,
+              by: (user?.email || user?.id || "").toString(),
+              startedAt: serverTimestamp(),
+            },
+            { merge: true }
+          );
+          return { ok: true as const };
+        });
+
+        if (!result.ok) return result;
+        return { ok: true, token, docId };
+      } catch (err) {
+        console.error("[CLOSING-GUARD] Error acquiring closing guard:", err);
+        // Fail-open to avoid blocking all closings if Firestore is unreachable.
+        // Client-side cooldowns still reduce duplicates in this scenario.
+        return { ok: true, token, docId };
+      }
+    },
+    [buildClosingGuardDocId, CLOSING_GUARD_LOCK_MS, user]
+  );
+
+  const releaseClosingGuard = useCallback(
+    async (normalizedCompany: string, guard: { token: string; docId: string }) => {
+      const lockRef = doc(db, "closingGuards", guard.docId);
+      try {
+        await runTransaction(db, async (tx) => {
+          const snap = await tx.get(lockRef);
+          if (!snap.exists()) return;
+          const current = snap.data() as any;
+          if (current?.token !== guard.token) return;
+          tx.set(
+            lockRef,
+            {
+              token: "",
+              lockedUntilMs: 0,
+              releasedAt: serverTimestamp(),
+            },
+            { merge: true }
+          );
+        });
+      } catch (err) {
+        console.error("[CLOSING-GUARD] Error releasing closing guard:", err);
+      }
+    },
+    []
+  );
 
   const [pageSize, setPageSize] = useState<"daily" | number | "all">(() => {
     if (typeof window !== "undefined") {
@@ -5481,6 +5583,36 @@ export function FondoSection({
       }
 
       // CREAR nuevo movimiento
+      // If this is a CIERRE FONDO VENTAS movement, prevent concurrent Fondo General closings (and vice versa)
+      let closingGuard: { token: string; docId: string } | null = null;
+      try {
+        const normalizedCompany = (company || "").trim();
+        const selectedProviderData = providers.find((p) => p.code === selectedProvider);
+        const isCierreVentas =
+          selectedProviderData?.name?.toUpperCase() ===
+          CIERRE_FONDO_VENTAS_PROVIDER_NAME;
+        if (normalizedCompany.length > 0 && isCierreVentas) {
+          const acquired = await acquireClosingGuard(
+            normalizedCompany,
+            "FONDO_VENTAS"
+          );
+          if (!acquired.ok) {
+            const kindLabel =
+              acquired.lockedKind === "FONDO_GENERAL"
+                ? "Fondo General"
+                : acquired.lockedKind === "FONDO_VENTAS"
+                  ? "Fondo Ventas"
+                  : "otro cierre";
+            showToast(
+              `Otro cierre (${kindLabel}) se está registrando. Intente en ${acquired.remainingSec}s.`,
+              "warning",
+              6000
+            );
+            return;
+          }
+          closingGuard = { token: acquired.token, docId: acquired.docId };
+        }
+
       const now = new Date();
       const iso = now.toISOString();
       // Use local time for the document id to avoid UTC surprises when searching by hour.
@@ -5509,7 +5641,30 @@ export function FondoSection({
 
       // Preparar la lista actualizada ANTES de persistir
       const updatedEntries = [entry, ...fondoEntries];
-      await persistCreatedMovement(entry, updatedEntries);
+        const createdOk = await persistCreatedMovement(entry, updatedEntries);
+
+        // If save failed, release guard so user can retry immediately.
+        if (!createdOk && closingGuard) {
+          try {
+            if (normalizedCompany.length > 0) {
+              void releaseClosingGuard(normalizedCompany, closingGuard);
+            }
+          } catch {
+            // ignore
+          }
+        }
+      } catch (err) {
+        // Unexpected error: release guard to avoid blocking retries.
+        try {
+          const normalizedCompany = (company || "").trim();
+          if (closingGuard && normalizedCompany.length > 0) {
+            void releaseClosingGuard(normalizedCompany, closingGuard);
+          }
+        } catch {
+          // ignore
+        }
+        throw err;
+      }
     } finally {
       setIsSaving(false);
       movementSubmitInProgressRef.current = false;
@@ -6397,6 +6552,36 @@ export function FondoSection({
       return;
     }
 
+    // Cross-device/tabs guard: prevent Fondo General closing while another closing is being created.
+    // Only for NEW closings (edits are allowed).
+    let closingGuard: { token: string; docId: string } | null = null;
+    try {
+      const isEditingClosing = Boolean(editingDailyClosingId);
+      if (!isEditingClosing) {
+        const acquired = await acquireClosingGuard(
+          normalizedCompany,
+          "FONDO_GENERAL"
+        );
+        if (!acquired.ok) {
+          const kindLabel =
+            acquired.lockedKind === "FONDO_GENERAL"
+              ? "Fondo General"
+              : acquired.lockedKind === "FONDO_VENTAS"
+                ? "Fondo Ventas"
+                : "otro cierre";
+          showToast(
+            `Otro cierre (${kindLabel}) se está registrando. Intente en ${acquired.remainingSec}s.`,
+            "warning",
+            6000
+          );
+          return;
+        }
+        closingGuard = { token: acquired.token, docId: acquired.docId };
+      }
+    } catch {
+      // ignore; fall back to client-side cooldown
+    }
+
     // Prevent duplicate daily closings created almost instantly.
     // Requirement: enforce at least 1 minute between NEW closings (edits are allowed).
     const isEditingClosing = Boolean(editingDailyClosingId);
@@ -6532,6 +6717,16 @@ export function FondoSection({
         "error",
         5000
       );
+
+      // Release cross-device guard on failure so users can retry immediately.
+      if (closingGuard) {
+        try {
+          void releaseClosingGuard(normalizedCompany, closingGuard);
+        } catch {
+          // ignore
+        }
+        closingGuard = null;
+      }
       return;
     } finally {
       finishDailyClosingsRequest();
@@ -6539,6 +6734,9 @@ export function FondoSection({
         dailyClosingSubmitInProgressRef.current = false;
       }
     }
+
+    // IMPORTANT: Do NOT release the cross-device guard on success.
+    // Let it expire (lockedUntilMs) so other devices/tabs can't create a close “almost at the same time”.
 
     const notificationRecipients = new Set<string>();
     const adminRecipient = ownerAdminEmail?.trim();

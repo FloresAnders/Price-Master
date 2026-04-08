@@ -6,6 +6,11 @@
             "date": "2026-04-07",
             "title": "Fondo General: Historial de edición mejorado",
             "description": "Se mejoró la visualización del Historial de edición: ahora muestra una vista comparativa tipo diff (Campo / Antes / Después) con resaltado por impacto, tarjetas ANTES/DESPUÉS con campos clave, e indicadores de cambio (Ingreso/Egreso con flechas). El campo providerCode ahora muestra también el nombre del proveedor correspondiente."
+        },
+        {
+            "date": "2026-04-08",
+            "title": "Fondo General: Prevención de duplicados y validaciones de cierre",
+            "description": "Se agregó protección contra duplicados casi instantáneos. Ahora hay un mínimo de 1 minuto entre movimientos nuevos y entre cierres nuevos de Fondo General. Además, los mensajes tipo toast se muestran por encima de los modales (ya no quedan detrás del formulario). Se implementó un bloqueo por tipo de cierre (Fondo Ventas / Fondo General) a nivel Firestore para evitar cierres duplicados entre dispositivos/ventanas, con un lock de 30 minutos."
         }
     ],
     "_comment": "hacer una pagina de 'en mantenimiento' para secciones en desarrollo y a exepcion de un usuario admin"
