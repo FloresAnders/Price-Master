@@ -6,6 +6,8 @@ import type { User as UserType } from "@/types/firestore";
 import { PasswordRecoveryModal } from "./PasswordRecoveryModal";
 import Image from "next/image";
 import { useVersion } from "@/hooks/useVersion";
+import { hashPassword } from "@/lib/auth/password";
+import { PHASH_KEY } from "@/hooks/useUnlockPastDays";
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -137,6 +139,24 @@ export default function LoginModal({
       const safeUser = respJson.user;
       if (safeUser) {
         onLoginSuccess(safeUser as UserType, keepSessionActive, useTokenAuth);
+
+        // Para el rol 'user', guardar el hash de la contraseña en localStorage
+        // para permitir verificación local (sin consultar la BD) al desbloquear días pasados
+        if (safeUser.role === "user") {
+          const capturedPassword = password;
+          hashPassword(capturedPassword)
+            .then((hash) => {
+              try {
+                localStorage.setItem(PHASH_KEY, hash);
+              } catch {
+                // ignore
+              }
+            })
+            .catch(() => {
+              // No es crítico, el desbloqueo de días pasados requerirá re-login
+            });
+        }
+
         // Limpiar formulario
         setUsername("");
         setPassword("");

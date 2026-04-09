@@ -11,6 +11,8 @@ import {
   Lock,
   Unlock,
   Info,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { EmpresasService } from "../../services/empresas";
 import { SchedulesService } from "../../services/schedules";
@@ -24,6 +26,7 @@ import { storage } from "@/config/firebase";
 import { useAuth } from "../../hooks/useAuth";
 import useToast from "../../hooks/useToast";
 import { hasPermission } from "../../utils/permissions";
+import { useUnlockPastDays } from "../../hooks/useUnlockPastDays";
 
 interface MappedEmpresa {
   id?: string;
@@ -293,6 +296,9 @@ export default function ControlHorario({
   const [modalLoading, setModalLoading] = useState(false);
   const [editPastDaysEnabled, setEditPastDaysEnabled] = useState(false);
   const [unlockPastDaysModal, setUnlockPastDaysModal] = useState(false);
+  // Estado para la contraseña al desbloquear días pasados (solo rol 'user')
+  const [showUnlockPassword, setShowUnlockPassword] = useState(false);
+  const unlockPastDays = useUnlockPastDays();
   // Estado para exportación y QR
   const [isExporting, setIsExporting] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
@@ -323,6 +329,20 @@ export default function ControlHorario({
   const scheduleLoadInFlightKeyRef = React.useRef<string | null>(null);
 
   // notifications handled globally via ToastProvider (showToast)
+
+  // Sincronizar editPastDaysEnabled con el estado del hook de desbloqueo (para rol 'user')
+  useEffect(() => {
+    if (user?.role === "user") {
+      setEditPastDaysEnabled(unlockPastDays.unlocked);
+    }
+  }, [unlockPastDays.unlocked, user?.role]);
+
+  // Cerrar el modal de contraseña cuando el desbloqueo fue exitoso
+  useEffect(() => {
+    if (unlockPastDays.unlocked && unlockPastDaysModal) {
+      setUnlockPastDaysModal(false);
+    }
+  }, [unlockPastDays.unlocked, unlockPastDaysModal]);
 
   // Verificar si la empresa actual es DELIFOOD
   const isDelifoodEmpresa = empresa.toLowerCase().includes("delifood");
@@ -2133,7 +2153,23 @@ export default function ControlHorario({
                     return cellDate < now;
                   }) && (
                     <button
-                      onClick={() => setUnlockPastDaysModal(true)}
+                      onClick={() => {
+                        // Para rol 'user': solicitar contraseña al desbloquear, confirmación al bloquear
+                        if (user?.role === "user") {
+                          if (editPastDaysEnabled) {
+                            // Re-bloquear: usar modal de confirmación simple
+                            setUnlockPastDaysModal(true);
+                          } else {
+                            // Desbloquear: abrir modal de contraseña
+                            unlockPastDays.setPassword("");
+                            setShowUnlockPassword(false);
+                            setUnlockPastDaysModal(true);
+                          }
+                        } else {
+                          // Admin/superadmin: comportamiento original sin contraseña
+                          setUnlockPastDaysModal(true);
+                        }
+                      }}
                       className="ml-2 p-1 rounded-full border border-gray-400 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                       title={
                         editPastDaysEnabled
@@ -2675,21 +2711,137 @@ export default function ControlHorario({
       />
 
       {/* Modal para desbloquear días pasados */}
-      <ConfirmModal
-        open={unlockPastDaysModal}
-        message={
-          editPastDaysEnabled
-            ? "¿Quieres volver a bloquear la edición de días pasados?"
-            : "¿Quieres desbloquear la edición de días pasados?"
-        }
-        loading={false}
-        actionType={editPastDaysEnabled ? "delete" : "assign"}
-        onConfirm={() => {
-          setEditPastDaysEnabled((e) => !e);
-          setUnlockPastDaysModal(false);
-        }}
-        onCancel={() => setUnlockPastDaysModal(false)}
-      />
+      {/* Para rol 'user' y desbloqueando: modal con contraseña */}
+      {unlockPastDaysModal && user?.role === "user" && !editPastDaysEnabled ? (
+        <div
+          className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 dark:bg-black/80"
+          style={{ pointerEvents: "auto" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div
+            className="bg-[var(--card-bg)] text-[var(--foreground)] rounded-lg shadow-2xl p-4 sm:p-6 w-full max-w-xs sm:max-w-sm border border-[var(--input-border)] flex flex-col items-center mx-2 relative"
+            style={{ zIndex: 100000 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex flex-col sm:flex-row items-center gap-2 mb-2 justify-center w-full">
+              <Lock className="h-5 w-5 text-[var(--foreground)] flex-shrink-0" />
+              <h2 className="text-lg font-bold text-center w-full">
+                Confirmar acción
+              </h2>
+            </div>
+            <p className="mb-4 text-sm sm:text-base text-center w-full">
+              ¿Quieres desbloquear la edición de días pasados?
+            </p>
+            <p className="mb-3 text-sm text-center text-[var(--muted-foreground)]">
+              Ingresa tu contraseña para continuar. El desbloqueo durará 5 minutos.
+            </p>
+            <div className="w-full mb-3 relative">
+              <input
+                type={showUnlockPassword ? "text" : "password"}
+                value={unlockPastDays.password}
+                onChange={(e) => {
+                  unlockPastDays.setPassword(e.target.value);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    void unlockPastDays.unlock();
+                  }
+                }}
+                placeholder="Contraseña"
+                className="w-full pr-10 pl-3 py-2 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                autoFocus
+                disabled={unlockPastDays.submitting}
+              />
+              <button
+                type="button"
+                onClick={() => setShowUnlockPassword((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-indigo-500 transition-colors"
+                tabIndex={-1}
+              >
+                {showUnlockPassword ? (
+                  <EyeOff className="w-4 h-4" />
+                ) : (
+                  <Eye className="w-4 h-4" />
+                )}
+              </button>
+            </div>
+            {unlockPastDays.error && (
+              <p className="text-red-500 text-sm mb-3 text-center">
+                {unlockPastDays.error}
+              </p>
+            )}
+            <div className="flex flex-col sm:flex-row justify-center gap-2 mt-2 w-full">
+              <button
+                className="px-4 py-2 rounded bg-[var(--button-bg)] text-[var(--button-text)] hover:bg-[var(--button-hover)] disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 justify-center w-full sm:w-auto"
+                onClick={() => {
+                  setUnlockPastDaysModal(false);
+                  unlockPastDays.setPassword("");
+                }}
+                disabled={unlockPastDays.submitting}
+                type="button"
+              >
+                Cancelar
+              </button>
+              <button
+                className="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2 justify-center w-full sm:w-auto disabled:opacity-60 disabled:cursor-not-allowed"
+                onClick={() => void unlockPastDays.unlock()}
+                disabled={
+                  unlockPastDays.submitting ||
+                  unlockPastDays.password.length === 0
+                }
+                type="button"
+              >
+                {unlockPastDays.submitting ? (
+                  <svg
+                    className="animate-spin h-4 w-4 mr-1 text-white"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                      fill="none"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                    />
+                  </svg>
+                ) : (
+                  <Unlock className="h-4 w-4" />
+                )}
+                Desbloquear
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* Para admin/superadmin o cuando está bloqueando: modal de confirmación simple */
+        <ConfirmModal
+          open={unlockPastDaysModal}
+          message={
+            editPastDaysEnabled
+              ? "¿Quieres volver a bloquear la edición de días pasados?"
+              : "¿Quieres desbloquear la edición de días pasados?"
+          }
+          loading={false}
+          actionType={editPastDaysEnabled ? "delete" : "assign"}
+          onConfirm={() => {
+            if (user?.role === "user") {
+              // Para rol 'user' re-bloqueando: usar el hook
+              unlockPastDays.lockNow();
+            } else {
+              setEditPastDaysEnabled((e) => !e);
+            }
+            setUnlockPastDaysModal(false);
+          }}
+          onCancel={() => setUnlockPastDaysModal(false)}
+        />
+      )}
 
       {/* Modal QR para descarga con funcionalidad de descarga de imagen */}
       {showQRModal && (

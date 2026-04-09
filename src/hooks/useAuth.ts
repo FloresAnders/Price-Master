@@ -181,6 +181,12 @@ export function useAuth() {
       localStorage.removeItem('pricemaster_session');
       localStorage.removeItem('pricemaster_session_id');
     }
+    // Limpiar hash de contraseña almacenado para verificación local
+    try {
+      localStorage.removeItem('pricemaster_user_phash');
+    } catch {
+      // ignore
+    }
     setUser(null);
     setIsAuthenticated(false);
     setSessionWarning(false);
