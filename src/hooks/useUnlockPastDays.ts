@@ -97,7 +97,7 @@ export function useUnlockPastDays() {
       }
 
       if (!storedHash) {
-        setError('No se encontró contraseña almacenada. Cierre sesión e inicie nuevamente.');
+        setError('No se encontró contraseña almacenada. Esta función requiere que haya iniciado sesión recientemente con su contraseña. Cierre sesión e inicie nuevamente.');
         return;
       }
 

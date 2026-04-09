@@ -153,7 +153,9 @@ export default function LoginModal({
               }
             })
             .catch(() => {
-              // No es crítico, el desbloqueo de días pasados requerirá re-login
+              // Falla silenciosa: no es crítico. Si el hash no se almacena,
+              // el desbloqueo de días pasados simplemente requerirá re-login.
+              // No se notifica al usuario porque no afecta la funcionalidad principal del login.
             });
         }
 
