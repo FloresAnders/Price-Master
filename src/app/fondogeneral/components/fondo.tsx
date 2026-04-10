@@ -2902,6 +2902,7 @@ export function FondoSection({
     null
   );
   const lastMovementCreatedAtRef = useRef<number>(0);
+  const deleteLatestClosingInProgressRef = useRef<boolean>(false);
 
   const DAILY_CLOSING_MIN_INTERVAL_MS = 60_000;
   const MOVEMENT_DUPLICATE_WINDOW_MS = 60_000;
@@ -2916,7 +2917,7 @@ export function FondoSection({
         normalizedCompany.trim().toLowerCase()
       );
       return `${companyPart}__${kind}`;
-    },
+    },                          
     []
   );
 
@@ -3003,6 +3004,50 @@ export function FondoSection({
       }
     },
     []
+  );
+
+  // Force-clear any existing lock (ignores current token) so remaining time becomes 0 immediately.
+  // Used after deleting closings so users can re-create them right away.
+  const forceClearClosingGuards = useCallback(
+    async (normalizedCompany: string, context: string) => {
+      try {
+        const fgDocId = buildClosingGuardDocId(normalizedCompany, "FONDO_GENERAL");
+        const fvDocId = buildClosingGuardDocId(normalizedCompany, "FONDO_VENTAS");
+        const fgRef = doc(db, "closingGuards", fgDocId);
+        const fvRef = doc(db, "closingGuards", fvDocId);
+        const by = (user?.email || user?.id || "").toString();
+
+        await runTransaction(db, async (tx) => {
+          tx.set(
+            fgRef,
+            {
+              kind: "FONDO_GENERAL",
+              token: "",
+              lockedUntilMs: 0,
+              clearedAt: serverTimestamp(),
+              clearedBy: by,
+              clearedContext: context,
+            },
+            { merge: true }
+          );
+          tx.set(
+            fvRef,
+            {
+              kind: "FONDO_VENTAS",
+              token: "",
+              lockedUntilMs: 0,
+              clearedAt: serverTimestamp(),
+              clearedBy: by,
+              clearedContext: context,
+            },
+            { merge: true }
+          );
+        });
+      } catch (err) {
+        console.error("[CLOSING-GUARD] Error force-clearing closing guards:", err);
+      }
+    },
+    [buildClosingGuardDocId, user]
   );
 
   const [pageSize, setPageSize] = useState<"daily" | number | "all">(() => {
@@ -5110,6 +5155,236 @@ export function FondoSection({
     ]
   );
 
+  const latestDailyClosing = useMemo(() => {
+    if (!dailyClosings || dailyClosings.length === 0) return null;
+    const sorted = dailyClosings
+      .slice()
+      .sort((a, b) => dailyClosingSortValue(b) - dailyClosingSortValue(a));
+    return sorted[0] ?? null;
+  }, [dailyClosings]);
+
+  const latestDailyClosingLabel = useMemo(() => {
+    if (!latestDailyClosing) return "";
+    try {
+      const localDailyClosingDateFormatter = new Intl.DateTimeFormat("es-CR", {
+        dateStyle: "long",
+      });
+      const localDateTimeFormatter = new Intl.DateTimeFormat("es-CR", {
+        dateStyle: "short",
+        timeStyle: "short",
+      });
+      const closingDate = new Date(latestDailyClosing.closingDate);
+      const closingLabel = Number.isNaN(closingDate.getTime())
+        ? String(latestDailyClosing.closingDate)
+        : localDailyClosingDateFormatter.format(closingDate);
+      const createdAtDate = new Date(latestDailyClosing.createdAt);
+      const createdLabel = Number.isNaN(createdAtDate.getTime())
+        ? String(latestDailyClosing.createdAt)
+        : localDateTimeFormatter.format(createdAtDate);
+      return `${closingLabel} (registrado: ${createdLabel})`;
+    } catch {
+      return String(latestDailyClosing.closingDate || latestDailyClosing.createdAt || "");
+    }
+  }, [latestDailyClosing]);
+
+  const handleDeleteLatestDailyClosing = useCallback(
+    async (reason: string): Promise<void> => {
+      if (!isSuperAdminUser) {
+        throw new Error("No autorizado");
+      }
+
+      const normalizedCompany = (company || "").trim();
+      if (!normalizedCompany) {
+        throw new Error("No se pudo identificar la empresa");
+      }
+
+      if (accountKey !== "FondoGeneral") {
+        throw new Error("Esta acción solo aplica al Fondo General");
+      }
+
+      const trimmedReason = String(reason || "").trim();
+      if (!trimmedReason) {
+        throw new Error("Debe indicar un motivo");
+      }
+
+      if (deleteLatestClosingInProgressRef.current) {
+        throw new Error("Ya hay una eliminación en progreso");
+      }
+      deleteLatestClosingInProgressRef.current = true;
+
+      try {
+        // Fuente de verdad: documento en Firestore
+        const closingsDoc = await DailyClosingsService.getDocument(
+          normalizedCompany
+        );
+        if (!closingsDoc) {
+          throw new Error("No se encontró historial de cierres para esta empresa");
+        }
+
+        const sorted = DailyClosingsService.extractAllClosings(closingsDoc);
+        const latest = sorted[0];
+        if (!latest) {
+          throw new Error("No hay cierres para eliminar");
+        }
+        const latestAfter = sorted[1] ?? null;
+
+        const companyKey = MovimientosFondosService.buildCompanyMovementsKey(
+          normalizedCompany
+        );
+
+        // Buscar ajustes vinculados al cierre (aunque no estén cargados en el rango actual)
+        const related = await MovimientosFondosService.listMovementsByOriginalEntryId<FondoEntry>(
+          companyKey,
+          latest.id,
+          { limitCount: 50 }
+        );
+
+        const relatedAdjustments = (related || []).filter((m) =>
+          isAutoAdjustmentProvider((m as any)?.providerCode)
+        );
+
+        const lockedUntilBefore =
+          storageSnapshotRef.current?.state?.lockedUntil ?? null;
+        const lockedUntilAfter = latestAfter?.createdAt ?? null;
+
+        // 1) Eliminar el cierre y guardar respaldo en cierresEliminados (respaldo primero)
+        await DailyClosingsService.deleteLatestClosing(normalizedCompany, {
+          expectedClosingId: latest.id,
+          reason: trimmedReason,
+          deletedBy: {
+            uid: (user as any)?.id,
+            email: user?.email,
+            name: user?.name,
+            role: user?.role,
+          },
+          relatedAdjustments,
+          lockedUntilBefore,
+          lockedUntilAfter,
+        });
+
+        setDailyClosings((prev) => prev.filter((d) => d.id !== latest.id));
+        setExpandedClosings((prev) => {
+          const next = new Set(prev);
+          next.delete(latest.id);
+          return next;
+        });
+
+        // 2) Eliminar movimientos de ajuste para revertir el saldo
+        let latestLedgerSnapshot: {
+          initialCRC: number;
+          currentCRC: number;
+          initialUSD: number;
+          currentUSD: number;
+        } | null = null;
+
+        for (const adj of relatedAdjustments) {
+          const before =
+            fondoEntries.find((e) => e.id === adj.id) ?? (adj as any);
+          const saved = await persistMovementToFirestore(fondoEntries, "delete", {
+            deleteId: adj.id,
+            before,
+          });
+          if (!saved.ok) {
+            throw new Error(
+              "El cierre fue eliminado, pero no se pudo borrar un ajuste al saldo asociado. Revise los movimientos."
+            );
+          }
+          if (saved.ledgerSnapshot) {
+            latestLedgerSnapshot = saved.ledgerSnapshot;
+          }
+        }
+
+        if (relatedAdjustments.length > 0) {
+          const ids = new Set(relatedAdjustments.map((a) => a.id));
+          setFondoEntries((prev) => prev.filter((e) => !ids.has(e.id)));
+          if (latestLedgerSnapshot) {
+            setLedgerSnapshot(latestLedgerSnapshot);
+          }
+        }
+
+        // 3) Ajustar lockedUntil al cierre anterior (o removerlo si ya no hay cierres)
+        const baseLedger = storageSnapshotRef.current
+          ? MovimientosFondosService.ensureMovementStorageShape<FondoEntry>(
+            storageSnapshotRef.current,
+            normalizedCompany
+          )
+          : (await MovimientosFondosService.getDocument<FondoEntry>(companyKey)) ??
+          MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(
+            normalizedCompany
+          );
+
+        baseLedger.company = normalizedCompany;
+        baseLedger.operations = { movements: [] };
+        if (!baseLedger.state) {
+          baseLedger.state =
+            MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(
+              normalizedCompany
+            ).state;
+        }
+        if (lockedUntilAfter) {
+          baseLedger.state.lockedUntil = lockedUntilAfter;
+        } else {
+          delete (baseLedger.state as any).lockedUntil;
+        }
+        baseLedger.state.updatedAt = new Date().toISOString();
+
+        await MovimientosFondosService.saveDocument(companyKey, baseLedger);
+        storageSnapshotRef.current = baseLedger;
+        try {
+          localStorage.setItem(companyKey, JSON.stringify(baseLedger));
+        } catch {
+          // ignore storage errors
+        }
+
+        // Si acabamos de eliminar el último cierre, no tiene sentido pedir confirmación de conteo físico
+        // para el “primer movimiento después del cierre”.
+        try {
+          const key = buildPhysicalCountStorageKey();
+          if (key) localStorage.setItem(key, "false");
+          cleanupPhysicalCountLegacyKeys();
+        } catch {
+          // ignore
+        }
+        setPendingCierreDeCaja(false);
+
+        // Reset cross-device lock + local cooldowns so user can re-do either closing immediately.
+        await forceClearClosingGuards(normalizedCompany, "delete_latest_fondo_general");
+        try {
+          lastDailyClosingSavedAtRef.current = 0;
+          lastMovementCreatedAtRef.current = 0;
+          lastMovementDedupeRef.current = null;
+          if (typeof window !== "undefined") {
+            const dailyKey = `fondogeneral-lastDailyClosingSavedAt:${normalizedCompany}`;
+            const createdKey = `fondogeneral-lastMovementCreatedAt:${normalizedCompany}:${accountKey}`;
+            const dedupeKey = `fondogeneral-lastMovementDedupe:${normalizedCompany}:${accountKey}`;
+            localStorage.removeItem(dailyKey);
+            localStorage.removeItem(createdKey);
+            localStorage.removeItem(dedupeKey);
+          }
+        } catch {
+          // ignore
+        }
+
+        showToast("Último cierre eliminado", "success", 4000);
+      } finally {
+        deleteLatestClosingInProgressRef.current = false;
+      }
+    },
+    [
+      isSuperAdminUser,
+      company,
+      accountKey,
+      user,
+      fondoEntries,
+      persistMovementToFirestore,
+      isAutoAdjustmentProvider,
+      buildPhysicalCountStorageKey,
+      cleanupPhysicalCountLegacyKeys,
+      forceClearClosingGuards,
+      showToast,
+    ]
+  );
+
   const persistCreatedMovement = useCallback(
     async (entry: FondoEntry, updatedEntries: FondoEntry[]): Promise<boolean> => {
       // PRIMERO persistir a Firestore, LUEGO actualizar UI
@@ -5763,6 +6038,16 @@ export function FondoSection({
   );
 
   const handleEditMovement = (entry: FondoEntry) => {
+    // Superadmin should not edit "CIERRE FONDO VENTAS"; they should delete it.
+    if (isSuperAdminUser && isCierreFondoVentasMovement(entry)) {
+      showToast(
+        'Este "CIERRE FONDO VENTAS" no se edita. Debe eliminarse.',
+        "info",
+        5000
+      );
+      return;
+    }
+
     if (isMovementLocked(entry)) {
       showToast(
         "Este movimiento está bloqueado (anterior al último cierre).",
@@ -5818,14 +6103,99 @@ export function FondoSection({
     return String(user.id) === String(companyData.ownerId);
   }, [user, companyData]);
 
+  const cierreFondoVentasProviderCode = useMemo(() => {
+    const found = providers.find(
+      (p) => (p?.name || "").toString().toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME
+    );
+    return found?.code || null;
+  }, [providers]);
+
+  const latestCierreFondoVentasMovementId = useMemo(() => {
+    if (!fondoEntries || fondoEntries.length === 0) return null;
+
+    const isVentas = (e: FondoEntry) => {
+      if (cierreFondoVentasProviderCode) {
+        return e.providerCode === cierreFondoVentasProviderCode;
+      }
+      const providerName = providers
+        .find((p) => p.code === e.providerCode)
+        ?.name?.toUpperCase();
+      return providerName === CIERRE_FONDO_VENTAS_PROVIDER_NAME;
+    };
+
+    const matches = fondoEntries.filter(isVentas);
+    if (matches.length === 0) return null;
+
+    const toMs = (iso: unknown) => {
+      try {
+        const ms = new Date(String(iso || "")).getTime();
+        return Number.isFinite(ms) ? ms : 0;
+      } catch {
+        return 0;
+      }
+    };
+
+    let best = matches[0];
+    let bestMs = toMs(best.createdAt);
+    for (let i = 1; i < matches.length; i++) {
+      const cur = matches[i];
+      const curMs = toMs(cur.createdAt);
+      if (curMs > bestMs) {
+        best = cur;
+        bestMs = curMs;
+        continue;
+      }
+      if (curMs === bestMs && String(cur.id).localeCompare(String(best.id)) > 0) {
+        best = cur;
+        bestMs = curMs;
+      }
+    }
+    return best?.id || null;
+  }, [fondoEntries, providers, cierreFondoVentasProviderCode]);
+
+  const isCierreFondoVentasMovement = useCallback(
+    (entry: FondoEntry): boolean => {
+      try {
+        if (cierreFondoVentasProviderCode) {
+          return entry.providerCode === cierreFondoVentasProviderCode;
+        }
+        const providerName = providers
+          .find((p) => p.code === entry.providerCode)
+          ?.name?.toUpperCase();
+        return providerName === CIERRE_FONDO_VENTAS_PROVIDER_NAME;
+      } catch {
+        return false;
+      }
+    },
+    [providers, cierreFondoVentasProviderCode]
+  );
+
   const handleDeleteMovement = useCallback(
     (entry: FondoEntry) => {
+      // Restricción: solo se permite borrar el ÚLTIMO "CIERRE FONDO VENTAS".
+      if (isCierreFondoVentasMovement(entry)) {
+        if (!latestCierreFondoVentasMovementId || entry.id !== latestCierreFondoVentasMovementId) {
+          showToast(
+            "Solo se permite eliminar el último cierre de Fondo Ventas.",
+            "warning",
+            6000
+          );
+          return;
+        }
+      }
+
+      // Default: only principal admin can delete movements.
+      // Exception: superadmin can delete only "CIERRE FONDO VENTAS" movements.
       if (!isPrincipalAdmin) {
-        showToast(
-          "Solo el administrador principal puede eliminar movimientos",
-          "error"
-        );
-        return;
+        const canSuperDeleteVentas =
+          Boolean(isSuperAdminUser) && isCierreFondoVentasMovement(entry);
+        if (!canSuperDeleteVentas) {
+          showToast(
+            "Solo el administrador principal puede eliminar movimientos",
+            "error"
+          );
+          return;
+        }
       }
 
       if (isMovementLocked(entry)) {
@@ -5843,7 +6213,14 @@ export function FondoSection({
 
       setConfirmDeleteEntry({ open: true, entry });
     },
-    [isPrincipalAdmin, isMovementLocked, showToast]
+    [
+      isPrincipalAdmin,
+      isSuperAdminUser,
+      isCierreFondoVentasMovement,
+      latestCierreFondoVentasMovementId,
+      isMovementLocked,
+      showToast,
+    ]
   );
 
   const confirmDeleteMovement = useCallback(async () => {
@@ -5854,6 +6231,30 @@ export function FondoSection({
     setIsSaving(true);
 
     try {
+      // Restricción: solo se permite borrar el ÚLTIMO "CIERRE FONDO VENTAS".
+      if (isCierreFondoVentasMovement(entry)) {
+        if (!latestCierreFondoVentasMovementId || entry.id !== latestCierreFondoVentasMovementId) {
+          showToast(
+            "Solo se permite eliminar el último cierre de Fondo Ventas.",
+            "warning",
+            6000
+          );
+          setConfirmDeleteEntry({ open: false, entry: null });
+          return;
+        }
+      }
+
+      // Permission guard (in case state was manipulated).
+      if (!isPrincipalAdmin) {
+        const canSuperDeleteVentas =
+          Boolean(isSuperAdminUser) && isCierreFondoVentasMovement(entry);
+        if (!canSuperDeleteVentas) {
+          showToast("No autorizado para eliminar este movimiento", "error", 5000);
+          setConfirmDeleteEntry({ open: false, entry: null });
+          return;
+        }
+      }
+
       // Preparar la lista actualizada SIN el movimiento a eliminar
       const updatedEntries = fondoEntries.filter((e) => e.id !== entry.id);
 
@@ -5870,6 +6271,32 @@ export function FondoSection({
           5000
         );
         return; // NO actualizar la UI si falló el guardado
+      }
+
+      // If deleting a "CIERRE FONDO VENTAS" movement, reset lock/cooldowns so it can be recreated immediately.
+      try {
+        const normalizedCompany = (company || "").trim();
+        const providerName = providers
+          .find((p) => p.code === entry.providerCode)
+          ?.name?.toUpperCase();
+        const isCierreVentas = providerName === CIERRE_FONDO_VENTAS_PROVIDER_NAME;
+        if (normalizedCompany.length > 0 && isCierreVentas) {
+          await forceClearClosingGuards(normalizedCompany, "delete_cierre_fondo_ventas");
+
+          lastDailyClosingSavedAtRef.current = 0;
+          lastMovementCreatedAtRef.current = 0;
+          lastMovementDedupeRef.current = null;
+          if (typeof window !== "undefined") {
+            const dailyKey = `fondogeneral-lastDailyClosingSavedAt:${normalizedCompany}`;
+            const createdKey = `fondogeneral-lastMovementCreatedAt:${normalizedCompany}:${accountKey}`;
+            const dedupeKey = `fondogeneral-lastMovementDedupe:${normalizedCompany}:${accountKey}`;
+            localStorage.removeItem(dailyKey);
+            localStorage.removeItem(createdKey);
+            localStorage.removeItem(dedupeKey);
+          }
+        }
+      } catch {
+        // ignore
       }
 
       // Solo actualizar la UI si el guardado fue exitoso
@@ -5897,6 +6324,15 @@ export function FondoSection({
     confirmDeleteEntry,
     showToast,
     fondoEntries,
+    isPrincipalAdmin,
+    isSuperAdminUser,
+    isCierreFondoVentasMovement,
+    latestCierreFondoVentasMovementId,
+    setConfirmDeleteEntry,
+    company,
+    providers,
+    accountKey,
+    forceClearClosingGuards,
     isSaving,
     persistMovementToFirestore,
     setLedgerSnapshot,
@@ -9585,33 +10021,62 @@ export function FondoSection({
                           <td className="px-3 py-2 align-top">
                             {!isMovementLocked(fe) && (
                               <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  className="inline-flex items-center gap-2 rounded border border-[var(--input-border)] px-3 py-1 text-xs font-medium text-[var(--muted-foreground)] hover:bg-[var(--muted)] disabled:opacity-50"
-                                  onClick={() => handleEditMovement(fe)}
-                                  disabled={editingEntryId === fe.id}
-                                  title={
-                                    isAutoAdjustment
-                                      ? "Los ajustes automáticos no se pueden editar"
-                                      : "Editar movimiento"
-                                  }
-                                >
-                                  <Pencil className="w-4 h-4" />
-                                  {editingEntryId === fe.id
-                                    ? "Editando"
-                                    : "Editar"}
-                                </button>
-                                {isPrincipalAdmin && !isAutoAdjustment && (
-                                  <button
-                                    type="button"
-                                    className="inline-flex items-center gap-2 rounded border border-red-500/50 px-3 py-1 text-xs font-medium text-red-500 hover:bg-red-500/10"
-                                    onClick={() => handleDeleteMovement(fe)}
-                                    title="Eliminar movimiento (solo admin principal)"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                    Eliminar
-                                  </button>
-                                )}
+                                {(() => {
+                                  const isCierreVentasRow = isCierreFondoVentasMovement(fe);
+                                  const isLatestCierreVentas =
+                                    isCierreVentasRow &&
+                                    Boolean(latestCierreFondoVentasMovementId) &&
+                                    fe.id === latestCierreFondoVentasMovementId;
+                                  const canDelete =
+                                    !isAutoAdjustment &&
+                                    (isPrincipalAdmin ||
+                                      (isSuperAdminUser && isCierreVentasRow)) &&
+                                    (!isCierreVentasRow || isLatestCierreVentas);
+                                  const canEdit =
+                                    !isAutoAdjustment &&
+                                    (!isSuperAdminUser || !isCierreVentasRow);
+
+                                  return (
+                                    <>
+                                      {canEdit && (
+                                        <button
+                                          type="button"
+                                          className="inline-flex items-center gap-2 rounded border border-[var(--input-border)] px-3 py-1 text-xs font-medium text-[var(--muted-foreground)] hover:bg-[var(--muted)] disabled:opacity-50"
+                                          onClick={() => handleEditMovement(fe)}
+                                          disabled={editingEntryId === fe.id}
+                                          title={
+                                            isAutoAdjustment
+                                              ? "Los ajustes automáticos no se pueden editar"
+                                              : "Editar movimiento"
+                                          }
+                                        >
+                                          <Pencil className="w-4 h-4" />
+                                          {editingEntryId === fe.id
+                                            ? "Editando"
+                                            : "Editar"}
+                                        </button>
+                                      )}
+
+                                      {canDelete && (
+                                        <button
+                                          type="button"
+                                          className="inline-flex items-center gap-2 rounded border border-red-500/50 px-3 py-1 text-xs font-medium text-red-500 hover:bg-red-500/10"
+                                          onClick={() => handleDeleteMovement(fe)}
+                                          title={
+                                            isCierreVentasRow && isSuperAdminUser
+                                              ? 'Eliminar "CIERRE FONDO VENTAS" (superadmin)'
+                                              : isCierreVentasRow
+                                                ? "Eliminar último cierre de Fondo Ventas"
+                                                : "Eliminar movimiento"
+                                          }
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                          Eliminar
+                                        </button>
+                                      )}
+                                    </>
+                                  );
+                                })()}
                               </div>
                             )}
                           </td>
@@ -9849,6 +10314,15 @@ export function FondoSection({
         isAutoAdjustmentProvider={isAutoAdjustmentProvider}
         expandedClosings={expandedClosings}
         setExpandedClosings={setExpandedClosings}
+
+        canDeleteLatestClosing={
+          Boolean(isSuperAdminUser) &&
+          accountKey === "FondoGeneral" &&
+          Boolean((company || "").trim()) &&
+          dailyClosings.length > 0
+        }
+        latestClosingLabel={latestDailyClosingLabel}
+        onDeleteLatestClosing={handleDeleteLatestDailyClosing}
       />
     </div>
   );
