@@ -1,5 +1,5 @@
 {
-    "version": "1.4.21",
+    "version": "1.4.22",
     "versionstorage": "1.1.7",
     "releaseNotes": [
         {
@@ -11,6 +11,16 @@
             "date": "2026-04-08",
             "title": "Fondo General: Prevención de duplicados y validaciones de cierre",
             "description": "Se agregó protección contra duplicados casi instantáneos. Ahora hay un mínimo de 1 minuto entre movimientos nuevos y entre cierres nuevos de Fondo General. Además, los mensajes tipo toast se muestran por encima de los modales (ya no quedan detrás del formulario). Se implementó un bloqueo por tipo de cierre (Fondo Ventas / Fondo General) a nivel Firestore para evitar cierres duplicados entre dispositivos/ventanas, con un lock de 30 minutos."
+        },
+        {
+            "date": "2026-04-10",
+            "title": "Fondo General: Eliminar último cierre y mejoras de espera",
+            "description": "Los superadmins ahora pueden eliminar el último cierre de Fondo General desde el historial (con respaldo y limpieza automática de bloqueos/cooldowns para poder recrearlo de inmediato). Además, admins y superadmins ya no tienen la limitación de 1 minuto para agregar movimientos. Los toasts de espera ahora se formatean a minutos cuando aplica (ej: 1min 15s)."
+        },
+        {
+            "date": "2026-04-10",
+            "title": "Control Horario: Edición limitada a quincena actual",
+            "description": "Para usuarios con rol \"user\", se restringió la edición/guardado de horarios a la quincena actual (según la fecha de hoy) para evitar modificaciones de periodos pasados; el sistema muestra un aviso indicando desde qué fecha se permite editar."
         }
     ],
     "_comment": "hacer una pagina de 'en mantenimiento' para secciones en desarrollo y a exepcion de un usuario admin"
