@@ -720,6 +720,28 @@ export class MovimientosFondosService {
     return out;
   }
 
+  static async listMovementsByOriginalEntryId<T = unknown>(
+    docId: string,
+    originalEntryId: string,
+    options?: { limitCount?: number },
+  ): Promise<Array<T & { id: string }>> {
+    if (!docId) return [];
+    const key = String(originalEntryId || '').trim();
+    if (!key) return [];
+
+    const limitCount = Math.max(1, Math.min(options?.limitCount ?? 25, 200));
+    const q: Query<DocumentData> = query(
+      this.movementsCollectionRef(docId),
+      where('originalEntryId', '==', key),
+      limit(limitCount),
+    );
+
+    const snap: QuerySnapshot<DocumentData> = await getDocs(q);
+    if (snap.empty) return [];
+
+    return snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
+  }
+
   private static buildLegacyMovementId(candidate: unknown, index: number): string {
     const base = candidate && typeof candidate === 'object' ? (candidate as Record<string, unknown>) : {};
     const createdAt = typeof base.createdAt === 'string' ? base.createdAt : '';

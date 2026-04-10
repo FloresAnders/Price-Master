@@ -1,3 +1,5 @@
+import { collection, doc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { db } from '@/config/firebase';
 import { FirestoreService } from './firestore';
 
 export type DailyClosingRecord = {
@@ -37,6 +39,8 @@ export type DailyClosingsDocument = {
 };
 
 const COLLECTION_NAME = 'cierres';
+const DELETED_COLLECTION_NAME = 'cierresEliminados';
+const DELETED_SUBCOLLECTION_NAME = 'records';
 const MAX_CLOSING_RECORDS = 50;
 
 const pad = (value: number): string => value.toString().padStart(2, '0');
@@ -104,6 +108,38 @@ const sanitizeBreakdown = (input: unknown): Record<number, number> => {
         return acc;
     }, {});
 };
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+    if (!value || typeof value !== 'object') return false;
+    const proto = Object.getPrototypeOf(value);
+    return proto === Object.prototype || proto === null;
+}
+
+/**
+ * Firestore does not allow `undefined` anywhere in the payload.
+ * This removes undefined keys deeply while preserving non-plain objects
+ * (Timestamp, Date, GeoPoint, DocumentReference, FieldValue, etc.).
+ */
+function stripUndefinedDeep<T>(value: T): T {
+    if (value === undefined) return value;
+
+    if (Array.isArray(value)) {
+        return value
+            .map((v) => stripUndefinedDeep(v))
+            .filter((v) => v !== undefined) as any;
+    }
+
+    if (isPlainObject(value)) {
+        const out: Record<string, unknown> = {};
+        Object.entries(value as Record<string, unknown>).forEach(([k, v]) => {
+            const cleaned = stripUndefinedDeep(v as any);
+            if (cleaned !== undefined) out[k] = cleaned;
+        });
+        return out as any;
+    }
+
+    return value;
+}
 
 type AdjustmentResolutionRemoval = NonNullable<
     NonNullable<DailyClosingRecord['adjustmentResolution']>['removedAdjustments']
@@ -350,5 +386,117 @@ export class DailyClosingsService {
         if (!savedRecord) {
             throw new Error(`Failed to verify closing save: record ${sanitizedRecord.id} not found after save`);
         }
+    }
+
+    static async deleteLatestClosing(
+        company: string,
+        params: {
+            expectedClosingId: string;
+            reason: string;
+            deletedBy?: {
+                uid?: string;
+                email?: string;
+                name?: string;
+                role?: string;
+            };
+            relatedAdjustments?: unknown[];
+            lockedUntilBefore?: string | null;
+            lockedUntilAfter?: string | null;
+        },
+    ): Promise<{ deleted: DailyClosingRecord; latestAfter: DailyClosingRecord | null; deletedBackupId: string }>
+    {
+        const docId = this.buildDocumentId(company);
+        if (!docId) {
+            throw new Error('Company ID is required for deleting closing');
+        }
+
+        const expectedId = String(params?.expectedClosingId || '').trim();
+        if (!expectedId) {
+            throw new Error('expectedClosingId is required');
+        }
+
+        const reason = String(params?.reason || '').trim();
+        if (!reason) {
+            throw new Error('Debe indicar un motivo para eliminar el cierre');
+        }
+
+        const existingDocument = await this.getDocument(docId);
+        if (!existingDocument) {
+            throw new Error('No se encontró el documento de cierres para esta empresa');
+        }
+
+        const all = this.extractAllClosings(existingDocument);
+        const latest = all[0];
+        if (!latest) {
+            throw new Error('No hay cierres para eliminar');
+        }
+
+        if (latest.id !== expectedId) {
+            throw new Error(
+                `El cierre a eliminar ya no es el último. Recargue el historial e intente de nuevo.`,
+            );
+        }
+
+        const deletedAtISO = new Date().toISOString();
+        const deletedAt = new Date(deletedAtISO);
+        const dd = pad(deletedAt.getDate());
+        const mm = pad(deletedAt.getMonth() + 1);
+        const yyyy = String(deletedAt.getFullYear());
+        const deletedAtDisplay = `${dd}/${mm}/${yyyy}`;
+        // Firestore doc IDs cannot contain '/', so use '-' in the ID.
+        // Keep a millisecond suffix for uniqueness when deleting multiple times the same day.
+        const deletedBackupId = `del_${dd}-${mm}-${yyyy}_${Date.now()}_${latest.id}`;
+
+        // Build updated closings map (remove latest)
+        const updatedMap: Record<string, DailyClosingRecord[]> = {};
+        Object.entries(existingDocument.closingsByDate || {}).forEach(([dateKey, list]) => {
+            if (!Array.isArray(list)) return;
+            const filtered = list.filter((r) => r?.id !== latest.id);
+            if (filtered.length > 0) {
+                updatedMap[dateKey] = filtered;
+            }
+        });
+
+        const trimmed = trimClosingsMap(updatedMap);
+        const payload: DailyClosingsDocument = {
+            company: existingDocument.company || docId,
+            updatedAt: deletedAtISO,
+            closingsByDate: trimmed,
+        };
+
+        const latestAfter = this.extractAllClosings(payload)[0] ?? null;
+
+        // 1) Write backup first (abort if it fails)
+        try {
+            const backupRef = doc(
+                collection(db, DELETED_COLLECTION_NAME, docId, DELETED_SUBCOLLECTION_NAME),
+                deletedBackupId,
+            );
+            const rawBackup = {
+                company: docId,
+                deletedAt: deletedAtISO,
+                deletedAtDisplay,
+                deletedAtServer: serverTimestamp(),
+                reason,
+                deletedBy: params?.deletedBy ?? {},
+                lockedUntilBefore: params?.lockedUntilBefore ?? null,
+                lockedUntilAfter: params?.lockedUntilAfter ?? null,
+                deletedClosing: latest,
+                latestAfter,
+                relatedAdjustments: Array.isArray(params?.relatedAdjustments) ? params?.relatedAdjustments : [],
+                kind: 'DailyClosingDeletionBackup',
+                version: 1,
+            };
+            const safeBackup = stripUndefinedDeep(rawBackup);
+            await setDoc(backupRef, safeBackup as any);
+        } catch (err) {
+            console.error('[DailyClosingsService.deleteLatestClosing] Failed to write backup:', err);
+            throw new Error('No se pudo guardar el respaldo del cierre eliminado. Operación cancelada.');
+        }
+
+        // 2) Persist updated closings document
+        await FirestoreService.addWithId(COLLECTION_NAME, docId, payload);
+
+        return { deleted: latest, latestAfter, deletedBackupId };
     }
 }
