@@ -405,6 +405,19 @@ export default function ScheduleReportTab() {
     }
   };
 
+  const getStartOfCurrentQuincena = (reference: Date = new Date()) => {
+    const ref = new Date(reference.getFullYear(), reference.getMonth(), reference.getDate());
+    return new Date(ref.getFullYear(), ref.getMonth(), ref.getDate() <= 15 ? 1 : 16);
+  };
+
+  const formatDateShort = (date: Date) => {
+    return date.toLocaleDateString('es-CR', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+  };
+
   // Función para generar clave única para cada celda editable
   const getCellKey = (companieValue: string, employeeName: string, day: number): string => {
     return `${companieValue}-${employeeName}-${day}`;
@@ -432,6 +445,20 @@ export default function ScheduleReportTab() {
 
   // Función para manejar cambio en celda
   const handleCellChange = (companieValue: string, employeeName: string, day: number, value: string) => {
+    // Regla dura: no permitir editar fechas de quincenas anteriores a la quincena actual (según HOY).
+    if (currentUser?.role === 'user' && currentPeriod) {
+      const cellDate = new Date(currentPeriod.year, currentPeriod.month, day);
+      cellDate.setHours(0, 0, 0, 0);
+      const quincenaStart = getStartOfCurrentQuincena();
+      if (cellDate < quincenaStart) {
+        showToast(
+          `No se puede editar ${formatDateShort(cellDate)} porque pertenece a una quincena pasada. Solo se permite editar desde ${formatDateShort(quincenaStart)}.`,
+          'warning'
+        );
+        return;
+      }
+    }
+
     const cellKey = getCellKey(companieValue, employeeName, day);
     setEditableSchedules(prev => ({
       ...prev,
@@ -441,6 +468,28 @@ export default function ScheduleReportTab() {
 
   // Función para confirmar cambio y guardar en base de datos
   const handleCellBlur = (companieValue: string, employeeName: string, day: number) => {
+    // Defensa extra: bloquear guardado si pertenece a quincena pasada.
+    if (currentUser?.role === 'user' && currentPeriod) {
+      const cellDate = new Date(currentPeriod.year, currentPeriod.month, day);
+      cellDate.setHours(0, 0, 0, 0);
+      const quincenaStart = getStartOfCurrentQuincena();
+      if (cellDate < quincenaStart) {
+        showToast(
+          `No se puede editar ${formatDateShort(cellDate)} porque pertenece a una quincena pasada. Solo se permite editar desde ${formatDateShort(quincenaStart)}.`,
+          'warning'
+        );
+        // Limpiar el estado temporal por si hubiera quedado algo
+        const cellKey = getCellKey(companieValue, employeeName, day);
+        setEditableSchedules(prev => {
+          if (prev[cellKey] === undefined) return prev;
+          const newState = { ...prev };
+          delete newState[cellKey];
+          return newState;
+        });
+        return;
+      }
+    }
+
     const cellKey = getCellKey(companieValue, employeeName, day);
     const newValue = editableSchedules[cellKey];
 

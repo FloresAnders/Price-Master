@@ -334,6 +334,12 @@ export default function ControlHorario({
   useEffect(() => {
     if (user?.role === "user") {
       setEditPastDaysEnabled(unlockPastDays.unlocked);
+      return;
+    }
+
+    // Para admin/superadmin: edición libre (sin candado por días pasados)
+    if (user?.role === "admin" || user?.role === "superadmin") {
+      setEditPastDaysEnabled(true);
     }
   }, [unlockPastDays.unlocked, user?.role]);
 
@@ -1159,12 +1165,43 @@ export default function ControlHorario({
           color: "var(--foreground)",
         };
   };
+
+  const getStartOfCurrentQuincena = (reference: Date = new Date()) => {
+    const ref = new Date(
+      reference.getFullYear(),
+      reference.getMonth(),
+      reference.getDate()
+    );
+    return new Date(ref.getFullYear(), ref.getMonth(), ref.getDate() <= 15 ? 1 : 16);
+  };
+
+  const formatDateShort = (date: Date) => {
+    return date.toLocaleDateString("es-CR", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+  };
   // Función para manejar cambios en las celdas
   const handleCellChange = (
     employeeName: string,
     day: number,
     value: string
   ) => {
+    // Regla dura SOLO para rol 'user': no permitir editar fechas de quincenas anteriores a la quincena actual (según HOY).
+    if (user?.role === "user") {
+      const cellDate = new Date(year, month, day);
+      cellDate.setHours(0, 0, 0, 0);
+      const quincenaStart = getStartOfCurrentQuincena();
+      if (cellDate < quincenaStart) {
+        showToast(
+          `No se puede editar ${formatDateShort(cellDate)} porque pertenece a una quincena pasada. Solo se permite editar desde ${formatDateShort(quincenaStart)}.`,
+          "warning"
+        );
+        return;
+      }
+    }
+
     const currentValue = scheduleData[employeeName]?.[day.toString()] || "";
 
     // Prevenir cambios en celdas V/I por usuarios regulares
@@ -1182,6 +1219,20 @@ export default function ControlHorario({
 
   // Funciones para DELIFOOD
   const handleDelifoodCellClick = (employeeName: string, day: number) => {
+    // Regla dura SOLO para rol 'user': no permitir editar fechas de quincenas anteriores a la quincena actual (según HOY).
+    if (user?.role === "user") {
+      const cellDate = new Date(year, month, day);
+      cellDate.setHours(0, 0, 0, 0);
+      const quincenaStart = getStartOfCurrentQuincena();
+      if (cellDate < quincenaStart) {
+        showToast(
+          `No se puede editar ${formatDateShort(cellDate)} porque pertenece a una quincena pasada. Solo se permite editar desde ${formatDateShort(quincenaStart)}.`,
+          "warning"
+        );
+        return;
+      }
+    }
+
     const currentHours =
       delifoodHoursData[employeeName]?.[day.toString()]?.hours || 0;
     setDelifoodModal({
@@ -1194,6 +1245,20 @@ export default function ControlHorario({
 
   const handleDelifoodHoursSave = async (hours: number) => {
     const { employeeName, day } = delifoodModal;
+
+    // Defensa extra SOLO para rol 'user': bloquear guardado si pertenece a quincena pasada.
+    if (user?.role === "user") {
+      const cellDate = new Date(year, month, day);
+      cellDate.setHours(0, 0, 0, 0);
+      const quincenaStart = getStartOfCurrentQuincena();
+      if (cellDate < quincenaStart) {
+        showToast(
+          `No se puede editar ${formatDateShort(cellDate)} porque pertenece a una quincena pasada. Solo se permite editar desde ${formatDateShort(quincenaStart)}.`,
+          "warning"
+        );
+        return;
+      }
+    }
 
     console.log("🧪 TESTING: Guardando horas con JavaScript month:", {
       empresa,
