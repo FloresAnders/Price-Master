@@ -283,6 +283,16 @@ const sanitizeMoneyNumber = (value: unknown) => {
   return Math.trunc(parsed);
 };
 
+const formatToastWaitTime = (remainingSec: number): string => {
+  const sec = Math.max(1, Math.ceil(Number(remainingSec) || 0));
+  // Requirement: if time is more than 60 seconds, format using minutes.
+  if (sec <= 60) return `${sec}s`;
+  const minutes = Math.floor(sec / 60);
+  const seconds = sec % 60;
+  if (seconds === 0) return `${minutes}min`;
+  return `${minutes}min ${seconds}s`;
+};
+
 const sanitizeBreakdown = (input: unknown): Record<number, number> => {
   if (!input || typeof input !== "object") return {};
   return Object.entries(input as Record<string, unknown>).reduce<
@@ -5589,7 +5599,10 @@ export function FondoSection({
             }
           }
 
+          // Admins/Superadmins are exempt from the 1-minute cooldown.
           if (
+            !isAdminUser &&
+            !isSuperAdminUser &&
             lastCreatedAtMs > 0 &&
             nowMs - lastCreatedAtMs < MOVEMENT_MIN_INTERVAL_MS
           ) {
@@ -5597,7 +5610,7 @@ export function FondoSection({
               MOVEMENT_MIN_INTERVAL_MS - (nowMs - lastCreatedAtMs);
             const remainingSec = Math.ceil(remainingMs / 1000);
             showToast(
-              `Espere ${remainingSec}s para agregar otro movimiento.`,
+              `Espere ${formatToastWaitTime(remainingSec)} para agregar otro movimiento.`,
               "warning",
               5000
             );
@@ -5645,7 +5658,9 @@ export function FondoSection({
               MOVEMENT_DUPLICATE_WINDOW_MS - (nowMs - last.at);
             const remainingSec = Math.ceil(remainingMs / 1000);
             showToast(
-              `Movimiento duplicado detectado. Espere ${remainingSec}s para volver a guardarlo.`,
+              `Movimiento duplicado detectado. Espere ${formatToastWaitTime(
+                remainingSec
+              )} para volver a guardarlo.`,
               "warning",
               5000
             );
@@ -5879,7 +5894,9 @@ export function FondoSection({
                   ? "Fondo Ventas"
                   : "otro cierre";
             showToast(
-              `Otro cierre (${kindLabel}) se está registrando. Intente en ${acquired.remainingSec}s.`,
+              `Otro cierre (${kindLabel}) se está registrando. Intente en ${formatToastWaitTime(
+                acquired.remainingSec
+              )}.`,
               "warning",
               6000
             );
@@ -7006,7 +7023,9 @@ export function FondoSection({
                 ? "Fondo Ventas"
                 : "otro cierre";
           showToast(
-            `Otro cierre (${kindLabel}) se está registrando. Intente en ${acquired.remainingSec}s.`,
+            `Otro cierre (${kindLabel}) se está registrando. Intente en ${formatToastWaitTime(
+              acquired.remainingSec
+            )}.`,
             "warning",
             6000
           );
@@ -7056,7 +7075,9 @@ export function FondoSection({
           DAILY_CLOSING_MIN_INTERVAL_MS - (nowMs - lastSavedAtMs);
         const remainingSec = Math.ceil(remainingMs / 1000);
         showToast(
-          `Ya se registró un cierre hace poco. Espere ${remainingSec}s para crear otro.`,
+          `Ya se registró un cierre hace poco. Espere ${formatToastWaitTime(
+            remainingSec
+          )} para crear otro.`,
           "warning",
           5000
         );
