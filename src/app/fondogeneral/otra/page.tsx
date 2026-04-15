@@ -19,6 +19,9 @@ import {
   type FondoEntry,
   type FondoMovementType,
 } from "@/app/fondogeneral/components/fondo";
+import ReportMovementsDetailModal, {
+  type ReportMovementDetail,
+} from "@/components/modals/ReportMovementsDetailModal";
 
 type Classification = "ingreso" | "gasto" | "egreso";
 
@@ -34,6 +37,8 @@ type SummaryRow = {
   classification: Classification;
   totals: Record<MovementCurrencyKey, CurrencyBucket>;
 };
+
+type ReportEntry = FondoEntry & { companyName: string };
 
 const ACCOUNT_LABELS: Record<MovementAccountKey, string> = {
   FondoGeneral: "Fondo General",
@@ -127,7 +132,7 @@ export default function ReporteMovimientosPage() {
   const [selectedAccount, setSelectedAccount] = useState<
     AccountSelectValue | ""
   >("");
-  const [entries, setEntries] = useState<FondoEntry[]>([]);
+  const [entries, setEntries] = useState<ReportEntry[]>([]);
   const [dataLoading, setDataLoading] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
   const [classificationFilter, setClassificationFilter] = useState<
@@ -456,7 +461,7 @@ export default function ReporteMovimientosPage() {
     const loadEntries = async () => {
       try {
         const accountSet = new Set<MovementAccountKey>(targetAccounts);
-        const aggregated: FondoEntry[] = [];
+        const aggregated: ReportEntry[] = [];
 
         for (const companyName of targetCompanies) {
           const normalizedCompany = companyName.trim();
@@ -545,7 +550,12 @@ export default function ReporteMovimientosPage() {
           }, []);
 
           const sanitized = sanitizeFondoEntries(scoped);
-          aggregated.push(...sanitized);
+          aggregated.push(
+            ...sanitized.map((entry) => ({
+              ...entry,
+              companyName: normalizedCompany,
+            }))
+          );
         }
 
         if (!cancelled) {
@@ -582,6 +592,116 @@ export default function ReporteMovimientosPage() {
     companies,
     accessibleAccountKeys,
   ]);
+
+  const [detailRequest, setDetailRequest] = useState<null | {
+    paymentType?: FondoMovementType;
+    label: string;
+    classification: Classification;
+    currency: MovementCurrencyKey;
+  }>(null);
+
+  const closeDetailModal = useCallback(() => {
+    setDetailRequest(null);
+  }, []);
+
+  const openDetailModal = useCallback(
+    (
+      row: SummaryRow,
+      classification: Classification,
+      currency: MovementCurrencyKey
+    ) => {
+      const amount = row.totals[currency][classification];
+      if (!Number.isFinite(amount) || Math.trunc(amount) === 0) return;
+      setDetailRequest({
+        paymentType: row.paymentType,
+        label: row.label,
+        classification,
+        currency,
+      });
+    },
+    []
+  );
+
+  const detailMovements = useMemo<ReportMovementDetail[]>(() => {
+    if (!detailRequest) return [];
+    if (dateRangeInvalid) return [];
+    if (!entries.length) return [];
+
+    const fromTimestamp = fromDate
+      ? Date.parse(`${fromDate}T00:00:00`)
+      : Number.NaN;
+    const toTimestamp = toDate
+      ? Date.parse(`${toDate}T23:59:59.999`)
+      : Number.NaN;
+
+    return entries.filter((entry) => {
+      if (detailRequest.paymentType && entry.paymentType !== detailRequest.paymentType)
+        return false;
+
+      const created = Date.parse(entry.createdAt);
+      if (!Number.isNaN(fromTimestamp) && created < fromTimestamp) return false;
+      if (!Number.isNaN(toTimestamp) && created > toTimestamp) return false;
+
+      const entryClassification: Classification = isIngresoType(entry.paymentType)
+        ? "ingreso"
+        : isGastoType(entry.paymentType)
+        ? "gasto"
+        : "egreso";
+
+      if (entryClassification !== detailRequest.classification) return false;
+
+      if (
+        classificationFilter !== "all" &&
+        entryClassification !== classificationFilter
+      ) {
+        return false;
+      }
+
+      if (
+        selectedMovementTypes.length > 0 &&
+        !selectedMovementTypes.includes(entry.paymentType)
+      ) {
+        return false;
+      }
+
+      const entryCurrency: MovementCurrencyKey =
+        entry.currency === "USD" ? "USD" : "CRC";
+      if (entryCurrency !== detailRequest.currency) return false;
+
+      const amount =
+        detailRequest.classification === "ingreso"
+          ? entry.amountIngreso || 0
+          : entry.amountEgreso || 0;
+
+      return Math.trunc(amount) !== 0;
+    });
+  }, [
+    detailRequest,
+    dateRangeInvalid,
+    entries,
+    fromDate,
+    toDate,
+    classificationFilter,
+    selectedMovementTypes,
+  ]);
+
+  const detailSubtitle = useMemo(() => {
+    if (!detailRequest) return "";
+    const companyLabel =
+      selectedCompany === ALL_COMPANIES_VALUE
+        ? "Todas las empresas"
+        : selectedCompany || "(Sin empresa)";
+
+    const accountLabel =
+      selectedAccount === ALL_ACCOUNTS_VALUE
+        ? "Todas las cuentas"
+        : selectedAccount
+        ? ACCOUNT_LABELS[selectedAccount as MovementAccountKey]
+        : "(Sin cuenta)";
+
+    const dateLabel = fromDate && toDate ? `${fromDate} → ${toDate}` : "";
+    return [companyLabel, accountLabel, dateLabel].filter(Boolean).join(" · ");
+  }, [detailRequest, selectedCompany, selectedAccount, fromDate, toDate]);
 
   useEffect(() => {
     setSelectedMovementTypes((prev) => {
@@ -735,6 +855,19 @@ export default function ReporteMovimientosPage() {
       }
     );
   }, [summaryRows]);
+
+  const openTotalsDetailModal = useCallback(
+    (classification: Classification, currency: MovementCurrencyKey) => {
+      const amount = totals[currency][classification];
+      if (!Number.isFinite(amount) || Math.trunc(amount) === 0) return;
+      setDetailRequest({
+        label: "Totales",
+        classification,
+        currency,
+      });
+    },
+    [totals]
+  );
 
   if (authLoading) {
     return (
@@ -1195,27 +1328,97 @@ export default function ReporteMovimientosPage() {
                       <td className="px-4 py-3 text-[var(--muted-foreground)]">
                         {formatClassification(row.classification)}
                       </td>
-                      <td className="px-4 py-3 text-right">
+                      <td
+                        className={`px-4 py-3 text-right ${
+                          row.totals.CRC.ingreso ? "cursor-pointer" : ""
+                        }`}
+                        onDoubleClick={() =>
+                          openDetailModal(row, "ingreso", "CRC")
+                        }
+                        title={
+                          row.totals.CRC.ingreso
+                            ? "Doble click para ver movimientos"
+                            : undefined
+                        }
+                      >
                         {formatAmount("CRC", row.totals.CRC.ingreso)}
                       </td>
                       {showUSD && (
-                        <td className="px-4 py-3 text-right">
+                        <td
+                          className={`px-4 py-3 text-right ${
+                            row.totals.USD.ingreso ? "cursor-pointer" : ""
+                          }`}
+                          onDoubleClick={() =>
+                            openDetailModal(row, "ingreso", "USD")
+                          }
+                          title={
+                            row.totals.USD.ingreso
+                              ? "Doble click para ver movimientos"
+                              : undefined
+                          }
+                        >
                           {formatAmount("USD", row.totals.USD.ingreso)}
                         </td>
                       )}
-                      <td className="px-4 py-3 text-right">
+                      <td
+                        className={`px-4 py-3 text-right ${
+                          row.totals.CRC.gasto ? "cursor-pointer" : ""
+                        }`}
+                        onDoubleClick={() => openDetailModal(row, "gasto", "CRC")}
+                        title={
+                          row.totals.CRC.gasto
+                            ? "Doble click para ver movimientos"
+                            : undefined
+                        }
+                      >
                         {formatAmount("CRC", row.totals.CRC.gasto)}
                       </td>
                       {showUSD && (
-                        <td className="px-4 py-3 text-right">
+                        <td
+                          className={`px-4 py-3 text-right ${
+                            row.totals.USD.gasto ? "cursor-pointer" : ""
+                          }`}
+                          onDoubleClick={() =>
+                            openDetailModal(row, "gasto", "USD")
+                          }
+                          title={
+                            row.totals.USD.gasto
+                              ? "Doble click para ver movimientos"
+                              : undefined
+                          }
+                        >
                           {formatAmount("USD", row.totals.USD.gasto)}
                         </td>
                       )}
-                      <td className="px-4 py-3 text-right">
+                      <td
+                        className={`px-4 py-3 text-right ${
+                          row.totals.CRC.egreso ? "cursor-pointer" : ""
+                        }`}
+                        onDoubleClick={() =>
+                          openDetailModal(row, "egreso", "CRC")
+                        }
+                        title={
+                          row.totals.CRC.egreso
+                            ? "Doble click para ver movimientos"
+                            : undefined
+                        }
+                      >
                         {formatAmount("CRC", row.totals.CRC.egreso)}
                       </td>
                       {showUSD && (
-                        <td className="px-4 py-3 text-right">
+                        <td
+                          className={`px-4 py-3 text-right ${
+                            row.totals.USD.egreso ? "cursor-pointer" : ""
+                          }`}
+                          onDoubleClick={() =>
+                            openDetailModal(row, "egreso", "USD")
+                          }
+                          title={
+                            row.totals.USD.egreso
+                              ? "Doble click para ver movimientos"
+                              : undefined
+                          }
+                        >
                           {formatAmount("USD", row.totals.USD.egreso)}
                         </td>
                       )}
@@ -1227,27 +1430,93 @@ export default function ReporteMovimientosPage() {
                     <td className="px-4 py-3" colSpan={2}>
                       Totales
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td
+                      className={`px-4 py-3 text-right ${
+                        totals.CRC.ingreso ? "cursor-pointer" : ""
+                      }`}
+                      onDoubleClick={() => openTotalsDetailModal("ingreso", "CRC")}
+                      title={
+                        totals.CRC.ingreso
+                          ? "Doble click para ver movimientos"
+                          : undefined
+                      }
+                    >
                       {formatAmount("CRC", totals.CRC.ingreso)}
                     </td>
                     {showUSD && (
-                      <td className="px-4 py-3 text-right">
+                      <td
+                        className={`px-4 py-3 text-right ${
+                          totals.USD.ingreso ? "cursor-pointer" : ""
+                        }`}
+                        onDoubleClick={() =>
+                          openTotalsDetailModal("ingreso", "USD")
+                        }
+                        title={
+                          totals.USD.ingreso
+                            ? "Doble click para ver movimientos"
+                            : undefined
+                        }
+                      >
                         {formatAmount("USD", totals.USD.ingreso)}
                       </td>
                     )}
-                    <td className="px-4 py-3 text-right">
+                    <td
+                      className={`px-4 py-3 text-right ${
+                        totals.CRC.gasto ? "cursor-pointer" : ""
+                      }`}
+                      onDoubleClick={() => openTotalsDetailModal("gasto", "CRC")}
+                      title={
+                        totals.CRC.gasto
+                          ? "Doble click para ver movimientos"
+                          : undefined
+                      }
+                    >
                       {formatAmount("CRC", totals.CRC.gasto)}
                     </td>
                     {showUSD && (
-                      <td className="px-4 py-3 text-right">
+                      <td
+                        className={`px-4 py-3 text-right ${
+                          totals.USD.gasto ? "cursor-pointer" : ""
+                        }`}
+                        onDoubleClick={() =>
+                          openTotalsDetailModal("gasto", "USD")
+                        }
+                        title={
+                          totals.USD.gasto
+                            ? "Doble click para ver movimientos"
+                            : undefined
+                        }
+                      >
                         {formatAmount("USD", totals.USD.gasto)}
                       </td>
                     )}
-                    <td className="px-4 py-3 text-right">
+                    <td
+                      className={`px-4 py-3 text-right ${
+                        totals.CRC.egreso ? "cursor-pointer" : ""
+                      }`}
+                      onDoubleClick={() => openTotalsDetailModal("egreso", "CRC")}
+                      title={
+                        totals.CRC.egreso
+                          ? "Doble click para ver movimientos"
+                          : undefined
+                      }
+                    >
                       {formatAmount("CRC", totals.CRC.egreso)}
                     </td>
                     {showUSD && (
-                      <td className="px-4 py-3 text-right">
+                      <td
+                        className={`px-4 py-3 text-right ${
+                          totals.USD.egreso ? "cursor-pointer" : ""
+                        }`}
+                        onDoubleClick={() =>
+                          openTotalsDetailModal("egreso", "USD")
+                        }
+                        title={
+                          totals.USD.egreso
+                            ? "Doble click para ver movimientos"
+                            : undefined
+                        }
+                      >
                         {formatAmount("USD", totals.USD.egreso)}
                       </td>
                     )}
@@ -1258,6 +1527,28 @@ export default function ReporteMovimientosPage() {
           )}
         </div>
       </div>
+
+      <ReportMovementsDetailModal
+        isOpen={Boolean(detailRequest)}
+        onClose={closeDetailModal}
+        title={
+          detailRequest
+            ? `${detailRequest.label} · ${formatClassification(
+                detailRequest.classification
+              )} · ${detailRequest.currency}`
+            : "Detalle"
+        }
+        subtitle={detailSubtitle}
+        currency={detailRequest?.currency ?? "CRC"}
+        formatAmount={formatAmount}
+        movements={detailMovements}
+        amountSelector={(movement) =>
+          detailRequest?.classification === "ingreso"
+            ? movement.amountIngreso
+            : movement.amountEgreso
+        }
+        splitByCompany={selectedCompany === ALL_COMPANIES_VALUE}
+      />
     </div>
   );
 }
