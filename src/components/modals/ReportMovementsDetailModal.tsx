@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
 
 export type ReportMovementDetail = {
@@ -19,6 +19,21 @@ export type ReportMovementDetail = {
 };
 
 type CurrencyKey = "CRC" | "USD";
+
+type ColumnKey =
+  | "createdAt"
+  | "manager"
+  | "providerCode"
+  | "invoiceNumber"
+  | "amount"
+  | "notes";
+
+type Column = {
+  key: ColumnKey;
+  label: string;
+  defaultWidth: number;
+  minWidth: number;
+};
 
 type Props = {
   isOpen: boolean;
@@ -43,6 +58,26 @@ export default function ReportMovementsDetailModal({
   amountSelector,
   splitByCompany = false,
 }: Props) {
+  const columns = useMemo<Column[]>(
+    () => [
+      { key: "createdAt", label: "Fecha", defaultWidth: 190, minWidth: 150 },
+      { key: "manager", label: "Encargado", defaultWidth: 140, minWidth: 120 },
+      { key: "providerCode", label: "Proveedor", defaultWidth: 240, minWidth: 160 },
+      { key: "invoiceNumber", label: "Factura", defaultWidth: 120, minWidth: 90 },
+      { key: "amount", label: "Monto", defaultWidth: 130, minWidth: 110 },
+      { key: "notes", label: "Notas", defaultWidth: 380, minWidth: 180 },
+    ],
+    []
+  );
+
+  const [colWidths, setColWidths] = useState<number[]>(() =>
+    columns.map((c) => c.defaultWidth)
+  );
+
+  useEffect(() => {
+    setColWidths(columns.map((c) => c.defaultWidth));
+  }, [columns]);
+
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -51,6 +86,73 @@ export default function ReportMovementsDetailModal({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const body = document.body;
+    const previousOverflow = body.style.overflow;
+    const previousPaddingRight = body.style.paddingRight;
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+
+    body.style.overflow = "hidden";
+    if (scrollbarWidth > 0) {
+      body.style.paddingRight = `${scrollbarWidth}px`;
+    }
+
+    return () => {
+      body.style.overflow = previousOverflow;
+      body.style.paddingRight = previousPaddingRight;
+    };
+  }, [isOpen]);
+
+  const resizeStateRef = useRef<{
+    colIndex: number;
+    startX: number;
+    startWidth: number;
+  } | null>(null);
+
+  useEffect(() => {
+    const handleMove = (event: MouseEvent) => {
+      const state = resizeStateRef.current;
+      if (!state) return;
+      const delta = event.clientX - state.startX;
+      setColWidths((prev) => {
+        const next = prev.slice();
+        const column = columns[state.colIndex];
+        const proposed = state.startWidth + delta;
+        const clamped = Math.max(column.minWidth, Math.min(800, proposed));
+        next[state.colIndex] = clamped;
+        return next;
+      });
+    };
+
+    const handleUp = () => {
+      if (!resizeStateRef.current) return;
+      resizeStateRef.current = null;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+
+    window.addEventListener("mousemove", handleMove);
+    window.addEventListener("mouseup", handleUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMove);
+      window.removeEventListener("mouseup", handleUp);
+    };
+  }, [columns]);
+
+  const startResize = (colIndex: number, event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    resizeStateRef.current = {
+      colIndex,
+      startX: event.clientX,
+      startWidth: colWidths[colIndex] ?? columns[colIndex]?.defaultWidth ?? 160,
+    };
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  };
 
   const grouped = useMemo(() => {
     if (!splitByCompany) {
@@ -73,6 +175,14 @@ export default function ReportMovementsDetailModal({
     return movements.reduce((acc, m) => acc + (amountSelector(m) || 0), 0);
   }, [movements, amountSelector]);
 
+  const gridTemplateColumns = useMemo(() => {
+    return colWidths.map((w) => `${Math.max(60, Math.trunc(w))}px`).join(" ");
+  }, [colWidths]);
+
+  const gridMinWidth = useMemo(() => {
+    return colWidths.reduce((acc, w) => acc + Math.max(60, Math.trunc(w)), 0);
+  }, [colWidths]);
+
   if (!isOpen) return null;
 
   return (
@@ -85,7 +195,7 @@ export default function ReportMovementsDetailModal({
       aria-label={title}
     >
       <div
-        className="bg-[var(--card-bg)] text-[var(--foreground)] rounded-lg shadow-2xl w-full max-w-3xl max-h-[90vh] border border-[var(--input-border)] overflow-hidden"
+        className="bg-[var(--card-bg)] text-[var(--foreground)] rounded-lg shadow-2xl w-full max-w-6xl max-h-[95vh] border border-[var(--input-border)] overflow-hidden"
         style={{ zIndex: 100000 }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -114,7 +224,7 @@ export default function ReportMovementsDetailModal({
           </button>
         </div>
 
-        <div className="p-4 sm:p-6 overflow-auto max-h-[calc(90vh-88px)]">
+        <div className="p-4 sm:p-6 overflow-auto max-h-[calc(95vh-96px)] overscroll-contain">
           {movements.length === 0 ? (
             <div className="rounded-md border border-[var(--input-border)] bg-[var(--muted)]/10 px-4 py-6 text-center text-sm text-[var(--muted-foreground)]">
               No hay movimientos para mostrar.
@@ -141,30 +251,31 @@ export default function ReportMovementsDetailModal({
                     ) : null}
 
                     <div className="overflow-x-auto rounded-lg border border-[var(--input-border)]">
-                      <table className="min-w-full divide-y divide-[var(--input-border)]">
-                        <thead className="bg-[var(--muted)]/10">
-                          <tr className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">
-                            <th className="px-3 py-2 text-left font-semibold">
-                              Fecha
-                            </th>
-                            <th className="px-3 py-2 text-left font-semibold">
-                              Proveedor
-                            </th>
-                            <th className="px-3 py-2 text-left font-semibold">
-                              Factura
-                            </th>
-                            <th className="px-3 py-2 text-left font-semibold">
-                              Encargado
-                            </th>
-                            <th className="px-3 py-2 text-left font-semibold">
-                              Notas
-                            </th>
-                            <th className="px-3 py-2 text-right font-semibold">
-                              Monto
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[var(--input-border)] bg-[var(--card-bg)]">
+                      <div style={{ minWidth: gridMinWidth }}>
+                        <div
+                          className="bg-[var(--muted)]/10 text-xs uppercase tracking-wide text-[var(--muted-foreground)] select-none"
+                          style={{ display: "grid", gridTemplateColumns }}
+                        >
+                          {columns.map((col, idx) => (
+                            <div
+                              key={col.key}
+                              className={`relative px-3 py-2 font-semibold border-b border-[var(--input-border)] ${
+                                col.key === "amount" ? "text-right" : "text-left"
+                              }`}
+                            >
+                              <span className="pr-3">{col.label}</span>
+                              <div
+                                role="separator"
+                                aria-orientation="vertical"
+                                className="absolute top-0 right-0 h-full w-2 cursor-col-resize"
+                                onMouseDown={(e) => startResize(idx, e)}
+                                title="Arrastra para redimensionar"
+                              />
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="divide-y divide-[var(--input-border)] bg-[var(--card-bg)]">
                           {group.movements
                             .slice()
                             .sort(
@@ -174,30 +285,40 @@ export default function ReportMovementsDetailModal({
                             .map((m) => {
                               const amount = amountSelector(m) || 0;
                               return (
-                                <tr key={m.id} className="text-sm">
-                                  <td className="px-3 py-2 whitespace-nowrap">
+                                <div
+                                  key={m.id}
+                                  className="text-sm"
+                                  style={{ display: "grid", gridTemplateColumns }}
+                                >
+                                  <div className="px-3 py-2 whitespace-nowrap">
                                     {new Date(m.createdAt).toLocaleString("es-CR")}
-                                  </td>
-                                  <td className="px-3 py-2 max-w-[220px] truncate">
-                                    {m.providerCode || "—"}
-                                  </td>
-                                  <td className="px-3 py-2 whitespace-nowrap">
-                                    {m.invoiceNumber || "—"}
-                                  </td>
-                                  <td className="px-3 py-2 whitespace-nowrap">
+                                  </div>
+                                  <div className="px-3 py-2 whitespace-nowrap">
                                     {m.manager || "—"}
-                                  </td>
-                                  <td className="px-3 py-2 max-w-[280px] truncate">
-                                    {m.notes || "—"}
-                                  </td>
-                                  <td className="px-3 py-2 text-right whitespace-nowrap font-semibold">
+                                  </div>
+                                  <div
+                                    className="px-3 py-2 truncate"
+                                    title={m.providerCode || ""}
+                                  >
+                                    {m.providerCode || "—"}
+                                  </div>
+                                  <div className="px-3 py-2 whitespace-nowrap">
+                                    {m.invoiceNumber || "—"}
+                                  </div>
+                                  <div className="px-3 py-2 text-right whitespace-nowrap font-semibold">
                                     {formatAmount(currency, amount)}
-                                  </td>
-                                </tr>
+                                  </div>
+                                  <div
+                                    className="px-3 py-2 truncate"
+                                    title={m.notes || ""}
+                                  >
+                                    {m.notes || "—"}
+                                  </div>
+                                </div>
                               );
                             })}
-                        </tbody>
-                      </table>
+                        </div>
+                      </div>
                     </div>
                   </section>
                 );

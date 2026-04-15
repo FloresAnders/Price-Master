@@ -11,6 +11,7 @@ import {
   type MovementAccountKey,
   type MovementCurrencyKey,
 } from "@/services/movimientos-fondos";
+import { ProvidersService } from "@/services/providers";
 import {
   sanitizeFondoEntries,
   isGastoType,
@@ -78,6 +79,24 @@ const buildDateString = (date: Date) => {
   return `${year}-${month}-${day}`;
 };
 
+const normalizeProviderCode = (value: unknown): string => {
+  if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
+    return String(Math.trunc(value)).padStart(4, "0");
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return "";
+    const parsed = Number.parseInt(trimmed, 10);
+    if (!Number.isNaN(parsed) && String(parsed) === trimmed.replace(/^0+/, "") && parsed >= 0) {
+      return String(parsed).padStart(4, "0");
+    }
+    // If it's already a 4+ digit code, keep as is; if it's not numeric (e.g. "CIERRE ..."), keep as is.
+    if (/^\d+$/.test(trimmed)) return trimmed.padStart(4, "0");
+    return trimmed;
+  }
+  return String(value ?? "").trim();
+};
+
 export default function ReporteMovimientosPage() {
   const { user, loading: authLoading } = useAuth();
   const { ownerIds: actorOwnerIds } = useActorOwnership(user);
@@ -135,6 +154,10 @@ export default function ReporteMovimientosPage() {
   const [entries, setEntries] = useState<ReportEntry[]>([]);
   const [dataLoading, setDataLoading] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
+
+  const [providerNameLookup, setProviderNameLookup] = useState<
+    Record<string, string>
+  >({});
   const [classificationFilter, setClassificationFilter] = useState<
     "all" | "gasto" | "egreso" | "ingreso"
   >(() => {
@@ -593,6 +616,52 @@ export default function ReporteMovimientosPage() {
     accessibleAccountKeys,
   ]);
 
+  useEffect(() => {
+    if (!entries.length) {
+      setProviderNameLookup({});
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadProviders = async () => {
+      try {
+        const companySet = new Set(
+          entries
+            .map((e) => e.companyName?.trim())
+            .filter((v): v is string => Boolean(v))
+        );
+        const companiesToLoad = Array.from(companySet);
+        const results = await Promise.all(
+          companiesToLoad.map(async (companyName) => {
+            const providers = await ProvidersService.getProviders(companyName);
+            return { companyName, providers };
+          })
+        );
+
+        const next: Record<string, string> = {};
+        results.forEach(({ companyName, providers }) => {
+          providers.forEach((provider) => {
+            const code = normalizeProviderCode((provider as any)?.code);
+            const name = String((provider as any)?.name || "").trim();
+            if (!code || !name) return;
+            next[`${companyName}::${code}`] = name;
+          });
+        });
+
+        if (!cancelled) setProviderNameLookup(next);
+      } catch (err) {
+        console.error("Error loading providers for report detail modal:", err);
+        if (!cancelled) setProviderNameLookup({});
+      }
+    };
+
+    void loadProviders();
+    return () => {
+      cancelled = true;
+    };
+  }, [entries]);
+
   const [detailRequest, setDetailRequest] = useState<null | {
     paymentType?: FondoMovementType;
     label: string;
@@ -634,7 +703,8 @@ export default function ReporteMovimientosPage() {
       ? Date.parse(`${toDate}T23:59:59.999`)
       : Number.NaN;
 
-    return entries.filter((entry) => {
+    return entries
+      .filter((entry) => {
       if (detailRequest.paymentType && entry.paymentType !== detailRequest.paymentType)
         return false;
 
@@ -674,7 +744,16 @@ export default function ReporteMovimientosPage() {
           : entry.amountEgreso || 0;
 
       return Math.trunc(amount) !== 0;
-    });
+    })
+      .map((entry) => {
+        const normalizedCode = normalizeProviderCode(entry.providerCode);
+        const key = `${entry.companyName}::${normalizedCode}`;
+        const providerName = providerNameLookup[key];
+        return {
+          ...entry,
+          providerCode: providerName || entry.providerCode,
+        };
+      });
   }, [
     detailRequest,
     dateRangeInvalid,
@@ -683,6 +762,7 @@ export default function ReporteMovimientosPage() {
     toDate,
     classificationFilter,
     selectedMovementTypes,
+    providerNameLookup,
   ]);
 
   const detailSubtitle = useMemo(() => {
