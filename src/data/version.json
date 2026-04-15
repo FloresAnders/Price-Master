@@ -3,19 +3,9 @@
     "versionstorage": "1.1.7",
     "releaseNotes": [
         {
-            "date": "2026-04-07",
-            "title": "Fondo General: Historial de edición mejorado",
-            "description": "Se mejoró la visualización del Historial de edición: ahora muestra una vista comparativa tipo diff (Campo / Antes / Después) con resaltado por impacto, tarjetas ANTES/DESPUÉS con campos clave, e indicadores de cambio (Ingreso/Egreso con flechas). El campo providerCode ahora muestra también el nombre del proveedor correspondiente."
-        },
-        {
-            "date": "2026-04-08",
-            "title": "Fondo General: Prevención de duplicados y validaciones de cierre",
-            "description": "Se agregó protección contra duplicados casi instantáneos. Ahora hay un mínimo de 1 minuto entre movimientos nuevos y entre cierres nuevos de Fondo General. Además, los mensajes tipo toast se muestran por encima de los modales (ya no quedan detrás del formulario). Se implementó un bloqueo por tipo de cierre (Fondo Ventas / Fondo General) a nivel Firestore para evitar cierres duplicados entre dispositivos/ventanas, con un lock de 30 minutos."
-        },
-        {
-            "date": "2026-04-10",
-            "title": "Fondo General: Eliminar último cierre y mejoras de espera",
-            "description": "Los superadmins ahora pueden eliminar el último cierre de Fondo General desde el historial (con respaldo y limpieza automática de bloqueos/cooldowns para poder recrearlo de inmediato). Además, admins y superadmins ya no tienen la limitación de 1 minuto para agregar movimientos. Los toasts de espera ahora se formatean a minutos cuando aplica (ej: 1min 15s)."
+            "date": "2026-04-15",
+            "title": "Reportes Fondo General: Detalle por doble click",
+            "description": "En el reporte \"Resumen por tipo de movimiento\", ahora puedes dar doble click a cualquier monto (Ingresos/Gastos/Egresos en ₡ y $, incluyendo la fila de Totales) para ver el detalle de los movimientos que componen ese valor según los filtros actuales (fecha, empresa, cuenta y tipos). Si está seleccionada \"Todas las empresas\", el detalle se divide por empresa."
         },
         {
             "date": "2026-04-10",

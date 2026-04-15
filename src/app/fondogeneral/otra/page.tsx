@@ -140,7 +140,7 @@ export default function ReporteMovimientosPage() {
   const [companies, setCompanies] = useState<string[]>([]);
   const [companiesLoading, setCompaniesLoading] = useState(false);
   const [companiesError, setCompaniesError] = useState<string | null>(null);
-  const [selectedCompany, setSelectedCompanyState] = useState(() => {
+  const [selectedCompany, setSelectedCompany] = useState<string>(() => {
     if (typeof window === "undefined") return "";
     try {
       return localStorage.getItem(SHARED_COMPANY_STORAGE_KEY) || "";
@@ -158,6 +158,7 @@ export default function ReporteMovimientosPage() {
   const [providerNameLookup, setProviderNameLookup] = useState<
     Record<string, string>
   >({});
+  const loadedProviderCompaniesRef = useRef<Set<string>>(new Set());
   const [classificationFilter, setClassificationFilter] = useState<
     "all" | "gasto" | "egreso" | "ingreso"
   >(() => {
@@ -174,56 +175,28 @@ export default function ReporteMovimientosPage() {
     }
     return "all";
   });
+
   const [selectedMovementTypes, setSelectedMovementTypes] = useState<
     FondoMovementType[]
   >([]);
   const [movementTypeSelectorOpen, setMovementTypeSelectorOpen] =
     useState(false);
-  const [showUSD, setShowUSD] = useState(() => {
-    try {
-      const stored = localStorage.getItem("showUSD");
-      return stored !== "false";
-    } catch (error) {
-      console.error("Error reading showUSD from localStorage:", error);
-    }
-    return true;
-  });
   const movementTypeSelectorRef = useRef<HTMLDivElement | null>(null);
 
-  // Wrapper para guardar en localStorage y disparar evento de sincronización
-  const setSelectedCompany = useCallback(
-    (value: string | ((prev: string) => string)) => {
-      setSelectedCompanyState((prev) => {
-        const newValue = typeof value === "function" ? value(prev) : value;
-        if (newValue && newValue !== prev && newValue !== ALL_COMPANIES_VALUE) {
-          try {
-            localStorage.setItem(SHARED_COMPANY_STORAGE_KEY, newValue);
-            window.dispatchEvent(
-              new StorageEvent("storage", {
-                key: SHARED_COMPANY_STORAGE_KEY,
-                newValue: newValue,
-                oldValue: prev,
-                storageArea: localStorage,
-              })
-            );
-          } catch (error) {
-            console.error(
-              "Error saving selected company to localStorage:",
-              error
-            );
-          }
-        }
-        return newValue;
-      });
-    },
-    []
-  );
+  const [showUSD, setShowUSD] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return localStorage.getItem("showUSD") === "true";
+    } catch {
+      return false;
+    }
+  });
 
   // Escuchar cambios de empresa desde otras secciones (sincronización bidireccional)
   useEffect(() => {
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === SHARED_COMPANY_STORAGE_KEY && event.newValue) {
-        setSelectedCompanyState((prev) => {
+        setSelectedCompany((prev) => {
           if (
             event.newValue &&
             event.newValue !== prev &&
@@ -616,52 +589,6 @@ export default function ReporteMovimientosPage() {
     accessibleAccountKeys,
   ]);
 
-  useEffect(() => {
-    if (!entries.length) {
-      setProviderNameLookup({});
-      return;
-    }
-
-    let cancelled = false;
-
-    const loadProviders = async () => {
-      try {
-        const companySet = new Set(
-          entries
-            .map((e) => e.companyName?.trim())
-            .filter((v): v is string => Boolean(v))
-        );
-        const companiesToLoad = Array.from(companySet);
-        const results = await Promise.all(
-          companiesToLoad.map(async (companyName) => {
-            const providers = await ProvidersService.getProviders(companyName);
-            return { companyName, providers };
-          })
-        );
-
-        const next: Record<string, string> = {};
-        results.forEach(({ companyName, providers }) => {
-          providers.forEach((provider) => {
-            const code = normalizeProviderCode((provider as any)?.code);
-            const name = String((provider as any)?.name || "").trim();
-            if (!code || !name) return;
-            next[`${companyName}::${code}`] = name;
-          });
-        });
-
-        if (!cancelled) setProviderNameLookup(next);
-      } catch (err) {
-        console.error("Error loading providers for report detail modal:", err);
-        if (!cancelled) setProviderNameLookup({});
-      }
-    };
-
-    void loadProviders();
-    return () => {
-      cancelled = true;
-    };
-  }, [entries]);
-
   const [detailRequest, setDetailRequest] = useState<null | {
     paymentType?: FondoMovementType;
     label: string;
@@ -691,7 +618,7 @@ export default function ReporteMovimientosPage() {
     []
   );
 
-  const detailMovements = useMemo<ReportMovementDetail[]>(() => {
+  const detailEntriesBase = useMemo<ReportEntry[]>(() => {
     if (!detailRequest) return [];
     if (dateRangeInvalid) return [];
     if (!entries.length) return [];
@@ -703,10 +630,13 @@ export default function ReporteMovimientosPage() {
       ? Date.parse(`${toDate}T23:59:59.999`)
       : Number.NaN;
 
-    return entries
-      .filter((entry) => {
-      if (detailRequest.paymentType && entry.paymentType !== detailRequest.paymentType)
+    return entries.filter((entry) => {
+      if (
+        detailRequest.paymentType &&
+        entry.paymentType !== detailRequest.paymentType
+      ) {
         return false;
+      }
 
       const created = Date.parse(entry.createdAt);
       if (!Number.isNaN(fromTimestamp) && created < fromTimestamp) return false;
@@ -744,16 +674,7 @@ export default function ReporteMovimientosPage() {
           : entry.amountEgreso || 0;
 
       return Math.trunc(amount) !== 0;
-    })
-      .map((entry) => {
-        const normalizedCode = normalizeProviderCode(entry.providerCode);
-        const key = `${entry.companyName}::${normalizedCode}`;
-        const providerName = providerNameLookup[key];
-        return {
-          ...entry,
-          providerCode: providerName || entry.providerCode,
-        };
-      });
+    });
   }, [
     detailRequest,
     dateRangeInvalid,
@@ -762,8 +683,70 @@ export default function ReporteMovimientosPage() {
     toDate,
     classificationFilter,
     selectedMovementTypes,
-    providerNameLookup,
   ]);
+
+  useEffect(() => {
+    if (!detailRequest) return;
+    const companySet = new Set(
+      detailEntriesBase
+        .map((e) => e.companyName?.trim())
+        .filter((v): v is string => Boolean(v))
+    );
+    const companiesToLoad = Array.from(companySet).filter(
+      (companyName) => !loadedProviderCompaniesRef.current.has(companyName)
+    );
+    if (companiesToLoad.length === 0) return;
+
+    let cancelled = false;
+
+    const loadProviders = async () => {
+      try {
+        const results = await Promise.all(
+          companiesToLoad.map(async (companyName) => {
+            const providers = await ProvidersService.getProviders(companyName);
+            return { companyName, providers };
+          })
+        );
+
+        const next: Record<string, string> = {};
+        results.forEach(({ companyName, providers }) => {
+          providers.forEach((provider) => {
+            const code = normalizeProviderCode((provider as any)?.code);
+            const name = String((provider as any)?.name || "").trim();
+            if (!code || !name) return;
+            next[`${companyName}::${code}`] = name;
+          });
+        });
+
+        if (!cancelled) {
+          companiesToLoad.forEach((companyName) =>
+            loadedProviderCompaniesRef.current.add(companyName)
+          );
+          setProviderNameLookup((prev) => ({ ...prev, ...next }));
+        }
+      } catch (err) {
+        console.error("Error loading providers for report detail modal:", err);
+      }
+    };
+
+    void loadProviders();
+    return () => {
+      cancelled = true;
+    };
+  }, [detailRequest, detailEntriesBase]);
+
+  const detailMovements = useMemo<ReportMovementDetail[]>(() => {
+    if (!detailRequest) return [];
+    return detailEntriesBase.map((entry) => {
+      const normalizedCode = normalizeProviderCode(entry.providerCode);
+      const key = `${entry.companyName}::${normalizedCode}`;
+      const providerName = providerNameLookup[key];
+      return {
+        ...entry,
+        providerCode: providerName || entry.providerCode,
+      };
+    });
+  }, [detailRequest, detailEntriesBase, providerNameLookup]);
 
   const detailSubtitle = useMemo(() => {
     if (!detailRequest) return "";
