@@ -1,6 +1,7 @@
+
 'use client'
 
-import { Eye, EyeOff, Info, Loader2, User as UserIcon, X, Check, Camera, ChevronDown, ChevronUp, Lock, Upload, Trash2 } from 'lucide-react';
+import { Eye, EyeOff, Info, Loader2, User as UserIcon, X, Check, Camera, ChevronDown, ChevronUp, Lock, Trash2 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import useToast from '../../hooks/useToast';
 import { useAuth } from '../../hooks/useAuth';
@@ -280,7 +281,7 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
             const payload: Partial<UserRecord> = {
                 name: trimmedName,
                 fullName: trimmedFullName || undefined,
-                email: trimmedEmail || undefined
+                email: trimmedEmail || undefined,
             };
 
             if (trimmedPassword) {
@@ -682,7 +683,6 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
                     </div>
                 </div>
             </div>
-
             {/* Click outside to close */}
             <div className="absolute inset-0 -z-10" onClick={onClose} />
         </div>
