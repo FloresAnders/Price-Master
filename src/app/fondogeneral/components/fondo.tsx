@@ -2843,6 +2843,8 @@ export function FondoSection({
   const [fondoEntries, setFondoEntries] = useState<FondoEntry[]>([]);
   const [companyEmployees, setCompanyEmployees] = useState<string[]>([]);
   const [employeesLoading, setEmployeesLoading] = useState(false);
+  const [superAdminUsers, setSuperAdminUsers] = useState<User[]>([]);
+  const [superAdminUsersLoading, setSuperAdminUsersLoading] = useState(false);
 
   const [selectedProvider, setSelectedProvider] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
@@ -4029,10 +4031,78 @@ export function FondoSection({
   const isIngreso = isIngresoType(paymentType);
   const isEgreso = isEgresoType(paymentType) || isGastoType(paymentType);
 
+  useEffect(() => {
+    let isActive = true;
+
+    // Only needed when a superadmin is editing a movement, to allow selecting ANY user.
+    if (!isSuperAdminUser || !editingEntryId) {
+      setSuperAdminUsers([]);
+      setSuperAdminUsersLoading(false);
+      return () => {
+        isActive = false;
+      };
+    }
+
+    setSuperAdminUsersLoading(true);
+    UsersService.getUsersOrderedByName()
+      .then((users) => {
+        if (!isActive) return;
+        setSuperAdminUsers(Array.isArray(users) ? users : []);
+      })
+      .catch((err) => {
+        console.error("Error loading users for superadmin manager selector:", err);
+        if (!isActive) return;
+        setSuperAdminUsers([]);
+      })
+      .finally(() => {
+        if (isActive) setSuperAdminUsersLoading(false);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [isSuperAdminUser, editingEntryId]);
+
+  // Superadmin: when creating a movement, auto-assign the manager to themselves.
+  useEffect(() => {
+    if (!isSuperAdminUser) return;
+    if (!movementModalOpen) return;
+    if (editingEntryId) return;
+
+    const fallback = (user?.email || "").trim();
+    const name = (user?.name || "").trim() || fallback;
+    if (!name) return;
+
+    if (manager !== name) {
+      setManager(name);
+      setManagerError("");
+    }
+  }, [isSuperAdminUser, movementModalOpen, editingEntryId, user?.name, user?.email, manager]);
+
   const employeeOptions = useMemo(() => {
-    const employees = companyEmployees.filter(
-      (name) => !!name && name.trim().length > 0
-    );
+    // Superadmin + editing: allow selecting ANY user.
+    if (isSuperAdminUser && editingEntryId) {
+      const unique = new Set<string>();
+      const push = (value: unknown) => {
+        const name = String(value || "").trim();
+        if (name) unique.add(name);
+      };
+
+      superAdminUsers.forEach((u) => push(u?.name));
+      // Ensure self is always selectable even if name doesn't exist in DB
+      push(user?.name);
+      push(user?.email);
+      // Keep current value visible/selectable even if it's not a known user
+      push(manager);
+
+      return Array.from(unique).sort((a, b) =>
+        a.localeCompare(b, "es", { sensitivity: "base" })
+      );
+    }
+
+    const employees = companyEmployees
+      .map((name) => (typeof name === "string" ? name.trim() : ""))
+      .filter(Boolean);
 
     // Si el usuario actual es admin, agregarlo a la lista de empleados
     if (user?.role === "admin" && user?.name) {
@@ -4042,8 +4112,16 @@ export function FondoSection({
       }
     }
 
+    // Superadmin (create): include self so the manager can be auto-assigned.
+    if (isSuperAdminUser) {
+      const name = (user?.name || "").trim() || (user?.email || "").trim();
+      if (name && !employees.includes(name)) {
+        return [name, ...employees];
+      }
+    }
+
     return employees;
-  }, [companyEmployees, user]);
+  }, [companyEmployees, user, isSuperAdminUser, editingEntryId, superAdminUsers, manager]);
 
   const editingEntry = useMemo(
     () =>
@@ -4766,10 +4844,13 @@ export function FondoSection({
   }, [company]);
 
   useEffect(() => {
+    // Keep legacy validation for non-superadmin actors.
+    // Superadmin may select users outside the company employee list when editing.
+    if (isSuperAdminUser) return;
     if (manager && !employeeOptions.includes(manager)) {
       setManager("");
     }
-  }, [manager, employeeOptions]);
+  }, [manager, employeeOptions, isSuperAdminUser]);
 
   useEffect(() => {
     if (isIngreso) {
@@ -6868,8 +6949,17 @@ export function FondoSection({
     setManagerError(""); // Clear error when user starts typing
   };
 
+  const managerOptionsLoading =
+    Boolean(isSuperAdminUser && editingEntryId)
+      ? superAdminUsersLoading
+      : employeesLoading;
+
   const managerSelectDisabled =
-    !company || employeesLoading || employeeOptions.length === 0;
+    !company ||
+    managerOptionsLoading ||
+    employeeOptions.length === 0 ||
+    // Superadmin: manager is auto-assigned when creating.
+    (Boolean(isSuperAdminUser) && !editingEntryId);
   const invoiceDisabled = !company || isInvoiceAutoDateLocked;
   const egresoBorderClass = amountClass(
     isEgreso,
@@ -9336,7 +9426,7 @@ export function FondoSection({
               onManagerChange={handleManagerChange}
               managerSelectDisabled={managerSelectDisabled}
               employeeOptions={employeeOptions}
-              employeesLoading={employeesLoading}
+              employeesLoading={managerOptionsLoading}
               editingEntryId={editingEntryId}
               onCancelEditing={cancelEditing}
               onSubmit={handleSubmitFondo}
@@ -9362,7 +9452,7 @@ export function FondoSection({
         </p>
       )}
 
-      {!employeesLoading && employeeOptions.length === 0 && company && (
+      {!isSuperAdminUser && !managerOptionsLoading && employeeOptions.length === 0 && company && (
         <p className="text-sm text-[var(--muted-foreground)] mt-2">
           La empresa no tiene empleados registrados; agrega empleados para
           seleccionar un encargado.

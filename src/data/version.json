@@ -4,7 +4,7 @@
     "releaseNotes": [
         {
             "date": "2026-04-17",
-            "title": "Login: recorte de espacios en usuario",
+            "title": "Logiin: recorte de espacios en usuario",
             "description": "Ahora, si el nombre de usuario tiene espacios en blanco al final, el sistema los elimina automáticamente (al salir del campo y al iniciar sesión) para evitar errores al copiar/pegar credenciales."
         },
         {
