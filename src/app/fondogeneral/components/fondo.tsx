@@ -2646,6 +2646,7 @@ export function FondoSection({
   }, [allowedOwnerIds, primaryOwnerId]);
   const isAdminUser = user?.role === "admin";
   const isSuperAdminUser = user?.role === "superadmin";
+  const isRegularUser = user?.role === "user";
   const [superAdminTotalsOpen, setSuperAdminTotalsOpen] = useState(false);
   const canSelectCompany = isAdminUser || isSuperAdminUser;
   const [adminCompany, setAdminCompany] = useState(() => {
@@ -2985,6 +2986,37 @@ export function FondoSection({
         // Fail-open to avoid blocking all closings if Firestore is unreachable.
         // Client-side cooldowns still reduce duplicates in this scenario.
         return { ok: true, token, docId };
+      }
+    },
+    [buildClosingGuardDocId, CLOSING_GUARD_LOCK_MS, user]
+  );
+
+  // Touch/update the guard without enforcing it.
+  // Used so that when an admin/superadmin creates a closing, regular users are still blocked
+  // for the lock window, but admins are never prevented from creating a new closing.
+  const touchClosingGuard = useCallback(
+    async (normalizedCompany: string, kind: ClosingGuardKind): Promise<void> => {
+      const docId = buildClosingGuardDocId(normalizedCompany, kind);
+      const lockRef = doc(db, "closingGuards", docId);
+      const token = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+      try {
+        await runTransaction(db, async (tx) => {
+          const nowMs = Date.now();
+          tx.set(
+            lockRef,
+            {
+              token,
+              kind,
+              lockedUntilMs: nowMs + CLOSING_GUARD_LOCK_MS,
+              by: (user?.email || user?.id || "").toString(),
+              startedAt: serverTimestamp(),
+            },
+            { merge: true }
+          );
+        });
+      } catch (err) {
+        console.error("[CLOSING-GUARD] Error touching closing guard:", err);
       }
     },
     [buildClosingGuardDocId, CLOSING_GUARD_LOCK_MS, user]
@@ -5881,7 +5913,9 @@ export function FondoSection({
         const isCierreVentas =
           selectedProviderData?.name?.toUpperCase() ===
           CIERRE_FONDO_VENTAS_PROVIDER_NAME;
-        if (normalizedCompany.length > 0 && isCierreVentas) {
+        // Enforce cross-device guard ONLY for regular users.
+        // Admin/superadmin are allowed to create a closing even during the lock window.
+        if (normalizedCompany.length > 0 && isCierreVentas && isRegularUser) {
           const acquired = await acquireClosingGuard(
             normalizedCompany,
             "FONDO_VENTAS"
@@ -5934,6 +5968,12 @@ export function FondoSection({
       // Preparar la lista actualizada ANTES de persistir
       const updatedEntries = [entry, ...fondoEntries];
         const createdOk = await persistCreatedMovement(entry, updatedEntries);
+
+        // If an admin/superadmin created a cierre, touch the guard on success so regular users
+        // are blocked for the lock window.
+        if (createdOk && normalizedCompany.length > 0 && isCierreVentas && !isRegularUser) {
+          void touchClosingGuard(normalizedCompany, "FONDO_VENTAS");
+        }
 
         // If save failed, release guard so user can retry immediately.
         if (!createdOk && closingGuard) {
@@ -7006,11 +7046,13 @@ export function FondoSection({
     }
 
     // Cross-device/tabs guard: prevent Fondo General closing while another closing is being created.
-    // Only for NEW closings (edits are allowed).
+    // Enforced only for regular users (edits are allowed).
     let closingGuard: { token: string; docId: string } | null = null;
     try {
       const isEditingClosing = Boolean(editingDailyClosingId);
-      if (!isEditingClosing) {
+      // Enforce guard ONLY for regular users.
+      // Admin/superadmin are allowed to create a closing even during the lock window.
+      if (!isEditingClosing && isRegularUser) {
         const acquired = await acquireClosingGuard(
           normalizedCompany,
           "FONDO_GENERAL"
@@ -7038,7 +7080,7 @@ export function FondoSection({
     }
 
     // Prevent duplicate daily closings created almost instantly.
-    // Requirement: enforce at least 1 minute between NEW closings (edits are allowed).
+    // Requirement: enforce at least 1 minute between NEW closings for role "user" (edits are allowed).
     const isEditingClosing = Boolean(editingDailyClosingId);
     const dailyClosingCooldownKey = `fondogeneral-lastDailyClosingSavedAt:${normalizedCompany}`;
     if (!isEditingClosing) {
@@ -7067,21 +7109,24 @@ export function FondoSection({
         }
       }
 
-      if (
-        lastSavedAtMs > 0 &&
-        nowMs - lastSavedAtMs < DAILY_CLOSING_MIN_INTERVAL_MS
-      ) {
-        const remainingMs =
-          DAILY_CLOSING_MIN_INTERVAL_MS - (nowMs - lastSavedAtMs);
-        const remainingSec = Math.ceil(remainingMs / 1000);
-        showToast(
-          `Ya se registró un cierre hace poco. Espere ${formatToastWaitTime(
-            remainingSec
-          )} para crear otro.`,
-          "warning",
-          5000
-        );
-        return;
+      // Cooldown between NEW closings only for regular users.
+      if (isRegularUser) {
+        if (
+          lastSavedAtMs > 0 &&
+          nowMs - lastSavedAtMs < DAILY_CLOSING_MIN_INTERVAL_MS
+        ) {
+          const remainingMs =
+            DAILY_CLOSING_MIN_INTERVAL_MS - (nowMs - lastSavedAtMs);
+          const remainingSec = Math.ceil(remainingMs / 1000);
+          showToast(
+            `Ya se registró un cierre hace poco. Espere ${formatToastWaitTime(
+              remainingSec
+            )} para crear otro.`,
+            "warning",
+            5000
+          );
+          return;
+        }
       }
 
       // Lock immediately to avoid double-click / double-submit duplicates.
@@ -7093,6 +7138,12 @@ export function FondoSection({
     try {
       await DailyClosingsService.saveClosing(normalizedCompany, record);
       console.log(`[CIERRE] ✅ Cierre guardado exitosamente en Firestore. ID: ${record.id}, Fecha: ${record.closingDate}`);
+
+      // If an admin/superadmin created a NEW closing, touch the guard on success so regular users
+      // are blocked for the lock window.
+      if (!isEditingClosing && !isRegularUser) {
+        void touchClosingGuard(normalizedCompany, "FONDO_GENERAL");
+      }
 
       // Mark cooldown only after a successful save (so retries after errors are allowed).
       if (!isEditingClosing) {
