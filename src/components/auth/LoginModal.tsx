@@ -64,9 +64,10 @@ export default function LoginModal({
 
   // Validate username format
   useEffect(() => {
-    if (username.length === 0) {
+    const normalizedUsername = username.trimEnd();
+    if (normalizedUsername.length === 0) {
       setUsernameValid(null);
-    } else if (username.length >= 3) {
+    } else if (normalizedUsername.length >= 3) {
       setUsernameValid(true);
     } else {
       setUsernameValid(false);
@@ -110,11 +111,16 @@ export default function LoginModal({
     setError("");
 
     try {
+      const normalizedUsername = username.trimEnd();
+      if (normalizedUsername !== username) {
+        setUsername(normalizedUsername);
+      }
+
       // Use server-side login endpoint that validates credentials and returns user
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username: normalizedUsername, password }),
       });
       const respJson = await response.json();
       const isSuperAdmin = respJson.isSuperAdmin; // Extraer la bandera
@@ -226,6 +232,7 @@ export default function LoginModal({
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
+                  onBlur={() => setUsername((prev) => prev.trimEnd())}
                   onKeyDown={handleKeyPress}
                   className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg bg-[var(--input-bg)] text-[var(--foreground)] transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 focus:shadow-[0_0_0_3px_rgba(59,130,246,0.1)]"
                   placeholder="Ingresa tu nombre de usuario"

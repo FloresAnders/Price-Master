@@ -1,7 +1,17 @@
 {
-    "version": "1.4.23",
+    "version": "1.4.25",
     "versionstorage": "1.1.7",
     "releaseNotes": [
+        {
+            "date": "2026-04-17",
+            "title": "Login: recorte de espacios en usuario",
+            "description": "Ahora, si el nombre de usuario tiene espacios en blanco al final, el sistema los elimina automáticamente (al salir del campo y al iniciar sesión) para evitar errores al copiar/pegar credenciales."
+        },
+        {
+            "date": "2026-04-17",
+            "title": "Mantenimiento de usuarios: modo edición y cambio de correo con verificación",
+            "description": "En Mantenimiento de Usuarios se agregó un botón \"Editar\" por usuario. \"Guardar\" y \"Eliminar\" (y los campos/permisos) quedan deshabilitados hasta activar la edición. Además, el correo ahora se cambia mediante un flujo con código de verificación: primero se envía un código al correo registrado actualmente y luego se ingresa el nuevo correo junto con el código para guardar el cambio. Se incluye un enlace discreto de \"contacte a soporte\" para usuarios que no sean superadmin."
+        },
         {
             "date": "2026-04-15",
             "title": "Reportes Fondo General: Detalle por doble click",
