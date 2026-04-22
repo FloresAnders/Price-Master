@@ -19,6 +19,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { FirestoreService } from './firestore';
+import movimientosFondosDocs from '@/data/movimientosFondosDocs.json';
 
 export type MovementCurrencyKey = 'CRC' | 'USD';
 export type MovementAccountKey = 'FondoGeneral' | 'BCR' | 'BN' | 'BAC';
@@ -149,7 +150,37 @@ export class MovimientosFondosService {
   }
 
   static buildCompanyMovementsKey(companyName: string): string {
-    return this.buildMovementStorageKey((companyName || '').trim());
+    const resolved = this.resolveCompanyMovementsDocId(companyName);
+    return resolved ?? this.buildMovementStorageKey((companyName || '').trim());
+  }
+
+  /**
+   * Resolve the MovimientosFondos document id for a given empresa/company.
+   * Uses a JSON mapping for easy future updates.
+   */
+  static resolveCompanyMovementsDocId(companyName: string): string | null {
+    const raw = String(companyName || '');
+    const base = raw.replace(/\s+/g, ' ').trim();
+    if (!base) return null;
+
+    const normalizeKey = (value: string) => value.replace(/\s+/g, ' ').trim().toUpperCase();
+    const stripParens = (value: string) => value.replace(/\s*\([^)]*\)\s*/g, ' ').replace(/\s+/g, ' ').trim();
+
+    const candidates = [
+      normalizeKey(base),
+      normalizeKey(stripParens(base)),
+    ].filter((v, idx, arr) => Boolean(v) && arr.indexOf(v) === idx);
+
+    const map = movimientosFondosDocs as unknown as Record<string, string>;
+
+    const docId = candidates.reduce<string>((acc, key) => {
+      if (acc) return acc;
+      return typeof map[key] === 'string' ? map[key].trim() : '';
+    }, '');
+    if (!docId) return null;
+    // Defensive: ensure the stored docId follows the expected prefix.
+    if (!docId.startsWith(`${MOVEMENT_STORAGE_PREFIX}_`)) return null;
+    return docId;
   }
 
   static buildLegacyOwnerMovementsKey(ownerId: string): string {
@@ -611,7 +642,8 @@ export class MovimientosFondosService {
   }> {
     if (!docId) return { items: [], cursor: null, exhausted: true };
 
-    const pageSize = Math.max(1, Math.min(options?.pageSize ?? 500, 500));
+    // Keep reads bounded by default. Export flows should use listAllMovements explicitly.
+    const pageSize = Math.max(1, Math.min(options?.pageSize ?? 100, 100));
     const cursor = options?.cursor ?? null;
 
     const constraints: QueryConstraint[] = [orderBy('createdAt', 'desc'), limit(pageSize)];
@@ -656,7 +688,8 @@ export class MovimientosFondosService {
       return { items: [], cursor: options.cursor ?? null, exhausted: true };
     }
 
-    const pageSize = Math.max(1, Math.min(options.pageSize ?? 500, 500));
+    // Cap range reads. UI should paginate; "daily" mode is hard-capped at 100.
+    const pageSize = Math.max(1, Math.min(options.pageSize ?? 100, 100));
     const cursor = options.cursor ?? null;
 
     const constraints: QueryConstraint[] = [

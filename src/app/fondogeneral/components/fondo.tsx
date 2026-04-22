@@ -711,8 +711,49 @@ export function ProviderSection({ id }: { id?: string }) {
   );
 
   const sortedOwnerCompanies = useMemo(() => {
-    return ownerCompanies.slice().sort((a, b) =>
-      (a.name || "").localeCompare(b.name || "", "es", {
+    const normalize = (value: unknown) =>
+      String(value || "")
+        .trim()
+        .toLowerCase();
+
+    // Dedupe by the same value key used in the <option value>
+    const valueKey = (emp: Empresas) =>
+      normalize(emp?.name || emp?.ubicacion || emp?.id || "");
+
+    const score = (emp: Empresas) =>
+      (normalize(emp?.id) ? 2 : 0) +
+      (normalize(emp?.name) ? 1 : 0) +
+      (normalize(emp?.ubicacion) ? 1 : 0);
+
+    const byKey = new Map<string, Empresas>();
+    ownerCompanies.forEach((emp) => {
+      const key = valueKey(emp);
+      if (!key) return;
+      const existing = byKey.get(key);
+      if (!existing || score(emp) > score(existing)) {
+        byKey.set(key, emp);
+      }
+    });
+
+    const deduped = Array.from(byKey.values());
+
+    // If there is a named company for an ubicacion, hide the ubicacion-only entry.
+    const ubicacionesWithNamed = new Set<string>();
+    deduped.forEach((emp) => {
+      const name = normalize(emp?.name);
+      const ubicacion = normalize(emp?.ubicacion);
+      if (name && ubicacion) ubicacionesWithNamed.add(ubicacion);
+    });
+
+    const cleaned = deduped.filter((emp) => {
+      const name = normalize(emp?.name);
+      const ubicacion = normalize(emp?.ubicacion);
+      if (!name && ubicacion && ubicacionesWithNamed.has(ubicacion)) return false;
+      return true;
+    });
+
+    return cleaned.sort((a, b) =>
+      (a.name || a.ubicacion || "").localeCompare(b.name || b.ubicacion || "", "es", {
         sensitivity: "base",
       })
     );
@@ -2673,8 +2714,47 @@ export function FondoSection({
   );
 
   const sortedOwnerCompanies = useMemo(() => {
-    return ownerCompanies.slice().sort((a, b) =>
-      (a.name || "").localeCompare(b.name || "", "es", {
+    const normalize = (value: unknown) =>
+      String(value || "")
+        .trim()
+        .toLowerCase();
+
+    const valueKey = (emp: Empresas) =>
+      normalize(emp?.name || emp?.ubicacion || emp?.id || "");
+
+    const score = (emp: Empresas) =>
+      (normalize(emp?.id) ? 2 : 0) +
+      (normalize(emp?.name) ? 1 : 0) +
+      (normalize(emp?.ubicacion) ? 1 : 0);
+
+    const byKey = new Map<string, Empresas>();
+    ownerCompanies.forEach((emp) => {
+      const key = valueKey(emp);
+      if (!key) return;
+      const existing = byKey.get(key);
+      if (!existing || score(emp) > score(existing)) {
+        byKey.set(key, emp);
+      }
+    });
+
+    const deduped = Array.from(byKey.values());
+
+    const ubicacionesWithNamed = new Set<string>();
+    deduped.forEach((emp) => {
+      const name = normalize(emp?.name);
+      const ubicacion = normalize(emp?.ubicacion);
+      if (name && ubicacion) ubicacionesWithNamed.add(ubicacion);
+    });
+
+    const cleaned = deduped.filter((emp) => {
+      const name = normalize(emp?.name);
+      const ubicacion = normalize(emp?.ubicacion);
+      if (!name && ubicacion && ubicacionesWithNamed.has(ubicacion)) return false;
+      return true;
+    });
+
+    return cleaned.sort((a, b) =>
+      (a.name || a.ubicacion || "").localeCompare(b.name || b.ubicacion || "", "es", {
         sensitivity: "base",
       })
     );
@@ -3531,7 +3611,7 @@ export function FondoSection({
   );
 
   const ensureV2MovementsLoaded = useCallback(
-    async (docKey: string) => {
+    async (docKey: string, options?: { append?: boolean }) => {
       if (!docKey) return;
 
       const targetAccountKey = accountKeyRef.current;
@@ -3551,15 +3631,32 @@ export function FondoSection({
 
       if (cached.loading) return;
 
-      if (
+      const queryUnchanged =
         cached.loaded &&
         cached.queryKey === queryKey &&
         cached.startIso === startIso &&
-        cached.endIsoExclusive === endIsoExclusive
-      ) {
+        cached.endIsoExclusive === endIsoExclusive;
+
+      const append = Boolean(options?.append);
+      // If query params changed, we must reset regardless of append intent.
+      if (queryUnchanged && !append) {
         rebuildEntriesFromV2Cache(docKey, targetAccountKey);
         return;
       }
+
+      const computeRemoteBatchSize = () => {
+        // Hard cap for daily mode per requirement.
+        if (pageSize === "daily") return 100;
+        // Never do unbounded reads; treat "all" as a capped batch.
+        if (pageSize === "all") return 100;
+        if (typeof pageSize === "number") {
+          // Fetch a bit more than one UI page to reduce roundtrips, but keep it bounded.
+          return Math.max(1, Math.min(100, Math.trunc(pageSize) * 3));
+        }
+        return 100;
+      };
+
+      const remoteBatchSize = computeRemoteBatchSize();
 
       console.log("[FG-QUERY] MovimientosFondos v2 query", {
         docKey,
@@ -3570,7 +3667,8 @@ export function FondoSection({
           lt: endIsoExclusive,
         },
         orderBy: "createdAt desc",
-        pageSize: 500,
+        pageSize: remoteBatchSize,
+        append,
         ui: {
           pageSizeMode: pageSize,
           currentDailyKey,
@@ -3580,12 +3678,13 @@ export function FondoSection({
         },
       });
 
+      const shouldReset = !queryUnchanged || !append;
       const nextCache = {
         ...cached,
         loaded: false,
-        movements: [] as FondoEntry[],
-        cursor: null as QueryDocumentSnapshot<DocumentData> | null,
-        exhausted: false,
+        movements: shouldReset ? ([] as FondoEntry[]) : cached.movements,
+        cursor: shouldReset ? (null as QueryDocumentSnapshot<DocumentData> | null) : cached.cursor,
+        exhausted: shouldReset ? false : cached.exhausted,
         loading: true,
         queryKey,
         startIso,
@@ -3596,49 +3695,27 @@ export function FondoSection({
       beginMovementsLoading();
 
       try {
-        let cursor: QueryDocumentSnapshot<DocumentData> | null = null;
-        let exhausted = false;
-        const movements: FondoEntry[] = [];
+        const pageResult =
+          await MovimientosFondosService.listMovementsPageByCreatedAtRange(
+            docKey,
+            {
+              startIso,
+              endIsoExclusive,
+              pageSize: remoteBatchSize,
+              cursor: shouldReset ? null : nextCache.cursor,
+            }
+          );
 
-        type MovementsPageResult = {
-          items: Array<FondoEntry & { id: string }>;
-          cursor: QueryDocumentSnapshot<DocumentData> | null;
-          exhausted: boolean;
-        };
-
-        // Safety cap: avoid unbounded reads.
-        let pages = 0;
-        const maxPages = 50; // 50 * 500 = 25k
-
-        while (!exhausted && pages < maxPages) {
-          const pageResult: MovementsPageResult =
-            await MovimientosFondosService.listMovementsPageByCreatedAtRange(
-              docKey,
-              {
-                startIso,
-                endIsoExclusive,
-                pageSize: 500,
-                cursor,
-              }
-            );
-
-          if (!pageResult.items || pageResult.items.length === 0) {
-            exhausted = true;
-            break;
-          }
-
-          movements.push(...(pageResult.items as FondoEntry[]));
-          cursor = pageResult.cursor;
-          exhausted = pageResult.exhausted;
-          pages += 1;
-        }
+        const mergedMovements = shouldReset
+          ? (pageResult.items as FondoEntry[])
+          : [...nextCache.movements, ...(pageResult.items as FondoEntry[])];
 
         v2MovementsCacheRef.current[docKey] = {
           ...nextCache,
           loaded: true,
-          movements,
-          cursor,
-          exhausted,
+          movements: mergedMovements,
+          cursor: pageResult.cursor,
+          exhausted: pageResult.exhausted,
           loading: false,
         };
       } finally {
@@ -3666,6 +3743,26 @@ export function FondoSection({
       toFilter,
     ]
   );
+
+  // When using numeric pagination, load more remote pages only if needed.
+  useEffect(() => {
+    if (!entriesHydrated) return;
+    if (pageSize === "daily" || pageSize === "all") return;
+    if (typeof pageSize !== "number") return;
+    if (pageSize <= 0) return;
+
+    const docKey = resolveV2DocKey();
+    if (!docKey) return;
+    const cached = v2MovementsCacheRef.current[docKey];
+    if (!cached?.loaded) return;
+    if (cached.loading || cached.exhausted) return;
+
+    const needed = (pageIndex + 1) * pageSize;
+    if (cached.movements.length >= needed) return;
+
+    // Append one more batch when user navigates past what we have.
+    void ensureV2MovementsLoaded(docKey, { append: true });
+  }, [entriesHydrated, pageSize, pageIndex, resolveV2DocKey, ensureV2MovementsLoaded]);
 
   useEffect(() => {
     localStorage.setItem("fondogeneral-sortAsc", JSON.stringify(sortAsc));
