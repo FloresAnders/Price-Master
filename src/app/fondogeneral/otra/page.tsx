@@ -79,6 +79,34 @@ const buildDateString = (date: Date) => {
   return `${year}-${month}-${day}`;
 };
 
+const buildLocalDayIsoRange = (isoDateKey: string) => {
+  const [yStr, mStr, dStr] = String(isoDateKey || "").split("-");
+  const y = Number(yStr);
+  const m = Number(mStr);
+  const d = Number(dStr);
+
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) {
+    const now = new Date();
+    const start = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      0,
+      0,
+      0,
+      0
+    );
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
+    return { startIso: start.toISOString(), endIsoExclusive: end.toISOString() };
+  }
+
+  const start = new Date(y, m - 1, d, 0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+  return { startIso: start.toISOString(), endIsoExclusive: end.toISOString() };
+};
+
 const normalizeProviderCode = (value: unknown): string => {
   if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
     return String(Math.trunc(value)).padStart(4, "0");
@@ -154,6 +182,16 @@ export default function ReporteMovimientosPage() {
   const [entries, setEntries] = useState<ReportEntry[]>([]);
   const [dataLoading, setDataLoading] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
+  const [hasSearched, setHasSearched] = useState(false);
+
+  const isMountedRef = useRef(true);
+  const activeSearchRequestIdRef = useRef(0);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const [providerNameLookup, setProviderNameLookup] = useState<
     Record<string, string>
@@ -424,9 +462,29 @@ export default function ReporteMovimientosPage() {
   }, [accessibleAccountKeys]);
 
   useEffect(() => {
+    // No consultamos automáticamente al entrar o al cambiar filtros.
+    // Para evitar resultados desactualizados, limpiamos los datos al cambiar empresa/cuenta.
+    // También invalidamos cualquier búsqueda en curso.
+    activeSearchRequestIdRef.current += 1;
+    setEntries([]);
+    setDataError(null);
+    setDataLoading(false);
+    setHasSearched(false);
+  }, [selectedCompany, selectedAccount, fromDate, toDate]);
+
+  useEffect(() => {
     if (!hasGeneralAccess) {
       setEntries([]);
       setDataLoading(false);
+      return;
+    }
+  }, [hasGeneralAccess]);
+
+  const runSearch = useCallback(async () => {
+    if (!hasGeneralAccess) {
+      setEntries([]);
+      setDataLoading(false);
+      setHasSearched(true);
       return;
     }
 
@@ -434,15 +492,17 @@ export default function ReporteMovimientosPage() {
       selectedCompany === ALL_COMPANIES_VALUE
         ? companies
         : selectedCompany
-        ? [selectedCompany]
-        : [];
+          ? [selectedCompany]
+          : [];
 
     const targetAccounts: MovementAccountKey[] =
       selectedAccount === ALL_ACCOUNTS_VALUE
         ? accessibleAccountKeys
         : selectedAccount
-        ? [selectedAccount as MovementAccountKey]
-        : [];
+          ? [selectedAccount as MovementAccountKey]
+          : [];
+
+    setHasSearched(true);
 
     if (targetCompanies.length === 0 || targetAccounts.length === 0) {
       setEntries([]);
@@ -450,143 +510,198 @@ export default function ReporteMovimientosPage() {
       return;
     }
 
-    let cancelled = false;
+    // Rango ISO basado en día local (misma lógica que FondoSection).
+    const fromKey = (fromDate || "").trim();
+    const toKey = (toDate || "").trim();
+    const startKey = fromKey && toKey && fromKey > toKey ? toKey : fromKey;
+    const endKey = fromKey && toKey && fromKey > toKey ? fromKey : toKey;
+    const startRange = startKey ? buildLocalDayIsoRange(startKey) : null;
+    const endRange = endKey ? buildLocalDayIsoRange(endKey) : null;
+    const fromIso = startRange?.startIso ?? "";
+    const toExclusiveIso = endRange?.endIsoExclusive ?? "";
+
+    const requestId = ++activeSearchRequestIdRef.current;
     setDataLoading(true);
     setDataError(null);
 
-    const loadEntries = async () => {
-      try {
-        const accountSet = new Set<MovementAccountKey>(targetAccounts);
-        const aggregated: ReportEntry[] = [];
+    try {
+      const accountSet = new Set<MovementAccountKey>(targetAccounts);
+      const aggregated: ReportEntry[] = [];
+      let hadAnyQueryError = false;
 
-        for (const companyName of targetCompanies) {
-          const normalizedCompany = companyName.trim();
-          if (!normalizedCompany) continue;
+      for (const companyName of targetCompanies) {
+        if (!isMountedRef.current || requestId !== activeSearchRequestIdRef.current) {
+          return;
+        }
 
-          const companyKey =
-            MovimientosFondosService.buildCompanyMovementsKey(
-              normalizedCompany
-            );
-          let v2Movements: Partial<FondoEntry>[] = [];
+        const normalizedCompany = companyName.trim();
+        if (!normalizedCompany) continue;
+
+        const companyKey =
+          MovimientosFondosService.buildCompanyMovementsKey(normalizedCompany);
+
+        let v2Movements: Partial<FondoEntry>[] = [];
+        let v2QueryErrored = false;
+
+        // 1) Preferir query por rango (mucho más eficiente)
+        try {
+          if (fromIso && toExclusiveIso) {
+            const items: Array<FondoEntry & { id: string }> = [];
+            let cursor: any = null;
+            for (let page = 0; page < 50; page += 1) {
+              if (
+                !isMountedRef.current ||
+                requestId !== activeSearchRequestIdRef.current
+              ) {
+                return;
+              }
+              const pageResult =
+                await MovimientosFondosService.listMovementsPageByCreatedAtRange<FondoEntry>(
+                  companyKey,
+                  {
+                    startIso: fromIso,
+                    endIsoExclusive: toExclusiveIso,
+                    pageSize: 100,
+                    cursor,
+                  }
+                );
+              items.push(...(pageResult.items as any));
+              cursor = pageResult.cursor;
+              if (pageResult.exhausted) break;
+            }
+            v2Movements = items as Partial<FondoEntry>[];
+          } else {
+            // Si no hay rango válido, hacemos fallback directamente.
+            v2QueryErrored = true;
+          }
+        } catch (rangeErr) {
+          v2QueryErrored = true;
+          hadAnyQueryError = true;
+          console.error(
+            `[ReporteMovimientos] Error querying v2 movements by range (${companyKey}):`,
+            rangeErr
+          );
+        }
+
+        // 2) Fallback: si falló la query por rango, intentar lectura paginada "general"
+        // (esto permite mostrar datos aun si el campo createdAt no es compatible con where+orderBy)
+        if (v2QueryErrored) {
           try {
-            const all =
-              await MovimientosFondosService.listAllMovements<FondoEntry>(
-                companyKey
-              );
+            const all = await MovimientosFondosService.listAllMovements<FondoEntry>(
+              companyKey,
+              { pageSize: 500, maxPages: 10 }
+            );
             if (Array.isArray(all)) {
               v2Movements = all as Partial<FondoEntry>[];
             }
           } catch (listErr) {
+            hadAnyQueryError = true;
             console.error(
               `[ReporteMovimientos] Error listing v2 movements (${companyKey}):`,
               listErr
             );
           }
+        }
 
-          // Fallback: older data may still live in the legacy main document array.
-          let legacyMovements: unknown[] = [];
-          if (v2Movements.length === 0) {
-            try {
-              let storage =
-                await MovimientosFondosService.getDocument<FondoEntry>(
-                  companyKey
-                );
-              if (!storage && typeof window !== "undefined") {
-                const raw = window.localStorage.getItem(companyKey);
-                if (raw) {
-                  try {
-                    const parsed = JSON.parse(raw);
-                    storage =
-                      MovimientosFondosService.ensureMovementStorageShape<FondoEntry>(
-                        parsed,
-                        normalizedCompany
-                      );
-                  } catch (parseError) {
-                    console.error(
-                      "Error parsing local Fondo General storage:",
-                      parseError
-                    );
-                  }
-                }
-              }
-              if (!storage) {
-                storage =
-                  MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(
+        // Fallback: older data may still live in the legacy main document array.
+        let legacyMovements: unknown[] = [];
+        if (v2Movements.length === 0) {
+          try {
+            let storage = await MovimientosFondosService.getDocument<FondoEntry>(
+              companyKey
+            );
+            if (!storage && typeof window !== "undefined") {
+              const raw = window.localStorage.getItem(companyKey);
+              if (raw) {
+                try {
+                  const parsed = JSON.parse(raw);
+                  storage = MovimientosFondosService.ensureMovementStorageShape<FondoEntry>(
+                    parsed,
                     normalizedCompany
                   );
+                } catch (parseError) {
+                  console.error("Error parsing local Fondo General storage:", parseError);
+                }
               }
-              const ensured =
-                MovimientosFondosService.ensureMovementStorageShape<FondoEntry>(
-                  storage,
-                  normalizedCompany
-                );
-              legacyMovements = ensured.operations?.movements ?? [];
-            } catch (legacyErr) {
-              console.error(
-                `[ReporteMovimientos] Error loading legacy movements (${companyKey}):`,
-                legacyErr
+            }
+            if (!storage) {
+              storage = MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(
+                normalizedCompany
               );
             }
+            const ensured = MovimientosFondosService.ensureMovementStorageShape<FondoEntry>(
+              storage,
+              normalizedCompany
+            );
+            legacyMovements = ensured.operations?.movements ?? [];
+          } catch (legacyErr) {
+            hadAnyQueryError = true;
+            console.error(
+              `[ReporteMovimientos] Error loading legacy movements (${companyKey}):`,
+              legacyErr
+            );
           }
-
-          const sourceMovements =
-            v2Movements.length > 0 ? v2Movements : legacyMovements;
-
-          const scoped = (
-            Array.isArray(sourceMovements) ? sourceMovements : []
-          ).reduce<Partial<FondoEntry>[]>((acc, raw) => {
-            if (!raw || typeof raw !== "object") return acc;
-            const candidate = raw as Partial<FondoEntry>;
-            const movementAccount = isMovementAccountKey(candidate.accountId)
-              ? candidate.accountId
-              : "FondoGeneral";
-            if (!accountSet.has(movementAccount)) return acc;
-            acc.push({ ...candidate, accountId: movementAccount });
-            return acc;
-          }, []);
-
-          const sanitized = sanitizeFondoEntries(scoped);
-          aggregated.push(
-            ...sanitized.map((entry) => ({
-              ...entry,
-              companyName: normalizedCompany,
-            }))
-          );
         }
 
-        if (!cancelled) {
-          const sorted = aggregated.sort(
-            (a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt)
-          );
-          setEntries(sorted);
-        }
-      } catch (err) {
-        console.error(
-          "Error loading Fondo General movements for summary:",
-          err
+        const sourceMovements = v2Movements.length > 0 ? v2Movements : legacyMovements;
+
+        const scoped = (Array.isArray(sourceMovements) ? sourceMovements : []).reduce<
+          Partial<FondoEntry>[]
+        >((acc, raw) => {
+          if (!raw || typeof raw !== "object") return acc;
+          const candidate = raw as Partial<FondoEntry>;
+          const movementAccount = isMovementAccountKey(candidate.accountId)
+            ? candidate.accountId
+            : "FondoGeneral";
+          if (!accountSet.has(movementAccount)) return acc;
+          acc.push({ ...candidate, accountId: movementAccount });
+          return acc;
+        }, []);
+
+        const sanitized = sanitizeFondoEntries(scoped);
+        aggregated.push(
+          ...sanitized.map((entry) => ({
+            ...entry,
+            companyName: normalizedCompany,
+          }))
         );
-        if (!cancelled) {
-          setEntries([]);
-          setDataError("No se pudieron cargar los movimientos.");
-        }
-      } finally {
-        if (!cancelled) {
-          setDataLoading(false);
-        }
       }
-    };
 
-    void loadEntries();
+      if (!isMountedRef.current || requestId !== activeSearchRequestIdRef.current) {
+        return;
+      }
 
-    return () => {
-      cancelled = true;
-    };
+      const sorted = aggregated.sort(
+        (a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt)
+      );
+      setEntries(sorted);
+
+      if (sorted.length === 0 && hadAnyQueryError) {
+        setDataError(
+          "No se pudo completar la consulta del reporte (hubo errores consultando los movimientos)."
+        );
+      }
+    } catch (err) {
+      console.error("Error loading Fondo General movements for summary:", err);
+      if (!isMountedRef.current || requestId !== activeSearchRequestIdRef.current) {
+        return;
+      }
+      setEntries([]);
+      setDataError("No se pudieron cargar los movimientos.");
+    } finally {
+      if (!isMountedRef.current || requestId !== activeSearchRequestIdRef.current) {
+        return;
+      }
+      setDataLoading(false);
+    }
   }, [
+    hasGeneralAccess,
     selectedCompany,
     selectedAccount,
-    hasGeneralAccess,
     companies,
     accessibleAccountKeys,
+    fromDate,
+    toDate,
   ]);
 
   const [detailRequest, setDetailRequest] = useState<null | {
@@ -645,8 +760,8 @@ export default function ReporteMovimientosPage() {
       const entryClassification: Classification = isIngresoType(entry.paymentType)
         ? "ingreso"
         : isGastoType(entry.paymentType)
-        ? "gasto"
-        : "egreso";
+          ? "gasto"
+          : "egreso";
 
       if (entryClassification !== detailRequest.classification) return false;
 
@@ -759,8 +874,8 @@ export default function ReporteMovimientosPage() {
       selectedAccount === ALL_ACCOUNTS_VALUE
         ? "Todas las cuentas"
         : selectedAccount
-        ? ACCOUNT_LABELS[selectedAccount as MovementAccountKey]
-        : "(Sin cuenta)";
+          ? ACCOUNT_LABELS[selectedAccount as MovementAccountKey]
+          : "(Sin cuenta)";
 
     const dateLabel = fromDate && toDate ? `${fromDate} → ${toDate}` : "";
     return [companyLabel, accountLabel, dateLabel].filter(Boolean).join(" · ");
@@ -842,8 +957,8 @@ export default function ReporteMovimientosPage() {
       const classification: Classification = isIngresoType(entry.paymentType)
         ? "ingreso"
         : isGastoType(entry.paymentType)
-        ? "gasto"
-        : "egreso";
+          ? "gasto"
+          : "egreso";
 
       if (
         classificationFilter !== "all" &&
@@ -964,6 +1079,14 @@ export default function ReporteMovimientosPage() {
   const noCompanyAvailable =
     !companiesLoading && !isAdminUser && !assignedCompany;
   const accountUnavailable = accessibleAccountKeys.length === 0;
+  const searchDisabled =
+    companiesLoading ||
+    dataLoading ||
+    dateRangeInvalid ||
+    noCompanyAvailable ||
+    accountUnavailable ||
+    (isAdminUser ? !selectedCompany : !assignedCompany) ||
+    !selectedAccount;
 
   return (
     <div className="max-w-6xl mx-auto py-8 px-4 space-y-6">
@@ -1193,73 +1316,6 @@ export default function ReporteMovimientosPage() {
               </div>
             </div>
           </div>
-
-          <div className="sm:col-span-2 lg:col-span-4">
-            <div className="flex items-center justify-between">
-              <label className="block text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">
-                Tipos de movimiento
-              </label>
-              {selectedMovementTypes.length > 0 && (
-                <button
-                  type="button"
-                  onClick={clearMovementTypeFilters}
-                  className="text-xs text-[var(--accent)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--card-bg)]"
-                >
-                  Limpiar filtros
-                </button>
-              )}
-            </div>
-            {movementTypeOptions.length === 0 ? (
-              <p className="mt-2 text-sm text-[var(--muted-foreground)]">
-                No hay tipos de movimiento disponibles con los filtros
-                seleccionados.
-              </p>
-            ) : (
-              <div ref={movementTypeSelectorRef} className="relative mt-2">
-                <button
-                  type="button"
-                  onClick={() => setMovementTypeSelectorOpen((prev) => !prev)}
-                  className="flex w-full items-center justify-between rounded-md border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-                >
-                  <span className="truncate pr-3">
-                    {movementTypeSummaryLabel}
-                  </span>
-                  <ChevronDown
-                    className={`h-4 w-4 text-[var(--muted-foreground)] transition-transform ${
-                      movementTypeSelectorOpen ? "rotate-180" : ""
-                    }`}
-                  />
-                </button>
-                {movementTypeSelectorOpen && (
-                  <div className="absolute left-0 right-0 z-20 mt-2 max-h-64 overflow-y-auto rounded-md border border-[var(--input-border)] bg-[var(--card-bg)] p-3 shadow-lg">
-                    <div className="flex flex-col gap-2">
-                      {movementTypeOptions.map(([movementType, label]) => (
-                        <label
-                          key={movementType}
-                          className="flex items-center gap-2 text-sm text-[var(--foreground)]"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedMovementTypes.includes(
-                              movementType
-                            )}
-                            onChange={() => toggleMovementType(movementType)}
-                            className="h-4 w-4 rounded border-[var(--input-border)] text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-                          />
-                          <span>{label}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-            <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-              Usa el selector desplegable para filtrar la tabla por tipos
-              específicos.
-            </p>
-          </div>
-
           <div className="flex flex-wrap items-center justify-between gap-4 rounded-md border border-[var(--input-border)] px-3 py-2 text-sm text-[var(--foreground)] sm:col-span-2 lg:col-span-4 bg-[var(--muted)]/5">
             <div className="flex flex-wrap items-center gap-4">
               <label className="flex items-center gap-2">
@@ -1300,6 +1356,84 @@ export default function ReporteMovimientosPage() {
               <span>Mostrar dólares</span>
             </label>
           </div>
+
+          <div className="sm:col-span-2 lg:col-span-4 flex justify-end">
+            <button
+              type="button"
+              onClick={runSearch}
+              disabled={searchDisabled}
+              className="px-4 py-2 rounded-md bg-[var(--success)] text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2 text-sm"
+            >
+              {dataLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+              Buscar
+            </button>
+          </div>
+          {hasSearched && entries.length > 0 && (
+            <div className="sm:col-span-2 lg:col-span-4">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">
+                  Tipos de movimiento
+                </label>
+                {selectedMovementTypes.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={clearMovementTypeFilters}
+                    className="text-xs text-[var(--accent)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--card-bg)]"
+                  >
+                    Limpiar filtros
+                  </button>
+                )}
+              </div>
+              {movementTypeOptions.length === 0 ? (
+                <p className="mt-2 text-sm text-[var(--muted-foreground)]">
+                  No hay tipos de movimiento disponibles con los filtros
+                  seleccionados.
+                </p>
+              ) : (
+                <div ref={movementTypeSelectorRef} className="relative mt-2">
+                  <button
+                    type="button"
+                    onClick={() => setMovementTypeSelectorOpen((prev) => !prev)}
+                    className="flex w-full items-center justify-between rounded-md border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                  >
+                    <span className="truncate pr-3">
+                      {movementTypeSummaryLabel}
+                    </span>
+                    <ChevronDown
+                      className={`h-4 w-4 text-[var(--muted-foreground)] transition-transform ${movementTypeSelectorOpen ? "rotate-180" : ""
+                        }`}
+                    />
+                  </button>
+                  {movementTypeSelectorOpen && (
+                    <div className="absolute left-0 right-0 z-20 mt-2 max-h-64 overflow-y-auto rounded-md border border-[var(--input-border)] bg-[var(--card-bg)] p-3 shadow-lg">
+                      <div className="flex flex-col gap-2">
+                        {movementTypeOptions.map(([movementType, label]) => (
+                          <label
+                            key={movementType}
+                            className="flex items-center gap-2 text-sm text-[var(--foreground)]"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedMovementTypes.includes(
+                                movementType
+                              )}
+                              onChange={() => toggleMovementType(movementType)}
+                              className="h-4 w-4 rounded border-[var(--input-border)] text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                            />
+                            <span>{label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                Usa el selector desplegable para filtrar la tabla por tipos
+                específicos.
+              </p>
+            </div>
+          )}
         </div>
 
         {dateRangeInvalid && (
@@ -1342,7 +1476,9 @@ export default function ReporteMovimientosPage() {
             <div className="rounded-md border border-[var(--input-border)] bg-[var(--muted)]/10 px-4 py-6 text-center text-sm text-[var(--muted-foreground)]">
               {dateRangeInvalid
                 ? "Ajusta el rango de fechas para ver resultados."
-                : "No hay movimientos que coincidan con los filtros seleccionados."}
+                : !hasSearched
+                  ? "Presiona \"Buscar\" para consultar con los filtros seleccionados."
+                  : "No hay movimientos que coincidan con los filtros seleccionados."}
             </div>
           ) : (
             <div className="overflow-x-auto rounded-lg border border-[var(--input-border)]">
@@ -1392,9 +1528,8 @@ export default function ReporteMovimientosPage() {
                         {formatClassification(row.classification)}
                       </td>
                       <td
-                        className={`px-4 py-3 text-right ${
-                          row.totals.CRC.ingreso ? "cursor-pointer" : ""
-                        }`}
+                        className={`px-4 py-3 text-right ${row.totals.CRC.ingreso ? "cursor-pointer" : ""
+                          }`}
                         onDoubleClick={() =>
                           openDetailModal(row, "ingreso", "CRC")
                         }
@@ -1408,9 +1543,8 @@ export default function ReporteMovimientosPage() {
                       </td>
                       {showUSD && (
                         <td
-                          className={`px-4 py-3 text-right ${
-                            row.totals.USD.ingreso ? "cursor-pointer" : ""
-                          }`}
+                          className={`px-4 py-3 text-right ${row.totals.USD.ingreso ? "cursor-pointer" : ""
+                            }`}
                           onDoubleClick={() =>
                             openDetailModal(row, "ingreso", "USD")
                           }
@@ -1424,9 +1558,8 @@ export default function ReporteMovimientosPage() {
                         </td>
                       )}
                       <td
-                        className={`px-4 py-3 text-right ${
-                          row.totals.CRC.gasto ? "cursor-pointer" : ""
-                        }`}
+                        className={`px-4 py-3 text-right ${row.totals.CRC.gasto ? "cursor-pointer" : ""
+                          }`}
                         onDoubleClick={() => openDetailModal(row, "gasto", "CRC")}
                         title={
                           row.totals.CRC.gasto
@@ -1438,9 +1571,8 @@ export default function ReporteMovimientosPage() {
                       </td>
                       {showUSD && (
                         <td
-                          className={`px-4 py-3 text-right ${
-                            row.totals.USD.gasto ? "cursor-pointer" : ""
-                          }`}
+                          className={`px-4 py-3 text-right ${row.totals.USD.gasto ? "cursor-pointer" : ""
+                            }`}
                           onDoubleClick={() =>
                             openDetailModal(row, "gasto", "USD")
                           }
@@ -1454,9 +1586,8 @@ export default function ReporteMovimientosPage() {
                         </td>
                       )}
                       <td
-                        className={`px-4 py-3 text-right ${
-                          row.totals.CRC.egreso ? "cursor-pointer" : ""
-                        }`}
+                        className={`px-4 py-3 text-right ${row.totals.CRC.egreso ? "cursor-pointer" : ""
+                          }`}
                         onDoubleClick={() =>
                           openDetailModal(row, "egreso", "CRC")
                         }
@@ -1470,9 +1601,8 @@ export default function ReporteMovimientosPage() {
                       </td>
                       {showUSD && (
                         <td
-                          className={`px-4 py-3 text-right ${
-                            row.totals.USD.egreso ? "cursor-pointer" : ""
-                          }`}
+                          className={`px-4 py-3 text-right ${row.totals.USD.egreso ? "cursor-pointer" : ""
+                            }`}
                           onDoubleClick={() =>
                             openDetailModal(row, "egreso", "USD")
                           }
@@ -1494,9 +1624,8 @@ export default function ReporteMovimientosPage() {
                       Totales
                     </td>
                     <td
-                      className={`px-4 py-3 text-right ${
-                        totals.CRC.ingreso ? "cursor-pointer" : ""
-                      }`}
+                      className={`px-4 py-3 text-right ${totals.CRC.ingreso ? "cursor-pointer" : ""
+                        }`}
                       onDoubleClick={() => openTotalsDetailModal("ingreso", "CRC")}
                       title={
                         totals.CRC.ingreso
@@ -1508,9 +1637,8 @@ export default function ReporteMovimientosPage() {
                     </td>
                     {showUSD && (
                       <td
-                        className={`px-4 py-3 text-right ${
-                          totals.USD.ingreso ? "cursor-pointer" : ""
-                        }`}
+                        className={`px-4 py-3 text-right ${totals.USD.ingreso ? "cursor-pointer" : ""
+                          }`}
                         onDoubleClick={() =>
                           openTotalsDetailModal("ingreso", "USD")
                         }
@@ -1524,9 +1652,8 @@ export default function ReporteMovimientosPage() {
                       </td>
                     )}
                     <td
-                      className={`px-4 py-3 text-right ${
-                        totals.CRC.gasto ? "cursor-pointer" : ""
-                      }`}
+                      className={`px-4 py-3 text-right ${totals.CRC.gasto ? "cursor-pointer" : ""
+                        }`}
                       onDoubleClick={() => openTotalsDetailModal("gasto", "CRC")}
                       title={
                         totals.CRC.gasto
@@ -1538,9 +1665,8 @@ export default function ReporteMovimientosPage() {
                     </td>
                     {showUSD && (
                       <td
-                        className={`px-4 py-3 text-right ${
-                          totals.USD.gasto ? "cursor-pointer" : ""
-                        }`}
+                        className={`px-4 py-3 text-right ${totals.USD.gasto ? "cursor-pointer" : ""
+                          }`}
                         onDoubleClick={() =>
                           openTotalsDetailModal("gasto", "USD")
                         }
@@ -1554,9 +1680,8 @@ export default function ReporteMovimientosPage() {
                       </td>
                     )}
                     <td
-                      className={`px-4 py-3 text-right ${
-                        totals.CRC.egreso ? "cursor-pointer" : ""
-                      }`}
+                      className={`px-4 py-3 text-right ${totals.CRC.egreso ? "cursor-pointer" : ""
+                        }`}
                       onDoubleClick={() => openTotalsDetailModal("egreso", "CRC")}
                       title={
                         totals.CRC.egreso
@@ -1568,9 +1693,8 @@ export default function ReporteMovimientosPage() {
                     </td>
                     {showUSD && (
                       <td
-                        className={`px-4 py-3 text-right ${
-                          totals.USD.egreso ? "cursor-pointer" : ""
-                        }`}
+                        className={`px-4 py-3 text-right ${totals.USD.egreso ? "cursor-pointer" : ""
+                          }`}
                         onDoubleClick={() =>
                           openTotalsDetailModal("egreso", "USD")
                         }
@@ -1597,8 +1721,8 @@ export default function ReporteMovimientosPage() {
         title={
           detailRequest
             ? `${detailRequest.label} · ${formatClassification(
-                detailRequest.classification
-              )} · ${detailRequest.currency}`
+              detailRequest.classification
+            )} · ${detailRequest.currency}`
             : "Detalle"
         }
         subtitle={detailSubtitle}
