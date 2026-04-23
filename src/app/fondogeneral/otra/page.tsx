@@ -6,23 +6,28 @@ import { useAuth } from "@/hooks/useAuth";
 import { useActorOwnership } from "@/hooks/useActorOwnership";
 import { getDefaultPermissions } from "@/utils/permissions";
 import { EmpresasService } from "@/services/empresas";
-import {
-  MovimientosFondosService,
-  type MovementAccountKey,
-  type MovementCurrencyKey,
+import type {
+  MovementAccountKey,
+  MovementCurrencyKey,
 } from "@/services/movimientos-fondos";
+import { ReportesMovimientosService } from "@/services/reportes-movimientos";
 import { ProvidersService } from "@/services/providers";
-import {
-  sanitizeFondoEntries,
-  isGastoType,
-  isIngresoType,
-  formatMovementType,
-  type FondoEntry,
-  type FondoMovementType,
-} from "@/app/fondogeneral/components/fondo";
 import ReportMovementsDetailModal, {
   type ReportMovementDetail,
 } from "@/components/modals/ReportMovementsDetailModal";
+
+type FondoMovementType = string;
+
+// Formatea en Titulo Caso cada palabra (versión local para evitar depender de `fondo.tsx`).
+const formatMovementType = (type: FondoMovementType | string) => {
+  if (type === "INFORMATIVO") return "";
+
+  return String(type)
+    .toLowerCase()
+    .split(" ")
+    .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
+    .join(" ");
+        };
 
 type Classification = "ingreso" | "gasto" | "egreso";
 
@@ -39,7 +44,15 @@ type SummaryRow = {
   totals: Record<MovementCurrencyKey, CurrencyBucket>;
 };
 
-type ReportEntry = FondoEntry & { companyName: string };
+type ReportBucketEntry = {
+  paymentType: FondoMovementType;
+  currency: MovementCurrencyKey;
+  amountIngreso: number;
+  amountGasto: number;
+  amountEgreso: number;
+  companyName: string;
+  accountId?: MovementAccountKey;
+};
 
 const ACCOUNT_LABELS: Record<MovementAccountKey, string> = {
   FondoGeneral: "Fondo General",
@@ -179,19 +192,21 @@ export default function ReporteMovimientosPage() {
   const [selectedAccount, setSelectedAccount] = useState<
     AccountSelectValue | ""
   >("");
-  const [entries, setEntries] = useState<ReportEntry[]>([]);
+  const [entries, setEntries] = useState<ReportBucketEntry[]>([]);
   const [dataLoading, setDataLoading] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
 
   const isMountedRef = useRef(true);
   const activeSearchRequestIdRef = useRef(0);
+  const loadingRequestIdRef = useRef(0);
 
   useEffect(() => {
     return () => {
       isMountedRef.current = false;
     };
   }, []);
+
 
   const [providerNameLookup, setProviderNameLookup] = useState<
     Record<string, string>
@@ -372,6 +387,10 @@ export default function ReporteMovimientosPage() {
     }
 
     let cancelled = false;
+    // Timeout for detail loading to prevent indefinite loading
+    let loadTimeout: any = null;
+    // Clear any existing error on new search
+    setDataError(null);
     setCompaniesLoading(true);
     setCompaniesError(null);
 
@@ -488,13 +507,6 @@ export default function ReporteMovimientosPage() {
       return;
     }
 
-    const targetCompanies =
-      selectedCompany === ALL_COMPANIES_VALUE
-        ? companies
-        : selectedCompany
-          ? [selectedCompany]
-          : [];
-
     const targetAccounts: MovementAccountKey[] =
       selectedAccount === ALL_ACCOUNTS_VALUE
         ? accessibleAccountKeys
@@ -504,194 +516,155 @@ export default function ReporteMovimientosPage() {
 
     setHasSearched(true);
 
-    if (targetCompanies.length === 0 || targetAccounts.length === 0) {
+    const allowedCompanies =
+      selectedCompany === ALL_COMPANIES_VALUE
+        ? companies
+        : selectedCompany
+          ? [selectedCompany]
+          : [];
+
+    if (allowedCompanies.length === 0 || targetAccounts.length === 0) {
       setEntries([]);
       setDataLoading(false);
       return;
     }
 
-    // Rango ISO basado en día local (misma lógica que FondoSection).
     const fromKey = (fromDate || "").trim();
     const toKey = (toDate || "").trim();
     const startKey = fromKey && toKey && fromKey > toKey ? toKey : fromKey;
     const endKey = fromKey && toKey && fromKey > toKey ? fromKey : toKey;
-    const startRange = startKey ? buildLocalDayIsoRange(startKey) : null;
-    const endRange = endKey ? buildLocalDayIsoRange(endKey) : null;
-    const fromIso = startRange?.startIso ?? "";
-    const toExclusiveIso = endRange?.endIsoExclusive ?? "";
 
     const requestId = ++activeSearchRequestIdRef.current;
+    loadingRequestIdRef.current = requestId;
     setDataLoading(true);
     setDataError(null);
 
     try {
-      const accountSet = new Set<MovementAccountKey>(targetAccounts);
-      const aggregated: ReportEntry[] = [];
-      let hadAnyQueryError = false;
+      const effectiveFrom = startKey || fromKey || "";
+      const effectiveTo = endKey || toKey || "";
 
-      for (const companyName of targetCompanies) {
-        if (!isMountedRef.current || requestId !== activeSearchRequestIdRef.current) {
-          return;
-        }
-
-        const normalizedCompany = companyName.trim();
-        if (!normalizedCompany) continue;
-
-        const companyKey =
-          MovimientosFondosService.buildCompanyMovementsKey(normalizedCompany);
-
-        let v2Movements: Partial<FondoEntry>[] = [];
-        let v2QueryErrored = false;
-
-        // 1) Preferir query por rango (mucho más eficiente)
-        try {
-          if (fromIso && toExclusiveIso) {
-            const items: Array<FondoEntry & { id: string }> = [];
-            let cursor: any = null;
-            for (let page = 0; page < 50; page += 1) {
-              if (
-                !isMountedRef.current ||
-                requestId !== activeSearchRequestIdRef.current
-              ) {
-                return;
-              }
-              const pageResult =
-                await MovimientosFondosService.listMovementsPageByCreatedAtRange<FondoEntry>(
-                  companyKey,
-                  {
-                    startIso: fromIso,
-                    endIsoExclusive: toExclusiveIso,
-                    pageSize: 100,
-                    cursor,
-                  }
-                );
-              items.push(...(pageResult.items as any));
-              cursor = pageResult.cursor;
-              if (pageResult.exhausted) break;
-            }
-            v2Movements = items as Partial<FondoEntry>[];
-          } else {
-            // Si no hay rango válido, hacemos fallback directamente.
-            v2QueryErrored = true;
-          }
-        } catch (rangeErr) {
-          v2QueryErrored = true;
-          hadAnyQueryError = true;
-          console.error(
-            `[ReporteMovimientos] Error querying v2 movements by range (${companyKey}):`,
-            rangeErr
-          );
-        }
-
-        // 2) Fallback: si falló la query por rango, intentar lectura paginada "general"
-        // (esto permite mostrar datos aun si el campo createdAt no es compatible con where+orderBy)
-        if (v2QueryErrored) {
-          try {
-            const all = await MovimientosFondosService.listAllMovements<FondoEntry>(
-              companyKey,
-              { pageSize: 500, maxPages: 10 }
-            );
-            if (Array.isArray(all)) {
-              v2Movements = all as Partial<FondoEntry>[];
-            }
-          } catch (listErr) {
-            hadAnyQueryError = true;
-            console.error(
-              `[ReporteMovimientos] Error listing v2 movements (${companyKey}):`,
-              listErr
-            );
-          }
-        }
-
-        // Fallback: older data may still live in the legacy main document array.
-        let legacyMovements: unknown[] = [];
-        if (v2Movements.length === 0) {
-          try {
-            let storage = await MovimientosFondosService.getDocument<FondoEntry>(
-              companyKey
-            );
-            if (!storage && typeof window !== "undefined") {
-              const raw = window.localStorage.getItem(companyKey);
-              if (raw) {
-                try {
-                  const parsed = JSON.parse(raw);
-                  storage = MovimientosFondosService.ensureMovementStorageShape<FondoEntry>(
-                    parsed,
-                    normalizedCompany
-                  );
-                } catch (parseError) {
-                  console.error("Error parsing local Fondo General storage:", parseError);
-                }
-              }
-            }
-            if (!storage) {
-              storage = MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(
-                normalizedCompany
-              );
-            }
-            const ensured = MovimientosFondosService.ensureMovementStorageShape<FondoEntry>(
-              storage,
-              normalizedCompany
-            );
-            legacyMovements = ensured.operations?.movements ?? [];
-          } catch (legacyErr) {
-            hadAnyQueryError = true;
-            console.error(
-              `[ReporteMovimientos] Error loading legacy movements (${companyKey}):`,
-              legacyErr
-            );
-          }
-        }
-
-        const sourceMovements = v2Movements.length > 0 ? v2Movements : legacyMovements;
-
-        const scoped = (Array.isArray(sourceMovements) ? sourceMovements : []).reduce<
-          Partial<FondoEntry>[]
-        >((acc, raw) => {
-          if (!raw || typeof raw !== "object") return acc;
-          const candidate = raw as Partial<FondoEntry>;
-          const movementAccount = isMovementAccountKey(candidate.accountId)
-            ? candidate.accountId
-            : "FondoGeneral";
-          if (!accountSet.has(movementAccount)) return acc;
-          acc.push({ ...candidate, accountId: movementAccount });
-          return acc;
-        }, []);
-
-        const sanitized = sanitizeFondoEntries(scoped);
-        aggregated.push(
-          ...sanitized.map((entry) => ({
-            ...entry,
-            companyName: normalizedCompany,
-          }))
-        );
+      const chunks: string[][] = [];
+      for (let i = 0; i < allowedCompanies.length; i += 30) {
+        chunks.push(allowedCompanies.slice(i, i + 30));
       }
+
+      const queries: Array<Promise<any[]>> = [];
+      if (allowedCompanies.length === 1) {
+        queries.push(
+          ReportesMovimientosService.listDailyReports({
+            fromDate: effectiveFrom,
+            toDate: effectiveTo,
+            empresa: allowedCompanies[0],
+            accountIds: targetAccounts,
+          }) as any
+        );
+      } else if (targetAccounts.length > 1) {
+        // Avoid combining empresa in + accountId in
+        targetAccounts.forEach((accountId) => {
+          chunks.forEach((chunk) => {
+            queries.push(
+              ReportesMovimientosService.listDailyReports({
+                fromDate: effectiveFrom,
+                toDate: effectiveTo,
+                empresas: chunk,
+                accountIds: [accountId],
+              }) as any
+            );
+          });
+        });
+      } else {
+        chunks.forEach((chunk) => {
+          queries.push(
+            ReportesMovimientosService.listDailyReports({
+              fromDate: effectiveFrom,
+              toDate: effectiveTo,
+              empresas: chunk,
+              accountIds: targetAccounts,
+            }) as any
+          );
+        });
+      }
+
+      if (queries.length === 0) {
+        setEntries([]);
+        return;
+      }
+
+      const timeoutMs = 20_000;
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error("timeout")), timeoutMs);
+      });
+
+      const results = await Promise.race([
+        Promise.all(queries),
+        timeoutPromise,
+      ]);
+      const dedup = new Map<string, any>();
+      results.flat().forEach((doc) => {
+        if (!doc?.id) return;
+        dedup.set(String(doc.id), doc);
+      });
+      const reports = Array.from(dedup.values());
 
       if (!isMountedRef.current || requestId !== activeSearchRequestIdRef.current) {
         return;
       }
 
-      const sorted = aggregated.sort(
-        (a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt)
-      );
-      setEntries(sorted);
+      const nextEntries: ReportBucketEntry[] = [];
+      reports.forEach((doc) => {
+        const companyName = String((doc as any)?.empresa || "").trim();
+        const byType = ((doc as any)?.byType || {}) as Record<
+          string,
+          Record<string, { ingreso?: number; gasto?: number; egreso?: number }>
+        >;
 
-      if (sorted.length === 0 && hadAnyQueryError) {
-        setDataError(
-          "No se pudo completar la consulta del reporte (hubo errores consultando los movimientos)."
-        );
-      }
+        Object.entries(byType).forEach(([paymentType, byCurrency]) => {
+          (Object.keys(byCurrency || {}) as string[]).forEach((cur) => {
+            const currency: MovementCurrencyKey = cur === "USD" ? "USD" : "CRC";
+            const bucket = (byCurrency as any)?.[currency];
+            if (!bucket) return;
+            const ingreso = Math.trunc(Number(bucket.ingreso ?? 0)) || 0;
+            const gasto = Math.trunc(Number(bucket.gasto ?? 0)) || 0;
+            const egreso = Math.trunc(Number(bucket.egreso ?? 0)) || 0;
+            const amountIngreso = ingreso;
+            const amountGasto = gasto;
+            const amountEgreso = egreso;
+            if (
+              Math.trunc(amountIngreso) === 0 &&
+              Math.trunc(amountGasto) === 0 &&
+              Math.trunc(amountEgreso) === 0
+            )
+              return;
+            nextEntries.push({
+              paymentType,
+              currency,
+              amountIngreso,
+              amountGasto,
+              amountEgreso,
+              companyName,
+              accountId: isMovementAccountKey((doc as any)?.accountId)
+                ? ((doc as any).accountId as MovementAccountKey)
+                : undefined,
+            });
+          });
+        });
+      });
+
+      setEntries(nextEntries);
     } catch (err) {
-      console.error("Error loading Fondo General movements for summary:", err);
+      console.error("Error loading Fondo General OLAP report data:", err);
       if (!isMountedRef.current || requestId !== activeSearchRequestIdRef.current) {
         return;
       }
       setEntries([]);
-      setDataError("No se pudieron cargar los movimientos.");
+      const message =
+        err instanceof Error && err.message === "timeout"
+          ? "La consulta está tardando demasiado. Prueba reducir el rango de fechas o filtrar por una sola empresa/cuenta."
+          : "No se pudo cargar el reporte.";
+      setDataError(message);
     } finally {
-      if (!isMountedRef.current || requestId !== activeSearchRequestIdRef.current) {
-        return;
-      }
+      if (!isMountedRef.current) return;
+      if (loadingRequestIdRef.current !== requestId) return;
       setDataLoading(false);
     }
   }, [
@@ -733,77 +706,199 @@ export default function ReporteMovimientosPage() {
     []
   );
 
-  const detailEntriesBase = useMemo<ReportEntry[]>(() => {
-    if (!detailRequest) return [];
-    if (dateRangeInvalid) return [];
-    if (!entries.length) return [];
+  const [detailItems, setDetailItems] = useState<ReportMovementDetail[]>([]);
+  const [detailLoading, setDetailLoading] = useState(false);
+  // Token to avoid race conditions when loading detail items
+  const detailLoadTokenRef = useRef<number>(0);
+  // Trigger to force reloading detail after a failed attempt
+  const [detailReloadTrigger, setDetailReloadTrigger] = useState(0);
 
-    const fromTimestamp = fromDate
-      ? Date.parse(`${fromDate}T00:00:00`)
-      : Number.NaN;
-    const toTimestamp = toDate
-      ? Date.parse(`${toDate}T23:59:59.999`)
-      : Number.NaN;
+  useEffect(() => {
+    if (!detailRequest) {
+      setDetailItems([]);
+      setDetailLoading(false);
+      return;
+    }
+    if (dateRangeInvalid) return;
 
-    return entries.filter((entry) => {
-      if (
-        detailRequest.paymentType &&
-        entry.paymentType !== detailRequest.paymentType
-      ) {
-        return false;
+    const allowedCompanies =
+      selectedCompany === ALL_COMPANIES_VALUE
+        ? companies
+        : selectedCompany
+          ? [selectedCompany]
+          : [];
+
+    const accountIds: MovementAccountKey[] =
+      selectedAccount === ALL_ACCOUNTS_VALUE
+        ? accessibleAccountKeys
+        : selectedAccount
+          ? [selectedAccount as MovementAccountKey]
+          : [];
+
+    const fromKey = (fromDate || "").trim();
+    const toKey = (toDate || "").trim();
+    const startKey = fromKey && toKey && fromKey > toKey ? toKey : fromKey;
+    const endKey = fromKey && toKey && fromKey > toKey ? fromKey : toKey;
+    const startRange = startKey ? buildLocalDayIsoRange(startKey) : null;
+    const endRange = endKey ? buildLocalDayIsoRange(endKey) : null;
+    const fromIso = startRange?.startIso ?? "";
+    const toExclusiveIso = endRange?.endIsoExclusive ?? "";
+
+    let cancelled = false;
+    let loadTimeout: any = null;
+    setDetailLoading(true);
+
+    const load = async () => {
+      const token = ++detailLoadTokenRef.current;
+      // Guard: timeout the load if it takes too long
+      loadTimeout = setTimeout(() => {
+        if (cancelled) return;
+        cancelled = true;
+        setDetailLoading(false);
+        setDataError("Tiempo de respuesta agotado. Intenta buscar de nuevo.");
+      }, 20000);
+      try {
+        const chunks: string[][] = [];
+        for (let i = 0; i < allowedCompanies.length; i += 30) {
+          chunks.push(allowedCompanies.slice(i, i + 30));
+        }
+
+        const queries: Array<Promise<any[]>> = [];
+        if (allowedCompanies.length === 1) {
+          queries.push(
+            ReportesMovimientosService.listDetailItems({
+              fromIso,
+              toExclusiveIso,
+              empresa: allowedCompanies[0],
+              accountIds,
+              currency: detailRequest.currency,
+              classification: detailRequest.classification,
+              paymentType: detailRequest.paymentType,
+            }) as any
+          );
+        } else if (accountIds.length > 1) {
+          accountIds.forEach((accountId) => {
+            chunks.forEach((chunk) => {
+              queries.push(
+                ReportesMovimientosService.listDetailItems({
+                  fromIso,
+                  toExclusiveIso,
+                  empresas: chunk,
+                  accountIds: [accountId],
+                  currency: detailRequest.currency,
+                  classification: detailRequest.classification,
+                  paymentType: detailRequest.paymentType,
+                }) as any
+              );
+            });
+          });
+        } else {
+          chunks.forEach((chunk) => {
+            queries.push(
+              ReportesMovimientosService.listDetailItems({
+                fromIso,
+                toExclusiveIso,
+                empresas: chunk,
+                accountIds,
+                currency: detailRequest.currency,
+                classification: detailRequest.classification,
+                paymentType: detailRequest.paymentType,
+              }) as any
+            );
+          });
+        }
+
+        // If there are no queries to run, reset quickly if this is the current load
+        if (queries.length === 0) {
+          if (detailLoadTokenRef.current === token) {
+            setDetailItems([]);
+            setDetailLoading(false);
+          }
+          return;
+        }
+        // Execute queries sequentially to avoid overwhelming the network when many chunks exist
+        const allItems: any[] = [];
+        for (const promise of queries) {
+          if (cancelled || detailLoadTokenRef.current !== token) break;
+          const partial = await promise;
+          if (Array.isArray(partial)) {
+            allItems.push(...partial);
+          } else if (partial) {
+            allItems.push(partial);
+          }
+        }
+        const dedup = new Map<string, any>();
+        allItems.forEach((it) => {
+          const key = String(it?.movementId || it?.id || "");
+          if (!key) return;
+          dedup.set(key, it);
+        });
+        const items = Array.from(dedup.values());
+
+        const filtered =
+          selectedMovementTypes.length > 0 && !detailRequest.paymentType
+            ? items.filter((i) => selectedMovementTypes.includes(i.paymentType as any))
+            : items;
+
+        // Ensure this is still the latest load
+        if (cancelled || detailLoadTokenRef.current !== token) return;
+        const mapped: ReportMovementDetail[] = filtered.map((i) => ({
+          id: i.movementId || i.id,
+          createdAt: i.createdAt,
+          providerCode: String(i.providerCode || ""),
+          invoiceNumber: String(i.invoiceNumber || ""),
+          manager: String((i as any).manager || ""),
+          notes: String(i.notes || ""),
+          paymentType: i.paymentType,
+          accountId: i.accountId,
+          currency: i.currency,
+          amountIngreso: i.amountIngreso,
+          amountEgreso: i.amountEgreso,
+          companyName: i.empresa,
+        }));
+
+        if (cancelled || detailLoadTokenRef.current !== token) return;
+        setDetailItems(mapped);
+      } catch (err) {
+        console.error("Error loading report detail items:", err);
+        if (cancelled) return;
+        // Provide user feedback when the detail load fails
+        try {
+          // @ts-ignore
+          setDataError("Error al cargar el detalle de movimientos. Verifica filtros o intenta de nuevo.");
+        } catch {
+          // ignore
+        }
+        setDetailItems([]);
+      } finally {
+        if (loadTimeout) clearTimeout(loadTimeout);
+        if (cancelled) return;
+        setDetailLoading(false);
       }
+    };
 
-      const created = Date.parse(entry.createdAt);
-      if (!Number.isNaN(fromTimestamp) && created < fromTimestamp) return false;
-      if (!Number.isNaN(toTimestamp) && created > toTimestamp) return false;
-
-      const entryClassification: Classification = isIngresoType(entry.paymentType)
-        ? "ingreso"
-        : isGastoType(entry.paymentType)
-          ? "gasto"
-          : "egreso";
-
-      if (entryClassification !== detailRequest.classification) return false;
-
-      if (
-        classificationFilter !== "all" &&
-        entryClassification !== classificationFilter
-      ) {
-        return false;
-      }
-
-      if (
-        selectedMovementTypes.length > 0 &&
-        !selectedMovementTypes.includes(entry.paymentType)
-      ) {
-        return false;
-      }
-
-      const entryCurrency: MovementCurrencyKey =
-        entry.currency === "USD" ? "USD" : "CRC";
-      if (entryCurrency !== detailRequest.currency) return false;
-
-      const amount =
-        detailRequest.classification === "ingreso"
-          ? entry.amountIngreso || 0
-          : entry.amountEgreso || 0;
-
-      return Math.trunc(amount) !== 0;
-    });
+    void load();
+    return () => {
+      cancelled = true;
+      if (loadTimeout) clearTimeout(loadTimeout);
+    };
   }, [
     detailRequest,
     dateRangeInvalid,
-    entries,
+    selectedCompany,
+    selectedAccount,
+    accessibleAccountKeys,
+    companies,
     fromDate,
     toDate,
-    classificationFilter,
     selectedMovementTypes,
+    detailReloadTrigger,
   ]);
 
   useEffect(() => {
     if (!detailRequest) return;
     const companySet = new Set(
-      detailEntriesBase
+      detailItems
         .map((e) => e.companyName?.trim())
         .filter((v): v is string => Boolean(v))
     );
@@ -848,11 +943,11 @@ export default function ReporteMovimientosPage() {
     return () => {
       cancelled = true;
     };
-  }, [detailRequest, detailEntriesBase]);
+  }, [detailRequest, detailItems]);
 
   const detailMovements = useMemo<ReportMovementDetail[]>(() => {
     if (!detailRequest) return [];
-    return detailEntriesBase.map((entry) => {
+    return detailItems.map((entry) => {
       const normalizedCode = normalizeProviderCode(entry.providerCode);
       const key = `${entry.companyName}::${normalizedCode}`;
       const providerName = providerNameLookup[key];
@@ -861,7 +956,7 @@ export default function ReporteMovimientosPage() {
         providerCode: providerName || entry.providerCode,
       };
     });
-  }, [detailRequest, detailEntriesBase, providerNameLookup]);
+  }, [detailRequest, detailItems, providerNameLookup]);
 
   const detailSubtitle = useMemo(() => {
     if (!detailRequest) return "";
@@ -940,31 +1035,9 @@ export default function ReporteMovimientosPage() {
     if (dateRangeInvalid) return [];
     if (!entries.length) return [];
 
-    const fromTimestamp = fromDate
-      ? Date.parse(`${fromDate}T00:00:00`)
-      : Number.NaN;
-    const toTimestamp = toDate
-      ? Date.parse(`${toDate}T23:59:59.999`)
-      : Number.NaN;
-
     const buckets = new Map<FondoMovementType, SummaryRow>();
 
     entries.forEach((entry) => {
-      const created = Date.parse(entry.createdAt);
-      if (!Number.isNaN(fromTimestamp) && created < fromTimestamp) return;
-      if (!Number.isNaN(toTimestamp) && created > toTimestamp) return;
-
-      const classification: Classification = isIngresoType(entry.paymentType)
-        ? "ingreso"
-        : isGastoType(entry.paymentType)
-          ? "gasto"
-          : "egreso";
-
-      if (
-        classificationFilter !== "all" &&
-        classification !== classificationFilter
-      )
-        return;
       if (
         selectedMovementTypes.length > 0 &&
         !selectedMovementTypes.includes(entry.paymentType)
@@ -978,7 +1051,7 @@ export default function ReporteMovimientosPage() {
         buckets.set(entry.paymentType, {
           paymentType: entry.paymentType,
           label: formatMovementType(entry.paymentType),
-          classification,
+          classification: "gasto",
           totals: {
             CRC: { ingreso: 0, gasto: 0, egreso: 0 },
             USD: { ingreso: 0, gasto: 0, egreso: 0 },
@@ -988,14 +1061,19 @@ export default function ReporteMovimientosPage() {
 
       const bucket = buckets.get(entry.paymentType)!;
       const currencyTotals = bucket.totals[currency];
-      if (classification === "ingreso") {
-        currencyTotals.ingreso += entry.amountIngreso || 0;
-      } else if (classification === "gasto") {
-        currencyTotals.gasto += entry.amountEgreso || 0;
-      } else {
-        currencyTotals.egreso += entry.amountEgreso || 0;
-      }
+      currencyTotals.ingreso += entry.amountIngreso || 0;
+      currencyTotals.gasto += entry.amountGasto || 0;
+      currencyTotals.egreso += entry.amountEgreso || 0;
     });
+
+    const classifyBucket = (row: SummaryRow): Classification => {
+      const ingreso = row.totals.CRC.ingreso + row.totals.USD.ingreso;
+      const gasto = row.totals.CRC.gasto + row.totals.USD.gasto;
+      const egreso = row.totals.CRC.egreso + row.totals.USD.egreso;
+      if (Math.trunc(ingreso) !== 0) return "ingreso";
+      if (Math.trunc(gasto) !== 0) return "gasto";
+      return "egreso";
+    };
 
     const orderMap: Record<Classification, number> = {
       ingreso: 0,
@@ -1003,15 +1081,22 @@ export default function ReporteMovimientosPage() {
       egreso: 2,
     };
 
-    return Array.from(buckets.values()).sort((a, b) => {
+    return Array.from(buckets.values())
+      .map((row) => {
+        const classification = classifyBucket(row);
+        return { ...row, classification };
+      })
+      .filter((row) => {
+        if (classificationFilter === "all") return true;
+        return row.classification === classificationFilter;
+      })
+      .sort((a, b) => {
       const byGroup = orderMap[a.classification] - orderMap[b.classification];
       if (byGroup !== 0) return byGroup;
       return a.label.localeCompare(b.label, "es", { sensitivity: "base" });
     });
   }, [
     entries,
-    fromDate,
-    toDate,
     dateRangeInvalid,
     classificationFilter,
     selectedMovementTypes,
@@ -1087,6 +1172,7 @@ export default function ReporteMovimientosPage() {
     accountUnavailable ||
     (isAdminUser ? !selectedCompany : !assignedCompany) ||
     !selectedAccount;
+
 
   return (
     <div className="max-w-6xl mx-auto py-8 px-4 space-y-6">
@@ -1463,6 +1549,13 @@ export default function ReporteMovimientosPage() {
           <div className="mt-4 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300">
             <AlertCircle className="h-4 w-4" />
             <span>{dataError}</span>
+            <button
+              type="button"
+              onClick={() => { setDataError(null); setDetailReloadTrigger((n) => n + 1); }}
+              className="ml-2 rounded px-2 py-1 bg-[var(--card-bg)] border border-[var(--input-border)] text-sm text-[var(--foreground)] hover:bg-[var(--muted-foreground)]"
+            >
+              Reintentar
+            </button>
           </div>
         )}
 
@@ -1729,6 +1822,7 @@ export default function ReporteMovimientosPage() {
         currency={detailRequest?.currency ?? "CRC"}
         formatAmount={formatAmount}
         movements={detailMovements}
+        loading={detailLoading}
         amountSelector={(movement) =>
           detailRequest?.classification === "ingreso"
             ? movement.amountIngreso

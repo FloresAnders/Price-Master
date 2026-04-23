@@ -65,6 +65,11 @@ import {
   MovementStorageState,
 } from "../../../services/movimientos-fondos";
 import {
+  ReportesMovimientosService,
+  ReporteMovimientosDetailItem,
+  type ReporteMovimientoCurrency,
+} from "../../../services/reportes-movimientos";
+import {
   DailyClosingsService,
   DailyClosingRecord,
   DailyClosingsDocument,
@@ -165,6 +170,8 @@ export type FondoEntry = {
   manager: string;
   notes: string;
   createdAt: string;
+  // OLAP optimization: company name embedded in movement doc
+  empresa?: string;
   accountId?: MovementAccountKey;
   currency?: "CRC" | "USD";
   breakdown?: Record<number, number>;
@@ -3695,16 +3702,15 @@ export function FondoSection({
       beginMovementsLoading();
 
       try {
-        const pageResult =
-          await MovimientosFondosService.listMovementsPageByCreatedAtRange(
-            docKey,
-            {
-              startIso,
-              endIsoExclusive,
-              pageSize: remoteBatchSize,
-              cursor: shouldReset ? null : nextCache.cursor,
-            }
-          );
+        const pageResult = await MovimientosFondosService.listMovementsPageByCreatedAtRange(
+          docKey,
+          {
+            startIso,
+            endIsoExclusive,
+            pageSize: remoteBatchSize,
+            cursor: shouldReset ? null : nextCache.cursor,
+          }
+        );
 
         const mergedMovements = shouldReset
           ? (pageResult.items as FondoEntry[])
@@ -5271,6 +5277,7 @@ export function FondoSection({
             ...(movement as FondoEntry),
             accountId: accountKey,
             currency: normalizedCurrency,
+            empresa: normalizedCompany,
           };
           movementChange = { type: "upsert", movement: storedMovement };
           cacheUpdater = () => {

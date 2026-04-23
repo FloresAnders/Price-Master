@@ -1,7 +1,7 @@
-import { onDocumentCreated } from 'firebase-functions/v2/firestore';
+import { onDocumentCreated, onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { onRequest } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
-import * as admin from 'firebase-admin';
+import admin from 'firebase-admin';
 import nodemailer from 'nodemailer';
 
 // Definir secretos
@@ -15,6 +15,288 @@ admin.initializeApp();
 const getDb = () => admin.firestore().databaseId === 'restauracion' 
   ? admin.firestore() 
   : admin.app().firestore('restauracion');
+
+const REPORTS_COLLECTION = 'reportes_movimientos';
+const REPORTS_DETAIL_COLLECTION = 'reportes_detalle';
+const MOVEMENT_TYPES_COLLECTION = 'fondoMovementTypes';
+
+/**
+ * Cache in-memory de la categoría de cada paymentType para clasificar en ingreso/gasto/egreso.
+ * Minimiza reads: se carga una vez por instancia (cold start) y se reutiliza.
+ */
+let movementTypeCategoryCache = {
+  loadedAtMs: 0,
+  map: new Map(),
+};
+
+const CATEGORY_TTL_MS = 10 * 60 * 1000; // 10 min (balancea frescura vs reads)
+
+const normalizeCurrency = (value) => (value === 'USD' ? 'USD' : 'CRC');
+
+const parseLocalDateFromMovementId = (movementId, createdAtFallback) => {
+  const raw = String(movementId || '');
+  const head = raw.split('-')[0] || ''; // YYYY_MM_DD
+  const parts = head.split('_');
+  if (parts.length === 3) {
+    const y = Number(parts[0]);
+    const m = Number(parts[1]);
+    const d = Number(parts[2]);
+    if (Number.isFinite(y) && Number.isFinite(m) && Number.isFinite(d)) {
+      const date = `${String(y)}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      return { date, year: y, month: m };
+    }
+  }
+
+  const dt = createdAtFallback ? new Date(createdAtFallback) : new Date();
+  const safe = Number.isNaN(dt.getTime()) ? new Date() : dt;
+  const date = safe.toISOString().split('T')[0];
+  return { date, year: safe.getFullYear(), month: safe.getMonth() + 1 };
+};
+
+const resolveEmpresaFromLedger = async (docId) => {
+  if (!docId) return '';
+  const snap = await getDb().collection('MovimientosFondos').doc(String(docId)).get();
+  const company = String(snap.get('company') || '').trim();
+  return company || String(docId);
+};
+
+const ensureMovementTypeCategoryCache = async () => {
+  const now = Date.now();
+  if (movementTypeCategoryCache.map.size > 0 && now - movementTypeCategoryCache.loadedAtMs < CATEGORY_TTL_MS) {
+    return;
+  }
+
+  try {
+    const snap = await getDb().collection(MOVEMENT_TYPES_COLLECTION).get();
+    const next = new Map();
+    snap.forEach((doc) => {
+      const id = String(doc.id || '').trim();
+      if (!id) return;
+      const cat = String(doc.get('category') || '').toUpperCase().trim();
+      if (cat === 'INGRESO' || cat === 'GASTO' || cat === 'EGRESO') {
+        next.set(id, cat);
+      }
+    });
+    movementTypeCategoryCache = { loadedAtMs: now, map: next };
+  } catch (err) {
+    console.error('[onMovementWrite] Error loading fondoMovementTypes cache:', err);
+    movementTypeCategoryCache = { loadedAtMs: now, map: new Map() };
+  }
+};
+
+const resolveCategory = (paymentType, amountIngreso, amountEgreso) => {
+  const key = String(paymentType || '').trim();
+  const cached = key ? movementTypeCategoryCache.map.get(key) : null;
+  if (cached === 'INGRESO' || cached === 'GASTO' || cached === 'EGRESO') return cached;
+
+  // Fallback si no hay configuración: inferir por montos.
+  const ingreso = Math.trunc(Number(amountIngreso ?? 0)) || 0;
+  const egreso = Math.trunc(Number(amountEgreso ?? 0)) || 0;
+  if (ingreso > 0) return 'INGRESO';
+  if (egreso > 0) return 'EGRESO';
+  return 'EGRESO';
+};
+
+const categoryToClassification = (category) => {
+  if (category === 'INGRESO') return 'ingreso';
+  if (category === 'GASTO') return 'gasto';
+  return 'egreso';
+};
+
+const safeDocIdPart = (value) => String(value || '').trim();
+
+/**
+ * OLAP Trigger: materializa reportes por día/empresa/cuenta
+ * - Agregado en: /reportes_movimientos/{date}_{empresa}_{accountId}
+ * - Detalle en: /reportes_detalle/{reporteId}/items/{movementId}
+ *
+ * Diseñado para minimizar reads:
+ * - No lee el documento agregado en cada write (usa increment)
+ * - Cachea categorías de tipos de movimiento
+ * - Usa "empresa" desde el movimiento si viene; si no, lee el ledger 1 vez (fallback)
+ */
+export const onMovementWrite = onDocumentWritten(
+  {
+    document: 'MovimientosFondos/{docId}/movements/{movementId}',
+    database: 'restauracion',
+  },
+  async (event) => {
+    const docId = safeDocIdPart(event.params.docId);
+    const movementId = safeDocIdPart(event.params.movementId);
+
+    const before = event.data?.before?.data() ?? null;
+    const after = event.data?.after?.data() ?? null;
+
+    if (!before && !after) return;
+
+    await ensureMovementTypeCategoryCache();
+
+    const refData = after ?? before;
+    const createdAt = String(refData?.createdAt || '').trim();
+    const { date, year, month } = parseLocalDateFromMovementId(movementId, createdAt);
+
+    const accountId = safeDocIdPart(refData?.accountId) || 'FondoGeneral';
+    const currency = normalizeCurrency(refData?.currency);
+    const paymentType = safeDocIdPart(refData?.paymentType) || '(Sin tipo)';
+
+    // Preferir empresa embebida en el movimiento (cero reads extra). Fallback a leer ledger.
+    let empresa = safeDocIdPart(refData?.empresa);
+    if (!empresa) {
+      try {
+        empresa = await resolveEmpresaFromLedger(docId);
+      } catch (err) {
+        console.error('[onMovementWrite] Error resolving empresa from ledger:', err);
+        empresa = docId;
+      }
+    }
+
+    const reporteId = `${date}_${empresa}_${accountId}`;
+    const aggRef = getDb().collection(REPORTS_COLLECTION).doc(reporteId);
+    const detailRef = getDb()
+      .collection(REPORTS_DETAIL_COLLECTION)
+      .doc(reporteId)
+      .collection('items')
+      .doc(movementId);
+
+    const amountIngresoAfter = Math.trunc(Number(after?.amountIngreso ?? 0)) || 0;
+    const amountEgresoAfter = Math.trunc(Number(after?.amountEgreso ?? 0)) || 0;
+    const amountIngresoBefore = Math.trunc(Number(before?.amountIngreso ?? 0)) || 0;
+    const amountEgresoBefore = Math.trunc(Number(before?.amountEgreso ?? 0)) || 0;
+
+    const catAfter = after
+      ? resolveCategory(paymentType, amountIngresoAfter, amountEgresoAfter)
+      : null;
+    const catBefore = before
+      ? resolveCategory(before?.paymentType, amountIngresoBefore, amountEgresoBefore)
+      : null;
+
+    const classificationAfter = catAfter ? categoryToClassification(catAfter) : null;
+    const classificationBefore = catBefore ? categoryToClassification(catBefore) : null;
+
+    const inc = admin.firestore.FieldValue.increment;
+    const serverTs = admin.firestore.FieldValue.serverTimestamp;
+
+    const baseAgg = {
+      date,
+      year,
+      month,
+      empresa,
+      accountId,
+      updatedAt: serverTs(),
+    };
+
+    const deltaUpdate = {};
+
+    // Helper para escribir increments en nested map byType.
+    const setByTypeDelta = (obj, typeKey, curKey, deltaCount, deltaIngreso, deltaGasto, deltaEgreso) => {
+      const fieldCount = new admin.firestore.FieldPath('byType', typeKey, curKey, 'count');
+      const fieldIngreso = new admin.firestore.FieldPath('byType', typeKey, curKey, 'ingreso');
+      const fieldGasto = new admin.firestore.FieldPath('byType', typeKey, curKey, 'gasto');
+      const fieldEgreso = new admin.firestore.FieldPath('byType', typeKey, curKey, 'egreso');
+      obj[fieldCount] = inc(deltaCount);
+      obj[fieldIngreso] = inc(deltaIngreso);
+      obj[fieldGasto] = inc(deltaGasto);
+      obj[fieldEgreso] = inc(deltaEgreso);
+    };
+
+    const applyTotalsDelta = (obj, deltaIngreso, deltaGasto, deltaEgreso) => {
+      obj.totalIngreso = inc(deltaIngreso);
+      obj.totalGasto = inc(deltaGasto);
+      obj.totalEgreso = inc(deltaEgreso);
+    };
+
+    const deltaFromCategory = (category, amountIngreso, amountEgreso) => {
+      if (category === 'INGRESO') return { ingreso: amountIngreso, gasto: 0, egreso: 0 };
+      if (category === 'GASTO') return { ingreso: 0, gasto: amountEgreso, egreso: 0 };
+      return { ingreso: 0, gasto: 0, egreso: amountEgreso };
+    };
+
+    const promises = [];
+
+    // DELETE
+    if (!after && before) {
+      const curBefore = normalizeCurrency(before?.currency);
+      const typeBefore = safeDocIdPart(before?.paymentType) || '(Sin tipo)';
+      const d = deltaFromCategory(catBefore, amountIngresoBefore, amountEgresoBefore);
+
+      deltaUpdate.count = inc(-1);
+      applyTotalsDelta(deltaUpdate, -d.ingreso, -d.gasto, -d.egreso);
+      setByTypeDelta(deltaUpdate, typeBefore, curBefore, -1, -d.ingreso, -d.gasto, -d.egreso);
+
+      await aggRef.set(baseAgg, { merge: true });
+      await aggRef.update(deltaUpdate);
+      await detailRef.delete().catch(() => null);
+      return;
+    }
+
+    // CREATE / UPDATE
+    if (!after) return;
+
+    const isCreate = !before;
+    if (isCreate) {
+      deltaUpdate.count = inc(1);
+      // lastMovementAt: set only on create to avoid extra reads
+      if (createdAt) deltaUpdate.lastMovementAt = createdAt;
+    }
+
+    const dAfter = deltaFromCategory(catAfter, amountIngresoAfter, amountEgresoAfter);
+    const dBefore = before ? deltaFromCategory(catBefore, amountIngresoBefore, amountEgresoBefore) : { ingreso: 0, gasto: 0, egreso: 0 };
+
+    const deltaIngreso = dAfter.ingreso - dBefore.ingreso;
+    const deltaGasto = dAfter.gasto - dBefore.gasto;
+    const deltaEgreso = dAfter.egreso - dBefore.egreso;
+    applyTotalsDelta(deltaUpdate, deltaIngreso, deltaGasto, deltaEgreso);
+
+    // byType breakdown: handle bucket change on update
+    const typeAfter = paymentType;
+    const curAfter = currency;
+
+    if (isCreate) {
+      setByTypeDelta(deltaUpdate, typeAfter, curAfter, 1, dAfter.ingreso, dAfter.gasto, dAfter.egreso);
+    } else {
+      const typeBefore = safeDocIdPart(before?.paymentType) || '(Sin tipo)';
+      const curBefore = normalizeCurrency(before?.currency);
+
+      const bucketChanged = typeBefore !== typeAfter || curBefore !== curAfter;
+      if (bucketChanged) {
+        // remove from old bucket
+        setByTypeDelta(deltaUpdate, typeBefore, curBefore, -1, -dBefore.ingreso, -dBefore.gasto, -dBefore.egreso);
+        // add to new bucket
+        setByTypeDelta(deltaUpdate, typeAfter, curAfter, 1, dAfter.ingreso, dAfter.gasto, dAfter.egreso);
+      } else {
+        // same bucket: count stays, only amounts delta
+        setByTypeDelta(deltaUpdate, typeAfter, curAfter, 0, deltaIngreso, deltaGasto, deltaEgreso);
+      }
+    }
+
+    await aggRef.set(baseAgg, { merge: true });
+    await aggRef.update(deltaUpdate);
+
+    // Detalle (para modal) - siempre upsert
+    promises.push(
+      detailRef.set(
+        {
+          movementId,
+          empresa,
+          createdAt: createdAt || '',
+          accountId,
+          manager: String(after?.manager || ''),
+          paymentType: typeAfter,
+          classification: classificationAfter || 'egreso',
+          amountIngreso: amountIngresoAfter,
+          amountEgreso: amountEgresoAfter,
+          currency: curAfter,
+          invoiceNumber: String(after?.invoiceNumber || ''),
+          providerCode: String(after?.providerCode || ''),
+          notes: String(after?.notes || ''),
+        },
+        { merge: true }
+      )
+    );
+
+    await Promise.all(promises);
+  }
+);
 
 /**
  * Cloud Function que se dispara cuando se crea un documento en la colección 'mail'

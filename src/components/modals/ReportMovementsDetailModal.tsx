@@ -43,6 +43,7 @@ type Props = {
   currency: CurrencyKey;
   formatAmount: (currency: CurrencyKey, amount: number) => string;
   movements: ReportMovementDetail[];
+  loading?: boolean;
   amountSelector: (movement: ReportMovementDetail) => number;
   splitByCompany?: boolean;
 };
@@ -55,6 +56,7 @@ export default function ReportMovementsDetailModal({
   currency,
   formatAmount,
   movements,
+  loading = false,
   amountSelector,
   splitByCompany = false,
 }: Props) {
@@ -225,7 +227,11 @@ export default function ReportMovementsDetailModal({
         </div>
 
         <div className="p-4 sm:p-6 overflow-auto max-h-[calc(95vh-96px)] overscroll-contain">
-          {movements.length === 0 ? (
+          {loading ? (
+            <div className="rounded-md border border-[var(--input-border)] bg-[var(--muted)]/10 px-4 py-6 text-center text-sm text-[var(--muted-foreground)]">
+              Cargando movimientos...
+            </div>
+          ) : movements.length === 0 ? (
             <div className="rounded-md border border-[var(--input-border)] bg-[var(--muted)]/10 px-4 py-6 text-center text-sm text-[var(--muted-foreground)]">
               No hay movimientos para mostrar.
             </div>
