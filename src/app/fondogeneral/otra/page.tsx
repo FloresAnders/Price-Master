@@ -204,6 +204,9 @@ export default function ReporteMovimientosPage() {
   );
 
   useEffect(() => {
+    // In dev StrictMode, effects run setup->cleanup->setup.
+    // Ensure the mounted flag is restored on setup.
+    isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
     };
