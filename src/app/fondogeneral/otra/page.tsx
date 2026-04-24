@@ -27,7 +27,7 @@ const formatMovementType = (type: FondoMovementType | string) => {
     .split(" ")
     .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
     .join(" ");
-        };
+};
 
 type Classification = "ingreso" | "gasto" | "egreso";
 
@@ -198,8 +198,10 @@ export default function ReporteMovimientosPage() {
   const [hasSearched, setHasSearched] = useState(false);
 
   const isMountedRef = useRef(true);
-  const activeSearchRequestIdRef = useRef(0);
   const loadingRequestIdRef = useRef(0);
+  const loadingWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
 
   useEffect(() => {
     return () => {
@@ -387,10 +389,6 @@ export default function ReporteMovimientosPage() {
     }
 
     let cancelled = false;
-    // Timeout for detail loading to prevent indefinite loading
-    let loadTimeout: any = null;
-    // Clear any existing error on new search
-    setDataError(null);
     setCompaniesLoading(true);
     setCompaniesError(null);
 
@@ -484,7 +482,7 @@ export default function ReporteMovimientosPage() {
     // No consultamos automáticamente al entrar o al cambiar filtros.
     // Para evitar resultados desactualizados, limpiamos los datos al cambiar empresa/cuenta.
     // También invalidamos cualquier búsqueda en curso.
-    activeSearchRequestIdRef.current += 1;
+    loadingRequestIdRef.current = 0;
     setEntries([]);
     setDataError(null);
     setDataLoading(false);
@@ -498,6 +496,38 @@ export default function ReporteMovimientosPage() {
       return;
     }
   }, [hasGeneralAccess]);
+
+  // Watchdog: evita spinner infinito por promesas colgadas/reintentos cruzados.
+  useEffect(() => {
+    if (!dataLoading) {
+      if (loadingWatchdogRef.current) {
+        clearTimeout(loadingWatchdogRef.current);
+        loadingWatchdogRef.current = null;
+      }
+      return;
+    }
+
+    if (loadingWatchdogRef.current) {
+      clearTimeout(loadingWatchdogRef.current);
+    }
+
+    const currentRequestId = loadingRequestIdRef.current;
+    loadingWatchdogRef.current = setTimeout(() => {
+      if (!isMountedRef.current) return;
+      if (loadingRequestIdRef.current !== currentRequestId) return;
+      setDataLoading(false);
+      setDataError(
+        "La búsqueda tardó demasiado y se detuvo. Intenta con un rango más corto o verifica la empresa/cuenta."
+      );
+    }, 25000);
+
+    return () => {
+      if (loadingWatchdogRef.current) {
+        clearTimeout(loadingWatchdogRef.current);
+        loadingWatchdogRef.current = null;
+      }
+    };
+  }, [dataLoading]);
 
   const runSearch = useCallback(async () => {
     if (!hasGeneralAccess) {
@@ -534,7 +564,7 @@ export default function ReporteMovimientosPage() {
     const startKey = fromKey && toKey && fromKey > toKey ? toKey : fromKey;
     const endKey = fromKey && toKey && fromKey > toKey ? fromKey : toKey;
 
-    const requestId = ++activeSearchRequestIdRef.current;
+    const requestId = loadingRequestIdRef.current + 1;
     loadingRequestIdRef.current = requestId;
     setDataLoading(true);
     setDataError(null);
@@ -542,6 +572,14 @@ export default function ReporteMovimientosPage() {
     try {
       const effectiveFrom = startKey || fromKey || "";
       const effectiveTo = endKey || toKey || "";
+
+      console.log("[REPORT-OLAP] query", {
+        collection: "reportes_movimientos",
+        fromDate: effectiveFrom,
+        toDate: effectiveTo,
+        companies: allowedCompanies,
+        accountIds: targetAccounts,
+      });
 
       const chunks: string[][] = [];
       for (let i = 0; i < allowedCompanies.length; i += 30) {
@@ -606,7 +644,12 @@ export default function ReporteMovimientosPage() {
       });
       const reports = Array.from(dedup.values());
 
-      if (!isMountedRef.current || requestId !== activeSearchRequestIdRef.current) {
+      console.log("[REPORT-OLAP] result", {
+        reportsCount: reports.length,
+        reportIds: reports.slice(0, 10).map((r: any) => r?.id),
+      });
+
+      if (!isMountedRef.current) {
         return;
       }
 
@@ -651,9 +694,12 @@ export default function ReporteMovimientosPage() {
       });
 
       setEntries(nextEntries);
+      console.log("[REPORT-OLAP] entries", {
+        entriesCount: nextEntries.length,
+      });
     } catch (err) {
       console.error("Error loading Fondo General OLAP report data:", err);
-      if (!isMountedRef.current || requestId !== activeSearchRequestIdRef.current) {
+      if (!isMountedRef.current) {
         return;
       }
       setEntries([]);
@@ -664,7 +710,9 @@ export default function ReporteMovimientosPage() {
       setDataError(message);
     } finally {
       if (!isMountedRef.current) return;
-      if (loadingRequestIdRef.current !== requestId) return;
+      if (loadingRequestIdRef.current === requestId) {
+        loadingRequestIdRef.current = 0;
+      }
       setDataLoading(false);
     }
   }, [
@@ -1563,7 +1611,7 @@ export default function ReporteMovimientosPage() {
           {dataLoading ? (
             <div className="flex items-center justify-center py-12 text-[var(--muted-foreground)]">
               <Loader2 className="h-5 w-5 animate-spin mr-3" />
-              Cargando movimientos...
+              Cargando reportes OLAP...
             </div>
           ) : summaryRows.length === 0 ? (
             <div className="rounded-md border border-[var(--input-border)] bg-[var(--muted)]/10 px-4 py-6 text-center text-sm text-[var(--muted-foreground)]">
@@ -1623,7 +1671,7 @@ export default function ReporteMovimientosPage() {
                       <td
                         className={`px-4 py-3 text-right ${row.totals.CRC.ingreso ? "cursor-pointer" : ""
                           }`}
-                        onDoubleClick={() =>
+                        onClick={() =>
                           openDetailModal(row, "ingreso", "CRC")
                         }
                         title={
@@ -1638,7 +1686,7 @@ export default function ReporteMovimientosPage() {
                         <td
                           className={`px-4 py-3 text-right ${row.totals.USD.ingreso ? "cursor-pointer" : ""
                             }`}
-                          onDoubleClick={() =>
+                          onClick={() =>
                             openDetailModal(row, "ingreso", "USD")
                           }
                           title={
@@ -1653,7 +1701,7 @@ export default function ReporteMovimientosPage() {
                       <td
                         className={`px-4 py-3 text-right ${row.totals.CRC.gasto ? "cursor-pointer" : ""
                           }`}
-                        onDoubleClick={() => openDetailModal(row, "gasto", "CRC")}
+                        onClick={() => openDetailModal(row, "gasto", "CRC")}
                         title={
                           row.totals.CRC.gasto
                             ? "Doble click para ver movimientos"
@@ -1666,7 +1714,7 @@ export default function ReporteMovimientosPage() {
                         <td
                           className={`px-4 py-3 text-right ${row.totals.USD.gasto ? "cursor-pointer" : ""
                             }`}
-                          onDoubleClick={() =>
+                          onClick={() =>
                             openDetailModal(row, "gasto", "USD")
                           }
                           title={
@@ -1681,7 +1729,7 @@ export default function ReporteMovimientosPage() {
                       <td
                         className={`px-4 py-3 text-right ${row.totals.CRC.egreso ? "cursor-pointer" : ""
                           }`}
-                        onDoubleClick={() =>
+                        onClick={() =>
                           openDetailModal(row, "egreso", "CRC")
                         }
                         title={
@@ -1696,7 +1744,7 @@ export default function ReporteMovimientosPage() {
                         <td
                           className={`px-4 py-3 text-right ${row.totals.USD.egreso ? "cursor-pointer" : ""
                             }`}
-                          onDoubleClick={() =>
+                          onClick={() =>
                             openDetailModal(row, "egreso", "USD")
                           }
                           title={
@@ -1719,7 +1767,7 @@ export default function ReporteMovimientosPage() {
                     <td
                       className={`px-4 py-3 text-right ${totals.CRC.ingreso ? "cursor-pointer" : ""
                         }`}
-                      onDoubleClick={() => openTotalsDetailModal("ingreso", "CRC")}
+                      onClick={() => openTotalsDetailModal("ingreso", "CRC")}
                       title={
                         totals.CRC.ingreso
                           ? "Doble click para ver movimientos"
@@ -1732,7 +1780,7 @@ export default function ReporteMovimientosPage() {
                       <td
                         className={`px-4 py-3 text-right ${totals.USD.ingreso ? "cursor-pointer" : ""
                           }`}
-                        onDoubleClick={() =>
+                        onClick={() =>
                           openTotalsDetailModal("ingreso", "USD")
                         }
                         title={
@@ -1747,7 +1795,7 @@ export default function ReporteMovimientosPage() {
                     <td
                       className={`px-4 py-3 text-right ${totals.CRC.gasto ? "cursor-pointer" : ""
                         }`}
-                      onDoubleClick={() => openTotalsDetailModal("gasto", "CRC")}
+                      onClick={() => openTotalsDetailModal("gasto", "CRC")}
                       title={
                         totals.CRC.gasto
                           ? "Doble click para ver movimientos"
@@ -1760,7 +1808,7 @@ export default function ReporteMovimientosPage() {
                       <td
                         className={`px-4 py-3 text-right ${totals.USD.gasto ? "cursor-pointer" : ""
                           }`}
-                        onDoubleClick={() =>
+                        onClick={() =>
                           openTotalsDetailModal("gasto", "USD")
                         }
                         title={
@@ -1775,7 +1823,7 @@ export default function ReporteMovimientosPage() {
                     <td
                       className={`px-4 py-3 text-right ${totals.CRC.egreso ? "cursor-pointer" : ""
                         }`}
-                      onDoubleClick={() => openTotalsDetailModal("egreso", "CRC")}
+                      onClick={() => openTotalsDetailModal("egreso", "CRC")}
                       title={
                         totals.CRC.egreso
                           ? "Doble click para ver movimientos"
@@ -1788,7 +1836,7 @@ export default function ReporteMovimientosPage() {
                       <td
                         className={`px-4 py-3 text-right ${totals.USD.egreso ? "cursor-pointer" : ""
                           }`}
-                        onDoubleClick={() =>
+                        onClick={() =>
                           openTotalsDetailModal("egreso", "USD")
                         }
                         title={
