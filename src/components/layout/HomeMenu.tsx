@@ -29,6 +29,8 @@ import {
   Settings,
   History,
   Users,
+  Star,
+  Plus,
 } from "lucide-react";
 import AnimatedStickman from "../ui/AnimatedStickman";
 import { CustomIcon } from "../../icons/icons";
@@ -227,6 +229,9 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   const [showStickman, setShowStickman] = useState(false);
   const [showSupplierWeekInMenu, setShowSupplierWeekInMenu] = useState(false);
   const [enableHomeMenuSortMobile, setEnableHomeMenuSortMobile] = useState(false);
+  const [showFavoritesView, setShowFavoritesView] = useState(false);
+  const [favoriteMenuIds, setFavoriteMenuIds] = useState<string[]>([]);
+  const [showAddFavoriteModal, setShowAddFavoriteModal] = useState(false);
   const [currentHash, setCurrentHash] = useState("");
   const [supplierWeekAnchorKey, setSupplierWeekAnchorKey] = useState<number>(() =>
     dateToKey(new Date())
@@ -279,6 +284,12 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     return `pricemaster:home-menu-order:${userKey}`;
   }, [currentUser]);
 
+  const homeMenuFavoritesStorageKey = useMemo(() => {
+    if (!currentUser) return null;
+    const userKey = (currentUser.id || currentUser.email || "anonymous").trim();
+    return `pricemaster:home-menu-favorites:${userKey}`;
+  }, [currentUser]);
+
   const [savedMenuOrder, setSavedMenuOrder] = useState<string[]>([]);
 
   // Preference: allow HomeMenu reordering on mobile
@@ -310,6 +321,40 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+
+    const readFavoritesViewPreference = () => {
+      const savedPreference = localStorage.getItem(
+        "pricemaster:home-menu-show-favorites"
+      );
+      setShowFavoritesView(savedPreference === "true");
+    };
+
+    readFavoritesViewPreference();
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "pricemaster:home-menu-show-favorites") {
+        readFavoritesViewPreference();
+      }
+    };
+
+    const handlePrefChange = (e: Event) => {
+      const key = (e as CustomEvent)?.detail?.key;
+      if (key === "pricemaster:home-menu-show-favorites") {
+        readFavoritesViewPreference();
+      }
+    };
+
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("pricemaster:preference-change", handlePrefChange);
+
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("pricemaster:preference-change", handlePrefChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
     if (!homeMenuOrderStorageKey) {
       setSavedMenuOrder([]);
       return;
@@ -331,6 +376,31 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
       setSavedMenuOrder([]);
     }
   }, [homeMenuOrderStorageKey]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!homeMenuFavoritesStorageKey) {
+      setFavoriteMenuIds([]);
+      return;
+    }
+
+    try {
+      const raw = localStorage.getItem(homeMenuFavoritesStorageKey);
+      if (!raw) {
+        setFavoriteMenuIds([]);
+        return;
+      }
+
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        setFavoriteMenuIds(parsed.filter((v) => typeof v === "string"));
+      } else {
+        setFavoriteMenuIds([]);
+      }
+    } catch {
+      setFavoriteMenuIds([]);
+    }
+  }, [homeMenuFavoritesStorageKey]);
 
   const orderedVisibleMenuItemIds = useMemo(() => {
     const currentIds = visibleMenuItems.map((item) => item.id);
@@ -369,6 +439,19 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
       .filter(Boolean) as typeof visibleMenuItems;
   }, [visibleMenuItems, orderedVisibleMenuItemIds]);
 
+  const favoriteVisibleMenuItems = useMemo(() => {
+    if (favoriteMenuIds.length === 0) return [];
+    const byId = new Map(visibleMenuItems.map((item) => [item.id, item] as const));
+    return favoriteMenuIds
+      .map((id) => byId.get(id))
+      .filter(Boolean) as typeof visibleMenuItems;
+  }, [favoriteMenuIds, visibleMenuItems]);
+
+  const displayedMenuItems = showFavoritesView
+    ? favoriteVisibleMenuItems
+    : orderedVisibleMenuItems;
+  const displayedMenuItemIds = displayedMenuItems.map((item) => item.id);
+
   const reorderEnabled = enableHomeMenuSortMobile;
 
   const sensors = useSensors(
@@ -391,6 +474,8 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     resolvedPermissions?.supplierorders || resolvedPermissions?.fondogeneral
   );
   const isSupplierWeekRoute = currentHash === "#SupplierWeek";
+  const shouldShowSupplierWeekCard =
+    hasSupplierWeekPermission && (!showFavoritesView || isSupplierWeekRoute);
   const showOnlySupplierWeek = isSupplierWeekRoute && hasSupplierWeekPermission;
   const showExpandedSupplierWeek =
     hasSupplierWeekPermission && (isSupplierWeekRoute || showSupplierWeekInMenu);
@@ -1263,7 +1348,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 w-full max-w-screen-xl pt-4">
-          {hasSupplierWeekPermission && (
+          {shouldShowSupplierWeekCard && (
             <SupplierWeekSection
               isSupplierWeekRoute={isSupplierWeekRoute}
               showSupplierWeekInMenu={showSupplierWeekInMenu}
@@ -1314,8 +1399,8 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
             />
           )}
 
-          {!showOnlySupplierWeek && orderedVisibleMenuItems.length > 0 && (
-            reorderEnabled ? (
+          {!showOnlySupplierWeek && displayedMenuItems.length > 0 && (
+            reorderEnabled && !showFavoritesView ? (
               <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
@@ -1343,7 +1428,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
                   items={orderedVisibleMenuItemIds}
                   strategy={rectSortingStrategy}
                 >
-                  {orderedVisibleMenuItems.map((item) => (
+                  {displayedMenuItems.map((item) => (
                     <SortableHomeMenuCard
                       key={item.id}
                       id={item.id}
@@ -1366,7 +1451,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
               </DndContext>
             ) : (
               <>
-                {orderedVisibleMenuItems.map((item) => (
+                {displayedMenuItems.map((item) => (
                   <button
                     key={item.id}
                     type="button"
@@ -1386,6 +1471,33 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
               </>
             )
           )}
+
+          {!showOnlySupplierWeek && showFavoritesView && (
+            <button
+              type="button"
+              onClick={() => setShowAddFavoriteModal(true)}
+              className="bg-[var(--card-bg)] dark:bg-[var(--card-bg)] border border-dashed border-[var(--input-border)] rounded-xl shadow-md p-6 flex flex-col items-center justify-center transition hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-[var(--primary)] group touch-manipulation"
+              style={{ minHeight: 160 }}
+            >
+              <Plus className="w-10 h-10 mb-3 text-[var(--primary)] group-hover:scale-110 transition-all" />
+              <span className="text-lg font-semibold mb-1 text-[var(--foreground)] dark:text-[var(--foreground)]">
+                Agregar favorito
+              </span>
+              <span className="text-sm text-[var(--muted-foreground)] text-center">
+                Selecciona accesos rápidos frecuentes
+              </span>
+            </button>
+          )}
+
+          {!showOnlySupplierWeek && showFavoritesView && displayedMenuItemIds.length === 0 && (
+            <div className="col-span-full bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl p-6 text-center">
+              <Star className="w-10 h-10 mx-auto mb-3 text-amber-500" />
+              <p className="text-[var(--foreground)] font-semibold">No tienes favoritos aún</p>
+              <p className="text-sm text-[var(--muted-foreground)] mt-1">
+                Usa la tarjeta "Agregar favorito" para configurarlos.
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -1393,6 +1505,28 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
       {showStickman && (
         <div className="fixed inset-0 pointer-events-none z-50">
           <AnimatedStickman />
+        </div>
+      )}
+
+      {showAddFavoriteModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-[var(--background)] border border-[var(--input-border)] rounded-xl p-6">
+            <h3 className="text-lg font-semibold text-[var(--foreground)] mb-2">
+              Agregar favorito
+            </h3>
+            <p className="text-sm text-[var(--muted-foreground)] mb-6">
+              En mantenimiento.
+            </p>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowAddFavoriteModal(false)}
+                className="px-4 py-2 rounded-md bg-[var(--accent)] text-[var(--accent-foreground)] hover:opacity-90 transition-opacity"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
