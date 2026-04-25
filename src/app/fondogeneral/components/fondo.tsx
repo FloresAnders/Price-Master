@@ -1239,7 +1239,7 @@ export function ProviderSection({ id }: { id?: string }) {
             return matches
               .slice()
               .sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }))
-              [0];
+            [0];
           } catch (err) {
             console.error("[PROVIDER-EGRESO-EMAIL] Error resolving createdBy from schedules:", err);
             return fallback;
@@ -2988,6 +2988,13 @@ export function FondoSection({
     new Set()
   );
   const [pendingCierreDeCaja, setPendingCierreDeCaja] = useState(false);
+  const [negativeBalanceModal, setNegativeBalanceModal] = useState<{
+    open: boolean;
+    amount: number;
+    currency: "CRC" | "USD";
+    resultingNegativeAmount: number;
+  }>({ open: false, amount: 0, currency: "CRC", resultingNegativeAmount: 0 });
+
   const dailyClosingsRequestCountRef = useRef(0);
   const dailyClosingHistoryRequestIdRef = useRef(0);
   const isComponentMountedRef = useRef(true);
@@ -3017,7 +3024,7 @@ export function FondoSection({
         normalizedCompany.trim().toLowerCase()
       );
       return `${companyPart}__${kind}`;
-    },                          
+    },
     []
   );
 
@@ -3028,11 +3035,11 @@ export function FondoSection({
     ): Promise<
       | { ok: true; token: string; docId: string }
       | {
-          ok: false;
-          remainingSec: number;
-          lockedKind?: ClosingGuardKind;
-          lockedBy?: string;
-        }
+        ok: false;
+        remainingSec: number;
+        lockedKind?: ClosingGuardKind;
+        lockedBy?: string;
+      }
     > => {
       const docId = buildClosingGuardDocId(normalizedCompany, kind);
       const lockRef = doc(db, "closingGuards", docId);
@@ -4801,12 +4808,12 @@ export function FondoSection({
         }
         const filtered = bounds
           ? base.filter((record) => {
-              const ts = Date.parse(record?.closingDate ?? "");
-              if (Number.isNaN(ts)) return true;
-              if (ts < bounds.fromTs) return false;
-              if (ts > bounds.toTs) return false;
-              return true;
-            })
+            const ts = Date.parse(record?.closingDate ?? "");
+            if (Number.isNaN(ts)) return true;
+            if (ts < bounds.fromTs) return false;
+            if (ts > bounds.toTs) return false;
+            return true;
+          })
           : base;
         setDailyClosings(filtered);
       } catch (err) {
@@ -4823,12 +4830,12 @@ export function FondoSection({
               const bounds = resolveDailyClosingRangeBounds(resolvedRange);
               const filtered = bounds
                 ? all.filter((record) => {
-                    const ts = Date.parse(record?.closingDate ?? "");
-                    if (Number.isNaN(ts)) return true;
-                    if (ts < bounds.fromTs) return false;
-                    if (ts > bounds.toTs) return false;
-                    return true;
-                  })
+                  const ts = Date.parse(record?.closingDate ?? "");
+                  if (Number.isNaN(ts)) return true;
+                  if (ts < bounds.fromTs) return false;
+                  if (ts > bounds.toTs) return false;
+                  return true;
+                })
                 : all;
               setDailyClosings(filtered);
             } else {
@@ -5794,6 +5801,24 @@ export function FondoSection({
     if (isEgreso && (Number.isNaN(egresoValue) || egresoValue <= 0)) return;
     if (isIngreso && (Number.isNaN(ingresoValue) || ingresoValue <= 0)) return;
 
+    // Validar que no quede con saldo negativo
+    if (isEgreso && !editingEntryId) {
+      const currentBalance = movementCurrency === "USD" ? ledgerSnapshot.currentUSD : ledgerSnapshot.currentCRC;
+      const resultingBalance = currentBalance - egresoValue;
+      console.log(`Validando saldo negativo: currentBalance=${currentBalance}, egresoValue=${egresoValue}, resultingBalance=${resultingBalance}`);
+
+      if (resultingBalance < 0) {
+        setNegativeBalanceModal({
+          open: true,
+          amount: egresoValue,
+          currency: movementCurrency,
+          resultingNegativeAmount: resultingBalance,
+        });
+        setIsSaving(false);
+        return;
+      }
+    }
+
     const paddedInvoice = invoiceNumber.padStart(4, "0");
 
     // Dedupe window only for NEW movements (edits remain allowed)
@@ -6124,34 +6149,34 @@ export function FondoSection({
           closingGuard = { token: acquired.token, docId: acquired.docId };
         }
 
-      const now = new Date();
-      const iso = now.toISOString();
-      // Use local time for the document id to avoid UTC surprises when searching by hour.
-      const yyyy = now.getFullYear();
-      const MM = String(now.getMonth() + 1).padStart(2, "0");
-      const DD = String(now.getDate()).padStart(2, "0");
-      const HH = String(now.getHours()).padStart(2, "0");
-      const mm = String(now.getMinutes()).padStart(2, "0");
-      const ss = String(now.getSeconds()).padStart(2, "0");
-      const mmm = String(now.getMilliseconds()).padStart(3, "0");
-      const dateKey = `${yyyy}_${MM}_${DD}`; // YYYY_MM_DD (local)
-      const timeKey = `${HH}_${mm}_${ss}_${mmm}`; // HH_MM_SS_mmm (local, URL-safe)
-      const movementId = `${dateKey}-${timeKey}_${accountKey}`;
-      const entry: FondoEntry = {
-        id: movementId,
-        providerCode: selectedProvider,
-        invoiceNumber: paddedInvoice,
-        paymentType,
-        amountEgreso: isEgreso ? egresoValue : 0,
-        amountIngreso: isIngreso ? ingresoValue : 0,
-        manager,
-        notes: trimmedNotes,
-        createdAt: iso,
-        currency: movementCurrency,
-      };
+        const now = new Date();
+        const iso = now.toISOString();
+        // Use local time for the document id to avoid UTC surprises when searching by hour.
+        const yyyy = now.getFullYear();
+        const MM = String(now.getMonth() + 1).padStart(2, "0");
+        const DD = String(now.getDate()).padStart(2, "0");
+        const HH = String(now.getHours()).padStart(2, "0");
+        const mm = String(now.getMinutes()).padStart(2, "0");
+        const ss = String(now.getSeconds()).padStart(2, "0");
+        const mmm = String(now.getMilliseconds()).padStart(3, "0");
+        const dateKey = `${yyyy}_${MM}_${DD}`; // YYYY_MM_DD (local)
+        const timeKey = `${HH}_${mm}_${ss}_${mmm}`; // HH_MM_SS_mmm (local, URL-safe)
+        const movementId = `${dateKey}-${timeKey}_${accountKey}`;
+        const entry: FondoEntry = {
+          id: movementId,
+          providerCode: selectedProvider,
+          invoiceNumber: paddedInvoice,
+          paymentType,
+          amountEgreso: isEgreso ? egresoValue : 0,
+          amountIngreso: isIngreso ? ingresoValue : 0,
+          manager,
+          notes: trimmedNotes,
+          createdAt: iso,
+          currency: movementCurrency,
+        };
 
-      // Preparar la lista actualizada ANTES de persistir
-      const updatedEntries = [entry, ...fondoEntries];
+        // Preparar la lista actualizada ANTES de persistir
+        const updatedEntries = [entry, ...fondoEntries];
         const createdOk = await persistCreatedMovement(entry, updatedEntries);
 
         // If an admin/superadmin created a cierre, touch the guard on success so regular users
@@ -7351,7 +7376,7 @@ export function FondoSection({
           }
         }
       }
-      
+
       // Only update local state after successful save
       setDailyClosings((prev) => mergeDailyClosingRecords(prev, [record]));
       loadedDailyClosingKeysRef.current.add(closingDateKey);
@@ -10144,8 +10169,8 @@ export function FondoSection({
                               (() => {
                                 const closingRecord = fe.originalEntryId
                                   ? dailyClosings.find(
-                                      (d) => d.id === fe.originalEntryId
-                                    )
+                                    (d) => d.id === fe.originalEntryId
+                                  )
                                   : null;
 
                                 const hasPersistedClosingBalance =
@@ -10195,15 +10220,15 @@ export function FondoSection({
 
                                 const closingCRC = Math.trunc(
                                   fe.closingBalanceCRC ??
-                                    closingRecord?.totalCRC ??
-                                    closingRecord?.recordedBalanceCRC ??
-                                    0
+                                  closingRecord?.totalCRC ??
+                                  closingRecord?.recordedBalanceCRC ??
+                                  0
                                 );
                                 const closingUSD = Math.trunc(
                                   fe.closingBalanceUSD ??
-                                    closingRecord?.totalUSD ??
-                                    closingRecord?.recordedBalanceUSD ??
-                                    0
+                                  closingRecord?.totalUSD ??
+                                  closingRecord?.recordedBalanceUSD ??
+                                  0
                                 );
 
                                 return (
@@ -10550,6 +10575,52 @@ export function FondoSection({
         actionType="change"
         onConfirm={confirmOpenCreateMovementNow}
         onCancel={cancelOpenCreateMovement}
+      />
+
+      <ConfirmModal
+        open={negativeBalanceModal.open}
+        title="Saldo insuficiente"
+        message={
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Esta acción no puede llevarse a cabo porque el saldo quedaría en negativo.
+            </p>
+
+            <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-4 space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Monto de la salida</span>
+                <span className="font-semibold">
+                  {negativeBalanceModal.currency === "USD" ? "$ " : "₡ "}
+                  {new Intl.NumberFormat(negativeBalanceModal.currency === "USD" ? "en-US" : "es-CR", {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0,
+                  }).format(negativeBalanceModal.amount)}
+                </span>
+              </div>
+
+              <div className="border-t border-destructive/20" />
+
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Saldo resultante</span>
+                <span className="font-semibold text-destructive flex items-center gap-1">
+                  <span>▼</span>
+                  {negativeBalanceModal.currency === "USD" ? "$ " : "₡ "}
+                  {new Intl.NumberFormat(negativeBalanceModal.currency === "USD" ? "en-US" : "es-CR", {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0,
+                  }).format(negativeBalanceModal.resultingNegativeAmount)}
+                </span>
+              </div>
+            </div>
+          </div>
+        }
+        confirmText="De Acuerdo"
+        cancelText=""
+        singleButton={true}
+        singleButtonText="De Acuerdo"
+        actionType="assign"
+        onConfirm={() => setNegativeBalanceModal({ open: false, amount: 0, currency: "CRC", resultingNegativeAmount: 0 })}
+        onCancel={() => setNegativeBalanceModal({ open: false, amount: 0, currency: "CRC", resultingNegativeAmount: 0 })}
       />
 
       <ConfirmModal

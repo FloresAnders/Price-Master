@@ -31,6 +31,20 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   singleButton = false,
   singleButtonText,
 }) => {
+  React.useEffect(() => {
+    if (!open) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onCancel();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [open, onCancel]);
+
   if (!open) return null;
 
   let icon = <CheckCircle2 className="h-5 w-5 text-[var(--foreground)]" />;
@@ -78,7 +92,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
               disabled={loading}
               type="button"
             >
-              {cancelIcon}
+              {confirmIcon}
               {singleButtonText || "Cerrar"}
             </button>
           ) : (
