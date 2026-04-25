@@ -64,6 +64,7 @@ import {
 const MAINTENANCE_TAB_STORAGE_KEY = "pricemaster:maintenance-active-tab";
 const MAINTENANCE_TAB_EVENT = "pricemaster:maintenance-tab-change";
 
+
 const menuItems = [
   {
     id: "scanner",
@@ -244,6 +245,8 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   const [showSupplierWeekInMenu, setShowSupplierWeekInMenu] = useState(false);
   const [enableHomeMenuSortMobile, setEnableHomeMenuSortMobile] = useState(false);
   const [showFavoritesView, setShowFavoritesView] = useState(false);
+  const [favoritesPreferenceHydrated, setFavoritesPreferenceHydrated] =
+    useState(false);
   const [favoriteMenuIds, setFavoriteMenuIds] = useState<string[]>([]);
   const [showAddFavoriteModal, setShowAddFavoriteModal] = useState(false);
   const [favoritesLoading, setFavoritesLoading] = useState(false);
@@ -334,6 +337,35 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     };
   }, []);
 
+  // Guardar preferencia de vista favoritos del HomeMenu
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      if (!favoritesPreferenceHydrated) return;
+
+      localStorage.setItem(
+        "pricemaster:home-menu-show-favorites",
+        showFavoritesView.toString()
+      );
+
+      window.dispatchEvent(
+        new CustomEvent("pricemaster:preference-change", {
+          detail: { key: "pricemaster:home-menu-show-favorites" },
+        })
+      );
+    }
+  }, [showFavoritesView, favoritesPreferenceHydrated]);
+
+  // Cargar preferencia para vista de favoritos en HomeMenu
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedPreference = localStorage.getItem(
+        "pricemaster:home-menu-show-favorites"
+      );
+      setShowFavoritesView(savedPreference === "true");
+      setFavoritesPreferenceHydrated(true);
+    }
+  }, []);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -343,8 +375,6 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
       );
       setShowFavoritesView(savedPreference === "true");
     };
-
-    readFavoritesViewPreference();
 
     const handleStorage = (e: StorageEvent) => {
       if (e.key === "pricemaster:home-menu-show-favorites") {
@@ -1448,12 +1478,30 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
           }}
         />
       </div>
-      <h1 className="text-3xl font-bold mb-8 text-center">
-        {currentUser
-          ? `¡Qué gusto verte, ${currentUser.name ?? currentUser.email ?? "Usuario"
-          } !`
-          : "¡Qué gusto verte!"}
-      </h1>
+      <div className="relative mb-8 w-full max-w-screen-xl px-2 sm:px-4">
+        <h1 className="text-3xl font-bold text-center">
+          {currentUser
+            ? `¡Qué gusto verte, ${currentUser.name ?? currentUser.email ?? "Usuario"
+            } !`
+            : "¡Qué gusto verte!"}
+        </h1>
+        <button
+          type="button"
+          onClick={() => setShowFavoritesView((prev) => !prev)}
+          className={`absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-md transition-colors border border-[var(--input-border)] sm:right-4 ${showFavoritesView
+            ? "bg-[var(--hover-bg)] text-amber-500"
+            : "text-[var(--muted-foreground)] hover:bg-[var(--hover-bg)]"
+            }`}
+          title={showFavoritesView ? "Ver menú normal" : "Ver favoritos"}
+          aria-label={
+            showFavoritesView
+              ? "Cambiar a menú normal"
+              : "Cambiar a favoritos"
+          }
+        >
+          <Star className={`w-5 h-5 ${showFavoritesView ? "fill-current" : ""}`} />
+        </button>
+      </div>
 
       {visibleMenuItems.length === 0 ? (
         <div className="text-center py-12">

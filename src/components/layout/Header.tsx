@@ -117,9 +117,6 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const [showCalculator, setShowCalculator] = useState(false);
   const [showSupplierWeekInMenu, setShowSupplierWeekInMenu] = useState(false);
   const [enableHomeMenuSortMobile, setEnableHomeMenuSortMobile] = useState(false);
-  const [showFavoritesView, setShowFavoritesView] = useState(false);
-  const [favoritesPreferenceHydrated, setFavoritesPreferenceHydrated] =
-    useState(false);
   const [showCalculatorModal, setShowCalculatorModal] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const initializedSolicitudesRef = useRef(false);
@@ -175,16 +172,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     }
   }, []);
 
-  // Cargar preferencia para vista de favoritos en HomeMenu
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const savedPreference = localStorage.getItem(
-        "pricemaster:home-menu-show-favorites"
-      );
-      setShowFavoritesView(savedPreference === "true");
-      setFavoritesPreferenceHydrated(true);
-    }
-  }, []);
+ 
 
   // Guardar preferencia del FloatingSessionTimer cuando cambie
   useEffect(() => {
@@ -234,23 +222,6 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     }
   }, [enableHomeMenuSortMobile]);
 
-  // Guardar preferencia de vista favoritos del HomeMenu
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      if (!favoritesPreferenceHydrated) return;
-
-      localStorage.setItem(
-        "pricemaster:home-menu-show-favorites",
-        showFavoritesView.toString()
-      );
-
-      window.dispatchEvent(
-        new CustomEvent("pricemaster:preference-change", {
-          detail: { key: "pricemaster:home-menu-show-favorites" },
-        })
-      );
-    }
-  }, [showFavoritesView, favoritesPreferenceHydrated]);
 
   // Keep currentHash in sync in case some code manipulates history.hash
   useEffect(() => {
@@ -794,52 +765,11 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
             )}
 
           <div className="flex items-center gap-2" suppressHydrationWarning>
-            {/* Mobile favorites toggle (next to notifications) */}
-            {(user || pathname === "/home") && (
-              <button
-                onClick={() => setShowFavoritesView((prev) => !prev)}
-                className={`md:hidden p-2 rounded-md transition-colors border border-[var(--input-border)] ${showFavoritesView
-                  ? "bg-[var(--hover-bg)] text-amber-500"
-                  : "text-[var(--muted-foreground)] hover:bg-[var(--hover-bg)]"
-                  }`}
-                title={showFavoritesView ? "Ver menú normal" : "Ver favoritos"}
-                aria-label={
-                  showFavoritesView
-                    ? "Cambiar a menú normal"
-                    : "Cambiar a favoritos"
-                }
-              >
-                <Star className={`w-5 h-5 ${showFavoritesView ? "fill-current" : ""}`} />
-              </button>
-            )}
+
 
             {/* User dropdown menu - solo mostrar si hay usuario O si estamos en /home */}
             {(user || pathname === "/home") && (
               <div className="hidden md:flex items-center gap-2">
-                {user && (
-                  <button
-                    onClick={() => setShowFavoritesView((prev) => !prev)}
-                    className={`p-2 rounded-md transition-colors border border-[var(--input-border)] ${showFavoritesView
-                      ? "bg-[var(--hover-bg)] text-amber-500"
-                      : "text-[var(--muted-foreground)] hover:bg-[var(--hover-bg)]"
-                      }`}
-                    title={
-                      showFavoritesView
-                        ? "Ver menú normal"
-                        : "Ver favoritos"
-                    }
-                    aria-label={
-                      showFavoritesView
-                        ? "Cambiar a menú normal"
-                        : "Cambiar a favoritos"
-                    }
-                  >
-                    <Star
-                      className={`w-4 h-4 ${showFavoritesView ? "fill-current" : ""}`}
-                    />
-                  </button>
-                )}
-
                 {/* User button with dropdown - solo si hay usuario autenticado */}
                 {user && (
                   <div className="relative" style={{ zIndex: "auto" }}>
