@@ -178,6 +178,10 @@ const normalizeProviderEntry = (raw: unknown, fallbackCompany: string): Provider
 	const updatedAt = typeof data.updatedAt === 'string' ? data.updatedAt : undefined;
 	const correonotifi = typeof data.correonotifi === 'string' ? data.correonotifi.trim() : undefined;
 	const visit = normalizeVisitConfig(data.visit);
+	const movementCount =
+		typeof data.movementCount === 'number' && Number.isFinite(data.movementCount) && data.movementCount >= 0
+			? data.movementCount
+			: 0;
 
 	return {
 		name,
@@ -188,7 +192,8 @@ const normalizeProviderEntry = (raw: unknown, fallbackCompany: string): Provider
 		createdAt,
 		updatedAt,
 		correonotifi,
-		visit
+		visit,
+		movementCount,
 	};
 };
 
@@ -348,7 +353,8 @@ export class ProvidersService {
 				createdAt: now,
 				updatedAt: now,
 				correonotifi: trimmedCorreo && trimmedCorreo.length > 0 ? trimmedCorreo : undefined,
-				visit: shouldPersistVisit ? sanitizedVisit : undefined
+				visit: shouldPersistVisit ? sanitizedVisit : undefined,
+				movementCount: 0,
 			};
 
 			const updatedDocument: ProvidersDocument = {
@@ -383,6 +389,8 @@ export class ProvidersService {
 							(out.visit as any).startDateKey = p.visit.startDateKey;
 						}
 					}
+					out.movementCount = typeof p.movementCount === 'number' && Number.isFinite(p.movementCount)
+						? p.movementCount : 0;
 					return out;
 				}),
 			};
@@ -446,6 +454,8 @@ export class ProvidersService {
 					if (typeof p.createdAt === 'string' && p.createdAt.length > 0) out.createdAt = p.createdAt;
 					if (typeof p.updatedAt === 'string' && p.updatedAt.length > 0) out.updatedAt = p.updatedAt;
 					if (typeof p.correonotifi === 'string' && p.correonotifi.length > 0) out.correonotifi = p.correonotifi;
+					out.movementCount = typeof p.movementCount === 'number' && Number.isFinite(p.movementCount)
+						? p.movementCount : 0;
 					return out;
 				}),
 			};
@@ -523,7 +533,8 @@ export class ProvidersService {
 				category,
 				updatedAt: new Date().toISOString(),
 				correonotifi: trimmedCorreo && trimmedCorreo.length > 0 ? trimmedCorreo : undefined,
-				visit: shouldPersistVisit ? sanitizedVisit : undefined
+				visit: shouldPersistVisit ? sanitizedVisit : undefined,
+				movementCount: document.providers[targetIndex].movementCount ?? 0,
 			}; const updatedProviders = [...document.providers];
 			updatedProviders[targetIndex] = updatedProvider;
 
@@ -557,6 +568,8 @@ export class ProvidersService {
 							(out.visit as any).startDateKey = p.visit.startDateKey;
 						}
 					}
+					out.movementCount = typeof p.movementCount === 'number' && Number.isFinite(p.movementCount)
+						? p.movementCount : 0;
 					return out;
 				}),
 			};
@@ -569,4 +582,74 @@ export class ProvidersService {
 		return updated;
 	}
 
+static async incrementMovementCount(company: string, providerCode: string): Promise<void> {
+		const trimmedCompany = (company || '').trim();
+		if (!trimmedCompany) return;
+
+		const normalizedCode = padCode(providerCode);
+		if (!normalizedCode) return;
+
+		const docRef = doc(db, this.COLLECTION_NAME, trimmedCompany);
+
+		const updatedProviders = await runTransaction(db, async transaction => {
+			const snapshot = await transaction.get(docRef);
+			if (!snapshot.exists()) return null;
+
+			const document = normalizeProvidersDocument(snapshot.data(), trimmedCompany);
+			const targetIndex = document.providers.findIndex(p => p.code === normalizedCode);
+			if (targetIndex === -1) return null;
+
+			const currentCount = document.providers[targetIndex].movementCount ?? 0;
+			const newProviders = [...document.providers];
+			newProviders[targetIndex] = {
+				...newProviders[targetIndex],
+				movementCount: currentCount + 1,
+			};
+
+			const updatedDocument: ProvidersDocument = {
+				company: document.company,
+				nextCode: document.nextCode,
+				providers: newProviders,
+			};
+
+			transaction.set(docRef, {
+				company: updatedDocument.company,
+				nextCode: updatedDocument.nextCode,
+				providers: updatedDocument.providers.map(p => {
+					const out: Record<string, unknown> = {
+						code: p.code,
+						name: p.name,
+						company: p.company,
+					};
+					if (typeof p.type === 'string' && p.type.length > 0) out.type = p.type;
+					if (typeof p.category === 'string' && p.category.length > 0) out.category = p.category;
+					if (typeof p.createdAt === 'string' && p.createdAt.length > 0) out.createdAt = p.createdAt;
+					if (typeof p.updatedAt === 'string' && p.updatedAt.length > 0) out.updatedAt = p.updatedAt;
+					if (typeof p.correonotifi === 'string' && p.correonotifi.length > 0) out.correonotifi = p.correonotifi;
+					if (p.visit) {
+						out.visit = {
+							createOrderDays: p.visit.createOrderDays,
+							receiveOrderDays: p.visit.receiveOrderDays,
+							frequency: p.visit.frequency,
+						};
+						if (typeof p.visit.startDateKey === 'number' && Number.isFinite(p.visit.startDateKey)) {
+							(out.visit as any).startDateKey = p.visit.startDateKey;
+						}
+					}
+					out.movementCount = typeof p.movementCount === 'number' && Number.isFinite(p.movementCount)
+						? p.movementCount : 0;
+					return out;
+				}),
+			});
+			return newProviders;
+		});
+
+		this.providersCache.delete(trimmedCompany);
+		if (updatedProviders) {
+			this.providersCache.set(trimmedCompany, {
+				expiresAt: Date.now() + this.CACHE_TTL_MS,
+				providers: updatedProviders,
+			});
+		}
+	}
 }

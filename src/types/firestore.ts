@@ -83,6 +83,12 @@ export interface ProviderEntry {
      */
     startDateKey?: number;
   };
+  /**
+   * Contador de movimientos asociados al proveedor.
+   * Se incrementa cada vez que se guarda un nuevo movimiento (no en ediciones).
+   * Se usa para ordenar proveedores de mayor a menor frecuencia en el formulario.
+   */
+  movementCount?: number;
 }
 
 export interface ProductEntry {

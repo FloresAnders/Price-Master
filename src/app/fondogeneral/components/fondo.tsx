@@ -52,6 +52,7 @@ import ConfirmModal from "../../../components/ui/ConfirmModal";
 import DailyClosingHistoryModal from "../../../components/modals/DailyClosingHistoryModal";
 import { EmpresasService } from "../../../services/empresas";
 import { UsersService } from "../../../services/users";
+import { ProvidersService } from "../../../services/providers";
 import { FondoMovementTypesService } from "../../../services/fondo-movement-types";
 import { SchedulesService } from "../../../services/schedules";
 import { generateMovementNotificationEmail } from "../../../services/email-templates/notificacion-movimiento";
@@ -6178,6 +6179,19 @@ export function FondoSection({
         // Preparar la lista actualizada ANTES de persistir
         const updatedEntries = [entry, ...fondoEntries];
         const createdOk = await persistCreatedMovement(entry, updatedEntries);
+
+        if (createdOk) {
+          try {
+            if (normalizedCompany.length > 0) {
+              await ProvidersService.incrementMovementCount(
+                normalizedCompany,
+                selectedProvider
+              );
+            }
+          } catch (err) {
+            console.warn('[FG] Could not increment provider movement count:', err);
+          }
+        }
 
         // If an admin/superadmin created a cierre, touch the guard on success so regular users
         // are blocked for the lock window.

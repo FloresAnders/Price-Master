@@ -18,6 +18,7 @@ type ProviderOption = {
   code: string;
   name: string;
   type?: FondoMovementType;
+  movementCount?: number;
 };
 
 type AgregarMovimientoProps = {
@@ -147,11 +148,18 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
     }
   }, [selectedProvider, providers]);
 
-  const filteredProviders = providers.filter(
-    (p) =>
-      p.name.toLowerCase().includes(filter.toLowerCase()) ||
-      p.code.toLowerCase().includes(filter.toLowerCase())
-  );
+  const filteredProviders = providers
+    .filter(
+      (p) =>
+        p.name.toLowerCase().includes(filter.toLowerCase()) ||
+        p.code.toLowerCase().includes(filter.toLowerCase())
+    )
+    .sort((a, b) => {
+      const countA = a.movementCount ?? 0;
+      const countB = b.movementCount ?? 0;
+      if (countB !== countA) return countB - countA;
+      return a.name.localeCompare(b.name);
+    });
 
   const getProviderCategory = (type?: FondoMovementType) => {
     if (!type) return null;
