@@ -2,6 +2,8 @@
 
 import React from 'react';
 import { X } from 'lucide-react';
+import { db } from '@/config/firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
 import versionData from '@/data/version.json';
 
 type SystemNote = {
@@ -16,38 +18,116 @@ const STORAGE_KEY = 'system_notes_version';
 export default function SystemNotesInitializer() {
   const [note, setNote] = React.useState<SystemNote | null>(null);
   const [isOpen, setIsOpen] = React.useState(false);
+  const unsubscribeRef = React.useRef<(() => void) | null>(null);
+  const lastNotifiedVersionRef = React.useRef<string | null>(null);
 
-  // Cargar la versión almacenada en localStorage y determinar si mostrar las notas
+  // Cargar la versión almacenada en localStorage al montar
   React.useEffect(() => {
     if (typeof window === 'undefined') return;
 
     try {
-      // Obtener la versión almacenada en localStorage
+      const storedVersion = localStorage.getItem(STORAGE_KEY);
+      if (storedVersion) {
+        lastNotifiedVersionRef.current = storedVersion;
+      }
+    } catch (error) {
+      console.warn('Error cargando versión almacenada:', error);
+    }
+  }, []);
+
+  // Escuchar cambios en tiempo real desde Firestore
+  React.useEffect(() => {
+    const versionRef = doc(db, 'version', 'current');
+
+    unsubscribeRef.current = onSnapshot(
+      versionRef,
+      (docSnap) => {
+        if (!docSnap.exists()) {
+          console.warn('No se encontró el documento de versión en Firestore');
+          return;
+        }
+
+        const firestoreData = docSnap.data();
+        const notasDeSistemasDb = String(firestoreData?.notasDeSistemas || '').trim();
+        const systemNotesDb = Array.isArray(firestoreData?.systemNotes)
+          ? firestoreData.systemNotes
+          : [];
+
+        console.log('Sistema de Notas - Versión en Firestore:', notasDeSistemasDb);
+        console.log('Sistema de Notas - Última versión notificada:', lastNotifiedVersionRef.current);
+
+        // Si la versión es diferente a la última notificada, mostrar las notas
+        if (
+          notasDeSistemasDb &&
+          notasDeSistemasDb !== lastNotifiedVersionRef.current
+        ) {
+          // Encontrar la nota correspondiente a la versión actual
+          const currentNote = (systemNotesDb as SystemNote[]).find(
+            (n: SystemNote) => n.version === notasDeSistemasDb
+          );
+
+          if (currentNote) {
+            console.log('Mostrando nota del sistema para versión:', notasDeSistemasDb);
+            setNote(currentNote);
+            setIsOpen(true);
+            lastNotifiedVersionRef.current = notasDeSistemasDb;
+
+            // Actualizar localStorage
+            try {
+              localStorage.setItem(STORAGE_KEY, notasDeSistemasDb);
+            } catch (error) {
+              console.warn('Error guardando versión en localStorage:', error);
+            }
+          }
+        }
+      },
+      (error) => {
+        console.warn('Error escuchando cambios de notas del sistema:', error);
+      }
+    );
+
+    return () => {
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+        unsubscribeRef.current = null;
+      }
+    };
+  }, []);
+
+  // Cargar versión local al montar (fallback si Firestore no está disponible)
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    try {
       const storedVersion = localStorage.getItem(STORAGE_KEY);
       const currentVersion = versionData.notasDeSistemas;
       const systemNotes = versionData.systemNotes as SystemNote[];
 
-      console.log('Sistema de Notas - Versión actual:', currentVersion);
+      console.log('Sistema de Notas - Versión local:', currentVersion);
       console.log('Sistema de Notas - Versión almacenada:', storedVersion);
 
-      // Si la versión actual es diferente a la almacenada, mostrar las notas
-      if (storedVersion !== currentVersion && systemNotes && systemNotes.length > 0) {
-        // Encontrar la nota correspondiente a la versión actual
+      // Solo usar fallback si no tenemos datos de Firestore y es diferente
+      if (
+        storedVersion !== currentVersion &&
+        systemNotes &&
+        systemNotes.length > 0 &&
+        !isOpen
+      ) {
         const currentNote = systemNotes.find(
           (n: SystemNote) => n.version === currentVersion
         );
 
-        if (currentNote) {
+        if (currentNote && !lastNotifiedVersionRef.current) {
           setNote(currentNote);
           setIsOpen(true);
-          // Actualizar la versión almacenada
+          lastNotifiedVersionRef.current = currentVersion;
           localStorage.setItem(STORAGE_KEY, currentVersion);
         }
       }
     } catch (error) {
       console.warn('Error cargando notas del sistema:', error);
     }
-  }, []);
+  }, [isOpen]);
 
   const handleClose = React.useCallback(() => {
     setIsOpen(false);
