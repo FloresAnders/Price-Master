@@ -22,6 +22,7 @@
     "test:users": "start test-users-functionality.html",
     "update": "node scripts/update-version.js",
     "update-versionstorage": "node scripts/update-versionstorage.js",
+    "update-systemNotes": "node scripts/update-systemNotes.js",
     "check": "node scripts/check-version.js"
   },
   "dependencies": {
