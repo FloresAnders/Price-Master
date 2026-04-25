@@ -794,6 +794,25 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
             )}
 
           <div className="flex items-center gap-2" suppressHydrationWarning>
+            {/* Mobile favorites toggle (next to notifications) */}
+            {(user || pathname === "/home") && (
+              <button
+                onClick={() => setShowFavoritesView((prev) => !prev)}
+                className={`md:hidden p-2 rounded-md transition-colors border border-[var(--input-border)] ${showFavoritesView
+                  ? "bg-[var(--hover-bg)] text-amber-500"
+                  : "text-[var(--muted-foreground)] hover:bg-[var(--hover-bg)]"
+                  }`}
+                title={showFavoritesView ? "Ver menú normal" : "Ver favoritos"}
+                aria-label={
+                  showFavoritesView
+                    ? "Cambiar a menú normal"
+                    : "Cambiar a favoritos"
+                }
+              >
+                <Star className={`w-5 h-5 ${showFavoritesView ? "fill-current" : ""}`} />
+              </button>
+            )}
+
             {/* User dropdown menu - solo mostrar si hay usuario O si estamos en /home */}
             {(user || pathname === "/home") && (
               <div className="hidden md:flex items-center gap-2">

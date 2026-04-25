@@ -49,6 +49,20 @@ import {
   weekStartKeyFromDateKey,
 } from "../../utils/dateKey";
 import { SupplierWeekSection } from "../business/SupplierWeekSection";
+import {
+  getAccessibleHomeMenuFavoriteOptions,
+  HomeMenuFavoriteOption,
+  HomeMenuFavoriteGroup,
+  HomeMenuMaintenanceTab,
+} from "./homeMenuFavoritesCatalog";
+import {
+  addHomeMenuFavorite,
+  getHomeMenuFavorites,
+  removeHomeMenuFavorite,
+} from "../../services/homeMenuFavoritesDb";
+
+const MAINTENANCE_TAB_STORAGE_KEY = "pricemaster:maintenance-active-tab";
+const MAINTENANCE_TAB_EVENT = "pricemaster:maintenance-tab-change";
 
 const menuItems = [
   {
@@ -232,6 +246,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   const [showFavoritesView, setShowFavoritesView] = useState(false);
   const [favoriteMenuIds, setFavoriteMenuIds] = useState<string[]>([]);
   const [showAddFavoriteModal, setShowAddFavoriteModal] = useState(false);
+  const [favoritesLoading, setFavoritesLoading] = useState(false);
   const [currentHash, setCurrentHash] = useState("");
   const [supplierWeekAnchorKey, setSupplierWeekAnchorKey] = useState<number>(() =>
     dateToKey(new Date())
@@ -287,7 +302,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   const homeMenuFavoritesStorageKey = useMemo(() => {
     if (!currentUser) return null;
     const userKey = (currentUser.id || currentUser.email || "anonymous").trim();
-    return `pricemaster:home-menu-favorites:${userKey}`;
+    return userKey;
   }, [currentUser]);
 
   const [savedMenuOrder, setSavedMenuOrder] = useState<string[]>([]);
@@ -352,6 +367,69 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
       window.removeEventListener("pricemaster:preference-change", handlePrefChange);
     };
   }, []);
+
+  const accessibleFavoriteOptions = useMemo(
+    () => getAccessibleHomeMenuFavoriteOptions(currentUser),
+    [currentUser]
+  );
+
+  const accessibleFavoriteOptionsById = useMemo(() => {
+    return new Map(accessibleFavoriteOptions.map((item) => [item.id, item] as const));
+  }, [accessibleFavoriteOptions]);
+
+  const favoriteMenuItems = useMemo(() => {
+    return favoriteMenuIds
+      .map((id) => accessibleFavoriteOptionsById.get(id))
+      .filter(Boolean) as HomeMenuFavoriteOption[];
+  }, [favoriteMenuIds, accessibleFavoriteOptionsById]);
+
+  const favoriteGroupOrder: HomeMenuFavoriteGroup[] = [
+    "Herramientas",
+    "Recetas",
+    "Fondo General",
+    "Mantenimiento",
+  ];
+
+  const favoriteOptionsByGroup = useMemo(() => {
+    return favoriteGroupOrder.reduce((acc, group) => {
+      acc[group] = accessibleFavoriteOptions.filter((item) => item.group === group);
+      return acc;
+    }, {} as Record<HomeMenuFavoriteGroup, HomeMenuFavoriteOption[]>);
+  }, [accessibleFavoriteOptions]);
+
+  useEffect(() => {
+    if (!homeMenuFavoritesStorageKey) {
+      setFavoriteMenuIds([]);
+      return;
+    }
+
+    let cancelled = false;
+    setFavoritesLoading(true);
+
+    const loadFavorites = async () => {
+      try {
+        const ids = await getHomeMenuFavorites(homeMenuFavoritesStorageKey);
+        if (!cancelled) {
+          setFavoriteMenuIds(ids);
+        }
+      } catch (error) {
+        console.error("Error loading HomeMenu favorites:", error);
+        if (!cancelled) {
+          setFavoriteMenuIds([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setFavoritesLoading(false);
+        }
+      }
+    };
+
+    void loadFavorites();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [homeMenuFavoritesStorageKey]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -450,8 +528,6 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   const displayedMenuItems = showFavoritesView
     ? favoriteVisibleMenuItems
     : orderedVisibleMenuItems;
-  const displayedMenuItemIds = displayedMenuItems.map((item) => item.id);
-
   const reorderEnabled = enableHomeMenuSortMobile;
 
   const sensors = useSensors(
@@ -1257,6 +1333,56 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     }
   };
 
+  const handleNavigateFavorite = (favorite: HomeMenuFavoriteOption) => {
+    if (typeof window === "undefined") return;
+
+    if (favorite.maintenanceTab) {
+      window.localStorage.setItem(MAINTENANCE_TAB_STORAGE_KEY, favorite.maintenanceTab);
+      window.dispatchEvent(
+        new CustomEvent(MAINTENANCE_TAB_EVENT, {
+          detail: { tab: favorite.maintenanceTab },
+        })
+      );
+      window.location.hash = "#edit";
+      return;
+    }
+
+    window.location.hash = `#${favorite.hash}`;
+  };
+
+  const handleToggleFavorite = async (favorite: HomeMenuFavoriteOption) => {
+    if (!homeMenuFavoritesStorageKey) return;
+
+    const isActive = favoriteMenuIds.includes(favorite.id);
+    const nextIds = isActive
+      ? favoriteMenuIds.filter((id) => id !== favorite.id)
+      : [...favoriteMenuIds, favorite.id];
+
+    setFavoriteMenuIds(nextIds);
+
+    try {
+      if (isActive) {
+        await removeHomeMenuFavorite(homeMenuFavoritesStorageKey, favorite.id);
+      } else {
+        await addHomeMenuFavorite(homeMenuFavoritesStorageKey, favorite.id);
+      }
+
+      window.dispatchEvent(
+        new CustomEvent("pricemaster:home-favorites-change", {
+          detail: { userKey: homeMenuFavoritesStorageKey },
+        })
+      );
+    } catch (error) {
+      console.error("Error updating HomeMenu favorites:", error);
+      try {
+        const ids = await getHomeMenuFavorites(homeMenuFavoritesStorageKey);
+        setFavoriteMenuIds(ids);
+      } catch {
+        // ignore secondary errors
+      }
+    }
+  };
+
   const handleLogoClick = () => {
     const newCount = clickCount + 1;
     setClickCount(newCount);
@@ -1399,8 +1525,8 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
             />
           )}
 
-          {!showOnlySupplierWeek && displayedMenuItems.length > 0 && (
-            reorderEnabled && !showFavoritesView ? (
+          {!showOnlySupplierWeek && !showFavoritesView && displayedMenuItems.length > 0 && (
+            reorderEnabled ? (
               <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
@@ -1473,30 +1599,81 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
           )}
 
           {!showOnlySupplierWeek && showFavoritesView && (
-            <button
-              type="button"
-              onClick={() => setShowAddFavoriteModal(true)}
-              className="bg-[var(--card-bg)] dark:bg-[var(--card-bg)] border border-dashed border-[var(--input-border)] rounded-xl shadow-md p-6 flex flex-col items-center justify-center transition hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-[var(--primary)] group touch-manipulation"
-              style={{ minHeight: 160 }}
-            >
-              <Plus className="w-10 h-10 mb-3 text-[var(--primary)] group-hover:scale-110 transition-all" />
-              <span className="text-lg font-semibold mb-1 text-[var(--foreground)] dark:text-[var(--foreground)]">
-                Agregar favorito
-              </span>
-              <span className="text-sm text-[var(--muted-foreground)] text-center">
-                Selecciona accesos rápidos frecuentes
-              </span>
-            </button>
-          )}
+            <>
+              <div className="col-span-full flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-semibold text-[var(--foreground)]">
+                    Favoritos
+                  </h2>
+                </div>
+              </div>
 
-          {!showOnlySupplierWeek && showFavoritesView && displayedMenuItemIds.length === 0 && (
-            <div className="col-span-full bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl p-6 text-center">
-              <Star className="w-10 h-10 mx-auto mb-3 text-amber-500" />
-              <p className="text-[var(--foreground)] font-semibold">No tienes favoritos aún</p>
-              <p className="text-sm text-[var(--muted-foreground)] mt-1">
-                Usa la tarjeta "Agregar favorito" para configurarlos.
-              </p>
-            </div>
+              {favoritesLoading ? (
+                <div className="col-span-full rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] p-6 text-center text-[var(--muted-foreground)]">
+                  Cargando favoritos...
+                </div>
+              ) : favoriteMenuItems.length > 0 ? (
+                <>
+                  {favoriteMenuItems.map((item) => {
+                    const IconComponent = item.icon;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => handleNavigateFavorite(item)}
+                        className="bg-[var(--card-bg)] dark:bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl shadow-md p-6 flex flex-col items-center transition hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-[var(--primary)] group touch-manipulation relative"
+                        style={{ minHeight: 160 }}
+                      >
+                        <span className="absolute top-3 right-3 inline-flex items-center justify-center w-8 h-8 rounded-full bg-amber-500/15 text-amber-500">
+                          <Star className="w-4 h-4 fill-current" />
+                        </span>
+                        <IconComponent className="w-10 h-10 mb-3 text-[var(--primary)] group-hover:scale-110 group-hover:text-[var(--button-hover)] transition-all" />
+                        <span className="text-lg font-semibold mb-1 text-[var(--foreground)] dark:text-[var(--foreground)]">
+                          {item.label}
+                        </span>
+                        <span className="text-sm text-[var(--muted-foreground)] text-center">
+                          {item.description}
+                        </span>
+                      </button>
+                    );
+                  })}
+
+                  <button
+                    type="button"
+                    onClick={() => setShowAddFavoriteModal(true)}
+                    className="bg-[var(--card-bg)] dark:bg-[var(--card-bg)] border border-dashed border-[var(--input-border)] rounded-xl shadow-md p-6 flex flex-col items-center justify-center transition hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-[var(--primary)] group touch-manipulation"
+                    style={{ minHeight: 160 }}
+                  >
+                    <Plus className="w-10 h-10 mb-3 text-[var(--primary)] group-hover:scale-110 transition-all" />
+                    <span className="text-lg font-semibold mb-1 text-[var(--foreground)] dark:text-[var(--foreground)]">
+                      Agregar favorito
+                    </span>
+                    <span className="text-sm text-[var(--muted-foreground)] text-center">
+                      Selecciona accesos rápidos frecuentes
+                    </span>
+                  </button>
+                </>
+              ) : (
+                <div className="col-span-full bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl p-6 text-center space-y-3">
+                  <Star className="w-10 h-10 mx-auto text-amber-500" />
+                  <div>
+                    <p className="text-[var(--foreground)] font-semibold">
+                      No tienes favoritos aún
+                    </p>
+                    <p className="text-sm text-[var(--muted-foreground)] mt-1">
+                      Usa la tarjeta "Agregar favorito" para configurarlos.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddFavoriteModal(true)}
+                    className="px-4 py-2 rounded-md bg-[var(--accent)] text-[var(--accent-foreground)] hover:opacity-90 transition-opacity"
+                  >
+                    Agregar favorito
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
@@ -1510,21 +1687,94 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
 
       {showAddFavoriteModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-[var(--background)] border border-[var(--input-border)] rounded-xl p-6">
-            <h3 className="text-lg font-semibold text-[var(--foreground)] mb-2">
-              Agregar favorito
-            </h3>
-            <p className="text-sm text-[var(--muted-foreground)] mb-6">
-              En mantenimiento.
-            </p>
-            <div className="flex justify-end">
+          <div className="w-full max-w-5xl max-h-[90vh] overflow-hidden bg-[var(--background)] border border-[var(--input-border)] rounded-xl shadow-2xl flex flex-col">
+            <div className="flex items-center justify-between gap-3 border-b border-[var(--input-border)] px-6 py-4">
+              <div>
+                <h3 className="text-lg font-semibold text-[var(--foreground)]">
+                  Agregar favorito
+                </h3>
+                <p className="text-sm text-[var(--muted-foreground)]">
+                  Selecciona una tarjeta para agregarla o quitarla de tus favoritos.
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={() => setShowAddFavoriteModal(false)}
-                className="px-4 py-2 rounded-md bg-[var(--accent)] text-[var(--accent-foreground)] hover:opacity-90 transition-opacity"
+                className="px-3 py-2 rounded-md hover:bg-[var(--hover-bg)] text-[var(--foreground)] transition-colors"
               >
                 Cerrar
               </button>
+            </div>
+
+            <div className="overflow-y-auto p-6 space-y-8">
+              <div className="rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] p-4">
+                <p className="text-sm text-[var(--muted-foreground)]">
+                  Favoritos activos: {favoriteMenuIds.length}
+                </p>
+              </div>
+
+              {favoriteGroupOrder.map((group) => {
+                const items = favoriteOptionsByGroup[group];
+                if (!items || items.length === 0) return null;
+
+                return (
+                  <section key={group} className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-base font-semibold text-[var(--foreground)]">
+                        {group}
+                      </h4>
+                      <span className="text-xs text-[var(--muted-foreground)]">
+                        {items.length} opción{items.length === 1 ? "" : "es"}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                      {items.map((item) => {
+                        const IconComponent = item.icon;
+                        const isActive = favoriteMenuIds.includes(item.id);
+
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => void handleToggleFavorite(item)}
+                            className={`text-left rounded-xl border p-4 transition-all hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] ${isActive
+                              ? "border-amber-400 bg-amber-500/10"
+                              : "border-[var(--input-border)] bg-[var(--card-bg)]"
+                              }`}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${isActive ? "bg-amber-500/20 text-amber-500" : "bg-[var(--hover-bg)] text-[var(--primary)]"}`}>
+                                <IconComponent className="w-5 h-5" />
+                              </div>
+
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-2">
+                                  <h5 className="font-semibold text-[var(--foreground)] truncate">
+                                    {item.label}
+                                  </h5>
+                                  <span className={`text-xs font-medium ${isActive ? "text-amber-500" : "text-[var(--muted-foreground)]"}`}>
+                                    {isActive ? "Agregado" : "Disponible"}
+                                  </span>
+                                </div>
+                                <p className="text-sm text-[var(--muted-foreground)] mt-1">
+                                  {item.description}
+                                </p>
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                );
+              })}
+
+              {favoriteGroupOrder.every((group) => !favoriteOptionsByGroup[group] || favoriteOptionsByGroup[group].length === 0) && (
+                <div className="rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] p-6 text-center text-[var(--muted-foreground)]">
+                  No hay opciones disponibles para tu rol.
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -26,8 +26,18 @@ import FuncionesEditorSection from './components/FuncionesEditorSection';
 
 type DataFile = 'sorteos' | 'users' | 'schedules' | 'ccss' | 'empresas' | 'fondoTypes'| 'funciones';
 
+const MAINTENANCE_TAB_STORAGE_KEY = 'pricemaster:maintenance-active-tab';
+const MAINTENANCE_TAB_EVENT = 'pricemaster:maintenance-tab-change';
+
+const getStoredMaintenanceTab = (): DataFile => {
+    if (typeof window === 'undefined') return 'users';
+    const saved = window.localStorage.getItem(MAINTENANCE_TAB_STORAGE_KEY);
+    const validTabs: DataFile[] = ['users', 'sorteos', 'schedules', 'ccss', 'empresas', 'fondoTypes', 'funciones'];
+    return validTabs.includes(saved as DataFile) ? (saved as DataFile) : 'users';
+};
+
 export default function DataEditor() {
-    const [activeFile, setActiveFile] = useState<DataFile>('empresas');
+    const [activeFile, setActiveFile] = useState<DataFile>(getStoredMaintenanceTab);
     const { user: currentUser } = useAuth();
     const [sorteosData, setSorteosData] = useState<Sorteo[]>([]);
     const [usersData, setUsersData] = useState<User[]>([]);
@@ -78,7 +88,7 @@ export default function DataEditor() {
         loading: false,
         singleButton: false,
         singleButtonText: undefined
-    });    // Detectar cambios
+    });
 
     // Helpers para modal de confirmación
     const openConfirmModal = (title: string, message: string, onConfirm: () => void, opts?: { singleButton?: boolean; singleButtonText?: string }) => {
@@ -103,15 +113,41 @@ export default function DataEditor() {
             }
         }
     };
-    useEffect(() => {
-        const sorteosChanged = JSON.stringify(sorteosData) !== JSON.stringify(originalSorteosData);
-        const usersChanged = JSON.stringify(usersData) !== JSON.stringify(originalUsersData);
-        const ccssChanged = JSON.stringify(ccssConfigsData) !== JSON.stringify(originalCcssConfigsData);
-        const empresasChanged = JSON.stringify(empresasData) !== JSON.stringify(originalEmpresasData);
-        const fondoTypesChanged = JSON.stringify(fondoTypesData) !== JSON.stringify(originalFondoTypesData);
-        setHasChanges(sorteosChanged || usersChanged || ccssChanged || empresasChanged || fondoTypesChanged);
-    }, [sorteosData, usersData, ccssConfigsData, empresasData, fondoTypesData, originalSorteosData, originalUsersData, originalCcssConfigsData, originalEmpresasData, originalFondoTypesData]);
 
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const syncMaintenanceTab = () => {
+            const stored = getStoredMaintenanceTab();
+            setActiveFile(stored);
+        };
+
+        const handleStorage = (event: StorageEvent) => {
+            if (event.key === MAINTENANCE_TAB_STORAGE_KEY) {
+                syncMaintenanceTab();
+            }
+        };
+
+        const handleCustomEvent = () => {
+            syncMaintenanceTab();
+        };
+
+        window.addEventListener('storage', handleStorage);
+        window.addEventListener(MAINTENANCE_TAB_EVENT, handleCustomEvent);
+        syncMaintenanceTab();
+
+        return () => {
+            window.removeEventListener('storage', handleStorage);
+            window.removeEventListener(MAINTENANCE_TAB_EVENT, handleCustomEvent);
+        };
+    }, []);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        window.localStorage.setItem(MAINTENANCE_TAB_STORAGE_KEY, activeFile);
+    }, [activeFile]);
+
+    // Detectar cambios
     const loadData = useCallback(async () => {
         try {
             // Cargar sorteos desde Firebase
@@ -1315,96 +1351,54 @@ export default function DataEditor() {
 
 
             {/* File Tabs */}
-            <div className="mb-4 sm:mb-6">
-                <div className="border-b border-[var(--input-border)] overflow-x-auto scrollbar-hide">
-                    <nav className="flex gap-1 sm:gap-2 -mb-px min-w-max">
-                        <button
-                            onClick={() => setActiveFile('users')}
-                            className={`py-1.5 sm:py-2 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-1 sm:gap-2 whitespace-nowrap transition-colors ${activeFile === 'users'
-                                ? 'border-blue-500 text-blue-600'
-                                : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-[var(--border)]'
-                                }`}
-                        >
-                            <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                            <span>Usuarios ({usersData.length})</span>
-                        </button>
-                        <button
-                            onClick={() => setActiveFile('sorteos')}
-                            className={`py-1.5 sm:py-2 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-1 sm:gap-2 whitespace-nowrap transition-colors ${activeFile === 'sorteos'
-                                ? 'border-blue-500 text-blue-600'
-                                : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-[var(--border)]'
-                                }`}
-                        >
-                            <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                            <span>Sorteos ({sorteosData.length})</span>
-                        </button>
-                        <button
-                            onClick={() => setActiveFile('schedules')}
-                            className={`py-1.5 sm:py-2 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-1 sm:gap-2 whitespace-nowrap transition-colors ${activeFile === 'schedules'
-                                ? 'border-blue-500 text-blue-600'
-                                : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-[var(--border)]'
-                                }`}
-                        >
-                            <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                            <span>Planilla</span>
-                        </button>
-                        <button
-                            onClick={() => setActiveFile('ccss')}
-                            className={`py-1.5 sm:py-2 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-1 sm:gap-2 whitespace-nowrap transition-colors ${activeFile === 'ccss'
-                                ? 'border-blue-500 text-blue-600'
-                                : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-[var(--border)]'
-                                }`}
-                        >
-                            <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                            <span>CCSS ({ccssConfigsData.length})</span>
-                        </button>
-                        <button
-                            onClick={() => setActiveFile('empresas')}
-                            className={`py-1.5 sm:py-2 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-1 sm:gap-2 whitespace-nowrap transition-colors ${activeFile === 'empresas'
-                                ? 'border-blue-500 text-blue-600'
-                                : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-[var(--border)]'
-                                }`}
-                        >
-                            <Building className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                            <span>Empresas ({empresasData.length})</span>
-                        </button>
-                        {currentUser?.role !== 'user' && (
-                            <button
-                                onClick={() => setActiveFile('fondoTypes')}
-                                className={`py-1.5 sm:py-2 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-1 sm:gap-2 whitespace-nowrap transition-colors ${activeFile === 'fondoTypes'
-                                    ? 'border-blue-500 text-blue-600'
-                                    : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-[var(--border)]'
-                                    }`}
-                            >
-                                <List className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                                <span>Tipos Fondo ({fondoTypesData.length})</span>
-                            </button>
-
-                        )}
-                        {currentUser?.role !== 'user' && (
-                            <button
-                                onClick={() => setActiveFile('funciones')}
-                                className={`py-1.5 sm:py-2 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-1 sm:gap-2 whitespace-nowrap transition-colors ${activeFile === 'funciones'
-                                    ? 'border-blue-500 text-blue-600'
-                                    : 'border-transparent text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:border-[var(--border)]'
-                                    }`}
-                            >
-                                <List className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                                <span>Funciones</span>
-                            </button>
-                            
-                        )}
-                        <button
-                            onClick={openExportModal}
-                            className="py-1.5 sm:py-2 px-2 sm:px-3 rounded-md bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1 sm:gap-2 transition-colors text-xs sm:text-sm whitespace-nowrap ml-auto"
-                        >
-                            <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                            <span>Exportar</span>
-                        </button>
-                    </nav>
-
+            <div className="mb-4 sm:mb-6 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+                    <div>
+                        <h3 className="text-lg sm:text-xl font-semibold text-[var(--foreground)]">Mantenimiento</h3>
+                        <p className="text-sm text-[var(--muted-foreground)]">Elige una sección para administrar los datos del sistema.</p>
+                    </div>
+                    <button
+                        onClick={openExportModal}
+                        className="py-2 px-3 rounded-md bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 transition-colors text-sm whitespace-nowrap self-start sm:self-auto"
+                    >
+                        <Download className="w-4 h-4" />
+                        <span>Exportar</span>
+                    </button>
                 </div>
 
+                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-7 gap-2">
+                    {[
+                        { key: 'users' as DataFile, label: 'Usuarios', count: usersData.length, icon: Users },
+                        { key: 'sorteos' as DataFile, label: 'Sorteos', count: sorteosData.length, icon: FileText },
+                        { key: 'schedules' as DataFile, label: 'Planilla', icon: Clock },
+                        { key: 'ccss' as DataFile, label: 'CCSS', count: ccssConfigsData.length, icon: DollarSign },
+                        { key: 'empresas' as DataFile, label: 'Empresas', count: empresasData.length, icon: Building },
+                        { key: 'fondoTypes' as DataFile, label: 'Tipos Fondo', count: fondoTypesData.length, icon: List, requiresAdmin: true },
+                        { key: 'funciones' as DataFile, label: 'Funciones', icon: List, requiresAdmin: true },
+                    ].filter((tab) => !tab.requiresAdmin || currentUser?.role !== 'user').map((tab) => {
+                        const Icon = tab.icon;
+                        const isActive = activeFile === tab.key;
+                        const label = tab.count !== undefined ? `${tab.label} (${tab.count})` : tab.label;
+
+                        return (
+                            <button
+                                key={tab.key}
+                                onClick={() => setActiveFile(tab.key)}
+                                className={`min-h-16 rounded-xl border px-3 py-2 text-left transition-all flex items-center gap-3 ${isActive
+                                    ? 'border-blue-500 bg-blue-500/10 text-blue-600 shadow-sm'
+                                    : 'border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] hover:border-blue-300 hover:bg-[var(--hover-bg)]'
+                                    }`}
+                            >
+                                <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${isActive ? 'bg-blue-500 text-white' : 'bg-[var(--hover-bg)] text-[var(--muted-foreground)]'}`}>
+                                    <Icon className="w-4 h-4" />
+                                </div>
+                                <div className="min-w-0">
+                                    <div className="text-sm font-semibold truncate">{label}</div>
+                                </div>
+                            </button>
+                        );
+                    })}
+                </div>
             </div>
 
             {/* Content */}
