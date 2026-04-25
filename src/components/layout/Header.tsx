@@ -595,7 +595,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
         >
           {/* Logo and title */}
           <a
-            href="#"
+            href="/#"
             className="flex items-center gap-3 text-xl font-bold tracking-tight text-[var(--foreground)] hover:text-[var(--tab-text-active)] transition-colors cursor-pointer bg-transparent border-none p-0"
           >
             <Image
