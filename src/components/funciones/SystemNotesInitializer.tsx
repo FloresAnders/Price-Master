@@ -7,7 +7,6 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import versionData from '@/data/version.json';
 
 type SystemNote = {
-  version: string;
   date: string;
   title: string;
   description: string;
@@ -17,9 +16,20 @@ const STORAGE_KEY = 'system_notes_version';
 
 export default function SystemNotesInitializer() {
   const [note, setNote] = React.useState<SystemNote | null>(null);
+  const [activeVersion, setActiveVersion] = React.useState<string>('');
   const [isOpen, setIsOpen] = React.useState(false);
   const unsubscribeRef = React.useRef<(() => void) | null>(null);
   const lastNotifiedVersionRef = React.useRef<string | null>(null);
+
+  const persistSeenVersion = React.useCallback((version: string) => {
+    if (!version) return;
+    lastNotifiedVersionRef.current = version;
+    try {
+      localStorage.setItem(STORAGE_KEY, version);
+    } catch (error) {
+      console.warn('Error guardando versión en localStorage:', error);
+    }
+  }, []);
 
   // Cargar la versión almacenada en localStorage al montar
   React.useEffect(() => {
@@ -56,28 +66,33 @@ export default function SystemNotesInitializer() {
         console.log('Sistema de Notas - Versión en Firestore:', notasDeSistemasDb);
         console.log('Sistema de Notas - Última versión notificada:', lastNotifiedVersionRef.current);
 
-        // Si la versión es diferente a la última notificada, mostrar las notas
-        if (
-          notasDeSistemasDb &&
-          notasDeSistemasDb !== lastNotifiedVersionRef.current
-        ) {
-          // Encontrar la nota correspondiente a la versión actual
-          const currentNote = (systemNotesDb as SystemNote[]).find(
-            (n: SystemNote) => n.version === notasDeSistemasDb
-          );
+        const previousVersion = lastNotifiedVersionRef.current;
+
+        // Si la versión cambió, mostrar notificación inmediatamente
+        if (notasDeSistemasDb && notasDeSistemasDb !== previousVersion) {
+          const currentNote = (systemNotesDb as SystemNote[])[0] ?? null;
 
           if (currentNote) {
             console.log('Mostrando nota del sistema para versión:', notasDeSistemasDb);
             setNote(currentNote);
+            setActiveVersion(notasDeSistemasDb);
             setIsOpen(true);
-            lastNotifiedVersionRef.current = notasDeSistemasDb;
+          } else {
+            setNote({
+              date: new Date().toISOString().slice(0, 10),
+              title: 'Actualización de Notas del Sistema',
+              description: `Se detectó una actualización de notas (v${notasDeSistemasDb}). No se encontró detalle para esta versión en systemNotes.`,
+            });
+            setActiveVersion(notasDeSistemasDb);
+            setIsOpen(true);
+          }
 
-            // Actualizar localStorage
-            try {
-              localStorage.setItem(STORAGE_KEY, notasDeSistemasDb);
-            } catch (error) {
-              console.warn('Error guardando versión en localStorage:', error);
-            }
+          persistSeenVersion(notasDeSistemasDb);
+        } else if (notasDeSistemasDb) {
+          // Mantener sincronizada la versión en localStorage aunque no haya cambio de modal
+          const persistedVersion = localStorage.getItem(STORAGE_KEY);
+          if (persistedVersion !== notasDeSistemasDb) {
+            persistSeenVersion(notasDeSistemasDb);
           }
         }
       },
@@ -92,7 +107,7 @@ export default function SystemNotesInitializer() {
         unsubscribeRef.current = null;
       }
     };
-  }, []);
+  }, [persistSeenVersion]);
 
   // Cargar versión local al montar (fallback si Firestore no está disponible)
   React.useEffect(() => {
@@ -107,31 +122,35 @@ export default function SystemNotesInitializer() {
       console.log('Sistema de Notas - Versión almacenada:', storedVersion);
 
       // Solo usar fallback si no tenemos datos de Firestore y es diferente
-      if (
-        storedVersion !== currentVersion &&
-        systemNotes &&
-        systemNotes.length > 0 &&
-        !isOpen
-      ) {
-        const currentNote = systemNotes.find(
-          (n: SystemNote) => n.version === currentVersion
-        );
+      if (storedVersion !== currentVersion && !isOpen) {
+        const currentNote = systemNotes[0] ?? null;
 
-        if (currentNote && !lastNotifiedVersionRef.current) {
-          setNote(currentNote);
+        if (!lastNotifiedVersionRef.current) {
+          if (currentNote) {
+            setNote(currentNote);
+            setActiveVersion(currentVersion);
+          } else {
+            setNote({
+              date: new Date().toISOString().slice(0, 10),
+              title: 'Actualización de Notas del Sistema',
+              description: `Se detectó una actualización de notas (v${currentVersion}). No se encontró detalle para esta versión en systemNotes.`,
+            });
+            setActiveVersion(currentVersion);
+          }
+
           setIsOpen(true);
-          lastNotifiedVersionRef.current = currentVersion;
-          localStorage.setItem(STORAGE_KEY, currentVersion);
+          persistSeenVersion(currentVersion);
         }
       }
     } catch (error) {
       console.warn('Error cargando notas del sistema:', error);
     }
-  }, [isOpen]);
+  }, [isOpen, persistSeenVersion]);
 
   const handleClose = React.useCallback(() => {
     setIsOpen(false);
     setNote(null);
+    setActiveVersion('');
   }, []);
 
   if (!isOpen || !note) return null;
@@ -154,7 +173,7 @@ export default function SystemNotesInitializer() {
         <div className="space-y-4">
           {/* Etiqueta de versión */}
           <div className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-widest">
-            Notas del Sistema — v{note.version}
+            Notas del Sistema — v{activeVersion}
           </div>
 
           {/* Título */}
