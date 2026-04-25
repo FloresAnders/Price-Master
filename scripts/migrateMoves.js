@@ -9,12 +9,12 @@ const MOVEMENT_TYPES_COLLECTION = "fondoMovementTypes";
 function parseArgs(argv) {
   const args = {
     apply: false,
-    database: "", // "" => default DB
+    database: "restauracion", // "" => default DB
     ledgerCollection: "MovimientosFondos",
     reportsCollection: REPORTS_COLLECTION,
     detailCollection: REPORTS_DETAIL_COLLECTION,
-    pageSizeLedgers: 200,
-    pageSizeMovements: 400,
+    pageSizeLedgers: 2000,
+    pageSizeMovements: 4000,
     serviceAccount: "../serviceAccountKey.json",
   };
 

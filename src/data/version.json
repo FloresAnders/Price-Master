@@ -1,7 +1,7 @@
 {
     "version": "1.4.29",
     "versionstorage": "1.1.12",
-    "notasDeSistemas": "1.1.6",
+    "notasDeSistemas": "1.1.9",
     "releaseNotes": [
         {
             "date": "2026-04-17",
@@ -27,8 +27,8 @@
     "systemNotes": [
         {
             "date": "2026-04-24",
-            "title": "Bienvenida a Notas de Sistema",
-            "description": "Se ha agregado un nuevo sistema de notificaciones para mantenerlo informado sobre actualizaciones importantes del sistema."
+            "title": "CERRAR SESION Y VOLVER A INICIAR SESION PARA VER LOS CAMBIOS, y verificar que los saldos del fondo genral estén correctos.",
+            "description": "CERRAR SESION Y VOLVER A INICIAR SESION PARA VER LOS CAMBIOS"
         }
     ],
     "_comment": "hacer una pagina de 'en mantenimiento' para secciones en desarrollo y a exepcion de un usuario admin"
