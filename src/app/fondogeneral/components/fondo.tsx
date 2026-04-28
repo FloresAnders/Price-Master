@@ -5974,7 +5974,7 @@ export function FondoSection({
     if (isIngreso && (Number.isNaN(ingresoValue) || ingresoValue <= 0)) return;
 
     // Validar que no quede con saldo negativo
-    /*if (isEgreso && !editingEntryId) {
+    if (isEgreso && !editingEntryId && isRegularUser) {
       const currentBalance = movementCurrency === "USD" ? ledgerSnapshot.currentUSD : ledgerSnapshot.currentCRC;
       const resultingBalance = currentBalance - egresoValue;
       console.log(`Validando saldo negativo: currentBalance=${currentBalance}, egresoValue=${egresoValue}, resultingBalance=${resultingBalance}`);
@@ -5989,7 +5989,7 @@ export function FondoSection({
         setIsSaving(false);
         return;
       }
-    */
+    }
 
     const paddedInvoice = invoiceNumber.padStart(4, "0");
 
