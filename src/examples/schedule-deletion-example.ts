@@ -1,34 +1,33 @@
 /**
  * Ejemplo de uso de la función de eliminación de documentos
- * 
+ *
  * Implementación basada en el requerimiento:
  * - Cuando una celda se actualiza a "", el documento se elimina de la DB
  * - Se obtiene el ID del documento existente para saber qué eliminar
  */
 
-import { SchedulesService } from '../services/schedules';
+import { SchedulesService } from "../services/schedules";
 
 // Ejemplo de la función implementada:
 async function eliminarDocumentoPorHorario() {
   try {
     // Ejemplo: Eliminar turno de Juan Pérez del día 15 de junio 2025
     await SchedulesService.updateScheduleShift(
-      'LOCATION_1',     // locationValue
-      'Juan Pérez',     // employeeName  
-      2025,             // year
-      5,                // month (Junio = 5, base 0)
-      15,               // day
-      ''                // shift vacío = ELIMINAR DOCUMENTO
+      "LOCATION_1", // locationValue
+      "Juan Pérez", // employeeName
+      2025, // year
+      5, // month (Junio = 5, base 0)
+      15, // day
+      "", // shift vacío = ELIMINAR DOCUMENTO
     );
-
   } catch (error) {
-    console.error('Error al eliminar documento:', error);
+    console.error("Error al eliminar documento:", error);
   }
 }
 
 /**
  * Flujo interno de la función updateScheduleShift cuando shift = "":
- * 
+ *
  * 1. Busca documento existente con findScheduleEntry()
  * 2. Si existe documento y shift === "":
  *    - Llama a deleteSchedule(document.id)
@@ -45,11 +44,11 @@ async function verificarDocumentosExistentes() {
     const schedules = await SchedulesService.getAllSchedules();
     //('Documentos en la colección schedules:', schedules.length);
 
-    schedules.forEach(schedule => {
+    schedules.forEach((schedule) => {
       //(`ID: ${schedule.id}, Empleado: ${schedule.employeeName}, Día: ${schedule.day}, Turno: ${schedule.shift}`);
     });
   } catch (error) {
-    console.error('Error al consultar documentos:', error);
+    console.error("Error al consultar documentos:", error);
   }
 }
 
@@ -59,12 +58,12 @@ async function eliminarDocumentoPorID(documentId: string) {
     await SchedulesService.deleteSchedule(documentId);
     //('Documento eliminado exitosamente');
   } catch (error) {
-    console.error('Error al eliminar documento:', error);
+    console.error("Error al eliminar documento:", error);
   }
 }
 
 export {
   eliminarDocumentoPorHorario,
   verificarDocumentosExistentes,
-  eliminarDocumentoPorID
+  eliminarDocumentoPorID,
 };

@@ -5,14 +5,14 @@ export type XmlFileRecord = {
   createdAt: number;
 };
 
-const DB_NAME = 'xml-egresos-db';
+const DB_NAME = "xml-egresos-db";
 const DB_VERSION = 1;
-const STORE_NAME = 'xmlFiles';
+const STORE_NAME = "xmlFiles";
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
 function hasIndexedDb(): boolean {
-  return typeof indexedDB !== 'undefined';
+  return typeof indexedDB !== "undefined";
 }
 
 function openOnce(): Promise<IDBDatabase> {
@@ -22,13 +22,15 @@ function openOnce(): Promise<IDBDatabase> {
     request.onupgradeneeded = () => {
       const db = request.result;
       if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME, { keyPath: 'fileName' });
+        db.createObjectStore(STORE_NAME, { keyPath: "fileName" });
       }
     };
 
     request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error('No se pudo abrir IndexedDB'));
-    request.onblocked = () => reject(new Error('IndexedDB bloqueada por otra pestaña/instancia'));
+    request.onerror = () =>
+      reject(request.error ?? new Error("No se pudo abrir IndexedDB"));
+    request.onblocked = () =>
+      reject(new Error("IndexedDB bloqueada por otra pestaña/instancia"));
   });
 }
 
@@ -38,14 +40,16 @@ async function deleteDatabase(): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const request = indexedDB.deleteDatabase(DB_NAME);
     request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error ?? new Error('No se pudo borrar la base IndexedDB'));
-    request.onblocked = () => reject(new Error('No se pudo borrar la base IndexedDB (blocked)'));
+    request.onerror = () =>
+      reject(request.error ?? new Error("No se pudo borrar la base IndexedDB"));
+    request.onblocked = () =>
+      reject(new Error("No se pudo borrar la base IndexedDB (blocked)"));
   });
 }
 
 export async function openXmlEgresosDb(): Promise<IDBDatabase> {
   if (!hasIndexedDb()) {
-    throw new Error('IndexedDB no está disponible en este entorno.');
+    throw new Error("IndexedDB no está disponible en este entorno.");
   }
 
   if (!dbPromise) {
@@ -71,50 +75,64 @@ export async function openXmlEgresosDb(): Promise<IDBDatabase> {
 function requestToPromise<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
     request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error('Error en operación IndexedDB'));
+    request.onerror = () =>
+      reject(request.error ?? new Error("Error en operación IndexedDB"));
   });
 }
 
 function txDone(tx: IDBTransaction): Promise<void> {
   return new Promise((resolve, reject) => {
     tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error ?? new Error('Transacción IndexedDB fallida'));
-    tx.onabort = () => reject(tx.error ?? new Error('Transacción IndexedDB abortada'));
+    tx.onerror = () =>
+      reject(tx.error ?? new Error("Transacción IndexedDB fallida"));
+    tx.onabort = () =>
+      reject(tx.error ?? new Error("Transacción IndexedDB abortada"));
   });
 }
 
 export async function getAllXmlFiles(): Promise<XmlFileRecord[]> {
   const db = await openXmlEgresosDb();
-  const tx = db.transaction(STORE_NAME, 'readonly');
+  const tx = db.transaction(STORE_NAME, "readonly");
   const store = tx.objectStore(STORE_NAME);
-  const records = await requestToPromise(store.getAll() as IDBRequest<XmlFileRecord[]>);
+  const records = await requestToPromise(
+    store.getAll() as IDBRequest<XmlFileRecord[]>,
+  );
   await txDone(tx);
   return records || [];
 }
 
-export async function getXmlFile(fileName: string): Promise<XmlFileRecord | undefined> {
+export async function getXmlFile(
+  fileName: string,
+): Promise<XmlFileRecord | undefined> {
   const db = await openXmlEgresosDb();
-  const tx = db.transaction(STORE_NAME, 'readonly');
+  const tx = db.transaction(STORE_NAME, "readonly");
   const store = tx.objectStore(STORE_NAME);
-  const record = await requestToPromise(store.get(fileName) as IDBRequest<XmlFileRecord | undefined>);
+  const record = await requestToPromise(
+    store.get(fileName) as IDBRequest<XmlFileRecord | undefined>,
+  );
   await txDone(tx);
   return record;
 }
 
 export async function putXmlFile(record: XmlFileRecord): Promise<void> {
   const db = await openXmlEgresosDb();
-  const tx = db.transaction(STORE_NAME, 'readwrite');
+  const tx = db.transaction(STORE_NAME, "readwrite");
   const store = tx.objectStore(STORE_NAME);
   store.put(record);
   await txDone(tx);
 }
 
-export async function updateXmlTipoEgreso(fileName: string, tipoEgreso: string | null): Promise<void> {
+export async function updateXmlTipoEgreso(
+  fileName: string,
+  tipoEgreso: string | null,
+): Promise<void> {
   const db = await openXmlEgresosDb();
-  const tx = db.transaction(STORE_NAME, 'readwrite');
+  const tx = db.transaction(STORE_NAME, "readwrite");
   const store = tx.objectStore(STORE_NAME);
 
-  const existing = await requestToPromise(store.get(fileName) as IDBRequest<XmlFileRecord | undefined>);
+  const existing = await requestToPromise(
+    store.get(fileName) as IDBRequest<XmlFileRecord | undefined>,
+  );
   if (!existing) {
     await txDone(tx);
     return;
@@ -126,7 +144,7 @@ export async function updateXmlTipoEgreso(fileName: string, tipoEgreso: string |
 
 export async function deleteXmlFile(fileName: string): Promise<void> {
   const db = await openXmlEgresosDb();
-  const tx = db.transaction(STORE_NAME, 'readwrite');
+  const tx = db.transaction(STORE_NAME, "readwrite");
   const store = tx.objectStore(STORE_NAME);
   store.delete(fileName);
   await txDone(tx);
@@ -134,7 +152,7 @@ export async function deleteXmlFile(fileName: string): Promise<void> {
 
 export async function clearXmlFiles(): Promise<void> {
   const db = await openXmlEgresosDb();
-  const tx = db.transaction(STORE_NAME, 'readwrite');
+  const tx = db.transaction(STORE_NAME, "readwrite");
   const store = tx.objectStore(STORE_NAME);
   store.clear();
   await txDone(tx);

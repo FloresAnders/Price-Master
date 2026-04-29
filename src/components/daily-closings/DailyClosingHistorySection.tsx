@@ -143,12 +143,11 @@ export default function DailyClosingHistorySection({
                           </div>
                           <div>
                             Saldo registrado:{" "}
-                            {formatByCurrency(
-                              "CRC",
-                              record.recordedBalanceCRC
-                            )}
+                            {formatByCurrency("CRC", record.recordedBalanceCRC)}
                           </div>
-                          <div className={getDailyClosingDiffClass(record.diffCRC)}>
+                          <div
+                            className={getDailyClosingDiffClass(record.diffCRC)}
+                          >
                             Diferencia:{" "}
                             {formatDailyClosingDiff("CRC", record.diffCRC)}
                           </div>
@@ -176,12 +175,11 @@ export default function DailyClosingHistorySection({
                           </div>
                           <div>
                             Saldo registrado:{" "}
-                            {formatByCurrency(
-                              "USD",
-                              record.recordedBalanceUSD
-                            )}
+                            {formatByCurrency("USD", record.recordedBalanceUSD)}
                           </div>
-                          <div className={getDailyClosingDiffClass(record.diffUSD)}>
+                          <div
+                            className={getDailyClosingDiffClass(record.diffUSD)}
+                          >
                             Diferencia:{" "}
                             {formatDailyClosingDiff("USD", record.diffUSD)}
                           </div>
@@ -209,7 +207,7 @@ export default function DailyClosingHistorySection({
                     const relatedAdjustments = fondoEntries.filter(
                       (e) =>
                         e.originalEntryId === record.id &&
-                        isAutoAdjustmentProvider(e.providerCode)
+                        isAutoAdjustmentProvider(e.providerCode),
                     );
 
                     if (
@@ -235,7 +233,8 @@ export default function DailyClosingHistorySection({
                               onClick={() => {
                                 setExpandedClosings((prev) => {
                                   const next = new Set(prev);
-                                  if (next.has(record.id)) next.delete(record.id);
+                                  if (next.has(record.id))
+                                    next.delete(record.id);
                                   else next.add(record.id);
                                   return next;
                                 });
@@ -272,11 +271,12 @@ export default function DailyClosingHistorySection({
                                   <strong>Saldo registrado:</strong>{" "}
                                   {formatByCurrency(
                                     "CRC",
-                                    record.recordedBalanceCRC
-                                  )} /{" "}
+                                    record.recordedBalanceCRC,
+                                  )}{" "}
+                                  /{" "}
                                   {formatByCurrency(
                                     "USD",
-                                    record.recordedBalanceUSD
+                                    record.recordedBalanceUSD,
                                   )}
                                 </div>
                                 <div>
@@ -285,10 +285,10 @@ export default function DailyClosingHistorySection({
                                     ? "Sin diferencias"
                                     : `${formatDailyClosingDiff(
                                         "CRC",
-                                        record.diffCRC
+                                        record.diffCRC,
                                       )} / ${formatDailyClosingDiff(
                                         "USD",
-                                        record.diffUSD
+                                        record.diffUSD,
                                       )}`}
                                 </div>
                               </div>
@@ -304,28 +304,30 @@ export default function DailyClosingHistorySection({
                                     {record.adjustmentResolution.removedAdjustments.map(
                                       (adj: any, idx: number) => (
                                         <li key={idx}>
-                                          {adj.currency}: {" "}
+                                          {adj.currency}:{" "}
                                           {adj.amount && adj.amount !== 0
                                             ? adj.amount > 0
                                               ? `+ ${formatByCurrency(
                                                   adj.currency as Currency,
-                                                  adj.amount
+                                                  adj.amount,
                                                 )}`
                                               : `- ${formatByCurrency(
                                                   adj.currency as Currency,
-                                                  Math.abs(adj.amount)
+                                                  Math.abs(adj.amount),
                                                 )}`
                                             : `${formatByCurrency(
                                                 adj.currency as Currency,
                                                 (adj.amountIngreso || 0) -
-                                                  (adj.amountEgreso || 0)
+                                                  (adj.amountEgreso || 0),
                                               )}`}
-                                          {adj.manager ? ` — ${adj.manager}` : ""}
+                                          {adj.manager
+                                            ? ` — ${adj.manager}`
+                                            : ""}
                                           {adj.createdAt
                                             ? ` • ${(() => {
                                                 try {
                                                   return dateTimeFormatter.format(
-                                                    new Date(adj.createdAt)
+                                                    new Date(adj.createdAt),
                                                   );
                                                 } catch {
                                                   return adj.createdAt;
@@ -333,7 +335,7 @@ export default function DailyClosingHistorySection({
                                               })()}`
                                             : ""}
                                         </li>
-                                      )
+                                      ),
                                     )}
                                   </ul>
                                 ) : (
@@ -343,8 +345,8 @@ export default function DailyClosingHistorySection({
                                       eliminados manualmente.
                                     </li>
                                     <li>
-                                      El saldo del fondo quedó normalizado contra
-                                      el conteo proporcionado.
+                                      El saldo del fondo quedó normalizado
+                                      contra el conteo proporcionado.
                                     </li>
                                   </ul>
                                 )}
@@ -410,7 +412,7 @@ export default function DailyClosingHistorySection({
                                       {adj.currency} — {amt >= 0 ? "+" : "-"}{" "}
                                       {formatByCurrency(
                                         adj.currency as Currency,
-                                        Math.abs(amt)
+                                        Math.abs(amt),
                                       )}
                                     </div>
                                     <div className="text-xs text-[var(--muted-foreground)]">
@@ -418,7 +420,7 @@ export default function DailyClosingHistorySection({
                                       {(() => {
                                         try {
                                           return dateTimeFormatter.format(
-                                            new Date(adj.createdAt)
+                                            new Date(adj.createdAt),
                                           );
                                         } catch {
                                           return adj.createdAt;
@@ -436,7 +438,7 @@ export default function DailyClosingHistorySection({
                                         <div className="text-xs mt-1">
                                           {buildBreakdownLines(
                                             adj.currency as Currency,
-                                            adj.breakdown
+                                            adj.breakdown,
                                           ).join(", ")}
                                         </div>
                                       </div>
@@ -451,15 +453,15 @@ export default function DailyClosingHistorySection({
                                         Antes:{" "}
                                         {(() => {
                                           const beforeAmt = lastChange.before
-                                            ? (lastChange.before.amountIngreso ||
-                                                0) -
+                                            ? (lastChange.before
+                                                .amountIngreso || 0) -
                                               (lastChange.before.amountEgreso ||
                                                 0)
                                             : undefined;
                                           return typeof beforeAmt === "number"
                                             ? formatByCurrency(
                                                 adj.currency as Currency,
-                                                Math.abs(beforeAmt)
+                                                Math.abs(beforeAmt),
                                               )
                                             : "—";
                                         })()}
@@ -476,7 +478,7 @@ export default function DailyClosingHistorySection({
                                           return typeof afterAmt === "number"
                                             ? formatByCurrency(
                                                 adj.currency as Currency,
-                                                Math.abs(afterAmt)
+                                                Math.abs(afterAmt),
                                               )
                                             : "—";
                                         })()}
@@ -485,7 +487,7 @@ export default function DailyClosingHistorySection({
                                         <div className="text-[11px] text-[var(--muted-foreground)] mt-1">
                                           Registro:{" "}
                                           {dateTimeFormatter.format(
-                                            new Date(lastChange.at)
+                                            new Date(lastChange.at),
                                           )}
                                         </div>
                                       )}

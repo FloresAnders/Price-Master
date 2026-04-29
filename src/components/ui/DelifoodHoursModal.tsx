@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { Clock, Save, X } from 'lucide-react';
-import { SchedulesService } from '../../services/schedules';
+import React, { useState, useEffect } from "react";
+import { Clock, Save, X } from "lucide-react";
+import { SchedulesService } from "../../services/schedules";
 
 interface DelifoodHoursModalProps {
   isOpen: boolean;
@@ -28,62 +28,64 @@ export default function DelifoodHoursModal({
   empresaValue,
   locationValue,
   currentHours = 0,
-  onSave
+  onSave,
 }: DelifoodHoursModalProps) {
   const [hours, setHours] = useState<number>(currentHours);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string>('');
+  const [error, setError] = useState<string>("");
 
   // Reset hours when modal opens
   useEffect(() => {
     if (isOpen) {
       setHours(currentHours > 0 ? currentHours : 0);
-      setError('');
+      setError("");
     }
   }, [isOpen, currentHours]);
 
   const handleSave = async () => {
     if (hours < 0 || hours > 24) {
-      setError('Las horas deben estar entre 0 y 24');
+      setError("Las horas deben estar entre 0 y 24");
       return;
     }
 
     try {
       setSaving(true);
-      setError('');
+      setError("");
 
       // Actualizar en la base de datos
       await SchedulesService.updateScheduleHours(
-        empresaValue || locationValue || '',
+        empresaValue || locationValue || "",
         employeeName,
         year,
         month,
         day,
-        hours
+        hours,
       );
 
       // Notificar al componente padre
       onSave(hours);
       onClose();
     } catch (error) {
-      console.error('Error saving hours:', error);
-      setError('Error al guardar las horas trabajadas');
+      console.error("Error saving hours:", error);
+      setError("Error al guardar las horas trabajadas");
     } finally {
       setSaving(false);
     }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       handleSave();
-    } else if (e.key === 'Escape') {
+    } else if (e.key === "Escape") {
       onClose();
     }
   };
 
   if (!isOpen) return null;
 
-  const monthName = new Date(year, month, 1).toLocaleDateString('es-CR', { month: 'long' });
+  const monthName = new Date(year, month, 1).toLocaleDateString("es-CR", {
+    month: "long",
+  });
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
@@ -120,7 +122,7 @@ export default function DelifoodHoursModal({
               min="0"
               max="24"
               step="0.5"
-              value={hours || ''}
+              value={hours || ""}
               onChange={(e) => setHours(parseFloat(e.target.value) || 0)}
               onKeyDown={handleKeyPress}
               className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-lg font-semibold text-center"
@@ -154,10 +156,11 @@ export default function DelifoodHoursModal({
           <button
             onClick={handleSave}
             disabled={saving}
-            className={`flex-1 px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 ${hours === 0
-              ? 'bg-red-600 hover:bg-red-700 text-white'
-              : 'bg-blue-600 hover:bg-blue-700 text-white'
-              }`}
+            className={`flex-1 px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 ${
+              hours === 0
+                ? "bg-red-600 hover:bg-red-700 text-white"
+                : "bg-blue-600 hover:bg-blue-700 text-white"
+            }`}
           >
             {saving ? (
               <>

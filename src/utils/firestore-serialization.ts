@@ -1,11 +1,11 @@
-import { Timestamp } from 'firebase/firestore';
+import { Timestamp } from "firebase/firestore";
 
 export type FirestoreEncodedValue =
-  | { __pm_type: 'timestamp'; iso: string }
-  | { __pm_type: 'date'; iso: string };
+  | { __pm_type: "timestamp"; iso: string }
+  | { __pm_type: "date"; iso: string };
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-  if (!value || typeof value !== 'object') return false;
+  if (!value || typeof value !== "object") return false;
   const proto = Object.getPrototypeOf(value);
   return proto === Object.prototype || proto === null;
 }
@@ -15,15 +15,23 @@ export function encodeFirestoreValue(value: unknown): unknown {
   if (value === undefined) return undefined;
 
   if (value instanceof Timestamp) {
-    return { __pm_type: 'timestamp', iso: value.toDate().toISOString() } satisfies FirestoreEncodedValue;
+    return {
+      __pm_type: "timestamp",
+      iso: value.toDate().toISOString(),
+    } satisfies FirestoreEncodedValue;
   }
 
   if (value instanceof Date) {
-    return { __pm_type: 'date', iso: value.toISOString() } satisfies FirestoreEncodedValue;
+    return {
+      __pm_type: "date",
+      iso: value.toISOString(),
+    } satisfies FirestoreEncodedValue;
   }
 
   if (Array.isArray(value)) {
-    return value.map((item) => encodeFirestoreValue(item)).filter((item) => item !== undefined);
+    return value
+      .map((item) => encodeFirestoreValue(item))
+      .filter((item) => item !== undefined);
   }
 
   if (isPlainObject(value)) {
@@ -43,12 +51,17 @@ export function decodeFirestoreValue(value: unknown): unknown {
   if (value === undefined) return undefined;
 
   if (Array.isArray(value)) {
-    return value.map((item) => decodeFirestoreValue(item)).filter((item) => item !== undefined);
+    return value
+      .map((item) => decodeFirestoreValue(item))
+      .filter((item) => item !== undefined);
   }
 
-  if (isPlainObject(value) && typeof value.__pm_type === 'string') {
+  if (isPlainObject(value) && typeof value.__pm_type === "string") {
     const type = value.__pm_type;
-    if ((type === 'timestamp' || type === 'date') && typeof value.iso === 'string') {
+    if (
+      (type === "timestamp" || type === "date") &&
+      typeof value.iso === "string"
+    ) {
       const date = new Date(value.iso);
       if (!Number.isNaN(date.getTime())) {
         // Store everything as Firestore Timestamp (Date also works but Timestamp is consistent)

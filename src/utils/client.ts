@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 
 // Utility functions for client-side operations to prevent hydration errors
 
@@ -6,7 +6,7 @@ import React from 'react';
  * Check if code is running on the client side
  */
 export const isClientSide = (): boolean => {
-  return typeof window !== 'undefined';
+  return typeof window !== "undefined";
 };
 
 /**
@@ -38,7 +38,7 @@ export const safeLocalStorage = {
     } catch {
       // Fail silently if localStorage is not available
     }
-  }
+  },
 };
 
 /**
@@ -57,9 +57,9 @@ export const safeWindow = {
     },
 
     getHash: (): string => {
-      if (!isClientSide()) return '';
+      if (!isClientSide()) return "";
       return window.location.hash;
-    }
+    },
   },
 
   addEventListener: (event: string, handler: EventListener): void => {
@@ -70,7 +70,7 @@ export const safeWindow = {
   removeEventListener: (event: string, handler: EventListener): void => {
     if (!isClientSide()) return;
     window.removeEventListener(event, handler);
-  }
+  },
 };
 
 /**

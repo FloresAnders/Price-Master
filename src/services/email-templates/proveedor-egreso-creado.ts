@@ -19,7 +19,7 @@ const escapeHtml = (value: unknown): string =>
     .replaceAll("'", "&#039;");
 
 export function generateEgresoProviderCreatedEmail(
-  data: EgresoProviderCreatedEmailData
+  data: EgresoProviderCreatedEmailData,
 ): { subject: string; html: string; text: string } {
   const { company, providerName, providerType, createdBy, createdAt } = data;
 

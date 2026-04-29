@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { useEffect, useRef, useState } from 'react';
-import { verifyPassword } from '@/lib/auth/password';
+import { useEffect, useRef, useState } from "react";
+import { verifyPassword } from "@/lib/auth/password";
 
-const STORAGE_KEY = 'pricemaster_schedule_past_days_unlocked';
-export const PHASH_KEY = 'pricemaster_user_phash';
+const STORAGE_KEY = "pricemaster_schedule_past_days_unlocked";
+export const PHASH_KEY = "pricemaster_user_phash";
 const TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 function parseUnlockedAt(raw: string | null): number {
@@ -19,7 +19,7 @@ function parseUnlockedAt(raw: string | null): number {
 
 export function useUnlockPastDays() {
   const [unlocked, setUnlocked] = useState(false);
-  const [password, setPassword] = useState('');
+  const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const expiryTimerRef = useRef<number | null>(null);
@@ -54,7 +54,7 @@ export function useUnlockPastDays() {
   };
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
 
     try {
       const raw = sessionStorage.getItem(STORAGE_KEY);
@@ -97,14 +97,16 @@ export function useUnlockPastDays() {
       }
 
       if (!storedHash) {
-        setError('No se encontró contraseña almacenada. Esta función requiere que haya iniciado sesión recientemente con su contraseña. Cierre sesión e inicie nuevamente.');
+        setError(
+          "No se encontró contraseña almacenada. Esta función requiere que haya iniciado sesión recientemente con su contraseña. Cierre sesión e inicie nuevamente.",
+        );
         return;
       }
 
       const ok = await verifyPassword(password, storedHash);
 
       if (!ok) {
-        setError('Contraseña incorrecta');
+        setError("Contraseña incorrecta");
         return;
       }
 
@@ -117,7 +119,7 @@ export function useUnlockPastDays() {
       }
       scheduleExpiry(unlockedAt);
     } catch {
-      setError('Error al validar la contraseña');
+      setError("Error al validar la contraseña");
     } finally {
       setSubmitting(false);
     }

@@ -1,7 +1,15 @@
-'use client';
+"use client";
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import type { XmlFileRecord } from '@/services/xmlEgresosDb';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import type { XmlFileRecord } from "@/services/xmlEgresosDb";
 import {
   clearXmlFiles,
   deleteXmlFile,
@@ -9,9 +17,9 @@ import {
   getXmlFile,
   putXmlFile,
   updateXmlTipoEgreso,
-} from '@/services/xmlEgresosDb';
+} from "@/services/xmlEgresosDb";
 
-type AddXmlTextResult = { status: 'added' } | { status: 'duplicate' };
+type AddXmlTextResult = { status: "added" } | { status: "duplicate" };
 
 type XmlEgresosContextValue = {
   files: XmlFileRecord[];
@@ -19,7 +27,10 @@ type XmlEgresosContextValue = {
   error: string | null;
   refresh: () => Promise<void>;
   hasFile: (fileName: string) => Promise<boolean>;
-  addXmlText: (params: { fileName: string; xmlText: string }) => Promise<AddXmlTextResult>;
+  addXmlText: (params: {
+    fileName: string;
+    xmlText: string;
+  }) => Promise<AddXmlTextResult>;
   setTipoEgreso: (fileName: string, tipoEgreso: string | null) => Promise<void>;
   remove: (fileName: string) => Promise<void>;
   clearAll: () => Promise<void>;
@@ -30,11 +41,18 @@ const XmlEgresosContext = createContext<XmlEgresosContextValue | null>(null);
 
 export function useXmlEgresosContext(): XmlEgresosContextValue {
   const ctx = useContext(XmlEgresosContext);
-  if (!ctx) throw new Error('useXmlEgresosContext must be used within XmlEgresosProvider');
+  if (!ctx)
+    throw new Error(
+      "useXmlEgresosContext must be used within XmlEgresosProvider",
+    );
   return ctx;
 }
 
-export function XmlEgresosProvider({ children }: { children: React.ReactNode }) {
+export function XmlEgresosProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const [files, setFiles] = useState<XmlFileRecord[]>([]);
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +69,8 @@ export function XmlEgresosProvider({ children }: { children: React.ReactNode }) 
         all.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
         setFiles(all);
       } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Error abriendo IndexedDB';
+        const msg =
+          err instanceof Error ? err.message : "Error abriendo IndexedDB";
         setError(msg);
         setFiles([]);
       } finally {
@@ -73,26 +92,34 @@ export function XmlEgresosProvider({ children }: { children: React.ReactNode }) 
     return Boolean(rec);
   }, []);
 
-  const addXmlText = useCallback(async ({ fileName, xmlText }: { fileName: string; xmlText: string }) => {
-    const existing = await getXmlFile(fileName);
-    if (existing) return { status: 'duplicate' } as const;
+  const addXmlText = useCallback(
+    async ({ fileName, xmlText }: { fileName: string; xmlText: string }) => {
+      const existing = await getXmlFile(fileName);
+      if (existing) return { status: "duplicate" } as const;
 
-    const record: XmlFileRecord = {
-      fileName,
-      xmlText,
-      tipoEgreso: null,
-      createdAt: Date.now(),
-    };
+      const record: XmlFileRecord = {
+        fileName,
+        xmlText,
+        tipoEgreso: null,
+        createdAt: Date.now(),
+      };
 
-    await putXmlFile(record);
-    setFiles((prev) => [record, ...prev]);
-    return { status: 'added' } as const;
-  }, []);
+      await putXmlFile(record);
+      setFiles((prev) => [record, ...prev]);
+      return { status: "added" } as const;
+    },
+    [],
+  );
 
-  const setTipoEgreso = useCallback(async (fileName: string, tipoEgreso: string | null) => {
-    await updateXmlTipoEgreso(fileName, tipoEgreso);
-    setFiles((prev) => prev.map((f) => (f.fileName === fileName ? { ...f, tipoEgreso } : f)));
-  }, []);
+  const setTipoEgreso = useCallback(
+    async (fileName: string, tipoEgreso: string | null) => {
+      await updateXmlTipoEgreso(fileName, tipoEgreso);
+      setFiles((prev) =>
+        prev.map((f) => (f.fileName === fileName ? { ...f, tipoEgreso } : f)),
+      );
+    },
+    [],
+  );
 
   const remove = useCallback(async (fileName: string) => {
     await deleteXmlFile(fileName);
@@ -123,8 +150,23 @@ export function XmlEgresosProvider({ children }: { children: React.ReactNode }) 
       clearAll,
       getAllFromDb,
     }),
-    [files, isReady, error, refresh, hasFile, addXmlText, setTipoEgreso, remove, clearAll, getAllFromDb]
+    [
+      files,
+      isReady,
+      error,
+      refresh,
+      hasFile,
+      addXmlText,
+      setTipoEgreso,
+      remove,
+      clearAll,
+      getAllFromDb,
+    ],
   );
 
-  return <XmlEgresosContext.Provider value={value}>{children}</XmlEgresosContext.Provider>;
+  return (
+    <XmlEgresosContext.Provider value={value}>
+      {children}
+    </XmlEgresosContext.Provider>
+  );
 }

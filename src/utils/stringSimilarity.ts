@@ -25,7 +25,10 @@ const SPANISH_STOPWORDS = new Set([
   "Y",
 ]);
 
-function analyzeForComparison(input: string): { tokens: string[]; normalized: string } {
+function analyzeForComparison(input: string): {
+  tokens: string[];
+  normalized: string;
+} {
   const value = typeof input === "string" ? input : String(input ?? "");
   const cleaned = value
     .normalize("NFD")
@@ -80,11 +83,7 @@ function jaroSimilarity(a: string, b: string): number {
   }
 
   const t = transpositions / 2;
-  return (
-    matches / aLen +
-    matches / bLen +
-    (matches - t) / matches
-  ) / 3;
+  return (matches / aLen + matches / bLen + (matches - t) / matches) / 3;
 }
 
 function jaroWinklerOnNormalized(a: string, b: string): number {
@@ -158,7 +157,7 @@ export function jaroWinklerSimilarity(aRaw: string, bRaw: string): number {
 
 export function findBestStringMatch(
   target: string,
-  candidates: string[]
+  candidates: string[],
 ): BestStringMatch {
   if (!Array.isArray(candidates) || candidates.length === 0) {
     return { best: null, score: 0 };

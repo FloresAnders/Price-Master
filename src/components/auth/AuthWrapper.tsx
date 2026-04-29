@@ -5,6 +5,7 @@ import React, { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import LoginModal from "./LoginModal";
 import type { User } from "@/types/firestore";
+import { safeLocalStorage } from "@/utils/client";
 //delete this line if not needed
 import { usePathname } from "next/navigation";
 //---------------------------------------------
@@ -16,27 +17,33 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
   const { user, isAuthenticated, loading, login } = useAuth();
   //delete this line if not needed
   const pathname = usePathname();
-  const [hasStoredSession, setHasStoredSession] = useState<boolean | null>(null);
+  const [hasStoredSession, setHasStoredSession] = useState<boolean>(() => {
+    try {
+      const hasTraditional = Boolean(
+        safeLocalStorage.getItem("pricemaster_session"),
+      );
+      const hasToken = Boolean(
+        safeLocalStorage.getItem("pricemaster_token_session"),
+      );
+      return hasTraditional || hasToken;
+    } catch {
+      return false;
+    }
+  });
 
   // Rutas públicas que no requieren autenticación
   const publicRoutes = ["/home", "/reset-password", "/pruebas"];
   const isPublicRoute = publicRoutes.includes(pathname);
 
   useEffect(() => {
-    // Determinar en cliente si existe algo que "valga la pena" verificar.
-    try {
-      const hasTraditional = !!localStorage.getItem("pricemaster_session");
-      const hasToken = !!localStorage.getItem("pricemaster_token_session");
-      setHasStoredSession(hasTraditional || hasToken);
-    } catch {
-      // Si por alguna razón localStorage falla, no bloqueamos el render con spinner eterno.
-      setHasStoredSession(false);
-    }
-
     const onStorage = () => {
       try {
-        const hasTraditional = !!localStorage.getItem("pricemaster_session");
-        const hasToken = !!localStorage.getItem("pricemaster_token_session");
+        const hasTraditional = Boolean(
+          safeLocalStorage.getItem("pricemaster_session"),
+        );
+        const hasToken = Boolean(
+          safeLocalStorage.getItem("pricemaster_token_session"),
+        );
         setHasStoredSession(hasTraditional || hasToken);
       } catch {
         setHasStoredSession(false);
@@ -66,7 +73,7 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
               onLoginSuccess={(
                 userData: User,
                 keepActive?: boolean,
-                useTokens?: boolean
+                useTokens?: boolean,
               ) => {
                 login(userData, keepActive, useTokens);
               }}
@@ -108,7 +115,7 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
               onLoginSuccess={(
                 userData: User,
                 keepActive?: boolean,
-                useTokens?: boolean
+                useTokens?: boolean,
               ) => {
                 login(userData, keepActive, useTokens);
               }}

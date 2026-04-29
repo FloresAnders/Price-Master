@@ -1,23 +1,25 @@
 // src/components/SessionMonitor.tsx
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { Shield, Clock, AlertTriangle, Key } from 'lucide-react';
-import { useAuth } from '../../hooks/useAuth';
-import TokenInfo from './TokenInfo';
+import React, { useState, useEffect } from "react";
+import { Shield, Clock, AlertTriangle, Key } from "lucide-react";
+import { useAuth } from "../../hooks/useAuth";
+import TokenInfo from "./TokenInfo";
 
 interface SessionMonitorProps {
   inline?: boolean; // Nueva prop para mostrar inline sin posicionamiento fijo
 }
 
-export default function SessionMonitor({ inline = false }: SessionMonitorProps) {
+export default function SessionMonitor({
+  inline = false,
+}: SessionMonitorProps) {
   const {
     user,
     sessionWarning,
     getSessionTimeLeft,
     isSuperAdmin,
     useTokenAuth,
-    getFormattedTimeLeft
+    getFormattedTimeLeft,
   } = useAuth();
 
   const [timeLeft, setTimeLeft] = useState(0);
@@ -39,19 +41,21 @@ export default function SessionMonitor({ inline = false }: SessionMonitorProps) 
 
   // Leer preferencias de UI flotante para evitar superposición con el FAB (calculadora)
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
     const readPrefs = () => {
-      setShowSessionTimer(localStorage.getItem('show-session-timer') === 'true');
-      setShowCalculator(localStorage.getItem('show-calculator') === 'true');
+      setShowSessionTimer(
+        localStorage.getItem("show-session-timer") === "true",
+      );
+      setShowCalculator(localStorage.getItem("show-calculator") === "true");
     };
     readPrefs();
     const handleStorage = (e: StorageEvent) => {
-      if (e.key === 'show-session-timer' || e.key === 'show-calculator') {
+      if (e.key === "show-session-timer" || e.key === "show-calculator") {
         readPrefs();
       }
     };
-    window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
   }, []);
 
   const formatTimeLeft = (hours: number) => {
@@ -69,10 +73,14 @@ export default function SessionMonitor({ inline = false }: SessionMonitorProps) 
 
   const getRoleColor = (role?: string) => {
     switch (role) {
-      case 'superadmin': return 'text-red-600 bg-red-100';
-      case 'admin': return 'text-orange-600 bg-orange-100';
-      case 'user': return 'text-blue-600 bg-blue-100';
-      default: return 'text-gray-600 bg-gray-100';
+      case "superadmin":
+        return "text-red-600 bg-red-100";
+      case "admin":
+        return "text-orange-600 bg-orange-100";
+      case "user":
+        return "text-blue-600 bg-blue-100";
+      default:
+        return "text-gray-600 bg-gray-100";
     }
   };
 
@@ -99,8 +107,15 @@ export default function SessionMonitor({ inline = false }: SessionMonitorProps) 
 
       {/* Monitor de sesión para SuperAdmin */}
       {isSuperAdmin() && !inline && (
-        <div className={`fixed right-4 z-40 bg-red-900 text-white p-3 rounded-lg shadow-lg border-2 border-red-600 ${showSessionTimer ? 'bottom-28 md:bottom-24' : showCalculator ? 'bottom-24' : 'bottom-4'
-          }`}>
+        <div
+          className={`fixed right-4 z-40 bg-red-900 text-white p-3 rounded-lg shadow-lg border-2 border-red-600 ${
+            showSessionTimer
+              ? "bottom-28 md:bottom-24"
+              : showCalculator
+                ? "bottom-24"
+                : "bottom-4"
+          }`}
+        >
           <div className="flex items-center gap-2 mb-2">
             <Shield className="w-4 h-4" />
             <span className="text-xs font-bold">SUPERADMIN MONITOR</span>
@@ -108,11 +123,19 @@ export default function SessionMonitor({ inline = false }: SessionMonitorProps) 
           </div>
           <div className="text-xs space-y-1">
             <div className="flex items-center gap-2">
-              {useTokenAuth ? <Key className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-              <span>{useTokenAuth ? 'Token' : 'Sesión'}: {getFormattedTimeLeft()}</span>
+              {useTokenAuth ? (
+                <Key className="w-3 h-3" />
+              ) : (
+                <Clock className="w-3 h-3" />
+              )}
+              <span>
+                {useTokenAuth ? "Token" : "Sesión"}: {getFormattedTimeLeft()}
+              </span>
             </div>
             <div className="flex items-center gap-2">
-              <span className={`px-2 py-1 rounded text-xs font-medium ${getRoleColor(user.role)}`}>
+              <span
+                className={`px-2 py-1 rounded text-xs font-medium ${getRoleColor(user.role)}`}
+              >
                 {user.role?.toUpperCase()}
               </span>
               {useTokenAuth && (
@@ -133,13 +156,15 @@ export default function SessionMonitor({ inline = false }: SessionMonitorProps) 
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
           <div className="flex items-center gap-2 mb-2">
             <Shield className="w-4 h-4 text-red-600" />
-            <span className="text-sm font-semibold text-red-700 dark:text-red-300">Estado de Sesión</span>
+            <span className="text-sm font-semibold text-red-700 dark:text-red-300">
+              Estado de Sesión
+            </span>
             {useTokenAuth && <Key className="w-3 h-3 text-green-500" />}
           </div>
           <div className="space-y-2 text-sm">
             <div className="flex items-center justify-between">
               <span className="text-gray-600 dark:text-gray-300">
-                {useTokenAuth ? 'Token activo:' : 'Sesión activa:'}
+                {useTokenAuth ? "Token activo:" : "Sesión activa:"}
               </span>
               <span className="font-medium text-gray-900 dark:text-white">
                 {getFormattedTimeLeft()}
@@ -147,7 +172,9 @@ export default function SessionMonitor({ inline = false }: SessionMonitorProps) 
             </div>
             <div className="flex items-center justify-between">
               <span className="text-gray-600 dark:text-gray-300">Rol:</span>
-              <span className={`px-2 py-1 rounded text-xs font-medium ${getRoleColor(user.role)}`}>
+              <span
+                className={`px-2 py-1 rounded text-xs font-medium ${getRoleColor(user.role)}`}
+              >
                 {user.role?.toUpperCase()}
               </span>
             </div>
@@ -161,11 +188,17 @@ export default function SessionMonitor({ inline = false }: SessionMonitorProps) 
       )}
 
       {/* Indicador de estado de sesión para todos los usuarios */}
-      {user && user.role !== 'superadmin' && !showSessionTimer && (
-        <div className={`fixed right-4 z-40 bg-gray-800 text-white p-2 rounded-lg shadow-lg text-xs ${showCalculator ? 'bottom-24' : 'bottom-4'}`}>
+      {user && user.role !== "superadmin" && !showSessionTimer && (
+        <div
+          className={`fixed right-4 z-40 bg-gray-800 text-white p-2 rounded-lg shadow-lg text-xs ${showCalculator ? "bottom-24" : "bottom-4"}`}
+        >
           <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${timeLeft > 1 ? 'bg-green-400' : 'bg-yellow-400'}`}></div>
-            <span>{useTokenAuth ? getFormattedTimeLeft() : formatTimeLeft(timeLeft)}</span>
+            <div
+              className={`w-2 h-2 rounded-full ${timeLeft > 1 ? "bg-green-400" : "bg-yellow-400"}`}
+            ></div>
+            <span>
+              {useTokenAuth ? getFormattedTimeLeft() : formatTimeLeft(timeLeft)}
+            </span>
             {useTokenAuth && (
               <Key
                 className="w-3 h-3 text-green-400 cursor-pointer hover:text-green-300"

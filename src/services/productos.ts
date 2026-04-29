@@ -34,12 +34,14 @@ export class ProductosService {
         company: companyKey,
         updatedAt: nowISO,
       },
-      { merge: true }
+      { merge: true },
     );
   }
 
   private static slugifyForId(value: string): string {
-    const raw = String(value || "").trim().toLowerCase();
+    const raw = String(value || "")
+      .trim()
+      .toLowerCase();
     if (!raw) return "producto";
 
     const cleaned = raw
@@ -67,7 +69,10 @@ export class ProductosService {
     return 0;
   }
 
-  private static computePrecioXGramo(precio: number, pesoengramos: number): number {
+  private static computePrecioXGramo(
+    precio: number,
+    pesoengramos: number,
+  ): number {
     if (!Number.isFinite(precio) || !Number.isFinite(pesoengramos)) return 0;
     if (pesoengramos <= 0) return 0;
     return precio / pesoengramos;
@@ -75,7 +80,7 @@ export class ProductosService {
 
   private static normalizeProductDoc(
     raw: unknown,
-    fallbackId: string
+    fallbackId: string,
   ): ProductEntry | null {
     if (!raw || typeof raw !== "object") return null;
     const data = raw as Record<string, unknown>;
@@ -90,7 +95,9 @@ export class ProductosService {
     const descripcion =
       typeof descripcionRaw === "string" ? descripcionRaw.trim() : undefined;
 
-    const pesoengramos = this.sanitizeNumber(data.pesoengramos ?? (data as any).pesoEnGramos);
+    const pesoengramos = this.sanitizeNumber(
+      data.pesoengramos ?? (data as any).pesoEnGramos,
+    );
     const precio = this.sanitizeNumber(data.precio);
     const precioxgramoStored = this.sanitizeNumber(data.precioxgramo);
     const precioxgramo =
@@ -98,8 +105,12 @@ export class ProductosService {
         ? precioxgramoStored
         : this.computePrecioXGramo(precio, pesoengramos);
 
-    const createdAt = typeof data.createdAt === "string" ? data.createdAt : undefined;
-    const updateAt = typeof (data as any).updateAt === "string" ? (data as any).updateAt : undefined;
+    const createdAt =
+      typeof data.createdAt === "string" ? data.createdAt : undefined;
+    const updateAt =
+      typeof (data as any).updateAt === "string"
+        ? (data as any).updateAt
+        : undefined;
 
     return {
       id,
@@ -113,13 +124,15 @@ export class ProductosService {
     };
   }
 
-  static async getProductosOrderedByNombre(company: string): Promise<ProductEntry[]> {
+  static async getProductosOrderedByNombre(
+    company: string,
+  ): Promise<ProductEntry[]> {
     const collectionPath = this.productosCollectionPath(company);
     const rows = (await FirestoreService.query(
       collectionPath,
       [],
       "nombre",
-      "asc"
+      "asc",
     )) as Array<Record<string, unknown>>;
 
     return rows
@@ -130,7 +143,7 @@ export class ProductosService {
   static async searchProductosByNombrePrefix(
     company: string,
     prefix: string,
-    limitCount = 20
+    limitCount = 20,
   ): Promise<ProductEntry[]> {
     const collectionPath = this.productosCollectionPath(company);
     const trimmed = String(prefix || "").trim();
@@ -148,21 +161,28 @@ export class ProductosService {
         ],
         "nombre",
         "asc",
-        safeLimit
+        safeLimit,
       )) as Array<Record<string, unknown>>;
 
       return rows
-        .map((row) => this.normalizeProductDoc(row, String(row?.id ?? "").trim()))
+        .map((row) =>
+          this.normalizeProductDoc(row, String(row?.id ?? "").trim()),
+        )
         .filter((p): p is ProductEntry => p !== null);
     };
 
     const variants = new Set<string>();
     variants.add(trimmed);
     // Intento 2: capitalizar primera letra (ayuda cuando los nombres están con mayúscula inicial)
-    const cap = trimmed.length > 0 ? trimmed[0].toUpperCase() + trimmed.slice(1) : trimmed;
+    const cap =
+      trimmed.length > 0
+        ? trimmed[0].toUpperCase() + trimmed.slice(1)
+        : trimmed;
     if (cap && cap !== trimmed) variants.add(cap);
 
-    const results = await Promise.all(Array.from(variants).map((v) => runQuery(v)));
+    const results = await Promise.all(
+      Array.from(variants).map((v) => runQuery(v)),
+    );
 
     const merged: ProductEntry[] = [];
     const seen = new Set<string>();
@@ -182,11 +202,11 @@ export class ProductosService {
   static async addProducto(
     company: string,
     input: {
-    nombre: string;
-    descripcion?: string;
-    pesoengramos: number;
-    precio: number;
-    }
+      nombre: string;
+      descripcion?: string;
+      pesoengramos: number;
+      precio: number;
+    },
   ): Promise<ProductEntry> {
     const collectionPath = this.productosCollectionPath(company);
     const nombre = String(input.nombre || "").trim();
@@ -194,7 +214,8 @@ export class ProductosService {
 
     const pesoengramos = this.sanitizeNumber(input.pesoengramos);
     const precio = this.sanitizeNumber(input.precio);
-    if (pesoengramos <= 0) throw new Error("El peso en gramos debe ser mayor a 0.");
+    if (pesoengramos <= 0)
+      throw new Error("El peso en gramos debe ser mayor a 0.");
     if (precio < 0) throw new Error("El precio no puede ser negativo.");
 
     const id = this.buildProductoId(nombre);
@@ -209,7 +230,9 @@ export class ProductosService {
     const data: ProductEntry = {
       id,
       nombre,
-      descripcion: input.descripcion ? String(input.descripcion).trim() : undefined,
+      descripcion: input.descripcion
+        ? String(input.descripcion).trim()
+        : undefined,
       pesoengramos,
       precio,
       precioxgramo: this.computePrecioXGramo(precio, pesoengramos),
@@ -225,7 +248,7 @@ export class ProductosService {
   static async updateProducto(
     company: string,
     id: string,
-    patch: Partial<Omit<ProductEntry, "id" | "createdAt" | "precioxgramo">>
+    patch: Partial<Omit<ProductEntry, "id" | "createdAt" | "precioxgramo">>,
   ): Promise<ProductEntry> {
     const collectionPath = this.productosCollectionPath(company);
     const docId = String(id || "").trim();
@@ -254,12 +277,19 @@ export class ProductosService {
 
     if (updateData.precio !== undefined) {
       updateData.precio = this.sanitizeNumber(updateData.precio);
-      if (updateData.precio < 0) throw new Error("El precio no puede ser negativo.");
+      if (updateData.precio < 0)
+        throw new Error("El precio no puede ser negativo.");
     }
 
     // Recalcular precioxgramo si cambia precio o pesoengramos
-    if (updateData.precio !== undefined || updateData.pesoengramos !== undefined) {
-      const current = (await FirestoreService.getById(collectionPath, docId)) as Record<string, unknown> | null;
+    if (
+      updateData.precio !== undefined ||
+      updateData.pesoengramos !== undefined
+    ) {
+      const current = (await FirestoreService.getById(
+        collectionPath,
+        docId,
+      )) as Record<string, unknown> | null;
       const normalized = current
         ? this.normalizeProductDoc(current, docId)
         : null;
@@ -273,10 +303,12 @@ export class ProductosService {
 
     const updated = (await FirestoreService.getById(
       collectionPath,
-      docId
+      docId,
     )) as Record<string, unknown> | null;
 
-    const normalized = updated ? this.normalizeProductDoc(updated, docId) : null;
+    const normalized = updated
+      ? this.normalizeProductDoc(updated, docId)
+      : null;
     if (!normalized) {
       throw new Error("No se pudo leer el producto actualizado.");
     }

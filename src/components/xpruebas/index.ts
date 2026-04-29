@@ -1,1 +1,1 @@
-export { default as Pruebas } from './Pruebas';
+export { default as Pruebas } from "./Pruebas";

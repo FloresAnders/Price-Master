@@ -1,9 +1,14 @@
-import { useState, useCallback, useRef } from 'react';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { storage } from '@/config/firebase';
-import { compressImage, validateImageFile } from '../utils/imageUtils';
-import { UsersService } from '../services/users';
-import type { User as UserRecord } from '../types/firestore';
+import { useState, useCallback, useRef } from "react";
+import {
+  ref,
+  uploadBytes,
+  getDownloadURL,
+  deleteObject,
+} from "firebase/storage";
+import { storage } from "@/config/firebase";
+import { compressImage, validateImageFile } from "../utils/imageUtils";
+import { UsersService } from "../services/users";
+import type { User as UserRecord } from "../types/firestore";
 
 interface UseProfileImageUploadOptions {
   user: UserRecord | null;
@@ -16,7 +21,7 @@ export function useProfileImageUpload({
   user,
   onSuccess,
   onError,
-  onDeleteSuccess
+  onDeleteSuccess,
 }: UseProfileImageUploadOptions) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -24,21 +29,24 @@ export function useProfileImageUpload({
   const [isDeleting, setIsDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const handleFileSelect = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
 
-    const validation = validateImageFile(file);
-    if (!validation.isValid) {
-      const errorMsg = validation.error || 'Archivo de imagen inválido';
-      onError?.(errorMsg);
-      return;
-    }
+      const validation = validateImageFile(file);
+      if (!validation.isValid) {
+        const errorMsg = validation.error || "Archivo de imagen inválido";
+        onError?.(errorMsg);
+        return;
+      }
 
-    setSelectedFile(file);
-    const previewUrl = URL.createObjectURL(file);
-    setImagePreview(previewUrl);
-  }, [onError]);
+      setSelectedFile(file);
+      const previewUrl = URL.createObjectURL(file);
+      setImagePreview(previewUrl);
+    },
+    [onError],
+  );
 
   const uploadImage = useCallback(async (): Promise<string | null> => {
     if (!selectedFile || !user?.id) return null;
@@ -55,7 +63,7 @@ export function useProfileImageUpload({
 
       // Upload the compressed image
       await uploadBytes(storageRef, compressedBlob, {
-        contentType: 'image/jpeg'
+        contentType: "image/jpeg",
       });
 
       // Get download URL
@@ -63,18 +71,21 @@ export function useProfileImageUpload({
 
       // Update user profile
       const targetId = user.id;
-      await UsersService.updateUserAs(user, targetId, { photoUrl: downloadURL });
+      await UsersService.updateUserAs(user, targetId, {
+        photoUrl: downloadURL,
+      });
 
       // Clear selection
       setSelectedFile(null);
       setImagePreview(null);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (fileInputRef.current) fileInputRef.current.value = "";
 
       onSuccess?.(downloadURL);
       return downloadURL;
     } catch (err) {
-      console.error('Error uploading image:', err);
-      const message = err instanceof Error ? err.message : 'Error al subir la imagen';
+      console.error("Error uploading image:", err);
+      const message =
+        err instanceof Error ? err.message : "Error al subir la imagen";
       onError?.(message);
       throw err;
     } finally {
@@ -101,13 +112,14 @@ export function useProfileImageUpload({
       if (selectedFile) {
         setSelectedFile(null);
         setImagePreview(null);
-        if (fileInputRef.current) fileInputRef.current.value = '';
+        if (fileInputRef.current) fileInputRef.current.value = "";
       }
 
       onDeleteSuccess?.();
     } catch (err) {
-      console.error('Error deleting image:', err);
-      const message = err instanceof Error ? err.message : 'Error al eliminar la imagen';
+      console.error("Error deleting image:", err);
+      const message =
+        err instanceof Error ? err.message : "Error al eliminar la imagen";
       onError?.(message);
       throw err;
     } finally {
@@ -118,7 +130,7 @@ export function useProfileImageUpload({
   const cancelSelection = useCallback(() => {
     setSelectedFile(null);
     setImagePreview(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (fileInputRef.current) fileInputRef.current.value = "";
   }, []);
 
   const openFileDialog = useCallback(() => {
@@ -143,6 +155,6 @@ export function useProfileImageUpload({
     // Computed
     hasSelectedFile: selectedFile !== null,
     canDelete: Boolean(user?.photoUrl || selectedFile),
-    isProcessing: isUploading || isDeleting
+    isProcessing: isUploading || isDeleting,
   };
 }

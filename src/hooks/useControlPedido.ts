@@ -1,111 +1,153 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-	ControlPedidoService,
-	type ControlPedidoEntry,
+  ControlPedidoService,
+  type ControlPedidoEntry,
 } from "../services/controlpedido";
 
 export function useControlPedido(
-	company?: string,
-	weekStartKey?: number,
-	enabled: boolean = true
+  company?: string,
+  weekStartKey?: number,
+  enabled: boolean = true,
 ) {
-	const [entries, setEntries] = useState<ControlPedidoEntry[]>([]);
-	const [loading, setLoading] = useState(false);
-	const [error, setError] = useState<string | null>(null);
+  type SubscriptionState = {
+    key: string | null;
+    entries: ControlPedidoEntry[];
+    error: string | null;
+  };
 
-	const normalizedCompany = useMemo(() => (company || "").trim(), [company]);
-	const normalizedWeekStartKey =
-		typeof weekStartKey === "number" && Number.isFinite(weekStartKey)
-			? weekStartKey
-			: undefined;
+  const [subscriptionState, setSubscriptionState] = useState<SubscriptionState>(
+    () => ({
+      key: null,
+      entries: [],
+      error: null,
+    }),
+  );
+  const [actionError, setActionError] = useState<string | null>(null);
 
-	useEffect(() => {
-		if (!enabled || !normalizedCompany || normalizedWeekStartKey === undefined) {
-			setEntries([]);
-			setLoading(false);
-			setError(null);
-			return;
-		}
+  const normalizedCompany = useMemo(() => (company || "").trim(), [company]);
+  const normalizedWeekStartKey =
+    typeof weekStartKey === "number" && Number.isFinite(weekStartKey)
+      ? weekStartKey
+      : undefined;
 
-		setLoading(true);
-		setError(null);
+  const canSubscribe =
+    enabled &&
+    Boolean(normalizedCompany) &&
+    normalizedWeekStartKey !== undefined;
+  const subscriptionKey = canSubscribe
+    ? `${normalizedCompany}::${normalizedWeekStartKey}`
+    : null;
 
-		const unsubscribe = ControlPedidoService.subscribeWeek(
-			normalizedCompany,
-			normalizedWeekStartKey,
-			(next) => {
-				setEntries(next);
-				setLoading(false);
-				setError(null);
-			},
-			(err) => {
-				const message =
-					err instanceof Error
-						? err.message
-						: "Error al cargar control de pedido.";
-				setError(message);
-				setLoading(false);
-			}
-		);
+  const activeSubscriptionIdRef = useRef(0);
 
-		return () => unsubscribe();
-	}, [enabled, normalizedCompany, normalizedWeekStartKey]);
+  useEffect(() => {
+    if (!canSubscribe || !subscriptionKey) {
+      return;
+    }
 
-	const addOrder = useCallback(
-		async (payload: Omit<ControlPedidoEntry, "id" | "createdAt">) => {
-			if (!normalizedCompany) {
-				const message = "No se pudo determinar la empresa del usuario.";
-				setError(message);
-				throw new Error(message);
-			}
+    activeSubscriptionIdRef.current += 1;
+    const subscriptionId = activeSubscriptionIdRef.current;
 
-			try {
-				setError(null);
-				await ControlPedidoService.addEntry(normalizedCompany, payload);
-			} catch (err) {
-				const message =
-					err instanceof Error
-						? err.message
-						: "No se pudo guardar el control de pedido.";
-				setError(message);
-				throw err instanceof Error ? err : new Error(message);
-			}
-		},
-		[normalizedCompany]
-	);
+    const unsubscribe = ControlPedidoService.subscribeWeek(
+      normalizedCompany,
+      normalizedWeekStartKey,
+      (next) => {
+        if (activeSubscriptionIdRef.current !== subscriptionId) return;
+        setSubscriptionState({
+          key: subscriptionKey,
+          entries: next,
+          error: null,
+        });
+      },
+      (err) => {
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Error al cargar control de pedido.";
+        if (activeSubscriptionIdRef.current !== subscriptionId) return;
+        setSubscriptionState({
+          key: subscriptionKey,
+          entries: [],
+          error: message,
+        });
+      },
+    );
 
-	const deleteOrdersForProviderReceiveDay = useCallback(
-		async (providerCode: string, receiveDateKey: number) => {
-			if (!normalizedCompany) {
-				const message = "No se pudo determinar la empresa del usuario.";
-				setError(message);
-				throw new Error(message);
-			}
+    return () => unsubscribe();
+  }, [
+    canSubscribe,
+    subscriptionKey,
+    normalizedCompany,
+    normalizedWeekStartKey,
+  ]);
 
-			try {
-				setError(null);
-				return await ControlPedidoService.deleteByProviderAndReceiveDateKey(
-					normalizedCompany,
-					providerCode,
-					receiveDateKey
-				);
-			} catch (err) {
-				const message =
-					err instanceof Error
-						? err.message
-						: "No se pudo eliminar el control de pedido.";
-				setError(message);
-				throw err instanceof Error ? err : new Error(message);
-			}
-		},
-		[normalizedCompany]
-	);
+  const entries =
+    subscriptionKey && subscriptionState.key === subscriptionKey
+      ? subscriptionState.entries
+      : [];
+  const subscriptionError =
+    subscriptionKey && subscriptionState.key === subscriptionKey
+      ? subscriptionState.error
+      : null;
+  const loading =
+    Boolean(subscriptionKey) && subscriptionState.key !== subscriptionKey;
+  const error = subscriptionError ?? actionError;
 
-	return {
-		entries,
-		loading,
-		error,
-		addOrder,
-		deleteOrdersForProviderReceiveDay,
-	};
+  const addOrder = useCallback(
+    async (payload: Omit<ControlPedidoEntry, "id" | "createdAt">) => {
+      if (!normalizedCompany) {
+        const message = "No se pudo determinar la empresa del usuario.";
+        setActionError(message);
+        throw new Error(message);
+      }
+
+      try {
+        setActionError(null);
+        await ControlPedidoService.addEntry(normalizedCompany, payload);
+      } catch (err) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : "No se pudo guardar el control de pedido.";
+        setActionError(message);
+        throw err instanceof Error ? err : new Error(message);
+      }
+    },
+    [normalizedCompany],
+  );
+
+  const deleteOrdersForProviderReceiveDay = useCallback(
+    async (providerCode: string, receiveDateKey: number) => {
+      if (!normalizedCompany) {
+        const message = "No se pudo determinar la empresa del usuario.";
+        setActionError(message);
+        throw new Error(message);
+      }
+
+      try {
+        setActionError(null);
+        return await ControlPedidoService.deleteByProviderAndReceiveDateKey(
+          normalizedCompany,
+          providerCode,
+          receiveDateKey,
+        );
+      } catch (err) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : "No se pudo eliminar el control de pedido.";
+        setActionError(message);
+        throw err instanceof Error ? err : new Error(message);
+      }
+    },
+    [normalizedCompany],
+  );
+
+  return {
+    entries,
+    loading,
+    error,
+    addOrder,
+    deleteOrdersForProviderReceiveDay,
+  };
 }

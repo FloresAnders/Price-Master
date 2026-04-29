@@ -11,7 +11,7 @@ export type FuncionListItem = {
   descripcion?: string;
   reminderTimeCr?: string;
   createdAt?: string;
-  audience?: 'DELIKOR' | 'DELIFOOD';
+  audience?: "DELIKOR" | "DELIFOOD";
   empresaIds?: string[];
 };
 

@@ -60,11 +60,12 @@ export function AuditHistoryModal({
     key.toLowerCase() === "amountingreso";
 
   const isEgresoKey = (key: string) =>
-    key.toLowerCase().includes("egreso") || key.toLowerCase() === "amountegreso";
+    key.toLowerCase().includes("egreso") ||
+    key.toLowerCase() === "amountegreso";
 
   const getAuditCurrency = (
     before: Record<string, any>,
-    after: Record<string, any>
+    after: Record<string, any>,
   ): "CRC" | "USD" => {
     const raw = (after?.currency ?? before?.currency) as unknown;
     return raw === "USD" ? "USD" : "CRC";
@@ -82,7 +83,7 @@ export function AuditHistoryModal({
   const formatAuditValue = (
     key: string,
     value: unknown,
-    currency: "CRC" | "USD"
+    currency: "CRC" | "USD",
   ) => {
     if (value === null || value === undefined) return "—";
     if (typeof value === "boolean") return value ? "Sí" : "No";
@@ -115,7 +116,7 @@ export function AuditHistoryModal({
 
   const buildAuditDiffKeys = (
     before: Record<string, any>,
-    after: Record<string, any>
+    after: Record<string, any>,
   ) => {
     const allKeys = new Set<string>([
       ...Object.keys(before || {}),
@@ -123,7 +124,7 @@ export function AuditHistoryModal({
     ]);
 
     const changedKeys = Array.from(allKeys).filter(
-      (k) => stableValueString(before?.[k]) !== stableValueString(after?.[k])
+      (k) => stableValueString(before?.[k]) !== stableValueString(after?.[k]),
     );
 
     const ordered = auditPreferredFieldOrder
@@ -134,13 +135,16 @@ export function AuditHistoryModal({
       .filter((k) => !ordered.includes(k))
       .sort((a, b) => a.localeCompare(b));
 
-    const alwaysInclude = ["amountIngreso", "amountEgreso", "ingreso", "egreso"].filter(
-      (k) => allKeys.has(k)
-    );
+    const alwaysInclude = [
+      "amountIngreso",
+      "amountEgreso",
+      "ingreso",
+      "egreso",
+    ].filter((k) => allKeys.has(k));
     const base = Array.from(new Set([...ordered, ...alwaysInclude]));
 
     const result = base.filter(
-      (k) => changedKeys.includes(k) || alwaysInclude.includes(k)
+      (k) => changedKeys.includes(k) || alwaysInclude.includes(k),
     );
     return Array.from(new Set([...result, ...rest]));
   };
@@ -148,7 +152,8 @@ export function AuditHistoryModal({
   const pickAuditField = (snapshot: Record<string, any>, keys: string[]) => {
     for (const k of keys) {
       const v = snapshot?.[k];
-      if (v !== undefined && v !== null && String(v).trim().length > 0) return v;
+      if (v !== undefined && v !== null && String(v).trim().length > 0)
+        return v;
     }
     return undefined;
   };
@@ -156,7 +161,7 @@ export function AuditHistoryModal({
   const getAuditFinancialSummary = (
     before: Record<string, any>,
     after: Record<string, any>,
-    currency: "CRC" | "USD"
+    currency: "CRC" | "USD",
   ) => {
     const beforeIngreso =
       coerceFiniteNumber(before?.amountIngreso ?? before?.ingreso) ?? 0;
@@ -175,17 +180,17 @@ export function AuditHistoryModal({
 
     const ingresoLine = `Ingreso: ${formatByCurrency(
       currency,
-      beforeIngreso
+      beforeIngreso,
     )} → ${formatByCurrency(currency, afterIngreso)} ${arrow(
       beforeIngreso,
-      afterIngreso
+      afterIngreso,
     )}`;
     const egresoLine = `Egreso: ${formatByCurrency(
       currency,
-      beforeEgreso
+      beforeEgreso,
     )} → ${formatByCurrency(currency, afterEgreso)} ${arrow(
       beforeEgreso,
-      afterEgreso
+      afterEgreso,
     )}`;
 
     const approxEqual = (a: number, b: number) => Math.abs(a - b) <= 0.0001;
@@ -202,7 +207,7 @@ export function AuditHistoryModal({
         : Math.max(beforeIngreso, afterEgreso);
       headline = `Cambio financiero detectado: Ingreso → Egreso (${formatByCurrency(
         currency,
-        amount
+        amount,
       )})`;
     } else if (
       beforeEgreso > 0 &&
@@ -215,7 +220,7 @@ export function AuditHistoryModal({
         : Math.max(beforeEgreso, afterIngreso);
       headline = `Cambio financiero detectado: Egreso → Ingreso (${formatByCurrency(
         currency,
-        amount
+        amount,
       )})`;
     } else if (deltaIngreso !== 0 || deltaEgreso !== 0) {
       headline = "Cambio financiero detectado";
@@ -237,11 +242,12 @@ export function AuditHistoryModal({
   const getAuditChangeClass = (
     key: string,
     beforeValue: unknown,
-    afterValue: unknown
+    afterValue: unknown,
   ) => {
     const beforeNum = coerceFiniteNumber(beforeValue);
     const afterNum = coerceFiniteNumber(afterValue);
-    const changed = stableValueString(beforeValue) !== stableValueString(afterValue);
+    const changed =
+      stableValueString(beforeValue) !== stableValueString(afterValue);
     if (!changed) return "text-[var(--foreground)]";
 
     if (
@@ -357,7 +363,8 @@ export function AuditHistoryModal({
                   </summary>
 
                   <div className="px-3 pb-3">
-                    {(impact.deltaIngreso !== 0 || impact.deltaEgreso !== 0) && (
+                    {(impact.deltaIngreso !== 0 ||
+                      impact.deltaEgreso !== 0) && (
                       <div className="mt-2 rounded border border-[var(--input-border)] bg-[#0b1011] p-3">
                         <div className="text-xs font-semibold text-[var(--foreground)]">
                           Indicadores de cambio
@@ -410,7 +417,7 @@ export function AuditHistoryModal({
                               {formatAuditValue(
                                 "providerCode",
                                 providerBefore,
-                                currency
+                                currency,
                               )}
                             </span>
                           </div>
@@ -429,7 +436,7 @@ export function AuditHistoryModal({
                               {formatAuditValue(
                                 "paymentType",
                                 typeBefore,
-                                currency
+                                currency,
                               )}
                             </span>
                           </div>
@@ -441,7 +448,7 @@ export function AuditHistoryModal({
                               className={getAuditChangeClass(
                                 "amountIngreso",
                                 before?.amountIngreso ?? before?.ingreso,
-                                after?.amountIngreso ?? after?.ingreso
+                                after?.amountIngreso ?? after?.ingreso,
                               )}
                             >
                               {formatByCurrency(currency, impact.beforeIngreso)}
@@ -455,7 +462,7 @@ export function AuditHistoryModal({
                               className={getAuditChangeClass(
                                 "amountEgreso",
                                 before?.amountEgreso ?? before?.egreso,
-                                after?.amountEgreso ?? after?.egreso
+                                after?.amountEgreso ?? after?.egreso,
                               )}
                             >
                               {formatByCurrency(currency, impact.beforeEgreso)}
@@ -484,7 +491,7 @@ export function AuditHistoryModal({
                               {formatAuditValue(
                                 "providerCode",
                                 providerAfter,
-                                currency
+                                currency,
                               )}
                             </span>
                           </div>
@@ -503,7 +510,7 @@ export function AuditHistoryModal({
                               {formatAuditValue(
                                 "paymentType",
                                 typeAfter,
-                                currency
+                                currency,
                               )}
                             </span>
                           </div>
@@ -515,7 +522,7 @@ export function AuditHistoryModal({
                               className={getAuditChangeClass(
                                 "amountIngreso",
                                 before?.amountIngreso ?? before?.ingreso,
-                                after?.amountIngreso ?? after?.ingreso
+                                after?.amountIngreso ?? after?.ingreso,
                               )}
                             >
                               {formatByCurrency(currency, impact.afterIngreso)}
@@ -529,7 +536,7 @@ export function AuditHistoryModal({
                               className={getAuditChangeClass(
                                 "amountEgreso",
                                 before?.amountEgreso ?? before?.egreso,
-                                after?.amountEgreso ?? after?.egreso
+                                after?.amountEgreso ?? after?.egreso,
                               )}
                             >
                               {formatByCurrency(currency, impact.afterEgreso)}
@@ -576,7 +583,8 @@ export function AuditHistoryModal({
                                     <span
                                       className={
                                         changed &&
-                                        (isIngresoKey(key) || key === "amountIngreso")
+                                        (isIngresoKey(key) ||
+                                          key === "amountIngreso")
                                           ? "text-green-400"
                                           : changed &&
                                               (isEgresoKey(key) ||

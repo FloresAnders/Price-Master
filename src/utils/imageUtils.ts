@@ -14,13 +14,13 @@ export function compressImage(
   file: File,
   maxWidth: number = 1024,
   maxHeight: number = 1024,
-  quality: number = 0.8
+  quality: number = 0.8,
 ): Promise<Blob> {
   return new Promise((resolve, reject) => {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
     if (!ctx) {
-      reject(new Error('Canvas context not available'));
+      reject(new Error("Canvas context not available"));
       return;
     }
 
@@ -53,15 +53,15 @@ export function compressImage(
           if (blob) {
             resolve(blob);
           } else {
-            reject(new Error('Failed to compress image'));
+            reject(new Error("Failed to compress image"));
           }
         },
-        'image/jpeg',
-        quality
+        "image/jpeg",
+        quality,
       );
     };
 
-    img.onerror = () => reject(new Error('Failed to load image'));
+    img.onerror = () => reject(new Error("Failed to load image"));
     img.src = URL.createObjectURL(file);
   });
 }
@@ -72,16 +72,22 @@ export function compressImage(
  * @param maxSizeMB - Maximum size in MB (default: 5)
  * @returns Object with isValid boolean and error message if invalid
  */
-export function validateImageFile(file: File, maxSizeMB: number = 5): { isValid: boolean; error?: string } {
+export function validateImageFile(
+  file: File,
+  maxSizeMB: number = 5,
+): { isValid: boolean; error?: string } {
   // Check file type
-  if (!file.type.startsWith('image/')) {
-    return { isValid: false, error: 'El archivo debe ser una imagen válida' };
+  if (!file.type.startsWith("image/")) {
+    return { isValid: false, error: "El archivo debe ser una imagen válida" };
   }
 
   // Check file size
   const maxSizeBytes = maxSizeMB * 1024 * 1024;
   if (file.size > maxSizeBytes) {
-    return { isValid: false, error: `La imagen no debe superar ${maxSizeMB}MB` };
+    return {
+      isValid: false,
+      error: `La imagen no debe superar ${maxSizeMB}MB`,
+    };
   }
 
   return { isValid: true };

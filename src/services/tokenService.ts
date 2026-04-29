@@ -1,5 +1,5 @@
 // src/services/tokenService.ts
-import type { User, UserPermissions } from '../types/firestore';
+import type { User, UserPermissions } from "../types/firestore";
 
 // Interfaz para el payload del token
 interface TokenPayload {
@@ -8,7 +8,7 @@ interface TokenPayload {
   ownercompanie?: string;
   ownerId?: string;
   eliminate?: boolean;
-  role: 'admin' | 'user' | 'superadmin';
+  role: "admin" | "user" | "superadmin";
   permissions?: UserPermissions;
   sessionId: string;
   iat: number; // issued at
@@ -29,18 +29,18 @@ interface TokenSessionData {
 }
 
 export class TokenService {
-  private static readonly SECRET_KEY = 'pricemaster_secret_2024'; // En producción usar variable de entorno
+  private static readonly SECRET_KEY = "pricemaster_secret_2024"; // En producción usar variable de entorno
   private static readonly TOKEN_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 días en milisegundos
   private static readonly REFRESH_TOKEN_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 días en milisegundos
-  private static readonly STORAGE_KEY = 'pricemaster_token_session';
+  private static readonly STORAGE_KEY = "pricemaster_token_session";
 
   /**
    * Genera un token simple (sin librería JWT para simplicidad)
    */
   private static generateSimpleToken(payload: TokenPayload): string {
     const header = {
-      alg: 'HS256',
-      typ: 'JWT'
+      alg: "HS256",
+      typ: "JWT",
     };
 
     const encodedHeader = btoa(JSON.stringify(header));
@@ -48,7 +48,9 @@ export class TokenService {
 
     // Generar una "firma" simple basada en hash
     const signature = btoa(
-      this.generateHash(`${encodedHeader}.${encodedPayload}.${this.SECRET_KEY}`)
+      this.generateHash(
+        `${encodedHeader}.${encodedPayload}.${this.SECRET_KEY}`,
+      ),
     );
 
     return `${encodedHeader}.${encodedPayload}.${signature}`;
@@ -59,18 +61,20 @@ export class TokenService {
    */
   private static validateSimpleToken(token: string): TokenPayload | null {
     try {
-      const parts = token.split('.');
+      const parts = token.split(".");
       if (parts.length !== 3) return null;
 
       const [encodedHeader, encodedPayload, signature] = parts;
 
       // Verificar firma
       const expectedSignature = btoa(
-        this.generateHash(`${encodedHeader}.${encodedPayload}.${this.SECRET_KEY}`)
+        this.generateHash(
+          `${encodedHeader}.${encodedPayload}.${this.SECRET_KEY}`,
+        ),
       );
 
       if (signature !== expectedSignature) {
-        console.error('Token signature invalid');
+        console.error("Token signature invalid");
         return null;
       }
 
@@ -78,13 +82,13 @@ export class TokenService {
 
       // Verificar expiración
       if (Date.now() > payload.exp) {
-        console.error('Token expired');
+        console.error("Token expired");
         return null;
       }
 
       return payload;
     } catch (error) {
-      console.error('Error validating token:', error);
+      console.error("Error validating token:", error);
       return null;
     }
   }
@@ -96,7 +100,7 @@ export class TokenService {
     let hash = 0;
     for (let i = 0; i < input.length; i++) {
       const char = input.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
+      hash = (hash << 5) - hash + char;
       hash = hash & hash; // Convert to 32-bit integer
     }
     return Math.abs(hash).toString(36);
@@ -115,7 +119,9 @@ export class TokenService {
   private static generateRefreshToken(): string {
     const randomBytes = new Uint8Array(32);
     crypto.getRandomValues(randomBytes);
-    return Array.from(randomBytes, byte => byte.toString(16).padStart(2, '0')).join('');
+    return Array.from(randomBytes, (byte) =>
+      byte.toString(16).padStart(2, "0"),
+    ).join("");
   }
 
   /**
@@ -127,7 +133,7 @@ export class TokenService {
     const jwtId = this.generateJwtId();
 
     // Copia segura del usuario sin contraseña (tipada, sin usar `any`)
-    const safeUser: Omit<User, 'password'> = {
+    const safeUser: Omit<User, "password"> = {
       id: userData.id,
       name: userData.name,
       ownercompanie: userData.ownercompanie,
@@ -148,7 +154,7 @@ export class TokenService {
       sessionId,
       iat: now,
       exp: now + this.TOKEN_DURATION,
-      jti: jwtId
+      jti: jwtId,
     };
 
     const token = this.generateSimpleToken(tokenPayload);
@@ -162,7 +168,7 @@ export class TokenService {
       loginTime: new Date().toISOString(),
       lastActivity: new Date().toISOString(),
       expiresAt: now + this.TOKEN_DURATION,
-      refreshExpiresAt: now + this.REFRESH_TOKEN_DURATION
+      refreshExpiresAt: now + this.REFRESH_TOKEN_DURATION,
     };
 
     // Guardar en localStorage
@@ -192,7 +198,7 @@ export class TokenService {
 
       return sessionData;
     } catch (error) {
-      console.error('Error validating token session:', error);
+      console.error("Error validating token session:", error);
       return null;
     }
   }
@@ -200,7 +206,9 @@ export class TokenService {
   /**
    * Intenta renovar el token usando el refresh token
    */
-  private static refreshTokenIfPossible(sessionData: TokenSessionData): TokenSessionData | null {
+  private static refreshTokenIfPossible(
+    sessionData: TokenSessionData,
+  ): TokenSessionData | null {
     const now = Date.now();
 
     // Verificar si el refresh token aún es válido
@@ -222,7 +230,7 @@ export class TokenService {
       //('Token refreshed successfully');
       return newTokenSession;
     } catch (error) {
-      console.error('Error refreshing token:', error);
+      console.error("Error refreshing token:", error);
       return null;
     }
   }
@@ -244,10 +252,12 @@ export class TokenService {
   static formatTokenTimeLeft(): string {
     const timeLeft = this.getTokenTimeLeft();
 
-    if (timeLeft <= 0) return 'Token expirado';
+    if (timeLeft <= 0) return "Token expirado";
 
     const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const hours = Math.floor(
+      (timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60),
+    );
     const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
     const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
 
@@ -276,7 +286,7 @@ export class TokenService {
       //('Token extended for one more week');
       return true;
     } catch (error) {
-      console.error('Error extending token:', error);
+      console.error("Error extending token:", error);
       return false;
     }
   }
@@ -296,17 +306,20 @@ export class TokenService {
       // Crear payload actualizado
       const userRec = sessionData.user as unknown as Record<string, unknown>;
       const newPayload: TokenPayload = {
-        userId: ((sessionData.user as unknown) as Record<string, unknown>).id as string || '',
-        name: ((sessionData.user as unknown) as Record<string, unknown>).name as string,
-        ownercompanie: (userRec.ownercompanie as string | undefined),
-        ownerId: (userRec.ownerId as string | undefined),
-        eliminate: (userRec.eliminate as boolean | undefined),
-        role: sessionData.user.role as 'admin' | 'user' | 'superadmin',
+        userId:
+          ((sessionData.user as unknown as Record<string, unknown>)
+            .id as string) || "",
+        name: (sessionData.user as unknown as Record<string, unknown>)
+          .name as string,
+        ownercompanie: userRec.ownercompanie as string | undefined,
+        ownerId: userRec.ownerId as string | undefined,
+        eliminate: userRec.eliminate as boolean | undefined,
+        role: sessionData.user.role as "admin" | "user" | "superadmin",
         permissions: sessionData.user.permissions,
         sessionId: sessionData.sessionId,
         iat: now,
         exp: newExp,
-        jti: this.generateSessionId()
+        jti: this.generateSessionId(),
       };
 
       // Generar nuevo token
@@ -320,7 +333,7 @@ export class TokenService {
         refreshToken: newRefreshToken,
         expiresAt: newExp,
         refreshExpiresAt: now + this.REFRESH_TOKEN_DURATION,
-        lastActivity: new Date().toISOString()
+        lastActivity: new Date().toISOString(),
       };
 
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(updatedSession));
@@ -328,7 +341,7 @@ export class TokenService {
       //(`Token extended by ${extensionMs / (1000 * 60 * 60)} hours`);
       return true;
     } catch (error) {
-      console.error('Error extending token with custom duration:', error);
+      console.error("Error extending token with custom duration:", error);
       return false;
     }
   }
@@ -340,7 +353,7 @@ export class TokenService {
     try {
       this.clearTokenSession();
     } catch (error) {
-      console.error('Error revoking token:', error);
+      console.error("Error revoking token:", error);
       this.clearTokenSession();
     }
   }
@@ -352,7 +365,7 @@ export class TokenService {
     try {
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(sessionData));
     } catch (error) {
-      console.error('Error saving token session:', error);
+      console.error("Error saving token session:", error);
     }
   }
 
@@ -376,7 +389,7 @@ export class TokenService {
     try {
       localStorage.removeItem(this.STORAGE_KEY);
     } catch (error) {
-      console.error('Error clearing token session:', error);
+      console.error("Error clearing token session:", error);
     }
   }
 
@@ -407,7 +420,7 @@ export class TokenService {
         timeLeft: 0,
         user: null,
         sessionId: null,
-        expiresAt: null
+        expiresAt: null,
       };
     }
 
@@ -416,8 +429,7 @@ export class TokenService {
       timeLeft: this.getTokenTimeLeft(),
       user: sessionData.user,
       sessionId: sessionData.sessionId,
-      expiresAt: new Date(sessionData.expiresAt)
+      expiresAt: new Date(sessionData.expiresAt),
     };
   }
-
 }

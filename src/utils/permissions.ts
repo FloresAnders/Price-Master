@@ -1,14 +1,15 @@
-import { UserPermissions } from '../types/firestore';
+import { UserPermissions } from "../types/firestore";
 
-type RoleKey = 'admin' | 'user' | 'superadmin';
+type RoleKey = "admin" | "user" | "superadmin";
 
 const coerceBoolean = (value: unknown): boolean | undefined => {
-  if (typeof value === 'boolean') return value;
-  if (typeof value === 'number') return value !== 0;
-  if (typeof value === 'string') {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value === "string") {
     const s = value.trim().toLowerCase();
-    if (s === 'true' || s === '1' || s === 'si' || s === 'sí' || s === 'yes') return true;
-    if (s === 'false' || s === '0' || s === 'no') return false;
+    if (s === "true" || s === "1" || s === "si" || s === "sí" || s === "yes")
+      return true;
+    if (s === "false" || s === "0" || s === "no") return false;
   }
   return undefined;
 };
@@ -22,10 +23,10 @@ const coerceBoolean = (value: unknown): boolean | undefined => {
  */
 export function normalizeUserPermissions(
   raw: unknown,
-  role: RoleKey = 'user'
+  role: RoleKey = "user",
 ): UserPermissions {
   const base = getDefaultPermissions(role);
-  if (!raw || typeof raw !== 'object') {
+  if (!raw || typeof raw !== "object") {
     return base;
   }
 
@@ -34,10 +35,10 @@ export function normalizeUserPermissions(
 
   for (const key of Object.keys(base) as Array<keyof UserPermissions>) {
     if (!Object.prototype.hasOwnProperty.call(obj, key as string)) continue;
-    if (key === 'scanhistoryEmpresas') {
+    if (key === "scanhistoryEmpresas") {
       const val = obj[key as string];
       out.scanhistoryEmpresas = Array.isArray(val)
-        ? (val.filter((x) => typeof x === 'string') as string[])
+        ? (val.filter((x) => typeof x === "string") as string[])
         : [];
       continue;
     }
@@ -130,7 +131,9 @@ export const DEFAULT_PERMISSIONS: Record<string, UserPermissions> = {
 /**
  * Get default permissions for a specific role
  */
-export function getDefaultPermissions(role: 'admin' | 'user' | 'superadmin' = 'user'): UserPermissions {
+export function getDefaultPermissions(
+  role: "admin" | "user" | "superadmin" = "user",
+): UserPermissions {
   return { ...DEFAULT_PERMISSIONS[role] };
 }
 
@@ -197,7 +200,7 @@ export function getNoPermissions(): UserPermissions {
  */
 export function updatePermissions(
   currentPermissions: UserPermissions | undefined,
-  updates: Partial<UserPermissions>
+  updates: Partial<UserPermissions>,
 ): UserPermissions {
   const current = currentPermissions || getNoPermissions();
   return {
@@ -211,7 +214,7 @@ export function updatePermissions(
  */
 export function hasPermission(
   permissions: UserPermissions | undefined,
-  section: keyof UserPermissions
+  section: keyof UserPermissions,
 ): boolean {
   return permissions?.[section] === true;
 }

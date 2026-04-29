@@ -76,7 +76,9 @@ export function EmpresaSearchAddSection({
 
       <div className="flex w-full md:flex-1 flex-col md:flex-row md:flex-nowrap items-stretch md:items-end gap-2 md:gap-3">
         <div className="w-full md:w-auto md:flex-1 md:min-w-0 lg:min-w-[260px]">
-          <label className="text-[10px] sm:text-xs text-[var(--muted-foreground)] md:invisible">Buscar</label>
+          <label className="text-[10px] sm:text-xs text-[var(--muted-foreground)] md:invisible">
+            Buscar
+          </label>
           <div className="relative">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
             <input

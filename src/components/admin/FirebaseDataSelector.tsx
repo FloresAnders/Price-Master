@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { useSorteos } from '../../hooks/useFirebase';
-import { EmpresasService } from '../../services/empresas';
-import type { Empresas, Sorteo } from '../../types/firestore';
+import React, { useState, useEffect } from "react";
+import { useSorteos } from "../../hooks/useFirebase";
+import { EmpresasService } from "../../services/empresas";
+import type { Empresas, Sorteo } from "../../types/firestore";
 
 interface FirebaseDataSelectorProps {
   onEmpresaSelect?: (empresa: Empresas) => void;
@@ -10,13 +10,17 @@ interface FirebaseDataSelectorProps {
 
 export default function FirebaseDataSelector({
   onEmpresaSelect,
-  onSorteoSelect
+  onSorteoSelect,
 }: FirebaseDataSelectorProps) {
-  const { sorteos, loading: sorteosLoading, error: sorteosError } = useSorteos();
+  const {
+    sorteos,
+    loading: sorteosLoading,
+    error: sorteosError,
+  } = useSorteos();
   const [empresas, setEmpresas] = useState<Empresas[]>([]);
   const [empresasLoading, setEmpresasLoading] = useState(true);
   const [empresasError, setEmpresasError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     const loadEmpresas = async () => {
@@ -25,7 +29,9 @@ export default function FirebaseDataSelector({
         const data = await EmpresasService.getAllEmpresas();
         setEmpresas(data);
       } catch (err) {
-        setEmpresasError(err instanceof Error ? err.message : 'Error loading empresas');
+        setEmpresasError(
+          err instanceof Error ? err.message : "Error loading empresas",
+        );
       } finally {
         setEmpresasLoading(false);
       }
@@ -34,13 +40,14 @@ export default function FirebaseDataSelector({
   }, []);
 
   // Filter data based on search term
-  const filteredEmpresas = empresas.filter(empresa =>
-    empresa.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    empresa.ubicacion.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredEmpresas = empresas.filter(
+    (empresa) =>
+      empresa.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      empresa.ubicacion.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
-  const filteredSorteos = sorteos.filter(sorteo =>
-    sorteo.name.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredSorteos = sorteos.filter((sorteo) =>
+    sorteo.name.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   if (empresasLoading || sorteosLoading) {
@@ -73,7 +80,7 @@ export default function FirebaseDataSelector({
         />
         {searchTerm && (
           <button
-            onClick={() => setSearchTerm('')}
+            onClick={() => setSearchTerm("")}
             className="absolute right-2 top-2 text-gray-400 hover:text-gray-600"
           >
             ✕
@@ -95,9 +102,7 @@ export default function FirebaseDataSelector({
                 className="p-3 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
               >
                 <div className="font-medium">{empresa.name}</div>
-                <div className="text-sm text-gray-600">
-                  {empresa.ubicacion}
-                </div>
+                <div className="text-sm text-gray-600">{empresa.ubicacion}</div>
               </div>
             ))}
             {filteredEmpresas.length === 0 && (

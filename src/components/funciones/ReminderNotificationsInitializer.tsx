@@ -1,13 +1,18 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { Check } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
-import { useActorOwnership } from '@/hooks/useActorOwnership';
-import { getDefaultPermissions } from '@/utils/permissions';
-import { EmpresasService } from '@/services/empresas';
-import { filterFuncionesGeneralesForEmpresa, FuncionesService, getFuncionIdLookupKeys, lookupGeneralByFuncionId } from '@/services/funciones';
-import type { Empresas, UserPermissions } from '@/types/firestore';
+import React from "react";
+import { Check } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { useActorOwnership } from "@/hooks/useActorOwnership";
+import { getDefaultPermissions } from "@/utils/permissions";
+import { EmpresasService } from "@/services/empresas";
+import {
+  filterFuncionesGeneralesForEmpresa,
+  FuncionesService,
+  getFuncionIdLookupKeys,
+  lookupGeneralByFuncionId,
+} from "@/services/funciones";
+import type { Empresas, UserPermissions } from "@/types/firestore";
 
 type ReminderItem = {
   key: string; // unique per day
@@ -19,37 +24,37 @@ type ReminderItem = {
   reminderTimeCr: string; // HH:mm
 };
 
-const STORAGE_KEY = 'funciones_reminders_fired';
+const STORAGE_KEY = "funciones_reminders_fired";
 
 const getCostaRicaNow = (): { timeHHmm: string; dateKey: string } => {
   const now = new Date();
 
   try {
-    const timeHHmm = new Intl.DateTimeFormat('en-GB', {
-      timeZone: 'America/Costa_Rica',
-      hour: '2-digit',
-      minute: '2-digit',
+    const timeHHmm = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "America/Costa_Rica",
+      hour: "2-digit",
+      minute: "2-digit",
       hour12: false,
     }).format(now);
 
-    const parts = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'America/Costa_Rica',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Costa_Rica",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
     }).formatToParts(now);
 
-    const year = parts.find((p) => p.type === 'year')?.value ?? '';
-    const month = parts.find((p) => p.type === 'month')?.value ?? '';
-    const day = parts.find((p) => p.type === 'day')?.value ?? '';
-    const dateKey = year && month && day ? `${year}-${month}-${day}` : '';
+    const year = parts.find((p) => p.type === "year")?.value ?? "";
+    const month = parts.find((p) => p.type === "month")?.value ?? "";
+    const day = parts.find((p) => p.type === "day")?.value ?? "";
+    const dateKey = year && month && day ? `${year}-${month}-${day}` : "";
 
-    return { timeHHmm: String(timeHHmm || '').trim(), dateKey };
+    return { timeHHmm: String(timeHHmm || "").trim(), dateKey };
   } catch {
     // Fallback: local time if Intl timeZone is not available
-    const hh = String(now.getHours()).padStart(2, '0');
-    const mm = String(now.getMinutes()).padStart(2, '0');
-    const dateKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const hh = String(now.getHours()).padStart(2, "0");
+    const mm = String(now.getMinutes()).padStart(2, "0");
+    const dateKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
     return { timeHHmm: `${hh}:${mm}`, dateKey };
   }
 };
@@ -58,33 +63,43 @@ export default function ReminderNotificationsInitializer() {
   const { user: currentUser, loading: authLoading } = useAuth();
   const { ownerIds: actorOwnerIds } = useActorOwnership(currentUser);
 
-  const [items, setItems] = React.useState<Array<Omit<ReminderItem, 'key'>>>([]);
+  const [items, setItems] = React.useState<Array<Omit<ReminderItem, "key">>>(
+    [],
+  );
   const [queue, setQueue] = React.useState<ReminderItem[]>([]);
   const [active, setActive] = React.useState<ReminderItem | null>(null);
 
-  const firedRef = React.useRef<{ dateKey: string; set: Set<string> }>({ dateKey: '', set: new Set() });
+  const firedRef = React.useRef<{ dateKey: string; set: Set<string> }>({
+    dateKey: "",
+    set: new Set(),
+  });
   const pendingRef = React.useRef<Set<string>>(new Set());
-  const lastMinuteRef = React.useRef<string>('');
+  const lastMinuteRef = React.useRef<string>("");
 
   const hasNotificacionesPermission = React.useMemo(() => {
     if (!currentUser) return false;
     const perms: UserPermissions = currentUser.permissions
       ? currentUser.permissions
-      : getDefaultPermissions(currentUser.role || 'user');
+      : getDefaultPermissions(currentUser.role || "user");
     return perms.notificaciones === true;
   }, [currentUser]);
 
   // Load fired state from localStorage (once).
   React.useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return;
-      const parsed = JSON.parse(raw) as { dateKey?: string; firedKeys?: string[] } | null;
-      if (!parsed || typeof parsed !== 'object') return;
+      const parsed = JSON.parse(raw) as {
+        dateKey?: string;
+        firedKeys?: string[];
+      } | null;
+      if (!parsed || typeof parsed !== "object") return;
 
-      const dateKey = typeof parsed.dateKey === 'string' ? parsed.dateKey : '';
-      const firedKeys = Array.isArray(parsed.firedKeys) ? parsed.firedKeys.map(String) : [];
+      const dateKey = typeof parsed.dateKey === "string" ? parsed.dateKey : "";
+      const firedKeys = Array.isArray(parsed.firedKeys)
+        ? parsed.firedKeys.map(String)
+        : [];
 
       firedRef.current = { dateKey, set: new Set(firedKeys) };
     } catch {
@@ -93,7 +108,7 @@ export default function ReminderNotificationsInitializer() {
   }, []);
 
   const persistFired = React.useCallback(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
     try {
       const payload = {
         dateKey: firedRef.current.dateKey,
@@ -111,32 +126,56 @@ export default function ReminderNotificationsInitializer() {
     const allEmpresas = await EmpresasService.getAllEmpresas();
     const normalized = Array.isArray(allEmpresas) ? allEmpresas : [];
 
-    const role = String(currentUser.role || 'user').trim().toLowerCase();
+    const role = String(currentUser.role || "user")
+      .trim()
+      .toLowerCase();
     let empresas: Empresas[] = [];
-    if (role === 'superadmin' || role === 'admin') {
+    if (role === "superadmin" || role === "admin") {
       empresas = normalized;
-    } else if (role === 'user') {
-      const companyKey = String(currentUser.ownercompanie || '').trim().toLowerCase();
+    } else if (role === "user") {
+      const companyKey = String(currentUser.ownercompanie || "")
+        .trim()
+        .toLowerCase();
       if (companyKey) {
         empresas = normalized.filter((e) => {
-          const name = String(e?.name || '').trim().toLowerCase();
-          const ubicacion = String(e?.ubicacion || '').trim().toLowerCase();
-          const id = String(e?.id || '').trim().toLowerCase();
-          return name === companyKey || ubicacion === companyKey || id === companyKey;
+          const name = String(e?.name || "")
+            .trim()
+            .toLowerCase();
+          const ubicacion = String(e?.ubicacion || "")
+            .trim()
+            .toLowerCase();
+          const id = String(e?.id || "")
+            .trim()
+            .toLowerCase();
+          return (
+            name === companyKey || ubicacion === companyKey || id === companyKey
+          );
         });
       } else {
-        const ownerId = String(currentUser.ownerId || '').trim();
+        const ownerId = String(currentUser.ownerId || "").trim();
         empresas = ownerId
-          ? normalized.filter((e) => String(e?.ownerId || '').trim() === ownerId)
+          ? normalized.filter(
+              (e) => String(e?.ownerId || "").trim() === ownerId,
+            )
           : [];
       }
     } else {
-      const allowed = new Set((actorOwnerIds || []).map((id) => String(id)).filter(Boolean));
+      const allowed = new Set(
+        (actorOwnerIds || []).map((id) => String(id)).filter(Boolean),
+      );
       if (allowed.size > 0) {
-        empresas = normalized.filter((e) => e && e.ownerId && allowed.has(String(e.ownerId)));
+        empresas = normalized.filter(
+          (e) => e && e.ownerId && allowed.has(String(e.ownerId)),
+        );
       } else {
-        const fallbackAllowed = new Set([currentUser.id, currentUser.ownerId].map((x) => String(x || '').trim()).filter(Boolean));
-        empresas = normalized.filter((e) => e && e.ownerId && fallbackAllowed.has(String(e.ownerId)));
+        const fallbackAllowed = new Set(
+          [currentUser.id, currentUser.ownerId]
+            .map((x) => String(x || "").trim())
+            .filter(Boolean),
+        );
+        empresas = normalized.filter(
+          (e) => e && e.ownerId && fallbackAllowed.has(String(e.ownerId)),
+        );
       }
     }
 
@@ -145,34 +184,46 @@ export default function ReminderNotificationsInitializer() {
       role: currentUser.role,
     });
 
-    const nextItems: Array<Omit<ReminderItem, 'key'>> = [];
+    const nextItems: Array<Omit<ReminderItem, "key">> = [];
 
     await Promise.all(
       empresas
-        .map((e) => ({ empresa: e, empresaId: String(e?.id || '').trim() }))
+        .map((e) => ({ empresa: e, empresaId: String(e?.id || "").trim() }))
         .filter((x) => x.empresaId)
         .map(async ({ empresa, empresaId }) => {
           const doc = await FuncionesService.getEmpresaFunciones({ empresaId });
 
-          const visibleGeneralDocs = filterFuncionesGeneralesForEmpresa(generalDocs as any, {
-            ownerId: String(empresa?.ownerId || '').trim(),
-            empresaId,
-          });
+          const visibleGeneralDocs = filterFuncionesGeneralesForEmpresa(
+            generalDocs as any,
+            {
+              ownerId: String(empresa?.ownerId || "").trim(),
+              empresaId,
+            },
+          );
 
           const generalById = new Map<
             string,
-            { funcionId: string; nombre: string; descripcion?: string; reminderTimeCr?: string }
+            {
+              funcionId: string;
+              nombre: string;
+              descripcion?: string;
+              reminderTimeCr?: string;
+            }
           >();
           for (const d of visibleGeneralDocs as any[]) {
-            const funcionId = String((d as any).funcionId || '').trim();
-            const nombre = String((d as any).nombre || '').trim();
+            const funcionId = String((d as any).funcionId || "").trim();
+            const nombre = String((d as any).nombre || "").trim();
             if (!funcionId || !nombre) continue;
 
             const value = {
               funcionId,
               nombre,
-              descripcion: (d as any).descripcion ? String((d as any).descripcion).trim() : '',
-              reminderTimeCr: (d as any).reminderTimeCr ? String((d as any).reminderTimeCr).trim() : '',
+              descripcion: (d as any).descripcion
+                ? String((d as any).descripcion).trim()
+                : "",
+              reminderTimeCr: (d as any).reminderTimeCr
+                ? String((d as any).reminderTimeCr).trim()
+                : "",
             };
 
             for (const key of getFuncionIdLookupKeys(funcionId)) {
@@ -182,27 +233,32 @@ export default function ReminderNotificationsInitializer() {
 
           const funcionesIds: string[] = Array.from(
             new Set(
-              (Array.isArray((doc as any)?.funciones) ? (doc as any).funciones : [])
+              (Array.isArray((doc as any)?.funciones)
+                ? (doc as any).funciones
+                : []
+              )
                 .map((x: unknown) => String(x).trim())
-                .filter(Boolean)
-            )
+                .filter(Boolean),
+            ),
           );
 
           for (const funcionId of funcionesIds) {
             const g = lookupGeneralByFuncionId(generalById, funcionId);
-            const reminderTimeCr = String(g?.reminderTimeCr || '').trim();
+            const reminderTimeCr = String(g?.reminderTimeCr || "").trim();
             if (!reminderTimeCr) continue;
 
             nextItems.push({
               empresaId,
               empresaName: String(empresa?.name || empresaId),
               funcionId,
-              funcionNombre: String(g?.nombre || 'Función no encontrada'),
-              funcionDescripcion: String(g?.descripcion || '').trim() || (g ? undefined : `ID: ${funcionId}`),
+              funcionNombre: String(g?.nombre || "Función no encontrada"),
+              funcionDescripcion:
+                String(g?.descripcion || "").trim() ||
+                (g ? undefined : `ID: ${funcionId}`),
               reminderTimeCr,
             });
           }
-        })
+        }),
     );
 
     setItems(nextItems);
@@ -221,15 +277,21 @@ export default function ReminderNotificationsInitializer() {
         await refreshData();
       } catch (err) {
         // Silent: this is a background feature.
-        console.warn('ReminderNotificationsInitializer: failed to refresh data', err);
+        console.warn(
+          "ReminderNotificationsInitializer: failed to refresh data",
+          err,
+        );
       }
     };
 
     void load();
-    const interval = window.setInterval(() => {
-      if (cancelled) return;
-      void load();
-    }, 5 * 60 * 1000);
+    const interval = window.setInterval(
+      () => {
+        if (cancelled) return;
+        void load();
+      },
+      5 * 60 * 1000,
+    );
 
     return () => {
       cancelled = true;
@@ -289,7 +351,14 @@ export default function ReminderNotificationsInitializer() {
     return () => {
       window.clearInterval(interval);
     };
-  }, [active?.key, authLoading, currentUser, hasNotificacionesPermission, items, persistFired]);
+  }, [
+    active?.key,
+    authLoading,
+    currentUser,
+    hasNotificacionesPermission,
+    items,
+    persistFired,
+  ]);
 
   // Promote from queue to active.
   React.useEffect(() => {
@@ -347,7 +416,7 @@ export default function ReminderNotificationsInitializer() {
 
           <div className="pt-4 text-sm text-[var(--muted-foreground)]">
             Hora CR: {active.reminderTimeCr}
-            {queue.length > 0 ? ` · Pendientes: ${queue.length}` : ''}
+            {queue.length > 0 ? ` · Pendientes: ${queue.length}` : ""}
           </div>
         </div>
       </div>

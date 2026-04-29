@@ -1,8 +1,8 @@
-import { FirestoreService } from './firestore';
-import { Sorteo } from '../types/firestore';
+import { FirestoreService } from "./firestore";
+import { Sorteo } from "../types/firestore";
 
 export class SorteosService {
-  private static readonly COLLECTION_NAME = 'sorteos';
+  private static readonly COLLECTION_NAME = "sorteos";
 
   /**
    * Get all sorteos
@@ -21,14 +21,17 @@ export class SorteosService {
   /**
    * Add a new sorteo
    */
-  static async addSorteo(sorteo: Omit<Sorteo, 'id'>): Promise<string> {
+  static async addSorteo(sorteo: Omit<Sorteo, "id">): Promise<string> {
     return await FirestoreService.add(this.COLLECTION_NAME, sorteo);
   }
 
   /**
    * Update a sorteo
    */
-  static async updateSorteo(id: string, sorteo: Partial<Sorteo>): Promise<void> {
+  static async updateSorteo(
+    id: string,
+    sorteo: Partial<Sorteo>,
+  ): Promise<void> {
     return await FirestoreService.update(this.COLLECTION_NAME, id, sorteo);
   }
 
@@ -44,8 +47,8 @@ export class SorteosService {
    */
   static async findSorteosByName(name: string): Promise<Sorteo[]> {
     const allSorteos = await this.getAllSorteos();
-    return allSorteos.filter(sorteo =>
-      sorteo.name.toLowerCase().includes(name.toLowerCase())
+    return allSorteos.filter((sorteo) =>
+      sorteo.name.toLowerCase().includes(name.toLowerCase()),
     );
   }
 
@@ -53,7 +56,12 @@ export class SorteosService {
    * Get sorteos ordered by name
    */
   static async getSorteosOrderedByName(): Promise<Sorteo[]> {
-    return await FirestoreService.query(this.COLLECTION_NAME, [], 'name', 'asc');
+    return await FirestoreService.query(
+      this.COLLECTION_NAME,
+      [],
+      "name",
+      "asc",
+    );
   }
 
   /**
@@ -61,8 +69,8 @@ export class SorteosService {
    */
   static async searchSorteos(searchTerm: string): Promise<Sorteo[]> {
     const allSorteos = await this.getAllSorteos();
-    return allSorteos.filter(sorteo =>
-      sorteo.name.toLowerCase().includes(searchTerm.toLowerCase())
+    return allSorteos.filter((sorteo) =>
+      sorteo.name.toLowerCase().includes(searchTerm.toLowerCase()),
     );
   }
 }

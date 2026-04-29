@@ -46,9 +46,13 @@ export function EmpresaSelector({
 
         let filtered = normalized;
         if (userRole !== "superadmin") {
-          const allowed = new Set((actorOwnerIds || []).map((id) => String(id)));
+          const allowed = new Set(
+            (actorOwnerIds || []).map((id) => String(id)),
+          );
           if (allowed.size > 0) {
-            filtered = normalized.filter((e: any) => e && e.ownerId && allowed.has(String(e.ownerId)));
+            filtered = normalized.filter(
+              (e: any) => e && e.ownerId && allowed.has(String(e.ownerId)),
+            );
           }
         }
 
@@ -56,7 +60,10 @@ export function EmpresaSelector({
           .map((e: any) => String(e?.name || "").trim())
           .filter((n: string) => n.length > 0);
 
-        const merged = companyFromUser && !names.includes(companyFromUser) ? [companyFromUser, ...names] : names;
+        const merged =
+          companyFromUser && !names.includes(companyFromUser)
+            ? [companyFromUser, ...names]
+            : names;
 
         const unique: string[] = [];
         for (const n of merged) {
@@ -67,7 +74,10 @@ export function EmpresaSelector({
         setEmpresaOptions(unique);
       } catch (err) {
         if (cancelled) return;
-        const msg = err instanceof Error ? err.message : "No se pudieron cargar las empresas.";
+        const msg =
+          err instanceof Error
+            ? err.message
+            : "No se pudieron cargar las empresas.";
         setEmpresaError?.(msg);
         setEmpresaOptions([]);
       } finally {
@@ -79,7 +89,14 @@ export function EmpresaSelector({
     return () => {
       cancelled = true;
     };
-  }, [actorOwnerIds, authLoading, companyFromUser, isAdminLike, setEmpresaError, userRole]);
+  }, [
+    actorOwnerIds,
+    authLoading,
+    companyFromUser,
+    isAdminLike,
+    setEmpresaError,
+    userRole,
+  ]);
 
   React.useEffect(() => {
     if (!isAdminLike) return;
@@ -94,13 +111,22 @@ export function EmpresaSelector({
     if (empresaOptions.length > 0) {
       setSelectedEmpresa(empresaOptions[0]);
     }
-  }, [authLoading, companyFromUser, empresaOptions, isAdminLike, selectedEmpresa, setSelectedEmpresa]);
+  }, [
+    authLoading,
+    companyFromUser,
+    empresaOptions,
+    isAdminLike,
+    selectedEmpresa,
+    setSelectedEmpresa,
+  ]);
 
   if (!isAdminLike) return null;
 
   return (
     <div className="flex flex-col gap-1 w-full md:w-auto">
-      <label className="text-[10px] sm:text-xs text-[var(--muted-foreground)]">Empresas</label>
+      <label className="text-[10px] sm:text-xs text-[var(--muted-foreground)]">
+        Empresas
+      </label>
       <select
         value={selectedEmpresa}
         onChange={(e) => {
@@ -113,7 +139,9 @@ export function EmpresaSelector({
         aria-label="Seleccionar empresa"
       >
         {empresaOptions.length === 0 ? (
-          <option value={selectedEmpresa || ""}>{empresaLoading ? "Cargando empresas..." : "Sin empresas"}</option>
+          <option value={selectedEmpresa || ""}>
+            {empresaLoading ? "Cargando empresas..." : "Sin empresas"}
+          </option>
         ) : (
           empresaOptions.map((name) => (
             <option key={name} value={name}>

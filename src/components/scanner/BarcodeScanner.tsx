@@ -1,7 +1,7 @@
-'use client';
-import React, { useCallback, useRef, useEffect, useState } from 'react';
-import Image from 'next/image';
-import { motion, AnimatePresence } from 'framer-motion';
+"use client";
+import React, { useCallback, useRef, useEffect, useState } from "react";
+import Image from "next/image";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Check as CheckIcon,
   Copy as CopyIcon,
@@ -12,19 +12,26 @@ import {
   ArrowLeft as ArrowLeftIcon,
   Folder,
   Camera,
-} from 'lucide-react';
-import { useBarcodeScanner } from '../../hooks/useBarcodeScanner';
-import type { BarcodeScannerProps } from '../../types/barcode';
-import CameraScanner from './CameraScanner';
-import ImageDropArea from './ImageDropArea';
-import { useAuth } from '../../hooks/useAuth';
-import { hasPermission } from '../../utils/permissions';
+} from "lucide-react";
+import { useBarcodeScanner } from "../../hooks/useBarcodeScanner";
+import type { BarcodeScannerProps } from "../../types/barcode";
+import CameraScanner from "./CameraScanner";
+import ImageDropArea from "./ImageDropArea";
+import { useAuth } from "../../hooks/useAuth";
+import { hasPermission } from "../../utils/permissions";
 
-export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children }: BarcodeScannerProps & { onRemoveLeadingZero?: (code: string) => void; children?: React.ReactNode }) {
+export default function BarcodeScanner({
+  onDetect,
+  onRemoveLeadingZero,
+  children,
+}: BarcodeScannerProps & {
+  onRemoveLeadingZero?: (code: string) => void;
+  children?: React.ReactNode;
+}) {
   /* Verificar permisos del usuario */
   const { user } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'image' | 'camera'>('image');
+  const [activeTab, setActiveTab] = useState<"image" | "camera">("image");
 
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -53,11 +60,16 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
   useEffect(() => {
     const handlePaste = (event: ClipboardEvent) => {
       // Evitar interferir con campos de texto activos (inputs/textareas/elementos editables)
-      const active = document.activeElement as (HTMLElement & { isContentEditable?: boolean }) | null;
+      const active = document.activeElement as
+        | (HTMLElement & { isContentEditable?: boolean })
+        | null;
       if (active) {
         const tag = active.tagName;
-        const isEditable = typeof active.isContentEditable === 'boolean' ? active.isContentEditable : active.hasAttribute && active.hasAttribute('contenteditable');
-        if (tag === 'INPUT' || tag === 'TEXTAREA' || isEditable) return;
+        const isEditable =
+          typeof active.isContentEditable === "boolean"
+            ? active.isContentEditable
+            : active.hasAttribute && active.hasAttribute("contenteditable");
+        if (tag === "INPUT" || tag === "TEXTAREA" || isEditable) return;
       }
 
       const items = event.clipboardData?.items;
@@ -65,7 +77,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
 
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
-        if (item.type.indexOf('image') === 0) {
+        if (item.type.indexOf("image") === 0) {
           const blob = item.getAsFile();
           if (blob) {
             const reader = new FileReader();
@@ -81,17 +93,20 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
       }
     };
 
-    document.addEventListener('paste', handlePaste);
+    document.addEventListener("paste", handlePaste);
     return () => {
-      document.removeEventListener('paste', handlePaste);
+      document.removeEventListener("paste", handlePaste);
     };
   }, [processImage]);
 
   const fadeIn = { initial: { opacity: 0 }, animate: { opacity: 1 } };
-  const slideUp = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 } };
+  const slideUp = {
+    initial: { opacity: 0, y: 20 },
+    animate: { opacity: 1, y: 0 },
+  };
 
   // Verificar si el usuario tiene permiso para usar el escáner
-  if (!hasPermission(user?.permissions, 'scanner')) {
+  if (!hasPermission(user?.permissions, "scanner")) {
     return (
       <div className="flex items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)]">
         <div className="text-center">
@@ -122,8 +137,12 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
           <div className="flex flex-col items-center gap-2 flex-1">
             <ScanBarcode className="w-8 h-8 text-[var(--foreground)]" />
             <div className="text-center">
-              <h2 className="text-xl font-bold text-[var(--foreground)]">Escáner de Códigos de Barras</h2>
-              <p className="text-sm text-[var(--muted-foreground)]">Sube imágenes o pégalas desde el portapapeles (Ctrl+V)</p>
+              <h2 className="text-xl font-bold text-[var(--foreground)]">
+                Escáner de Códigos de Barras
+              </h2>
+              <p className="text-sm text-[var(--muted-foreground)]">
+                Sube imágenes o pégalas desde el portapapeles (Ctrl+V)
+              </p>
             </div>
           </div>
         </div>
@@ -134,21 +153,23 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
         {/* Tabs Navigation */}
         <div className="flex bg-[var(--muted)] rounded-lg p-1 mb-6">
           <button
-            className={`flex-1 px-4 py-2 rounded-md font-medium transition-all duration-200 flex items-center justify-center gap-2 ${activeTab === 'image'
-              ? 'bg-[var(--card-bg)] text-[var(--tab-text-active)] shadow-sm border border-[var(--input-border)]'
-              : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)]'
-              }`}
-            onClick={() => setActiveTab('image')}
+            className={`flex-1 px-4 py-2 rounded-md font-medium transition-all duration-200 flex items-center justify-center gap-2 ${
+              activeTab === "image"
+                ? "bg-[var(--card-bg)] text-[var(--tab-text-active)] shadow-sm border border-[var(--input-border)]"
+                : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)]"
+            }`}
+            onClick={() => setActiveTab("image")}
           >
             <Folder className="w-4 h-4" />
             Imagen / Pegar
           </button>
           <button
-            className={`flex-1 px-4 py-2 rounded-md font-medium transition-all duration-200 flex items-center justify-center gap-2 ${activeTab === 'camera'
-              ? 'bg-[var(--card-bg)] text-[var(--tab-text-active)] shadow-sm border border-[var(--input-border)]'
-              : 'text-[var(--tab-text)] hover:text-[var(--tab-hover-text)]'
-              }`}
-            onClick={() => setActiveTab('camera')}
+            className={`flex-1 px-4 py-2 rounded-md font-medium transition-all duration-200 flex items-center justify-center gap-2 ${
+              activeTab === "camera"
+                ? "bg-[var(--card-bg)] text-[var(--tab-text-active)] shadow-sm border border-[var(--input-border)]"
+                : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)]"
+            }`}
+            onClick={() => setActiveTab("camera")}
           >
             <Camera className="w-4 h-4" />
             Cámara
@@ -156,7 +177,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
         </div>
 
         {/* Tab Content */}
-        {activeTab === 'image' && (
+        {activeTab === "image" && (
           <div className="space-y-6">
             {/* Mensaje de "Código copiado" */}
             <AnimatePresence>
@@ -190,8 +211,12 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                         <AlertIcon className="w-6 h-6 text-red-600 dark:text-red-400" />
                       </div>
                       <div>
-                        <h3 className="text-lg font-semibold text-red-700 dark:text-red-300 mb-1">Error en el Escaneado</h3>
-                        <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>
+                        <h3 className="text-lg font-semibold text-red-700 dark:text-red-300 mb-1">
+                          Error en el Escaneado
+                        </h3>
+                        <p className="text-red-600 dark:text-red-400 text-sm">
+                          {error}
+                        </p>
                       </div>
                     </div>
                   )}
@@ -202,7 +227,9 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                         <div className="w-12 h-12 bg-[var(--badge-bg)] rounded-full flex items-center justify-center mx-auto mb-3">
                           <ScanBarcode className="w-6 h-6 text-white" />
                         </div>
-                        <h3 className="text-lg font-semibold text-[var(--foreground)] mb-3">¡Código Detectado!</h3>
+                        <h3 className="text-lg font-semibold text-[var(--foreground)] mb-3">
+                          ¡Código Detectado!
+                        </h3>
 
                         {/* Código detectado */}
                         <div className="bg-[var(--muted)] border border-[var(--input-border)] rounded-lg p-4 mb-4">
@@ -242,7 +269,7 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
                           <CopyIcon className="w-4 h-4" />
                           Copiar
                         </button>
-                        {code && code.length > 1 && code[0] === '0' && (
+                        {code && code.length > 1 && code[0] === "0" && (
                           <button
                             onClick={() => {
                               const newCode = code.slice(1);
@@ -295,14 +322,18 @@ export default function BarcodeScanner({ onDetect, onRemoveLeadingZero, children
         )}
 
         {/* Tab de Cámara */}
-        {activeTab === 'camera' && (
+        {activeTab === "camera" && (
           <div className="space-y-6">
             <div className="text-center">
               <div className="w-12 h-12 bg-[var(--badge-bg)] rounded-full flex items-center justify-center mx-auto mb-3">
                 <ScanBarcode className="w-6 h-6 text-[var(--badge-text)]" />
               </div>
-              <h3 className="text-lg font-semibold text-[var(--foreground)] mb-2">Escáner con Cámara</h3>
-              <p className="text-[var(--muted-foreground)] text-sm">Utiliza la cámara de tu dispositivo para escanear códigos</p>
+              <h3 className="text-lg font-semibold text-[var(--foreground)] mb-2">
+                Escáner con Cámara
+              </h3>
+              <p className="text-[var(--muted-foreground)] text-sm">
+                Utiliza la cámara de tu dispositivo para escanear códigos
+              </p>
             </div>
 
             <CameraScanner

@@ -1,18 +1,24 @@
 // src/components/EmployeeSummaryCalculator.tsx
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { Clock, DollarSign, CalendarDays, TrendingUp, Minus } from 'lucide-react';
-import { CcssConfigService } from '../../services/ccss-config';
-import { SchedulesService, ScheduleEntry } from '../../services/schedules';
-import { EmpresasService } from '../../services/empresas';
-import { useAuth } from '../../hooks/useAuth';
+import React, { useState, useEffect } from "react";
+import {
+  Clock,
+  DollarSign,
+  CalendarDays,
+  TrendingUp,
+  Minus,
+} from "lucide-react";
+import { CcssConfigService } from "../../services/ccss-config";
+import { SchedulesService, ScheduleEntry } from "../../services/schedules";
+import { EmpresasService } from "../../services/empresas";
+import { useAuth } from "../../hooks/useAuth";
 
 interface EmployeeData {
   name: string;
   hoursPerShift: number;
   extraAmount: number;
-  ccssType: 'TC' | 'MT';
+  ccssType: "TC" | "MT";
 }
 
 export interface EmployeeSummary {
@@ -47,7 +53,7 @@ export function useEmployeeData(
   month: number,
   daysToShow: number[],
   employee?: EmployeeData,
-  user?: any
+  user?: any,
 ) {
   const [scheduleData, setScheduleData] = useState<ScheduleData>({});
   const [ccssConfig, setCcssConfig] = useState({ mt: 3672.46, tc: 11017.39 });
@@ -62,40 +68,49 @@ export function useEmployeeData(
 
         // Obtener información de la empresa
         const empresas = await EmpresasService.getAllEmpresas();
-        const currentEmpresa = empresas.find(e =>
-          e.ubicacion === locationValue || e.name === locationValue || e.id === locationValue
+        const currentEmpresa = empresas.find(
+          (e) =>
+            e.ubicacion === locationValue ||
+            e.name === locationValue ||
+            e.id === locationValue,
         );
         const empresaName = currentEmpresa?.name || locationValue;
         // Obtener configuración de CCSS
-        const userOwnerId = user?.ownerId || user?.id || '';
+        const userOwnerId = user?.ownerId || user?.id || "";
         const config = await CcssConfigService.getCcssConfig(userOwnerId);
         // Buscar la configuración específica para esta empresa por nombre
-        const companyConfig = config?.companie?.find(comp => comp.ownerCompanie === empresaName);
+        const companyConfig = config?.companie?.find(
+          (comp) => comp.ownerCompanie === empresaName,
+        );
         setCcssConfig({
           mt: companyConfig?.mt || 3672.46,
-          tc: companyConfig?.tc || 11017.39
+          tc: companyConfig?.tc || 11017.39,
         });
 
         // Obtener horarios del empleado para el mes específico
-        const schedules = await SchedulesService.getSchedulesByLocationEmployeeMonth(
-          locationValue,
-          employeeName,
-          year,
-          month
-        );
+        const schedules =
+          await SchedulesService.getSchedulesByLocationEmployeeMonth(
+            locationValue,
+            employeeName,
+            year,
+            month,
+          );
 
         // Convertir a formato esperado por el componente
         const formattedSchedules: ScheduleData = {};
         formattedSchedules[employeeName] = {};
 
         schedules.forEach((schedule: ScheduleEntry) => {
-          formattedSchedules[employeeName][schedule.day.toString()] = schedule.shift;
+          formattedSchedules[employeeName][schedule.day.toString()] =
+            schedule.shift;
         });
 
         setScheduleData(formattedSchedules);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Error loading employee data');
-        console.error('Error fetching employee data:', err);
+        setError(
+          err instanceof Error ? err.message : "Error loading employee data",
+        );
+        console.error("Error fetching employee data:", err);
       } finally {
         setLoading(false);
       }
@@ -108,15 +123,19 @@ export function useEmployeeData(
 
   const calculateEmployeeSummary = (): EmployeeSummary => {
     const hoursPerShift = employee?.hoursPerShift || 8;
-    const ccssType = employee?.ccssType || 'MT';
+    const ccssType = employee?.ccssType || "MT";
     const extraAmount = employee?.extraAmount || 0;
 
-    const shifts = daysToShow.map((day: number) => scheduleData[employeeName]?.[day.toString()] || '');
-    const workedDays = shifts.filter((s: string) => s === 'N' || s === 'D').length;
+    const shifts = daysToShow.map(
+      (day: number) => scheduleData[employeeName]?.[day.toString()] || "",
+    );
+    const workedDays = shifts.filter(
+      (s: string) => s === "N" || s === "D",
+    ).length;
     const hours = workedDays * hoursPerShift;
 
     // Calcular tarifa por hora basada en el tipo de CCSS - usar valores del estado local
-    const ccssAmount = ccssType === 'TC' ? ccssConfig.tc : ccssConfig.mt;
+    const ccssAmount = ccssType === "TC" ? ccssConfig.tc : ccssConfig.mt;
     const totalColones = ccssAmount + extraAmount;
     const hourlyRate = totalColones / (22 * hoursPerShift); // Asumiendo 22 días laborales promedio
 
@@ -129,7 +148,7 @@ export function useEmployeeData(
       hours,
       colones,
       ccss,
-      neto
+      neto,
     };
   };
 
@@ -139,7 +158,10 @@ export function useEmployeeData(
     loading,
     error,
     calculateEmployeeSummary,
-    hourlyRate: employee ? (employee.ccssType === 'TC' ? ccssConfig.tc : ccssConfig.mt) / (22 * (employee.hoursPerShift || 8)) : 1529.62
+    hourlyRate: employee
+      ? (employee.ccssType === "TC" ? ccssConfig.tc : ccssConfig.mt) /
+        (22 * (employee.hoursPerShift || 8))
+      : 1529.62,
   };
 }
 
@@ -156,17 +178,32 @@ export function useEmployeeInfo(employeeName: string, locationValue: string) {
         setError(null);
 
         const empresas = await EmpresasService.getAllEmpresas();
-        const empresa = empresas.find(emp => emp.name.toLowerCase() === locationValue.toLowerCase());
+        const empresa = empresas.find(
+          (emp) => emp.name.toLowerCase() === locationValue.toLowerCase(),
+        );
 
         if (empresa && empresa.empleados) {
-          const foundEmployee = empresa.empleados.find(emp => emp.Empleado === employeeName);
-          setEmployee(foundEmployee ? { name: foundEmployee.Empleado, hoursPerShift: foundEmployee.hoursPerShift, extraAmount: foundEmployee.extraAmount, ccssType: foundEmployee.ccssType } : null);
+          const foundEmployee = empresa.empleados.find(
+            (emp) => emp.Empleado === employeeName,
+          );
+          setEmployee(
+            foundEmployee
+              ? {
+                  name: foundEmployee.Empleado,
+                  hoursPerShift: foundEmployee.hoursPerShift,
+                  extraAmount: foundEmployee.extraAmount,
+                  ccssType: foundEmployee.ccssType,
+                }
+              : null,
+          );
         } else {
           setEmployee(null);
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Error loading employee info');
-        console.error('Error fetching employee info:', err);
+        setError(
+          err instanceof Error ? err.message : "Error loading employee info",
+        );
+        console.error("Error fetching employee info:", err);
         setEmployee(null);
       } finally {
         setLoading(false);
@@ -188,13 +225,17 @@ export default function EmployeeSummaryCalculator({
   year,
   month,
   daysToShow,
-  className = '',
-  showFullDetails = true
+  className = "",
+  showFullDetails = true,
 }: EmployeeSummaryCalculatorProps) {
   const { user } = useAuth();
 
   // Obtener información del empleado desde la ubicación
-  const { employee, loading: employeeLoading, error: employeeError } = useEmployeeInfo(employeeName, locationValue);
+  const {
+    employee,
+    loading: employeeLoading,
+    error: employeeError,
+  } = useEmployeeInfo(employeeName, locationValue);
 
   // Obtener datos de horarios y CCSS
   const {
@@ -203,19 +244,27 @@ export default function EmployeeSummaryCalculator({
     loading: dataLoading,
     error: dataError,
     calculateEmployeeSummary,
-    hourlyRate
-  } = useEmployeeData(employeeName, locationValue, year, month, daysToShow, employee || undefined, user);
+    hourlyRate,
+  } = useEmployeeData(
+    employeeName,
+    locationValue,
+    year,
+    month,
+    daysToShow,
+    employee || undefined,
+    user,
+  );
 
   const loading = employeeLoading || dataLoading;
   const error = employeeError || dataError;
   const summary = calculateEmployeeSummary();
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-CR', {
-      style: 'currency',
-      currency: 'CRC',
+    return new Intl.NumberFormat("es-CR", {
+      style: "currency",
+      currency: "CRC",
       minimumFractionDigits: 0,
-      maximumFractionDigits: 0
+      maximumFractionDigits: 0,
     }).format(amount);
   };
 
@@ -223,14 +272,18 @@ export default function EmployeeSummaryCalculator({
     return (
       <div className={`flex items-center justify-center p-4 ${className}`}>
         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-        <span className="ml-2 text-sm text-[var(--muted-foreground)]">Cargando datos...</span>
+        <span className="ml-2 text-sm text-[var(--muted-foreground)]">
+          Cargando datos...
+        </span>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className={`p-3 bg-red-50 dark:bg-red-900/20 rounded border border-red-200 dark:border-red-700 ${className}`}>
+      <div
+        className={`p-3 bg-red-50 dark:bg-red-900/20 rounded border border-red-200 dark:border-red-700 ${className}`}
+      >
         <p className="text-sm text-red-600 dark:text-red-400">Error: {error}</p>
       </div>
     );
@@ -263,7 +316,6 @@ export default function EmployeeSummaryCalculator({
         <TrendingUp className="w-4 h-4 text-blue-600" />
         Resumen - {employeeName}
       </h4>
-
       <div className="grid grid-cols-1 gap-2">
         {/* Días trabajados */}
         <div className="flex items-center justify-between p-2 bg-blue-50 dark:bg-blue-900/20 rounded">
@@ -315,7 +367,8 @@ export default function EmployeeSummaryCalculator({
             {formatCurrency(summary.neto)}
           </span>
         </div>
-      </div>      {/* Información adicional */}
+      </div>{" "}
+      {/* Información adicional */}
       <div className="text-xs text-[var(--muted-foreground)] space-y-1">
         <div className="flex justify-between">
           <span>Tarifa por hora:</span>
@@ -327,14 +380,18 @@ export default function EmployeeSummaryCalculator({
         </div>
         <div className="flex justify-between">
           <span>Tipo CCSS:</span>
-          <span className={`font-medium ${employee?.ccssType === 'TC' ? 'text-blue-600' : 'text-green-600'}`}>
-            {employee?.ccssType === 'TC' ? 'Tiempo Completo' : 'Medio Tiempo'}
+          <span
+            className={`font-medium ${employee?.ccssType === "TC" ? "text-blue-600" : "text-green-600"}`}
+          >
+            {employee?.ccssType === "TC" ? "Tiempo Completo" : "Medio Tiempo"}
           </span>
         </div>
         {employee?.extraAmount && employee.extraAmount > 0 && (
           <div className="flex justify-between">
             <span>Monto extra:</span>
-            <span className="text-green-600">{formatCurrency(employee.extraAmount)}</span>
+            <span className="text-green-600">
+              {formatCurrency(employee.extraAmount)}
+            </span>
           </div>
         )}
       </div>
@@ -350,20 +407,24 @@ export async function calculateEmployeeSummaryFromDB(
   month: number,
   daysToShow: number[],
   employee?: EmployeeData,
-  user?: any
+  user?: any,
 ): Promise<EmployeeSummary> {
   try {
     // Obtener configuración de CCSS
-    const userOwnerId = user?.ownerId || user?.id || '';
-    const ccssConfig = await CcssConfigService.getCcssConfig(userOwnerId, locationValue);
+    const userOwnerId = user?.ownerId || user?.id || "";
+    const ccssConfig = await CcssConfigService.getCcssConfig(
+      userOwnerId,
+      locationValue,
+    );
 
     // Obtener horarios del empleado
-    const schedules = await SchedulesService.getSchedulesByLocationEmployeeMonth(
-      locationValue,
-      employeeName,
-      year,
-      month
-    );
+    const schedules =
+      await SchedulesService.getSchedulesByLocationEmployeeMonth(
+        locationValue,
+        employeeName,
+        year,
+        month,
+      );
 
     // Convertir a formato de turnos
     const scheduleData: { [day: string]: string } = {};
@@ -372,18 +433,27 @@ export async function calculateEmployeeSummaryFromDB(
     });
 
     const hoursPerShift = employee?.hoursPerShift || 8;
-    const ccssType = employee?.ccssType || 'MT';
+    const ccssType = employee?.ccssType || "MT";
     const extraAmount = employee?.extraAmount || 0;
 
-    const shifts = daysToShow.map((day: number) => scheduleData[day.toString()] || '');
-    const workedDays = shifts.filter((s: string) => s === 'N' || s === 'D').length;
+    const shifts = daysToShow.map(
+      (day: number) => scheduleData[day.toString()] || "",
+    );
+    const workedDays = shifts.filter(
+      (s: string) => s === "N" || s === "D",
+    ).length;
     const hours = workedDays * hoursPerShift;
 
     // Buscar la configuración específica para esta empresa
-    const companyConfig = ccssConfig?.companie?.find(comp => comp.ownerCompanie === locationValue);
+    const companyConfig = ccssConfig?.companie?.find(
+      (comp) => comp.ownerCompanie === locationValue,
+    );
 
     // Calcular tarifa por hora basada en el tipo de CCSS
-    const ccssAmount = ccssType === 'TC' ? (companyConfig?.tc || 11017.39) : (companyConfig?.mt || 3672.46);
+    const ccssAmount =
+      ccssType === "TC"
+        ? companyConfig?.tc || 11017.39
+        : companyConfig?.mt || 3672.46;
     const totalColones = ccssAmount + extraAmount;
     const hourlyRate = totalColones / (22 * hoursPerShift); // Asumiendo 22 días laborales promedio
 
@@ -396,10 +466,10 @@ export async function calculateEmployeeSummaryFromDB(
       hours,
       colones,
       ccss,
-      neto
+      neto,
     };
   } catch (error) {
-    console.error('Error calculating employee summary from DB:', error);
+    console.error("Error calculating employee summary from DB:", error);
     throw error;
   }
 }

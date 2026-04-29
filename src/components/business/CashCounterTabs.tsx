@@ -1,5 +1,5 @@
-'use client';
-import { useState, useEffect, useRef } from 'react';
+"use client";
+import { useState, useEffect, useRef } from "react";
 import {
   PlusCircle,
   MinusCircle,
@@ -20,10 +20,11 @@ import {
   RotateCcw,
   Lock as LockIcon,
   GripVertical,
-} from 'lucide-react';
-import { useAuth } from '../../hooks/useAuth';
-import { hasPermission } from '../../utils/permissions';
-import { CalculatorModal } from '../modals';
+} from "lucide-react";
+import { useAuth } from "../../hooks/useAuth";
+import { hasPermission } from "../../utils/permissions";
+import { safeLocalStorage } from "../../utils/client";
+import { CalculatorModal } from "../modals";
 /*Menu,*/
 // Modal base component to reduce code duplication
 type BaseModalProps = {
@@ -58,32 +59,26 @@ function BaseModal({ isOpen, onClose, title, children }: BaseModalProps) {
 type SinpeModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  currency: 'CRC' | 'USD';
+  currency: "CRC" | "USD";
 };
 
 function SinpeModal({ isOpen, onClose, currency }: SinpeModalProps) {
-  const [montoActual, setMontoActual] = useState<number>(0);
+  const [montoActual, setMontoActual] = useState<number>(() => {
+    const savedMontoActual = safeLocalStorage.getItem("sinpe-monto-actual");
+    if (!savedMontoActual) return 0;
+    const parsed = parseFloat(savedMontoActual);
+    return Number.isFinite(parsed) ? parsed : 0;
+  });
   const [montoARecibir, setMontoARecibir] = useState<number>(0);
-
-  // Cargar datos desde localStorage al inicializar
-  useEffect(() => {
-    const savedMontoActual = localStorage.getItem('sinpe-monto-actual');
-    if (savedMontoActual) {
-      const parsed = parseFloat(savedMontoActual);
-      if (!isNaN(parsed)) {
-        setMontoActual(parsed);
-      }
-    }
-  }, []);
 
   // Guardar monto actual en localStorage cuando cambie
   useEffect(() => {
-    localStorage.setItem('sinpe-monto-actual', montoActual.toString());
+    safeLocalStorage.setItem("sinpe-monto-actual", montoActual.toString());
   }, [montoActual]);
 
-  const formatCurrency = (num: number, currency: 'CRC' | 'USD') => {
-    return new Intl.NumberFormat(currency === 'CRC' ? 'es-CR' : 'en-US', {
-      style: 'currency',
+  const formatCurrency = (num: number, currency: "CRC" | "USD") => {
+    return new Intl.NumberFormat(currency === "CRC" ? "es-CR" : "en-US", {
+      style: "currency",
       currency: currency,
       minimumFractionDigits: 0,
     }).format(num);
@@ -92,12 +87,14 @@ function SinpeModal({ isOpen, onClose, currency }: SinpeModalProps) {
   const totalEsperado = montoActual + montoARecibir;
 
   const handleMontoActualChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value === '' ? 0 : Number(e.target.value);
+    const value = e.target.value === "" ? 0 : Number(e.target.value);
     setMontoActual(value);
   };
 
-  const handleMontoARecibirChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value === '' ? 0 : Number(e.target.value);
+  const handleMontoARecibirChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const value = e.target.value === "" ? 0 : Number(e.target.value);
     setMontoARecibir(value);
   };
 
@@ -117,15 +114,15 @@ function SinpeModal({ isOpen, onClose, currency }: SinpeModalProps) {
   const handlePaste = async (e: React.ClipboardEvent<HTMLInputElement>) => {
     e.preventDefault();
     try {
-      const pastedText = e.clipboardData.getData('text');
+      const pastedText = e.clipboardData.getData("text");
       // Extraer números del texto pegado
-      const numbers = pastedText.replace(/[^\d.,]/g, '').replace(',', '.');
+      const numbers = pastedText.replace(/[^\d.,]/g, "").replace(",", ".");
       const value = parseFloat(numbers);
       if (!isNaN(value)) {
         setMontoActual(value);
       }
     } catch (error) {
-      console.error('Error al pegar:', error);
+      console.error("Error al pegar:", error);
     }
   };
 
@@ -133,13 +130,13 @@ function SinpeModal({ isOpen, onClose, currency }: SinpeModalProps) {
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
         onClose();
         return;
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
 
   return (
@@ -155,7 +152,7 @@ function SinpeModal({ isOpen, onClose, currency }: SinpeModalProps) {
               type="number"
               min="0"
               step="0.01"
-              value={montoActual || ''}
+              value={montoActual || ""}
               onChange={handleMontoActualChange}
               onPaste={handlePaste}
               className="w-full bg-transparent text-[var(--foreground)] text-right text-lg focus:outline-none"
@@ -177,7 +174,7 @@ function SinpeModal({ isOpen, onClose, currency }: SinpeModalProps) {
               type="number"
               min="0"
               step="0.01"
-              value={montoARecibir || ''}
+              value={montoARecibir || ""}
               onChange={handleMontoARecibirChange}
               className="w-full bg-transparent text-[var(--foreground)] text-right text-lg focus:outline-none"
               placeholder="0"
@@ -205,10 +202,11 @@ function SinpeModal({ isOpen, onClose, currency }: SinpeModalProps) {
           <button
             onClick={handleReload}
             disabled={totalEsperado === 0}
-            className={`flex-1 flex items-center justify-center px-4 py-3 rounded-lg font-medium ${totalEsperado > 0
-              ? 'bg-blue-600 hover:bg-blue-700 text-white'
-              : 'bg-gray-400 text-gray-600 cursor-not-allowed'
-              }`}
+            className={`flex-1 flex items-center justify-center px-4 py-3 rounded-lg font-medium ${
+              totalEsperado > 0
+                ? "bg-blue-600 hover:bg-blue-700 text-white"
+                : "bg-gray-400 text-gray-600 cursor-not-allowed"
+            }`}
             title="Mover total a monto actual y limpiar monto a recibir"
           >
             <RefreshCw className="w-5 h-5 mr-2" />
@@ -226,8 +224,12 @@ function SinpeModal({ isOpen, onClose, currency }: SinpeModalProps) {
 
         {/* Instrucciones */}
         <div className="text-xs text-[var(--foreground)] opacity-75 text-center mt-4 p-3 bg-[var(--input-bg)] rounded-lg">
-          <p className="mb-1">💡 <strong>Instrucciones:</strong></p>
-          <p className="mb-1">• Pega el monto actual desde SINPE en el primer campo</p>
+          <p className="mb-1">
+            💡 <strong>Instrucciones:</strong>
+          </p>
+          <p className="mb-1">
+            • Pega el monto actual desde SINPE en el primer campo
+          </p>
           <p className="mb-1">• Ingresa el monto que vas a recibir</p>
           <p>• Usa &quot;Recargar&quot; para actualizar y continuar</p>
         </div>
@@ -242,7 +244,7 @@ type CashCounterData = {
   name: string;
   bills: BillsMap;
   extraAmount: number;
-  currency: 'CRC' | 'USD';
+  currency: "CRC" | "USD";
   aperturaCaja: number;
   ventaActual: number;
 };
@@ -255,7 +257,13 @@ type CashCounterProps = {
   onCurrencyOpen: () => void;
 };
 
-function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCounterProps) {
+function CashCounter({
+  id,
+  data,
+  onUpdate,
+  onDelete,
+  onCurrencyOpen,
+}: CashCounterProps) {
   // CSS Constants
   const BUTTON_STYLES = {
     increment: "p-2 bg-green-500 hover:bg-green-600 rounded-full",
@@ -264,46 +272,52 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
     iconSecondary: "text-green-600 hover:text-green-800",
     iconDanger: "text-red-500 hover:text-red-700",
     iconWarning: "text-yellow-500 hover:text-yellow-700",
-    modal: "bg-green-500 text-white rounded-full w-16 h-16 flex items-center justify-center shadow-xl",
-    close: "absolute top-2 right-2 text-[var(--foreground)] hover:text-gray-500"
+    modal:
+      "bg-green-500 text-white rounded-full w-16 h-16 flex items-center justify-center shadow-xl",
+    close:
+      "absolute top-2 right-2 text-[var(--foreground)] hover:text-gray-500",
   };
 
   const INPUT_STYLES = {
-    counter: "w-12 text-center bg-[var(--background)] border border-[var(--input-border)] rounded py-1 text-[var(--foreground)] text-sm",
-    modal: "w-full px-2 py-1 border-none bg-transparent text-[var(--foreground)] text-right text-base focus:outline-none",
-    standard: "w-full px-2 py-1 border rounded bg-[var(--input-bg)] text-[var(--foreground)] text-base focus:outline-none"
+    counter:
+      "w-12 text-center bg-[var(--background)] border border-[var(--input-border)] rounded py-1 text-[var(--foreground)] text-sm",
+    modal:
+      "w-full px-2 py-1 border-none bg-transparent text-[var(--foreground)] text-right text-base focus:outline-none",
+    standard:
+      "w-full px-2 py-1 border rounded bg-[var(--input-bg)] text-[var(--foreground)] text-base focus:outline-none",
   };
   // Denominaciones fijas según moneda
   const denominacionesCRC = [
-    { label: '₡ 20 000', value: 20000 },
-    { label: '₡ 10 000', value: 10000 },
-    { label: '₡ 5 000', value: 5000 },
-    { label: '₡ 2 000', value: 2000 },
-    { label: '₡ 1 000', value: 1000 },
-    { label: '₡ 500', value: 500 },
-    { label: '₡ 100', value: 100 },
-    { label: '₡ 50', value: 50 },
-    { label: '₡ 25', value: 25 },
+    { label: "₡ 20 000", value: 20000 },
+    { label: "₡ 10 000", value: 10000 },
+    { label: "₡ 5 000", value: 5000 },
+    { label: "₡ 2 000", value: 2000 },
+    { label: "₡ 1 000", value: 1000 },
+    { label: "₡ 500", value: 500 },
+    { label: "₡ 100", value: 100 },
+    { label: "₡ 50", value: 50 },
+    { label: "₡ 25", value: 25 },
   ];
 
   const denominacionesUSD = [
-    { label: '$ 100', value: 100 },
-    { label: '$ 50', value: 50 },
-    { label: '$ 20', value: 20 },
-    { label: '$ 10', value: 10 },
-    { label: '$ 5', value: 5 },
-    { label: '$ 1', value: 1 },
+    { label: "$ 100", value: 100 },
+    { label: "$ 50", value: 50 },
+    { label: "$ 20", value: 20 },
+    { label: "$ 10", value: 10 },
+    { label: "$ 5", value: 5 },
+    { label: "$ 1", value: 1 },
   ];
 
-  const denominaciones = data.currency === 'CRC' ? denominacionesCRC : denominacionesUSD;
+  const denominaciones =
+    data.currency === "CRC" ? denominacionesCRC : denominacionesUSD;
 
-  // Estado interno local
-  const [bills, setBills] = useState<BillsMap>({ ...data.bills });
-  const [extraAmount, setExtraAmount] = useState<number>(data.extraAmount);
-  const [currency, setCurrency] = useState<'CRC' | 'USD'>(data.currency);
+  // Fuente de verdad: `data` (evita sync props → estado por useEffect)
+  const bills = data.bills;
+  const extraAmount = data.extraAmount;
+  const currency = data.currency;
   const [showExtra, setShowExtra] = useState<boolean>(false);
-  const [aperturaCaja, setAperturaCaja] = useState<number>(data.aperturaCaja);
-  const [ventaActual, setVentaActual] = useState<number>(data.ventaActual);
+  const aperturaCaja = data.aperturaCaja;
+  const ventaActual = data.ventaActual;
   const [nuevaVenta, setNuevaVenta] = useState<number>(0);
   const [ventaAgregada, setVentaAgregada] = useState<boolean>(false);
   const [showBillBreakdown, setShowBillBreakdown] = useState<boolean>(false);
@@ -312,26 +326,29 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // Función para manejar navegación con ENTER, TAB y flechas, y sumar/restar con +/-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, currentIndex: number) => {
+  const handleKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+    currentIndex: number,
+  ) => {
     const denomination = denominaciones[currentIndex];
 
     // Manejar teclas + y - para incrementar/decrementar
-    if (e.key === '+') {
+    if (e.key === "+") {
       e.preventDefault();
       handleIncrement(denomination.value);
       return;
     }
 
-    if (e.key === '-') {
+    if (e.key === "-") {
       e.preventDefault();
       handleDecrement(denomination.value);
       return;
     }
 
-    if (e.key === 'Enter' || e.key === 'Tab' || e.key === 'ArrowDown') {
+    if (e.key === "Enter" || e.key === "Tab" || e.key === "ArrowDown") {
       e.preventDefault();
 
-      if (e.shiftKey && (e.key === 'Enter' || e.key === 'Tab')) {
+      if (e.shiftKey && (e.key === "Enter" || e.key === "Tab")) {
         // Shift+Enter/Shift+Tab: ir al input anterior
         const prevIndex = currentIndex - 1;
         if (prevIndex >= 0 && inputRefs.current[prevIndex]) {
@@ -353,7 +370,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
       }
     }
 
-    if (e.key === 'ArrowUp') {
+    if (e.key === "ArrowUp") {
       e.preventDefault();
       // ArrowUp: ir al input anterior
       const prevIndex = currentIndex - 1;
@@ -367,29 +384,26 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
     }
   };
 
-  // Sincronizar props → estado interno
-  useEffect(() => {
-    setBills({ ...data.bills });
-    setExtraAmount(data.extraAmount);
-    setCurrency(data.currency);
-    setAperturaCaja(data.aperturaCaja);
-    setVentaActual(data.ventaActual);
-  }, [data]);
-
   // Inicializar array de refs cuando cambien las denominaciones
   useEffect(() => {
     inputRefs.current = inputRefs.current.slice(0, denominaciones.length);
   }, [denominaciones.length]);
 
   // Notificar al padre cuando cambia algún valor
-  const notifyParent = (newBills: BillsMap, newExtra: number, newCurrency: 'CRC' | 'USD', newApertura?: number, newVenta?: number) => {
+  const notifyParent = (
+    newBills: BillsMap,
+    newExtra: number,
+    newCurrency: "CRC" | "USD",
+    newApertura?: number,
+    newVenta?: number,
+  ) => {
     onUpdate(id, {
       ...data,
       bills: newBills,
       extraAmount: newExtra,
       currency: newCurrency,
-      aperturaCaja: newApertura !== undefined ? newApertura : aperturaCaja,
-      ventaActual: newVenta !== undefined ? newVenta : ventaActual,
+      aperturaCaja: newApertura !== undefined ? newApertura : data.aperturaCaja,
+      ventaActual: newVenta !== undefined ? newVenta : data.ventaActual,
     });
   };
 
@@ -398,23 +412,20 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
       ...bills,
       [value]: (bills[value] || 0) + 1,
     };
-    setBills(newBills);
     notifyParent(newBills, extraAmount, currency);
   };
 
   const handleDecrement = (value: number) => {
     const newCount = Math.max((bills[value] || 0) - 1, 0);
     const newBills = { ...bills, [value]: newCount };
-    setBills(newBills);
     notifyParent(newBills, extraAmount, currency);
   };
 
   const handleManualChange = (value: number, newCount: string) => {
     // Usamos string para evitar ceros iniciales; convertimos a número al validar
-    const parsed = parseInt(newCount.replace(/^0+/, ''), 10);
+    const parsed = parseInt(newCount.replace(/^0+/, ""), 10);
     const sanitized = isNaN(parsed) || parsed < 0 ? 0 : parsed;
     const newBills = { ...bills, [value]: sanitized };
-    setBills(newBills);
     notifyParent(newBills, extraAmount, currency);
   };
 
@@ -425,26 +436,31 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
     return sumBills + extraAmount;
   };
 
-  const formatCurrency = (num: number, currency: 'CRC' | 'USD') => {
-    return new Intl.NumberFormat(currency === 'CRC' ? 'es-CR' : 'en-US', {
-      style: 'currency',
+  const formatCurrency = (num: number, currency: "CRC" | "USD") => {
+    return new Intl.NumberFormat(currency === "CRC" ? "es-CR" : "en-US", {
+      style: "currency",
       currency: currency,
       minimumFractionDigits: 0,
     }).format(num);
   };
 
   const calculateBillBreakdown = () => {
-    if (currency === 'CRC') {
-      const bills20y10 = (bills[20000] || 0) * 20000 + (bills[10000] || 0) * 10000;
+    if (currency === "CRC") {
+      const bills20y10 =
+        (bills[20000] || 0) * 20000 + (bills[10000] || 0) * 10000;
       const bills20_10_5 = bills20y10 + (bills[5000] || 0) * 5000;
       const bills2y1 = (bills[2000] || 0) * 2000 + (bills[1000] || 0) * 1000;
-      const monedas = (bills[500] || 0) * 500 + (bills[100] || 0) * 100 + (bills[50] || 0) * 50 + (bills[25] || 0) * 25;
+      const monedas =
+        (bills[500] || 0) * 500 +
+        (bills[100] || 0) * 100 +
+        (bills[50] || 0) * 50 +
+        (bills[25] || 0) * 25;
 
       return {
         bills20y10,
         bills20_10_5,
         bills2y1,
-        monedas
+        monedas,
       };
     } else {
       // Para USD
@@ -457,7 +473,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
         bills20y10,
         bills20_10_5,
         bills2y1,
-        monedas
+        monedas,
       };
     }
   };
@@ -469,74 +485,79 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
     const diferencia = Math.abs(montoRestante - aperturaCaja);
 
     if (montoRestante > aperturaCaja) {
-      return { type: 'sobrante', amount: diferencia };
+      return { type: "sobrante", amount: diferencia };
     } else if (montoRestante < aperturaCaja) {
-      return { type: 'faltante', amount: diferencia };
+      return { type: "faltante", amount: diferencia };
     } else {
-      return { type: 'equilibrio', amount: 0 };
+      return { type: "equilibrio", amount: 0 };
     }
   };
 
-  const renderDifferenceMessage = (className = 'text-center mx-2') => {
+  const renderDifferenceMessage = (className = "text-center mx-2") => {
     const diff = calculateDifference();
     if (!diff) return null;
 
-    const colorClass = diff.type === 'sobrante' ? 'text-green-600' :
-      diff.type === 'faltante' ? 'text-red-600' : 'text-[var(--foreground)]';
+    const colorClass =
+      diff.type === "sobrante"
+        ? "text-green-600"
+        : diff.type === "faltante"
+          ? "text-red-600"
+          : "text-[var(--foreground)]";
 
-    const message = diff.type === 'sobrante' ? `Sobrante: ${formatCurrency(diff.amount, currency)}` :
-      diff.type === 'faltante' ? `Faltante: ${formatCurrency(diff.amount, currency)}` :
-        'Sin sobrante ni faltante';
+    const message =
+      diff.type === "sobrante"
+        ? `Sobrante: ${formatCurrency(diff.amount, currency)}`
+        : diff.type === "faltante"
+          ? `Faltante: ${formatCurrency(diff.amount, currency)}`
+          : "Sin sobrante ni faltante";
 
-    return <span className={`${colorClass} font-semibold ${className}`}>{message}</span>;
+    return (
+      <span className={`${colorClass} font-semibold ${className}`}>
+        {message}
+      </span>
+    );
   };
 
   // Manejador del input de monto adicional (formateo instantáneo)
   const handleExtraChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let raw = e.target.value;
-    if (currency === 'CRC') {
+    if (currency === "CRC") {
       // Solo dígitos
-      raw = raw.replace(/\D/g, '');
-      const parsed = raw === '' ? 0 : parseInt(raw, 10);
-      setExtraAmount(parsed);
+      raw = raw.replace(/\D/g, "");
+      const parsed = raw === "" ? 0 : parseInt(raw, 10);
       notifyParent(bills, parsed, currency);
     } else {
       // Permitir dígitos y punto
-      raw = raw.replace(/[^0-9.]/g, '');
+      raw = raw.replace(/[^0-9.]/g, "");
       const parsedFloat = parseFloat(raw);
       const parsed = isNaN(parsedFloat) ? 0 : parsedFloat;
       // Guardamos en centavos para USD
-      setExtraAmount(parsed);
       notifyParent(bills, parsed, currency);
     }
   };
 
   const handleExtraClear = () => {
-    setExtraAmount(0);
     notifyParent(bills, 0, currency);
   };
 
   const handleAperturaCajaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value === '' ? 0 : Number(e.target.value);
-    setAperturaCaja(value);
+    const value = e.target.value === "" ? 0 : Number(e.target.value);
     notifyParent(bills, extraAmount, currency, value, ventaActual);
   };
 
   const handleVentaActualChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value === '' ? 0 : Number(e.target.value);
-    setVentaActual(value);
+    const value = e.target.value === "" ? 0 : Number(e.target.value);
     notifyParent(bills, extraAmount, currency, aperturaCaja, value);
   };
 
   const handleNuevaVentaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value === '' ? 0 : Number(e.target.value);
+    const value = e.target.value === "" ? 0 : Number(e.target.value);
     setNuevaVenta(value);
   };
 
   const agregarVenta = () => {
     if (nuevaVenta > 0) {
       const nuevaVentaTotal = ventaActual + nuevaVenta;
-      setVentaActual(nuevaVentaTotal);
       setNuevaVenta(0); // Limpiar el input
 
       // Mostrar feedback visual
@@ -552,13 +573,13 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
     e: React.KeyboardEvent<HTMLInputElement>,
     value: number,
     setValue: (value: number) => void,
-    increment: number = 1
+    increment: number = 1,
   ) => {
-    if (e.key === '+') {
+    if (e.key === "+") {
       e.preventDefault();
       const newValue = value + increment;
       setValue(newValue);
-    } else if (e.key === '-') {
+    } else if (e.key === "-") {
       e.preventDefault();
       const newValue = Math.max(value - increment, 0);
       setValue(newValue);
@@ -566,36 +587,56 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
   };
 
   // Manejadores específicos para cada input
-  const handleExtraAmountKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    const increment = currency === 'CRC' ? 1000 : 1;
-    handleNumericKeyDown(e, extraAmount, (newValue) => {
-      setExtraAmount(newValue);
-      notifyParent(bills, newValue, currency);
-    }, increment);
+  const handleExtraAmountKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+  ) => {
+    const increment = currency === "CRC" ? 1000 : 1;
+    handleNumericKeyDown(
+      e,
+      extraAmount,
+      (newValue) => {
+        notifyParent(bills, newValue, currency);
+      },
+      increment,
+    );
   };
 
-  const handleAperturaCajaKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    const increment = currency === 'CRC' ? 1000 : 1;
-    handleNumericKeyDown(e, aperturaCaja, (newValue) => {
-      setAperturaCaja(newValue);
-      notifyParent(bills, extraAmount, currency, newValue, ventaActual);
-    }, increment);
+  const handleAperturaCajaKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+  ) => {
+    const increment = currency === "CRC" ? 1000 : 1;
+    handleNumericKeyDown(
+      e,
+      aperturaCaja,
+      (newValue) => {
+        notifyParent(bills, extraAmount, currency, newValue, ventaActual);
+      },
+      increment,
+    );
   };
 
-  const handleVentaActualKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    const increment = currency === 'CRC' ? 1000 : 1;
-    handleNumericKeyDown(e, ventaActual, (newValue) => {
-      setVentaActual(newValue);
-      notifyParent(bills, extraAmount, currency, aperturaCaja, newValue);
-    }, increment);
+  const handleVentaActualKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+  ) => {
+    const increment = currency === "CRC" ? 1000 : 1;
+    handleNumericKeyDown(
+      e,
+      ventaActual,
+      (newValue) => {
+        notifyParent(bills, extraAmount, currency, aperturaCaja, newValue);
+      },
+      increment,
+    );
   };
 
-  const handleNuevaVentaKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
+  const handleNuevaVentaKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+  ) => {
+    if (e.key === "Enter") {
       agregarVenta();
       return;
     }
-    const increment = currency === 'CRC' ? 1000 : 1;
+    const increment = currency === "CRC" ? 1000 : 1;
     handleNumericKeyDown(e, nuevaVenta, setNuevaVenta, increment);
   };
 
@@ -607,15 +648,11 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
           {/* Botón para limpiar todos los contadores */}
           <button
             onClick={() => {
-              if (confirm('¿Seguro que deseas limpiar todos los montos?')) {
+              if (confirm("¿Seguro que deseas limpiar todos los montos?")) {
                 const resetBills: BillsMap = {};
                 denominaciones.forEach((den) => {
                   resetBills[den.value] = 0;
                 });
-                setBills(resetBills);
-                setExtraAmount(0);
-                setAperturaCaja(0);
-                setVentaActual(0);
                 setNuevaVenta(0);
                 notifyParent(resetBills, 0, currency, 0, 0);
               }
@@ -634,11 +671,11 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
                 extraAmount,
                 currency,
                 aperturaCaja,
-                ventaActual
+                ventaActual,
               });
-              const blob = new Blob([content], { type: 'application/json' });
+              const blob = new Blob([content], { type: "application/json" });
               const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
+              const a = document.createElement("a");
               a.href = url;
               a.download = `${data.name}_datos.json`;
               a.click();
@@ -652,9 +689,9 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
           {/* ...existing code... */}
           <button
             onClick={() => {
-              const input = document.createElement('input');
-              input.type = 'file';
-              input.accept = 'application/json';
+              const input = document.createElement("input");
+              input.type = "file";
+              input.accept = "application/json";
               input.onchange = (e: Event) => {
                 const target = e.target as HTMLInputElement;
                 const file = target.files?.[0];
@@ -665,22 +702,25 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
                     const parsed = JSON.parse(ev.target?.result as string);
                     if (
                       parsed &&
-                      typeof parsed.name === 'string' &&
-                      typeof parsed.extraAmount === 'number' &&
-                      (parsed.currency === 'CRC' || parsed.currency === 'USD') &&
-                      typeof parsed.bills === 'object'
+                      typeof parsed.name === "string" &&
+                      typeof parsed.extraAmount === "number" &&
+                      (parsed.currency === "CRC" ||
+                        parsed.currency === "USD") &&
+                      typeof parsed.bills === "object"
                     ) {
-                      setBills(parsed.bills);
-                      setExtraAmount(parsed.extraAmount);
-                      setCurrency(parsed.currency);
-                      setAperturaCaja(parsed.aperturaCaja || 0);
-                      setVentaActual(parsed.ventaActual || 0);
-                      notifyParent(parsed.bills, parsed.extraAmount, parsed.currency, parsed.aperturaCaja || 0, parsed.ventaActual || 0);
+                      setNuevaVenta(0);
+                      notifyParent(
+                        parsed.bills,
+                        parsed.extraAmount,
+                        parsed.currency,
+                        parsed.aperturaCaja || 0,
+                        parsed.ventaActual || 0,
+                      );
                     } else {
-                      alert('Archivo JSON inválido para Cash Counter.');
+                      alert("Archivo JSON inválido para Cash Counter.");
                     }
                   } catch {
-                    alert('Error al parsear el archivo JSON.');
+                    alert("Error al parsear el archivo JSON.");
                   }
                 };
                 reader.readAsText(file);
@@ -703,7 +743,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
           {/* Botón para eliminar contador (con confirmación) */}
           <button
             onClick={() => {
-              if (confirm('¿Seguro que deseas eliminar este contador?')) {
+              if (confirm("¿Seguro que deseas eliminar este contador?")) {
                 onDelete(id);
               }
             }}
@@ -720,18 +760,24 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
       </div>
 
       {/* Sección de resumen de caja */}
-      {(aperturaCaja > 0 && ventaActual > 0) && (
+      {aperturaCaja > 0 && ventaActual > 0 && (
         <div className="bg-[var(--input-bg)] rounded-lg p-3 mb-4 border border-[var(--input-border)]">
-          <h4 className="text-sm font-semibold text-[var(--foreground)] mb-2 text-center">Resumen de Caja</h4>
+          <h4 className="text-sm font-semibold text-[var(--foreground)] mb-2 text-center">
+            Resumen de Caja
+          </h4>
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div className="text-center">
-              <span className="block text-[var(--foreground)] opacity-75">Apertura</span>
+              <span className="block text-[var(--foreground)] opacity-75">
+                Apertura
+              </span>
               <span className="font-medium text-[var(--foreground)]">
                 {formatCurrency(aperturaCaja, currency)}
               </span>
             </div>
             <div className="text-center">
-              <span className="block text-[var(--foreground)] opacity-75">Venta</span>
+              <span className="block text-[var(--foreground)] opacity-75">
+                Venta
+              </span>
               <span className="font-medium text-[var(--foreground)]">
                 {formatCurrency(ventaActual, currency)}
               </span>
@@ -739,7 +785,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
           </div>
           {/* Mostrar diferencia si hay valores */}
           <div className="mt-2 text-center border-t border-[var(--input-border)] pt-2">
-            {renderDifferenceMessage('text-center')}
+            {renderDifferenceMessage("text-center")}
           </div>
         </div>
       )}
@@ -771,7 +817,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div className="text-center p-2 bg-[var(--background)] rounded">
                   <span className="block text-[var(--foreground)] opacity-75 mb-1">
-                    {currency === 'CRC' ? '₡20k + ₡10k' : '$20 + $10'}
+                    {currency === "CRC" ? "₡20k + ₡10k" : "$20 + $10"}
                   </span>
                   <span className="font-medium text-[var(--foreground)]">
                     {formatCurrency(breakdown.bills20y10, currency)}
@@ -779,13 +825,15 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
                 </div>
                 <div className="text-center p-2 bg-[var(--background)] rounded">
                   <span className="block text-[var(--foreground)] opacity-75 mb-1">
-                    {currency === 'CRC' ? '₡20k + ₡10k + ₡5k' : '$20 + $10 + $5'}
+                    {currency === "CRC"
+                      ? "₡20k + ₡10k + ₡5k"
+                      : "$20 + $10 + $5"}
                   </span>
                   <span className="font-medium text-[var(--foreground)]">
                     {formatCurrency(breakdown.bills20_10_5, currency)}
                   </span>
                 </div>
-                {currency === 'CRC' && (
+                {currency === "CRC" && (
                   <>
                     <div className="text-center p-2 bg-[var(--background)] rounded">
                       <span className="block text-[var(--foreground)] opacity-75 mb-1">
@@ -805,7 +853,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
                     </div>
                   </>
                 )}
-                {currency === 'USD' && (
+                {currency === "USD" && (
                   <div className="text-center p-2 bg-[var(--background)] rounded col-span-2">
                     <span className="block text-[var(--foreground)] opacity-75 mb-1">
                       Billetes de $1
@@ -851,9 +899,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
                 type="text"
                 inputMode="numeric"
                 value={
-                  extraAmount === 0
-                    ? ''
-                    : formatCurrency(extraAmount, currency)
+                  extraAmount === 0 ? "" : formatCurrency(extraAmount, currency)
                 }
                 onChange={handleExtraChange}
                 onKeyDown={handleExtraAmountKeyDown}
@@ -870,11 +916,13 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
             </div>
             {/* Inputs adicionales */}
             <div className="mb-2">
-              <label className="block text-[var(--foreground)] text-sm mb-1">Apertura de caja</label>
+              <label className="block text-[var(--foreground)] text-sm mb-1">
+                Apertura de caja
+              </label>
               <input
                 type="number"
                 min="0"
-                value={aperturaCaja || ''}
+                value={aperturaCaja || ""}
                 onChange={handleAperturaCajaChange}
                 onKeyDown={handleAperturaCajaKeyDown}
                 className="w-full px-2 py-1 border rounded bg-[var(--input-bg)] text-[var(--foreground)] text-base focus:outline-none"
@@ -882,11 +930,13 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
               />
             </div>
             <div className="mb-2">
-              <label className="block text-[var(--foreground)] text-sm mb-1">Venta actual</label>
+              <label className="block text-[var(--foreground)] text-sm mb-1">
+                Venta actual
+              </label>
               <input
                 type="number"
                 min="0"
-                value={ventaActual || ''}
+                value={ventaActual || ""}
                 onChange={handleVentaActualChange}
                 onKeyDown={handleVentaActualKeyDown}
                 className="w-full px-2 py-1 border rounded bg-[var(--input-bg)] text-[var(--foreground)] text-base focus:outline-none"
@@ -896,12 +946,14 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
 
             {/* Nueva sección para agregar venta */}
             <div className="mb-2">
-              <label className="block text-[var(--foreground)] text-sm mb-1">Agregar venta</label>
+              <label className="block text-[var(--foreground)] text-sm mb-1">
+                Agregar venta
+              </label>
               <div className="flex space-x-2">
                 <input
                   type="number"
                   min="0"
-                  value={nuevaVenta || ''}
+                  value={nuevaVenta || ""}
                   onChange={handleNuevaVentaChange}
                   onKeyDown={handleNuevaVentaKeyDown}
                   className="w-28 px-2 py-1 border rounded bg-[var(--input-bg)] text-[var(--foreground)] text-base focus:outline-none"
@@ -910,10 +962,11 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
                 <button
                   onClick={agregarVenta}
                   disabled={nuevaVenta <= 0}
-                  className={`px-3 py-1 rounded text-sm font-medium flex items-center whitespace-nowrap ${nuevaVenta > 0
-                    ? 'bg-green-600 hover:bg-green-700 text-white'
-                    : 'bg-gray-400 text-gray-600 cursor-not-allowed'
-                    }`}
+                  className={`px-3 py-1 rounded text-sm font-medium flex items-center whitespace-nowrap ${
+                    nuevaVenta > 0
+                      ? "bg-green-600 hover:bg-green-700 text-white"
+                      : "bg-gray-400 text-gray-600 cursor-not-allowed"
+                  }`}
                 >
                   <Plus className="w-4 h-4 mr-1" />
                   Agregar
@@ -921,7 +974,8 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
               </div>
               {nuevaVenta > 0 && (
                 <div className="mt-1 text-xs text-[var(--foreground)] opacity-75">
-                  Total después: {formatCurrency(ventaActual + nuevaVenta, currency)}
+                  Total después:{" "}
+                  {formatCurrency(ventaActual + nuevaVenta, currency)}
                 </div>
               )}
               {ventaAgregada && (
@@ -931,7 +985,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
               )}
             </div>
             {/* Mensaje de sobrante/faltante */}
-            {renderDifferenceMessage('mt-2 text-center')}
+            {renderDifferenceMessage("mt-2 text-center")}
           </div>
         </div>
       )}
@@ -945,9 +999,10 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
             <div
               key={den.value}
               className={`flex flex-col sm:flex-row sm:items-center sm:justify-between rounded-lg p-3 
-                ${count === 0
-                  ? 'border-2 border-gray-400'
-                  : 'border-2 border-green-600'
+                ${
+                  count === 0
+                    ? "border-2 border-gray-400"
+                    : "border-2 border-green-600"
                 } bg-[var(--input-bg)]`}
             >
               {/* Denominación: centrado y con texto más pequeño en móvil */}
@@ -965,11 +1020,15 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
                   <MinusCircle className="w-6 h-6 text-white" />
                 </button>
                 <input
-                  ref={(el) => { inputRefs.current[index] = el; }}
+                  ref={(el) => {
+                    inputRefs.current[index] = el;
+                  }}
                   type="text"
                   inputMode="numeric"
-                  value={count === 0 ? '' : String(count)}
-                  onChange={(e) => handleManualChange(den.value, e.target.value)}
+                  value={count === 0 ? "" : String(count)}
+                  onChange={(e) =>
+                    handleManualChange(den.value, e.target.value)
+                  }
                   onKeyDown={(e) => handleKeyDown(e, index)}
                   className={INPUT_STYLES.counter}
                   placeholder="0"
@@ -1014,13 +1073,13 @@ type RenameModalProps = {
   onClose: () => void;
 };
 
-function RenameModal({ isOpen, currentName, onSave, onClose }: RenameModalProps) {
-  const [newName, setNewName] = useState<string>(currentName);
+function RenameModal({
+  isOpen,
+  currentName,
+  onSave,
+  onClose,
+}: RenameModalProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    setNewName(currentName);
-  }, [currentName]);
 
   // Seleccionar todo el texto cuando se abre el modal
   useEffect(() => {
@@ -1035,9 +1094,10 @@ function RenameModal({ isOpen, currentName, onSave, onClose }: RenameModalProps)
 
   // Manejar tecla Enter para guardar
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       e.preventDefault();
-      onSave(newName.trim() === '' ? currentName : newName);
+      const value = e.currentTarget.value;
+      onSave(value.trim() === "" ? currentName : value);
       onClose();
     }
   };
@@ -1048,15 +1108,16 @@ function RenameModal({ isOpen, currentName, onSave, onClose }: RenameModalProps)
         <input
           ref={inputRef}
           type="text"
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
+          key={currentName}
+          defaultValue={currentName}
           onKeyDown={handleKeyDown}
           className="w-full px-2 py-1 border-none bg-transparent text-[var(--foreground)] text-right text-base focus:outline-none"
         />
       </div>
       <button
         onClick={() => {
-          onSave(newName.trim() === '' ? currentName : newName);
+          const value = inputRef.current?.value ?? "";
+          onSave(value.trim() === "" ? currentName : value);
           onClose();
         }}
         className="w-full bg-purple-600 hover:bg-purple-700 text-white rounded-lg py-2"
@@ -1069,45 +1130,67 @@ function RenameModal({ isOpen, currentName, onSave, onClose }: RenameModalProps)
 
 type CurrencyModalProps = {
   isOpen: boolean;
-  currentCurrency: 'CRC' | 'USD';
-  onSave: (newCurrency: 'CRC' | 'USD') => void;
+  currentCurrency: "CRC" | "USD";
+  onSave: (newCurrency: "CRC" | "USD") => void;
   onClose: () => void;
 };
 
-function CurrencyModal({ isOpen, currentCurrency, onSave, onClose }: CurrencyModalProps) {
-  const [selected, setSelected] = useState<'CRC' | 'USD'>(currentCurrency);
+function CurrencyModal({
+  isOpen,
+  currentCurrency,
+  onSave,
+  onClose,
+}: CurrencyModalProps) {
+  const [selected, setSelected] = useState<"CRC" | "USD">(currentCurrency);
+  const [touched, setTouched] = useState(false);
 
-  useEffect(() => {
+  const effectiveSelected = touched ? selected : currentCurrency;
+
+  const handleClose = () => {
+    setTouched(false);
     setSelected(currentCurrency);
-  }, [currentCurrency]);
+    onClose();
+  };
+
+  const handleSave = () => {
+    onSave(effectiveSelected);
+    setTouched(false);
+    setSelected(currentCurrency);
+    onClose();
+  };
 
   return (
-    <BaseModal isOpen={isOpen} onClose={onClose} title="Seleccionar Moneda">
+    <BaseModal isOpen={isOpen} onClose={handleClose} title="Seleccionar Moneda">
       <div className="flex justify-around mb-3">
         <button
-          onClick={() => setSelected('CRC')}
-          className={`px-4 py-2 rounded-lg ${selected === 'CRC'
-            ? 'bg-purple-600 text-white'
-            : 'bg-[var(--input-bg)] text-[var(--foreground)] hover:bg-[var(--button-hover)]'
-            }`}
+          onClick={() => {
+            setTouched(true);
+            setSelected("CRC");
+          }}
+          className={`px-4 py-2 rounded-lg ${
+            effectiveSelected === "CRC"
+              ? "bg-purple-600 text-white"
+              : "bg-[var(--input-bg)] text-[var(--foreground)] hover:bg-[var(--button-hover)]"
+          }`}
         >
           Colones (CRC)
         </button>
         <button
-          onClick={() => setSelected('USD')}
-          className={`px-4 py-2 rounded-lg ${selected === 'USD'
-            ? 'bg-purple-600 text-white'
-            : 'bg-[var(--input-bg)] text-[var(--foreground)] hover:bg-[var(--button-hover)]'
-            }`}
+          onClick={() => {
+            setTouched(true);
+            setSelected("USD");
+          }}
+          className={`px-4 py-2 rounded-lg ${
+            effectiveSelected === "USD"
+              ? "bg-purple-600 text-white"
+              : "bg-[var(--input-bg)] text-[var(--foreground)] hover:bg-[var(--button-hover)]"
+          }`}
         >
           Dólares (USD)
         </button>
       </div>
       <button
-        onClick={() => {
-          onSave(selected);
-          onClose();
-        }}
+        onClick={handleSave}
         className="w-full bg-purple-600 hover:bg-purple-700 text-white rounded-lg py-2"
       >
         Guardar
@@ -1125,7 +1208,14 @@ type MenuModalProps = {
   storageInfo: string;
 };
 
-function MenuModal({ isOpen, onClose, onExport, onImport, onClear, storageInfo }: MenuModalProps) {
+function MenuModal({
+  isOpen,
+  onClose,
+  onExport,
+  onImport,
+  onClear,
+  storageInfo,
+}: MenuModalProps) {
   return (
     <BaseModal isOpen={isOpen} onClose={onClose} title="Gestión de Datos">
       <div className="space-y-3">
@@ -1202,22 +1292,27 @@ export default function CashCounterTabs() {
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   // Función para guardar en localStorage con manejo de errores
-  const saveToLocalStorage = async (data: CashCounterData[], activeTabIndex: number) => {
+  const saveToLocalStorage = async (
+    data: CashCounterData[],
+    activeTabIndex: number,
+  ) => {
     setIsSaving(true);
     try {
       const saveData = {
         counters: data,
         activeTab: activeTabIndex,
-        lastSaved: new Date().toISOString()
+        lastSaved: new Date().toISOString(),
       };
-      window.localStorage.setItem('cashCounters', JSON.stringify(saveData));
+      window.localStorage.setItem("cashCounters", JSON.stringify(saveData));
       setLastSaved(new Date().toLocaleTimeString());
 
       // Simular un pequeño delay para mostrar el indicador de guardado
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 500));
     } catch (error) {
-      console.error('❌ Error guardando en localStorage:', error);
-      alert('Error al guardar los datos. Verifica el espacio de almacenamiento.');
+      console.error("❌ Error guardando en localStorage:", error);
+      alert(
+        "Error al guardar los datos. Verifica el espacio de almacenamiento.",
+      );
     } finally {
       setIsSaving(false);
     }
@@ -1226,7 +1321,7 @@ export default function CashCounterTabs() {
   // Función para cargar desde localStorage con manejo de errores
   const loadFromLocalStorage = () => {
     try {
-      const saved = window.localStorage.getItem('cashCounters');
+      const saved = window.localStorage.getItem("cashCounters");
       if (saved) {
         const parsedData = JSON.parse(saved);
 
@@ -1242,14 +1337,14 @@ export default function CashCounterTabs() {
           counters = parsedData.counters;
           activeTabIndex = parsedData.activeTab || 0;
         } else {
-          throw new Error('Formato de datos no válido');
+          throw new Error("Formato de datos no válido");
         }
 
         const normalized = counters.map((item, idx) => ({
           name: item.name || `Contador ${idx + 1}`,
           bills: item.bills || {},
           extraAmount: item.extraAmount || 0,
-          currency: (item.currency as 'CRC' | 'USD') || 'CRC',
+          currency: (item.currency as "CRC" | "USD") || "CRC",
           aperturaCaja: item.aperturaCaja || 0,
           ventaActual: item.ventaActual || 0,
         }));
@@ -1258,32 +1353,38 @@ export default function CashCounterTabs() {
         setActiveTab(Math.min(activeTabIndex, normalized.length - 1));
       } else {
         // Datos por defecto si no hay nada guardado
-        const defaultData = [{
-          name: 'Contador 1',
-          bills: {},
-          extraAmount: 0,
-          currency: 'CRC' as 'CRC' | 'USD',
-          aperturaCaja: 0,
-          ventaActual: 0
-        }];
+        const defaultData = [
+          {
+            name: "Contador 1",
+            bills: {},
+            extraAmount: 0,
+            currency: "CRC" as "CRC" | "USD",
+            aperturaCaja: 0,
+            ventaActual: 0,
+          },
+        ];
         setTabsData(defaultData);
         setActiveTab(0);
         saveToLocalStorage(defaultData, 0);
       }
     } catch (error) {
-      console.error('❌ Error cargando desde localStorage:', error);
+      console.error("❌ Error cargando desde localStorage:", error);
       // Datos por defecto en caso de error
-      const defaultData = [{
-        name: 'Contador 1',
-        bills: {},
-        extraAmount: 0,
-        currency: 'CRC' as 'CRC' | 'USD',
-        aperturaCaja: 0,
-        ventaActual: 0
-      }];
+      const defaultData = [
+        {
+          name: "Contador 1",
+          bills: {},
+          extraAmount: 0,
+          currency: "CRC" as "CRC" | "USD",
+          aperturaCaja: 0,
+          ventaActual: 0,
+        },
+      ];
       setTabsData(defaultData);
       setActiveTab(0);
-      alert('Error al cargar los datos guardados. Se han restablecido los valores por defecto.');
+      alert(
+        "Error al cargar los datos guardados. Se han restablecido los valores por defecto.",
+      );
     }
   };
 
@@ -1305,9 +1406,9 @@ export default function CashCounterTabs() {
       name: `Contador ${tabsData.length + 1}`,
       bills: {},
       extraAmount: 0,
-      currency: 'CRC' as 'CRC' | 'USD',
+      currency: "CRC" as "CRC" | "USD",
       aperturaCaja: 0,
-      ventaActual: 0
+      ventaActual: 0,
     };
     const newTabsData = [...tabsData, newTab];
     const newActiveTab = tabsData.length;
@@ -1319,7 +1420,7 @@ export default function CashCounterTabs() {
 
   const deleteTab = (index: number) => {
     if (tabsData.length <= 1) {
-      alert('No puedes eliminar el último contador. Debe haber al menos uno.');
+      alert("No puedes eliminar el último contador. Debe haber al menos uno.");
       return;
     }
 
@@ -1347,20 +1448,20 @@ export default function CashCounterTabs() {
   // Funciones para drag and drop
   const handleDragStart = (e: React.DragEvent, index: number) => {
     setDraggedIndex(index);
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/html', '');
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/html", "");
 
     // Agregar una imagen fantasma personalizada
-    const dragImage = document.createElement('div');
+    const dragImage = document.createElement("div");
     dragImage.textContent = tabsData[index].name;
-    dragImage.style.position = 'absolute';
-    dragImage.style.top = '-1000px';
-    dragImage.style.background = 'var(--card-bg)';
-    dragImage.style.padding = '8px 16px';
-    dragImage.style.borderRadius = '9999px';
-    dragImage.style.fontSize = '14px';
-    dragImage.style.color = 'var(--foreground)';
-    dragImage.style.border = '2px solid #059669';
+    dragImage.style.position = "absolute";
+    dragImage.style.top = "-1000px";
+    dragImage.style.background = "var(--card-bg)";
+    dragImage.style.padding = "8px 16px";
+    dragImage.style.borderRadius = "9999px";
+    dragImage.style.fontSize = "14px";
+    dragImage.style.color = "var(--foreground)";
+    dragImage.style.border = "2px solid #059669";
     document.body.appendChild(dragImage);
     e.dataTransfer.setDragImage(dragImage, 50, 20);
 
@@ -1370,7 +1471,7 @@ export default function CashCounterTabs() {
 
   const handleDragOver = (e: React.DragEvent, index: number) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+    e.dataTransfer.dropEffect = "move";
 
     if (draggedIndex !== index) {
       setDragOverIndex(index);
@@ -1432,28 +1533,28 @@ export default function CashCounterTabs() {
         version: "1.0",
         exportDate: new Date().toISOString(),
         counters: tabsData,
-        activeTab: activeTab
+        activeTab: activeTab,
       };
 
       const content = JSON.stringify(exportData, null, 2);
-      const blob = new Blob([content], { type: 'application/json' });
+      const blob = new Blob([content], { type: "application/json" });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
-      a.download = `cash-counter-backup-${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `cash-counter-backup-${new Date().toISOString().split("T")[0]}.json`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Error exportando datos:', error);
-      alert('Error al exportar los datos.');
+      console.error("Error exportando datos:", error);
+      alert("Error al exportar los datos.");
     }
   };
 
   // Función para importar todos los datos desde un archivo JSON
   const importAllData = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'application/json';
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "application/json";
     input.onchange = (e: Event) => {
       const target = e.target as HTMLInputElement;
       const file = target.files?.[0];
@@ -1465,31 +1566,56 @@ export default function CashCounterTabs() {
           const importData = JSON.parse(ev.target?.result as string);
 
           if (importData.counters && Array.isArray(importData.counters)) {
-            const normalized = importData.counters.map((item: unknown, idx: number) => {
-              const counterItem = item as Record<string, unknown>;
-              return {
-                name: (typeof counterItem.name === 'string' ? counterItem.name : null) || `Contador ${idx + 1}`,
-                bills: (typeof counterItem.bills === 'object' && counterItem.bills !== null ? counterItem.bills : {}) as BillsMap,
-                extraAmount: (typeof counterItem.extraAmount === 'number' ? counterItem.extraAmount : null) || 0,
-                currency: (counterItem.currency === 'CRC' || counterItem.currency === 'USD' ? counterItem.currency : 'CRC') as 'CRC' | 'USD',
-                aperturaCaja: (typeof counterItem.aperturaCaja === 'number' ? counterItem.aperturaCaja : null) || 0,
-                ventaActual: (typeof counterItem.ventaActual === 'number' ? counterItem.ventaActual : null) || 0,
-              };
-            });
+            const normalized = importData.counters.map(
+              (item: unknown, idx: number) => {
+                const counterItem = item as Record<string, unknown>;
+                return {
+                  name:
+                    (typeof counterItem.name === "string"
+                      ? counterItem.name
+                      : null) || `Contador ${idx + 1}`,
+                  bills: (typeof counterItem.bills === "object" &&
+                  counterItem.bills !== null
+                    ? counterItem.bills
+                    : {}) as BillsMap,
+                  extraAmount:
+                    (typeof counterItem.extraAmount === "number"
+                      ? counterItem.extraAmount
+                      : null) || 0,
+                  currency: (counterItem.currency === "CRC" ||
+                  counterItem.currency === "USD"
+                    ? counterItem.currency
+                    : "CRC") as "CRC" | "USD",
+                  aperturaCaja:
+                    (typeof counterItem.aperturaCaja === "number"
+                      ? counterItem.aperturaCaja
+                      : null) || 0,
+                  ventaActual:
+                    (typeof counterItem.ventaActual === "number"
+                      ? counterItem.ventaActual
+                      : null) || 0,
+                };
+              },
+            );
 
-            const newActiveTab = Math.min(importData.activeTab || 0, normalized.length - 1);
+            const newActiveTab = Math.min(
+              importData.activeTab || 0,
+              normalized.length - 1,
+            );
 
             setTabsData(normalized);
             setActiveTab(newActiveTab);
             saveToLocalStorage(normalized, newActiveTab);
 
-            alert(`✅ Datos importados correctamente. ${normalized.length} contadores cargados.`);
+            alert(
+              `✅ Datos importados correctamente. ${normalized.length} contadores cargados.`,
+            );
           } else {
-            alert('❌ Formato de archivo no válido para importar.');
+            alert("❌ Formato de archivo no válido para importar.");
           }
         } catch (error) {
-          console.error('Error importando datos:', error);
-          alert('❌ Error al procesar el archivo de importación.');
+          console.error("Error importando datos:", error);
+          alert("❌ Error al procesar el archivo de importación.");
         }
       };
       reader.readAsText(file);
@@ -1500,40 +1626,46 @@ export default function CashCounterTabs() {
   // Función para obtener información de almacenamiento
   const getStorageInfo = () => {
     try {
-      const data = window.localStorage.getItem('cashCounters');
+      const data = window.localStorage.getItem("cashCounters");
       if (data) {
         const sizeInBytes = new Blob([data]).size;
         const sizeInKB = (sizeInBytes / 1024).toFixed(2);
         const countersCount = tabsData.length;
         return `${countersCount} contadores • ${sizeInKB} KB`;
       }
-      return 'Sin datos guardados';
+      return "Sin datos guardados";
     } catch {
-      return 'Error obteniendo información';
+      return "Error obteniendo información";
     }
   };
 
   // Función para limpiar todos los datos del localStorage
   const clearAllData = () => {
     const storageInfo = getStorageInfo();
-    if (confirm(`⚠️ ¿Estás seguro de que quieres borrar TODOS los datos guardados?\n\nDatos actuales: ${storageInfo}\n\nEsta acción no se puede deshacer.`)) {
+    if (
+      confirm(
+        `⚠️ ¿Estás seguro de que quieres borrar TODOS los datos guardados?\n\nDatos actuales: ${storageInfo}\n\nEsta acción no se puede deshacer.`,
+      )
+    ) {
       try {
-        window.localStorage.removeItem('cashCounters');
-        const defaultData = [{
-          name: 'Contador 1',
-          bills: {},
-          extraAmount: 0,
-          currency: 'CRC' as 'CRC' | 'USD',
-          aperturaCaja: 0,
-          ventaActual: 0
-        }];
+        window.localStorage.removeItem("cashCounters");
+        const defaultData = [
+          {
+            name: "Contador 1",
+            bills: {},
+            extraAmount: 0,
+            currency: "CRC" as "CRC" | "USD",
+            aperturaCaja: 0,
+            ventaActual: 0,
+          },
+        ];
         setTabsData(defaultData);
         setActiveTab(0);
         saveToLocalStorage(defaultData, 0);
-        alert('✅ Todos los datos han sido borrados y restablecidos.');
+        alert("✅ Todos los datos han sido borrados y restablecidos.");
       } catch (error) {
-        console.error('Error limpiando datos:', error);
-        alert('❌ Error al limpiar los datos.');
+        console.error("Error limpiando datos:", error);
+        alert("❌ Error al limpiar los datos.");
       }
     }
   };
@@ -1542,7 +1674,7 @@ export default function CashCounterTabs() {
     updateTab(renameIndex, { ...tabsData[renameIndex], name: newName });
   };
 
-  const handleCurrencySave = (newCurrency: 'CRC' | 'USD') => {
+  const handleCurrencySave = (newCurrency: "CRC" | "USD") => {
     // Resetea contadores y extraAmount al cambiar moneda
     updateTab(activeTab, {
       ...tabsData[activeTab],
@@ -1555,7 +1687,7 @@ export default function CashCounterTabs() {
   };
 
   // Verificar si el usuario tiene permiso para usar el contador de efectivo
-  if (!hasPermission(user?.permissions, 'cashcounter')) {
+  if (!hasPermission(user?.permissions, "cashcounter")) {
     return (
       <div className="flex items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)]">
         <div className="text-center">
@@ -1577,7 +1709,9 @@ export default function CashCounterTabs() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 bg-[var(--background)] min-h-screen pb-32">
       <div className="flex justify-center items-center mb-4">
-        <h1 className="text-2xl font-bold text-[var(--foreground)]">Cash Counter</h1>
+        <h1 className="text-2xl font-bold text-[var(--foreground)]">
+          Cash Counter
+        </h1>
       </div>
 
       <div className="flex justify-end items-center mb-4">
@@ -1607,19 +1741,15 @@ export default function CashCounterTabs() {
         </div>
       </div>
 
-
-
       <div className="flex space-x-2 mb-4 overflow-x-auto">
         {tabsData.map((tab, idx) => (
           <div
             key={idx}
-            className={`relative transition-all duration-200 ${dragOverIndex === idx && draggedIndex !== idx
-              ? 'transform scale-105 shadow-lg border-2 border-blue-400 border-dashed rounded-full'
-              : ''
-              } ${draggedIndex === idx
-                ? 'opacity-50 transform rotate-2'
-                : ''
-              }`}
+            className={`relative transition-all duration-200 ${
+              dragOverIndex === idx && draggedIndex !== idx
+                ? "transform scale-105 shadow-lg border-2 border-blue-400 border-dashed rounded-full"
+                : ""
+            } ${draggedIndex === idx ? "opacity-50 transform rotate-2" : ""}`}
             draggable={tabsData.length > 1}
             onDragStart={(e) => handleDragStart(e, idx)}
             onDragOver={(e) => handleDragOver(e, idx)}
@@ -1629,16 +1759,24 @@ export default function CashCounterTabs() {
           >
             {/* Icono de grip para arrastrar */}
             <div
-              className={`absolute left-1 top-1/2 -translate-y-1/2 z-10 ${tabsData.length > 1
-                ? 'cursor-grab active:cursor-grabbing'
-                : 'cursor-not-allowed opacity-50'
-                }`}
-              title={tabsData.length > 1 ? "Arrastra para reordenar" : "Necesitas al menos 2 contadores para reordenar"}
+              className={`absolute left-1 top-1/2 -translate-y-1/2 z-10 ${
+                tabsData.length > 1
+                  ? "cursor-grab active:cursor-grabbing"
+                  : "cursor-not-allowed opacity-50"
+              }`}
+              title={
+                tabsData.length > 1
+                  ? "Arrastra para reordenar"
+                  : "Necesitas al menos 2 contadores para reordenar"
+              }
             >
-              <GripVertical className={`w-4 h-4 transition-colors ${tabsData.length > 1
-                ? 'text-gray-400 hover:text-gray-600'
-                : 'text-gray-300'
-                }`} />
+              <GripVertical
+                className={`w-4 h-4 transition-colors ${
+                  tabsData.length > 1
+                    ? "text-gray-400 hover:text-gray-600"
+                    : "text-gray-300"
+                }`}
+              />
             </div>
 
             <button
@@ -1646,10 +1784,11 @@ export default function CashCounterTabs() {
                 setActiveTab(idx);
                 saveToLocalStorage(tabsData, idx);
               }}
-              className={`pl-8 pr-10 py-2 rounded-full flex-shrink-0 text-sm font-medium flex items-center transition-all duration-200 ${idx === activeTab
-                ? 'bg-[var(--card-bg)] text-[var(--foreground)] shadow border-2 border-green-900'
-                : 'bg-[var(--input-bg)] text-[var(--tab-text)] hover:bg-[var(--button-hover)] border-2 border-transparent'
-                }`}
+              className={`pl-8 pr-10 py-2 rounded-full flex-shrink-0 text-sm font-medium flex items-center transition-all duration-200 ${
+                idx === activeTab
+                  ? "bg-[var(--card-bg)] text-[var(--foreground)] shadow border-2 border-green-900"
+                  : "bg-[var(--input-bg)] text-[var(--tab-text)] hover:bg-[var(--button-hover)] border-2 border-transparent"
+              }`}
             >
               <span className="truncate w-[8rem] text-center">{tab.name}</span>
             </button>
@@ -1711,19 +1850,22 @@ export default function CashCounterTabs() {
       </button>
 
       {/* Modal de calculadora */}
-      <CalculatorModal isOpen={isCalcOpen} onClose={() => setIsCalcOpen(false)} />
+      <CalculatorModal
+        isOpen={isCalcOpen}
+        onClose={() => setIsCalcOpen(false)}
+      />
 
       {/* Modal de verificador SINPE */}
       <SinpeModal
         isOpen={isSinpeOpen}
         onClose={() => setIsSinpeOpen(false)}
-        currency={tabsData[activeTab]?.currency || 'CRC'}
+        currency={tabsData[activeTab]?.currency || "CRC"}
       />
 
       {/* Modal para renombrar */}
       <RenameModal
         isOpen={renameModalOpen}
-        currentName={tabsData[renameIndex]?.name || ''}
+        currentName={tabsData[renameIndex]?.name || ""}
         onSave={handleRenameSave}
         onClose={() => setRenameModalOpen(false)}
       />
@@ -1731,7 +1873,7 @@ export default function CashCounterTabs() {
       {/* Modal para seleccionar moneda */}
       <CurrencyModal
         isOpen={currencyModalOpen}
-        currentCurrency={tabsData[activeTab]?.currency || 'CRC'}
+        currentCurrency={tabsData[activeTab]?.currency || "CRC"}
         onSave={handleCurrencySave}
         onClose={() => setCurrencyModalOpen(false)}
       />

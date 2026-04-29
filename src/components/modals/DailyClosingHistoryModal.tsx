@@ -50,12 +50,12 @@ export default function DailyClosingHistoryModal({
   latestClosingLabel,
   onDeleteLatestClosing,
 }: DailyClosingHistoryModalProps) {
-  if (!open) return null;
-
   const [deletePanelOpen, setDeletePanelOpen] = React.useState(false);
   const [deleteReason, setDeleteReason] = React.useState("");
   const [deleteError, setDeleteError] = React.useState<string | null>(null);
   const [deletePending, setDeletePending] = React.useState(false);
+
+  if (!open) return null;
 
   const showDeleteBlock =
     Boolean(canDeleteLatestClosing) &&
@@ -76,7 +76,10 @@ export default function DailyClosingHistoryModal({
         aria-labelledby="daily-closing-history-title"
       >
         <div className="flex items-center justify-between mb-4">
-          <h3 id="daily-closing-history-title" className="text-lg font-semibold">
+          <h3
+            id="daily-closing-history-title"
+            className="text-lg font-semibold"
+          >
             Historial de cierres diarios
           </h3>
           <button
@@ -96,7 +99,10 @@ export default function DailyClosingHistoryModal({
                   Eliminar último cierre
                 </div>
                 <div className="text-xs text-[var(--muted-foreground)]">
-                  Último cierre: <span className="text-[var(--foreground)]">{latestClosingLabel}</span>
+                  Último cierre:{" "}
+                  <span className="text-[var(--foreground)]">
+                    {latestClosingLabel}
+                  </span>
                 </div>
               </div>
               <button

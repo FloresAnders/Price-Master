@@ -1,12 +1,21 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { Building, Check, Clock, DollarSign, Info, Plus, Trash2, Save } from 'lucide-react';
+import React from "react";
+import {
+  Building,
+  Check,
+  Clock,
+  DollarSign,
+  Info,
+  Plus,
+  Trash2,
+  Save,
+} from "lucide-react";
 
-import { CcssConfigService } from '../../services/ccss-config';
-import type { User } from '../../types/firestore';
+import { CcssConfigService } from "../../services/ccss-config";
+import type { User } from "../../types/firestore";
 
-type ToastType = 'success' | 'error' | 'info' | 'warning';
+type ToastType = "success" | "error" | "info" | "warning";
 
 type FlattenedItem = {
   configIndex: number;
@@ -26,7 +35,12 @@ type Props = {
 
   addCcssConfig: () => void;
   getFlattenedCcssData: () => FlattenedItem[];
-  updateCcssConfig: (configIndex: number, companyIndex: number, field: string, value: string | number) => void;
+  updateCcssConfig: (
+    configIndex: number,
+    companyIndex: number,
+    field: string,
+    value: string | number,
+  ) => void;
   removeCcssConfig: (configIndex: number, companyIndex: number) => void;
   saveData: () => void;
 
@@ -76,9 +90,13 @@ export default function CcssEditorSection({
             <Info className="w-5 h-5 text-blue-600 mt-0.5" />
           </div>
           <div>
-            <h5 className="font-medium text-blue-900 dark:text-blue-300">Configuración por Empresa</h5>
+            <h5 className="font-medium text-blue-900 dark:text-blue-300">
+              Configuración por Empresa
+            </h5>
             <p className="text-sm text-blue-700 dark:text-blue-400 mt-1">
-              Cada empresa puede tener configuraciones CCSS específicas. Los valores se aplicarán automáticamente según la empresa seleccionada en los cálculos de nómina.
+              Cada empresa puede tener configuraciones CCSS específicas. Los
+              valores se aplicarán automáticamente según la empresa seleccionada
+              en los cálculos de nómina.
             </p>
           </div>
         </div>
@@ -89,9 +107,12 @@ export default function CcssEditorSection({
           <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full mx-auto mb-6 flex items-center justify-center shadow-lg">
             <DollarSign className="w-10 h-10 text-white" />
           </div>
-          <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">No hay configuraciones CCSS</h3>
+          <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+            No hay configuraciones CCSS
+          </h3>
           <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-md mx-auto leading-relaxed">
-            Comienza creando tu primera configuración CCSS para gestionar los pagos de tus empresas de manera eficiente
+            Comienza creando tu primera configuración CCSS para gestionar los
+            pagos de tus empresas de manera eficiente
           </p>
           <button
             onClick={addCcssConfig}
@@ -114,7 +135,7 @@ export default function CcssEditorSection({
                     Configuración CCSS #{flatIndex + 1}
                   </h5>
                   <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                    {item.company.ownerCompanie || 'Nueva empresa'}
+                    {item.company.ownerCompanie || "Nueva empresa"}
                   </p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
@@ -123,16 +144,20 @@ export default function CcssEditorSection({
                       try {
                         const updatedConfig = {
                           ...item.config,
-                          companie: item.config.companie.map((comp: any, idx: number) =>
-                            idx === item.companyIndex ? item.company : comp
+                          companie: item.config.companie.map(
+                            (comp: any, idx: number) =>
+                              idx === item.companyIndex ? item.company : comp,
                           ),
                         };
                         await CcssConfigService.updateCcssConfig(updatedConfig);
-                        showToast(`Configuración para ${item.company.ownerCompanie || 'empresa'} guardada exitosamente`, 'success');
+                        showToast(
+                          `Configuración para ${item.company.ownerCompanie || "empresa"} guardada exitosamente`,
+                          "success",
+                        );
                         await loadData();
                       } catch (error) {
-                        console.error('Error saving CCSS config:', error);
-                        showToast('Error al guardar la configuración', 'error');
+                        console.error("Error saving CCSS config:", error);
+                        showToast("Error al guardar la configuración", "error");
                       }
                     }}
                     className="px-3 py-2 sm:px-4 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-200 shadow-md hover:shadow-lg font-medium text-sm flex items-center justify-center gap-2 whitespace-nowrap"
@@ -142,7 +167,9 @@ export default function CcssEditorSection({
                     <span className="sm:hidden">Save</span>
                   </button>
                   <button
-                    onClick={() => removeCcssConfig(item.configIndex, item.companyIndex)}
+                    onClick={() =>
+                      removeCcssConfig(item.configIndex, item.companyIndex)
+                    }
                     className="px-3 py-2 sm:px-4 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-md hover:shadow-lg font-medium text-sm flex items-center justify-center gap-2 whitespace-nowrap"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -159,13 +186,20 @@ export default function CcssEditorSection({
                     Empresa:
                   </label>
                   <select
-                    value={item.company.ownerCompanie || ''}
-                    onChange={(e) => updateCcssConfig(item.configIndex, item.companyIndex, 'ownerCompanie', e.target.value)}
+                    value={item.company.ownerCompanie || ""}
+                    onChange={(e) =>
+                      updateCcssConfig(
+                        item.configIndex,
+                        item.companyIndex,
+                        "ownerCompanie",
+                        e.target.value,
+                      )
+                    }
                     className="w-full px-4 py-3 border border-blue-300 dark:border-blue-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm"
                   >
                     <option value="">Seleccionar empresa...</option>
                     {(() => {
-                      if (!currentUser || currentUser.role === 'superadmin') {
+                      if (!currentUser || currentUser.role === "superadmin") {
                         return (empresasData || []).map((empresa, idx) => (
                           <option key={empresa.id || idx} value={empresa.name}>
                             {empresa.name}
@@ -180,8 +214,12 @@ export default function CcssEditorSection({
                             return actorOwnerIdSet.has(String(empresa.ownerId));
                           }
                           return (
-                            (currentUser.id && String(empresa.ownerId) === String(currentUser.id)) ||
-                            (currentUser.ownerId && String(empresa.ownerId) === String(currentUser.ownerId))
+                            (currentUser.id &&
+                              String(empresa.ownerId) ===
+                                String(currentUser.id)) ||
+                            (currentUser.ownerId &&
+                              String(empresa.ownerId) ===
+                                String(currentUser.ownerId))
                           );
                         })
                         .map((empresa, idx) => (
@@ -201,18 +239,31 @@ export default function CcssEditorSection({
                       <Clock className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                      <h6 className="font-bold text-green-900 dark:text-green-200">Tiempo Completo</h6>
-                      <p className="text-xs text-green-700 dark:text-green-400">(TC)</p>
+                      <h6 className="font-bold text-green-900 dark:text-green-200">
+                        Tiempo Completo
+                      </h6>
+                      <p className="text-xs text-green-700 dark:text-green-400">
+                        (TC)
+                      </p>
                     </div>
                   </div>
                   <div className="relative">
-                    <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-green-600 dark:text-green-400 font-bold text-lg">₡</span>
+                    <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-green-600 dark:text-green-400 font-bold text-lg">
+                      ₡
+                    </span>
                     <input
                       type="number"
                       step="0.01"
                       min="0"
                       value={item.company.tc || 0}
-                      onChange={(e) => updateCcssConfig(item.configIndex, item.companyIndex, 'tc', parseFloat(e.target.value) || 0)}
+                      onChange={(e) =>
+                        updateCcssConfig(
+                          item.configIndex,
+                          item.companyIndex,
+                          "tc",
+                          parseFloat(e.target.value) || 0,
+                        )
+                      }
                       className="w-full pl-10 pr-4 py-3 border-2 border-green-300 dark:border-green-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-bold text-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200"
                       placeholder="11017.39"
                     />
@@ -225,18 +276,31 @@ export default function CcssEditorSection({
                       <Clock className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                      <h6 className="font-bold text-orange-900 dark:text-orange-200">Medio Tiempo</h6>
-                      <p className="text-xs text-orange-700 dark:text-orange-400">(MT)</p>
+                      <h6 className="font-bold text-orange-900 dark:text-orange-200">
+                        Medio Tiempo
+                      </h6>
+                      <p className="text-xs text-orange-700 dark:text-orange-400">
+                        (MT)
+                      </p>
                     </div>
                   </div>
                   <div className="relative">
-                    <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-orange-600 dark:text-orange-400 font-bold text-lg">₡</span>
+                    <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-orange-600 dark:text-orange-400 font-bold text-lg">
+                      ₡
+                    </span>
                     <input
                       type="number"
                       step="0.01"
                       min="0"
                       value={item.company.mt || 0}
-                      onChange={(e) => updateCcssConfig(item.configIndex, item.companyIndex, 'mt', parseFloat(e.target.value) || 0)}
+                      onChange={(e) =>
+                        updateCcssConfig(
+                          item.configIndex,
+                          item.companyIndex,
+                          "mt",
+                          parseFloat(e.target.value) || 0,
+                        )
+                      }
                       className="w-full pl-10 pr-4 py-3 border-2 border-orange-300 dark:border-orange-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-bold text-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
                       placeholder="3672.46"
                     />
@@ -249,18 +313,31 @@ export default function CcssEditorSection({
                       <DollarSign className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                      <h6 className="font-bold text-blue-900 dark:text-blue-200">Valor por Hora</h6>
-                      <p className="text-xs text-blue-700 dark:text-blue-400">Tarifa horaria</p>
+                      <h6 className="font-bold text-blue-900 dark:text-blue-200">
+                        Valor por Hora
+                      </h6>
+                      <p className="text-xs text-blue-700 dark:text-blue-400">
+                        Tarifa horaria
+                      </p>
                     </div>
                   </div>
                   <div className="relative">
-                    <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-blue-600 dark:text-blue-400 font-bold text-lg">₡</span>
+                    <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-blue-600 dark:text-blue-400 font-bold text-lg">
+                      ₡
+                    </span>
                     <input
                       type="number"
                       step="0.01"
                       min="0"
                       value={item.company.valorhora || 0}
-                      onChange={(e) => updateCcssConfig(item.configIndex, item.companyIndex, 'valorhora', parseFloat(e.target.value) || 0)}
+                      onChange={(e) =>
+                        updateCcssConfig(
+                          item.configIndex,
+                          item.companyIndex,
+                          "valorhora",
+                          parseFloat(e.target.value) || 0,
+                        )
+                      }
                       className="w-full pl-10 pr-4 py-3 border-2 border-blue-300 dark:border-blue-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-bold text-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                       placeholder="1441"
                     />
@@ -273,18 +350,31 @@ export default function CcssEditorSection({
                       <DollarSign className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                      <h6 className="font-bold text-purple-900 dark:text-purple-200">Hora Bruta</h6>
-                      <p className="text-xs text-purple-700 dark:text-purple-400">Tarifa bruta</p>
+                      <h6 className="font-bold text-purple-900 dark:text-purple-200">
+                        Hora Bruta
+                      </h6>
+                      <p className="text-xs text-purple-700 dark:text-purple-400">
+                        Tarifa bruta
+                      </p>
                     </div>
                   </div>
                   <div className="relative">
-                    <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-purple-600 dark:text-purple-400 font-bold text-lg">₡</span>
+                    <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-purple-600 dark:text-purple-400 font-bold text-lg">
+                      ₡
+                    </span>
                     <input
                       type="number"
                       step="0.01"
                       min="0"
                       value={item.company.horabruta || 0}
-                      onChange={(e) => updateCcssConfig(item.configIndex, item.companyIndex, 'horabruta', parseFloat(e.target.value) || 0)}
+                      onChange={(e) =>
+                        updateCcssConfig(
+                          item.configIndex,
+                          item.companyIndex,
+                          "horabruta",
+                          parseFloat(e.target.value) || 0,
+                        )
+                      }
                       className="w-full pl-10 pr-4 py-3 border-2 border-purple-300 dark:border-purple-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-bold text-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
                       placeholder="1529.62"
                     />
@@ -303,12 +393,12 @@ export default function CcssEditorSection({
             disabled={!hasChanges || isSaving}
             className={`px-8 py-4 rounded-xl flex items-center gap-3 transition-all duration-200 shadow-lg hover:shadow-xl font-semibold text-lg ${
               hasChanges && !isSaving
-                ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white'
-                : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                ? "bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white"
+                : "bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed"
             }`}
           >
             <Save className="w-6 h-6" />
-            {isSaving ? 'Guardando...' : 'Guardar Todas las Configuraciones'}
+            {isSaving ? "Guardando..." : "Guardar Todas las Configuraciones"}
           </button>
         </div>
       )}

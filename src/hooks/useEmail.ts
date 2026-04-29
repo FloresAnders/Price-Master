@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState } from "react";
 
 interface EmailData {
   to: string;
@@ -26,15 +26,17 @@ export const useEmail = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const sendEmail = async (emailData: EmailData): Promise<EmailResponse | null> => {
+  const sendEmail = async (
+    emailData: EmailData,
+  ): Promise<EmailResponse | null> => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await fetch('/api/send-email', {
-        method: 'POST',
+      const response = await fetch("/api/send-email", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(emailData),
       });
@@ -42,12 +44,13 @@ export const useEmail = () => {
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || 'Error al enviar el correo');
+        throw new Error(result.error || "Error al enviar el correo");
       }
 
       return result;
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
+      const errorMessage =
+        err instanceof Error ? err.message : "Error desconocido";
       setError(errorMessage);
       return null;
     } finally {
@@ -60,19 +63,20 @@ export const useEmail = () => {
     setError(null);
 
     try {
-      const response = await fetch('/api/send-email', {
-        method: 'GET',
+      const response = await fetch("/api/send-email", {
+        method: "GET",
       });
 
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || 'Error al verificar configuración');
+        throw new Error(result.error || "Error al verificar configuración");
       }
 
       return result;
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
+      const errorMessage =
+        err instanceof Error ? err.message : "Error desconocido";
       setError(errorMessage);
       return null;
     } finally {

@@ -69,14 +69,20 @@ type ByTypeBucket = {
   egreso?: number;
 };
 
-type ByTypeMap = Record<string, Record<ReporteMovimientoCurrency, ByTypeBucket>>;
+type ByTypeMap = Record<
+  string,
+  Record<ReporteMovimientoCurrency, ByTypeBucket>
+>;
 
-const extractByTypeFromFlattenedKeys = (data: Record<string, unknown>): ByTypeMap => {
+const extractByTypeFromFlattenedKeys = (
+  data: Record<string, unknown>,
+): ByTypeMap => {
   const out: ByTypeMap = {};
 
   Object.entries(data).forEach(([key, value]) => {
     if (!key.startsWith("byType.")) return;
-    const match = /^byType\.(.+)\.(CRC|USD)\.(count|ingreso|gasto|egreso)$/.exec(key);
+    const match =
+      /^byType\.(.+)\.(CRC|USD)\.(count|ingreso|gasto|egreso)$/.exec(key);
     if (!match) return;
 
     let typeKey = match[1];
@@ -112,7 +118,9 @@ export class ReportesMovimientosService {
       where("date", "<=", opts.toDate),
     ];
 
-    const empresas = (opts.empresas || []).map((v) => String(v).trim()).filter(Boolean);
+    const empresas = (opts.empresas || [])
+      .map((v) => String(v).trim())
+      .filter(Boolean);
     if (opts.empresa) {
       constraints.push(where("empresa", "==", opts.empresa));
     } else if (empresas.length === 1) {
@@ -163,7 +171,9 @@ export class ReportesMovimientosService {
       where("currency", "==", normalizeCurrency(opts.currency)),
     ];
 
-    const empresas = (opts.empresas || []).map((v) => String(v).trim()).filter(Boolean);
+    const empresas = (opts.empresas || [])
+      .map((v) => String(v).trim())
+      .filter(Boolean);
     if (opts.empresa) {
       constraints.push(where("empresa", "==", opts.empresa));
     } else if (empresas.length === 1) {

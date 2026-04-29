@@ -1,18 +1,19 @@
-'use client';
+"use client";
 
-import ConfirmModal from '@/components/ui/ConfirmModal';
-import Pruebas from '@/components/xpruebas/Pruebas';
-import { useAuth } from '@/hooks/useAuth';
-import { usePruebasUnlock } from '@/hooks/usePruebasUnlock';
-import { useRouter } from 'next/navigation';
+import ConfirmModal from "@/components/ui/ConfirmModal";
+import Pruebas from "@/components/xpruebas/Pruebas";
+import { useAuth } from "@/hooks/useAuth";
+import { usePruebasUnlock } from "@/hooks/usePruebasUnlock";
+import { useRouter } from "next/navigation";
 
 export default function PruebasPage() {
   const { loading, isSuperAdmin, isAuthenticated } = useAuth();
   const router = useRouter();
 
-  const { unlocked, password, setPassword, submitting, error, unlock } = usePruebasUnlock({
-    ttlMs: 5 * 60 * 1000,
-  });
+  const { unlocked, password, setPassword, submitting, error, unlock } =
+    usePruebasUnlock({
+      ttlMs: 5 * 60 * 1000,
+    });
 
   if (loading) {
     return (
@@ -42,7 +43,7 @@ export default function PruebasPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
+                    if (e.key === "Enter") {
                       e.preventDefault();
                       void unlock();
                     }
@@ -52,10 +53,12 @@ export default function PruebasPage() {
                   autoFocus
                   disabled={submitting}
                 />
-                {error ? <div className="mt-2 text-sm text-red-500">{error}</div> : null}
+                {error ? (
+                  <div className="mt-2 text-sm text-red-500">{error}</div>
+                ) : null}
               </div>
             }
-            confirmText={submitting ? 'Validando…' : 'Entrar'}
+            confirmText={submitting ? "Validando…" : "Entrar"}
             cancelText="Volver"
             confirmDisabled={submitting || password.trim().length === 0}
             loading={submitting}
@@ -63,7 +66,7 @@ export default function PruebasPage() {
               void unlock();
             }}
             onCancel={() => {
-              router.push('/home');
+              router.push("/home");
             }}
             actionType="change"
           />
@@ -79,7 +82,9 @@ export default function PruebasPage() {
     return (
       <div className="max-w-3xl mx-auto p-6">
         <div className="bg-[var(--card-bg)] border border-[var(--border)] rounded-lg p-6">
-          <h1 className="text-xl font-semibold text-[var(--foreground)]">Acceso restringido</h1>
+          <h1 className="text-xl font-semibold text-[var(--foreground)]">
+            Acceso restringido
+          </h1>
         </div>
       </div>
     );

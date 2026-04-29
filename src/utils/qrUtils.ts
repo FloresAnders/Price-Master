@@ -5,15 +5,15 @@
 
 export function generateQRCodeUrl(text: string, size: number = 200): string {
   // Using QR Server API - a free service for generating QR codes
-  const baseUrl = 'https://api.qrserver.com/v1/create-qr-code/';
+  const baseUrl = "https://api.qrserver.com/v1/create-qr-code/";
   const params = new URLSearchParams({
     size: `${size}x${size}`,
     data: encodeURIComponent(text),
-    format: 'png',
-    bgcolor: 'ffffff',
-    color: '000000',
-    qzone: '2',
-    margin: '10'
+    format: "png",
+    bgcolor: "ffffff",
+    color: "000000",
+    qzone: "2",
+    margin: "10",
   });
 
   return `${baseUrl}?${params.toString()}`;
@@ -46,17 +46,17 @@ export function copyToClipboard(text: string): Promise<void> {
   } else {
     // Fallback for older browsers or non-HTTPS
     return new Promise((resolve, reject) => {
-      const textArea = document.createElement('textarea');
+      const textArea = document.createElement("textarea");
       textArea.value = text;
-      textArea.style.position = 'absolute';
-      textArea.style.left = '-999999px';
+      textArea.style.position = "absolute";
+      textArea.style.left = "-999999px";
 
       document.body.appendChild(textArea);
       textArea.focus();
       textArea.select();
 
       try {
-        document.execCommand('copy');
+        document.execCommand("copy");
         textArea.remove();
         resolve();
       } catch (error) {

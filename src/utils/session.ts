@@ -1,5 +1,5 @@
 // src/utils/session.ts
-import type { User as FirestoreUser } from '@/types/firestore';
+import type { User as FirestoreUser } from "@/types/firestore";
 
 export interface SessionData extends FirestoreUser {
   loginTimestamp: number;
@@ -7,7 +7,7 @@ export interface SessionData extends FirestoreUser {
 }
 
 export const SESSION_DURATION = 5 * 60 * 60 * 1000; // 5 horas en milisegundos
-export const SESSION_STORAGE_KEY = 'simple_login_user';
+export const SESSION_STORAGE_KEY = "simple_login_user";
 
 /**
  * Crea una nueva sesión con timestamp de expiración
@@ -17,7 +17,7 @@ export function createSession(user: FirestoreUser): SessionData {
   return {
     ...user,
     loginTimestamp: now,
-    expiresAt: now + SESSION_DURATION
+    expiresAt: now + SESSION_DURATION,
   };
 }
 
@@ -25,7 +25,7 @@ export function createSession(user: FirestoreUser): SessionData {
  * Guarda la sesión en localStorage
  */
 export function saveSession(sessionData: SessionData): void {
-  if (typeof window !== 'undefined') {
+  if (typeof window !== "undefined") {
     localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessionData));
   }
 }
@@ -34,7 +34,7 @@ export function saveSession(sessionData: SessionData): void {
  * Obtiene la sesión desde localStorage
  */
 export function getSession(): SessionData | null {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === "undefined") return null;
 
   const storedData = localStorage.getItem(SESSION_STORAGE_KEY);
   if (!storedData) return null;
@@ -78,10 +78,12 @@ export function getSessionTimeLeft(): number {
 export function formatSessionTimeLeft(): string {
   const timeLeft = getSessionTimeLeft();
 
-  if (timeLeft <= 0) return 'Sesión expirada';
+  if (timeLeft <= 0) return "Sesión expirada";
 
   const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
-  const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const hours = Math.floor(
+    (timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60),
+  );
   const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
   const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
 
@@ -100,7 +102,7 @@ export function formatSessionTimeLeft(): string {
  * Limpia la sesión del localStorage
  */
 export function clearSession(): void {
-  if (typeof window !== 'undefined') {
+  if (typeof window !== "undefined") {
     localStorage.removeItem(SESSION_STORAGE_KEY);
   }
 }
@@ -125,6 +127,6 @@ export function useSessionCheck(onExpired?: () => void): {
   return {
     isValid,
     timeLeft,
-    session
+    session,
   };
 }

@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowUp } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from "react";
+import { ArrowUp } from "lucide-react";
 
 type BackToTopProps = {
   /** Show button once scroll progress passes this value (0..1). Default: 0.5 */
@@ -17,27 +17,32 @@ function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value));
 }
 
-export default function BackToTop({ showAfterProgress = 0.5, offsetPx = 20, mobileOffsetPx = 80 }: BackToTopProps) {
+export default function BackToTop({
+  showAfterProgress = 0.5,
+  offsetPx = 20,
+  mobileOffsetPx = 80,
+}: BackToTopProps) {
   const [visible, setVisible] = useState(false);
   const [isSmallScreen, setIsSmallScreen] = useState(false);
 
-  const threshold = useMemo(() => clamp01(showAfterProgress), [showAfterProgress]);
+  const threshold = useMemo(
+    () => clamp01(showAfterProgress),
+    [showAfterProgress],
+  );
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return;
-    const media = window.matchMedia('(max-width: 640px)');
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const media = window.matchMedia("(max-width: 640px)");
     const update = () => setIsSmallScreen(media.matches);
     update();
 
-    if (typeof media.addEventListener === 'function') {
-      media.addEventListener('change', update);
-      return () => media.removeEventListener('change', update);
+    if (typeof media.addEventListener === "function") {
+      media.addEventListener("change", update);
+      return () => media.removeEventListener("change", update);
     }
 
     // Safari < 14
-    // eslint-disable-next-line deprecation/deprecation
     media.addListener(update);
-    // eslint-disable-next-line deprecation/deprecation
     return () => media.removeListener(update);
   }, []);
 
@@ -64,23 +69,26 @@ export default function BackToTop({ showAfterProgress = 0.5, offsetPx = 20, mobi
     };
 
     computeProgress();
-    window.addEventListener('scroll', onScrollOrResize, { passive: true });
-    window.addEventListener('resize', onScrollOrResize, { passive: true });
+    window.addEventListener("scroll", onScrollOrResize, { passive: true });
+    window.addEventListener("resize", onScrollOrResize, { passive: true });
 
     return () => {
       if (rafId !== null) window.cancelAnimationFrame(rafId);
-      window.removeEventListener('scroll', onScrollOrResize);
-      window.removeEventListener('resize', onScrollOrResize);
+      window.removeEventListener("scroll", onScrollOrResize);
+      window.removeEventListener("resize", onScrollOrResize);
     };
   }, [threshold]);
 
   const handleClick = () => {
     const prefersReducedMotion =
-      typeof window !== 'undefined' &&
+      typeof window !== "undefined" &&
       window.matchMedia &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-    window.scrollTo({ top: 0, behavior: prefersReducedMotion ? 'auto' : 'smooth' });
+    window.scrollTo({
+      top: 0,
+      behavior: prefersReducedMotion ? "auto" : "smooth",
+    });
   };
 
   const effectiveOffset = isSmallScreen ? mobileOffsetPx : offsetPx;
@@ -92,11 +100,13 @@ export default function BackToTop({ showAfterProgress = 0.5, offsetPx = 20, mobi
       aria-label="Volver arriba"
       title="Volver arriba"
       className={
-        'fixed z-40 inline-flex items-center justify-center rounded-full shadow-lg touch-manipulation ' +
-        'bg-[var(--primary)] text-white hover:opacity-95 active:opacity-90 ' +
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black/10 ' +
-        'transition-all duration-200 ' +
-        (visible ? 'opacity-100 translate-y-0' : 'opacity-0 pointer-events-none translate-y-2')
+        "fixed z-40 inline-flex items-center justify-center rounded-full shadow-lg touch-manipulation " +
+        "bg-[var(--primary)] text-white hover:opacity-95 active:opacity-90 " +
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black/10 " +
+        "transition-all duration-200 " +
+        (visible
+          ? "opacity-100 translate-y-0"
+          : "opacity-0 pointer-events-none translate-y-2")
       }
       style={{
         right: `calc(${effectiveOffset}px + env(safe-area-inset-right, 0px))`,

@@ -1,9 +1,9 @@
 // src/components/SuperAdminBanner.tsx
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { Shield, Eye, Clock, AlertTriangle, X, Lock } from 'lucide-react';
-import { useAuth } from '../../hooks/useAuth';
+import React, { useState, useEffect } from "react";
+import { Shield, Eye, Clock, AlertTriangle, X, Lock } from "lucide-react";
+import { useAuth } from "../../hooks/useAuth";
 
 export default function SuperAdminBanner() {
   const { isSuperAdmin, user, sessionWarning, getSessionTimeLeft } = useAuth();
@@ -34,9 +34,9 @@ export default function SuperAdminBanner() {
   };
 
   const getTimeColor = (hours: number) => {
-    if (hours < 0.5) return 'text-red-400'; // Menos de 30 minutos
-    if (hours < 1) return 'text-yellow-400'; // Menos de 1 hora
-    return 'text-green-400'; // Más de 1 hora
+    if (hours < 0.5) return "text-red-400"; // Menos de 30 minutos
+    if (hours < 1) return "text-yellow-400"; // Menos de 1 hora
+    return "text-green-400"; // Más de 1 hora
   };
 
   return (
@@ -75,7 +75,9 @@ export default function SuperAdminBanner() {
             <div className="flex items-center gap-1 text-xs">
               <Clock className="w-4 h-4 text-red-300" />
               <span className="text-red-300">Tiempo:</span>
-              <span className={`font-mono font-bold ${getTimeColor(sessionTime)}`}>
+              <span
+                className={`font-mono font-bold ${getTimeColor(sessionTime)}`}
+              >
                 {formatTimeLeft(sessionTime)}
               </span>
             </div>
@@ -100,12 +102,15 @@ export default function SuperAdminBanner() {
         {/* Barra de progreso de tiempo */}
         <div className="mt-1 h-1 bg-red-700 rounded-full overflow-hidden">
           <div
-            className={`h-full transition-all duration-1000 ${sessionTime < 0.5 ? 'bg-red-400' :
-                sessionTime < 1 ? 'bg-yellow-400' :
-                  'bg-green-400'
-              }`}
+            className={`h-full transition-all duration-1000 ${
+              sessionTime < 0.5
+                ? "bg-red-400"
+                : sessionTime < 1
+                  ? "bg-yellow-400"
+                  : "bg-green-400"
+            }`}
             style={{
-              width: `${Math.max(0, Math.min(100, (sessionTime / 4) * 100))}%`
+              width: `${Math.max(0, Math.min(100, (sessionTime / 4) * 100))}%`,
             }}
           />
         </div>
@@ -114,12 +119,11 @@ export default function SuperAdminBanner() {
         <div className="hidden lg:block mt-1 text-xs text-red-200">
           <div className="flex items-center justify-between">
             <span>
-              🔒 Todas las acciones son registradas •
-              📊 Logs de auditoría activos •
-              ⏰ Logout automático por inactividad (30 min)
+              🔒 Todas las acciones son registradas • 📊 Logs de auditoría
+              activos • ⏰ Logout automático por inactividad (30 min)
             </span>
             <span className="font-mono">
-              ID: {localStorage.getItem('pricemaster_session_id')?.slice(-8)}
+              ID: {localStorage.getItem("pricemaster_session_id")?.slice(-8)}
             </span>
           </div>
         </div>

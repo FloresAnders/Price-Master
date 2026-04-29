@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Clock, Info, Save, X } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Clock, Info, Save, X } from "lucide-react";
 
 function pad2(n: number) {
-  return String(n).padStart(2, '0');
+  return String(n).padStart(2, "0");
 }
 
 function formatHHMMSS(totalSeconds: number): string {
@@ -15,26 +15,46 @@ function formatHHMMSS(totalSeconds: number): string {
   return `${pad2(hours)}:${pad2(minutes)}:${pad2(seconds)}`;
 }
 
-function parseHHMMSS(raw: string): { ok: boolean; seconds: number; normalized: string; error?: string } {
-  const value = (raw || '').trim();
+function parseHHMMSS(raw: string): {
+  ok: boolean;
+  seconds: number;
+  normalized: string;
+  error?: string;
+} {
+  const value = (raw || "").trim();
   if (!value) {
-    return { ok: true, seconds: 0, normalized: '00:00:00' };
+    return { ok: true, seconds: 0, normalized: "00:00:00" };
   }
 
   // Accept hh:mm:ss or h:mm:ss
   const m = /^\s*(\d{1,3}):(\d{1,2}):(\d{1,2})\s*$/.exec(value);
   if (!m) {
-    return { ok: false, seconds: 0, normalized: '00:00:00', error: 'Formato inválido. Usa hh:mm:ss (ej: 08:30:00)' };
+    return {
+      ok: false,
+      seconds: 0,
+      normalized: "00:00:00",
+      error: "Formato inválido. Usa hh:mm:ss (ej: 08:30:00)",
+    };
   }
 
   const hh = Number(m[1]);
   const mm = Number(m[2]);
   const ss = Number(m[3]);
   if ([hh, mm, ss].some((n) => Number.isNaN(n))) {
-    return { ok: false, seconds: 0, normalized: '00:00:00', error: 'Formato inválido. Usa hh:mm:ss' };
+    return {
+      ok: false,
+      seconds: 0,
+      normalized: "00:00:00",
+      error: "Formato inválido. Usa hh:mm:ss",
+    };
   }
   if (mm < 0 || mm > 59 || ss < 0 || ss > 59 || hh < 0) {
-    return { ok: false, seconds: 0, normalized: '00:00:00', error: 'Minutos/segundos deben estar entre 0 y 59' };
+    return {
+      ok: false,
+      seconds: 0,
+      normalized: "00:00:00",
+      error: "Minutos/segundos deben estar entre 0 y 59",
+    };
   }
 
   const total = hh * 3600 + mm * 60 + ss;
@@ -50,7 +70,10 @@ interface CalculoHorasModalProps {
   year: number;
   empresaValue: string;
   currentTimeHHMMSS?: string;
-  onSave: (payload: { timeHHMMSS: string; totalSeconds: number }) => Promise<void> | void;
+  onSave: (payload: {
+    timeHHMMSS: string;
+    totalSeconds: number;
+  }) => Promise<void> | void;
 }
 
 export default function CalculoHorasModal({
@@ -62,33 +85,42 @@ export default function CalculoHorasModal({
   year,
   empresaValue,
   currentTimeHHMMSS,
-  onSave
+  onSave,
 }: CalculoHorasModalProps) {
-  const [timeText, setTimeText] = useState<string>(currentTimeHHMMSS || '00:00:00');
+  const [timeText, setTimeText] = useState<string>(
+    currentTimeHHMMSS || "00:00:00",
+  );
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string>('');
+  const [error, setError] = useState<string>("");
 
   // Timer
   const [timerRunning, setTimerRunning] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [timerText, setTimerText] = useState<string>('00:00:00');
+  const [timerText, setTimerText] = useState<string>("00:00:00");
   const [showTimerInfo, setShowTimerInfo] = useState(false);
   const startAtRef = useRef<number | null>(null);
   const intervalRef = useRef<number | null>(null);
 
-  const monthName = useMemo(() => new Date(year, month, 1).toLocaleDateString('es-CR', { month: 'long' }), [year, month]);
-  const timerDisplay = useMemo(() => formatHHMMSS(elapsedSeconds), [elapsedSeconds]);
+  const monthName = useMemo(
+    () =>
+      new Date(year, month, 1).toLocaleDateString("es-CR", { month: "long" }),
+    [year, month],
+  );
+  const timerDisplay = useMemo(
+    () => formatHHMMSS(elapsedSeconds),
+    [elapsedSeconds],
+  );
 
   useEffect(() => {
     if (!isOpen) return;
 
-    setTimeText(currentTimeHHMMSS || '00:00:00');
-    setError('');
+    setTimeText(currentTimeHHMMSS || "00:00:00");
+    setError("");
 
     // Reset timer when opening
     setTimerRunning(false);
     setElapsedSeconds(0);
-    setTimerText('00:00:00');
+    setTimerText("00:00:00");
     startAtRef.current = null;
     if (intervalRef.current) {
       window.clearInterval(intervalRef.current);
@@ -107,12 +139,12 @@ export default function CalculoHorasModal({
 
   const startTimer = () => {
     if (timerRunning) return;
-    setError('');
+    setError("");
     setShowTimerInfo(false);
     setTimerRunning(true);
     startAtRef.current = Date.now();
     setElapsedSeconds(0);
-    setTimerText('00:00:00');
+    setTimerText("00:00:00");
 
     if (intervalRef.current) {
       window.clearInterval(intervalRef.current);
@@ -142,7 +174,7 @@ export default function CalculoHorasModal({
 
     const parsedStopped = parseHHMMSS(timerRunning ? timerDisplay : timerText);
     if (!parsedStopped.ok) {
-      setError(parsedStopped.error || 'Tiempo inválido');
+      setError(parsedStopped.error || "Tiempo inválido");
       return;
     }
     if (parsedStopped.seconds <= 0) {
@@ -153,7 +185,7 @@ export default function CalculoHorasModal({
     // Freeze & add to manual input
     const parsedBase = parseHHMMSS(timeText);
     if (!parsedBase.ok) {
-      setError(parsedBase.error || 'Tiempo inválido');
+      setError(parsedBase.error || "Tiempo inválido");
       return;
     }
 
@@ -163,34 +195,37 @@ export default function CalculoHorasModal({
 
     // Reset editable timer display after applying
     setElapsedSeconds(0);
-    setTimerText('00:00:00');
+    setTimerText("00:00:00");
     setShowTimerInfo(false);
   };
 
   const handleSave = async () => {
     const parsed = parseHHMMSS(timeText);
     if (!parsed.ok) {
-      setError(parsed.error || 'Tiempo inválido');
+      setError(parsed.error || "Tiempo inválido");
       return;
     }
 
     try {
       setSaving(true);
-      setError('');
-      await onSave({ timeHHMMSS: parsed.normalized, totalSeconds: parsed.seconds });
+      setError("");
+      await onSave({
+        timeHHMMSS: parsed.normalized,
+        totalSeconds: parsed.seconds,
+      });
       onClose();
     } catch (e) {
-      console.error('Error saving calculohoras:', e);
-      setError('Error al guardar el registro');
+      console.error("Error saving calculohoras:", e);
+      setError("Error al guardar el registro");
     } finally {
       setSaving(false);
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       handleSave();
-    } else if (e.key === 'Escape') {
+    } else if (e.key === "Escape") {
       onClose();
     }
   };
@@ -200,7 +235,8 @@ export default function CalculoHorasModal({
   const parsedNow = parseHHMMSS(timeText);
   const isDelete = parsedNow.ok && parsedNow.seconds <= 0;
   const parsedTimer = parseHHMMSS(timerRunning ? timerDisplay : timerText);
-  const canFinishTimer = !saving && (timerRunning || (parsedTimer.ok && parsedTimer.seconds > 0));
+  const canFinishTimer =
+    !saving && (timerRunning || (parsedTimer.ok && parsedTimer.seconds > 0));
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
@@ -209,11 +245,15 @@ export default function CalculoHorasModal({
           <div className="flex items-center gap-3">
             <Clock className="w-6 h-6 text-blue-600" />
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Cálculo horas</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                Cálculo horas
+              </h3>
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 {employeeName} - {day} de {monthName} {year}
               </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Empresa: {empresaValue}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Empresa: {empresaValue}
+              </p>
             </div>
           </div>
           <button
@@ -226,7 +266,9 @@ export default function CalculoHorasModal({
 
         <div className="p-6">
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tiempo (hh:mm:ss)</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Tiempo (hh:mm:ss)
+            </label>
             <input
               type="text"
               value={timeText}
@@ -236,14 +278,20 @@ export default function CalculoHorasModal({
               placeholder="00:00:00"
               autoFocus
             />
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Ejemplo: 08:30:00</p>
-            <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 font-medium">00:00:00 eliminará este registro</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Ejemplo: 08:30:00
+            </p>
+            <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 font-medium">
+              00:00:00 eliminará este registro
+            </p>
           </div>
 
           <div className="mb-4 p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/20">
             <div className="flex items-center justify-between mb-2">
               <div className="relative flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-800 dark:text-gray-200">Cronómetro</span>
+                <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                  Cronómetro
+                </span>
                 <button
                   type="button"
                   className="p-1 rounded-full text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
@@ -251,7 +299,7 @@ export default function CalculoHorasModal({
                   aria-label="Info del cronómetro"
                   onClick={() => setShowTimerInfo((v) => !v)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Escape') setShowTimerInfo(false);
+                    if (e.key === "Escape") setShowTimerInfo(false);
                   }}
                   disabled={saving}
                 >
@@ -261,8 +309,10 @@ export default function CalculoHorasModal({
                 {showTimerInfo && (
                   <div className="absolute left-0 top-7 z-20 w-72 max-w-[80vw] p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
                     <p className="text-xs text-gray-700 dark:text-gray-200">
-                      Ahora puedes escribir un tiempo (hh:mm:ss) en el cronómetro. Si el valor es distinto de 00:00:00,
-                      se habilita el botón Fin para sumar ese tiempo al campo manual.
+                      Ahora puedes escribir un tiempo (hh:mm:ss) en el
+                      cronómetro. Si el valor es distinto de 00:00:00, se
+                      habilita el botón Fin para sumar ese tiempo al campo
+                      manual.
                     </p>
                   </div>
                 )}
@@ -274,14 +324,14 @@ export default function CalculoHorasModal({
                 readOnly={timerRunning}
                 disabled={saving}
                 onChange={(e) => {
-                  setError('');
+                  setError("");
                   setShowTimerInfo(false);
                   setTimerText(e.target.value);
                 }}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
+                  if (e.key === "Enter") {
                     stopTimer();
-                  } else if (e.key === 'Escape') {
+                  } else if (e.key === "Escape") {
                     onClose();
                   }
                 }}
@@ -303,7 +353,9 @@ export default function CalculoHorasModal({
                 Fin
               </button>
             </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Al dar &apos;Fin&apos;, el tiempo se suma al campo manual.</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+              Al dar &apos;Fin&apos;, el tiempo se suma al campo manual.
+            </p>
           </div>
 
           {error && (
@@ -325,7 +377,9 @@ export default function CalculoHorasModal({
             onClick={handleSave}
             disabled={saving}
             className={`flex-1 px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 ${
-              isDelete ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'
+              isDelete
+                ? "bg-red-600 hover:bg-red-700 text-white"
+                : "bg-blue-600 hover:bg-blue-700 text-white"
             }`}
           >
             {saving ? (
@@ -336,7 +390,7 @@ export default function CalculoHorasModal({
             ) : (
               <>
                 <Save className="w-4 h-4" />
-                {isDelete ? 'Eliminar' : 'Guardar'}
+                {isDelete ? "Eliminar" : "Guardar"}
               </>
             )}
           </button>

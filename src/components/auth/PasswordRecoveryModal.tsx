@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { Mail, X, AlertCircle, CheckCircle, Loader } from 'lucide-react';
+import React, { useState } from "react";
+import { Mail, X, AlertCircle, CheckCircle, Loader } from "lucide-react";
 
 interface PasswordRecoveryModalProps {
   isOpen: boolean;
@@ -10,23 +10,23 @@ interface PasswordRecoveryModalProps {
 
 export const PasswordRecoveryModal: React.FC<PasswordRecoveryModalProps> = ({
   isOpen,
-  onClose
+  onClose,
 }) => {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
+    setError("");
 
     try {
-      const response = await fetch('/api/auth/request-password-reset', {
-        method: 'POST',
+      const response = await fetch("/api/auth/request-password-reset", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ email }),
       });
@@ -34,20 +34,19 @@ export const PasswordRecoveryModal: React.FC<PasswordRecoveryModalProps> = ({
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || 'Error al procesar la solicitud');
+        throw new Error(result.error || "Error al procesar la solicitud");
       }
 
       setSuccess(true);
-      
+
       // Cierra el modal después de 3 segundos
       setTimeout(() => {
         onClose();
         setSuccess(false);
-        setEmail('');
+        setEmail("");
       }, 3000);
-
     } catch (err: any) {
-      setError(err.message || 'Error al procesar la solicitud');
+      setError(err.message || "Error al procesar la solicitud");
     } finally {
       setLoading(false);
     }
@@ -62,7 +61,9 @@ export const PasswordRecoveryModal: React.FC<PasswordRecoveryModalProps> = ({
         <div className="flex items-center justify-between p-6 border-b border-[var(--border)]">
           <div className="flex items-center space-x-2">
             <Mail className="w-6 h-6 text-[var(--primary)]" />
-            <h2 className="text-xl font-semibold text-[var(--foreground)]">Recuperar Contraseña</h2>
+            <h2 className="text-xl font-semibold text-[var(--foreground)]">
+              Recuperar Contraseña
+            </h2>
           </div>
           <button
             onClick={onClose}
@@ -82,7 +83,8 @@ export const PasswordRecoveryModal: React.FC<PasswordRecoveryModalProps> = ({
                 ¡Email Enviado!
               </h3>
               <p className="text-[var(--muted-foreground)]">
-                Revisa tu bandeja de entrada y sigue las instrucciones para restablecer tu contraseña.
+                Revisa tu bandeja de entrada y sigue las instrucciones para
+                restablecer tu contraseña.
               </p>
               <p className="text-sm text-[var(--muted-foreground)] mt-4">
                 El enlace expirará en 1 hora.
@@ -91,13 +93,16 @@ export const PasswordRecoveryModal: React.FC<PasswordRecoveryModalProps> = ({
           ) : (
             <form onSubmit={handleSubmit}>
               <p className="text-[var(--muted-foreground)] mb-6">
-                Ingresa tu email de superadministrador y te enviaremos un enlace para restablecer tu contraseña.
+                Ingresa tu email de superadministrador y te enviaremos un enlace
+                para restablecer tu contraseña.
               </p>
 
               {error && (
                 <div className="mb-4 p-4 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg flex items-start space-x-2">
                   <AlertCircle className="w-5 h-5 text-[var(--error)] flex-shrink-0 mt-0.5" />
-                  <span className="text-red-700 dark:text-red-400 text-sm">{error}</span>
+                  <span className="text-red-700 dark:text-red-400 text-sm">
+                    {error}
+                  </span>
                 </div>
               )}
 
@@ -118,7 +123,8 @@ export const PasswordRecoveryModal: React.FC<PasswordRecoveryModalProps> = ({
 
               <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
                 <p className="text-sm text-blue-800 dark:text-blue-400">
-                  <strong>Nota de seguridad:</strong> El enlace de recuperación expirará en 1 hora y solo puede ser usado una vez.
+                  <strong>Nota de seguridad:</strong> El enlace de recuperación
+                  expirará en 1 hora y solo puede ser usado una vez.
                 </p>
               </div>
 

@@ -36,8 +36,10 @@ function openOnce(): Promise<IDBDatabase> {
     };
 
     request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error("No se pudo abrir IndexedDB"));
-    request.onblocked = () => reject(new Error("IndexedDB bloqueada por otra pestaña/instancia"));
+    request.onerror = () =>
+      reject(request.error ?? new Error("No se pudo abrir IndexedDB"));
+    request.onblocked = () =>
+      reject(new Error("IndexedDB bloqueada por otra pestaña/instancia"));
   });
 }
 
@@ -59,15 +61,18 @@ export async function openHomeMenuFavoritesDb(): Promise<IDBDatabase> {
 function requestToPromise<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
     request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error("Error en operación IndexedDB"));
+    request.onerror = () =>
+      reject(request.error ?? new Error("Error en operación IndexedDB"));
   });
 }
 
 function txDone(tx: IDBTransaction): Promise<void> {
   return new Promise((resolve, reject) => {
     tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error ?? new Error("Transacción IndexedDB fallida"));
-    tx.onabort = () => reject(tx.error ?? new Error("Transacción IndexedDB abortada"));
+    tx.onerror = () =>
+      reject(tx.error ?? new Error("Transacción IndexedDB fallida"));
+    tx.onabort = () =>
+      reject(tx.error ?? new Error("Transacción IndexedDB abortada"));
   });
 }
 
@@ -78,7 +83,9 @@ export async function getHomeMenuFavorites(userKey: string): Promise<string[]> {
   const db = await openHomeMenuFavoritesDb();
   const tx = db.transaction(STORE_NAME, "readonly");
   const store = tx.objectStore(STORE_NAME);
-  const allRecords = await requestToPromise(store.getAll() as IDBRequest<HomeMenuFavoriteRecord[]>);
+  const allRecords = await requestToPromise(
+    store.getAll() as IDBRequest<HomeMenuFavoriteRecord[]>,
+  );
   await txDone(tx);
 
   return (allRecords || [])
@@ -87,7 +94,10 @@ export async function getHomeMenuFavorites(userKey: string): Promise<string[]> {
     .map((record) => record.favoriteId);
 }
 
-export async function addHomeMenuFavorite(userKey: string, favoriteId: string): Promise<void> {
+export async function addHomeMenuFavorite(
+  userKey: string,
+  favoriteId: string,
+): Promise<void> {
   const normalizedUserKey = normalizeUserKey(userKey);
   const normalizedFavoriteId = favoriteId.trim();
   if (!normalizedUserKey || !normalizedFavoriteId) return;
@@ -97,7 +107,9 @@ export async function addHomeMenuFavorite(userKey: string, favoriteId: string): 
   const store = tx.objectStore(STORE_NAME);
   const now = Date.now();
   const compoundKey = buildCompoundKey(normalizedUserKey, normalizedFavoriteId);
-  const existing = await requestToPromise(store.get(compoundKey) as IDBRequest<HomeMenuFavoriteRecord | undefined>);
+  const existing = await requestToPromise(
+    store.get(compoundKey) as IDBRequest<HomeMenuFavoriteRecord | undefined>,
+  );
 
   store.put({
     compoundKey,
@@ -110,7 +122,10 @@ export async function addHomeMenuFavorite(userKey: string, favoriteId: string): 
   await txDone(tx);
 }
 
-export async function removeHomeMenuFavorite(userKey: string, favoriteId: string): Promise<void> {
+export async function removeHomeMenuFavorite(
+  userKey: string,
+  favoriteId: string,
+): Promise<void> {
   const normalizedUserKey = normalizeUserKey(userKey);
   const normalizedFavoriteId = favoriteId.trim();
   if (!normalizedUserKey || !normalizedFavoriteId) return;

@@ -37,7 +37,7 @@ function notifyCacheChange(company: string) {
     window.dispatchEvent(
       new CustomEvent(PRODUCTOS_CACHE_EVENT, {
         detail: { company: String(company || "").trim() },
-      })
+      }),
     );
   } catch {
     // ignore
@@ -72,7 +72,9 @@ function safeParseCache(raw: string | null): ProductosCacheShape | null {
   }
 }
 
-export function readProductosCache(company: string): ProductosCacheShape | null {
+export function readProductosCache(
+  company: string,
+): ProductosCacheShape | null {
   if (typeof window === "undefined") return null;
   if (typeof localStorage === "undefined") return null;
 
@@ -94,7 +96,10 @@ export function removeProductosCache(company: string): void {
   notifyCacheChange(company);
 }
 
-export function writeProductosCache(company: string, cache: ProductosCacheShape): void {
+export function writeProductosCache(
+  company: string,
+  cache: ProductosCacheShape,
+): void {
   if (typeof window === "undefined") return;
   if (typeof localStorage === "undefined") return;
 
@@ -112,7 +117,10 @@ export function writeProductosCache(company: string, cache: ProductosCacheShape)
  * Actualiza el cache en un solo paso lógico (evita eventos intermedios).
  * Útil después de crear/editar/eliminar para no disparar un refetch entre remove y set.
  */
-export function refreshProductosCache(company: string, cache: ProductosCacheShape): void {
+export function refreshProductosCache(
+  company: string,
+  cache: ProductosCacheShape,
+): void {
   if (typeof window === "undefined") return;
   if (typeof localStorage === "undefined") return;
 
@@ -127,13 +135,16 @@ export function refreshProductosCache(company: string, cache: ProductosCacheShap
   notifyCacheChange(company);
 }
 
-export async function obtenerVersionProductos(company: string): Promise<number> {
+export async function obtenerVersionProductos(
+  company: string,
+): Promise<number> {
   const companyKey = requireCompany(company);
 
   // Consulta ligera: leer el doc raíz de la empresa (productos/{empresa})
-  const root = (await FirestoreService.getById("productos", companyKey)) as
-    | Record<string, unknown>
-    | null;
+  const root = (await FirestoreService.getById(
+    "productos",
+    companyKey,
+  )) as Record<string, unknown> | null;
 
   const candidate =
     root?.productosVersion ??
@@ -141,7 +152,8 @@ export async function obtenerVersionProductos(company: string): Promise<number> 
     root?.version ??
     (root as any)?.updatedAt;
 
-  if (typeof candidate === "number" && Number.isFinite(candidate)) return candidate;
+  if (typeof candidate === "number" && Number.isFinite(candidate))
+    return candidate;
   if (typeof candidate === "string") {
     const parsed = Number(candidate);
     if (Number.isFinite(parsed)) return parsed;
@@ -164,18 +176,22 @@ export async function bumpProductosVersion(company: string): Promise<number> {
       productosVersion: nextVersion,
       updatedAt: nowCostaRicaISO(),
     },
-    { merge: true }
+    { merge: true },
   );
 
   return nextVersion;
 }
 
-export async function obtenerProductosFirestore(company: string): Promise<ProductEntry[]> {
+export async function obtenerProductosFirestore(
+  company: string,
+): Promise<ProductEntry[]> {
   const companyKey = requireCompany(company);
   return await ProductosService.getProductosOrderedByNombre(companyKey);
 }
 
-export async function cargarProductos(company: string): Promise<ProductEntry[]> {
+export async function cargarProductos(
+  company: string,
+): Promise<ProductEntry[]> {
   const companyKey = requireCompany(company);
 
   // En SSR o entornos sin localStorage, cae a Firestore directo.
@@ -204,15 +220,20 @@ export async function cargarProductos(company: string): Promise<ProductEntry[]> 
   return productos;
 }
 
-export function onProductosCacheChange(callback: (company: string) => void): () => void {
+export function onProductosCacheChange(
+  callback: (company: string) => void,
+): () => void {
   if (typeof window === "undefined") return () => {};
 
   const handler = (event: Event) => {
-    const detail = (event as CustomEvent)?.detail as { company?: unknown } | undefined;
+    const detail = (event as CustomEvent)?.detail as
+      | { company?: unknown }
+      | undefined;
     const company = String(detail?.company || "").trim();
     callback(company);
   };
 
   window.addEventListener(PRODUCTOS_CACHE_EVENT, handler as EventListener);
-  return () => window.removeEventListener(PRODUCTOS_CACHE_EVENT, handler as EventListener);
+  return () =>
+    window.removeEventListener(PRODUCTOS_CACHE_EVENT, handler as EventListener);
 }

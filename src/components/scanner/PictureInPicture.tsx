@@ -1,6 +1,6 @@
-'use client';
-import React, { useRef, useEffect } from 'react';
-import { Maximize as MaximizeIcon } from 'lucide-react';
+"use client";
+import React, { useRef, useEffect } from "react";
+import { Maximize as MaximizeIcon } from "lucide-react";
 
 interface PictureInPictureProps {
   isOpen: boolean;
@@ -15,12 +15,11 @@ export function PictureInPicture({
   code,
   onToggle,
   onProcessImage,
-  onRemoveLeadingZero
+  onRemoveLeadingZero,
 }: PictureInPictureProps) {
   const pipWindowRef = useRef<Window | null>(null);
   const closingRef = useRef<boolean>(false);
   const checkIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
 
   const openPictureInPicture = async () => {
     closingRef.current = false; // Reset flag cuando se abre
@@ -28,7 +27,9 @@ export function PictureInPicture({
     // Verificar soporte para Picture-in-Picture
     // @ts-expect-error - documentPictureInPicture is experimental
     if (!window.documentPictureInPicture) {
-      alert('Tu navegador no soporta Picture-in-Picture. Usa Chrome 116+ o Edge 116+');
+      alert(
+        "Tu navegador no soporta Picture-in-Picture. Usa Chrome 116+ o Edge 116+",
+      );
       return;
     }
 
@@ -42,9 +43,10 @@ export function PictureInPicture({
       pipWindowRef.current = pipWindow;
 
       // Obtener tema actual
-      const isDarkMode = document.documentElement.classList.contains('dark') ||
-        document.body.classList.contains('dark') ||
-        window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const isDarkMode =
+        document.documentElement.classList.contains("dark") ||
+        document.body.classList.contains("dark") ||
+        window.matchMedia("(prefers-color-scheme: dark)").matches;
 
       // Copiar estilos críticos
       const styles = `
@@ -54,8 +56,8 @@ export function PictureInPicture({
             margin: 0; 
             padding: 12px; 
             font-family: system-ui, -apple-system, sans-serif; 
-            background: ${isDarkMode ? '#1f2937' : '#ffffff'};
-            color: ${isDarkMode ? '#f9fafb' : '#111827'};
+            background: ${isDarkMode ? "#1f2937" : "#ffffff"};
+            color: ${isDarkMode ? "#f9fafb" : "#111827"};
             min-height: 100vh;
             font-size: 13px;
           }
@@ -67,9 +69,9 @@ export function PictureInPicture({
             width: 20px; height: 20px; cursor: pointer; font-size: 12px;
           }
           .code-container { 
-            background: ${isDarkMode ? '#374151' : '#f3f4f6'}; 
+            background: ${isDarkMode ? "#374151" : "#f3f4f6"}; 
             padding: 8px; border-radius: 6px; margin-bottom: 8px; 
-            border: 2px solid ${isDarkMode ? '#6b7280' : '#d1d5db'};
+            border: 2px solid ${isDarkMode ? "#6b7280" : "#d1d5db"};
           }
           .code-container.has-code { border-color: #22c55e; }
           .code-display { 
@@ -87,8 +89,8 @@ export function PictureInPicture({
           .btn-remove:hover { background: #d97706; }
           .instructions { 
             text-align: center; font-size: 10px; 
-            color: ${isDarkMode ? '#9ca3af' : '#6b7280'}; 
-            padding: 6px; background: ${isDarkMode ? '#374151' : '#f9fafb'}; 
+            color: ${isDarkMode ? "#9ca3af" : "#6b7280"}; 
+            padding: 6px; background: ${isDarkMode ? "#374151" : "#f9fafb"}; 
             border-radius: 4px; margin-top: auto;
           }
           .hidden { display: none !important; }
@@ -238,7 +240,7 @@ export function PictureInPicture({
       // Initial code update
       if (code) {
         setTimeout(() => {
-          pipWindow.postMessage({ type: 'PIP_UPDATE_CODE', code }, '*');
+          pipWindow.postMessage({ type: "PIP_UPDATE_CODE", code }, "*");
         }, 100);
       }
 
@@ -257,10 +259,9 @@ export function PictureInPicture({
           closingRef.current = false; // Reset flag
         }
       }, 300); // Check más frecuentemente
-
     } catch (error) {
-      console.error('Error opening Picture-in-Picture:', error);
-      alert('Error al abrir ventana Picture-in-Picture');
+      console.error("Error opening Picture-in-Picture:", error);
+      alert("Error al abrir ventana Picture-in-Picture");
       // Si hubo error, no hacemos bloqueo aquí (el botón solo se oculta cuando isOpen)
     }
   };
@@ -278,23 +279,23 @@ export function PictureInPicture({
   // Listen for messages from PiP window
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
-      if (event.data.type === 'PIP_CLOSED') {
+      if (event.data.type === "PIP_CLOSED") {
         onToggle();
-      } else if (event.data.type === 'PIP_PROCESS_IMAGE') {
+      } else if (event.data.type === "PIP_PROCESS_IMAGE") {
         onProcessImage(event.data.imageData);
-      } else if (event.data.type === 'PIP_REMOVE_LEADING_ZERO') {
+      } else if (event.data.type === "PIP_REMOVE_LEADING_ZERO") {
         onRemoveLeadingZero?.(event.data.code);
       }
     };
 
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
   }, [onToggle, onProcessImage, onRemoveLeadingZero]);
 
   // Update PiP when code changes
   useEffect(() => {
     if (pipWindowRef.current && !pipWindowRef.current.closed) {
-      pipWindowRef.current.postMessage({ type: 'PIP_UPDATE_CODE', code }, '*');
+      pipWindowRef.current.postMessage({ type: "PIP_UPDATE_CODE", code }, "*");
     }
   }, [code]);
 
@@ -320,8 +321,7 @@ export function PictureInPicture({
   return (
     <button
       onClick={togglePictureInPicture}
-      className={`px-3 py-2 rounded-lg font-bold transition-all duration-200 focus:outline-none focus:ring-2 ${'bg-green-500 hover:bg-green-600 text-white focus:ring-green-300 dark:focus:ring-green-900'
-        } transform hover:scale-105 active:scale-95`}
+      className={`px-3 py-2 rounded-lg font-bold transition-all duration-200 focus:outline-none focus:ring-2 ${"bg-green-500 hover:bg-green-600 text-white focus:ring-green-300 dark:focus:ring-green-900"} transform hover:scale-105 active:scale-95`}
       title={"Abrir ventana Picture-in-Picture"}
     >
       <MaximizeIcon className="w-5 h-5" />

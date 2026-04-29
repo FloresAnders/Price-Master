@@ -1,52 +1,58 @@
-'use client';
-import { useState, useEffect, useCallback } from 'react';
-import { X, Calculator as CalculatorIcon } from 'lucide-react';
+"use client";
+import { useState, useEffect, useCallback } from "react";
+import { X, Calculator as CalculatorIcon } from "lucide-react";
 
 interface CalculatorModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-export default function CalculatorModal({ isOpen, onClose }: CalculatorModalProps) {
-  const [display, setDisplay] = useState<string>('');
+export default function CalculatorModal({
+  isOpen,
+  onClose,
+}: CalculatorModalProps) {
+  const [display, setDisplay] = useState<string>("");
 
-  const handleButtonClick = useCallback((value: string) => {
-    if (value === '=') {
-      try {
-        // Safer evaluation than eval()
-        const result = Function('"use strict"; return (' + display + ')')();
-        setDisplay(String(result));
-      } catch {
-        setDisplay('Error');
+  const handleButtonClick = useCallback(
+    (value: string) => {
+      if (value === "=") {
+        try {
+          // Safer evaluation than eval()
+          const result = Function('"use strict"; return (' + display + ")")();
+          setDisplay(String(result));
+        } catch {
+          setDisplay("Error");
+        }
+        return;
       }
-      return;
-    }
-    if (value === 'C') {
-      setDisplay('');
-      return;
-    }
-    setDisplay((prev) => prev + value);
-  }, [display]);
+      if (value === "C") {
+        setDisplay("");
+        return;
+      }
+      setDisplay((prev) => prev + value);
+    },
+    [display],
+  );
 
   // Permitir uso de teclado
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
         onClose();
         return;
       }
-      if (e.key === 'Enter' || e.key === '=') {
-        handleButtonClick('=');
+      if (e.key === "Enter" || e.key === "=") {
+        handleButtonClick("=");
         e.preventDefault();
         return;
       }
-      if (e.key === 'c' || e.key === 'C') {
-        handleButtonClick('C');
+      if (e.key === "c" || e.key === "C") {
+        handleButtonClick("C");
         e.preventDefault();
         return;
       }
-      if (e.key === 'Backspace') {
+      if (e.key === "Backspace") {
         setDisplay((prev) => prev.slice(0, -1));
         e.preventDefault();
         return;
@@ -62,8 +68,8 @@ export default function CalculatorModal({ isOpen, onClose }: CalculatorModalProp
         return;
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, handleButtonClick, onClose]);
 
   if (!isOpen) return null;
@@ -85,27 +91,29 @@ export default function CalculatorModal({ isOpen, onClose }: CalculatorModalProp
         </div>
 
         <div className="border rounded-lg mb-3 h-10 flex items-center justify-end px-2 bg-[var(--input-bg)]">
-          <span className="text-lg text-[var(--foreground)]">{display || '0'}</span>
+          <span className="text-lg text-[var(--foreground)]">
+            {display || "0"}
+          </span>
         </div>
 
         <div className="grid grid-cols-4 gap-1">
           {[
-            '7',
-            '8',
-            '9',
-            '/',
-            '4',
-            '5',
-            '6',
-            '*',
-            '1',
-            '2',
-            '3',
-            '-',
-            '0',
-            '.',
-            'C',
-            '+',
+            "7",
+            "8",
+            "9",
+            "/",
+            "4",
+            "5",
+            "6",
+            "*",
+            "1",
+            "2",
+            "3",
+            "-",
+            "0",
+            ".",
+            "C",
+            "+",
           ].map((btn) => (
             <button
               key={btn}
@@ -116,7 +124,7 @@ export default function CalculatorModal({ isOpen, onClose }: CalculatorModalProp
             </button>
           ))}
           <button
-            onClick={() => handleButtonClick('=')}
+            onClick={() => handleButtonClick("=")}
             className="col-span-4 bg-blue-600 hover:bg-blue-700 text-white rounded py-2 mt-1 text-sm transition-colors"
           >
             =
@@ -125,10 +133,7 @@ export default function CalculatorModal({ isOpen, onClose }: CalculatorModalProp
       </div>
 
       {/* Click outside to close */}
-      <div
-        className="absolute inset-0 -z-10"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 -z-10" onClick={onClose} />
     </div>
   );
 }

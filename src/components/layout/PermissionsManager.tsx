@@ -1,19 +1,29 @@
-'use client';
+"use client";
 
-import React, { useEffect, useState } from 'react';
-import { usePermissions } from '@/hooks/usePermissions';
-import { Capacitor } from '@capacitor/core';
+import React, { useEffect, useState } from "react";
+import { usePermissions } from "@/hooks/usePermissions";
+import { Capacitor } from "@capacitor/core";
 
-export function PermissionsManager({ children }: { children: React.ReactNode }) {
+export function PermissionsManager({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const { permissions, requestCameraPermissions } = usePermissions();
   const [showPermissionDialog, setShowPermissionDialog] = useState(false);
   const [hasRequestedPermissions, setHasRequestedPermissions] = useState(false);
 
   useEffect(() => {
     // Solo mostrar el diálogo en plataformas nativas
-    if (Capacitor.isNativePlatform() && !permissions.isLoading && !hasRequestedPermissions) {
-      if (permissions.camera === 'prompt' || permissions.camera === 'denied') {
-        setShowPermissionDialog(true);
+    if (
+      Capacitor.isNativePlatform() &&
+      !permissions.isLoading &&
+      !hasRequestedPermissions
+    ) {
+      if (permissions.camera === "prompt" || permissions.camera === "denied") {
+        setTimeout(() => {
+          setShowPermissionDialog(true);
+        }, 0);
       }
     }
   }, [permissions, hasRequestedPermissions]);
@@ -26,7 +36,9 @@ export function PermissionsManager({ children }: { children: React.ReactNode }) 
       setShowPermissionDialog(false);
     } else {
       // Si los permisos fueron denegados, mostrar mensaje informativo
-      alert('Los permisos de cámara son necesarios para escanear códigos de barras. Puedes activarlos desde la configuración de la aplicación.');
+      alert(
+        "Los permisos de cámara son necesarios para escanear códigos de barras. Puedes activarlos desde la configuración de la aplicación.",
+      );
       setShowPermissionDialog(false);
     }
   };
@@ -71,7 +83,8 @@ export function PermissionsManager({ children }: { children: React.ReactNode }) 
               Permisos necesarios
             </h2>
             <p className="text-gray-600 dark:text-gray-400">
-              Time Master necesita acceso a tu cámara para escanear códigos de barras y QR.
+              Time Master necesita acceso a tu cámara para escanear códigos de
+              barras y QR.
             </p>
           </div>
 
@@ -89,7 +102,10 @@ export function PermissionsManager({ children }: { children: React.ReactNode }) 
                 />
               </svg>
               <div className="text-sm text-gray-600 dark:text-gray-400">
-                <strong className="text-gray-900 dark:text-white">Cámara:</strong> Para escanear códigos de barras y códigos QR
+                <strong className="text-gray-900 dark:text-white">
+                  Cámara:
+                </strong>{" "}
+                Para escanear códigos de barras y códigos QR
               </div>
             </div>
             <div className="flex items-start space-x-3">
@@ -105,7 +121,10 @@ export function PermissionsManager({ children }: { children: React.ReactNode }) 
                 />
               </svg>
               <div className="text-sm text-gray-600 dark:text-gray-400">
-                <strong className="text-gray-900 dark:text-white">Portapapeles:</strong> Para copiar y pegar información rápidamente
+                <strong className="text-gray-900 dark:text-white">
+                  Portapapeles:
+                </strong>{" "}
+                Para copiar y pegar información rápidamente
               </div>
             </div>
           </div>
@@ -126,7 +145,8 @@ export function PermissionsManager({ children }: { children: React.ReactNode }) 
           </div>
 
           <p className="text-xs text-gray-500 dark:text-gray-400 text-center mt-4">
-            Puedes cambiar estos permisos en cualquier momento desde la configuración de tu dispositivo
+            Puedes cambiar estos permisos en cualquier momento desde la
+            configuración de tu dispositivo
           </p>
         </div>
       </div>

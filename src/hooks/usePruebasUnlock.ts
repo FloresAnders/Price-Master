@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from "react";
 
 type VerifyResponse = { ok?: boolean; error?: string };
 
@@ -9,14 +9,14 @@ type UsePruebasUnlockOptions = {
   ttlMs?: number;
 };
 
-const DEFAULT_STORAGE_KEY = 'pricemaster_pruebas_unlocked';
+const DEFAULT_STORAGE_KEY = "pricemaster_pruebas_unlocked";
 const DEFAULT_TTL_MS = 5 * 60 * 1000;
 
 function parseUnlockedAt(raw: string | null): number {
   if (!raw) return 0;
 
   // Back-compat: previous versions stored '1'
-  if (raw === '1') {
+  if (raw === "1") {
     return Date.now();
   }
 
@@ -33,7 +33,7 @@ export function usePruebasUnlock(options: UsePruebasUnlockOptions = {}) {
   const ttlMs = options.ttlMs ?? DEFAULT_TTL_MS;
 
   const [unlocked, setUnlocked] = useState(false);
-  const [password, setPassword] = useState('');
+  const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const expiryTimerRef = useRef<number | null>(null);
@@ -69,7 +69,7 @@ export function usePruebasUnlock(options: UsePruebasUnlockOptions = {}) {
   };
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
 
     try {
       const raw = sessionStorage.getItem(storageKey);
@@ -79,7 +79,7 @@ export function usePruebasUnlock(options: UsePruebasUnlockOptions = {}) {
 
       if (ok) {
         // If back-compat '1', migrate to json
-        if (raw === '1') {
+        if (raw === "1") {
           sessionStorage.setItem(storageKey, JSON.stringify({ unlockedAt }));
         }
         setUnlocked(true);
@@ -109,15 +109,15 @@ export function usePruebasUnlock(options: UsePruebasUnlockOptions = {}) {
     setError(null);
 
     try {
-      const response = await fetch('/api/auth/password/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ purpose: 'pruebas', password })
+      const response = await fetch("/api/auth/password/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ purpose: "pruebas", password }),
       });
 
       const data = (await response.json()) as VerifyResponse;
       if (!response.ok || !data?.ok) {
-        setError(data?.error || 'Contraseña incorrecta');
+        setError(data?.error || "Contraseña incorrecta");
         return;
       }
 
@@ -131,7 +131,7 @@ export function usePruebasUnlock(options: UsePruebasUnlockOptions = {}) {
 
       scheduleExpiry(unlockedAt);
     } catch {
-      setError('Error al validar la contraseña');
+      setError("Error al validar la contraseña");
     } finally {
       setSubmitting(false);
     }

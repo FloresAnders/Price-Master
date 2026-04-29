@@ -13,7 +13,15 @@ export function RecetasListContent(props: {
   onRemove: (id: string, nombreLabel: string) => void;
   disabled?: boolean;
 }) {
-  const { isLoading, filteredCount, searchTerm, items, onEdit, onRemove, disabled = false } = props;
+  const {
+    isLoading,
+    filteredCount,
+    searchTerm,
+    items,
+    onEdit,
+    onRemove,
+    disabled = false,
+  } = props;
 
   if (isLoading) {
     return (
@@ -52,7 +60,12 @@ export function RecetasListContent(props: {
         </li>
       )}
 
-      <RecetasListItems items={items} onEdit={onEdit} onRemove={onRemove} disabled={disabled} />
+      <RecetasListItems
+        items={items}
+        onEdit={onEdit}
+        onRemove={onRemove}
+        disabled={disabled}
+      />
     </ul>
   );
 }

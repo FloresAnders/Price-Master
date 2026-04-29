@@ -1,4 +1,4 @@
-import { FirestoreService } from './firestore';
+import { FirestoreService } from "./firestore";
 
 export interface ScheduleEntry {
   id?: string;
@@ -14,7 +14,7 @@ export interface ScheduleEntry {
 }
 
 export class SchedulesService {
-  private static readonly COLLECTION_NAME = 'schedules';
+  private static readonly COLLECTION_NAME = "schedules";
   /**
    * Get all schedule entries
    */
@@ -32,22 +32,30 @@ export class SchedulesService {
   /**
    * Add a new schedule entry
    */
-  static async addSchedule(schedule: Omit<ScheduleEntry, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+  static async addSchedule(
+    schedule: Omit<ScheduleEntry, "id" | "createdAt" | "updatedAt">,
+  ): Promise<string> {
     const scheduleWithTimestamps = {
       ...schedule,
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
-    return await FirestoreService.add(this.COLLECTION_NAME, scheduleWithTimestamps);
+    return await FirestoreService.add(
+      this.COLLECTION_NAME,
+      scheduleWithTimestamps,
+    );
   }
 
   /**
    * Update a schedule entry
    */
-  static async updateSchedule(id: string, schedule: Partial<ScheduleEntry>): Promise<void> {
+  static async updateSchedule(
+    id: string,
+    schedule: Partial<ScheduleEntry>,
+  ): Promise<void> {
     const updateData = {
       ...schedule,
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
     return await FirestoreService.update(this.COLLECTION_NAME, id, updateData);
   }
@@ -66,13 +74,13 @@ export class SchedulesService {
     locationValue: string,
     employeeName: string,
     year: number,
-    month: number
+    month: number,
   ): Promise<ScheduleEntry[]> {
     return await FirestoreService.query(this.COLLECTION_NAME, [
-      { field: 'companieValue', operator: '==', value: locationValue },
-      { field: 'employeeName', operator: '==', value: employeeName },
-      { field: 'year', operator: '==', value: year },
-      { field: 'month', operator: '==', value: month }
+      { field: "companieValue", operator: "==", value: locationValue },
+      { field: "employeeName", operator: "==", value: employeeName },
+      { field: "year", operator: "==", value: year },
+      { field: "month", operator: "==", value: month },
     ]);
   }
 
@@ -83,12 +91,12 @@ export class SchedulesService {
   static async getSchedulesByLocationYearMonth(
     locationValue: string,
     year: number,
-    month: number
+    month: number,
   ): Promise<ScheduleEntry[]> {
     return await FirestoreService.query(this.COLLECTION_NAME, [
-      { field: 'companieValue', operator: '==', value: locationValue },
-      { field: 'year', operator: '==', value: year },
-      { field: 'month', operator: '==', value: month }
+      { field: "companieValue", operator: "==", value: locationValue },
+      { field: "year", operator: "==", value: year },
+      { field: "month", operator: "==", value: month },
     ]);
   }
 
@@ -101,31 +109,32 @@ export class SchedulesService {
     year: number,
     month: number,
     startDayInclusive: number,
-    endDayInclusive: number
+    endDayInclusive: number,
   ): Promise<ScheduleEntry[]> {
     const startDay = Math.max(1, Math.trunc(startDayInclusive));
     const endDay = Math.max(startDay, Math.trunc(endDayInclusive));
 
     try {
       return await FirestoreService.query(this.COLLECTION_NAME, [
-        { field: 'companieValue', operator: '==', value: locationValue },
-        { field: 'year', operator: '==', value: year },
-        { field: 'month', operator: '==', value: month },
-        { field: 'day', operator: '>=', value: startDay },
-        { field: 'day', operator: '<=', value: endDay }
+        { field: "companieValue", operator: "==", value: locationValue },
+        { field: "year", operator: "==", value: year },
+        { field: "month", operator: "==", value: month },
+        { field: "day", operator: ">=", value: startDay },
+        { field: "day", operator: "<=", value: endDay },
       ]);
     } catch (error) {
       console.warn(
-        '[SchedulesService] Day-range query failed; falling back to monthly query. You may need a Firestore composite index for (companieValue, year, month, day).',
-        error
+        "[SchedulesService] Day-range query failed; falling back to monthly query. You may need a Firestore composite index for (companieValue, year, month, day).",
+        error,
       );
       const rows = await this.getSchedulesByLocationYearMonth(
         locationValue,
         year,
-        month
+        month,
       );
-      return (rows || []).filter((r) =>
-        typeof r.day === 'number' && r.day >= startDay && r.day <= endDay
+      return (rows || []).filter(
+        (r) =>
+          typeof r.day === "number" && r.day >= startDay && r.day <= endDay,
       );
     }
   }
@@ -138,15 +147,15 @@ export class SchedulesService {
     employeeName: string,
     year: number,
     month: number,
-    day: number
+    day: number,
   ): Promise<ScheduleEntry> {
     // First try to find existing entry
     const existing = await FirestoreService.query(this.COLLECTION_NAME, [
-      { field: 'companieValue', operator: '==', value: locationValue },
-      { field: 'employeeName', operator: '==', value: employeeName },
-      { field: 'year', operator: '==', value: year },
-      { field: 'month', operator: '==', value: month },
-      { field: 'day', operator: '==', value: day }
+      { field: "companieValue", operator: "==", value: locationValue },
+      { field: "employeeName", operator: "==", value: employeeName },
+      { field: "year", operator: "==", value: year },
+      { field: "month", operator: "==", value: month },
+      { field: "day", operator: "==", value: day },
     ]);
 
     if (existing.length > 0) {
@@ -160,7 +169,7 @@ export class SchedulesService {
       year,
       month,
       day,
-      shift: ''
+      shift: "",
     };
 
     const id = await this.addSchedule(newEntry);
@@ -174,14 +183,14 @@ export class SchedulesService {
     employeeName: string,
     year: number,
     month: number,
-    day: number
+    day: number,
   ): Promise<ScheduleEntry | null> {
     const existing = await FirestoreService.query(this.COLLECTION_NAME, [
-      { field: 'companieValue', operator: '==', value: locationValue },
-      { field: 'employeeName', operator: '==', value: employeeName },
-      { field: 'year', operator: '==', value: year },
-      { field: 'month', operator: '==', value: month },
-      { field: 'day', operator: '==', value: day }
+      { field: "companieValue", operator: "==", value: locationValue },
+      { field: "employeeName", operator: "==", value: employeeName },
+      { field: "year", operator: "==", value: year },
+      { field: "month", operator: "==", value: month },
+      { field: "day", operator: "==", value: day },
     ]);
 
     return existing.length > 0 ? existing[0] : null;
@@ -198,13 +207,19 @@ export class SchedulesService {
     month: number,
     day: number,
     shift: string,
-    options?: { horasPorDia?: number }
+    options?: { horasPorDia?: number },
   ): Promise<void> {
     try {
       // Find existing entry first
-      const existingEntry = await this.findScheduleEntry(locationValue, employeeName, year, month, day);
+      const existingEntry = await this.findScheduleEntry(
+        locationValue,
+        employeeName,
+        year,
+        month,
+        day,
+      );
 
-      if (shift === '' || shift.trim() === '') {
+      if (shift === "" || shift.trim() === "") {
         // If setting to empty and document exists, DELETE it
         if (existingEntry && existingEntry.id) {
           await this.deleteSchedule(existingEntry.id);
@@ -215,30 +230,41 @@ export class SchedulesService {
         // Get employee hoursPerShift from location data only for work shifts (D or N)
         let horasPorDia: number | undefined;
 
-        if (shift === 'D' || shift === 'N') {
-          if (typeof options?.horasPorDia === 'number') {
+        if (shift === "D" || shift === "N") {
+          if (typeof options?.horasPorDia === "number") {
             horasPorDia = options.horasPorDia;
           } else {
             try {
-              const { EmpresasService } = await import('./empresas');
+              const { EmpresasService } = await import("./empresas");
               const empresas = await EmpresasService.getAllEmpresas();
               // Buscar empresa por ubicacion, name o id para mayor flexibilidad
-              const empresa = empresas.find(emp => 
-                emp.ubicacion?.toLowerCase() === locationValue.toLowerCase() ||
-                emp.name?.toLowerCase() === locationValue.toLowerCase() ||
-                emp.id === locationValue
+              const empresa = empresas.find(
+                (emp) =>
+                  emp.ubicacion?.toLowerCase() ===
+                    locationValue.toLowerCase() ||
+                  emp.name?.toLowerCase() === locationValue.toLowerCase() ||
+                  emp.id === locationValue,
               );
-              const employee = empresa?.empleados?.find(emp => emp.Empleado === employeeName);
+              const employee = empresa?.empleados?.find(
+                (emp) => emp.Empleado === employeeName,
+              );
               horasPorDia = employee?.hoursPerShift ?? 8; // Default to 8 hours if not specified, use ?? to allow 0 values
-              console.log(`🔄 Adding horasPorDia for ${employeeName} (${shift}): ${horasPorDia} hours from employee config`);
+              console.log(
+                `🔄 Adding horasPorDia for ${employeeName} (${shift}): ${horasPorDia} hours from employee config`,
+              );
             } catch (error) {
-              console.warn('Error getting employee hoursPerShift, using default 8:', error);
+              console.warn(
+                "Error getting employee hoursPerShift, using default 8:",
+                error,
+              );
               horasPorDia = 8; // Fallback to 8 hours
             }
           }
         } else {
           // For shifts other than D or N (like L), don't add horasPorDia
-          console.log(`ℹ️ Shift "${shift}" for ${employeeName}: no horasPorDia added`);
+          console.log(
+            `ℹ️ Shift "${shift}" for ${employeeName}: no horasPorDia added`,
+          );
         }
 
         // If setting a value
@@ -251,13 +277,16 @@ export class SchedulesService {
           await this.updateSchedule(existingEntry.id, updateData);
         } else {
           // Create new document with shift and horasPorDia (only if defined)
-          const newSchedule: Omit<ScheduleEntry, 'id' | 'createdAt' | 'updatedAt'> = {
+          const newSchedule: Omit<
+            ScheduleEntry,
+            "id" | "createdAt" | "updatedAt"
+          > = {
             companieValue: locationValue,
             employeeName,
             year,
             month,
             day,
-            shift
+            shift,
           };
           if (horasPorDia !== undefined) {
             newSchedule.horasPorDia = horasPorDia;
@@ -266,7 +295,7 @@ export class SchedulesService {
         }
       }
     } catch (error) {
-      console.error('Error al actualizar/eliminar documento:', error);
+      console.error("Error al actualizar/eliminar documento:", error);
       throw error;
     }
   }
@@ -281,11 +310,17 @@ export class SchedulesService {
     year: number,
     month: number,
     day: number,
-    horasPorDia: number
+    horasPorDia: number,
   ): Promise<void> {
     try {
       // Find existing entry first
-      const existingEntry = await this.findScheduleEntry(locationValue, employeeName, year, month, day);
+      const existingEntry = await this.findScheduleEntry(
+        locationValue,
+        employeeName,
+        year,
+        month,
+        day,
+      );
 
       if (horasPorDia <= 0) {
         // If hours is 0 or negative, delete the document if it exists
@@ -299,8 +334,8 @@ export class SchedulesService {
         if (existingEntry && existingEntry.id) {
           // Update existing document with shift 'L' and specific horasPorDia
           await this.updateSchedule(existingEntry.id, {
-            shift: 'L',
-            horasPorDia: horasPorDia
+            shift: "L",
+            horasPorDia: horasPorDia,
           });
         } else {
           // Create new document with shift 'L' and specific horasPorDia
@@ -310,13 +345,13 @@ export class SchedulesService {
             year,
             month,
             day,
-            shift: 'L',
-            horasPorDia: horasPorDia
+            shift: "L",
+            horasPorDia: horasPorDia,
           });
         }
       }
     } catch (error) {
-      console.error('Error al actualizar horas trabajadas:', error);
+      console.error("Error al actualizar horas trabajadas:", error);
       throw error;
     }
   }
@@ -324,56 +359,70 @@ export class SchedulesService {
   /**
    * Migración: Actualizar horasPorDia de todos los turnos existentes basándose en la configuración del empleado
    */
-  static async migrateHorasPorDia(locationValue?: string, employeeName?: string): Promise<{ updated: number; errors: number }> {
+  static async migrateHorasPorDia(
+    locationValue?: string,
+    employeeName?: string,
+  ): Promise<{ updated: number; errors: number }> {
     let updated = 0;
     let errors = 0;
 
     try {
       // Obtener todas las empresas para acceder a la configuración de empleados
-      const { EmpresasService } = await import('./empresas');
+      const { EmpresasService } = await import("./empresas");
       const empresas = await EmpresasService.getAllEmpresas();
 
       // Obtener todos los horarios o filtrados por empresa/empleado
       let schedules: ScheduleEntry[];
       if (locationValue && employeeName) {
         schedules = await FirestoreService.query(this.COLLECTION_NAME, [
-          { field: 'companieValue', operator: '==', value: locationValue },
-          { field: 'employeeName', operator: '==', value: employeeName }
+          { field: "companieValue", operator: "==", value: locationValue },
+          { field: "employeeName", operator: "==", value: employeeName },
         ]);
       } else if (locationValue) {
         schedules = await FirestoreService.query(this.COLLECTION_NAME, [
-          { field: 'companieValue', operator: '==', value: locationValue }
+          { field: "companieValue", operator: "==", value: locationValue },
         ]);
       } else {
         schedules = await this.getAllSchedules();
       }
 
-      console.log(`🔄 Iniciando migración de ${schedules.length} registros de horarios...`);
+      console.log(
+        `🔄 Iniciando migración de ${schedules.length} registros de horarios...`,
+      );
 
       for (const schedule of schedules) {
         try {
           // Solo procesar turnos de trabajo (D o N)
-          if (schedule.shift !== 'D' && schedule.shift !== 'N') {
+          if (schedule.shift !== "D" && schedule.shift !== "N") {
             continue;
           }
 
           // Buscar la empresa correspondiente
-          const empresa = empresas.find(emp => 
-            emp.ubicacion?.toLowerCase() === schedule.companieValue.toLowerCase() ||
-            emp.name?.toLowerCase() === schedule.companieValue.toLowerCase() ||
-            emp.id === schedule.companieValue
+          const empresa = empresas.find(
+            (emp) =>
+              emp.ubicacion?.toLowerCase() ===
+                schedule.companieValue.toLowerCase() ||
+              emp.name?.toLowerCase() ===
+                schedule.companieValue.toLowerCase() ||
+              emp.id === schedule.companieValue,
           );
 
           if (!empresa) {
-            console.warn(`⚠️ Empresa no encontrada para: ${schedule.companieValue}`);
+            console.warn(
+              `⚠️ Empresa no encontrada para: ${schedule.companieValue}`,
+            );
             errors++;
             continue;
           }
 
           // Buscar el empleado
-          const employee = empresa.empleados?.find(emp => emp.Empleado === schedule.employeeName);
+          const employee = empresa.empleados?.find(
+            (emp) => emp.Empleado === schedule.employeeName,
+          );
           if (!employee) {
-            console.warn(`⚠️ Empleado ${schedule.employeeName} no encontrado en ${schedule.companieValue}`);
+            console.warn(
+              `⚠️ Empleado ${schedule.employeeName} no encontrado en ${schedule.companieValue}`,
+            );
             errors++;
             continue;
           }
@@ -385,22 +434,29 @@ export class SchedulesService {
           if (schedule.horasPorDia !== correctHorasPorDia) {
             if (schedule.id) {
               await this.updateSchedule(schedule.id, {
-                horasPorDia: correctHorasPorDia
+                horasPorDia: correctHorasPorDia,
               });
-              console.log(`✅ Actualizado: ${schedule.employeeName} (${schedule.year}-${schedule.month + 1}-${schedule.day}): ${schedule.horasPorDia || 'undefined'} → ${correctHorasPorDia} horas`);
+              console.log(
+                `✅ Actualizado: ${schedule.employeeName} (${schedule.year}-${schedule.month + 1}-${schedule.day}): ${schedule.horasPorDia || "undefined"} → ${correctHorasPorDia} horas`,
+              );
               updated++;
             }
           }
         } catch (error) {
-          console.error(`❌ Error procesando horario ID ${schedule.id}:`, error);
+          console.error(
+            `❌ Error procesando horario ID ${schedule.id}:`,
+            error,
+          );
           errors++;
         }
       }
 
-      console.log(`✅ Migración completada: ${updated} actualizados, ${errors} errores`);
+      console.log(
+        `✅ Migración completada: ${updated} actualizados, ${errors} errores`,
+      );
       return { updated, errors };
     } catch (error) {
-      console.error('Error en migración de horasPorDia:', error);
+      console.error("Error en migración de horasPorDia:", error);
       throw error;
     }
   }

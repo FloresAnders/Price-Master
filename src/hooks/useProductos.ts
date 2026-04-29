@@ -17,9 +17,15 @@ type MutationCallbacks<T> = {
 
 export function useProductos(options?: { companyOverride?: string }) {
   const { user, loading: authLoading } = useAuth();
-  const companyFromUser = useMemo(() => (user?.ownercompanie || "").trim(), [user?.ownercompanie]);
-  const isAdminLike = user?.role === 'admin' || user?.role === 'superadmin';
-  const requestedOverride = useMemo(() => String(options?.companyOverride || "").trim(), [options?.companyOverride]);
+  const companyFromUser = useMemo(
+    () => (user?.ownercompanie || "").trim(),
+    [user?.ownercompanie],
+  );
+  const isAdminLike = user?.role === "admin" || user?.role === "superadmin";
+  const requestedOverride = useMemo(
+    () => String(options?.companyOverride || "").trim(),
+    [options?.companyOverride],
+  );
   const company = useMemo(() => {
     if (isAdminLike && requestedOverride) return requestedOverride;
     return companyFromUser;
@@ -50,9 +56,7 @@ export function useProductos(options?: { companyOverride?: string }) {
       setProductos(data);
     } catch (err) {
       const message =
-        err instanceof Error
-          ? err.message
-          : "Error al cargar los productos.";
+        err instanceof Error ? err.message : "Error al cargar los productos.";
       setError(message);
       console.error("Error fetching productos:", err);
     } finally {
@@ -77,12 +81,15 @@ export function useProductos(options?: { companyOverride?: string }) {
   }, [company, fetchProductos]);
 
   const addProducto = useCallback(
-    async (input: {
-      nombre: string;
-      descripcion?: string;
-      pesoengramos: number;
-      precio: number;
-    }, callbacks?: MutationCallbacks<ProductEntry>) => {
+    async (
+      input: {
+        nombre: string;
+        descripcion?: string;
+        pesoengramos: number;
+        precio: number;
+      },
+      callbacks?: MutationCallbacks<ProductEntry>,
+    ) => {
       try {
         setError(null);
         if (!company) {
@@ -94,7 +101,7 @@ export function useProductos(options?: { companyOverride?: string }) {
         setProductos((prev) => {
           next = [...prev.filter((p) => p.id !== created.id), created];
           next.sort((a, b) =>
-            a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" })
+            a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }),
           );
           return next;
         });
@@ -115,28 +122,31 @@ export function useProductos(options?: { companyOverride?: string }) {
         throw asError;
       }
     },
-    [company, noCompanyMessage]
+    [company, noCompanyMessage],
   );
 
   const updateProducto = useCallback(
     async (
       id: string,
-      patch: Partial<
-        Omit<ProductEntry, "id" | "createdAt" | "precioxgramo">
-      >
-    , callbacks?: MutationCallbacks<ProductEntry>) => {
+      patch: Partial<Omit<ProductEntry, "id" | "createdAt" | "precioxgramo">>,
+      callbacks?: MutationCallbacks<ProductEntry>,
+    ) => {
       try {
         setError(null);
         if (!company) {
           throw new Error(noCompanyMessage);
         }
-        const updated = await ProductosService.updateProducto(company, id, patch);
+        const updated = await ProductosService.updateProducto(
+          company,
+          id,
+          patch,
+        );
 
         let next: ProductEntry[] = [];
         setProductos((prev) => {
           next = [...prev.filter((p) => p.id !== updated.id), updated];
           next.sort((a, b) =>
-            a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" })
+            a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }),
           );
           return next;
         });
@@ -157,7 +167,7 @@ export function useProductos(options?: { companyOverride?: string }) {
         throw asError;
       }
     },
-    [company, noCompanyMessage]
+    [company, noCompanyMessage],
   );
 
   const removeProducto = useCallback(
@@ -191,7 +201,7 @@ export function useProductos(options?: { companyOverride?: string }) {
         throw asError;
       }
     },
-    [company, noCompanyMessage]
+    [company, noCompanyMessage],
   );
 
   useEffect(() => {

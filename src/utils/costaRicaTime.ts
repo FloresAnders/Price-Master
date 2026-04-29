@@ -9,7 +9,8 @@ type DateTimeParts = {
 
 const COSTA_RICA_TZ = "America/Costa_Rica";
 
-const pad3 = (value: number): string => String(Math.trunc(value)).padStart(3, "0");
+const pad3 = (value: number): string =>
+  String(Math.trunc(value)).padStart(3, "0");
 
 const getCostaRicaParts = (date: Date): DateTimeParts => {
   const formatter = new Intl.DateTimeFormat("en-CA", {

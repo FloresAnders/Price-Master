@@ -16,13 +16,13 @@ import {
   type QuerySnapshot,
   type QueryDocumentSnapshot,
   type DocumentData,
-} from 'firebase/firestore';
-import { db } from '@/config/firebase';
-import { FirestoreService } from './firestore';
-import movimientosFondosDocs from '@/data/movimientosFondosDocs.json';
+} from "firebase/firestore";
+import { db } from "@/config/firebase";
+import { FirestoreService } from "./firestore";
+import movimientosFondosDocs from "@/data/movimientosFondosDocs.json";
 
-export type MovementCurrencyKey = 'CRC' | 'USD';
-export type MovementAccountKey = 'FondoGeneral' | 'BCR' | 'BN' | 'BAC';
+export type MovementCurrencyKey = "CRC" | "USD";
+export type MovementAccountKey = "FondoGeneral" | "BCR" | "BN" | "BAC";
 
 export type MovementRecordBase = {
   id: string;
@@ -31,11 +31,11 @@ export type MovementRecordBase = {
   currency: MovementCurrencyKey;
 };
 
-const ACCOUNT_KEYS: MovementAccountKey[] = ['FondoGeneral', 'BCR', 'BN', 'BAC'];
-const CURRENCY_KEYS: MovementCurrencyKey[] = ['CRC', 'USD'];
+const ACCOUNT_KEYS: MovementAccountKey[] = ["FondoGeneral", "BCR", "BN", "BAC"];
+const CURRENCY_KEYS: MovementCurrencyKey[] = ["CRC", "USD"];
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-  if (!value || typeof value !== 'object') return false;
+  if (!value || typeof value !== "object") return false;
   const proto = Object.getPrototypeOf(value);
   return proto === Object.prototype || proto === null;
 }
@@ -49,10 +49,12 @@ function stripUndefinedDeep<T>(value: T): T {
   if (value === undefined) return value;
 
   if (Array.isArray(value)) {
-    return value
-      .map((v) => stripUndefinedDeep(v))
-      // Firestore doesn't support `undefined` items either.
-      .filter((v) => v !== undefined) as any;
+    return (
+      value
+        .map((v) => stripUndefinedDeep(v))
+        // Firestore doesn't support `undefined` items either.
+        .filter((v) => v !== undefined) as any
+    );
   }
 
   if (isPlainObject(value)) {
@@ -71,8 +73,12 @@ type LegacyMovementBucket<T = unknown> = {
   movements?: T[];
 };
 
-type LegacyMovementAccount<T = unknown> = Partial<Record<MovementCurrencyKey, LegacyMovementBucket<T>>>;
-type LegacyMovementAccounts<T = unknown> = Partial<Record<MovementAccountKey, LegacyMovementAccount<T>>>;
+type LegacyMovementAccount<T = unknown> = Partial<
+  Record<MovementCurrencyKey, LegacyMovementBucket<T>>
+>;
+type LegacyMovementAccounts<T = unknown> = Partial<
+  Record<MovementAccountKey, LegacyMovementAccount<T>>
+>;
 
 export type MovementCurrencySettings = {
   enabled: boolean;
@@ -112,7 +118,10 @@ export type MovementStorageState = {
 };
 
 type LegacyMovementMetadata = {
-  accounts?: Record<MovementAccountKey, Record<MovementCurrencyKey, MovementCurrencySettings>>;
+  accounts?: Record<
+    MovementAccountKey,
+    Record<MovementCurrencyKey, MovementCurrencySettings>
+  >;
   currencies?: Record<MovementCurrencyKey, MovementCurrencySettings>;
   updatedAt?: string;
 };
@@ -124,8 +133,11 @@ export type MovementStorage<T = unknown> = {
   state: MovementStorageState;
 };
 
-export type MovimientosFondosExportBundle<TMovement = unknown, TLedgerMovement = unknown> = {
-  kind: 'MovimientosFondosExportBundle';
+export type MovimientosFondosExportBundle<
+  TMovement = unknown,
+  TLedgerMovement = unknown,
+> = {
+  kind: "MovimientosFondosExportBundle";
   version: 1;
   exportedAt: string;
   docId: string;
@@ -133,25 +145,25 @@ export type MovimientosFondosExportBundle<TMovement = unknown, TLedgerMovement =
   movements: Array<TMovement & { id: string }>;
 };
 
-const MOVEMENT_STORAGE_PREFIX = 'movements';
+const MOVEMENT_STORAGE_PREFIX = "movements";
 const DEFAULT_ACCOUNT_LABELS: Record<MovementAccountKey, string> = {
-  FondoGeneral: 'Fondo General',
-  BCR: 'BCR',
-  BN: 'BN',
-  BAC: 'BAC',
+  FondoGeneral: "Fondo General",
+  BCR: "BCR",
+  BN: "BN",
+  BAC: "BAC",
 };
 
 export class MovimientosFondosService {
-  static readonly COLLECTION_NAME = 'MovimientosFondos';
-  static readonly MOVEMENTS_SUBCOLLECTION = 'movements';
+  static readonly COLLECTION_NAME = "MovimientosFondos";
+  static readonly MOVEMENTS_SUBCOLLECTION = "movements";
 
   static buildMovementStorageKey(identifier: string): string {
-    return `${MOVEMENT_STORAGE_PREFIX}_${identifier && identifier.length > 0 ? identifier : 'global'}`;
+    return `${MOVEMENT_STORAGE_PREFIX}_${identifier && identifier.length > 0 ? identifier : "global"}`;
   }
 
   static buildCompanyMovementsKey(companyName: string): string {
     const resolved = this.resolveCompanyMovementsDocId(companyName);
-    return resolved ?? this.buildMovementStorageKey((companyName || '').trim());
+    return resolved ?? this.buildMovementStorageKey((companyName || "").trim());
   }
 
   /**
@@ -159,12 +171,17 @@ export class MovimientosFondosService {
    * Uses a JSON mapping for easy future updates.
    */
   static resolveCompanyMovementsDocId(companyName: string): string | null {
-    const raw = String(companyName || '');
-    const base = raw.replace(/\s+/g, ' ').trim();
+    const raw = String(companyName || "");
+    const base = raw.replace(/\s+/g, " ").trim();
     if (!base) return null;
 
-    const normalizeKey = (value: string) => value.replace(/\s+/g, ' ').trim().toUpperCase();
-    const stripParens = (value: string) => value.replace(/\s*\([^)]*\)\s*/g, ' ').replace(/\s+/g, ' ').trim();
+    const normalizeKey = (value: string) =>
+      value.replace(/\s+/g, " ").trim().toUpperCase();
+    const stripParens = (value: string) =>
+      value
+        .replace(/\s*\([^)]*\)\s*/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
 
     const candidates = [
       normalizeKey(base),
@@ -175,8 +192,8 @@ export class MovimientosFondosService {
 
     const docId = candidates.reduce<string>((acc, key) => {
       if (acc) return acc;
-      return typeof map[key] === 'string' ? map[key].trim() : '';
-    }, '');
+      return typeof map[key] === "string" ? map[key].trim() : "";
+    }, "");
     if (!docId) return null;
     // Defensive: ensure the stored docId follows the expected prefix.
     if (!docId.startsWith(`${MOVEMENT_STORAGE_PREFIX}_`)) return null;
@@ -184,10 +201,12 @@ export class MovimientosFondosService {
   }
 
   static buildLegacyOwnerMovementsKey(ownerId: string): string {
-    return this.buildMovementStorageKey((ownerId || '').trim());
+    return this.buildMovementStorageKey((ownerId || "").trim());
   }
 
-  static createEmptyMovementStorage<T = unknown>(company: string): MovementStorage<T> {
+  static createEmptyMovementStorage<T = unknown>(
+    company: string,
+  ): MovementStorage<T> {
     return {
       company,
       configuration: this.defaultConfiguration(),
@@ -196,9 +215,12 @@ export class MovimientosFondosService {
     };
   }
 
-  static ensureMovementStorageShape<T = unknown>(raw: unknown, company: string): MovementStorage<T> {
-    const normalizedCompany = company || '';
-    if (!raw || typeof raw !== 'object') {
+  static ensureMovementStorageShape<T = unknown>(
+    raw: unknown,
+    company: string,
+  ): MovementStorage<T> {
+    const normalizedCompany = company || "";
+    if (!raw || typeof raw !== "object") {
       return this.createEmptyMovementStorage<T>(normalizedCompany);
     }
 
@@ -209,32 +231,46 @@ export class MovimientosFondosService {
     };
 
     const storage = this.createEmptyMovementStorage<T>(normalizedCompany);
-    storage.company = this.resolveCompany(candidate.company, candidate.ownerId, normalizedCompany);
+    storage.company = this.resolveCompany(
+      candidate.company,
+      candidate.ownerId,
+      normalizedCompany,
+    );
     storage.configuration = this.sanitizeConfiguration(candidate.configuration);
-    storage.operations = this.sanitizeOperations(candidate.operations, candidate.accounts);
+    storage.operations = this.sanitizeOperations(
+      candidate.operations,
+      candidate.accounts,
+    );
     storage.state = this.sanitizeState(candidate.state, candidate.metadata);
 
     return storage;
   }
 
-  private static resolveCompany(candidateCompany?: unknown, fallbackOwner?: unknown, defaultCompany?: string): string {
-    if (typeof candidateCompany === 'string' && candidateCompany.trim().length > 0) {
+  private static resolveCompany(
+    candidateCompany?: unknown,
+    fallbackOwner?: unknown,
+    defaultCompany?: string,
+  ): string {
+    if (
+      typeof candidateCompany === "string" &&
+      candidateCompany.trim().length > 0
+    ) {
       return candidateCompany.trim();
     }
-    if (typeof fallbackOwner === 'string' && fallbackOwner.trim().length > 0) {
+    if (typeof fallbackOwner === "string" && fallbackOwner.trim().length > 0) {
       return fallbackOwner.trim();
     }
-    return defaultCompany || '';
+    return defaultCompany || "";
   }
 
   private static defaultConfiguration(): MovementConfiguration {
     return {
-      accounts: ACCOUNT_KEYS.map(id => ({
+      accounts: ACCOUNT_KEYS.map((id) => ({
         id,
         label: DEFAULT_ACCOUNT_LABELS[id],
         supportedCurrencies: [...CURRENCY_KEYS],
       })),
-      currencies: CURRENCY_KEYS.map(code => ({ code, enabled: true })),
+      currencies: CURRENCY_KEYS.map((code) => ({ code, enabled: true })),
     };
   }
 
@@ -246,8 +282,8 @@ export class MovimientosFondosService {
   }
 
   private static defaultAccountBalances(): MovementAccountBalance[] {
-    return ACCOUNT_KEYS.flatMap(accountId =>
-      CURRENCY_KEYS.map(currency => ({
+    return ACCOUNT_KEYS.flatMap((accountId) =>
+      CURRENCY_KEYS.map((currency) => ({
         accountId,
         currency,
         enabled: true,
@@ -257,14 +293,18 @@ export class MovimientosFondosService {
     );
   }
 
-  private static sanitizeConfiguration(config?: Partial<MovementConfiguration>): MovementConfiguration {
+  private static sanitizeConfiguration(
+    config?: Partial<MovementConfiguration>,
+  ): MovementConfiguration {
     const defaults = this.defaultConfiguration();
     if (!config) return defaults;
 
-    const accountsSource = Array.isArray(config.accounts) ? config.accounts : [];
+    const accountsSource = Array.isArray(config.accounts)
+      ? config.accounts
+      : [];
     const sanitizedAccounts: MovementConfigurationAccount[] = [];
     const seenAccounts = new Set<MovementAccountKey>();
-    accountsSource.forEach(account => {
+    accountsSource.forEach((account) => {
       if (!this.isMovementAccountKey(account?.id)) return;
       const id = account!.id as MovementAccountKey;
       if (seenAccounts.has(id)) return;
@@ -272,35 +312,46 @@ export class MovimientosFondosService {
       sanitizedAccounts.push({
         id,
         label: this.resolveAccountLabel(account?.label, id),
-        supportedCurrencies: this.sanitizeSupportedCurrencies(account?.supportedCurrencies),
+        supportedCurrencies: this.sanitizeSupportedCurrencies(
+          account?.supportedCurrencies,
+        ),
       });
     });
 
-    const currencySource = Array.isArray(config.currencies) ? config.currencies : [];
+    const currencySource = Array.isArray(config.currencies)
+      ? config.currencies
+      : [];
     const seenCurrencies = new Set<MovementCurrencyKey>();
     const sanitizedCurrencies: MovementConfigurationCurrency[] = [];
-    currencySource.forEach(currency => {
+    currencySource.forEach((currency) => {
       if (!this.isMovementCurrencyKey(currency?.code)) return;
       const code = currency!.code as MovementCurrencyKey;
       if (seenCurrencies.has(code)) return;
       seenCurrencies.add(code);
       sanitizedCurrencies.push({
         code,
-        enabled: currency?.enabled === undefined ? true : Boolean(currency.enabled),
+        enabled:
+          currency?.enabled === undefined ? true : Boolean(currency.enabled),
       });
     });
 
     return {
-      accounts: sanitizedAccounts.length > 0 ? sanitizedAccounts : defaults.accounts,
-      currencies: sanitizedCurrencies.length > 0 ? sanitizedCurrencies : defaults.currencies,
+      accounts:
+        sanitizedAccounts.length > 0 ? sanitizedAccounts : defaults.accounts,
+      currencies:
+        sanitizedCurrencies.length > 0
+          ? sanitizedCurrencies
+          : defaults.currencies,
     };
   }
 
-  private static sanitizeSupportedCurrencies(input?: unknown): MovementCurrencyKey[] {
+  private static sanitizeSupportedCurrencies(
+    input?: unknown,
+  ): MovementCurrencyKey[] {
     const list = Array.isArray(input) ? input : CURRENCY_KEYS;
     const seen = new Set<MovementCurrencyKey>();
     const sanitized: MovementCurrencyKey[] = [];
-    list.forEach(item => {
+    list.forEach((item) => {
       if (!this.isMovementCurrencyKey(item)) return;
       const code = item as MovementCurrencyKey;
       if (seen.has(code)) return;
@@ -310,8 +361,11 @@ export class MovimientosFondosService {
     return sanitized.length > 0 ? sanitized : [...CURRENCY_KEYS];
   }
 
-  private static resolveAccountLabel(label: unknown, accountId: MovementAccountKey): string {
-    if (typeof label === 'string' && label.trim().length > 0) {
+  private static resolveAccountLabel(
+    label: unknown,
+    accountId: MovementAccountKey,
+  ): string {
+    if (typeof label === "string" && label.trim().length > 0) {
       return label.trim();
     }
     return DEFAULT_ACCOUNT_LABELS[accountId] ?? accountId;
@@ -323,20 +377,24 @@ export class MovimientosFondosService {
   ): MovementOperations<T> {
     if (operations && Array.isArray(operations.movements)) {
       return {
-        movements: operations.movements.map(movement => this.ensureMovementEnvelope<T>(movement)),
+        movements: operations.movements.map((movement) =>
+          this.ensureMovementEnvelope<T>(movement),
+        ),
       };
     }
 
     if (legacyAccounts) {
       const flattened: T[] = [];
-      ACCOUNT_KEYS.forEach(accountId => {
+      ACCOUNT_KEYS.forEach((accountId) => {
         const account = legacyAccounts[accountId];
         if (!account) return;
-        CURRENCY_KEYS.forEach(currency => {
+        CURRENCY_KEYS.forEach((currency) => {
           const bucket = account[currency];
           if (!bucket?.movements || !Array.isArray(bucket.movements)) return;
-          bucket.movements.forEach(movement => {
-            flattened.push(this.ensureMovementEnvelope<T>(movement, accountId, currency));
+          bucket.movements.forEach((movement) => {
+            flattened.push(
+              this.ensureMovementEnvelope<T>(movement, accountId, currency),
+            );
           });
         });
       });
@@ -360,7 +418,9 @@ export class MovimientosFondosService {
       legacyMetadata?.accounts,
       legacyMetadata?.currencies,
     );
-    const updatedAt = this.resolveTimestamp(state?.updatedAt ?? legacyMetadata?.updatedAt ?? defaults.updatedAt);
+    const updatedAt = this.resolveTimestamp(
+      state?.updatedAt ?? legacyMetadata?.updatedAt ?? defaults.updatedAt,
+    );
 
     const result: MovementStorageState = {
       balancesByAccount,
@@ -377,20 +437,31 @@ export class MovimientosFondosService {
 
   private static sanitizeAccountBalances(
     balances?: MovementAccountBalance[] | null,
-    legacyAccounts?: Record<MovementAccountKey, Record<MovementCurrencyKey, MovementCurrencySettings>>,
+    legacyAccounts?: Record<
+      MovementAccountKey,
+      Record<MovementCurrencyKey, MovementCurrencySettings>
+    >,
     legacyCurrencies?: Record<MovementCurrencyKey, MovementCurrencySettings>,
   ): MovementAccountBalance[] {
     const defaults = this.defaultAccountBalances();
     const map = new Map<string, MovementAccountBalance>();
 
     if (Array.isArray(balances)) {
-      balances.forEach(balance => {
-        if (!this.isMovementAccountKey(balance?.accountId) || !this.isMovementCurrencyKey(balance?.currency)) return;
-        const key = this.buildAccountBalanceKey(balance.accountId as MovementAccountKey, balance.currency as MovementCurrencyKey);
+      balances.forEach((balance) => {
+        if (
+          !this.isMovementAccountKey(balance?.accountId) ||
+          !this.isMovementCurrencyKey(balance?.currency)
+        )
+          return;
+        const key = this.buildAccountBalanceKey(
+          balance.accountId as MovementAccountKey,
+          balance.currency as MovementCurrencyKey,
+        );
         map.set(key, {
           accountId: balance.accountId as MovementAccountKey,
           currency: balance.currency as MovementCurrencyKey,
-          enabled: balance.enabled === undefined ? true : Boolean(balance.enabled),
+          enabled:
+            balance.enabled === undefined ? true : Boolean(balance.enabled),
           initialBalance: this.sanitizeBalance(balance.initialBalance),
           currentBalance: this.sanitizeBalance(balance.currentBalance),
         });
@@ -398,17 +469,18 @@ export class MovimientosFondosService {
     }
 
     if (map.size === 0 && legacyAccounts) {
-      ACCOUNT_KEYS.forEach(accountId => {
+      ACCOUNT_KEYS.forEach((accountId) => {
         const account = legacyAccounts[accountId];
         if (!account) return;
-        CURRENCY_KEYS.forEach(currency => {
+        CURRENCY_KEYS.forEach((currency) => {
           const settings = account[currency];
           if (!settings) return;
           const key = this.buildAccountBalanceKey(accountId, currency);
           map.set(key, {
             accountId,
             currency,
-            enabled: settings.enabled === undefined ? true : Boolean(settings.enabled),
+            enabled:
+              settings.enabled === undefined ? true : Boolean(settings.enabled),
             initialBalance: this.sanitizeBalance(settings.initialBalance),
             currentBalance: this.sanitizeBalance(settings.currentBalance),
           });
@@ -417,8 +489,8 @@ export class MovimientosFondosService {
     }
 
     if (map.size === 0 && legacyCurrencies) {
-      ACCOUNT_KEYS.forEach(accountId => {
-        CURRENCY_KEYS.forEach(currency => {
+      ACCOUNT_KEYS.forEach((accountId) => {
+        CURRENCY_KEYS.forEach((currency) => {
           const settings = legacyCurrencies[currency];
           if (!settings) return;
           const key = this.buildAccountBalanceKey(accountId, currency);
@@ -426,7 +498,8 @@ export class MovimientosFondosService {
           map.set(key, {
             accountId,
             currency,
-            enabled: settings.enabled === undefined ? true : Boolean(settings.enabled),
+            enabled:
+              settings.enabled === undefined ? true : Boolean(settings.enabled),
             initialBalance: this.sanitizeBalance(settings.initialBalance),
             currentBalance: this.sanitizeBalance(settings.currentBalance),
           });
@@ -434,7 +507,15 @@ export class MovimientosFondosService {
       });
     }
 
-    return defaults.map(defaultBalance => map.get(this.buildAccountBalanceKey(defaultBalance.accountId, defaultBalance.currency)) ?? defaultBalance);
+    return defaults.map(
+      (defaultBalance) =>
+        map.get(
+          this.buildAccountBalanceKey(
+            defaultBalance.accountId,
+            defaultBalance.currency,
+          ),
+        ) ?? defaultBalance,
+    );
   }
 
   private static ensureMovementEnvelope<T>(
@@ -442,13 +523,22 @@ export class MovimientosFondosService {
     fallbackAccount?: MovementAccountKey,
     fallbackCurrency?: MovementCurrencyKey,
   ): T {
-    const base = movement && typeof movement === 'object' ? { ...(movement as Record<string, unknown>) } : {};
-    const accountId = this.isMovementAccountKey((base as { accountId?: unknown }).accountId)
-      ? ((base as { accountId?: MovementAccountKey }).accountId as MovementAccountKey)
-      : fallbackAccount ?? 'FondoGeneral';
-    const currency = this.isMovementCurrencyKey((base as { currency?: unknown }).currency)
-      ? ((base as { currency?: MovementCurrencyKey }).currency as MovementCurrencyKey)
-      : fallbackCurrency ?? 'CRC';
+    const base =
+      movement && typeof movement === "object"
+        ? { ...(movement as Record<string, unknown>) }
+        : {};
+    const accountId = this.isMovementAccountKey(
+      (base as { accountId?: unknown }).accountId,
+    )
+      ? ((base as { accountId?: MovementAccountKey })
+          .accountId as MovementAccountKey)
+      : (fallbackAccount ?? "FondoGeneral");
+    const currency = this.isMovementCurrencyKey(
+      (base as { currency?: unknown }).currency,
+    )
+      ? ((base as { currency?: MovementCurrencyKey })
+          .currency as MovementCurrencyKey)
+      : (fallbackCurrency ?? "CRC");
     return {
       ...base,
       accountId,
@@ -457,37 +547,55 @@ export class MovimientosFondosService {
   }
 
   private static sanitizeBalance(value: unknown): number {
-    const parsed = typeof value === 'number' ? value : Number(value);
+    const parsed = typeof value === "number" ? value : Number(value);
     if (Number.isFinite(parsed)) {
       return Math.trunc(parsed);
     }
     return 0;
   }
 
-  private static buildAccountBalanceKey(accountId: MovementAccountKey, currency: MovementCurrencyKey): string {
+  private static buildAccountBalanceKey(
+    accountId: MovementAccountKey,
+    currency: MovementCurrencyKey,
+  ): string {
     return `${accountId}_${currency}`;
   }
 
   private static resolveTimestamp(value: unknown): string {
-    if (typeof value === 'string' && value.trim().length > 0) {
+    if (typeof value === "string" && value.trim().length > 0) {
       return value;
     }
     return new Date().toISOString();
   }
 
-  private static isMovementAccountKey(value: unknown): value is MovementAccountKey {
-    return typeof value === 'string' && ACCOUNT_KEYS.includes(value as MovementAccountKey);
+  private static isMovementAccountKey(
+    value: unknown,
+  ): value is MovementAccountKey {
+    return (
+      typeof value === "string" &&
+      ACCOUNT_KEYS.includes(value as MovementAccountKey)
+    );
   }
 
-  private static isMovementCurrencyKey(value: unknown): value is MovementCurrencyKey {
-    return typeof value === 'string' && CURRENCY_KEYS.includes(value as MovementCurrencyKey);
+  private static isMovementCurrencyKey(
+    value: unknown,
+  ): value is MovementCurrencyKey {
+    return (
+      typeof value === "string" &&
+      CURRENCY_KEYS.includes(value as MovementCurrencyKey)
+    );
   }
 
-  static async getDocument<T = unknown>(docId: string): Promise<MovementStorage<T> | null> {
+  static async getDocument<T = unknown>(
+    docId: string,
+  ): Promise<MovementStorage<T> | null> {
     if (!docId) return null;
     const doc = await FirestoreService.getById(this.COLLECTION_NAME, docId);
     if (!doc) return null;
-    const company = typeof (doc as MovementStorage<T>).company === 'string' ? (doc as MovementStorage<T>).company : '';
+    const company =
+      typeof (doc as MovementStorage<T>).company === "string"
+        ? (doc as MovementStorage<T>).company
+        : "";
     return this.ensureMovementStorageShape<T>(doc, company);
   }
 
@@ -499,7 +607,7 @@ export class MovimientosFondosService {
     if (!ledger) return null;
     const movements = await this.listAllMovements<TMovement>(docId);
     return {
-      kind: 'MovimientosFondosExportBundle',
+      kind: "MovimientosFondosExportBundle",
       version: 1,
       exportedAt: new Date().toISOString(),
       docId,
@@ -508,14 +616,21 @@ export class MovimientosFondosService {
     };
   }
 
-  static async importBundle<TMovement extends { id: string }, TLedgerMovement = unknown>(
+  static async importBundle<
+    TMovement extends { id: string },
+    TLedgerMovement = unknown,
+  >(
     bundle: MovimientosFondosExportBundle<TMovement, TLedgerMovement>,
   ): Promise<{ upsertedMovements: number }> {
     if (!bundle?.docId) {
-      throw new Error('[MovimientosFondosService.importBundle] bundle.docId is required');
+      throw new Error(
+        "[MovimientosFondosService.importBundle] bundle.docId is required",
+      );
     }
     if (!bundle.ledger) {
-      throw new Error('[MovimientosFondosService.importBundle] bundle.ledger is required');
+      throw new Error(
+        "[MovimientosFondosService.importBundle] bundle.ledger is required",
+      );
     }
 
     // Save ledger first
@@ -530,11 +645,13 @@ export class MovimientosFondosService {
     return { upsertedMovements: migrated.upserted };
   }
 
-  static async getAllDocuments<T = unknown>(): Promise<Array<MovementStorage<T> & { id: string }>> {
+  static async getAllDocuments<T = unknown>(): Promise<
+    Array<MovementStorage<T> & { id: string }>
+  > {
     const documents = await FirestoreService.getAll(this.COLLECTION_NAME);
-    return documents.map(rawDoc => {
+    return documents.map((rawDoc) => {
       const { id, ...data } = rawDoc as MovementStorage<T> & { id: string };
-      const company = typeof data.company === 'string' ? data.company : '';
+      const company = typeof data.company === "string" ? data.company : "";
       const storage = this.ensureMovementStorageShape<T>(data, company);
       return {
         ...storage,
@@ -543,7 +660,10 @@ export class MovimientosFondosService {
     });
   }
 
-  static async saveDocument<T = unknown>(docId: string, data: MovementStorage<T>): Promise<void> {
+  static async saveDocument<T = unknown>(
+    docId: string,
+    data: MovementStorage<T>,
+  ): Promise<void> {
     if (!docId) return;
     await FirestoreService.addWithId(this.COLLECTION_NAME, docId, data);
   }
@@ -554,12 +674,19 @@ export class MovimientosFondosService {
   }
 
   private static movementsCollectionRef(docId: string) {
-    return collection(db, this.COLLECTION_NAME, docId, this.MOVEMENTS_SUBCOLLECTION);
+    return collection(
+      db,
+      this.COLLECTION_NAME,
+      docId,
+      this.MOVEMENTS_SUBCOLLECTION,
+    );
   }
 
   static async countMovements(docId: string): Promise<number> {
     if (!docId) return 0;
-    const snapshot = await getCountFromServer(this.movementsCollectionRef(docId));
+    const snapshot = await getCountFromServer(
+      this.movementsCollectionRef(docId),
+    );
     return snapshot.data().count;
   }
 
@@ -576,7 +703,10 @@ export class MovimientosFondosService {
     await setDoc(movementRef, stripUndefinedDeep(record) as any);
   }
 
-  static async deleteMovement(docId: string, movementId: string): Promise<void> {
+  static async deleteMovement(
+    docId: string,
+    movementId: string,
+  ): Promise<void> {
     if (!docId) return;
     if (!movementId) return;
     const movementRef = doc(this.movementsCollectionRef(docId), movementId);
@@ -588,13 +718,16 @@ export class MovimientosFondosService {
    * in the v2 subcollection in a single batch commit. This prevents cases where a movement exists
    * but the aggregated balance document did not update (or vice versa) under intermittent networks.
    */
-  static async commitLedgerAndMovement<TMovement extends Partial<MovementRecordBase>, TStorage = unknown>(
+  static async commitLedgerAndMovement<
+    TMovement extends Partial<MovementRecordBase>,
+    TStorage = unknown,
+  >(
     docId: string,
     ledger: MovementStorage<TStorage>,
     change:
-      | { type: 'upsert'; movement: TMovement & { id: string } }
-      | { type: 'delete'; movementId: string }
-      | { type: 'none' },
+      | { type: "upsert"; movement: TMovement & { id: string } }
+      | { type: "delete"; movementId: string }
+      | { type: "none" },
   ): Promise<void> {
     if (!docId) return;
 
@@ -602,19 +735,23 @@ export class MovimientosFondosService {
     const mainRef = doc(db, this.COLLECTION_NAME, docId);
     batch.set(mainRef, stripUndefinedDeep(ledger) as any);
 
-    if (change.type === 'upsert') {
+    if (change.type === "upsert") {
       const movement = change.movement;
       if (!movement?.id) {
-        throw new Error('[MovimientosFondosService.commitLedgerAndMovement] upsert requires movement.id');
+        throw new Error(
+          "[MovimientosFondosService.commitLedgerAndMovement] upsert requires movement.id",
+        );
       }
       const movementRef = doc(this.movementsCollectionRef(docId), movement.id);
       const record = { ...(movement as Record<string, unknown>) };
       delete (record as any).id;
       batch.set(movementRef, stripUndefinedDeep(record) as any);
-    } else if (change.type === 'delete') {
+    } else if (change.type === "delete") {
       const movementId = change.movementId;
       if (!movementId) {
-        throw new Error('[MovimientosFondosService.commitLedgerAndMovement] delete requires movementId');
+        throw new Error(
+          "[MovimientosFondosService.commitLedgerAndMovement] delete requires movementId",
+        );
       }
       const movementRef = doc(this.movementsCollectionRef(docId), movementId);
       batch.delete(movementRef);
@@ -625,7 +762,9 @@ export class MovimientosFondosService {
 
   static async hasAnyV2Movements(docId: string): Promise<boolean> {
     if (!docId) return false;
-    const snap = await getDocs(query(this.movementsCollectionRef(docId), limit(1)));
+    const snap = await getDocs(
+      query(this.movementsCollectionRef(docId), limit(1)),
+    );
     return !snap.empty;
   }
 
@@ -646,9 +785,16 @@ export class MovimientosFondosService {
     const pageSize = Math.max(1, Math.min(options?.pageSize ?? 100, 100));
     const cursor = options?.cursor ?? null;
 
-    const constraints: QueryConstraint[] = [orderBy('createdAt', 'desc'), limit(pageSize)];
+    const constraints: QueryConstraint[] = [
+      orderBy("createdAt", "desc"),
+      limit(pageSize),
+    ];
     const q: Query<DocumentData> = cursor
-      ? query(this.movementsCollectionRef(docId), ...constraints, startAfter(cursor))
+      ? query(
+          this.movementsCollectionRef(docId),
+          ...constraints,
+          startAfter(cursor),
+        )
       : query(this.movementsCollectionRef(docId), ...constraints);
 
     const snap: QuerySnapshot<DocumentData> = await getDocs(q);
@@ -682,8 +828,8 @@ export class MovimientosFondosService {
   }> {
     if (!docId) return { items: [], cursor: null, exhausted: true };
 
-    const startIso = String(options.startIso || '').trim();
-    const endIsoExclusive = String(options.endIsoExclusive || '').trim();
+    const startIso = String(options.startIso || "").trim();
+    const endIsoExclusive = String(options.endIsoExclusive || "").trim();
     if (!startIso || !endIsoExclusive) {
       return { items: [], cursor: options.cursor ?? null, exhausted: true };
     }
@@ -693,14 +839,18 @@ export class MovimientosFondosService {
     const cursor = options.cursor ?? null;
 
     const constraints: QueryConstraint[] = [
-      where('createdAt', '>=', startIso),
-      where('createdAt', '<', endIsoExclusive),
-      orderBy('createdAt', 'desc'),
+      where("createdAt", ">=", startIso),
+      where("createdAt", "<", endIsoExclusive),
+      orderBy("createdAt", "desc"),
       limit(pageSize),
     ];
 
     const q: Query<DocumentData> = cursor
-      ? query(this.movementsCollectionRef(docId), ...constraints, startAfter(cursor))
+      ? query(
+          this.movementsCollectionRef(docId),
+          ...constraints,
+          startAfter(cursor),
+        )
       : query(this.movementsCollectionRef(docId), ...constraints);
 
     const snap: QuerySnapshot<DocumentData> = await getDocs(q);
@@ -735,9 +885,16 @@ export class MovimientosFondosService {
     let cursor: QueryDocumentSnapshot<DocumentData> | null = null;
 
     for (let page = 0; page < maxPages; page += 1) {
-      const constraints: QueryConstraint[] = [orderBy('createdAt', 'desc'), limit(pageSize)];
+      const constraints: QueryConstraint[] = [
+        orderBy("createdAt", "desc"),
+        limit(pageSize),
+      ];
       const q: Query<DocumentData> = cursor
-        ? query(this.movementsCollectionRef(docId), ...constraints, startAfter(cursor))
+        ? query(
+            this.movementsCollectionRef(docId),
+            ...constraints,
+            startAfter(cursor),
+          )
         : query(this.movementsCollectionRef(docId), ...constraints);
       const snap: QuerySnapshot<DocumentData> = await getDocs(q);
       if (snap.empty) break;
@@ -759,13 +916,13 @@ export class MovimientosFondosService {
     options?: { limitCount?: number },
   ): Promise<Array<T & { id: string }>> {
     if (!docId) return [];
-    const key = String(originalEntryId || '').trim();
+    const key = String(originalEntryId || "").trim();
     if (!key) return [];
 
     const limitCount = Math.max(1, Math.min(options?.limitCount ?? 25, 200));
     const q: Query<DocumentData> = query(
       this.movementsCollectionRef(docId),
-      where('originalEntryId', '==', key),
+      where("originalEntryId", "==", key),
       limit(limitCount),
     );
 
@@ -775,24 +932,38 @@ export class MovimientosFondosService {
     return snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
   }
 
-  private static buildLegacyMovementId(candidate: unknown, index: number): string {
-    const base = candidate && typeof candidate === 'object' ? (candidate as Record<string, unknown>) : {};
-    const createdAt = typeof base.createdAt === 'string' ? base.createdAt : '';
-    const providerCode = typeof base.providerCode === 'string' ? base.providerCode : '';
-    const invoiceNumber = typeof base.invoiceNumber === 'string' ? base.invoiceNumber : '';
-    const amountEgreso = typeof base.amountEgreso === 'number' ? base.amountEgreso : Number(base.amountEgreso ?? 0);
-    const amountIngreso = typeof base.amountIngreso === 'number' ? base.amountIngreso : Number(base.amountIngreso ?? 0);
+  private static buildLegacyMovementId(
+    candidate: unknown,
+    index: number,
+  ): string {
+    const base =
+      candidate && typeof candidate === "object"
+        ? (candidate as Record<string, unknown>)
+        : {};
+    const createdAt = typeof base.createdAt === "string" ? base.createdAt : "";
+    const providerCode =
+      typeof base.providerCode === "string" ? base.providerCode : "";
+    const invoiceNumber =
+      typeof base.invoiceNumber === "string" ? base.invoiceNumber : "";
+    const amountEgreso =
+      typeof base.amountEgreso === "number"
+        ? base.amountEgreso
+        : Number(base.amountEgreso ?? 0);
+    const amountIngreso =
+      typeof base.amountIngreso === "number"
+        ? base.amountIngreso
+        : Number(base.amountIngreso ?? 0);
     const raw = `${createdAt}_${providerCode}_${invoiceNumber}_${amountEgreso}_${amountIngreso}_${index}`;
-    return `legacy_${raw.replace(/[^A-Za-z0-9_-]/g, '-')}`;
+    return `legacy_${raw.replace(/[^A-Za-z0-9_-]/g, "-")}`;
   }
 
   static async migrateLegacyMovementsToV2<T = unknown>(
     docId: string,
     legacyMovements: T[],
-  ): Promise<{ migrated: number }>
-  {
+  ): Promise<{ migrated: number }> {
     if (!docId) return { migrated: 0 };
-    if (!Array.isArray(legacyMovements) || legacyMovements.length === 0) return { migrated: 0 };
+    if (!Array.isArray(legacyMovements) || legacyMovements.length === 0)
+      return { migrated: 0 };
 
     // Batch writes (<=500 ops). Use 450 to stay safe.
     const chunkSize = 450;
@@ -802,10 +973,14 @@ export class MovimientosFondosService {
       const chunk = legacyMovements.slice(offset, offset + chunkSize);
       const batch = writeBatch(db);
       chunk.forEach((raw, idx) => {
-        const record = raw && typeof raw === 'object' ? { ...(raw as Record<string, unknown>) } : {};
-        const id = typeof record.id === 'string' && record.id.trim().length > 0
-          ? record.id.trim()
-          : this.buildLegacyMovementId(record, offset + idx);
+        const record =
+          raw && typeof raw === "object"
+            ? { ...(raw as Record<string, unknown>) }
+            : {};
+        const id =
+          typeof record.id === "string" && record.id.trim().length > 0
+            ? record.id.trim()
+            : this.buildLegacyMovementId(record, offset + idx);
         // Do not duplicate id inside the document.
         delete (record as any).id;
         const ref = doc(this.movementsCollectionRef(docId), id);
@@ -824,7 +999,8 @@ export class MovimientosFondosService {
     options?: { chunkSize?: number },
   ): Promise<{ upserted: number }> {
     if (!docId) return { upserted: 0 };
-    if (!Array.isArray(movements) || movements.length === 0) return { upserted: 0 };
+    if (!Array.isArray(movements) || movements.length === 0)
+      return { upserted: 0 };
 
     // Batch writes (<=500 ops). Use 450 to stay safe.
     const chunkSize = Math.max(1, Math.min(options?.chunkSize ?? 450, 450));
@@ -834,9 +1010,12 @@ export class MovimientosFondosService {
       const chunk = movements.slice(offset, offset + chunkSize);
       const batch = writeBatch(db);
       chunk.forEach((movement) => {
-        const id = typeof movement?.id === 'string' ? movement.id.trim() : '';
+        const id = typeof movement?.id === "string" ? movement.id.trim() : "";
         if (!id) return;
-        const record = movement && typeof movement === 'object' ? { ...(movement as Record<string, unknown>) } : {};
+        const record =
+          movement && typeof movement === "object"
+            ? { ...(movement as Record<string, unknown>) }
+            : {};
         delete (record as any).id;
         const ref = doc(this.movementsCollectionRef(docId), id);
         batch.set(ref, stripUndefinedDeep(record) as any);

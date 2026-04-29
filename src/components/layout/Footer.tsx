@@ -172,38 +172,38 @@ export default function Footer() {
         {/* Menu links */}
         <nav className="w-full max-w-7xl mx-auto mb-2 sm:mb-4 px-0 sm:px-4">
           <div className="flex sm:justify-center gap-3 sm:gap-8 overflow-x-auto sm:overflow-visible px-3 sm:px-0 py-1 sm:py-0 whitespace-nowrap [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-          <a
-            href="#"
-            className="text-sm sm:text-base font-sans font-bold text-[var(--foreground)] hover:text-[var(--tab-hover-text)] transition-colors text-center py-1 px-2 rounded-md hover:bg-[var(--hover-bg)] flex-none"
-          >
-            Home
-          </a>
-          <button
-            type="button"
-            className="text-sm sm:text-base font-sans font-bold text-[var(--foreground)] hover:text-[var(--tab-hover-text)] transition-colors focus:outline-none text-center py-1 px-2 rounded-md hover:bg-[var(--hover-bg)] flex-none"
-            onClick={() => setIsNewsModalOpen(true)}
-          >
-            News
-          </button>
-          <button
-            type="button"
-            className="text-sm sm:text-base font-sans font-bold text-[var(--foreground)] hover:text-[var(--tab-hover-text)] transition-colors focus:outline-none text-center py-1 px-2 rounded-md hover:bg-[var(--hover-bg)] flex-none"
-            onClick={() => setIsAboutModalOpen(true)}
-          >
-            About
-          </button>
-          <a
-            href="#"
-            className="text-sm sm:text-base font-sans font-bold text-[var(--foreground)] hover:text-[var(--tab-hover-text)] transition-colors text-center py-1 px-2 rounded-md hover:bg-[var(--hover-bg)] flex-none"
-          >
-            Contact Us
-          </a>
-          <a
-            href="#"
-            className="text-sm sm:text-base font-sans font-bold text-[var(--foreground)] hover:text-[var(--tab-hover-text)] transition-colors text-center py-1 px-2 rounded-md hover:bg-[var(--hover-bg)] flex-none"
-          >
-            Our Team
-          </a>
+            <a
+              href="#"
+              className="text-sm sm:text-base font-sans font-bold text-[var(--foreground)] hover:text-[var(--tab-hover-text)] transition-colors text-center py-1 px-2 rounded-md hover:bg-[var(--hover-bg)] flex-none"
+            >
+              Home
+            </a>
+            <button
+              type="button"
+              className="text-sm sm:text-base font-sans font-bold text-[var(--foreground)] hover:text-[var(--tab-hover-text)] transition-colors focus:outline-none text-center py-1 px-2 rounded-md hover:bg-[var(--hover-bg)] flex-none"
+              onClick={() => setIsNewsModalOpen(true)}
+            >
+              News
+            </button>
+            <button
+              type="button"
+              className="text-sm sm:text-base font-sans font-bold text-[var(--foreground)] hover:text-[var(--tab-hover-text)] transition-colors focus:outline-none text-center py-1 px-2 rounded-md hover:bg-[var(--hover-bg)] flex-none"
+              onClick={() => setIsAboutModalOpen(true)}
+            >
+              About
+            </button>
+            <a
+              href="#"
+              className="text-sm sm:text-base font-sans font-bold text-[var(--foreground)] hover:text-[var(--tab-hover-text)] transition-colors text-center py-1 px-2 rounded-md hover:bg-[var(--hover-bg)] flex-none"
+            >
+              Contact Us
+            </a>
+            <a
+              href="#"
+              className="text-sm sm:text-base font-sans font-bold text-[var(--foreground)] hover:text-[var(--tab-hover-text)] transition-colors text-center py-1 px-2 rounded-md hover:bg-[var(--hover-bg)] flex-none"
+            >
+              Our Team
+            </a>
           </div>
         </nav>
         {/* News Modal */}
@@ -222,7 +222,8 @@ export default function Footer() {
                   Últimos Cambios
                 </h2>
                 <p className="text-[var(--tab-text)] -mt-2 mb-2 text-center">
-                  Novedades de la versión <span className="font-semibold">v{version}</span>
+                  Novedades de la versión{" "}
+                  <span className="font-semibold">v{version}</span>
                 </p>
 
                 <div className="w-full space-y-3 max-h-[55vh] overflow-y-auto overscroll-contain pr-1">
@@ -339,7 +340,9 @@ export default function Footer() {
             />
 
             <div className="flex flex-col items-center justify-center">
-              <span className="text-[11px] sm:text-xs text-[var(--muted-foreground)]">Sponsored by</span>
+              <span className="text-[11px] sm:text-xs text-[var(--muted-foreground)]">
+                Sponsored by
+              </span>
               <Image
                 src={delikorLogo}
                 alt="Delikor"

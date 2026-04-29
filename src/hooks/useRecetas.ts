@@ -48,7 +48,10 @@ function readSessionRecetasCache(key: string): RecetasCacheRecord | null {
   }
 }
 
-function writeSessionRecetasCache(key: string, record: RecetasCacheRecord): void {
+function writeSessionRecetasCache(
+  key: string,
+  record: RecetasCacheRecord,
+): void {
   if (typeof window === "undefined") return;
   try {
     window.sessionStorage.setItem(key, JSON.stringify(record));
@@ -60,9 +63,15 @@ function writeSessionRecetasCache(key: string, record: RecetasCacheRecord): void
 export function useRecetas(options?: { companyOverride?: string }) {
   const { user, loading: authLoading } = useAuth();
 
-  const companyFromUser = useMemo(() => (user?.ownercompanie || "").trim(), [user?.ownercompanie]);
+  const companyFromUser = useMemo(
+    () => (user?.ownercompanie || "").trim(),
+    [user?.ownercompanie],
+  );
   const isAdminLike = user?.role === "admin" || user?.role === "superadmin";
-  const requestedOverride = useMemo(() => String(options?.companyOverride || "").trim(), [options?.companyOverride]);
+  const requestedOverride = useMemo(
+    () => String(options?.companyOverride || "").trim(),
+    [options?.companyOverride],
+  );
   const company = useMemo(() => {
     if (isAdminLike && requestedOverride) return requestedOverride;
     return companyFromUser;
@@ -91,10 +100,13 @@ export function useRecetas(options?: { companyOverride?: string }) {
       writeSessionRecetasCache(cacheKey, record);
       setLastUpdatedAt(record.updatedAt);
     },
-    [cacheKey]
+    [cacheKey],
   );
 
-  const inFlightFetch = useMemo(() => ({ current: null as Promise<void> | null }), []);
+  const inFlightFetch = useMemo(
+    () => ({ current: null as Promise<void> | null }),
+    [],
+  );
 
   const fetchRecetas = useCallback(async () => {
     if (authLoading) return;
@@ -121,7 +133,8 @@ export function useRecetas(options?: { companyOverride?: string }) {
         setRecetas(data);
         commitCache(data, updatedAt);
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Error al cargar las recetas.";
+        const message =
+          err instanceof Error ? err.message : "Error al cargar las recetas.";
         setError(message);
         console.error("Error fetching recetas:", err);
       } finally {
@@ -135,7 +148,14 @@ export function useRecetas(options?: { companyOverride?: string }) {
     } finally {
       inFlightFetch.current = null;
     }
-  }, [authLoading, commitCache, company, inFlightFetch, noCompanyMessage, user]);
+  }, [
+    authLoading,
+    commitCache,
+    company,
+    inFlightFetch,
+    noCompanyMessage,
+    user,
+  ]);
 
   const addReceta = useCallback(
     async (
@@ -148,7 +168,7 @@ export function useRecetas(options?: { companyOverride?: string }) {
         imagePath?: string;
         imageUrl?: string;
       },
-      callbacks?: MutationCallbacks<RecetaEntry>
+      callbacks?: MutationCallbacks<RecetaEntry>,
     ) => {
       try {
         setError(null);
@@ -157,7 +177,9 @@ export function useRecetas(options?: { companyOverride?: string }) {
         const created = await RecetasService.addReceta(company, input);
         setRecetas((prev) => {
           const next = [...prev.filter((r) => r.id !== created.id), created];
-          next.sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }));
+          next.sort((a, b) =>
+            a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }),
+          );
           commitCache(next);
           return next;
         });
@@ -165,7 +187,8 @@ export function useRecetas(options?: { companyOverride?: string }) {
         callbacks?.onSuccess?.(created);
         return created;
       } catch (err) {
-        const message = err instanceof Error ? err.message : "No se pudo guardar la receta.";
+        const message =
+          err instanceof Error ? err.message : "No se pudo guardar la receta.";
         setError(message);
         console.error("Error adding receta:", err);
         const asError = err instanceof Error ? err : new Error(message);
@@ -173,7 +196,7 @@ export function useRecetas(options?: { companyOverride?: string }) {
         throw asError;
       }
     },
-    [commitCache, company, noCompanyMessage]
+    [commitCache, company, noCompanyMessage],
   );
 
   const removeReceta = useCallback(
@@ -190,7 +213,8 @@ export function useRecetas(options?: { companyOverride?: string }) {
         });
         callbacks?.onSuccess?.(undefined);
       } catch (err) {
-        const message = err instanceof Error ? err.message : "No se pudo eliminar la receta.";
+        const message =
+          err instanceof Error ? err.message : "No se pudo eliminar la receta.";
         setError(message);
         console.error("Error removing receta:", err);
         const asError = err instanceof Error ? err : new Error(message);
@@ -198,7 +222,7 @@ export function useRecetas(options?: { companyOverride?: string }) {
         throw asError;
       }
     },
-    [commitCache, company, noCompanyMessage]
+    [commitCache, company, noCompanyMessage],
   );
 
   const updateReceta = useCallback(
@@ -213,7 +237,7 @@ export function useRecetas(options?: { companyOverride?: string }) {
         imagePath?: string;
         imageUrl?: string;
       },
-      callbacks?: MutationCallbacks<RecetaEntry>
+      callbacks?: MutationCallbacks<RecetaEntry>,
     ) => {
       try {
         setError(null);
@@ -221,8 +245,12 @@ export function useRecetas(options?: { companyOverride?: string }) {
 
         const updated = await RecetasService.updateReceta(company, id, input);
         setRecetas((prev) => {
-          const next = prev.map((r) => (r.id === updated.id ? { ...r, ...updated } : r));
-          next.sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }));
+          const next = prev.map((r) =>
+            r.id === updated.id ? { ...r, ...updated } : r,
+          );
+          next.sort((a, b) =>
+            a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }),
+          );
           commitCache(next);
           return next;
         });
@@ -230,7 +258,10 @@ export function useRecetas(options?: { companyOverride?: string }) {
         callbacks?.onSuccess?.(updated);
         return updated;
       } catch (err) {
-        const message = err instanceof Error ? err.message : "No se pudo actualizar la receta.";
+        const message =
+          err instanceof Error
+            ? err.message
+            : "No se pudo actualizar la receta.";
 
         // Caso común cuando otro usuario eliminó la receta: no mostrar error global,
         // dejar que la UI decida cómo informar (toast + cerrar drawer).
@@ -247,7 +278,7 @@ export function useRecetas(options?: { companyOverride?: string }) {
         throw asError;
       }
     },
-    [commitCache, company, noCompanyMessage]
+    [commitCache, company, noCompanyMessage],
   );
 
   const evictReceta = useCallback(
@@ -260,7 +291,7 @@ export function useRecetas(options?: { companyOverride?: string }) {
         return next;
       });
     },
-    [commitCache]
+    [commitCache],
   );
 
   useEffect(() => {
@@ -288,7 +319,8 @@ export function useRecetas(options?: { companyOverride?: string }) {
       return;
     }
 
-    const cached = recetasMemoryCache.get(cacheKey) ?? readSessionRecetasCache(cacheKey);
+    const cached =
+      recetasMemoryCache.get(cacheKey) ?? readSessionRecetasCache(cacheKey);
     if (cached) {
       // No consultar a DB al ingresar si ya hay cache.
       recetasMemoryCache.set(cacheKey, cached);

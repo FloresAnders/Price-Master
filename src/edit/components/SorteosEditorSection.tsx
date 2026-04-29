@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { FileText } from 'lucide-react';
+import React from "react";
+import { FileText } from "lucide-react";
 
-import type { Sorteo } from '../../types/firestore';
+import type { Sorteo } from "../../types/firestore";
 
 type Props = {
   sorteosData: Sorteo[];
@@ -46,13 +46,18 @@ export default function SorteosEditorSection({
         >
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-start sm:items-center">
             <div className="flex-1 w-full">
-              <label className="block text-sm font-medium mb-1">Nombre del Sorteo:</label>
+              <label className="block text-sm font-medium mb-1">
+                Nombre del Sorteo:
+              </label>
               <input
                 type="text"
                 value={sorteo.name}
-                onChange={(e) => updateSorteo(index, 'name', e.target.value)}
+                onChange={(e) => updateSorteo(index, "name", e.target.value)}
                 className="w-full px-3 py-2 border border-[var(--input-border)] rounded-md"
-                style={{ background: 'var(--input-bg)', color: 'var(--foreground)' }}
+                style={{
+                  background: "var(--input-bg)",
+                  color: "var(--foreground)",
+                }}
                 placeholder="Ingrese el nombre del sorteo"
               />
             </div>

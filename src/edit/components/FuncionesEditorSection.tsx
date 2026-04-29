@@ -1,73 +1,94 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { EmpresasService } from '../../services/empresas';
-import { DELIFOOD_EMPRESA_ID, FuncionesService, getFuncionIdLookupKeys } from '../../services/funciones';
-import { useAuth } from '../../hooks/useAuth';
-import { useActorOwnership } from '../../hooks/useActorOwnership';
-import useToast from '../../hooks/useToast';
-import type { Empresas } from '../../types/firestore';
+import React from "react";
+import { EmpresasService } from "../../services/empresas";
+import {
+  DELIFOOD_EMPRESA_ID,
+  FuncionesService,
+  getFuncionIdLookupKeys,
+} from "../../services/funciones";
+import { useAuth } from "../../hooks/useAuth";
+import { useActorOwnership } from "../../hooks/useActorOwnership";
+import useToast from "../../hooks/useToast";
+import type { Empresas } from "../../types/firestore";
 
-import { EmpresaSearchAddSection } from '@/components/recetas/component/EmpresaSearchAddSection';
-import { Paginacion } from '@/components/recetas/component/Paginacion';
-import { RecetasListContent } from './funciones/RecetasListContent';
-import type { FuncionListItem } from './funciones/RecetasListItems';
-import EmpresaFuncionesModal from './funciones/EmpresaFuncionesModal';
-import { RightDrawer } from '@/components/ui/RightDrawer';
-import ConfirmModal from '@/components/ui/ConfirmModal';
+import { EmpresaSearchAddSection } from "@/components/recetas/component/EmpresaSearchAddSection";
+import { Paginacion } from "@/components/recetas/component/Paginacion";
+import { RecetasListContent } from "./funciones/RecetasListContent";
+import type { FuncionListItem } from "./funciones/RecetasListItems";
+import EmpresaFuncionesModal from "./funciones/EmpresaFuncionesModal";
+import { RightDrawer } from "@/components/ui/RightDrawer";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 
 export default function FuncionesEditorSection() {
   const { user: currentUser, loading: authLoading } = useAuth();
-  const { ownerIds: actorOwnerIds, primaryOwnerId } = useActorOwnership(currentUser);
+  const { ownerIds: actorOwnerIds, primaryOwnerId } =
+    useActorOwnership(currentUser);
   const { showToast } = useToast();
 
   const [ownerEmpresas, setOwnerEmpresas] = React.useState<Empresas[]>([]);
   const [ownerEmpresasLoading, setOwnerEmpresasLoading] = React.useState(false);
-  const [ownerEmpresasError, setOwnerEmpresasError] = React.useState<string | null>(null);
+  const [ownerEmpresasError, setOwnerEmpresasError] = React.useState<
+    string | null
+  >(null);
 
-  const isAdminLike = Boolean(currentUser && currentUser.role !== 'user');
+  const isAdminLike = Boolean(currentUser && currentUser.role !== "user");
 
-  const [selectedEmpresa, setSelectedEmpresa] = React.useState('');
-  const [searchValue, setSearchValue] = React.useState('');
+  const [selectedEmpresa, setSelectedEmpresa] = React.useState("");
+  const [searchValue, setSearchValue] = React.useState("");
 
   // Lista de funciones generales (UI-only por ahora)
-  const [recetasListItems, setRecetasListItems] = React.useState<FuncionListItem[]>([]);
+  const [recetasListItems, setRecetasListItems] = React.useState<
+    FuncionListItem[]
+  >([]);
   const [funcionesLoading, setFuncionesLoading] = React.useState(false);
-  const [funcionesError, setFuncionesError] = React.useState<string | null>(null);
-  const [itemsPerPage, setItemsPerPage] = React.useState<number | 'all'>(10);
+  const [funcionesError, setFuncionesError] = React.useState<string | null>(
+    null,
+  );
+  const [itemsPerPage, setItemsPerPage] = React.useState<number | "all">(10);
   const [currentPage, setCurrentPage] = React.useState(1);
 
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [editingId, setEditingId] = React.useState<string | null>(null);
-  const [draftNombre, setDraftNombre] = React.useState('');
-  const [draftDescripcion, setDraftDescripcion] = React.useState('');
-  const [draftAudience, setDraftAudience] = React.useState<'DELIKOR' | 'DELIFOOD'>('DELIKOR');
+  const [draftNombre, setDraftNombre] = React.useState("");
+  const [draftDescripcion, setDraftDescripcion] = React.useState("");
+  const [draftAudience, setDraftAudience] = React.useState<
+    "DELIKOR" | "DELIFOOD"
+  >("DELIKOR");
   const [draftEmpresaIds, setDraftEmpresaIds] = React.useState<string[]>([]);
   const [draftHasReminder, setDraftHasReminder] = React.useState(false);
-  const [draftReminderTimeCr, setDraftReminderTimeCr] = React.useState('');
+  const [draftReminderTimeCr, setDraftReminderTimeCr] = React.useState("");
   const [formError, setFormError] = React.useState<string | null>(null);
 
-  const [confirmState, setConfirmState] = React.useState<{ open: boolean; id: string; nombre: string }>({
+  const [confirmState, setConfirmState] = React.useState<{
+    open: boolean;
+    id: string;
+    nombre: string;
+  }>({
     open: false,
-    id: '',
-    nombre: '',
+    id: "",
+    nombre: "",
   });
 
   const [empresaModalOpen, setEmpresaModalOpen] = React.useState(false);
-  const [empresaModalEmpresa, setEmpresaModalEmpresa] = React.useState<Empresas | null>(null);
+  const [empresaModalEmpresa, setEmpresaModalEmpresa] =
+    React.useState<Empresas | null>(null);
 
   const debouncedSearch = searchValue.trim().toLowerCase();
   const filteredFunciones = React.useMemo(() => {
     if (!debouncedSearch) return recetasListItems;
     return recetasListItems.filter((item) => {
-      const nombre = String(item?.nombre || '').toLowerCase();
-      const descripcion = String(item?.descripcion || '').toLowerCase();
-      return nombre.includes(debouncedSearch) || descripcion.includes(debouncedSearch);
+      const nombre = String(item?.nombre || "").toLowerCase();
+      const descripcion = String(item?.descripcion || "").toLowerCase();
+      return (
+        nombre.includes(debouncedSearch) ||
+        descripcion.includes(debouncedSearch)
+      );
     });
   }, [debouncedSearch, recetasListItems]);
 
   const totalPages = React.useMemo(() => {
-    if (itemsPerPage === 'all') return 1;
+    if (itemsPerPage === "all") return 1;
     return Math.max(1, Math.ceil(filteredFunciones.length / itemsPerPage));
   }, [filteredFunciones.length, itemsPerPage]);
 
@@ -76,7 +97,7 @@ export default function FuncionesEditorSection() {
   }, [totalPages]);
 
   const paginatedFunciones = React.useMemo(() => {
-    if (itemsPerPage === 'all') return filteredFunciones;
+    if (itemsPerPage === "all") return filteredFunciones;
     const start = (currentPage - 1) * itemsPerPage;
     return filteredFunciones.slice(start, start + itemsPerPage);
   }, [currentPage, filteredFunciones, itemsPerPage]);
@@ -85,7 +106,7 @@ export default function FuncionesEditorSection() {
     // Para “funciones generales” no se selecciona empresa explícitamente.
     // Mantenemos el estado por compatibilidad con EmpresaSearchAddSection.
     if (selectedEmpresa) return;
-    const fromUser = currentUser?.ownercompanie || '';
+    const fromUser = currentUser?.ownercompanie || "";
     if (fromUser) setSelectedEmpresa(fromUser);
   }, [currentUser?.ownercompanie, selectedEmpresa]);
 
@@ -104,7 +125,9 @@ export default function FuncionesEditorSection() {
         const allowed = new Set((actorOwnerIds || []).map((id) => String(id)));
         let filtered = normalized;
         if (allowed.size > 0) {
-          filtered = normalized.filter((e) => e && e.ownerId && allowed.has(String(e.ownerId)));
+          filtered = normalized.filter(
+            (e) => e && e.ownerId && allowed.has(String(e.ownerId)),
+          );
         } else {
           filtered = normalized.filter((e) => {
             if (!e || !e.ownerId) return false;
@@ -116,13 +139,18 @@ export default function FuncionesEditorSection() {
           });
         }
 
-        filtered.sort((a, b) => String(a?.name || '').localeCompare(String(b?.name || ''), 'es'));
+        filtered.sort((a, b) =>
+          String(a?.name || "").localeCompare(String(b?.name || ""), "es"),
+        );
 
         if (cancelled) return;
         setOwnerEmpresas(filtered);
       } catch (err) {
         if (cancelled) return;
-        const msg = err instanceof Error ? err.message : 'No se pudieron cargar las empresas.';
+        const msg =
+          err instanceof Error
+            ? err.message
+            : "No se pudieron cargar las empresas.";
         setOwnerEmpresasError(msg);
         setOwnerEmpresas([]);
       } finally {
@@ -137,26 +165,31 @@ export default function FuncionesEditorSection() {
   }, [actorOwnerIds, authLoading, currentUser]);
 
   const resolvedOwnerId = React.useMemo(() => {
-    const primary = primaryOwnerId ? String(primaryOwnerId) : '';
+    const primary = primaryOwnerId ? String(primaryOwnerId) : "";
     if (primary) return primary;
     if (currentUser?.ownerId) return String(currentUser.ownerId);
     if (currentUser?.id) return String(currentUser.id);
-    return '';
+    return "";
   }, [currentUser?.id, currentUser?.ownerId, primaryOwnerId]);
 
   const empresasScopeOptions = React.useMemo(() => {
-    const ownerId = String(resolvedOwnerId || '').trim();
+    const ownerId = String(resolvedOwnerId || "").trim();
     const list = (ownerEmpresas || [])
       .filter((e) => {
-        const id = String(e?.id || '').trim().toUpperCase();
+        const id = String(e?.id || "")
+          .trim()
+          .toUpperCase();
         if (!id) return false;
         if (id === DELIFOOD_EMPRESA_ID) return false;
-        return !ownerId || String(e?.ownerId || '').trim() === ownerId;
+        return !ownerId || String(e?.ownerId || "").trim() === ownerId;
       })
-      .map((e) => ({ id: String(e?.id || '').trim(), name: String(e?.name || e?.id || '').trim() }))
+      .map((e) => ({
+        id: String(e?.id || "").trim(),
+        name: String(e?.name || e?.id || "").trim(),
+      }))
       .filter((e) => e.id);
 
-    list.sort((a, b) => a.name.localeCompare(b.name, 'es'));
+    list.sort((a, b) => a.name.localeCompare(b.name, "es"));
     return list;
   }, [ownerEmpresas, resolvedOwnerId]);
 
@@ -178,39 +211,44 @@ export default function FuncionesEditorSection() {
 
         const items: FuncionListItem[] = docs
           .map((d) => {
-            const audience: 'DELIKOR' | 'DELIFOOD' =
-              String((d as any).audience || '').toUpperCase() === 'DELIFOOD' ? 'DELIFOOD' : 'DELIKOR';
+            const audience: "DELIKOR" | "DELIFOOD" =
+              String((d as any).audience || "").toUpperCase() === "DELIFOOD"
+                ? "DELIFOOD"
+                : "DELIKOR";
             const empresaIds: string[] = Array.isArray((d as any).empresaIds)
               ? Array.from(
                   new Set(
                     (d as any).empresaIds
                       .map((x: unknown) => String(x).trim())
-                      .filter(Boolean)
-                  )
+                      .filter(Boolean),
+                  ),
                 )
               : [];
 
             return {
-              id: String(d.funcionId || ''),
-              docId: String(d.docId || ''),
-              ownerId: String((d as any).ownerId || ''),
-              nombre: String(d.nombre || ''),
-              descripcion: String(d.descripcion || ''),
-              reminderTimeCr: d.reminderTimeCr ? String(d.reminderTimeCr) : '',
-              createdAt: String(d.createdAt || ''),
+              id: String(d.funcionId || ""),
+              docId: String(d.docId || ""),
+              ownerId: String((d as any).ownerId || ""),
+              nombre: String(d.nombre || ""),
+              descripcion: String(d.descripcion || ""),
+              reminderTimeCr: d.reminderTimeCr ? String(d.reminderTimeCr) : "",
+              createdAt: String(d.createdAt || ""),
               audience,
               empresaIds,
             };
           })
           .filter((x) => x.id && x.docId && x.nombre);
 
-        items.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+        items.sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
 
         if (cancelled) return;
         setRecetasListItems(items);
       } catch (err) {
         if (cancelled) return;
-        const msg = err instanceof Error ? err.message : 'No se pudieron cargar las funciones.';
+        const msg =
+          err instanceof Error
+            ? err.message
+            : "No se pudieron cargar las funciones.";
         setFuncionesError(msg);
         setRecetasListItems([]);
       } finally {
@@ -231,9 +269,14 @@ export default function FuncionesEditorSection() {
 
     void Promise.all(
       ownerEmpresas
-        .map((e) => String(e?.id || '').trim())
+        .map((e) => String(e?.id || "").trim())
         .filter(Boolean)
-        .map((empresaId) => FuncionesService.ensureEmpresaDoc({ ownerId: resolvedOwnerId, empresaId }))
+        .map((empresaId) =>
+          FuncionesService.ensureEmpresaDoc({
+            ownerId: resolvedOwnerId,
+            empresaId,
+          }),
+        ),
     );
   }, [ownerEmpresas, resolvedOwnerId]);
 
@@ -242,37 +285,48 @@ export default function FuncionesEditorSection() {
     setFormError(null);
     setEditingId(null);
     setDraftNombre(searchValue.trim());
-    setDraftDescripcion('');
-    setDraftAudience('DELIKOR');
+    setDraftDescripcion("");
+    setDraftAudience("DELIKOR");
     setDraftEmpresaIds([]);
     setDraftHasReminder(false);
-    setDraftReminderTimeCr('');
+    setDraftReminderTimeCr("");
     setDrawerOpen(true);
   }, [isAdminLike, searchValue]);
 
-  const openEditDrawer = React.useCallback((item: FuncionListItem) => {
-    if (!isAdminLike) return;
-    setFormError(null);
-    setEditingId(item.id);
-    setDraftNombre(String(item.nombre || ''));
-    setDraftDescripcion(String(item.descripcion || ''));
-    setDraftAudience(String(item.audience || '').toUpperCase() === 'DELIFOOD' ? 'DELIFOOD' : 'DELIKOR');
-    setDraftEmpresaIds(Array.isArray(item.empresaIds) ? item.empresaIds.map((x) => String(x).trim()).filter(Boolean) : []);
-    const timeCr = String(item.reminderTimeCr || '').trim();
-    setDraftHasReminder(Boolean(timeCr));
-    setDraftReminderTimeCr(timeCr);
-    setDrawerOpen(true);
-  }, [isAdminLike]);
+  const openEditDrawer = React.useCallback(
+    (item: FuncionListItem) => {
+      if (!isAdminLike) return;
+      setFormError(null);
+      setEditingId(item.id);
+      setDraftNombre(String(item.nombre || ""));
+      setDraftDescripcion(String(item.descripcion || ""));
+      setDraftAudience(
+        String(item.audience || "").toUpperCase() === "DELIFOOD"
+          ? "DELIFOOD"
+          : "DELIKOR",
+      );
+      setDraftEmpresaIds(
+        Array.isArray(item.empresaIds)
+          ? item.empresaIds.map((x) => String(x).trim()).filter(Boolean)
+          : [],
+      );
+      const timeCr = String(item.reminderTimeCr || "").trim();
+      setDraftHasReminder(Boolean(timeCr));
+      setDraftReminderTimeCr(timeCr);
+      setDrawerOpen(true);
+    },
+    [isAdminLike],
+  );
 
   const closeDrawer = React.useCallback(() => {
     setDrawerOpen(false);
     setEditingId(null);
-    setDraftNombre('');
-    setDraftDescripcion('');
-    setDraftAudience('DELIKOR');
+    setDraftNombre("");
+    setDraftDescripcion("");
+    setDraftAudience("DELIKOR");
     setDraftEmpresaIds([]);
     setDraftHasReminder(false);
-    setDraftReminderTimeCr('');
+    setDraftReminderTimeCr("");
     setFormError(null);
   }, []);
 
@@ -283,36 +337,43 @@ export default function FuncionesEditorSection() {
     const name = draftNombre.trim();
     const descripcion = draftDescripcion.trim();
     if (!name) {
-      setFormError('Nombre requerido.');
+      setFormError("Nombre requerido.");
       return;
     }
 
-    const reminderTimeCr = draftHasReminder ? draftReminderTimeCr.trim() : '';
+    const reminderTimeCr = draftHasReminder ? draftReminderTimeCr.trim() : "";
     if (draftHasReminder) {
       if (!reminderTimeCr) {
-        setFormError('Selecciona una hora para el recordatorio.');
+        setFormError("Selecciona una hora para el recordatorio.");
         return;
       }
       if (!/^\d{2}:\d{2}$/.test(reminderTimeCr)) {
-        setFormError('Hora de recordatorio inválida (usa HH:mm).');
+        setFormError("Hora de recordatorio inválida (usa HH:mm).");
         return;
       }
     }
 
     const persist = async () => {
       if (!resolvedOwnerId) {
-        setFormError('No se pudo resolver el ownerId.');
+        setFormError("No se pudo resolver el ownerId.");
         return;
       }
 
-      const existing = editingId ? recetasListItems.find((x) => x.id === editingId) : undefined;
+      const existing = editingId
+        ? recetasListItems.find((x) => x.id === editingId)
+        : undefined;
 
       // If creating new, generate numeric sequential funcionId (0000, 0001, ...)
       const funcionId = editingId
         ? String(editingId)
-        : await FuncionesService.getNextNumericFuncionId({ ownerId: resolvedOwnerId, padLength: 4 });
+        : await FuncionesService.getNextNumericFuncionId({
+            ownerId: resolvedOwnerId,
+            padLength: 4,
+          });
 
-      const createdAtIso = existing?.createdAt ? String(existing.createdAt) : new Date().toISOString();
+      const createdAtIso = existing?.createdAt
+        ? String(existing.createdAt)
+        : new Date().toISOString();
 
       const saved = await FuncionesService.upsertFuncionGeneral({
         previousDocId: existing?.docId || null,
@@ -322,7 +383,7 @@ export default function FuncionesEditorSection() {
         descripcion,
         reminderTimeCr: draftHasReminder ? reminderTimeCr : undefined,
         audience: draftAudience,
-        empresaIds: draftAudience === 'DELIKOR' ? draftEmpresaIds : [],
+        empresaIds: draftAudience === "DELIKOR" ? draftEmpresaIds : [],
         createdAt: createdAtIso,
       });
 
@@ -330,26 +391,34 @@ export default function FuncionesEditorSection() {
       // Regla: DELIFOOD solo puede estar asignada a la empresa DELIFOOD.
       // También, si cambia de DELIFOOD a DELIKOR, se debe quitar de DELIFOOD.
       try {
-        const prevAudience: 'DELIKOR' | 'DELIFOOD' =
-          String(existing?.audience || '').toUpperCase() === 'DELIFOOD' ? 'DELIFOOD' : 'DELIKOR';
-        const nextAudience: 'DELIKOR' | 'DELIFOOD' =
-          String(saved.audience || '').toUpperCase() === 'DELIFOOD' ? 'DELIFOOD' : 'DELIKOR';
-        const funcionIdStr = String(saved.funcionId || '').trim();
+        const prevAudience: "DELIKOR" | "DELIFOOD" =
+          String(existing?.audience || "").toUpperCase() === "DELIFOOD"
+            ? "DELIFOOD"
+            : "DELIKOR";
+        const nextAudience: "DELIKOR" | "DELIFOOD" =
+          String(saved.audience || "").toUpperCase() === "DELIFOOD"
+            ? "DELIFOOD"
+            : "DELIKOR";
+        const funcionIdStr = String(saved.funcionId || "").trim();
 
         const removalKeys = new Set(getFuncionIdLookupKeys(funcionIdStr));
         removalKeys.add(funcionIdStr);
 
         const empresasForOwner = (ownerEmpresas || []).filter(
-          (e) => String(e?.ownerId || '').trim() === String(resolvedOwnerId)
+          (e) => String(e?.ownerId || "").trim() === String(resolvedOwnerId),
         );
         const empresasForOwnerIds = empresasForOwner
-          .map((e) => String(e?.id || '').trim())
+          .map((e) => String(e?.id || "").trim())
           .filter(Boolean);
 
-        const hasDelifoodEmpresa = empresasForOwnerIds.includes(String(DELIFOOD_EMPRESA_ID));
+        const hasDelifoodEmpresa = empresasForOwnerIds.includes(
+          String(DELIFOOD_EMPRESA_ID),
+        );
 
-        if (funcionIdStr && nextAudience === 'DELIFOOD') {
-          const delikorEmpresaIds = empresasForOwnerIds.filter((id) => id && id !== String(DELIFOOD_EMPRESA_ID));
+        if (funcionIdStr && nextAudience === "DELIFOOD") {
+          const delikorEmpresaIds = empresasForOwnerIds.filter(
+            (id) => id && id !== String(DELIFOOD_EMPRESA_ID),
+          );
 
           // Quitar de todas las empresas DELIKOR.
           if (delikorEmpresaIds.length > 0) {
@@ -362,26 +431,33 @@ export default function FuncionesEditorSection() {
 
           // Asegurar que esté asignada a DELIFOOD.
           if (hasDelifoodEmpresa) {
-            const doc = await FuncionesService.getEmpresaFunciones({ empresaId: String(DELIFOOD_EMPRESA_ID) });
+            const doc = await FuncionesService.getEmpresaFunciones({
+              empresaId: String(DELIFOOD_EMPRESA_ID),
+            });
             const current = Array.isArray(doc?.funciones) ? doc!.funciones : [];
             // Normalizar: quitar variantes y dejar solo el canon.
             const currentFiltered = current
               .map((x) => String(x).trim())
               .filter(Boolean)
               .filter((x) => !removalKeys.has(x));
-            const next = Array.from(new Set([...currentFiltered, funcionIdStr])).filter(Boolean);
+            const next = Array.from(
+              new Set([...currentFiltered, funcionIdStr]),
+            ).filter(Boolean);
             await FuncionesService.upsertEmpresaFunciones({
               ownerId: resolvedOwnerId,
               empresaId: String(DELIFOOD_EMPRESA_ID),
               funciones: next,
             });
           } else {
-            showToast('No se encontró la empresa DELIFOOD en tus empresas; no se pudo auto-asignar.', 'warning');
+            showToast(
+              "No se encontró la empresa DELIFOOD en tus empresas; no se pudo auto-asignar.",
+              "warning",
+            );
           }
         }
 
         // Si pasa a DELIKOR: quitar de DELIFOOD y asegurar asignación en empresas objetivo.
-        if (funcionIdStr && nextAudience === 'DELIKOR') {
+        if (funcionIdStr && nextAudience === "DELIKOR") {
           if (hasDelifoodEmpresa) {
             await FuncionesService.removeFuncionFromEmpresas({
               ownerId: resolvedOwnerId,
@@ -394,86 +470,126 @@ export default function FuncionesEditorSection() {
             ? saved.empresaIds.map((x) => String(x).trim()).filter(Boolean)
             : [];
 
-          const delikorEmpresaIds = empresasForOwnerIds.filter((id) => id && id !== String(DELIFOOD_EMPRESA_ID));
-          const ownerEmpresaSet = new Set(delikorEmpresaIds.map((x) => String(x)));
+          const delikorEmpresaIds = empresasForOwnerIds.filter(
+            (id) => id && id !== String(DELIFOOD_EMPRESA_ID),
+          );
+          const ownerEmpresaSet = new Set(
+            delikorEmpresaIds.map((x) => String(x)),
+          );
 
-          const targetEmpresaIds = nextEmpresaIdsRaw.length > 0
-            ? nextEmpresaIdsRaw.filter((id) => ownerEmpresaSet.has(String(id)))
-            : delikorEmpresaIds;
+          const targetEmpresaIds =
+            nextEmpresaIdsRaw.length > 0
+              ? nextEmpresaIdsRaw.filter((id) =>
+                  ownerEmpresaSet.has(String(id)),
+                )
+              : delikorEmpresaIds;
 
           const targetSet = new Set(targetEmpresaIds.map((x) => String(x)));
 
           // Para cada empresa DELIKOR: si está en target => asegurar; si no => remover.
           await Promise.all(
             delikorEmpresaIds.map(async (empresaId) => {
-              const doc = await FuncionesService.getEmpresaFunciones({ empresaId });
-              const current = Array.isArray(doc?.funciones) ? doc!.funciones : [];
-              const currentNorm = current.map((x) => String(x).trim()).filter(Boolean);
+              const doc = await FuncionesService.getEmpresaFunciones({
+                empresaId,
+              });
+              const current = Array.isArray(doc?.funciones)
+                ? doc!.funciones
+                : [];
+              const currentNorm = current
+                .map((x) => String(x).trim())
+                .filter(Boolean);
 
               const shouldHave = targetSet.has(String(empresaId));
               const filtered = currentNorm.filter((x) => !removalKeys.has(x));
               const next = shouldHave
-                ? Array.from(new Set([...filtered, funcionIdStr])).filter(Boolean)
+                ? Array.from(new Set([...filtered, funcionIdStr])).filter(
+                    Boolean,
+                  )
                 : filtered;
 
-              if (next.length === currentNorm.length && next.every((v, i) => v === currentNorm[i])) return;
+              if (
+                next.length === currentNorm.length &&
+                next.every((v, i) => v === currentNorm[i])
+              )
+                return;
 
               await FuncionesService.upsertEmpresaFunciones({
                 ownerId: resolvedOwnerId,
                 empresaId,
                 funciones: next,
               });
-            })
+            }),
           );
         }
 
         // Si solo cambió de DELIKOR a DELIFOOD o viceversa, este bloque lo cubre; el valor prevAudience queda por trazabilidad.
         void prevAudience;
       } catch (err) {
-        const msg = err instanceof Error ? err.message : 'No se pudieron sincronizar asignaciones de la función.';
-        showToast(msg, 'warning');
+        const msg =
+          err instanceof Error
+            ? err.message
+            : "No se pudieron sincronizar asignaciones de la función.";
+        showToast(msg, "warning");
       }
 
       // Auto-asignar solo cuando se crea una función general nueva.
       if (!editingId) {
-        const savedAudience: 'DELIKOR' | 'DELIFOOD' =
-          String(saved.audience || '').toUpperCase() === 'DELIFOOD' ? 'DELIFOOD' : 'DELIKOR';
+        const savedAudience: "DELIKOR" | "DELIFOOD" =
+          String(saved.audience || "").toUpperCase() === "DELIFOOD"
+            ? "DELIFOOD"
+            : "DELIKOR";
         const savedEmpresaIds: string[] = Array.isArray(saved.empresaIds)
           ? saved.empresaIds.map((x) => String(x).trim()).filter(Boolean)
           : [];
 
         const empresasForOwner = (ownerEmpresas || []).filter(
-          (e) => String(e?.ownerId || '').trim() === String(resolvedOwnerId)
+          (e) => String(e?.ownerId || "").trim() === String(resolvedOwnerId),
         );
         const ownerEmpresaIdSet = new Set(
-          empresasForOwner.map((e) => String(e?.id || '').trim()).filter(Boolean)
+          empresasForOwner
+            .map((e) => String(e?.id || "").trim())
+            .filter(Boolean),
         );
 
         let targetEmpresaIds: string[] = [];
-        if (savedAudience === 'DELIFOOD') {
+        if (savedAudience === "DELIFOOD") {
           targetEmpresaIds = [String(DELIFOOD_EMPRESA_ID)];
         } else if (savedEmpresaIds.length > 0) {
-          targetEmpresaIds = savedEmpresaIds.filter((id) => ownerEmpresaIdSet.has(String(id)));
+          targetEmpresaIds = savedEmpresaIds.filter((id) =>
+            ownerEmpresaIdSet.has(String(id)),
+          );
         } else {
           targetEmpresaIds = empresasForOwner
-            .map((e) => String(e?.id || '').trim())
+            .map((e) => String(e?.id || "").trim())
             .filter((id) => id && id !== String(DELIFOOD_EMPRESA_ID));
         }
 
-        const uniqueTargets = Array.from(new Set(targetEmpresaIds.map((x) => String(x).trim()).filter(Boolean)));
+        const uniqueTargets = Array.from(
+          new Set(
+            targetEmpresaIds.map((x) => String(x).trim()).filter(Boolean),
+          ),
+        );
 
         await Promise.all(
           uniqueTargets.map(async (empresaId) => {
-            const doc = await FuncionesService.getEmpresaFunciones({ empresaId });
-            const raw = Array.isArray((doc as any)?.funciones) ? (doc as any).funciones : [];
-            const current = (raw as unknown[]).map((x) => String(x).trim()).filter(Boolean);
-            const next = Array.from(new Set([...current, String(saved.funcionId).trim()])).filter(Boolean);
+            const doc = await FuncionesService.getEmpresaFunciones({
+              empresaId,
+            });
+            const raw = Array.isArray((doc as any)?.funciones)
+              ? (doc as any).funciones
+              : [];
+            const current = (raw as unknown[])
+              .map((x) => String(x).trim())
+              .filter(Boolean);
+            const next = Array.from(
+              new Set([...current, String(saved.funcionId).trim()]),
+            ).filter(Boolean);
             await FuncionesService.upsertEmpresaFunciones({
               ownerId: resolvedOwnerId,
               empresaId,
               funciones: next,
             });
-          })
+          }),
         );
       }
 
@@ -482,46 +598,78 @@ export default function FuncionesEditorSection() {
         docId: saved.docId,
         ownerId: saved.ownerId,
         nombre: saved.nombre,
-        descripcion: saved.descripcion || '',
-        reminderTimeCr: saved.reminderTimeCr ? String(saved.reminderTimeCr) : '',
+        descripcion: saved.descripcion || "",
+        reminderTimeCr: saved.reminderTimeCr
+          ? String(saved.reminderTimeCr)
+          : "",
         createdAt: saved.createdAt,
-        audience: String(saved.audience || '').toUpperCase() === 'DELIFOOD' ? 'DELIFOOD' : 'DELIKOR',
-        empresaIds: Array.isArray(saved.empresaIds) ? saved.empresaIds.map((x) => String(x)) : [],
+        audience:
+          String(saved.audience || "").toUpperCase() === "DELIFOOD"
+            ? "DELIFOOD"
+            : "DELIKOR",
+        empresaIds: Array.isArray(saved.empresaIds)
+          ? saved.empresaIds.map((x) => String(x))
+          : [],
       };
 
       setRecetasListItems((prev) => {
         const without = prev.filter((x) => x.id !== funcionId);
-        return [nextItem, ...without].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+        return [nextItem, ...without].sort((a, b) =>
+          a.nombre.localeCompare(b.nombre, "es"),
+        );
       });
       setCurrentPage(1);
-      setSearchValue('');
-      showToast(editingId ? 'Función actualizada.' : 'Función agregada y asignada automáticamente.', 'success');
+      setSearchValue("");
+      showToast(
+        editingId
+          ? "Función actualizada."
+          : "Función agregada y asignada automáticamente.",
+        "success",
+      );
       closeDrawer();
     };
 
     void persist().catch((err) => {
-      const msg = err instanceof Error ? err.message : 'No se pudo guardar la función.';
+      const msg =
+        err instanceof Error ? err.message : "No se pudo guardar la función.";
       setFormError(msg);
-      showToast(msg, 'error');
+      showToast(msg, "error");
     });
-  }, [closeDrawer, draftAudience, draftDescripcion, draftEmpresaIds, draftHasReminder, draftNombre, draftReminderTimeCr, editingId, isAdminLike, ownerEmpresas, recetasListItems, resolvedOwnerId, showToast]);
+  }, [
+    closeDrawer,
+    draftAudience,
+    draftDescripcion,
+    draftEmpresaIds,
+    draftHasReminder,
+    draftNombre,
+    draftReminderTimeCr,
+    editingId,
+    isAdminLike,
+    ownerEmpresas,
+    recetasListItems,
+    resolvedOwnerId,
+    showToast,
+  ]);
 
-  const openRemoveModal = React.useCallback((id: string, nombreLabel: string) => {
-    setConfirmState({ open: true, id, nombre: nombreLabel });
-  }, []);
+  const openRemoveModal = React.useCallback(
+    (id: string, nombreLabel: string) => {
+      setConfirmState({ open: true, id, nombre: nombreLabel });
+    },
+    [],
+  );
 
   const closeRemoveModal = React.useCallback(() => {
-    setConfirmState({ open: false, id: '', nombre: '' });
+    setConfirmState({ open: false, id: "", nombre: "" });
   }, []);
 
   const confirmRemove = React.useCallback(() => {
-    const idToRemove = String(confirmState.id || '').trim();
+    const idToRemove = String(confirmState.id || "").trim();
     if (!idToRemove) return;
 
     const item = recetasListItems.find((x) => x.id === idToRemove);
     if (!item?.docId) {
       setRecetasListItems((prev) => prev.filter((x) => x.id !== idToRemove));
-      showToast('Función eliminada.', 'success');
+      showToast("Función eliminada.", "success");
       closeRemoveModal();
       return;
     }
@@ -531,7 +679,9 @@ export default function FuncionesEditorSection() {
 
       // Remover id de función de docs por empresa (si estaba asignada)
       if (resolvedOwnerId && ownerEmpresas.length > 0) {
-        const empresaIds = ownerEmpresas.map((e) => String(e?.id || '')).filter(Boolean);
+        const empresaIds = ownerEmpresas
+          .map((e) => String(e?.id || ""))
+          .filter(Boolean);
         await FuncionesService.removeFuncionFromEmpresas({
           ownerId: resolvedOwnerId,
           empresaIds,
@@ -540,36 +690,47 @@ export default function FuncionesEditorSection() {
       }
 
       setRecetasListItems((prev) => prev.filter((x) => x.id !== idToRemove));
-      showToast('Función eliminada.', 'success');
+      showToast("Función eliminada.", "success");
       closeRemoveModal();
     };
 
     void run().catch((err) => {
-      const msg = err instanceof Error ? err.message : 'No se pudo eliminar la función.';
-      showToast(msg, 'error');
+      const msg =
+        err instanceof Error ? err.message : "No se pudo eliminar la función.";
+      showToast(msg, "error");
     });
-  }, [closeRemoveModal, confirmState.id, ownerEmpresas, recetasListItems, resolvedOwnerId, showToast]);
+  }, [
+    closeRemoveModal,
+    confirmState.id,
+    ownerEmpresas,
+    recetasListItems,
+    resolvedOwnerId,
+    showToast,
+  ]);
 
   const openEmpresaModal = React.useCallback(
     (empresa: Empresas) => {
       if (!isAdminLike) {
-        showToast('No tienes permisos para editar funciones por empresa.', 'error');
+        showToast(
+          "No tienes permisos para editar funciones por empresa.",
+          "error",
+        );
         return;
       }
-      const empresaId = String(empresa?.id || '').trim();
+      const empresaId = String(empresa?.id || "").trim();
       if (!empresaId) {
-        showToast('Empresa inválida.', 'error');
+        showToast("Empresa inválida.", "error");
         return;
       }
       if (!resolvedOwnerId) {
-        showToast('No se pudo resolver el ownerId.', 'error');
+        showToast("No se pudo resolver el ownerId.", "error");
         return;
       }
 
       setEmpresaModalEmpresa(empresa);
       setEmpresaModalOpen(true);
     },
-    [isAdminLike, resolvedOwnerId, showToast]
+    [isAdminLike, resolvedOwnerId, showToast],
   );
 
   const closeEmpresaModal = React.useCallback(() => {
@@ -580,7 +741,9 @@ export default function FuncionesEditorSection() {
   return (
     <div className="space-y-3 sm:space-y-4">
       <div className="flex flex-col gap-1">
-        <h4 className="text-base sm:text-lg lg:text-xl font-semibold">Funciones</h4>
+        <h4 className="text-base sm:text-lg lg:text-xl font-semibold">
+          Funciones
+        </h4>
         <p className="text-xs sm:text-sm text-[var(--muted-foreground)]">
           Administra funciones generales por empresa
         </p>
@@ -589,13 +752,17 @@ export default function FuncionesEditorSection() {
       <div className="border border-[var(--input-border)] rounded-lg p-2.5 sm:p-4 lg:p-5">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h5 className="text-sm sm:text-base font-semibold">Empresas a mi cargo</h5>
+            <h5 className="text-sm sm:text-base font-semibold">
+              Empresas a mi cargo
+            </h5>
             <p className="text-[11px] sm:text-xs text-[var(--muted-foreground)] mt-0.5">
               Seleccionar una empresa para editar sus funciones asignadas
             </p>
           </div>
           <div className="text-xs text-[var(--muted-foreground)] whitespace-nowrap">
-            {ownerEmpresasLoading ? 'Cargando…' : `${ownerEmpresas.length} empresa(s)`}
+            {ownerEmpresasLoading
+              ? "Cargando…"
+              : `${ownerEmpresas.length} empresa(s)`}
           </div>
         </div>
 
@@ -603,9 +770,13 @@ export default function FuncionesEditorSection() {
           <div className="mt-2 text-xs text-red-600">{ownerEmpresasError}</div>
         )}
 
-        {!ownerEmpresasLoading && !ownerEmpresasError && ownerEmpresas.length === 0 && (
-          <div className="mt-2 text-xs text-[var(--muted-foreground)]">Sin empresas owner.</div>
-        )}
+        {!ownerEmpresasLoading &&
+          !ownerEmpresasError &&
+          ownerEmpresas.length === 0 && (
+            <div className="mt-2 text-xs text-[var(--muted-foreground)]">
+              Sin empresas owner.
+            </div>
+          )}
 
         {!ownerEmpresasLoading && ownerEmpresas.length > 0 && (
           <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
@@ -617,8 +788,12 @@ export default function FuncionesEditorSection() {
                 className="text-left border border-[var(--input-border)] rounded-md px-3 py-2 bg-[var(--card)] hover:bg-[var(--muted)] transition-colors"
                 aria-label={`Editar funciones de ${e.name}`}
               >
-                <div className="text-sm font-medium text-[var(--foreground)] truncate">{e.name}</div>
-                <div className="text-[11px] text-[var(--muted-foreground)] truncate">{e.ubicacion || '—'}</div>
+                <div className="text-sm font-medium text-[var(--foreground)] truncate">
+                  {e.name}
+                </div>
+                <div className="text-[11px] text-[var(--muted-foreground)] truncate">
+                  {e.ubicacion || "—"}
+                </div>
               </button>
             ))}
           </div>
@@ -626,11 +801,14 @@ export default function FuncionesEditorSection() {
       </div>
 
       <div className="border border-[var(--input-border)] rounded-lg p-2.5 sm:p-4 lg:p-5">
-        <h5 className="text-sm sm:text-base font-semibold mb-2">Funciones generales</h5>
+        <h5 className="text-sm sm:text-base font-semibold mb-2">
+          Funciones generales
+        </h5>
 
         <p className="text-[11px] sm:text-xs text-[var(--muted-foreground)] mb-2">
-          Puedes agregar funciones generales aquí (se asignan automáticamente). Para crear funciones exclusivas, entra a una empresa y usa
-          "Función exclusiva".
+          Puedes agregar funciones generales aquí (se asignan automáticamente).
+          Para crear funciones exclusivas, entra a una empresa y usa
+          {"Función exclusiva"}.
         </p>
 
         <div className="space-y-2">
@@ -639,7 +817,7 @@ export default function FuncionesEditorSection() {
             isAdminLike={isAdminLike}
             userRole={currentUser?.role}
             actorOwnerIds={actorOwnerIds}
-            companyFromUser={currentUser?.ownercompanie || ''}
+            companyFromUser={currentUser?.ownercompanie || ""}
             showEmpresaSelector={false}
             selectedEmpresa={selectedEmpresa}
             setSelectedEmpresa={setSelectedEmpresa}
@@ -658,7 +836,9 @@ export default function FuncionesEditorSection() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2 sm:mb-3">
           <h5 className="text-xs sm:text-sm font-semibold text-[var(--foreground)] leading-tight">
             Lista de funciones
-            <span className="ml-2 text-xs font-medium text-[var(--muted-foreground)]">({filteredFunciones.length})</span>
+            <span className="ml-2 text-xs font-medium text-[var(--muted-foreground)]">
+              ({filteredFunciones.length})
+            </span>
           </h5>
 
           <Paginacion
@@ -690,7 +870,7 @@ export default function FuncionesEditorSection() {
       <RightDrawer
         open={drawerOpen}
         onClose={closeDrawer}
-        title={editingId ? 'Editar función' : 'Agregar función'}
+        title={editingId ? "Editar función" : "Agregar función"}
         footer={
           <div className="flex justify-end gap-2">
             <button
@@ -703,11 +883,15 @@ export default function FuncionesEditorSection() {
           </div>
         }
       >
-        {formError && <div className="mb-4 text-sm text-red-400">{formError}</div>}
+        {formError && (
+          <div className="mb-4 text-sm text-red-400">{formError}</div>
+        )}
 
         <div className="flex flex-col gap-4">
           <div>
-            <label className="block text-xs text-[var(--muted-foreground)] mb-1">Nombre</label>
+            <label className="block text-xs text-[var(--muted-foreground)] mb-1">
+              Nombre
+            </label>
             <input
               className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
               placeholder="Ej: Cajero"
@@ -718,7 +902,9 @@ export default function FuncionesEditorSection() {
           </div>
 
           <div>
-            <label className="block text-xs text-[var(--muted-foreground)] mb-1">Descripción</label>
+            <label className="block text-xs text-[var(--muted-foreground)] mb-1">
+              Descripción
+            </label>
             <textarea
               className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)] min-h-[90px]"
               placeholder="Describe la función (opcional)"
@@ -728,35 +914,46 @@ export default function FuncionesEditorSection() {
           </div>
 
           <div>
-            <label className="block text-xs text-[var(--muted-foreground)] mb-1">Grupo</label>
+            <label className="block text-xs text-[var(--muted-foreground)] mb-1">
+              Grupo
+            </label>
             <select
               className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
               value={draftAudience}
               onChange={(e) => {
-                const next = String(e.target.value || '').toUpperCase() === 'DELIFOOD' ? 'DELIFOOD' : 'DELIKOR';
-                setDraftAudience(next as 'DELIKOR' | 'DELIFOOD');
-                if (next === 'DELIFOOD') setDraftEmpresaIds([]);
+                const next =
+                  String(e.target.value || "").toUpperCase() === "DELIFOOD"
+                    ? "DELIFOOD"
+                    : "DELIKOR";
+                setDraftAudience(next as "DELIKOR" | "DELIFOOD");
+                if (next === "DELIFOOD") setDraftEmpresaIds([]);
               }}
             >
               <option value="DELIKOR">DELIKOR</option>
               <option value="DELIFOOD">DELIFOOD</option>
             </select>
             <div className="mt-1 text-[11px] text-[var(--muted-foreground)]">
-              {draftAudience === 'DELIFOOD'
-                ? 'Las funciones DELIFOOD solo se muestran a la empresa DELIFOOD.'
-                : 'Las funciones DELIKOR se muestran a todas las empresas del ownerId (excepto DELIFOOD), a menos que selecciones empresas específicas.'}
+              {draftAudience === "DELIFOOD"
+                ? "Las funciones DELIFOOD solo se muestran a la empresa DELIFOOD."
+                : "Las funciones DELIKOR se muestran a todas las empresas del ownerId (excepto DELIFOOD), a menos que selecciones empresas específicas."}
             </div>
           </div>
 
-          {draftAudience === 'DELIKOR' ? (
+          {draftAudience === "DELIKOR" ? (
             <div>
-              <label className="block text-xs text-[var(--muted-foreground)] mb-1">Empresas específicas (opcional)</label>
+              <label className="block text-xs text-[var(--muted-foreground)] mb-1">
+                Empresas específicas (opcional)
+              </label>
               {empresasScopeOptions.length === 0 ? (
-                <div className="text-[11px] text-[var(--muted-foreground)]">No hay empresas disponibles para seleccionar.</div>
+                <div className="text-[11px] text-[var(--muted-foreground)]">
+                  No hay empresas disponibles para seleccionar.
+                </div>
               ) : (
                 <div className="max-h-[220px] overflow-auto rounded border border-[var(--input-border)] bg-[var(--background)] p-2">
                   {empresasScopeOptions.map((e) => {
-                    const checked = draftEmpresaIds.map((x) => String(x).trim()).includes(e.id);
+                    const checked = draftEmpresaIds
+                      .map((x) => String(x).trim())
+                      .includes(e.id);
                     return (
                       <label
                         key={e.id}
@@ -769,7 +966,11 @@ export default function FuncionesEditorSection() {
                           onChange={(ev) => {
                             const nextChecked = ev.target.checked;
                             setDraftEmpresaIds((prev) => {
-                              const set = new Set(prev.map((x) => String(x).trim()).filter(Boolean));
+                              const set = new Set(
+                                prev
+                                  .map((x) => String(x).trim())
+                                  .filter(Boolean),
+                              );
                               if (nextChecked) set.add(e.id);
                               else set.delete(e.id);
                               return Array.from(set.values());
@@ -783,7 +984,8 @@ export default function FuncionesEditorSection() {
                 </div>
               )}
               <div className="mt-1 text-[11px] text-[var(--muted-foreground)]">
-                Si no seleccionas ninguna, aplica a todas las empresas (excepto DELIFOOD).
+                Si no seleccionas ninguna, aplica a todas las empresas (excepto
+                DELIFOOD).
               </div>
             </div>
           ) : null}
@@ -797,7 +999,7 @@ export default function FuncionesEditorSection() {
                 onChange={(e) => {
                   const next = e.target.checked;
                   setDraftHasReminder(next);
-                  if (!next) setDraftReminderTimeCr('');
+                  if (!next) setDraftReminderTimeCr("");
                 }}
               />
               Agregar recordatorio
@@ -805,7 +1007,9 @@ export default function FuncionesEditorSection() {
 
             {draftHasReminder ? (
               <div>
-                <label className="block text-xs text-[var(--muted-foreground)] mb-1">Hora (Costa Rica)</label>
+                <label className="block text-xs text-[var(--muted-foreground)] mb-1">
+                  Hora (Costa Rica)
+                </label>
                 <input
                   type="time"
                   step={60}
@@ -824,7 +1028,7 @@ export default function FuncionesEditorSection() {
               className="px-4 py-2 bg-[var(--accent)] text-white rounded disabled:opacity-50"
               disabled={!isAdminLike}
             >
-              {editingId ? 'Guardar cambios' : 'Guardar función'}
+              {editingId ? "Guardar cambios" : "Guardar función"}
             </button>
           </div>
         </div>
@@ -844,8 +1048,8 @@ export default function FuncionesEditorSection() {
 
       <EmpresaFuncionesModal
         open={empresaModalOpen}
-        empresaId={String(empresaModalEmpresa?.id || '')}
-        empresaNombre={String(empresaModalEmpresa?.name || 'Empresa')}
+        empresaId={String(empresaModalEmpresa?.id || "")}
+        empresaNombre={String(empresaModalEmpresa?.name || "Empresa")}
         ownerId={resolvedOwnerId}
         funcionesGenerales={recetasListItems}
         onClose={closeEmpresaModal}

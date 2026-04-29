@@ -281,8 +281,9 @@ const buildDailyClosingStorageKey = (
   account: MovementAccountKey,
 ) => {
   const normalizedCompany = company.trim().toLowerCase();
-  return `${DAILY_CLOSINGS_STORAGE_PREFIX}_${normalizedCompany || "default"
-    }_${account}`;
+  return `${DAILY_CLOSINGS_STORAGE_PREFIX}_${
+    normalizedCompany || "default"
+  }_${account}`;
 };
 
 const sanitizeMoneyNumber = (value: unknown) => {
@@ -808,10 +809,10 @@ export function ProviderSection({ id }: { id?: string }) {
         if (!isMounted) return;
         const filtered = isAdminUser
           ? empresas.filter((emp) => {
-            const owner = (emp.ownerId || "").trim();
-            if (!owner) return false;
-            return allowedOwnerIds.has(owner);
-          })
+              const owner = (emp.ownerId || "").trim();
+              if (!owner) return false;
+              return allowedOwnerIds.has(owner);
+            })
           : empresas;
         setOwnerCompanies(filtered);
         setAdminCompany((current) => {
@@ -1270,8 +1271,8 @@ export function ProviderSection({ id }: { id?: string }) {
             const normalizedUserName = (user?.name || "").trim().toLowerCase();
             const direct = normalizedUserName
               ? matches.find(
-                (name) => name.toLowerCase() === normalizedUserName,
-              )
+                  (name) => name.toLowerCase() === normalizedUserName,
+                )
               : undefined;
             if (direct) return direct;
 
@@ -1983,8 +1984,9 @@ export function ProviderSection({ id }: { id?: string }) {
       <ConfirmModal
         open={confirmState.open}
         title="Eliminar proveedor"
-        message={`Quieres eliminar el proveedor "${confirmState.name || confirmState.code
-          }"? Esta accion no se puede deshacer.`}
+        message={`Quieres eliminar el proveedor "${
+          confirmState.name || confirmState.code
+        }"? Esta accion no se puede deshacer.`}
         confirmText="Eliminar"
         cancelText="Cancelar"
         actionType="delete"
@@ -2169,10 +2171,11 @@ export function ProviderSection({ id }: { id?: string }) {
                     setVisitFrequency("");
                   }
                 }}
-                className={`w-full p-3 bg-[var(--input-bg)] border rounded ${providerTypeError
+                className={`w-full p-3 bg-[var(--input-bg)] border rounded ${
+                  providerTypeError
                     ? "border-red-500"
                     : "border-[var(--input-border)]"
-                  }`}
+                }`}
                 disabled={!company || saving}
               >
                 <option value="">Seleccione un tipo</option>
@@ -2306,10 +2309,11 @@ export function ProviderSection({ id }: { id?: string }) {
                                   toggleVisitDay(day, setVisitCreateDays)
                                 }
                                 title={VISIT_DAY_TITLES[day]}
-                                className={`px-2 py-1 rounded border text-xs transition-colors ${selected
+                                className={`px-2 py-1 rounded border text-xs transition-colors ${
+                                  selected
                                     ? "bg-[var(--accent)] text-white border-[var(--accent)]"
                                     : "bg-[var(--input-bg)] text-[var(--foreground)] border-[var(--input-border)]"
-                                  }`}
+                                }`}
                               >
                                 {day}
                               </button>
@@ -2333,10 +2337,11 @@ export function ProviderSection({ id }: { id?: string }) {
                                   toggleVisitDay(day, setVisitReceiveDays)
                                 }
                                 title={VISIT_DAY_TITLES[day]}
-                                className={`px-2 py-1 rounded border text-xs transition-colors ${selected
+                                className={`px-2 py-1 rounded border text-xs transition-colors ${
+                                  selected
                                     ? "bg-[var(--accent)] text-white border-[var(--accent)]"
                                     : "bg-[var(--input-bg)] text-[var(--foreground)] border-[var(--input-border)]"
-                                  }`}
+                                }`}
                               >
                                 {day}
                               </button>
@@ -2896,10 +2901,10 @@ export function FondoSection({
         if (!isMounted) return;
         const filtered = isAdminUser
           ? empresas.filter((emp) => {
-            const owner = (emp.ownerId || "").trim();
-            if (!owner) return false;
-            return allowedOwnerIds.has(owner);
-          })
+              const owner = (emp.ownerId || "").trim();
+              if (!owner) return false;
+              return allowedOwnerIds.has(owner);
+            })
           : empresas;
         setOwnerCompanies(filtered);
         setAdminCompany((current) => {
@@ -3132,11 +3137,11 @@ export function FondoSection({
     ): Promise<
       | { ok: true; token: string; docId: string }
       | {
-        ok: false;
-        remainingSec: number;
-        lockedKind?: ClosingGuardKind;
-        lockedBy?: string;
-      }
+          ok: false;
+          remainingSec: number;
+          lockedKind?: ClosingGuardKind;
+          lockedBy?: string;
+        }
     > => {
       const docId = buildClosingGuardDocId(normalizedCompany, kind);
       const lockRef = doc(db, "closingGuards", docId);
@@ -4427,8 +4432,8 @@ export function FondoSection({
       try {
         const legacyOwnerKey = resolvedOwnerId
           ? MovimientosFondosService.buildLegacyOwnerMovementsKey(
-            resolvedOwnerId,
-          )
+              resolvedOwnerId,
+            )
           : null;
         const parseTime = (value: string) => {
           const timestamp = Date.parse(value);
@@ -4965,12 +4970,12 @@ export function FondoSection({
         }
         const filtered = bounds
           ? base.filter((record) => {
-            const ts = Date.parse(record?.closingDate ?? "");
-            if (Number.isNaN(ts)) return true;
-            if (ts < bounds.fromTs) return false;
-            if (ts > bounds.toTs) return false;
-            return true;
-          })
+              const ts = Date.parse(record?.closingDate ?? "");
+              if (Number.isNaN(ts)) return true;
+              if (ts < bounds.fromTs) return false;
+              if (ts > bounds.toTs) return false;
+              return true;
+            })
           : base;
         setDailyClosings(filtered);
       } catch (err) {
@@ -4987,12 +4992,12 @@ export function FondoSection({
               const bounds = resolveDailyClosingRangeBounds(resolvedRange);
               const filtered = bounds
                 ? all.filter((record) => {
-                  const ts = Date.parse(record?.closingDate ?? "");
-                  if (Number.isNaN(ts)) return true;
-                  if (ts < bounds.fromTs) return false;
-                  if (ts > bounds.toTs) return false;
-                  return true;
-                })
+                    const ts = Date.parse(record?.closingDate ?? "");
+                    if (Number.isNaN(ts)) return true;
+                    if (ts < bounds.fromTs) return false;
+                    if (ts > bounds.toTs) return false;
+                    return true;
+                  })
                 : all;
               setDailyClosings(filtered);
             } else {
@@ -5258,12 +5263,12 @@ export function FondoSection({
       try {
         const baseStorage = storageSnapshotRef.current
           ? MovimientosFondosService.ensureMovementStorageShape<FondoEntry>(
-            storageSnapshotRef.current,
-            normalizedCompany,
-          )
+              storageSnapshotRef.current,
+              normalizedCompany,
+            )
           : MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(
-            normalizedCompany,
-          );
+              normalizedCompany,
+            );
 
         baseStorage.company = normalizedCompany;
 
@@ -5703,12 +5708,12 @@ export function FondoSection({
         // 3) Ajustar lockedUntil al cierre anterior (o removerlo si ya no hay cierres)
         const baseLedger = storageSnapshotRef.current
           ? MovimientosFondosService.ensureMovementStorageShape<FondoEntry>(
-            storageSnapshotRef.current,
-            normalizedCompany,
-          )
+              storageSnapshotRef.current,
+              normalizedCompany,
+            )
           : ((await MovimientosFondosService.getDocument<FondoEntry>(
-            companyKey,
-          )) ??
+              companyKey,
+            )) ??
             MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(
               normalizedCompany,
             ));
@@ -5975,9 +5980,14 @@ export function FondoSection({
 
     // Validar que no quede con saldo negativo
     if (isEgreso && !editingEntryId && isRegularUser) {
-      const currentBalance = movementCurrency === "USD" ? ledgerSnapshot.currentUSD : ledgerSnapshot.currentCRC;
+      const currentBalance =
+        movementCurrency === "USD"
+          ? ledgerSnapshot.currentUSD
+          : ledgerSnapshot.currentCRC;
       const resultingBalance = currentBalance - egresoValue;
-      console.log(`Validando saldo negativo: currentBalance=${currentBalance}, egresoValue=${egresoValue}, resultingBalance=${resultingBalance}`);
+      console.log(
+        `Validando saldo negativo: currentBalance=${currentBalance}, egresoValue=${egresoValue}, resultingBalance=${resultingBalance}`,
+      );
 
       if (resultingBalance < 0) {
         setNegativeBalanceModal({
@@ -6963,12 +6973,12 @@ export function FondoSection({
       try {
         const baseStorage = storageSnapshotRef.current
           ? MovimientosFondosService.ensureMovementStorageShape<FondoEntry>(
-            storageSnapshotRef.current,
-            normalizedCompany,
-          )
+              storageSnapshotRef.current,
+              normalizedCompany,
+            )
           : MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(
-            normalizedCompany,
-          );
+              normalizedCompany,
+            );
         baseStorage.company = normalizedCompany;
         // V2: movements are stored in a subcollection. Never persist movements array to main doc.
         baseStorage.operations = { movements: [] };
@@ -7462,7 +7472,7 @@ export function FondoSection({
       id: editingDailyClosingId ?? `${Date.now()}`,
       createdAt: editingDailyClosingId
         ? (dailyClosings.find((d) => d.id === editingDailyClosingId)
-          ?.createdAt ?? createdAt)
+            ?.createdAt ?? createdAt)
         : createdAt,
       closingDate: closingDateValue.toISOString(),
       manager: managerName,
@@ -7860,9 +7870,11 @@ export function FondoSection({
           amountEgreso: isPositive ? 0 : Math.abs(diff),
           amountIngreso: isPositive ? diff : 0,
           manager: AUTO_ADJUSTMENT_MANAGER,
-          notes: `AJUSTE APLICADO AL SALDO ACTUAL\n[ALERT_ICON]Diferencia CRC: ${diff >= 0 ? "+ " : "- "
-            }${formatByCurrency("CRC", Math.abs(diff))}.${userNotes ? ` Notas: ${userNotes}` : ""
-            }`,
+          notes: `AJUSTE APLICADO AL SALDO ACTUAL\n[ALERT_ICON]Diferencia CRC: ${
+            diff >= 0 ? "+ " : "- "
+          }${formatByCurrency("CRC", Math.abs(diff))}.${
+            userNotes ? ` Notas: ${userNotes}` : ""
+          }`,
           createdAt,
           accountId: accountKey,
           currency: "CRC",
@@ -7888,9 +7900,11 @@ export function FondoSection({
           amountEgreso: isPositive ? 0 : Math.abs(diff),
           amountIngreso: isPositive ? diff : 0,
           manager: AUTO_ADJUSTMENT_MANAGER,
-          notes: `AJUSTE APLICADO AL SALDO ACTUAL\n[ALERT_ICON]Diferencia USD: ${diff >= 0 ? "+ " : "- "
-            }${formatByCurrency("USD", Math.abs(diff))}.${userNotes ? ` Notas: ${userNotes}` : ""
-            }`,
+          notes: `AJUSTE APLICADO AL SALDO ACTUAL\n[ALERT_ICON]Diferencia USD: ${
+            diff >= 0 ? "+ " : "- "
+          }${formatByCurrency("USD", Math.abs(diff))}.${
+            userNotes ? ` Notas: ${userNotes}` : ""
+          }`,
           createdAt,
           accountId: accountKey,
           currency: "USD",
@@ -7912,8 +7926,9 @@ export function FondoSection({
           amountEgreso: 0,
           amountIngreso: 0,
           manager: AUTO_ADJUSTMENT_MANAGER,
-          notes: `[CHECK_ICON]Sin diferencias.${userNotes ? ` Notas: ${userNotes}` : ""
-            }`,
+          notes: `[CHECK_ICON]Sin diferencias.${
+            userNotes ? ` Notas: ${userNotes}` : ""
+          }`,
           createdAt,
           accountId: accountKey,
           currency: "CRC",
@@ -8056,10 +8071,10 @@ export function FondoSection({
 
           const existingAdjustments = editingDailyClosingId
             ? fondoEntries.filter(
-              (e) =>
-                e.originalEntryId === record.id &&
-                isAutoAdjustmentProvider(e.providerCode),
-            )
+                (e) =>
+                  e.originalEntryId === record.id &&
+                  isAutoAdjustmentProvider(e.providerCode),
+              )
             : [];
 
           const existingByCurrency = new Map<MovementCurrencyKey, FondoEntry>();
@@ -8301,8 +8316,8 @@ export function FondoSection({
             (s, e) =>
               s +
               (e.originalEntryId === record.id &&
-                isAutoAdjustmentProvider(e.providerCode) &&
-                e.currency === "CRC"
+              isAutoAdjustmentProvider(e.providerCode) &&
+              e.currency === "CRC"
                 ? (e.amountIngreso || 0) - (e.amountEgreso || 0)
                 : 0),
             0,
@@ -8311,8 +8326,8 @@ export function FondoSection({
             (s, e) =>
               s +
               (e.originalEntryId === record.id &&
-                isAutoAdjustmentProvider(e.providerCode) &&
-                e.currency === "USD"
+              isAutoAdjustmentProvider(e.providerCode) &&
+              e.currency === "USD"
                 ? (e.amountIngreso || 0) - (e.amountEgreso || 0)
                 : 0),
             0,
@@ -8336,17 +8351,17 @@ export function FondoSection({
               if (d.id !== record.id) return d;
               const existingResolution = d.adjustmentResolution || {};
               const updatedResolution: DailyClosingRecord["adjustmentResolution"] =
-              {
-                ...(existingResolution.removedAdjustments
-                  ? {
-                    removedAdjustments:
-                      existingResolution.removedAdjustments,
-                  }
-                  : {}),
-                note,
-                ...(hasCRCAdjustments ? { postAdjustmentBalanceCRC } : {}),
-                ...(hasUSDAdjustments ? { postAdjustmentBalanceUSD } : {}),
-              };
+                {
+                  ...(existingResolution.removedAdjustments
+                    ? {
+                        removedAdjustments:
+                          existingResolution.removedAdjustments,
+                      }
+                    : {}),
+                  note,
+                  ...(hasCRCAdjustments ? { postAdjustmentBalanceCRC } : {}),
+                  ...(hasUSDAdjustments ? { postAdjustmentBalanceUSD } : {}),
+                };
               return {
                 ...d,
                 adjustmentResolution: updatedResolution,
@@ -9057,21 +9072,21 @@ export function FondoSection({
                 const filteredProviders =
                   providerFilter.length === 0
                     ? [
-                      { code: "all", name: "Todos los proveedores" },
-                      ...providers,
-                    ]
+                        { code: "all", name: "Todos los proveedores" },
+                        ...providers,
+                      ]
                     : [
-                      { code: "all", name: "Todos los proveedores" },
-                      ...providers.filter(
-                        (p) =>
-                          p.name
-                            .toLowerCase()
-                            .includes(providerFilter.toLowerCase()) ||
-                          p.code
-                            .toLowerCase()
-                            .includes(providerFilter.toLowerCase()),
-                      ),
-                    ];
+                        { code: "all", name: "Todos los proveedores" },
+                        ...providers.filter(
+                          (p) =>
+                            p.name
+                              .toLowerCase()
+                              .includes(providerFilter.toLowerCase()) ||
+                            p.code
+                              .toLowerCase()
+                              .includes(providerFilter.toLowerCase()),
+                        ),
+                      ];
                 return filteredProviders.length > 0 ? (
                   <div className="absolute z-10 w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded mt-1 max-h-60 overflow-y-auto shadow-lg">
                     {filteredProviders.map((p) => (
@@ -9126,35 +9141,35 @@ export function FondoSection({
                   label: string;
                   group: string;
                 }> = [
-                    { value: "all", label: "Todos los tipos", group: "" },
-                    ...FONDO_INGRESO_TYPES.map((t) => ({
-                      value: t,
-                      label: formatMovementType(t),
-                      group: "Ingresos",
-                    })),
-                    ...FONDO_GASTO_TYPES.map((t) => ({
-                      value: t,
-                      label: formatMovementType(t),
-                      group: "Gastos",
-                    })),
-                    ...FONDO_EGRESO_TYPES.map((t) => ({
-                      value: t,
-                      label: formatMovementType(t),
-                      group: "Egresos",
-                    })),
-                  ];
+                  { value: "all", label: "Todos los tipos", group: "" },
+                  ...FONDO_INGRESO_TYPES.map((t) => ({
+                    value: t,
+                    label: formatMovementType(t),
+                    group: "Ingresos",
+                  })),
+                  ...FONDO_GASTO_TYPES.map((t) => ({
+                    value: t,
+                    label: formatMovementType(t),
+                    group: "Gastos",
+                  })),
+                  ...FONDO_EGRESO_TYPES.map((t) => ({
+                    value: t,
+                    label: formatMovementType(t),
+                    group: "Egresos",
+                  })),
+                ];
                 const filteredTypes =
                   typeFilter.length === 0
                     ? allTypes
                     : allTypes.filter(
-                      (t) =>
-                        t.label
-                          .toLowerCase()
-                          .includes(typeFilter.toLowerCase()) ||
-                        t.value
-                          .toLowerCase()
-                          .includes(typeFilter.toLowerCase()),
-                    );
+                        (t) =>
+                          t.label
+                            .toLowerCase()
+                            .includes(typeFilter.toLowerCase()) ||
+                          t.value
+                            .toLowerCase()
+                            .includes(typeFilter.toLowerCase()),
+                      );
                 if (filteredTypes.length === 0) return null;
 
                 const groupedTypes = filteredTypes.reduce(
@@ -9354,10 +9369,11 @@ export function FondoSection({
                                   setPageSize("all");
                                   setPageIndex(0);
                                 }}
-                                className={`py-1 rounded ${isSelected
+                                className={`py-1 rounded ${
+                                  isSelected
                                     ? "bg-[var(--accent)] text-white"
                                     : "hover:bg-[var(--muted)]"
-                                  }`}
+                                }`}
                               >
                                 {day}
                               </button>,
@@ -9500,10 +9516,11 @@ export function FondoSection({
                                   setPageSize("all");
                                   setPageIndex(0);
                                 }}
-                                className={`py-1 rounded ${isSelected
+                                className={`py-1 rounded ${
+                                  isSelected
                                     ? "bg-[var(--accent)] text-white"
                                     : "hover:bg-[var(--muted)]"
-                                  }`}
+                                }`}
                               >
                                 {day}
                               </button>,
@@ -9652,10 +9669,11 @@ export function FondoSection({
                   type="button"
                   onClick={handleOpenDailyClosing}
                   disabled={!pendingCierreDeCaja}
-                  className={`flex items-center justify-center gap-1.5 sm:gap-2 rounded px-3 sm:px-4 py-2 sm:py-2.5 text-white text-xs sm:text-sm w-full ${!pendingCierreDeCaja
+                  className={`flex items-center justify-center gap-1.5 sm:gap-2 rounded px-3 sm:px-4 py-2 sm:py-2.5 text-white text-xs sm:text-sm w-full ${
+                    !pendingCierreDeCaja
                       ? "bg-gray-400 cursor-not-allowed opacity-60"
                       : "fg-add-mov-btn"
-                    }`}
+                  }`}
                 >
                   <Banknote className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   <span className="whitespace-nowrap">Registrar cierre</span>
@@ -9677,11 +9695,12 @@ export function FondoSection({
                   (accountKey === "FondoGeneral" && pendingCierreDeCaja) ||
                   !entriesHydrated
                 }
-                className={`flex items-center justify-center gap-1.5 sm:gap-2 rounded px-3 sm:px-4 py-2 sm:py-2.5 text-white text-xs sm:text-sm w-full ${(accountKey === "FondoGeneral" && pendingCierreDeCaja) ||
-                    !entriesHydrated
+                className={`flex items-center justify-center gap-1.5 sm:gap-2 rounded px-3 sm:px-4 py-2 sm:py-2.5 text-white text-xs sm:text-sm w-full ${
+                  (accountKey === "FondoGeneral" && pendingCierreDeCaja) ||
+                  !entriesHydrated
                     ? "bg-gray-400 cursor-not-allowed opacity-60"
                     : "fg-add-mov-btn"
-                  }`}
+                }`}
               >
                 <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 <span className="whitespace-nowrap">Agregar movimiento</span>
@@ -10251,7 +10270,8 @@ export function FondoSection({
                               "providerCode" in after
                             ) {
                               parts.push(
-                                `Proveedor: ${before.providerCode ?? "—"} → ${after.providerCode ?? "—"
+                                `Proveedor: ${before.providerCode ?? "—"} → ${
+                                  after.providerCode ?? "—"
                                 }`,
                               );
                             }
@@ -10260,7 +10280,8 @@ export function FondoSection({
                               "invoiceNumber" in after
                             ) {
                               parts.push(
-                                `Factura: ${before.invoiceNumber ?? "—"} → ${after.invoiceNumber ?? "—"
+                                `Factura: ${before.invoiceNumber ?? "—"} → ${
+                                  after.invoiceNumber ?? "—"
                                 }`,
                               );
                             }
@@ -10269,7 +10290,8 @@ export function FondoSection({
                               "paymentType" in after
                             ) {
                               parts.push(
-                                `Tipo: ${before.paymentType ?? "—"} → ${after.paymentType ?? "—"
+                                `Tipo: ${before.paymentType ?? "—"} → ${
+                                  after.paymentType ?? "—"
                                 }`,
                               );
                             }
@@ -10296,8 +10318,8 @@ export function FondoSection({
                             ) {
                               const beforeAmt = Number(
                                 before.amountEgreso ||
-                                before.amountIngreso ||
-                                0,
+                                  before.amountIngreso ||
+                                  0,
                               );
                               const afterAmt = Number(
                                 after.amountEgreso || after.amountIngreso || 0,
@@ -10320,20 +10342,23 @@ export function FondoSection({
 
                             if ("manager" in before || "manager" in after) {
                               parts.push(
-                                `Encargado: ${before.manager ?? "—"} → ${after.manager ?? "—"
+                                `Encargado: ${before.manager ?? "—"} → ${
+                                  after.manager ?? "—"
                                 }`,
                               );
                             }
                             if ("notes" in before || "notes" in after) {
                               parts.push(
-                                `Notas: "${before.notes ?? ""}" → "${after.notes ?? ""
+                                `Notas: "${before.notes ?? ""}" → "${
+                                  after.notes ?? ""
                                 }"`,
                               );
                             }
 
-                            return `${at}: ${parts.join("; ") ||
+                            return `${at}: ${
+                              parts.join("; ") ||
                               "Editado (sin cambios detectados)"
-                              } `;
+                            } `;
                           });
                           auditTooltip = lines.join("\n");
                         } catch {
@@ -10344,8 +10369,9 @@ export function FondoSection({
                       return (
                         <tr
                           key={fe.id}
-                          className={`border-t border-[var(--input-border)] hover:bg-[var(--muted)] ${isMostRecent ? "bg-[#273238]" : ""
-                            } ${isMovementLocked(fe) ? "opacity-60" : ""}`}
+                          className={`border-t border-[var(--input-border)] hover:bg-[var(--muted)] ${
+                            isMostRecent ? "bg-[#273238]" : ""
+                          } ${isMovementLocked(fe) ? "opacity-60" : ""}`}
                         >
                           <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
                             {formattedDate}
@@ -10442,8 +10468,8 @@ export function FondoSection({
                               (() => {
                                 const closingRecord = fe.originalEntryId
                                   ? dailyClosings.find(
-                                    (d) => d.id === fe.originalEntryId,
-                                  )
+                                      (d) => d.id === fe.originalEntryId,
+                                    )
                                   : null;
 
                                 const hasPersistedClosingBalance =
@@ -10469,10 +10495,11 @@ export function FondoSection({
                                           <ArrowDownRight className="w-4 h-4 text-green-500" />
                                         )}
                                         <span
-                                          className={`font-semibold ${isEntryEgreso
+                                          className={`font-semibold ${
+                                            isEntryEgreso
                                               ? "text-red-500"
                                               : "text-green-600"
-                                            }`}
+                                          }`}
                                         >
                                           {`${amountPrefix} ${formatByCurrency(
                                             entryCurrency,
@@ -10493,15 +10520,15 @@ export function FondoSection({
 
                                 const closingCRC = Math.trunc(
                                   fe.closingBalanceCRC ??
-                                  closingRecord?.totalCRC ??
-                                  closingRecord?.recordedBalanceCRC ??
-                                  0,
+                                    closingRecord?.totalCRC ??
+                                    closingRecord?.recordedBalanceCRC ??
+                                    0,
                                 );
                                 const closingUSD = Math.trunc(
                                   fe.closingBalanceUSD ??
-                                  closingRecord?.totalUSD ??
-                                  closingRecord?.recordedBalanceUSD ??
-                                  0,
+                                    closingRecord?.totalUSD ??
+                                    closingRecord?.recordedBalanceUSD ??
+                                    0,
                                 );
 
                                 return (
@@ -10514,10 +10541,11 @@ export function FondoSection({
                                           <ArrowDownRight className="w-4 h-4 text-green-500" />
                                         )}
                                         <span
-                                          className={`font-semibold ${isEntryEgreso
+                                          className={`font-semibold ${
+                                            isEntryEgreso
                                               ? "text-red-500"
                                               : "text-green-600"
-                                            }`}
+                                          }`}
                                         >
                                           {`${amountPrefix} ${formatByCurrency(
                                             entryCurrency,
@@ -10558,10 +10586,11 @@ export function FondoSection({
                                     <ArrowDownRight className="w-4 h-4 text-green-500" />
                                   )}
                                   <span
-                                    className={`font-semibold ${isEntryEgreso
+                                    className={`font-semibold ${
+                                      isEntryEgreso
                                         ? "text-red-500"
                                         : "text-green-600"
-                                      }`}
+                                    }`}
                                   >
                                     {`${amountPrefix} ${formatByCurrency(
                                       entryCurrency,
@@ -10635,7 +10664,7 @@ export function FondoSection({
                                           }
                                           title={
                                             isCierreVentasRow &&
-                                              isSuperAdminUser
+                                            isSuperAdminUser
                                               ? 'Eliminar "CIERRE FONDO VENTAS" (superadmin)'
                                               : isCierreVentasRow
                                                 ? "Eliminar último cierre de Fondo Ventas"
@@ -10732,12 +10761,13 @@ export function FondoSection({
                                     <div>
                                       Neto:{" "}
                                       <span
-                                        className={`font-semibold ${neto > 0
+                                        className={`font-semibold ${
+                                          neto > 0
                                             ? "text-green-500"
                                             : neto < 0
                                               ? "text-red-500"
                                               : ""
-                                          }`}
+                                        }`}
                                       >
                                         {formatByCurrency(currency, neto)}
                                       </span>
@@ -10855,8 +10885,9 @@ export function FondoSection({
       <ConfirmModal
         open={confirmOpenCreateMovement}
         title="Confirmar empresa y cuenta"
-        message={`Vas a registrar un movimiento en la empresa "${company || ""
-          }" y en la cuenta "${accountKey}". Verifica que sea correcto antes de continuar.`}
+        message={`Vas a registrar un movimiento en la empresa "${
+          company || ""
+        }" y en la cuenta "${accountKey}". Verifica que sea correcto antes de continuar.`}
         confirmText="Continuar"
         cancelText="Cancelar"
         actionType="change"
@@ -10938,8 +10969,9 @@ export function FondoSection({
       <ConfirmModal
         open={confirmDeleteEntry.open}
         title="Eliminar movimiento"
-        message={`¿Está seguro que desea eliminar el movimiento #${confirmDeleteEntry.entry?.invoiceNumber || ""
-          }? Esta acción no se puede deshacer.`}
+        message={`¿Está seguro que desea eliminar el movimiento #${
+          confirmDeleteEntry.entry?.invoiceNumber || ""
+        }? Esta acción no se puede deshacer.`}
         confirmText="Eliminar"
         onConfirm={confirmDeleteMovement}
         onCancel={cancelDeleteMovement}

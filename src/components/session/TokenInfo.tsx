@@ -1,11 +1,22 @@
 // src/components/TokenInfo.tsx
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { Shield, RefreshCw, Eye, EyeOff, Clock, CheckCircle2, AlertTriangle, Plus, Calendar, Timer } from 'lucide-react';
-import { useAuth } from '../../hooks/useAuth';
-import { TokenService } from '../../services/tokenService';
-import type { User } from '../../types/firestore';
+import React, { useState, useEffect } from "react";
+import {
+  Shield,
+  RefreshCw,
+  Eye,
+  EyeOff,
+  Clock,
+  CheckCircle2,
+  AlertTriangle,
+  Plus,
+  Calendar,
+  Timer,
+} from "lucide-react";
+import { useAuth } from "../../hooks/useAuth";
+import { TokenService } from "../../services/tokenService";
+import type { User } from "../../types/firestore";
 
 interface TokenInfoProps {
   isOpen: boolean;
@@ -22,14 +33,20 @@ interface TokenInfoData {
   type?: string;
 }
 
-export default function TokenInfo({ isOpen, onClose, inline = false }: TokenInfoProps) {
+export default function TokenInfo({
+  isOpen,
+  onClose,
+  inline = false,
+}: TokenInfoProps) {
   const { user, useTokenAuth, getFormattedTimeLeft } = useAuth();
   const [showDetails, setShowDetails] = useState(false);
   const [tokenInfo, setTokenInfo] = useState<TokenInfoData | null>(null);
   const [extending, setExtending] = useState(false);
   const [showExtensionControls, setShowExtensionControls] = useState(false);
   const [extensionAmount, setExtensionAmount] = useState(1);
-  const [extensionUnit, setExtensionUnit] = useState<'hours' | 'days' | 'weeks'>('days');
+  const [extensionUnit, setExtensionUnit] = useState<
+    "hours" | "days" | "weeks"
+  >("days");
 
   useEffect(() => {
     if (isOpen && useTokenAuth) {
@@ -47,7 +64,7 @@ export default function TokenInfo({ isOpen, onClose, inline = false }: TokenInfo
         setTokenInfo(info);
       }
     } catch (error) {
-      console.error('Error extending token:', error);
+      console.error("Error extending token:", error);
     } finally {
       setExtending(false);
     }
@@ -59,13 +76,13 @@ export default function TokenInfo({ isOpen, onClose, inline = false }: TokenInfo
       // Convertir la extensión a milisegundos
       let extensionMs = 0;
       switch (extensionUnit) {
-        case 'hours':
+        case "hours":
           extensionMs = extensionAmount * 60 * 60 * 1000;
           break;
-        case 'days':
+        case "days":
           extensionMs = extensionAmount * 24 * 60 * 60 * 1000;
           break;
-        case 'weeks':
+        case "weeks":
           extensionMs = extensionAmount * 7 * 24 * 60 * 60 * 1000;
           break;
       }
@@ -79,7 +96,7 @@ export default function TokenInfo({ isOpen, onClose, inline = false }: TokenInfo
         setShowExtensionControls(false);
       }
     } catch (error) {
-      console.error('Error extending token:', error);
+      console.error("Error extending token:", error);
     } finally {
       setExtending(false);
     }
@@ -96,12 +113,15 @@ export default function TokenInfo({ isOpen, onClose, inline = false }: TokenInfo
 
   const TokenContent = () => (
     <>
-      <div className={`p-4 rounded-lg mb-4 ${isCritical
-        ? 'bg-red-50 border border-red-200 dark:bg-red-900/20 dark:border-red-800'
-        : isWarning
-          ? 'bg-yellow-50 border border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-800'
-          : 'bg-green-50 border border-green-200 dark:bg-green-900/20 dark:border-green-800'
-        }`}>
+      <div
+        className={`p-4 rounded-lg mb-4 ${
+          isCritical
+            ? "bg-red-50 border border-red-200 dark:bg-red-900/20 dark:border-red-800"
+            : isWarning
+              ? "bg-yellow-50 border border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-800"
+              : "bg-green-50 border border-green-200 dark:bg-green-900/20 dark:border-green-800"
+        }`}
+      >
         <div className="flex items-center gap-3 mb-2">
           {isCritical ? (
             <AlertTriangle className="w-5 h-5 text-red-600" />
@@ -110,11 +130,20 @@ export default function TokenInfo({ isOpen, onClose, inline = false }: TokenInfo
           ) : (
             <CheckCircle2 className="w-5 h-5 text-green-600" />
           )}
-          <span className={`font-medium ${isCritical ? 'text-red-800 dark:text-red-200' :
-            isWarning ? 'text-yellow-800 dark:text-yellow-200' :
-              'text-green-800 dark:text-green-200'
-            }`}>
-            {isCritical ? 'Token por expirar' : isWarning ? 'Token expirando pronto' : 'Token activo'}
+          <span
+            className={`font-medium ${
+              isCritical
+                ? "text-red-800 dark:text-red-200"
+                : isWarning
+                  ? "text-yellow-800 dark:text-yellow-200"
+                  : "text-green-800 dark:text-green-200"
+            }`}
+          >
+            {isCritical
+              ? "Token por expirar"
+              : isWarning
+                ? "Token expirando pronto"
+                : "Token activo"}
           </span>
         </div>
 
@@ -122,25 +151,35 @@ export default function TokenInfo({ isOpen, onClose, inline = false }: TokenInfo
           {getFormattedTimeLeft()}
         </div>
         <div className="text-sm text-gray-600 dark:text-gray-400">
-          {daysLeft > 0 ? `${daysLeft} dias restantes` : `${hoursLeft} horas restantes`}
+          {daysLeft > 0
+            ? `${daysLeft} dias restantes`
+            : `${hoursLeft} horas restantes`}
         </div>
       </div>
 
       <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4">
-        <h3 className="font-medium text-gray-900 dark:text-white mb-3">Usuario Autenticado</h3>
+        <h3 className="font-medium text-gray-900 dark:text-white mb-3">
+          Usuario Autenticado
+        </h3>
         <div className="space-y-2 text-sm">
           <div className="flex justify-between">
             <span className="text-gray-600 dark:text-gray-400">Nombre:</span>
-            <span className="font-medium text-gray-900 dark:text-white">{user?.name}</span>
+            <span className="font-medium text-gray-900 dark:text-white">
+              {user?.name}
+            </span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-600 dark:text-gray-400">Rol:</span>
-            <span className="font-medium text-gray-900 dark:text-white">{user?.role}</span>
+            <span className="font-medium text-gray-900 dark:text-white">
+              {user?.role}
+            </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-600 dark:text-gray-400">Empresa asignada:</span>
+            <span className="text-gray-600 dark:text-gray-400">
+              Empresa asignada:
+            </span>
             <span className="font-medium text-gray-900 dark:text-white">
-              {user?.ownercompanie || 'No especificada'}
+              {user?.ownercompanie || "No especificada"}
             </span>
           </div>
         </div>
@@ -151,24 +190,38 @@ export default function TokenInfo({ isOpen, onClose, inline = false }: TokenInfo
           onClick={() => setShowDetails(!showDetails)}
           className="flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors text-sm"
         >
-          {showDetails ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-          {showDetails ? 'Ocultar' : 'Mostrar'} detalles tecnicos
+          {showDetails ? (
+            <EyeOff className="w-4 h-4" />
+          ) : (
+            <Eye className="w-4 h-4" />
+          )}
+          {showDetails ? "Ocultar" : "Mostrar"} detalles tecnicos
         </button>
 
         {showDetails && tokenInfo && (
           <div className="mt-3 bg-gray-100 dark:bg-gray-800 rounded-lg p-3 text-xs font-mono">
             <div className="grid grid-cols-1 gap-2">
               <div>
-                <span className="text-gray-600 dark:text-gray-400">ID de Sesion:</span>
-                <div className="text-gray-900 dark:text-white break-all">{tokenInfo.sessionId}</div>
+                <span className="text-gray-600 dark:text-gray-400">
+                  ID de Sesion:
+                </span>
+                <div className="text-gray-900 dark:text-white break-all">
+                  {tokenInfo.sessionId}
+                </div>
               </div>
               <div>
-                <span className="text-gray-600 dark:text-gray-400">Expira:</span>
-                <div className="text-gray-900 dark:text-white">{tokenInfo.expiresAt?.toLocaleString() || 'N/A'}</div>
+                <span className="text-gray-600 dark:text-gray-400">
+                  Expira:
+                </span>
+                <div className="text-gray-900 dark:text-white">
+                  {tokenInfo.expiresAt?.toLocaleString() || "N/A"}
+                </div>
               </div>
               <div>
                 <span className="text-gray-600 dark:text-gray-400">Tipo:</span>
-                <div className="text-green-600 dark:text-green-400">{tokenInfo.type || 'Token'}</div>
+                <div className="text-green-600 dark:text-green-400">
+                  {tokenInfo.type || "Token"}
+                </div>
               </div>
             </div>
           </div>
@@ -182,7 +235,8 @@ export default function TokenInfo({ isOpen, onClose, inline = false }: TokenInfo
           className="flex items-center gap-2 text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 transition-colors text-sm"
         >
           <Plus className="w-4 h-4" />
-          {showExtensionControls ? 'Ocultar' : 'Mostrar'} extensión personalizada
+          {showExtensionControls ? "Ocultar" : "Mostrar"} extensión
+          personalizada
         </button>
 
         {showExtensionControls && (
@@ -202,7 +256,9 @@ export default function TokenInfo({ isOpen, onClose, inline = false }: TokenInfo
                   min="1"
                   max="52"
                   value={extensionAmount}
-                  onChange={(e) => setExtensionAmount(parseInt(e.target.value) || 1)}
+                  onChange={(e) =>
+                    setExtensionAmount(parseInt(e.target.value) || 1)
+                  }
                   className="w-full px-3 py-2 text-sm border border-green-300 dark:border-green-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-green-500"
                 />
               </div>
@@ -213,7 +269,11 @@ export default function TokenInfo({ isOpen, onClose, inline = false }: TokenInfo
                 </label>
                 <select
                   value={extensionUnit}
-                  onChange={(e) => setExtensionUnit(e.target.value as 'hours' | 'days' | 'weeks')}
+                  onChange={(e) =>
+                    setExtensionUnit(
+                      e.target.value as "hours" | "days" | "weeks",
+                    )
+                  }
                   className="w-full px-3 py-2 text-sm border border-green-300 dark:border-green-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-green-500"
                 >
                   <option value="hours">Horas</option>
@@ -226,10 +286,12 @@ export default function TokenInfo({ isOpen, onClose, inline = false }: TokenInfo
             <div className="flex items-center gap-2 text-xs text-green-700 dark:text-green-300 mb-3">
               <Timer className="w-3 h-3" />
               <span>
-                Tiempo a agregar: {extensionAmount} {
-                  extensionUnit === 'hours' ? 'hora(s)' :
-                    extensionUnit === 'days' ? 'día(s)' : 'semana(s)'
-                }
+                Tiempo a agregar: {extensionAmount}{" "}
+                {extensionUnit === "hours"
+                  ? "hora(s)"
+                  : extensionUnit === "days"
+                    ? "día(s)"
+                    : "semana(s)"}
               </span>
             </div>
 
@@ -238,10 +300,16 @@ export default function TokenInfo({ isOpen, onClose, inline = false }: TokenInfo
               disabled={extending}
               className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
             >
-              <Plus className={`w-4 h-4 ${extending ? 'animate-spin' : ''}`} />
-              {extending ? 'Extendiendo...' : `Extender ${extensionAmount} ${extensionUnit === 'hours' ? 'hora(s)' :
-                extensionUnit === 'days' ? 'día(s)' : 'semana(s)'
-                }`}
+              <Plus className={`w-4 h-4 ${extending ? "animate-spin" : ""}`} />
+              {extending
+                ? "Extendiendo..."
+                : `Extender ${extensionAmount} ${
+                    extensionUnit === "hours"
+                      ? "hora(s)"
+                      : extensionUnit === "days"
+                        ? "día(s)"
+                        : "semana(s)"
+                  }`}
             </button>
           </div>
         )}
@@ -253,8 +321,8 @@ export default function TokenInfo({ isOpen, onClose, inline = false }: TokenInfo
           disabled={extending}
           className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          <RefreshCw className={`w-4 h-4 ${extending ? 'animate-spin' : ''}`} />
-          {extending ? 'Renovando...' : 'Renovar Token (7 dias mas)'}
+          <RefreshCw className={`w-4 h-4 ${extending ? "animate-spin" : ""}`} />
+          {extending ? "Renovando..." : "Renovar Token (7 dias mas)"}
         </button>
         {!inline && (
           <button
@@ -298,8 +366,18 @@ export default function TokenInfo({ isOpen, onClose, inline = false }: TokenInfo
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>

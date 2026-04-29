@@ -19,7 +19,9 @@ function createRowId(): string {
     : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-export function createIngredientRow(values?: Partial<Pick<IngredienteDraft, "productId" | "gramos">>): IngredienteDraft {
+export function createIngredientRow(
+  values?: Partial<Pick<IngredienteDraft, "productId" | "gramos">>,
+): IngredienteDraft {
   return {
     rowId: createRowId(),
     productId: values?.productId ?? "",
@@ -65,9 +67,16 @@ export function IngredientesEditorToReceip(props: {
 
   React.useEffect(() => {
     if (!confirmIngredientRemove.open) return;
-    const stillExists = ingredientes.some((r) => r.rowId === confirmIngredientRemove.rowId);
-    if (!stillExists) setConfirmIngredientRemove({ open: false, rowId: "", label: "" });
-  }, [confirmIngredientRemove.open, confirmIngredientRemove.rowId, ingredientes]);
+    const stillExists = ingredientes.some(
+      (r) => r.rowId === confirmIngredientRemove.rowId,
+    );
+    if (!stillExists)
+      setConfirmIngredientRemove({ open: false, rowId: "", label: "" });
+  }, [
+    confirmIngredientRemove.open,
+    confirmIngredientRemove.rowId,
+    ingredientes,
+  ]);
 
   const openRemoveIngredientModal = (row: IngredienteDraft) => {
     const idLabel = String(row.productId || "").trim();
@@ -122,9 +131,14 @@ export function IngredientesEditorToReceip(props: {
           {ingredientes.map((row, index) => {
             const datalistId = `receta-productos-${index}`;
             return (
-              <div key={row.rowId} className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+              <div
+                key={row.rowId}
+                className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end"
+              >
                 <div className="sm:col-span-7">
-                  <label className="block text-xs text-[var(--muted-foreground)] mb-1">Producto</label>
+                  <label className="block text-xs text-[var(--muted-foreground)] mb-1">
+                    Producto
+                  </label>
                   <input
                     value={row.productId}
                     onChange={(e) => {
@@ -143,25 +157,36 @@ export function IngredientesEditorToReceip(props: {
                     disabled={saving}
                   />
                   <datalist id={datalistId}>
-                    {(activeIngredientIndex === index ? productoResults : []).map((p) => (
+                    {(activeIngredientIndex === index
+                      ? productoResults
+                      : []
+                    ).map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.nombre}
                       </option>
                     ))}
                   </datalist>
                   {activeIngredientIndex === index && productoSearchError && (
-                    <div className="text-xs text-red-400 mt-1">{productoSearchError}</div>
+                    <div className="text-xs text-red-400 mt-1">
+                      {productoSearchError}
+                    </div>
                   )}
                   {activeIngredientIndex === index && productoSearching && (
-                    <div className="text-xs text-[var(--muted-foreground)] mt-1">Buscando…</div>
+                    <div className="text-xs text-[var(--muted-foreground)] mt-1">
+                      Buscando…
+                    </div>
                   )}
                 </div>
 
                 <div className="sm:col-span-3">
-                  <label className="block text-xs text-[var(--muted-foreground)] mb-1">Gramos</label>
+                  <label className="block text-xs text-[var(--muted-foreground)] mb-1">
+                    Gramos
+                  </label>
                   <input
                     value={row.gramos}
-                    onChange={(e) => onUpdateIngredient(index, { gramos: e.target.value })}
+                    onChange={(e) =>
+                      onUpdateIngredient(index, { gramos: e.target.value })
+                    }
                     className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
                     placeholder="Ej: 200"
                     inputMode="decimal"
@@ -175,7 +200,11 @@ export function IngredientesEditorToReceip(props: {
                     className="px-3 py-2 rounded-md border border-[var(--input-border)] hover:bg-[var(--muted)] transition-colors text-sm"
                     type="button"
                     disabled={saving || ingredientes.length <= 1}
-                    title={ingredientes.length <= 1 ? "Debe quedar al menos 1 fila" : "Quitar"}
+                    title={
+                      ingredientes.length <= 1
+                        ? "Debe quedar al menos 1 fila"
+                        : "Quitar"
+                    }
                   >
                     Quitar
                   </button>

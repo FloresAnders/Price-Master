@@ -2,7 +2,7 @@ export interface EmpresaEmpleado {
   Empleado: string;
   hoursPerShift: number;
   extraAmount: number;
-  ccssType: 'TC' | 'MT';
+  ccssType: "TC" | "MT";
   /**
    * Si es true (y amboshorarios no es true), el empleado se muestra solo en CalculoHorasPrecios
    * y se oculta del ControlHorario normal.
@@ -30,7 +30,7 @@ export interface Empleado {
   ownerId?: string;
   // Nombre del empleado
   Empleado: string;
-  ccssType: 'TC' | 'MT' | 'PH'; // Tipo de cotización en CCSS (Tiempo Completo, Medio Tiempo, Pago por Hora)
+  ccssType: "TC" | "MT" | "PH"; // Tipo de cotización en CCSS (Tiempo Completo, Medio Tiempo, Pago por Hora)
 
   // --- Datos adicionales (sección Empleados) ---
   // 1) Pago de hora en bruto
@@ -69,14 +69,14 @@ export interface ProviderEntry {
   name: string;
   company: string;
   type?: string;
-  category?: 'Ingreso' | 'Gasto' | 'Egreso';
+  category?: "Ingreso" | "Gasto" | "Egreso";
   createdAt?: string;
   updatedAt?: string;
   correonotifi?: string;
   visit?: {
-    createOrderDays: Array<'D' | 'L' | 'M' | 'MI' | 'J' | 'V' | 'S'>;
-    receiveOrderDays: Array<'D' | 'L' | 'M' | 'MI' | 'J' | 'V' | 'S'>;
-    frequency: 'SEMANAL' | 'QUINCENAL' | 'MENSUAL' | '22 DIAS';
+    createOrderDays: Array<"D" | "L" | "M" | "MI" | "J" | "V" | "S">;
+    receiveOrderDays: Array<"D" | "L" | "M" | "MI" | "J" | "V" | "S">;
+    frequency: "SEMANAL" | "QUINCENAL" | "MENSUAL" | "22 DIAS";
     /**
      * Date key (ms at local midnight) that anchors the recurrence.
      * Used for non-weekly frequencies (quincenal/22 días/mensual) to decide which weeks apply.
@@ -153,12 +153,12 @@ export interface Sorteo {
   name: string;
 }
 export interface UserPermissions {
-  scanner: boolean;      // Escáner - Escanear códigos de barras
-  calculator: boolean;   // Calculadora - Calcular precios con descuentos
-  converter: boolean;    // Conversor - Convertir y transformar texto
-  xml: boolean;          // XML - Exportación / generación de XML
-  cashcounter: boolean;  // Contador Efectivo - Contar billetes y monedas
-  recetas: boolean;      // Recetas - (en mantenimiento)
+  scanner: boolean; // Escáner - Escanear códigos de barras
+  calculator: boolean; // Calculadora - Calcular precios con descuentos
+  converter: boolean; // Conversor - Convertir y transformar texto
+  xml: boolean; // XML - Exportación / generación de XML
+  cashcounter: boolean; // Contador Efectivo - Contar billetes y monedas
+  recetas: boolean; // Recetas - (en mantenimiento)
   notificaciones: boolean; // Notificaciones - Acceso a notificaciones (sin tarjeta en HomeMenu)
   agregarproductosdeli: boolean; // Agregar productos deli - permiso interno (sin tarjeta)
   timingcontrol: boolean; // Control Tiempos - Registro de venta de tiempos
@@ -166,13 +166,13 @@ export interface UserPermissions {
   calculohorasprecios: boolean; // Calculo horas precios - Cálculo de horas y precios/planilla
   empleados: boolean; // Empleados - Información (próximamente)
   supplierorders: boolean; // Órdenes Proveedor - Gestión de órdenes de proveedores
-  mantenimiento: boolean;  // Mantenimiento - Nueva sección de mantenimiento
+  mantenimiento: boolean; // Mantenimiento - Nueva sección de mantenimiento
   fondogeneral?: boolean; // Fondo General - Acceso a administración del fondo general
   fondogeneralBCR?: boolean; // Fondo General - Acceso a la cuenta BCR
   fondogeneralBN?: boolean; // Fondo General - Acceso a la cuenta BN
   fondogeneralBAC?: boolean; // Fondo General - Acceso a la cuenta BAC
   solicitud?: boolean; // Solicitud - Permiso extra en sección de Mantenimiento
-  scanhistory: boolean;    // Historial General de Escaneos - Ver historial completo de escaneos
+  scanhistory: boolean; // Historial General de Escaneos - Ver historial completo de escaneos
   scanhistoryEmpresas?: string[]; // Empresas específicas para historial de escaneos (almacena company names)
 }
 
@@ -190,7 +190,7 @@ export interface User {
   ownerId?: string;
   // Nombre de la empresa dueña asignada (espacio ownercompanie)
   ownercompanie?: string;
-  role?: 'admin' | 'user' | 'superadmin';
+  role?: "admin" | "user" | "superadmin";
   isActive?: boolean;
   // Campo para marcar eliminación lógica; por defecto false
   eliminate?: boolean;
@@ -216,7 +216,7 @@ export interface ScanResult {
   id?: string;
   code: string;
   timestamp: Date;
-  source: 'mobile' | 'web';
+  source: "mobile" | "web";
   userId?: string;
   userName?: string;
   processed: boolean;
@@ -244,7 +244,7 @@ export interface companies {
 
 export interface FondoMovementTypeConfig {
   id?: string;
-  category: 'INGRESO' | 'GASTO' | 'EGRESO';
+  category: "INGRESO" | "GASTO" | "EGRESO";
   name: string;
   order?: number; // Para mantener el orden de los tipos
   createdAt?: Date;

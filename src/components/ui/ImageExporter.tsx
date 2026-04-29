@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { Image as ImageIcon } from 'lucide-react';
+import React from "react";
+import { Image as ImageIcon } from "lucide-react";
 
 interface ImageExportProps {
   locationName: string;
@@ -14,17 +14,16 @@ export default function ImageExporter({
   locationName,
   employeeName,
   periodLabel,
-  onExportComplete
+  onExportComplete,
 }: ImageExportProps) {
-
   const generateImage = async () => {
     try {
       // Crear un canvas para generar la imagen
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
 
       if (!ctx) {
-        throw new Error('No se pudo crear el contexto del canvas');
+        throw new Error("No se pudo crear el contexto del canvas");
       }
 
       // Configurar tamaño del canvas
@@ -32,63 +31,84 @@ export default function ImageExporter({
       canvas.height = 600;
 
       // Fondo blanco
-      ctx.fillStyle = '#ffffff';
+      ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       // Configurar texto
-      ctx.fillStyle = '#333333';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
+      ctx.fillStyle = "#333333";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
 
       // Título principal
-      ctx.font = 'bold 48px Arial';
-      ctx.fillText('Próximamente', canvas.width / 2, canvas.height / 2 - 50);
+      ctx.font = "bold 48px Arial";
+      ctx.fillText("Próximamente", canvas.width / 2, canvas.height / 2 - 50);
 
       // Información adicional
-      ctx.font = '24px Arial';
-      ctx.fillStyle = '#666666';
-      ctx.fillText(`Ubicación: ${locationName}`, canvas.width / 2, canvas.height / 2 + 20);
+      ctx.font = "24px Arial";
+      ctx.fillStyle = "#666666";
+      ctx.fillText(
+        `Ubicación: ${locationName}`,
+        canvas.width / 2,
+        canvas.height / 2 + 20,
+      );
 
       if (employeeName) {
-        ctx.fillText(`Empleado: ${employeeName}`, canvas.width / 2, canvas.height / 2 + 60);
-        ctx.fillText(`Período: ${periodLabel}`, canvas.width / 2, canvas.height / 2 + 100);
+        ctx.fillText(
+          `Empleado: ${employeeName}`,
+          canvas.width / 2,
+          canvas.height / 2 + 60,
+        );
+        ctx.fillText(
+          `Período: ${periodLabel}`,
+          canvas.width / 2,
+          canvas.height / 2 + 100,
+        );
       } else {
-        ctx.fillText(`Período: ${periodLabel}`, canvas.width / 2, canvas.height / 2 + 60);
+        ctx.fillText(
+          `Período: ${periodLabel}`,
+          canvas.width / 2,
+          canvas.height / 2 + 60,
+        );
       }
 
       // Convertir canvas a blob
-      canvas.toBlob((blob) => {
-        if (!blob) {
-          throw new Error('No se pudo generar la imagen');
-        }
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            throw new Error("No se pudo generar la imagen");
+          }
 
-        // Crear nombre del archivo
-        const cleanLocationName = locationName.replace(/[^a-zA-Z0-9]/g, '');
-        const cleanEmployeeName = employeeName ? employeeName.replace(/[^a-zA-Z0-9]/g, '') : 'TodosLosEmpleados';
-        const cleanPeriodLabel = periodLabel.replace(/[^a-zA-Z0-9]/g, '');
+          // Crear nombre del archivo
+          const cleanLocationName = locationName.replace(/[^a-zA-Z0-9]/g, "");
+          const cleanEmployeeName = employeeName
+            ? employeeName.replace(/[^a-zA-Z0-9]/g, "")
+            : "TodosLosEmpleados";
+          const cleanPeriodLabel = periodLabel.replace(/[^a-zA-Z0-9]/g, "");
 
-        const fileName = `${cleanLocationName}-${cleanEmployeeName}-${cleanPeriodLabel}.jpg`;
+          const fileName = `${cleanLocationName}-${cleanEmployeeName}-${cleanPeriodLabel}.jpg`;
 
-        // Crear URL y descargar
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+          // Crear URL y descargar
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = fileName;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
 
-        // Notificar que se completó la exportación
-        if (onExportComplete) {
-          onExportComplete(`📸 Imagen exportada: ${fileName}`);
-        }
-      }, 'image/jpeg', 0.9);
-
+          // Notificar que se completó la exportación
+          if (onExportComplete) {
+            onExportComplete(`📸 Imagen exportada: ${fileName}`);
+          }
+        },
+        "image/jpeg",
+        0.9,
+      );
     } catch (error) {
-      console.error('Error generating image:', error);
+      console.error("Error generating image:", error);
       if (onExportComplete) {
-        onExportComplete('❌ Error al generar la imagen');
+        onExportComplete("❌ Error al generar la imagen");
       }
     }
   };
@@ -110,14 +130,14 @@ export const useLocationImageExport = (
   locationName: string,
   employees: Array<{ employeeName: string }>,
   periodLabel: string,
-  onExportComplete?: (message: string) => void
+  onExportComplete?: (message: string) => void,
 ) => {
   const exportAllEmployees = async () => {
     try {
       if (employees.length === 0) {
         // Si no hay empleados, exportar solo la ubicación
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
 
         if (!ctx) return;
 
@@ -126,29 +146,37 @@ export const useLocationImageExport = (
         canvas.height = 600;
 
         // Fondo blanco
-        ctx.fillStyle = '#ffffff';
+        ctx.fillStyle = "#ffffff";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         // Configurar texto
-        ctx.fillStyle = '#333333';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
+        ctx.fillStyle = "#333333";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
 
         // Título principal
-        ctx.font = 'bold 48px Arial';
-        ctx.fillText('Próximamente', canvas.width / 2, canvas.height / 2 - 50);
+        ctx.font = "bold 48px Arial";
+        ctx.fillText("Próximamente", canvas.width / 2, canvas.height / 2 - 50);
 
         // Información adicional
-        ctx.font = '24px Arial';
-        ctx.fillStyle = '#666666';
-        ctx.fillText(`Ubicación: ${locationName}`, canvas.width / 2, canvas.height / 2 + 20);
-        ctx.fillText(`Período: ${periodLabel}`, canvas.width / 2, canvas.height / 2 + 50);
+        ctx.font = "24px Arial";
+        ctx.fillStyle = "#666666";
+        ctx.fillText(
+          `Ubicación: ${locationName}`,
+          canvas.width / 2,
+          canvas.height / 2 + 20,
+        );
+        ctx.fillText(
+          `Período: ${periodLabel}`,
+          canvas.width / 2,
+          canvas.height / 2 + 50,
+        );
 
         // Descargar imagen
         canvas.toBlob((blob) => {
           if (blob) {
             const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
+            const a = document.createElement("a");
             a.href = url;
             a.download = `${locationName}-${periodLabel}.png`;
             document.body.appendChild(a);
@@ -157,18 +185,18 @@ export const useLocationImageExport = (
             URL.revokeObjectURL(url);
 
             if (onExportComplete) {
-              onExportComplete('Imagen exportada exitosamente');
+              onExportComplete("Imagen exportada exitosamente");
             }
           }
-        }, 'image/png');
+        }, "image/png");
 
         return;
       }
 
       // Exportar imagen para cada empleado
       for (const employee of employees) {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
 
         if (!ctx) continue;
 
@@ -177,66 +205,89 @@ export const useLocationImageExport = (
         canvas.height = 600;
 
         // Fondo blanco
-        ctx.fillStyle = '#ffffff';
+        ctx.fillStyle = "#ffffff";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         // Configurar texto
-        ctx.fillStyle = '#333333';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
+        ctx.fillStyle = "#333333";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
 
         // Título principal
-        ctx.font = 'bold 48px Arial';
-        ctx.fillText('Próximamente', canvas.width / 2, canvas.height / 2 - 50);
+        ctx.font = "bold 48px Arial";
+        ctx.fillText("Próximamente", canvas.width / 2, canvas.height / 2 - 50);
 
         // Información adicional
-        ctx.font = '24px Arial';
-        ctx.fillStyle = '#666666';
-        ctx.fillText(`Ubicación: ${locationName}`, canvas.width / 2, canvas.height / 2 + 20);
-        ctx.fillText(`Empleado: ${employee.employeeName}`, canvas.width / 2, canvas.height / 2 + 60);
-        ctx.fillText(`Período: ${periodLabel}`, canvas.width / 2, canvas.height / 2 + 100);
+        ctx.font = "24px Arial";
+        ctx.fillStyle = "#666666";
+        ctx.fillText(
+          `Ubicación: ${locationName}`,
+          canvas.width / 2,
+          canvas.height / 2 + 20,
+        );
+        ctx.fillText(
+          `Empleado: ${employee.employeeName}`,
+          canvas.width / 2,
+          canvas.height / 2 + 60,
+        );
+        ctx.fillText(
+          `Período: ${periodLabel}`,
+          canvas.width / 2,
+          canvas.height / 2 + 100,
+        );
 
         // Convertir canvas a blob y descargar
         await new Promise<void>((resolve) => {
-          canvas.toBlob((blob) => {
-            if (!blob) {
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) {
+                resolve();
+                return;
+              }
+
+              // Crear nombre del archivo
+              const cleanLocationName = locationName.replace(
+                /[^a-zA-Z0-9]/g,
+                "",
+              );
+              const cleanEmployeeName = employee.employeeName.replace(
+                /[^a-zA-Z0-9]/g,
+                "",
+              );
+              const cleanPeriodLabel = periodLabel.replace(/[^a-zA-Z0-9]/g, "");
+
+              const fileName = `${cleanLocationName}-${cleanEmployeeName}-${cleanPeriodLabel}.jpg`;
+
+              // Crear URL y descargar
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = fileName;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+
               resolve();
-              return;
-            }
-
-            // Crear nombre del archivo
-            const cleanLocationName = locationName.replace(/[^a-zA-Z0-9]/g, '');
-            const cleanEmployeeName = employee.employeeName.replace(/[^a-zA-Z0-9]/g, '');
-            const cleanPeriodLabel = periodLabel.replace(/[^a-zA-Z0-9]/g, '');
-
-            const fileName = `${cleanLocationName}-${cleanEmployeeName}-${cleanPeriodLabel}.jpg`;
-
-            // Crear URL y descargar
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = fileName;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-
-            resolve();
-          }, 'image/jpeg', 0.9);
+            },
+            "image/jpeg",
+            0.9,
+          );
         });
 
         // Pequeña pausa entre descargas para no saturar el navegador
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
       }
 
       if (onExportComplete) {
-        onExportComplete(`📸 ${employees.length} imágenes exportadas para ${locationName}`);
+        onExportComplete(
+          `📸 ${employees.length} imágenes exportadas para ${locationName}`,
+        );
       }
-
     } catch (error) {
-      console.error('Error exporting location images:', error);
+      console.error("Error exporting location images:", error);
       if (onExportComplete) {
-        onExportComplete('❌ Error al exportar imágenes');
+        onExportComplete("❌ Error al exportar imágenes");
       }
     }
   };

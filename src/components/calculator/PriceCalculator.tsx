@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { Lock as LockIcon } from 'lucide-react';
-import { useAuth } from '../../hooks/useAuth';
-import { hasPermission } from '../../utils/permissions';
+import React, { useState } from "react";
+import { Lock as LockIcon } from "lucide-react";
+import { useAuth } from "../../hooks/useAuth";
+import { hasPermission } from "../../utils/permissions";
 
 interface IVAOption {
   label: string;
@@ -11,26 +11,26 @@ interface IVAOption {
 }
 
 const IVA_OPTIONS: IVAOption[] = [
-  { label: 'EXENTO', value: 0 },
-  { label: '1%', value: 1 },
-  { label: '2%', value: 2 },
-  { label: '13%', value: 13 }
+  { label: "EXENTO", value: 0 },
+  { label: "1%", value: 1 },
+  { label: "2%", value: 2 },
+  { label: "13%", value: 13 },
 ];
 
 export default function PriceCalculator() {
   /* Verificar permisos del usuario */
   const { user } = useAuth();
 
-  const [precioSinIVA, setPrecioSinIVA] = useState<string>('');
-  const [precioConIVA, setPrecioConIVA] = useState<string>('');
+  const [precioSinIVA, setPrecioSinIVA] = useState<string>("");
+  const [precioConIVA, setPrecioConIVA] = useState<string>("");
   const [ivaSeleccionado, setIvaSeleccionado] = useState<number>(13);
-  const [ivaPersonalizado, setIvaPersonalizado] = useState<string>('');
-  const [usandoIvaPersonalizado, setUsandoIvaPersonalizado] = useState<boolean>(false);
-  const [descuento, setDescuento] = useState<string>('');
-  const [utilidad, setUtilidad] = useState<string>('');
-  const [precioFinal, setPrecioFinal] = useState<string>('');
-  const [precioOriginal, setPrecioOriginal] = useState<string>('');
-  const [actualizandoDesde, setActualizandoDesde] = useState<string>('');
+  const [ivaPersonalizado, setIvaPersonalizado] = useState<string>("");
+  const [usandoIvaPersonalizado, setUsandoIvaPersonalizado] =
+    useState<boolean>(false);
+  const [descuento, setDescuento] = useState<string>("");
+  const [utilidad, setUtilidad] = useState<string>("");
+  const [precioFinal, setPrecioFinal] = useState<string>("");
+  const [precioOriginal, setPrecioOriginal] = useState<string>("");
 
   // Función para formatear números sin decimales innecesarios
   const formatearNumero = (valor: string): string => {
@@ -66,144 +66,143 @@ export default function PriceCalculator() {
   };
 
   // Aplicar descuento al precio sin IVA
-  const aplicarDescuento = (sinIVA: number, descuentoPorcentaje: number): number => {
+  const aplicarDescuento = (
+    sinIVA: number,
+    descuentoPorcentaje: number,
+  ): number => {
     return sinIVA * (1 - descuentoPorcentaje / 100);
   };
 
   // Calcular precio final con utilidad (basado en precio con IVA con descuento)
-  const calcularPrecioConUtilidad = (conIVAConDescuento: number, utilidadPorcentaje: number): number => {
-    const precioConUtilidad = conIVAConDescuento * (1 + utilidadPorcentaje / 100);
+  const calcularPrecioConUtilidad = (
+    conIVAConDescuento: number,
+    utilidadPorcentaje: number,
+  ): number => {
+    const precioConUtilidad =
+      conIVAConDescuento * (1 + utilidadPorcentaje / 100);
     return redondearPrecioFinal(precioConUtilidad);
   };
 
   // Calcular utilidad desde precio final (basado en precio con IVA con descuento)
-  const calcularUtilidadDesdePrecioFinal = (precioFinal: number, conIVAConDescuento: number): number => {
+  const calcularUtilidadDesdePrecioFinal = (
+    precioFinal: number,
+    conIVAConDescuento: number,
+  ): number => {
     if (conIVAConDescuento === 0) return 0;
     return ((precioFinal - conIVAConDescuento) / conIVAConDescuento) * 100;
   };
 
-  // Efectos para recalcular automáticamente
-  useEffect(() => {
-    if (actualizandoDesde === 'sinIVA' && precioSinIVA) {
-      const sinIVA = parseFloat(precioSinIVA);
-      if (!isNaN(sinIVA)) {
-        // Solo establecer como precio original si no hay descuento aplicado actualmente
-        // o si es la primera vez que se ingresa un valor
-        const descuentoNum = parseFloat(descuento) || 0;
+  const recalcularDesdeSinIVA = (
+    sinIVA: number,
+    iva: number,
+    utilidadPorcentaje: number,
+  ) => {
+    const conIVA = calcularConIVA(sinIVA, iva);
+    setPrecioConIVA(formatearNumero(conIVA.toFixed(2)));
 
-        if (descuentoNum === 0 || !precioOriginal) {
-          setPrecioOriginal(formatearNumero(sinIVA.toFixed(2)));
-        }
+    const precioFinalCalculado = calcularPrecioConUtilidad(
+      conIVA,
+      utilidadPorcentaje,
+    );
+    setPrecioFinal(formatearNumero(precioFinalCalculado.toString()));
+  };
 
-        // Calcular precio con IVA basado en el precio sin IVA actual
-        const conIVA = calcularConIVA(sinIVA, ivaSeleccionado);
-        setPrecioConIVA(formatearNumero(conIVA.toFixed(2)));
+  const recalcularDesdeConIVA = (
+    conIVA: number,
+    iva: number,
+    utilidadPorcentaje: number,
+  ) => {
+    const sinIVA = calcularSinIVA(conIVA, iva);
+    setPrecioSinIVA(formatearNumero(sinIVA.toFixed(2)));
 
-        // Calcular precio final con utilidad
-        const utilidadNum = parseFloat(utilidad) || 0;
-        const precioFinalCalculado = calcularPrecioConUtilidad(conIVA, utilidadNum);
-        setPrecioFinal(formatearNumero(precioFinalCalculado.toString()));
-      }
-    }
-  }, [precioSinIVA, ivaSeleccionado, utilidad, actualizandoDesde]); // eslint-disable-line react-hooks/exhaustive-deps
+    const precioFinalCalculado = calcularPrecioConUtilidad(
+      conIVA,
+      utilidadPorcentaje,
+    );
+    setPrecioFinal(formatearNumero(precioFinalCalculado.toString()));
+  };
 
-  // Efecto separado para manejar cambios en el descuento
-  useEffect(() => {
-    if (actualizandoDesde === 'descuento' && precioOriginal) {
-      const sinIVAOriginal = parseFloat(precioOriginal);
-      const descuentoNum = parseFloat(descuento) || 0;
+  const aplicarDescuentoYRecalcular = (
+    iva: number,
+    descuentoPorcentaje: number,
+    utilidadPorcentaje: number,
+  ) => {
+    const sinIVAOriginal = parseFloat(precioOriginal);
+    if (Number.isNaN(sinIVAOriginal)) return;
 
-      if (!isNaN(sinIVAOriginal)) {
-        if (descuentoNum > 0) {
-          const sinIVAConDescuento = aplicarDescuento(sinIVAOriginal, descuentoNum);
+    const sinIVAConDescuento =
+      descuentoPorcentaje > 0
+        ? aplicarDescuento(sinIVAOriginal, descuentoPorcentaje)
+        : sinIVAOriginal;
 
-          // Actualizar precio sin IVA con el descuento aplicado
-          setPrecioSinIVA(formatearNumero(sinIVAConDescuento.toFixed(2)));
-
-          // Calcular precio con IVA
-          const conIVAConDescuento = calcularConIVA(sinIVAConDescuento, ivaSeleccionado);
-          setPrecioConIVA(formatearNumero(conIVAConDescuento.toFixed(2)));
-
-          // Calcular precio final con utilidad
-          const utilidadNum = parseFloat(utilidad) || 0;
-          const precioFinalCalculado = calcularPrecioConUtilidad(conIVAConDescuento, utilidadNum);
-          setPrecioFinal(formatearNumero(precioFinalCalculado.toString()));
-        } else {
-          // Sin descuento, restaurar precio original
-          setPrecioSinIVA(formatearNumero(sinIVAOriginal.toFixed(2)));
-
-          // Recalcular todo sin descuento
-          const conIVA = calcularConIVA(sinIVAOriginal, ivaSeleccionado);
-          setPrecioConIVA(formatearNumero(conIVA.toFixed(2)));
-
-          const utilidadNum = parseFloat(utilidad) || 0;
-          const precioFinalCalculado = calcularPrecioConUtilidad(conIVA, utilidadNum);
-          setPrecioFinal(formatearNumero(precioFinalCalculado.toString()));
-        }
-      }
-    }
-  }, [descuento, actualizandoDesde, precioOriginal, ivaSeleccionado, utilidad]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (actualizandoDesde === 'conIVA' && precioConIVA) {
-      const conIVA = parseFloat(precioConIVA);
-      if (!isNaN(conIVA)) {
-        const sinIVA = calcularSinIVA(conIVA, ivaSeleccionado);
-        setPrecioSinIVA(formatearNumero(sinIVA.toFixed(2)));
-
-        // NO establecer precio original cuando se calcula desde conIVA
-        // Solo calcular precio final con utilidad
-        const utilidadNum = parseFloat(utilidad) || 0;
-        const precioFinalCalculado = calcularPrecioConUtilidad(conIVA, utilidadNum);
-        setPrecioFinal(formatearNumero(precioFinalCalculado.toString()));
-      }
-    }
-  }, [precioConIVA, ivaSeleccionado, utilidad, actualizandoDesde]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (actualizandoDesde === 'precioFinal' && precioFinal && precioSinIVA) {
-      const pFinal = parseFloat(precioFinal);
-      const sinIVA = parseFloat(precioSinIVA);
-      if (!isNaN(pFinal) && !isNaN(sinIVA)) {
-        const descuentoNum = parseFloat(descuento) || 0;
-        let conIVAParaCalculo;
-
-        if (descuentoNum > 0) {
-          // Si hay descuento, usar el precio sin IVA actual (ya con descuento)
-          conIVAParaCalculo = calcularConIVA(sinIVA, ivaSeleccionado);
-        } else {
-          // Sin descuento, usar el precio con IVA actual
-          conIVAParaCalculo = parseFloat(precioConIVA);
-        }
-
-        const utilidadCalculada = calcularUtilidadDesdePrecioFinal(pFinal, conIVAParaCalculo);
-        setUtilidad(formatearNumero(utilidadCalculada.toFixed(2)));
-      }
-    }
-  }, [precioFinal, precioSinIVA, precioConIVA, ivaSeleccionado, actualizandoDesde]); // eslint-disable-line react-hooks/exhaustive-deps
+    setPrecioSinIVA(formatearNumero(sinIVAConDescuento.toFixed(2)));
+    recalcularDesdeSinIVA(sinIVAConDescuento, iva, utilidadPorcentaje);
+  };
 
   const handlePrecioSinIVAChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setPrecioSinIVA(e.target.value);
-    setActualizandoDesde('sinIVA');
+    const value = e.target.value;
+    setPrecioSinIVA(value);
+
+    const sinIVA = parseFloat(value);
+    if (Number.isNaN(sinIVA)) return;
+
+    const descuentoNum = parseFloat(descuento) || 0;
+    if (descuentoNum === 0 || !precioOriginal) {
+      setPrecioOriginal(formatearNumero(sinIVA.toFixed(2)));
+    }
+
+    const utilidadNum = parseFloat(utilidad) || 0;
+    recalcularDesdeSinIVA(sinIVA, ivaSeleccionado, utilidadNum);
   };
 
   const establecerNuevoPrecioOriginal = () => {
     if (precioSinIVA) {
-      setPrecioOriginal(precioSinIVA);
-      // Limpiar descuento para evitar confusión
-      setDescuento('');
-      setActualizandoDesde('sinIVA');
+      const sinIVA = parseFloat(precioSinIVA);
+      if (Number.isNaN(sinIVA)) return;
+
+      setPrecioOriginal(formatearNumero(sinIVA.toFixed(2)));
+      setDescuento("");
+
+      const utilidadNum = parseFloat(utilidad) || 0;
+      recalcularDesdeSinIVA(sinIVA, ivaSeleccionado, utilidadNum);
     }
   };
 
   const handlePrecioConIVAChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setPrecioConIVA(e.target.value);
-    setActualizandoDesde('conIVA');
+    const value = e.target.value;
+    setPrecioConIVA(value);
+
+    const conIVA = parseFloat(value);
+    if (Number.isNaN(conIVA)) return;
+
+    const utilidadNum = parseFloat(utilidad) || 0;
+    recalcularDesdeConIVA(conIVA, ivaSeleccionado, utilidadNum);
   };
 
   const handlePrecioFinalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setPrecioFinal(e.target.value);
-    setActualizandoDesde('precioFinal');
+    const value = e.target.value;
+    setPrecioFinal(value);
+
+    const pFinal = parseFloat(value);
+    if (Number.isNaN(pFinal)) return;
+
+    const descuentoNum = parseFloat(descuento) || 0;
+    const sinIVA = parseFloat(precioSinIVA);
+
+    let conIVAParaCalculo: number | null = null;
+    if (descuentoNum > 0 && !Number.isNaN(sinIVA)) {
+      conIVAParaCalculo = calcularConIVA(sinIVA, ivaSeleccionado);
+    } else {
+      const conIVA = parseFloat(precioConIVA);
+      conIVAParaCalculo = Number.isNaN(conIVA) ? null : conIVA;
+    }
+
+    if (!conIVAParaCalculo) return;
+    const utilidadCalculada = calcularUtilidadDesdePrecioFinal(
+      pFinal,
+      conIVAParaCalculo,
+    );
+    setUtilidad(formatearNumero(utilidadCalculada.toFixed(2)));
   };
 
   const handleDescuentoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -212,30 +211,58 @@ export default function PriceCalculator() {
   };
 
   const handleDescuentoKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      setActualizandoDesde('descuento');
+    if (e.key === "Enter") {
+      const descuentoNum = parseFloat(descuento) || 0;
+      const utilidadNum = parseFloat(utilidad) || 0;
+      if (precioOriginal) {
+        aplicarDescuentoYRecalcular(ivaSeleccionado, descuentoNum, utilidadNum);
+      }
     }
   };
 
   const handleUtilidadChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setUtilidad(e.target.value);
-    if (precioSinIVA) {
-      setActualizandoDesde('sinIVA');
+    const value = e.target.value;
+    setUtilidad(value);
+
+    const utilidadNum = parseFloat(value) || 0;
+
+    const conIVA = parseFloat(precioConIVA);
+    if (!Number.isNaN(conIVA)) {
+      const precioFinalCalculado = calcularPrecioConUtilidad(
+        conIVA,
+        utilidadNum,
+      );
+      setPrecioFinal(formatearNumero(precioFinalCalculado.toString()));
+      return;
+    }
+
+    const sinIVA = parseFloat(precioSinIVA);
+    if (!Number.isNaN(sinIVA)) {
+      recalcularDesdeSinIVA(sinIVA, ivaSeleccionado, utilidadNum);
     }
   };
 
   const handleIVAChange = (nuevoIVA: number) => {
     setIvaSeleccionado(nuevoIVA);
     setUsandoIvaPersonalizado(false);
-    setIvaPersonalizado('');
-    if (precioSinIVA && actualizandoDesde === 'sinIVA') {
-      setActualizandoDesde('sinIVA');
-    } else if (precioConIVA && actualizandoDesde === 'conIVA') {
-      setActualizandoDesde('conIVA');
+    setIvaPersonalizado("");
+
+    const utilidadNum = parseFloat(utilidad) || 0;
+    const sinIVA = parseFloat(precioSinIVA);
+    const conIVA = parseFloat(precioConIVA);
+
+    if (!Number.isNaN(sinIVA)) {
+      recalcularDesdeSinIVA(sinIVA, nuevoIVA, utilidadNum);
+      return;
+    }
+    if (!Number.isNaN(conIVA)) {
+      recalcularDesdeConIVA(conIVA, nuevoIVA, utilidadNum);
     }
   };
 
-  const handleIvaPersonalizadoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleIvaPersonalizadoChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const valor = e.target.value;
     setIvaPersonalizado(valor);
 
@@ -244,16 +271,20 @@ export default function PriceCalculator() {
       setIvaSeleccionado(ivaNum);
       setUsandoIvaPersonalizado(true);
 
-      if (precioSinIVA && actualizandoDesde === 'sinIVA') {
-        setActualizandoDesde('sinIVA');
-      } else if (precioConIVA && actualizandoDesde === 'conIVA') {
-        setActualizandoDesde('conIVA');
+      const utilidadNum = parseFloat(utilidad) || 0;
+      const sinIVA = parseFloat(precioSinIVA);
+      const conIVA = parseFloat(precioConIVA);
+
+      if (!Number.isNaN(sinIVA)) {
+        recalcularDesdeSinIVA(sinIVA, ivaNum, utilidadNum);
+      } else if (!Number.isNaN(conIVA)) {
+        recalcularDesdeConIVA(conIVA, ivaNum, utilidadNum);
       }
     }
   };
 
   // Verificar si el usuario tiene permiso para usar la calculadora
-  if (!hasPermission(user?.permissions, 'calculator')) {
+  if (!hasPermission(user?.permissions, "calculator")) {
     return (
       <div className="flex items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)]">
         <div className="text-center">
@@ -273,7 +304,10 @@ export default function PriceCalculator() {
   }
 
   return (
-    <div className="rounded-lg shadow-md p-6" style={{ background: 'var(--card-bg)', color: 'var(--foreground)' }}>
+    <div
+      className="rounded-lg shadow-md p-6"
+      style={{ background: "var(--card-bg)", color: "var(--foreground)" }}
+    >
       <h2 className="text-xl font-semibold mb-6">Calculadora de Precios</h2>
 
       {/* Selector de IVA */}
@@ -284,10 +318,11 @@ export default function PriceCalculator() {
             <button
               key={opcion.value}
               onClick={() => handleIVAChange(opcion.value)}
-              className={`px-4 py-2 rounded-md border transition-colors ${ivaSeleccionado === opcion.value && !usandoIvaPersonalizado
-                ? 'bg-[var(--primary)] text-white border-[var(--primary)]'
-                : 'bg-transparent border-[var(--border)] hover:border-[var(--primary)]'
-                }`}
+              className={`px-4 py-2 rounded-md border transition-colors ${
+                ivaSeleccionado === opcion.value && !usandoIvaPersonalizado
+                  ? "bg-[var(--primary)] text-white border-[var(--primary)]"
+                  : "bg-transparent border-[var(--border)] hover:border-[var(--primary)]"
+              }`}
             >
               {opcion.label}
             </button>
@@ -296,13 +331,18 @@ export default function PriceCalculator() {
 
         {/* Campo para IVA personalizado */}
         <div className="flex items-center gap-2">
-          <label className="text-sm font-medium whitespace-nowrap">IVA personalizado (%):</label>
+          <label className="text-sm font-medium whitespace-nowrap">
+            IVA personalizado (%):
+          </label>
           <input
             type="number"
             value={ivaPersonalizado}
             onChange={handleIvaPersonalizadoChange}
-            className={`w-24 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--primary)] text-black ${usandoIvaPersonalizado ? 'border-[var(--primary)] bg-[var(--muted)]' : 'border-[var(--border)]'
-              }`}
+            className={`w-24 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--primary)] text-black ${
+              usandoIvaPersonalizado
+                ? "border-[var(--primary)] bg-[var(--muted)]"
+                : "border-[var(--border)]"
+            }`}
             placeholder="0"
             step="0.01"
             min="0"
@@ -349,7 +389,9 @@ export default function PriceCalculator() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-2">Precio con IVA</label>
+          <label className="block text-sm font-medium mb-2">
+            Precio con IVA
+          </label>
           <input
             type="number"
             value={precioConIVA}
@@ -363,7 +405,9 @@ export default function PriceCalculator() {
 
       {/* Descuento */}
       <div className="mb-6">
-        <label className="block text-sm font-medium mb-2">Descuento (%) - Presiona Enter para aplicar</label>
+        <label className="block text-sm font-medium mb-2">
+          Descuento (%) - Presiona Enter para aplicar
+        </label>
         <input
           type="number"
           value={descuento}
@@ -408,33 +452,68 @@ export default function PriceCalculator() {
       {/* Información adicional */}
       {precioSinIVA && (
         <div className="mt-6 p-4 bg-gray-50 rounded-md">
-          <h3 className="text-sm font-medium mb-2 text-black">Resumen del cálculo:</h3>
+          <h3 className="text-sm font-medium mb-2 text-black">
+            Resumen del cálculo:
+          </h3>
           <div className="text-sm space-y-1 text-black">
             {precioOriginal ? (
               <>
                 <div>Precio sin IVA original: ₡{precioOriginal}</div>
                 {parseFloat(descuento) > 0 && (
                   <>
-                    <div>Descuento ({descuento}%): -₡{(parseFloat(precioOriginal) * (parseFloat(descuento) || 0) / 100).toFixed(2)}</div>
-                    <div>Precio sin IVA después del descuento: ₡{precioSinIVA}</div>
+                    <div>
+                      Descuento ({descuento}%): -₡
+                      {(
+                        (parseFloat(precioOriginal) *
+                          (parseFloat(descuento) || 0)) /
+                        100
+                      ).toFixed(2)}
+                    </div>
+                    <div>
+                      Precio sin IVA después del descuento: ₡{precioSinIVA}
+                    </div>
                   </>
                 )}
-                <div>IVA ({ivaSeleccionado}%): ₡{(parseFloat(precioConIVA) - parseFloat(precioSinIVA)).toFixed(2)}</div>
+                <div>
+                  IVA ({ivaSeleccionado}%): ₡
+                  {(
+                    parseFloat(precioConIVA) - parseFloat(precioSinIVA)
+                  ).toFixed(2)}
+                </div>
               </>
             ) : (
               <>
                 <div>Precio sin IVA: ₡{precioSinIVA}</div>
-                <div>IVA ({ivaSeleccionado}%): ₡{(parseFloat(precioConIVA) - parseFloat(precioSinIVA)).toFixed(2)}</div>
+                <div>
+                  IVA ({ivaSeleccionado}%): ₡
+                  {(
+                    parseFloat(precioConIVA) - parseFloat(precioSinIVA)
+                  ).toFixed(2)}
+                </div>
               </>
             )}
             <div>Precio con IVA: ₡{precioConIVA}</div>
             {utilidad && (
               <>
-                <div>Utilidad ({utilidad}%): +₡{(parseFloat(precioConIVA) * (parseFloat(utilidad) || 0) / 100).toFixed(2)}</div>
-                <div>Precio antes del redondeo: ₡{(parseFloat(precioConIVA) * (1 + (parseFloat(utilidad) || 0) / 100)).toFixed(2)}</div>
+                <div>
+                  Utilidad ({utilidad}%): +₡
+                  {(
+                    (parseFloat(precioConIVA) * (parseFloat(utilidad) || 0)) /
+                    100
+                  ).toFixed(2)}
+                </div>
+                <div>
+                  Precio antes del redondeo: ₡
+                  {(
+                    parseFloat(precioConIVA) *
+                    (1 + (parseFloat(utilidad) || 0) / 100)
+                  ).toFixed(2)}
+                </div>
               </>
             )}
-            <div className="font-semibold border-t pt-1">Precio Final: ₡{precioFinal}</div>
+            <div className="font-semibold border-t pt-1">
+              Precio Final: ₡{precioFinal}
+            </div>
           </div>
         </div>
       )}

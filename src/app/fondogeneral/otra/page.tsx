@@ -107,11 +107,14 @@ const buildLocalDayIsoRange = (isoDateKey: string) => {
       0,
       0,
       0,
-      0
+      0,
     );
     const end = new Date(start);
     end.setDate(end.getDate() + 1);
-    return { startIso: start.toISOString(), endIsoExclusive: end.toISOString() };
+    return {
+      startIso: start.toISOString(),
+      endIsoExclusive: end.toISOString(),
+    };
   }
 
   const start = new Date(y, m - 1, d, 0, 0, 0, 0);
@@ -128,7 +131,11 @@ const normalizeProviderCode = (value: unknown): string => {
     const trimmed = value.trim();
     if (!trimmed) return "";
     const parsed = Number.parseInt(trimmed, 10);
-    if (!Number.isNaN(parsed) && String(parsed) === trimmed.replace(/^0+/, "") && parsed >= 0) {
+    if (
+      !Number.isNaN(parsed) &&
+      String(parsed) === trimmed.replace(/^0+/, "") &&
+      parsed >= 0
+    ) {
       return String(parsed).padStart(4, "0");
     }
     // If it's already a 4+ digit code, keep as is; if it's not numeric (e.g. "CIERRE ..."), keep as is.
@@ -199,9 +206,7 @@ export default function ReporteMovimientosPage() {
 
   const isMountedRef = useRef(true);
   const loadingRequestIdRef = useRef(0);
-  const loadingWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null
-  );
+  const loadingWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     // In dev StrictMode, effects run setup->cleanup->setup.
@@ -211,7 +216,6 @@ export default function ReporteMovimientosPage() {
       isMountedRef.current = false;
     };
   }, []);
-
 
   const [providerNameLookup, setProviderNameLookup] = useState<
     Record<string, string>
@@ -228,7 +232,7 @@ export default function ReporteMovimientosPage() {
     } catch (error) {
       console.error(
         "Error reading classificationFilter from localStorage:",
-        error
+        error,
       );
     }
     return "all";
@@ -275,7 +279,7 @@ export default function ReporteMovimientosPage() {
     (target: "gasto" | "egreso" | "ingreso") => {
       setClassificationFilter((prev) => (prev === target ? "all" : target));
     },
-    []
+    [],
   );
 
   const movementTypeMetadata = useMemo(() => {
@@ -284,7 +288,7 @@ export default function ReporteMovimientosPage() {
       registry.set(entry.paymentType, formatMovementType(entry.paymentType));
     });
     const sorted = Array.from(registry.entries()).sort((a, b) =>
-      a[1].localeCompare(b[1], "es", { sensitivity: "base" })
+      a[1].localeCompare(b[1], "es", { sensitivity: "base" }),
     );
     return {
       options: sorted,
@@ -301,7 +305,7 @@ export default function ReporteMovimientosPage() {
     setSelectedMovementTypes((prev) =>
       prev.includes(movementType)
         ? prev.filter((candidate) => candidate !== movementType)
-        : [...prev, movementType]
+        : [...prev, movementType],
     );
   }, []);
 
@@ -353,7 +357,7 @@ export default function ReporteMovimientosPage() {
         maximumFractionDigits: 0,
       }),
     }),
-    []
+    [],
   );
 
   const formatAmount = useCallback(
@@ -362,7 +366,7 @@ export default function ReporteMovimientosPage() {
       if (normalized === 0) return "—";
       return currencyFormatters[currency].format(normalized);
     },
-    [currencyFormatters]
+    [currencyFormatters],
   );
 
   useEffect(() => {
@@ -385,7 +389,7 @@ export default function ReporteMovimientosPage() {
       setCompanies([]);
       setSelectedCompany("");
       setCompaniesError(
-        "No se encontraron empresas disponibles para tu usuario."
+        "No se encontraron empresas disponibles para tu usuario.",
       );
       setCompaniesLoading(false);
       return;
@@ -401,20 +405,22 @@ export default function ReporteMovimientosPage() {
         if (cancelled) return;
         const filtered = isSuperAdmin
           ? list
-          : list.filter((emp) => allowedOwnerIds.has((emp.ownerId || "").trim()));
+          : list.filter((emp) =>
+              allowedOwnerIds.has((emp.ownerId || "").trim()),
+            );
         const getCompanyKey = (emp: any) =>
           String(emp?.name || emp?.ubicacion || emp?.id || "").trim();
         const names = Array.from(
           new Set(
             filtered
               .map((emp) => getCompanyKey(emp))
-              .filter((name) => name.length > 0)
-          )
+              .filter((name) => name.length > 0),
+          ),
         ).sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
         setCompanies(names);
         setSelectedCompany((prev) => {
           if (prev === ALL_COMPANIES_VALUE) {
-            return names.length > 1 ? ALL_COMPANIES_VALUE : names[0] ?? "";
+            return names.length > 1 ? ALL_COMPANIES_VALUE : (names[0] ?? "");
           }
           if (prev && names.includes(prev)) return prev;
           if (assignedCompany && names.includes(assignedCompany))
@@ -428,7 +434,7 @@ export default function ReporteMovimientosPage() {
           setCompanies([]);
           setSelectedCompany("");
           setCompaniesError(
-            "No se pudieron cargar las empresas. Inténtalo más tarde."
+            "No se pudieron cargar las empresas. Inténtalo más tarde.",
           );
         }
       } finally {
@@ -520,7 +526,7 @@ export default function ReporteMovimientosPage() {
       if (loadingRequestIdRef.current !== currentRequestId) return;
       setDataLoading(false);
       setDataError(
-        "La búsqueda tardó demasiado y se detuvo. Intenta con un rango más corto o verifica la empresa/cuenta."
+        "La búsqueda tardó demasiado y se detuvo. Intenta con un rango más corto o verifica la empresa/cuenta.",
       );
     }, 25000);
 
@@ -597,7 +603,7 @@ export default function ReporteMovimientosPage() {
             toDate: effectiveTo,
             empresa: allowedCompanies[0],
             accountIds: targetAccounts,
-          }) as any
+          }) as any,
         );
       } else if (targetAccounts.length > 1) {
         // Avoid combining empresa in + accountId in
@@ -609,7 +615,7 @@ export default function ReporteMovimientosPage() {
                 toDate: effectiveTo,
                 empresas: chunk,
                 accountIds: [accountId],
-              }) as any
+              }) as any,
             );
           });
         });
@@ -621,7 +627,7 @@ export default function ReporteMovimientosPage() {
               toDate: effectiveTo,
               empresas: chunk,
               accountIds: targetAccounts,
-            }) as any
+            }) as any,
           );
         });
       }
@@ -743,7 +749,7 @@ export default function ReporteMovimientosPage() {
     (
       row: SummaryRow,
       classification: Classification,
-      currency: MovementCurrencyKey
+      currency: MovementCurrencyKey,
     ) => {
       const amount = row.totals[currency][classification];
       if (!Number.isFinite(amount) || Math.trunc(amount) === 0) return;
@@ -754,7 +760,7 @@ export default function ReporteMovimientosPage() {
         currency,
       });
     },
-    []
+    [],
   );
 
   const [detailItems, setDetailItems] = useState<ReportMovementDetail[]>([]);
@@ -825,7 +831,7 @@ export default function ReporteMovimientosPage() {
               currency: detailRequest.currency,
               classification: detailRequest.classification,
               paymentType: detailRequest.paymentType,
-            }) as any
+            }) as any,
           );
         } else if (accountIds.length > 1) {
           accountIds.forEach((accountId) => {
@@ -839,7 +845,7 @@ export default function ReporteMovimientosPage() {
                   currency: detailRequest.currency,
                   classification: detailRequest.classification,
                   paymentType: detailRequest.paymentType,
-                }) as any
+                }) as any,
               );
             });
           });
@@ -854,7 +860,7 @@ export default function ReporteMovimientosPage() {
                 currency: detailRequest.currency,
                 classification: detailRequest.classification,
                 paymentType: detailRequest.paymentType,
-              }) as any
+              }) as any,
             );
           });
         }
@@ -888,7 +894,9 @@ export default function ReporteMovimientosPage() {
 
         const filtered =
           selectedMovementTypes.length > 0 && !detailRequest.paymentType
-            ? items.filter((i) => selectedMovementTypes.includes(i.paymentType as any))
+            ? items.filter((i) =>
+                selectedMovementTypes.includes(i.paymentType as any),
+              )
             : items;
 
         // Ensure this is still the latest load
@@ -916,7 +924,9 @@ export default function ReporteMovimientosPage() {
         // Provide user feedback when the detail load fails
         try {
           // @ts-ignore
-          setDataError("Error al cargar el detalle de movimientos. Verifica filtros o intenta de nuevo.");
+          setDataError(
+            "Error al cargar el detalle de movimientos. Verifica filtros o intenta de nuevo.",
+          );
         } catch {
           // ignore
         }
@@ -951,10 +961,10 @@ export default function ReporteMovimientosPage() {
     const companySet = new Set(
       detailItems
         .map((e) => e.companyName?.trim())
-        .filter((v): v is string => Boolean(v))
+        .filter((v): v is string => Boolean(v)),
     );
     const companiesToLoad = Array.from(companySet).filter(
-      (companyName) => !loadedProviderCompaniesRef.current.has(companyName)
+      (companyName) => !loadedProviderCompaniesRef.current.has(companyName),
     );
     if (companiesToLoad.length === 0) return;
 
@@ -966,7 +976,7 @@ export default function ReporteMovimientosPage() {
           companiesToLoad.map(async (companyName) => {
             const providers = await ProvidersService.getProviders(companyName);
             return { companyName, providers };
-          })
+          }),
         );
 
         const next: Record<string, string> = {};
@@ -981,7 +991,7 @@ export default function ReporteMovimientosPage() {
 
         if (!cancelled) {
           companiesToLoad.forEach((companyName) =>
-            loadedProviderCompaniesRef.current.add(companyName)
+            loadedProviderCompaniesRef.current.add(companyName),
           );
           setProviderNameLookup((prev) => ({ ...prev, ...next }));
         }
@@ -1069,7 +1079,7 @@ export default function ReporteMovimientosPage() {
     } catch (error) {
       console.error(
         "Error saving classificationFilter to localStorage:",
-        error
+        error,
       );
     }
   }, [classificationFilter]);
@@ -1142,16 +1152,11 @@ export default function ReporteMovimientosPage() {
         return row.classification === classificationFilter;
       })
       .sort((a, b) => {
-      const byGroup = orderMap[a.classification] - orderMap[b.classification];
-      if (byGroup !== 0) return byGroup;
-      return a.label.localeCompare(b.label, "es", { sensitivity: "base" });
-    });
-  }, [
-    entries,
-    dateRangeInvalid,
-    classificationFilter,
-    selectedMovementTypes,
-  ]);
+        const byGroup = orderMap[a.classification] - orderMap[b.classification];
+        if (byGroup !== 0) return byGroup;
+        return a.label.localeCompare(b.label, "es", { sensitivity: "base" });
+      });
+  }, [entries, dateRangeInvalid, classificationFilter, selectedMovementTypes]);
 
   const totals = useMemo(() => {
     return summaryRows.reduce<Record<MovementCurrencyKey, CurrencyBucket>>(
@@ -1166,7 +1171,7 @@ export default function ReporteMovimientosPage() {
       {
         CRC: { ingreso: 0, gasto: 0, egreso: 0 },
         USD: { ingreso: 0, gasto: 0, egreso: 0 },
-      }
+      },
     );
   }, [summaryRows]);
 
@@ -1180,7 +1185,7 @@ export default function ReporteMovimientosPage() {
         currency,
       });
     },
-    [totals]
+    [totals],
   );
 
   if (authLoading) {
@@ -1223,7 +1228,6 @@ export default function ReporteMovimientosPage() {
     accountUnavailable ||
     (isAdminUser ? !selectedCompany : !assignedCompany) ||
     !selectedAccount;
-
 
   return (
     <div className="max-w-6xl mx-auto py-8 px-4 space-y-6">
@@ -1418,13 +1422,29 @@ export default function ReporteMovimientosPage() {
                       from = start;
                       to = end;
                     } else if (v === "lastmonth") {
-                      const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-                      const last = new Date(now.getFullYear(), now.getMonth(), 0);
+                      const first = new Date(
+                        now.getFullYear(),
+                        now.getMonth() - 1,
+                        1,
+                      );
+                      const last = new Date(
+                        now.getFullYear(),
+                        now.getMonth(),
+                        0,
+                      );
                       from = first;
                       to = last;
                     } else if (v === "month") {
-                      const first = new Date(now.getFullYear(), now.getMonth(), 1);
-                      const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                      const first = new Date(
+                        now.getFullYear(),
+                        now.getMonth(),
+                        1,
+                      );
+                      const last = new Date(
+                        now.getFullYear(),
+                        now.getMonth() + 1,
+                        0,
+                      );
                       from = first;
                       to = last;
                     } else if (v === "last30") {
@@ -1537,8 +1557,9 @@ export default function ReporteMovimientosPage() {
                       {movementTypeSummaryLabel}
                     </span>
                     <ChevronDown
-                      className={`h-4 w-4 text-[var(--muted-foreground)] transition-transform ${movementTypeSelectorOpen ? "rotate-180" : ""
-                        }`}
+                      className={`h-4 w-4 text-[var(--muted-foreground)] transition-transform ${
+                        movementTypeSelectorOpen ? "rotate-180" : ""
+                      }`}
                     />
                   </button>
                   {movementTypeSelectorOpen && (
@@ -1552,7 +1573,7 @@ export default function ReporteMovimientosPage() {
                             <input
                               type="checkbox"
                               checked={selectedMovementTypes.includes(
-                                movementType
+                                movementType,
                               )}
                               onChange={() => toggleMovementType(movementType)}
                               className="h-4 w-4 rounded border-[var(--input-border)] text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
@@ -1602,7 +1623,10 @@ export default function ReporteMovimientosPage() {
             <span>{dataError}</span>
             <button
               type="button"
-              onClick={() => { setDataError(null); setDetailReloadTrigger((n) => n + 1); }}
+              onClick={() => {
+                setDataError(null);
+                setDetailReloadTrigger((n) => n + 1);
+              }}
               className="ml-2 rounded px-2 py-1 bg-[var(--card-bg)] border border-[var(--input-border)] text-sm text-[var(--foreground)] hover:bg-[var(--muted-foreground)]"
             >
               Reintentar
@@ -1621,7 +1645,7 @@ export default function ReporteMovimientosPage() {
               {dateRangeInvalid
                 ? "Ajusta el rango de fechas para ver resultados."
                 : !hasSearched
-                  ? "Presiona \"Buscar\" para consultar con los filtros seleccionados."
+                  ? 'Presiona "Buscar" para consultar con los filtros seleccionados.'
                   : "No hay movimientos que coincidan con los filtros seleccionados."}
             </div>
           ) : (
@@ -1672,11 +1696,10 @@ export default function ReporteMovimientosPage() {
                         {formatClassification(row.classification)}
                       </td>
                       <td
-                        className={`px-4 py-3 text-right ${row.totals.CRC.ingreso ? "cursor-pointer" : ""
-                          }`}
-                        onClick={() =>
-                          openDetailModal(row, "ingreso", "CRC")
-                        }
+                        className={`px-4 py-3 text-right ${
+                          row.totals.CRC.ingreso ? "cursor-pointer" : ""
+                        }`}
+                        onClick={() => openDetailModal(row, "ingreso", "CRC")}
                         title={
                           row.totals.CRC.ingreso
                             ? "Doble click para ver movimientos"
@@ -1687,11 +1710,10 @@ export default function ReporteMovimientosPage() {
                       </td>
                       {showUSD && (
                         <td
-                          className={`px-4 py-3 text-right ${row.totals.USD.ingreso ? "cursor-pointer" : ""
-                            }`}
-                          onClick={() =>
-                            openDetailModal(row, "ingreso", "USD")
-                          }
+                          className={`px-4 py-3 text-right ${
+                            row.totals.USD.ingreso ? "cursor-pointer" : ""
+                          }`}
+                          onClick={() => openDetailModal(row, "ingreso", "USD")}
                           title={
                             row.totals.USD.ingreso
                               ? "Doble click para ver movimientos"
@@ -1702,8 +1724,9 @@ export default function ReporteMovimientosPage() {
                         </td>
                       )}
                       <td
-                        className={`px-4 py-3 text-right ${row.totals.CRC.gasto ? "cursor-pointer" : ""
-                          }`}
+                        className={`px-4 py-3 text-right ${
+                          row.totals.CRC.gasto ? "cursor-pointer" : ""
+                        }`}
                         onClick={() => openDetailModal(row, "gasto", "CRC")}
                         title={
                           row.totals.CRC.gasto
@@ -1715,11 +1738,10 @@ export default function ReporteMovimientosPage() {
                       </td>
                       {showUSD && (
                         <td
-                          className={`px-4 py-3 text-right ${row.totals.USD.gasto ? "cursor-pointer" : ""
-                            }`}
-                          onClick={() =>
-                            openDetailModal(row, "gasto", "USD")
-                          }
+                          className={`px-4 py-3 text-right ${
+                            row.totals.USD.gasto ? "cursor-pointer" : ""
+                          }`}
+                          onClick={() => openDetailModal(row, "gasto", "USD")}
                           title={
                             row.totals.USD.gasto
                               ? "Doble click para ver movimientos"
@@ -1730,11 +1752,10 @@ export default function ReporteMovimientosPage() {
                         </td>
                       )}
                       <td
-                        className={`px-4 py-3 text-right ${row.totals.CRC.egreso ? "cursor-pointer" : ""
-                          }`}
-                        onClick={() =>
-                          openDetailModal(row, "egreso", "CRC")
-                        }
+                        className={`px-4 py-3 text-right ${
+                          row.totals.CRC.egreso ? "cursor-pointer" : ""
+                        }`}
+                        onClick={() => openDetailModal(row, "egreso", "CRC")}
                         title={
                           row.totals.CRC.egreso
                             ? "Doble click para ver movimientos"
@@ -1745,11 +1766,10 @@ export default function ReporteMovimientosPage() {
                       </td>
                       {showUSD && (
                         <td
-                          className={`px-4 py-3 text-right ${row.totals.USD.egreso ? "cursor-pointer" : ""
-                            }`}
-                          onClick={() =>
-                            openDetailModal(row, "egreso", "USD")
-                          }
+                          className={`px-4 py-3 text-right ${
+                            row.totals.USD.egreso ? "cursor-pointer" : ""
+                          }`}
+                          onClick={() => openDetailModal(row, "egreso", "USD")}
                           title={
                             row.totals.USD.egreso
                               ? "Doble click para ver movimientos"
@@ -1768,8 +1788,9 @@ export default function ReporteMovimientosPage() {
                       Totales
                     </td>
                     <td
-                      className={`px-4 py-3 text-right ${totals.CRC.ingreso ? "cursor-pointer" : ""
-                        }`}
+                      className={`px-4 py-3 text-right ${
+                        totals.CRC.ingreso ? "cursor-pointer" : ""
+                      }`}
                       onClick={() => openTotalsDetailModal("ingreso", "CRC")}
                       title={
                         totals.CRC.ingreso
@@ -1781,11 +1802,10 @@ export default function ReporteMovimientosPage() {
                     </td>
                     {showUSD && (
                       <td
-                        className={`px-4 py-3 text-right ${totals.USD.ingreso ? "cursor-pointer" : ""
-                          }`}
-                        onClick={() =>
-                          openTotalsDetailModal("ingreso", "USD")
-                        }
+                        className={`px-4 py-3 text-right ${
+                          totals.USD.ingreso ? "cursor-pointer" : ""
+                        }`}
+                        onClick={() => openTotalsDetailModal("ingreso", "USD")}
                         title={
                           totals.USD.ingreso
                             ? "Doble click para ver movimientos"
@@ -1796,8 +1816,9 @@ export default function ReporteMovimientosPage() {
                       </td>
                     )}
                     <td
-                      className={`px-4 py-3 text-right ${totals.CRC.gasto ? "cursor-pointer" : ""
-                        }`}
+                      className={`px-4 py-3 text-right ${
+                        totals.CRC.gasto ? "cursor-pointer" : ""
+                      }`}
                       onClick={() => openTotalsDetailModal("gasto", "CRC")}
                       title={
                         totals.CRC.gasto
@@ -1809,11 +1830,10 @@ export default function ReporteMovimientosPage() {
                     </td>
                     {showUSD && (
                       <td
-                        className={`px-4 py-3 text-right ${totals.USD.gasto ? "cursor-pointer" : ""
-                          }`}
-                        onClick={() =>
-                          openTotalsDetailModal("gasto", "USD")
-                        }
+                        className={`px-4 py-3 text-right ${
+                          totals.USD.gasto ? "cursor-pointer" : ""
+                        }`}
+                        onClick={() => openTotalsDetailModal("gasto", "USD")}
                         title={
                           totals.USD.gasto
                             ? "Doble click para ver movimientos"
@@ -1824,8 +1844,9 @@ export default function ReporteMovimientosPage() {
                       </td>
                     )}
                     <td
-                      className={`px-4 py-3 text-right ${totals.CRC.egreso ? "cursor-pointer" : ""
-                        }`}
+                      className={`px-4 py-3 text-right ${
+                        totals.CRC.egreso ? "cursor-pointer" : ""
+                      }`}
                       onClick={() => openTotalsDetailModal("egreso", "CRC")}
                       title={
                         totals.CRC.egreso
@@ -1837,11 +1858,10 @@ export default function ReporteMovimientosPage() {
                     </td>
                     {showUSD && (
                       <td
-                        className={`px-4 py-3 text-right ${totals.USD.egreso ? "cursor-pointer" : ""
-                          }`}
-                        onClick={() =>
-                          openTotalsDetailModal("egreso", "USD")
-                        }
+                        className={`px-4 py-3 text-right ${
+                          totals.USD.egreso ? "cursor-pointer" : ""
+                        }`}
+                        onClick={() => openTotalsDetailModal("egreso", "USD")}
                         title={
                           totals.USD.egreso
                             ? "Doble click para ver movimientos"
@@ -1865,8 +1885,8 @@ export default function ReporteMovimientosPage() {
         title={
           detailRequest
             ? `${detailRequest.label} · ${formatClassification(
-              detailRequest.classification
-            )} · ${detailRequest.currency}`
+                detailRequest.classification,
+              )} · ${detailRequest.currency}`
             : "Detalle"
         }
         subtitle={detailSubtitle}

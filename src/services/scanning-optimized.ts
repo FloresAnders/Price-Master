@@ -7,34 +7,40 @@ import {
   updateDoc,
   query,
   orderBy,
-  limit, where,
+  limit,
+  where,
   onSnapshot,
-  getDoc
-} from 'firebase/firestore';
-import { ref, listAll, deleteObject } from 'firebase/storage';
-import { db, storage } from '@/config/firebase';
-import type { ScanResult } from '../types/firestore';
+  getDoc,
+} from "firebase/firestore";
+import { ref, listAll, deleteObject } from "firebase/storage";
+import { db, storage } from "@/config/firebase";
+import type { ScanResult } from "../types/firestore";
 
-export type { ScanResult } from '../types/firestore';
+export type { ScanResult } from "../types/firestore";
 
 export class ScanningService {
-  private static readonly COLLECTION_NAME = 'scans';
+  private static readonly COLLECTION_NAME = "scans";
 
   /**
    * Add a new scan result
    */
-  static async addScan(scan: Omit<ScanResult, 'id' | 'timestamp'>): Promise<string> {
+  static async addScan(
+    scan: Omit<ScanResult, "id" | "timestamp">,
+  ): Promise<string> {
     try {
       const scanWithTimestamp = {
         ...scan,
         timestamp: new Date(),
-        processed: false
+        processed: false,
       };
 
-      const docRef = await addDoc(collection(db, this.COLLECTION_NAME), scanWithTimestamp);
+      const docRef = await addDoc(
+        collection(db, this.COLLECTION_NAME),
+        scanWithTimestamp,
+      );
       return docRef.id;
     } catch (error) {
-      console.error('Error adding scan:', error);
+      console.error("Error adding scan:", error);
       throw error;
     }
   }
@@ -47,21 +53,26 @@ export class ScanningService {
       // Use simple where query without orderBy to avoid index requirements
       const q = query(
         collection(db, this.COLLECTION_NAME),
-        where('sessionId', '==', sessionId)
+        where("sessionId", "==", sessionId),
       );
 
       const querySnapshot = await getDocs(q);
 
-      const scans = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        timestamp: doc.data().timestamp?.toDate() || new Date()
-      } as ScanResult));
+      const scans = querySnapshot.docs.map(
+        (doc) =>
+          ({
+            id: doc.id,
+            ...doc.data(),
+            timestamp: doc.data().timestamp?.toDate() || new Date(),
+          }) as ScanResult,
+      );
 
       // Client-side sorting by timestamp (newest first)
-      return scans.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+      return scans.sort(
+        (a, b) => b.timestamp.getTime() - a.timestamp.getTime(),
+      );
     } catch (error) {
-      console.error('Error getting scans by session:', error);
+      console.error("Error getting scans by session:", error);
       throw error;
     }
   }
@@ -73,18 +84,21 @@ export class ScanningService {
     try {
       const q = query(
         collection(db, this.COLLECTION_NAME),
-        orderBy('timestamp', 'desc'),
-        limit(100)
+        orderBy("timestamp", "desc"),
+        limit(100),
       );
       const querySnapshot = await getDocs(q);
 
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        timestamp: doc.data().timestamp?.toDate() || new Date()
-      } as ScanResult));
+      return querySnapshot.docs.map(
+        (doc) =>
+          ({
+            id: doc.id,
+            ...doc.data(),
+            timestamp: doc.data().timestamp?.toDate() || new Date(),
+          }) as ScanResult,
+      );
     } catch (error) {
-      console.error('Error getting scans:', error);
+      console.error("Error getting scans:", error);
       throw error;
     }
   }
@@ -101,36 +115,39 @@ export class ScanningService {
         // For session-specific scans, use sessionId as primary filter
         q = query(
           collection(db, this.COLLECTION_NAME),
-          where('sessionId', '==', sessionId),
-          orderBy('timestamp', 'desc'),
-          limit(50)
+          where("sessionId", "==", sessionId),
+          orderBy("timestamp", "desc"),
+          limit(50),
         );
       } else {
         // For general unprocessed scans, use processed field only
         q = query(
           collection(db, this.COLLECTION_NAME),
-          where('processed', '==', false),
-          orderBy('timestamp', 'desc'),
-          limit(50)
+          where("processed", "==", false),
+          orderBy("timestamp", "desc"),
+          limit(50),
         );
       }
 
       const querySnapshot = await getDocs(q);
 
-      let scans = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        timestamp: doc.data().timestamp?.toDate() || new Date()
-      } as ScanResult));
+      let scans = querySnapshot.docs.map(
+        (doc) =>
+          ({
+            id: doc.id,
+            ...doc.data(),
+            timestamp: doc.data().timestamp?.toDate() || new Date(),
+          }) as ScanResult,
+      );
 
       // Client-side filtering for session-specific unprocessed scans
       if (sessionId) {
-        scans = scans.filter(scan => !scan.processed);
+        scans = scans.filter((scan) => !scan.processed);
       }
 
       return scans;
     } catch (error) {
-      console.error('Error getting unprocessed scans:', error);
+      console.error("Error getting unprocessed scans:", error);
       throw error;
     }
   }
@@ -143,10 +160,10 @@ export class ScanningService {
       const scanRef = doc(db, this.COLLECTION_NAME, scanId);
       await updateDoc(scanRef, {
         processed: true,
-        processedAt: new Date()
+        processedAt: new Date(),
       });
     } catch (error) {
-      console.error('Error marking scan as processed:', error);
+      console.error("Error marking scan as processed:", error);
       throw error;
     }
   }
@@ -157,17 +174,23 @@ export class ScanningService {
   static async deleteAssociatedImages(barcodeCode: string): Promise<number> {
     try {
       // Reference to the barcode-images folder
-      const storageRef = ref(storage, 'barcode-images/');
+      const storageRef = ref(storage, "barcode-images/");
 
       // List all files in the barcode-images folder
       const result = await listAll(storageRef);
 
       // Filter files that match the barcode pattern
-      const matchingFiles = result.items.filter(item => {
+      const matchingFiles = result.items.filter((item) => {
         const fileName = item.name;
         // Match exact code name or code with numbers in parentheses
-        return fileName === `${barcodeCode}.jpg` ||
-          fileName.match(new RegExp(`^${barcodeCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\(\\d+\\)\\.jpg$`));
+        return (
+          fileName === `${barcodeCode}.jpg` ||
+          fileName.match(
+            new RegExp(
+              `^${barcodeCode.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\(\\d+\\)\\.jpg$`,
+            ),
+          )
+        );
       });
 
       // Delete all matching files
@@ -186,7 +209,7 @@ export class ScanningService {
       //(`Deleted ${matchingFiles.length} images for code: ${barcodeCode}`);
       return matchingFiles.length;
     } catch (error) {
-      console.error('Error deleting associated images:', error);
+      console.error("Error deleting associated images:", error);
       throw error;
     }
   }
@@ -200,7 +223,7 @@ export class ScanningService {
       const scanDoc = await getDoc(doc(db, this.COLLECTION_NAME, scanId));
 
       if (!scanDoc.exists()) {
-        throw new Error('Scan not found');
+        throw new Error("Scan not found");
       }
 
       const scanData = scanDoc.data() as ScanResult;
@@ -212,14 +235,18 @@ export class ScanningService {
 
       // Delete associated images from Firebase Storage
       try {
-        const deletedImagesCount = await this.deleteAssociatedImages(barcodeCode);
+        const deletedImagesCount =
+          await this.deleteAssociatedImages(barcodeCode);
         //(`Deleted scan ${scanId} and ${deletedImagesCount} associated images for code: ${barcodeCode}`);
       } catch (imageError) {
-        console.warn(`Scan deleted but failed to delete images for code ${barcodeCode}:`, imageError);
+        console.warn(
+          `Scan deleted but failed to delete images for code ${barcodeCode}:`,
+          imageError,
+        );
         // Don't throw here - the scan was successfully deleted
       }
     } catch (error) {
-      console.error('Error deleting scan:', error);
+      console.error("Error deleting scan:", error);
       throw error;
     }
   }
@@ -235,26 +262,24 @@ export class ScanningService {
       // Simplified query - get processed scans first, then filter by date
       const q = query(
         collection(db, this.COLLECTION_NAME),
-        where('processed', '==', true),
-        limit(100) // Process in batches
+        where("processed", "==", true),
+        limit(100), // Process in batches
       );
 
       const querySnapshot = await getDocs(q);
 
       // Client-side filtering for date
-      const oldScans = querySnapshot.docs.filter(doc => {
+      const oldScans = querySnapshot.docs.filter((doc) => {
         const timestamp = doc.data().timestamp?.toDate() || new Date();
         return timestamp < cutoffDate;
       });
 
-      const deletePromises = oldScans.map(doc =>
-        deleteDoc(doc.ref)
-      );
+      const deletePromises = oldScans.map((doc) => deleteDoc(doc.ref));
 
       await Promise.all(deletePromises);
       return oldScans.length;
     } catch (error) {
-      console.error('Error cleaning up old scans:', error);
+      console.error("Error cleaning up old scans:", error);
       throw error;
     }
   }
@@ -264,7 +289,7 @@ export class ScanningService {
   static subscribeToScans(
     callback: (scans: ScanResult[]) => void,
     sessionId?: string,
-    onError?: (error: Error) => void
+    onError?: (error: Error) => void,
   ): () => void {
     try {
       let q;
@@ -273,54 +298,60 @@ export class ScanningService {
         // Session-specific subscription - AVOID orderBy to prevent index requirement
         q = query(
           collection(db, this.COLLECTION_NAME),
-          where('sessionId', '==', sessionId),
-          limit(50)
+          where("sessionId", "==", sessionId),
+          limit(50),
         );
       } else {
         // General subscription - only order by timestamp
         q = query(
           collection(db, this.COLLECTION_NAME),
-          orderBy('timestamp', 'desc'),
-          limit(50)
+          orderBy("timestamp", "desc"),
+          limit(50),
         );
       }
 
       const unsubscribe = onSnapshot(
         q,
         (querySnapshot) => {
-          let scans: ScanResult[] = querySnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-            timestamp: doc.data().timestamp?.toDate() || new Date()
-          } as ScanResult));
+          let scans: ScanResult[] = querySnapshot.docs.map(
+            (doc) =>
+              ({
+                id: doc.id,
+                ...doc.data(),
+                timestamp: doc.data().timestamp?.toDate() || new Date(),
+              }) as ScanResult,
+          );
 
           // Client-side filtering and sorting when sessionId is provided
           if (sessionId) {
             scans = scans
-              .filter(scan => !scan.processed) // Filter unprocessed
+              .filter((scan) => !scan.processed) // Filter unprocessed
               .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()); // Sort by timestamp desc
           }
 
           callback(scans);
         },
         (error) => {
-          console.error('Error in scan subscription:', error);
+          console.error("Error in scan subscription:", error);
           if (onError) {
             onError(error as Error);
           }
-        }
+        },
       );
 
       return unsubscribe;
     } catch (error) {
-      console.error('Error setting up scan subscription:', error);
+      console.error("Error setting up scan subscription:", error);
       throw error;
     }
   }
   /**
    * Get recent scans for a session (optimized to avoid complex indexes)
    */
-  static async getRecentScans(sessionId?: string, limit_count: number = 20): Promise<ScanResult[]> {
+  static async getRecentScans(
+    sessionId?: string,
+    limit_count: number = 20,
+  ): Promise<ScanResult[]> {
     try {
       let q;
 
@@ -328,25 +359,28 @@ export class ScanningService {
         // Session-specific query - AVOID orderBy to prevent index requirement
         q = query(
           collection(db, this.COLLECTION_NAME),
-          where('sessionId', '==', sessionId),
-          limit(limit_count * 3) // Get more for client-side filtering
+          where("sessionId", "==", sessionId),
+          limit(limit_count * 3), // Get more for client-side filtering
         );
       } else {
         // Simple query with minimal index requirements
         q = query(
           collection(db, this.COLLECTION_NAME),
-          orderBy('timestamp', 'desc'),
-          limit(limit_count * 2)
+          orderBy("timestamp", "desc"),
+          limit(limit_count * 2),
         );
       }
 
       const querySnapshot = await getDocs(q);
 
-      let scans = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        timestamp: doc.data().timestamp?.toDate() || new Date()
-      } as ScanResult));
+      let scans = querySnapshot.docs.map(
+        (doc) =>
+          ({
+            id: doc.id,
+            ...doc.data(),
+            timestamp: doc.data().timestamp?.toDate() || new Date(),
+          }) as ScanResult,
+      );
 
       // Client-side filtering and sorting
       if (sessionId) {
@@ -359,7 +393,7 @@ export class ScanningService {
 
       return scans;
     } catch (error) {
-      console.error('Error getting recent scans:', error);
+      console.error("Error getting recent scans:", error);
       throw error;
     }
   }

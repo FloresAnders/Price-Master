@@ -1,30 +1,30 @@
 {
-    "version": "1.4.34",
-    "versionstorage": "1.1.12",
-    "notasDeSistemas": "1.1.11",
-    "releaseNotes": [
-        {
-            "date": "2026-04-25",
-            "title": "Mejora en mostrar los proveedores mas frecuentes",
-            "description": "Ahora se muestran los proveedores más frecuentes en la vista principal de agrega movimiento, los mas usados van al incio."
-        },
-        {
-            "date": "2026-04-25",
-            "title": "Favoritos: persistencia, acceso móvil y mejoras por rol",
-            "description": "Se añadió el modo Favoritos con botón estrella en header (desktop y móvil, junto a notificaciones), manteniendo su estado. Los favoritos ahora se gestionan desde un modal con opciones por rol y se guardan con persistencia por usuario. Se habilitaron accesos directos a sub-secciones de Mantenimiento (Usuarios, Sorteos, Planilla, CCSS, Empresas, Tipos Fondo y Funciones) desde Agregar favorito. Además, en vista Favoritos la tarjeta Semana Proveedores no se muestra por defecto, y para usuarios con rol user se bloqueó el acceso a Reportes y Configuración de Fondo General dentro de Favoritos."
-        }
-    ],
-    "systemNotes": [
-        {
-            "date": "2026-04-24",
-            "title": "Implementación de la sección de Favoritos",
-            "description": "Se implementó la sección de Favoritos, permitiendo a los usuarios guardar accesos rápidos a diferentes secciones de la aplicación. Se añadió un botón de estrella en el header para acceder a los favoritos, y se creó un modal para gestionar los favoritos guardados. asegurando que los accesos rápidos se mantengan incluso después de cerrar sesión o recargar la página."
-        },
-        {
-            "date": "2026-04-23",
-            "title": "Mejora en la gestión de proveedores frecuentes",
-            "description": "Se mejoró la lógica para mostrar los proveedores más frecuentes en la vista principal de agregar movimiento. Ahora, los proveedores más utilizados por el usuario se muestran al inicio de la lista, facilitando su selección y agilizando el proceso de agregar movimientos."
-        }
-    ],
-    "_comment": "hacer una pagina de 'en mantenimiento' para secciones en desarrollo y a exepcion de un usuario admin"
+  "version": "1.4.35",
+  "versionstorage": "1.1.12",
+  "notasDeSistemas": "1.1.11",
+  "releaseNotes": [
+    {
+      "date": "2026-04-25",
+      "title": "Mejora en mostrar los proveedores mas frecuentes",
+      "description": "Ahora se muestran los proveedores más frecuentes en la vista principal de agrega movimiento, los mas usados van al incio."
+    },
+    {
+      "date": "2026-04-25",
+      "title": "Favoritos: persistencia, acceso móvil y mejoras por rol",
+      "description": "Se añadió el modo Favoritos con botón estrella en header (desktop y móvil, junto a notificaciones), manteniendo su estado. Los favoritos ahora se gestionan desde un modal con opciones por rol y se guardan con persistencia por usuario. Se habilitaron accesos directos a sub-secciones de Mantenimiento (Usuarios, Sorteos, Planilla, CCSS, Empresas, Tipos Fondo y Funciones) desde Agregar favorito. Además, en vista Favoritos la tarjeta Semana Proveedores no se muestra por defecto, y para usuarios con rol user se bloqueó el acceso a Reportes y Configuración de Fondo General dentro de Favoritos."
+    }
+  ],
+  "systemNotes": [
+    {
+      "date": "2026-04-24",
+      "title": "Implementación de la sección de Favoritos",
+      "description": "Se implementó la sección de Favoritos, permitiendo a los usuarios guardar accesos rápidos a diferentes secciones de la aplicación. Se añadió un botón de estrella en el header para acceder a los favoritos, y se creó un modal para gestionar los favoritos guardados. asegurando que los accesos rápidos se mantengan incluso después de cerrar sesión o recargar la página."
+    },
+    {
+      "date": "2026-04-23",
+      "title": "Mejora en la gestión de proveedores frecuentes",
+      "description": "Se mejoró la lógica para mostrar los proveedores más frecuentes en la vista principal de agregar movimiento. Ahora, los proveedores más utilizados por el usuario se muestran al inicio de la lista, facilitando su selección y agilizando el proceso de agregar movimientos."
+    }
+  ],
+  "_comment": "hacer una pagina de 'en mantenimiento' para secciones en desarrollo y a exepcion de un usuario admin"
 }

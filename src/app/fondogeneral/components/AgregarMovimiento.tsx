@@ -54,7 +54,7 @@ type AgregarMovimientoProps = {
   isSubmitDisabled: boolean;
   isSaving?: boolean;
   onFieldKeyDown: (
-    event: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>
+    event: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>,
   ) => void;
   currency?: "CRC" | "USD";
   onCurrencyChange?: (c: "CRC" | "USD") => void;
@@ -114,7 +114,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
       }),
-    []
+    [],
   );
   const inputFormatterUSD = React.useMemo(
     () =>
@@ -122,7 +122,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
       }),
-    []
+    [],
   );
 
   const formatInputDisplay = (raw: string) => {
@@ -140,11 +140,18 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   useEffect(() => {
+    // Avoid calling setState synchronously within the effect to prevent cascading renders:
+    // schedule the update asynchronously so the effect doesn't synchronously trigger another render.
     if (selectedProvider) {
       const option = providers.find((p) => p.code === selectedProvider);
-      setFilter(option ? `${option.name} (${option.code})` : selectedProvider);
+      const newFilter = option
+        ? `${option.name} (${option.code})`
+        : selectedProvider;
+      const id = window.setTimeout(() => setFilter(newFilter), 0);
+      return () => clearTimeout(id);
     } else {
-      setFilter("");
+      const id = window.setTimeout(() => setFilter(""), 0);
+      return () => clearTimeout(id);
     }
   }, [selectedProvider, providers]);
 
@@ -152,7 +159,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
     .filter(
       (p) =>
         p.name.toLowerCase().includes(filter.toLowerCase()) ||
-        p.code.toLowerCase().includes(filter.toLowerCase())
+        p.code.toLowerCase().includes(filter.toLowerCase()),
     )
     .sort((a, b) => {
       const countA = a.movementCount ?? 0;
@@ -355,8 +362,8 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                 amountError
                   ? "border-red-500"
                   : isEgreso
-                  ? egresoBorderClass
-                  : ingresoBorderClass
+                    ? egresoBorderClass
+                    : ingresoBorderClass
               } rounded ${
                 currencyEnabled[currency] ? "" : "opacity-50 cursor-not-allowed"
               }`}

@@ -1,17 +1,17 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { Lock as LockIcon } from 'lucide-react';
-import DataEditor from '@/edit/DataEditor';
-import { useAuth } from '../../hooks/useAuth';
-import { hasPermission } from '../../utils/permissions';
+import React from "react";
+import { Lock as LockIcon } from "lucide-react";
+import DataEditor from "@/edit/DataEditor";
+import { useAuth } from "../../hooks/useAuth";
+import { hasPermission } from "../../utils/permissions";
 
 export default function Mantenimiento() {
   /* Verificar permisos del usuario */
   const { user } = useAuth();
 
   // Verificar si el usuario tiene permiso para usar el mantenimiento
-  if (!hasPermission(user?.permissions, 'mantenimiento')) {
+  if (!hasPermission(user?.permissions, "mantenimiento")) {
     return (
       <div className="flex items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)]">
         <div className="text-center">

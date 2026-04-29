@@ -14,11 +14,11 @@ type EmailTemplate = {
 };
 
 export const buildEmailChangeVerificationTemplate = (
-  context: EmailChangeVerificationTemplateContext
+  context: EmailChangeVerificationTemplateContext,
 ): EmailTemplate => {
-  const expiryTime = new Date(context.expiresAt).toLocaleString('es-CR');
+  const expiryTime = new Date(context.expiresAt).toLocaleString("es-CR");
 
-  const subject = 'Código de verificación para cambio de correo';
+  const subject = "Código de verificación para cambio de correo";
 
   const text = `Solicitud de cambio de correo
 

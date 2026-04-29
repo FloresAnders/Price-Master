@@ -1,13 +1,13 @@
 /**
  * Ejemplo de uso del Clipboard con @capacitor/clipboard
- * 
+ *
  * El plugin de Clipboard NO requiere permisos especiales en Android ni iOS.
  * Solo necesita estar instalado: npm install @capacitor/clipboard
  */
 
-import React from 'react';
-import { Clipboard } from '@capacitor/clipboard';
-import { usePermissions } from '@/hooks/usePermissions';
+import React from "react";
+import { Clipboard } from "@capacitor/clipboard";
+import { usePermissions } from "@/hooks/usePermissions";
 
 // ============================================
 // MÉTODO 1: Usar el hook usePermissions
@@ -17,12 +17,12 @@ export function ClipboardWithHookExample() {
   const { copyToClipboard, readFromClipboard } = usePermissions();
 
   const handleCopy = async () => {
-    const success = await copyToClipboard('¡Hola Álvaro!');
+    const success = await copyToClipboard("¡Hola Álvaro!");
     if (success) {
       //('✅ Texto copiado al portapapeles');
-      alert('✅ Texto copiado');
+      alert("✅ Texto copiado");
     } else {
-      console.error('❌ Error al copiar');
+      console.error("❌ Error al copiar");
     }
   };
 
@@ -32,7 +32,7 @@ export function ClipboardWithHookExample() {
       //('📋 Texto del portapapeles:', text);
       alert(`📋 Contenido: ${text}`);
     } else {
-      alert('⚠️ No hay texto en el portapapeles');
+      alert("⚠️ No hay texto en el portapapeles");
     }
   };
 
@@ -62,7 +62,7 @@ export function ClipboardWithHookExample() {
 export async function directClipboardExamples() {
   // Copiar texto simple
   await Clipboard.write({
-    string: 'Hola Álvaro desde Time Master'
+    string: "Hola Álvaro desde Time Master",
   });
   //('✅ Texto copiado');
 
@@ -73,12 +73,12 @@ export async function directClipboardExamples() {
 
   // Copiar URL
   await Clipboard.write({
-    url: 'https://timemaster.app'
+    url: "https://timemaster.app",
   });
 
   // Copiar imagen en base64
   await Clipboard.write({
-    image: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA...'
+    image: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA...",
   });
 }
 
@@ -88,20 +88,20 @@ export async function directClipboardExamples() {
 
 export function ClipboardManagerComponent() {
   const { copyToClipboard, readFromClipboard } = usePermissions();
-  const [clipboardContent, setClipboardContent] = React.useState<string>('');
-  const [inputText, setInputText] = React.useState<string>('');
+  const [clipboardContent, setClipboardContent] = React.useState<string>("");
+  const [inputText, setInputText] = React.useState<string>("");
 
   const handleCopy = async () => {
     if (!inputText.trim()) {
-      alert('⚠️ Escribe algo primero');
+      alert("⚠️ Escribe algo primero");
       return;
     }
 
     const success = await copyToClipboard(inputText);
     if (success) {
-      alert('✅ Copiado al portapapeles');
+      alert("✅ Copiado al portapapeles");
     } else {
-      alert('❌ Error al copiar');
+      alert("❌ Error al copiar");
     }
   };
 
@@ -110,7 +110,7 @@ export function ClipboardManagerComponent() {
     if (text) {
       setClipboardContent(text);
     } else {
-      setClipboardContent('(vacío)');
+      setClipboardContent("(vacío)");
     }
   };
 
@@ -120,9 +120,7 @@ export function ClipboardManagerComponent() {
 
       {/* Copiar */}
       <div className="space-y-2">
-        <label className="block text-sm font-medium">
-          Texto a copiar:
-        </label>
+        <label className="block text-sm font-medium">Texto a copiar:</label>
         <input
           type="text"
           value={inputText}
@@ -148,7 +146,9 @@ export function ClipboardManagerComponent() {
         </button>
         {clipboardContent && (
           <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded">
-            <p className="text-sm text-gray-600 dark:text-gray-400">Contenido:</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Contenido:
+            </p>
             <p className="font-mono text-sm break-all">{clipboardContent}</p>
           </div>
         )}

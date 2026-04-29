@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import {
   Settings,
   LogOut,
@@ -42,6 +43,7 @@ import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import { useAuth } from "../../hooks/useAuth";
 import { ThemeToggle } from "./ThemeToggle";
+import { safeLocalStorage, safeWindow } from "../../utils/client";
 import { getDefaultPermissions } from "../../utils/permissions";
 import FloatingSessionTimer from "../session/FloatingSessionTimer";
 import EditProfileModal from "../edicionPerfil/EditProfileModal";
@@ -111,68 +113,41 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showNotifModal, setShowNotifModal] = useState(false);
   const [hasNewSolicitudes, setHasNewSolicitudes] = useState(false);
-  const [isClient, setIsClient] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
-  const [showSessionTimer, setShowSessionTimer] = useState(false);
-  const [showCalculator, setShowCalculator] = useState(false);
-  const [showSupplierWeekInMenu, setShowSupplierWeekInMenu] = useState(false);
-  const [enableHomeMenuSortMobile, setEnableHomeMenuSortMobile] = useState(false);
+  const [showSessionTimer, setShowSessionTimer] = useState(() => {
+    return safeLocalStorage.getItem("show-session-timer") === "true";
+  });
+  const [showCalculator, setShowCalculator] = useState(() => {
+    return safeLocalStorage.getItem("show-calculator") === "true";
+  });
+  const [showSupplierWeekInMenu, setShowSupplierWeekInMenu] = useState(() => {
+    return safeLocalStorage.getItem("show-supplier-week-menu") === "true";
+  });
+  const [enableHomeMenuSortMobile, setEnableHomeMenuSortMobile] = useState(
+    () => {
+      return (
+        safeLocalStorage.getItem("enable-home-menu-sort-mobile") === "true"
+      );
+    },
+  );
   const [showCalculatorModal, setShowCalculatorModal] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const initializedSolicitudesRef = useRef(false);
   const knownSolicitudesRef = useRef<Set<string>>(new Set());
-  const [currentHash, setCurrentHash] = useState("");
-  // Ensure component is mounted on client
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+  const [currentHash, setCurrentHash] = useState(() => {
+    if (typeof window === "undefined") return "";
+    return window.location.hash || "";
+  });
+
+  const isClient = typeof window !== "undefined";
 
   useEffect(() => {
-    if (!isClient) return;
     if (!audioRef.current) {
       const audio = new Audio("/arrival-sound.mp3");
       audio.preload = "auto";
       audioRef.current = audio;
     }
-  }, [isClient]);
-
-  // Cargar preferencia del FloatingSessionTimer desde localStorage
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const savedPreference = localStorage.getItem("show-session-timer");
-      // Por defecto está desactivado (false)
-      setShowSessionTimer(savedPreference === "true");
-    }
   }, []);
-
-  // Cargar preferencia de la calculadora desde localStorage
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const savedPreference = localStorage.getItem("show-calculator");
-      // Por defecto está desactivado (false)
-      setShowCalculator(savedPreference === "true");
-    }
-  }, []);
-
-  // Cargar preferencia de la tarjeta semanal de proveedores (HomeMenu) desde localStorage
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const savedPreference = localStorage.getItem("show-supplier-week-menu");
-      // Por defecto está desactivado (false)
-      setShowSupplierWeekInMenu(savedPreference === "true");
-    }
-  }, []);
-
-  // Cargar preferencia para ordenar el HomeMenu en móvil
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const savedPreference = localStorage.getItem("enable-home-menu-sort-mobile");
-      // Por defecto está desactivado (false)
-      setEnableHomeMenuSortMobile(savedPreference === "true");
-    }
-  }, []);
-
- 
 
   // Guardar preferencia del FloatingSessionTimer cuando cambie
   useEffect(() => {
@@ -193,7 +168,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     if (typeof window !== "undefined") {
       localStorage.setItem(
         "show-supplier-week-menu",
-        showSupplierWeekInMenu.toString()
+        showSupplierWeekInMenu.toString(),
       );
 
       // Notifica a otros componentes en la misma pestaña
@@ -201,7 +176,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       window.dispatchEvent(
         new CustomEvent("pricemaster:preference-change", {
           detail: { key: "show-supplier-week-menu" },
-        })
+        }),
       );
     }
   }, [showSupplierWeekInMenu]);
@@ -211,23 +186,21 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     if (typeof window !== "undefined") {
       localStorage.setItem(
         "enable-home-menu-sort-mobile",
-        enableHomeMenuSortMobile.toString()
+        enableHomeMenuSortMobile.toString(),
       );
 
       window.dispatchEvent(
         new CustomEvent("pricemaster:preference-change", {
           detail: { key: "enable-home-menu-sort-mobile" },
-        })
+        }),
       );
     }
   }, [enableHomeMenuSortMobile]);
-
 
   // Keep currentHash in sync in case some code manipulates history.hash
   useEffect(() => {
     if (typeof window === "undefined") return;
     const updateHash = () => setCurrentHash(window.location.hash || "");
-    updateHash();
     window.addEventListener("hashchange", updateHash);
     return () => window.removeEventListener("hashchange", updateHash);
   }, []);
@@ -271,14 +244,13 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
 
   // Real-time listener for solicitudes for the user's company (onSnapshot)
   useEffect(() => {
-    if (!isClient || !user) return;
+    if (!user) return;
 
     const company =
       (user as any)?.ownercompanie || (user as any)?.ownerCompanie || "";
     if (!company) {
       knownSolicitudesRef.current = new Set();
       initializedSolicitudesRef.current = false;
-      setHasNewSolicitudes(false);
       return;
     }
 
@@ -290,7 +262,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
         collection(db, "solicitudes"),
         fbWhere("empresa", "==", company),
         fbOrderBy("createdAt", "desc"),
-        fbLimit(50)
+        fbLimit(50),
       );
 
       const handleSolicitudesUpdate = (docs: any[]) => {
@@ -330,7 +302,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
         knownSolicitudesRef.current = new Set(
           pendingDocs
             .map((doc) => doc?.id)
-            .filter((id): id is string => typeof id === "string")
+            .filter((id): id is string => typeof id === "string"),
         );
         initializedSolicitudesRef.current = true;
 
@@ -341,8 +313,9 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
         }
 
         const createdAt = getCreatedAtDate(candidate?.createdAt);
-        const key = `pricemaster_last_seen_solicitudes_${user.id || user.ownercompanie || "anon"
-          }`;
+        const key = `pricemaster_last_seen_solicitudes_${
+          user.id || user.ownercompanie || "anon"
+        }`;
         const lastSeenRaw = localStorage.getItem(key);
         const lastSeen = lastSeenRaw ? new Date(lastSeenRaw) : null;
 
@@ -373,7 +346,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
         },
         (err) => {
           console.error("onSnapshot error for solicitudes:", err);
-        }
+        },
       );
 
       return () => unsubscribe();
@@ -523,7 +496,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       // Limpiar la sesión especial del usuario SEBASTIAN
       localStorage.removeItem("pricemaster_session");
       localStorage.removeItem("pricemaster_session_id");
-      window.location.href = "/";
+      safeWindow.location.href("/");
     } else {
       // Para usuarios autenticados, mostrar modal de confirmación
       setShowLogoutConfirm(true);
@@ -536,12 +509,13 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     // Para todas las páginas, usar hash normal
     const resolvedTabId = tabId === "recetas" ? "agregarproducto" : tabId;
     onTabChange?.(resolvedTabId);
-    const hashId = resolvedTabId === "histoscans" ? "scanhistory" : resolvedTabId;
-    window.location.hash = `#${hashId}`;
+    const hashId =
+      resolvedTabId === "histoscans" ? "scanhistory" : resolvedTabId;
+    safeWindow.location.hash(`#${hashId}`);
   };
 
   const handleUserDropdownClick = (
-    event: React.MouseEvent<HTMLButtonElement>
+    event: React.MouseEvent<HTMLButtonElement>,
   ) => {
     if (!showUserDropdown) {
       const button = event.currentTarget;
@@ -557,14 +531,14 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const userInitials =
     user && ((user.fullName || user.name || "") as string)
       ? (
-        (user.fullName || user.name || "")
-          .trim()
-          .split(/\s+/)
-          .filter(Boolean)
-          .map((p) => p[0])
-          .slice(0, 2)
-          .join("") || "U"
-      ).toUpperCase()
+          (user.fullName || user.name || "")
+            .trim()
+            .split(/\s+/)
+            .filter(Boolean)
+            .map((p) => p[0])
+            .slice(0, 2)
+            .join("") || "U"
+        ).toUpperCase()
       : "U";
   const roleLabel = user?.role
     ? user.role === "superadmin"
@@ -572,8 +546,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       : user.role === "admin"
         ? "Administrador"
         : (user.role || "")
-          .replace(/_/g, " ")
-          .replace(/\b\w/g, (c) => c.toUpperCase())
+            .replace(/_/g, " ")
+            .replace(/\b\w/g, (c) => c.toUpperCase())
     : "";
 
   const handleConfirmLogout = async () => {
@@ -582,7 +556,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     try {
       await logout();
       // Regresar al inicio después del logout
-      window.location.href = "/";
+      safeWindow.location.href("/");
     } catch (error) {
       console.error("Error during logout:", error);
     }
@@ -597,7 +571,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
           suppressHydrationWarning
         >
           {/* Logo and title */}
-          <a
+          <Link
             href="/#"
             className="flex items-center gap-3 text-xl font-bold tracking-tight text-[var(--foreground)] hover:text-[var(--tab-text-active)] transition-colors cursor-pointer bg-transparent border-none p-0"
           >
@@ -607,8 +581,9 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               width={32}
               height={32}
               className="rounded"
-            />Time Master
-          </a>
+            />
+            Time Master
+          </Link>
 
           {/* If we're on fondo-related sections, show quick actions in the header */}
           {isFondoSection && canManageFondoGeneral && (
@@ -616,12 +591,13 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               {/* Agregar proveedor */}
               <button
                 onClick={() => {
-                  window.location.hash = "#agregarproveedor";
+                  safeWindow.location.hash("#agregarproveedor");
                 }}
-                className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${currentHash === "#agregarproveedor"
-                  ? "text-[var(--tab-text-active)] font-semibold"
-                  : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
-                  }`}
+                className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${
+                  currentHash === "#agregarproveedor"
+                    ? "text-[var(--tab-text-active)] font-semibold"
+                    : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
+                }`}
                 title="Agregar proveedor"
               >
                 <UserPlus className="w-4 h-4" />
@@ -634,12 +610,13 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               {/* Fondo */}
               <button
                 onClick={() => {
-                  window.location.hash = "#fondogeneral";
+                  safeWindow.location.hash("#fondogeneral");
                 }}
-                className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${currentHash === "#fondogeneral"
-                  ? "text-[var(--tab-text-active)] font-semibold"
-                  : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
-                  }`}
+                className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${
+                  currentHash === "#fondogeneral"
+                    ? "text-[var(--tab-text-active)] font-semibold"
+                    : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
+                }`}
                 title={fondoMenuLabel}
               >
                 <Banknote className="w-4 h-4" />
@@ -653,12 +630,13 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               {isFondoPrivileged && (
                 <button
                   onClick={() => {
-                    window.location.hash = "#reportes";
+                    safeWindow.location.hash("#reportes");
                   }}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${currentHash === "#reportes"
-                    ? "text-[var(--tab-text-active)] font-semibold"
-                    : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
-                    }`}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${
+                    currentHash === "#reportes"
+                      ? "text-[var(--tab-text-active)] font-semibold"
+                      : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
+                  }`}
                   title="Reportes"
                 >
                   <Layers className="w-4 h-4" />
@@ -673,12 +651,13 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               {isFondoPrivileged && (
                 <button
                   onClick={() => {
-                    window.location.hash = "#configuracion";
+                    safeWindow.location.hash("#configuracion");
                   }}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${currentHash === "#configuracion"
-                    ? "text-[var(--tab-text-active)] font-semibold"
-                    : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
-                    }`}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${
+                    currentHash === "#configuracion"
+                      ? "text-[var(--tab-text-active)] font-semibold"
+                      : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
+                  }`}
                   title="Configuración del fondo"
                 >
                   <Settings className="w-4 h-4" />
@@ -697,12 +676,13 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               {canAgregarProducto && (
                 <button
                   onClick={() => {
-                    window.location.hash = "#agregarproducto";
+                    safeWindow.location.hash("#agregarproducto");
                   }}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${currentHash === "#agregarproducto"
-                    ? "text-[var(--tab-text-active)] font-semibold"
-                    : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
-                    }`}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${
+                    currentHash === "#agregarproducto"
+                      ? "text-[var(--tab-text-active)] font-semibold"
+                      : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
+                  }`}
                   title="Agregar producto"
                 >
                   <CustomIcon name="AddSquare" className="w-4 h-4" />
@@ -715,12 +695,13 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               {/* Recetas */}
               <button
                 onClick={() => {
-                  window.location.hash = "#recetas";
+                  safeWindow.location.hash("#recetas");
                 }}
-                className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${currentHash === "#recetas"
-                  ? "text-[var(--tab-text-active)] font-semibold"
-                  : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
-                  }`}
+                className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${
+                  currentHash === "#recetas"
+                    ? "text-[var(--tab-text-active)] font-semibold"
+                    : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
+                }`}
                 title="Recetas"
               >
                 <CustomIcon name="FoodAndSoda" className="w-4 h-4" />
@@ -747,10 +728,11 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                     <button
                       key={tab.id}
                       onClick={() => handleTabClick(tab.id)}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${activeTab === tab.id
-                        ? "text-[var(--tab-text-active)] font-semibold"
-                        : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
-                        }`}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${
+                        activeTab === tab.id
+                          ? "text-[var(--tab-text-active)] font-semibold"
+                          : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
+                      }`}
                       title={tab.description}
                     >
                       <IconComponent className="w-4 h-4" />
@@ -765,8 +747,6 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
             )}
 
           <div className="flex items-center gap-2" suppressHydrationWarning>
-
-
             {/* User dropdown menu - solo mostrar si hay usuario O si estamos en /home */}
             {(user || pathname === "/home") && (
               <div className="hidden md:flex items-center gap-2">
@@ -813,8 +793,9 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                         </div>
 
                         <ChevronDown
-                          className={`w-4 h-4 text-[var(--muted-foreground)] ml-2 transition-transform ${showUserDropdown ? "rotate-180" : ""
-                            }`}
+                          className={`w-4 h-4 text-[var(--muted-foreground)] ml-2 transition-transform ${
+                            showUserDropdown ? "rotate-180" : ""
+                          }`}
                         />
                       </button>
                     </div>
@@ -889,7 +870,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                                   if (sessionValue !== null) {
                                     localStorage.setItem(
                                       sessionKey,
-                                      sessionValue
+                                      sessionValue,
                                     );
                                   }
                                   window.location.reload();
@@ -902,7 +883,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                             </div>
                           </div>
                         </>,
-                        document.body
+                        document.body,
                       )}
                   </div>
                 )}
@@ -923,8 +904,9 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               onClick={() => {
                 try {
                   if (user) {
-                    const key = `pricemaster_last_seen_solicitudes_${user.id || user.ownercompanie || "anon"
-                      }`;
+                    const key = `pricemaster_last_seen_solicitudes_${
+                      user.id || user.ownercompanie || "anon"
+                    }`;
                     localStorage.setItem(key, new Date().toISOString());
                     setHasNewSolicitudes(false);
                   }
@@ -974,10 +956,11 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                         handleTabClick(tab.id);
                         setShowMobileMenu(false);
                       }}
-                      className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${activeTab === tab.id
-                        ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
-                        : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
-                        }`}
+                      className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${
+                        activeTab === tab.id
+                          ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                          : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
+                      }`}
                     >
                       <IconComponent className="w-4 h-4" />
                       <span>{tab.name}</span>
@@ -993,13 +976,14 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                 {/* Agregar proveedor */}
                 <button
                   onClick={() => {
-                    window.location.hash = "#agregarproveedor";
+                    safeWindow.location.hash("#agregarproveedor");
                     setShowMobileMenu(false);
                   }}
-                  className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${currentHash === "#agregarproveedor"
-                    ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
-                    : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
-                    }`}
+                  className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${
+                    currentHash === "#agregarproveedor"
+                      ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                      : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
+                  }`}
                   title="Agregar proveedor"
                 >
                   <UserPlus className="w-4 h-4" />
@@ -1009,13 +993,14 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                 {/* Fondo */}
                 <button
                   onClick={() => {
-                    window.location.hash = "#fondogeneral";
+                    safeWindow.location.hash("#fondogeneral");
                     setShowMobileMenu(false);
                   }}
-                  className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${currentHash === "#fondogeneral"
-                    ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
-                    : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
-                    }`}
+                  className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${
+                    currentHash === "#fondogeneral"
+                      ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                      : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
+                  }`}
                   title={fondoMenuLabel}
                 >
                   <Banknote className="w-4 h-4" />
@@ -1026,13 +1011,14 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                 {isFondoPrivileged && (
                   <button
                     onClick={() => {
-                      window.location.hash = "#reportes";
+                      safeWindow.location.hash("#reportes");
                       setShowMobileMenu(false);
                     }}
-                    className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${currentHash === "#reportes"
-                      ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
-                      : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
-                      }`}
+                    className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${
+                      currentHash === "#reportes"
+                        ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                        : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
+                    }`}
                     title="Reportes"
                   >
                     <Layers className="w-4 h-4" />
@@ -1044,13 +1030,14 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                 {isFondoPrivileged && (
                   <button
                     onClick={() => {
-                      window.location.hash = "#configuracion";
+                      safeWindow.location.hash("#configuracion");
                       setShowMobileMenu(false);
                     }}
-                    className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${currentHash === "#configuracion"
-                      ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
-                      : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
-                      }`}
+                    className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${
+                      currentHash === "#configuracion"
+                        ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                        : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
+                    }`}
                     title="Configuración del fondo"
                   >
                     <Settings className="w-4 h-4" />
@@ -1066,13 +1053,14 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                 {/* Recetas */}
                 <button
                   onClick={() => {
-                    window.location.hash = "#recetas";
+                    safeWindow.location.hash("#recetas");
                     setShowMobileMenu(false);
                   }}
-                  className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${currentHash === "#recetas"
-                    ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
-                    : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
-                    }`}
+                  className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${
+                    currentHash === "#recetas"
+                      ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                      : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
+                  }`}
                   title="Recetas"
                 >
                   <Layers className="w-4 h-4" />
@@ -1083,13 +1071,14 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                 {canAgregarProducto && (
                   <button
                     onClick={() => {
-                      window.location.hash = "#agregarproducto";
+                      safeWindow.location.hash("#agregarproducto");
                       setShowMobileMenu(false);
                     }}
-                    className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${currentHash === "#agregarproducto"
-                      ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
-                      : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
-                      }`}
+                    className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${
+                      currentHash === "#agregarproducto"
+                        ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                        : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
+                    }`}
                     title="Agregar producto"
                   >
                     <Plus className="w-4 h-4" />
@@ -1211,7 +1200,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       <NotificationModal
         isOpen={showNotifModal}
         onClose={() => setShowNotifModal(false)}
-        onSave={async (payload) => {
+        onSave={async () => {
           // Default behaviour for now: just log the payload. You can replace with any action.
         }}
       />

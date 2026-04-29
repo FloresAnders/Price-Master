@@ -28,7 +28,11 @@ const FoodAndSodaIcon: ComponentType<{ className?: string }> = (props) =>
 const AddSquareIcon: ComponentType<{ className?: string }> = (props) =>
   createElement(CustomIcon, { name: "AddSquare", ...props });
 
-export type HomeMenuFavoriteGroup = "Herramientas" | "Recetas" | "Fondo General" | "Mantenimiento";
+export type HomeMenuFavoriteGroup =
+  | "Herramientas"
+  | "Recetas"
+  | "Fondo General"
+  | "Mantenimiento";
 
 export type HomeMenuMaintenanceTab =
   | "users"
@@ -316,10 +320,14 @@ export const HOME_MENU_FAVORITE_OPTIONS: HomeMenuFavoriteOption[] = [
   },
 ];
 
-export function getAccessibleHomeMenuFavoriteOptions(currentUser?: User | null) {
+export function getAccessibleHomeMenuFavoriteOptions(
+  currentUser?: User | null,
+) {
   if (!currentUser) return [];
 
-  const userPermissions = currentUser.permissions || getDefaultPermissions(currentUser.role || "user");
+  const userPermissions =
+    currentUser.permissions ||
+    getDefaultPermissions(currentUser.role || "user");
   const isFondoPrivileged =
     currentUser.role === "admin" || currentUser.role === "superadmin";
 
@@ -332,7 +340,9 @@ export function getAccessibleHomeMenuFavoriteOptions(currentUser?: User | null) 
     }
 
     if (option.permission === "supplierweek") {
-      return Boolean(userPermissions.supplierorders || userPermissions.fondogeneral);
+      return Boolean(
+        userPermissions.supplierorders || userPermissions.fondogeneral,
+      );
     }
 
     if (option.permission === "agregarproductosdeli") {

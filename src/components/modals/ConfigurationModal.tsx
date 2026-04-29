@@ -1,8 +1,18 @@
-'use client'
+"use client";
 
-import { X, Settings, User, Shield, Timer, TimerOff, LogOut, Calculator, GripVertical } from 'lucide-react';
-import { useAuth } from '../../hooks/useAuth';
-import TokenInfo from '../session/TokenInfo';
+import {
+  X,
+  Settings,
+  User,
+  Shield,
+  Timer,
+  TimerOff,
+  LogOut,
+  Calculator,
+  GripVertical,
+} from "lucide-react";
+import { useAuth } from "../../hooks/useAuth";
+import TokenInfo from "../session/TokenInfo";
 
 interface ConfigurationModalProps {
   isOpen: boolean;
@@ -29,7 +39,7 @@ export default function ConfigurationModal({
   onToggleSupplierWeekInMenu,
   enableHomeMenuSortMobile,
   onToggleHomeMenuSortMobile,
-  onLogoutClick
+  onLogoutClick,
 }: ConfigurationModalProps) {
   const { user } = useAuth();
 
@@ -62,7 +72,9 @@ export default function ConfigurationModal({
               <div className="flex items-center gap-3 mb-4">
                 <User className="w-8 h-8 text-[var(--muted-foreground)]" />
                 <div>
-                  <div className="font-medium text-[var(--foreground)]">{user?.name}</div>
+                  <div className="font-medium text-[var(--foreground)]">
+                    {user?.name}
+                  </div>
                   <div className="text-sm text-[var(--muted-foreground)]">
                     Usuario activo: <strong>{user?.name}</strong>
                   </div>
@@ -78,7 +90,7 @@ export default function ConfigurationModal({
               Gestión de Sesión
             </h3>
             <div className="space-y-4">
-              <TokenInfo isOpen={true} onClose={() => { }} inline={true} />
+              <TokenInfo isOpen={true} onClose={() => {}} inline={true} />
 
               {/* Toggle para FloatingSessionTimer */}
               <div className="bg-[var(--hover-bg)] rounded-lg p-4">
@@ -94,7 +106,7 @@ export default function ConfigurationModal({
                         Temporizador Flotante
                       </div>
                       <div className="text-sm text-[var(--muted-foreground)]">
-                        {showSessionTimer ? 'Visible en pantalla' : 'Oculto'}
+                        {showSessionTimer ? "Visible en pantalla" : "Oculto"}
                       </div>
                     </div>
                   </div>
@@ -106,22 +118,25 @@ export default function ConfigurationModal({
                         onChange={(e) => onToggleSessionTimer(e.target.checked)}
                         className="sr-only"
                       />
-                      <div className={`block w-12 h-6 rounded-full transition-colors duration-200 ease-in-out ${showSessionTimer
-                        ? 'bg-blue-600 shadow-lg'
-                        : 'bg-gray-300 dark:bg-gray-600'
-                        }`}>
-                      </div>
-                      <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-200 ease-in-out shadow-sm ${showSessionTimer ? 'translate-x-6' : 'translate-x-0'
-                        }`}>
-                      </div>
+                      <div
+                        className={`block w-12 h-6 rounded-full transition-colors duration-200 ease-in-out ${
+                          showSessionTimer
+                            ? "bg-blue-600 shadow-lg"
+                            : "bg-gray-300 dark:bg-gray-600"
+                        }`}
+                      ></div>
+                      <div
+                        className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-200 ease-in-out shadow-sm ${
+                          showSessionTimer ? "translate-x-6" : "translate-x-0"
+                        }`}
+                      ></div>
                     </div>
                   </label>
                 </div>
                 <div className="mt-3 text-xs text-[var(--muted-foreground)]">
                   {showSessionTimer
-                    ? 'El temporizador de sesión se muestra en la esquina inferior derecha'
-                    : 'Activa para mostrar el temporizador de sesión flotante'
-                  }
+                    ? "El temporizador de sesión se muestra en la esquina inferior derecha"
+                    : "Activa para mostrar el temporizador de sesión flotante"}
                 </div>
               </div>
 
@@ -129,13 +144,17 @@ export default function ConfigurationModal({
               <div className="bg-[var(--hover-bg)] rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <Calculator className={`w-5 h-5 ${showCalculator ? 'text-green-500' : 'text-gray-500'}`} />
+                    <Calculator
+                      className={`w-5 h-5 ${showCalculator ? "text-green-500" : "text-gray-500"}`}
+                    />
                     <div>
                       <div className="font-medium text-[var(--foreground)]">
                         Mostrar Siempre la Calculadora
                       </div>
                       <div className="text-sm text-[var(--muted-foreground)]">
-                        {showCalculator ? 'Calculadora visible en todas las páginas' : 'Calculadora oculta'}
+                        {showCalculator
+                          ? "Calculadora visible en todas las páginas"
+                          : "Calculadora oculta"}
                       </div>
                     </div>
                   </div>
@@ -147,22 +166,25 @@ export default function ConfigurationModal({
                         onChange={(e) => onToggleCalculator(e.target.checked)}
                         className="sr-only"
                       />
-                      <div className={`block w-12 h-6 rounded-full transition-colors duration-200 ease-in-out ${showCalculator
-                        ? 'bg-green-600 shadow-lg'
-                        : 'bg-gray-300 dark:bg-gray-600'
-                        }`}>
-                      </div>
-                      <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-200 ease-in-out shadow-sm ${showCalculator ? 'translate-x-6' : 'translate-x-0'
-                        }`}>
-                      </div>
+                      <div
+                        className={`block w-12 h-6 rounded-full transition-colors duration-200 ease-in-out ${
+                          showCalculator
+                            ? "bg-green-600 shadow-lg"
+                            : "bg-gray-300 dark:bg-gray-600"
+                        }`}
+                      ></div>
+                      <div
+                        className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-200 ease-in-out shadow-sm ${
+                          showCalculator ? "translate-x-6" : "translate-x-0"
+                        }`}
+                      ></div>
                     </div>
                   </label>
                 </div>
                 <div className="mt-3 text-xs text-[var(--muted-foreground)]">
                   {showCalculator
-                    ? 'La calculadora estará disponible en todas las páginas como botón flotante'
-                    : 'Activa para mostrar la calculadora flotante en toda la aplicación'
-                  }
+                    ? "La calculadora estará disponible en todas las páginas como botón flotante"
+                    : "Activa para mostrar la calculadora flotante en toda la aplicación"}
                 </div>
               </div>
 
@@ -170,16 +192,17 @@ export default function ConfigurationModal({
               <div className="bg-[var(--hover-bg)] rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <Settings className={`w-5 h-5 ${showSupplierWeekInMenu ? 'text-green-500' : 'text-gray-500'}`} />
+                    <Settings
+                      className={`w-5 h-5 ${showSupplierWeekInMenu ? "text-green-500" : "text-gray-500"}`}
+                    />
                     <div>
                       <div className="font-medium text-[var(--foreground)]">
                         Mostrar en menu la tarjeta de Semana Proveedores
                       </div>
                       <div className="text-sm text-[var(--muted-foreground)]">
                         {showSupplierWeekInMenu
-                          ? 'Tarjeta visible en el Home (si tienes permisos)'
-                          : 'Tarjeta oculta en el Home'
-                        }
+                          ? "Tarjeta visible en el Home (si tienes permisos)"
+                          : "Tarjeta oculta en el Home"}
                       </div>
                     </div>
                   </div>
@@ -188,29 +211,32 @@ export default function ConfigurationModal({
                       <input
                         type="checkbox"
                         checked={showSupplierWeekInMenu}
-                        onChange={(e) => onToggleSupplierWeekInMenu(e.target.checked)}
+                        onChange={(e) =>
+                          onToggleSupplierWeekInMenu(e.target.checked)
+                        }
                         className="sr-only"
                       />
                       <div
-                        className={`block w-12 h-6 rounded-full transition-colors duration-200 ease-in-out ${showSupplierWeekInMenu
-                          ? 'bg-green-600 shadow-lg'
-                          : 'bg-gray-300 dark:bg-gray-600'
-                          }`}
+                        className={`block w-12 h-6 rounded-full transition-colors duration-200 ease-in-out ${
+                          showSupplierWeekInMenu
+                            ? "bg-green-600 shadow-lg"
+                            : "bg-gray-300 dark:bg-gray-600"
+                        }`}
                       />
                       <div
-                        className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-200 ease-in-out shadow-sm ${showSupplierWeekInMenu
-                          ? 'translate-x-6'
-                          : 'translate-x-0'
-                          }`}
+                        className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-200 ease-in-out shadow-sm ${
+                          showSupplierWeekInMenu
+                            ? "translate-x-6"
+                            : "translate-x-0"
+                        }`}
                       />
                     </div>
                   </label>
                 </div>
                 <div className="mt-3 text-xs text-[var(--muted-foreground)]">
                   {showSupplierWeekInMenu
-                    ? 'Se muestra la tarjeta de Semana actual (proveedores) en el menú principal'
-                    : 'Activa para mostrar la tarjeta semanal de proveedores en el Home'
-                  }
+                    ? "Se muestra la tarjeta de Semana actual (proveedores) en el menú principal"
+                    : "Activa para mostrar la tarjeta semanal de proveedores en el Home"}
                 </div>
               </div>
 
@@ -218,16 +244,17 @@ export default function ConfigurationModal({
               <div className="bg-[var(--hover-bg)] rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <GripVertical className={`w-5 h-5 ${enableHomeMenuSortMobile ? 'text-green-500' : 'text-gray-500'}`} />
+                    <GripVertical
+                      className={`w-5 h-5 ${enableHomeMenuSortMobile ? "text-green-500" : "text-gray-500"}`}
+                    />
                     <div>
                       <div className="font-medium text-[var(--foreground)]">
                         Ordenar menú
                       </div>
                       <div className="text-sm text-[var(--muted-foreground)]">
                         {enableHomeMenuSortMobile
-                          ? 'Arrastra para reordenar las tarjetas del Home'
-                          : 'Desactivado para evitar toques accidentales'
-                        }
+                          ? "Arrastra para reordenar las tarjetas del Home"
+                          : "Desactivado para evitar toques accidentales"}
                       </div>
                     </div>
                   </div>
@@ -236,20 +263,24 @@ export default function ConfigurationModal({
                       <input
                         type="checkbox"
                         checked={enableHomeMenuSortMobile}
-                        onChange={(e) => onToggleHomeMenuSortMobile(e.target.checked)}
+                        onChange={(e) =>
+                          onToggleHomeMenuSortMobile(e.target.checked)
+                        }
                         className="sr-only"
                       />
                       <div
-                        className={`block w-12 h-6 rounded-full transition-colors duration-200 ease-in-out ${enableHomeMenuSortMobile
-                          ? 'bg-green-600 shadow-lg'
-                          : 'bg-gray-300 dark:bg-gray-600'
-                          }`}
+                        className={`block w-12 h-6 rounded-full transition-colors duration-200 ease-in-out ${
+                          enableHomeMenuSortMobile
+                            ? "bg-green-600 shadow-lg"
+                            : "bg-gray-300 dark:bg-gray-600"
+                        }`}
                       />
                       <div
-                        className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-200 ease-in-out shadow-sm ${enableHomeMenuSortMobile
-                          ? 'translate-x-6'
-                          : 'translate-x-0'
-                          }`}
+                        className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-200 ease-in-out shadow-sm ${
+                          enableHomeMenuSortMobile
+                            ? "translate-x-6"
+                            : "translate-x-0"
+                        }`}
                       />
                     </div>
                   </label>
@@ -263,7 +294,9 @@ export default function ConfigurationModal({
 
           {/* Actions Section */}
           <div className="border-t border-[var(--input-border)] pt-6">
-            <h3 className="text-lg font-medium text-[var(--foreground)] mb-4">Acciones</h3>
+            <h3 className="text-lg font-medium text-[var(--foreground)] mb-4">
+              Acciones
+            </h3>
             <div className="flex gap-3">
               <button
                 onClick={onClose}
@@ -287,10 +320,7 @@ export default function ConfigurationModal({
       </div>
 
       {/* Click outside to close */}
-      <div
-        className="absolute inset-0 -z-10"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 -z-10" onClick={onClose} />
     </div>
   );
 }

@@ -12,14 +12,14 @@ const base62 = baseX(BASE62);
  */
 export function encodeData(
   session: string,
-  requestProductName?: boolean
+  requestProductName?: boolean,
 ): string {
   // Build query parameters string
   const params = new URLSearchParams();
-  params.set('session', session);
+  params.set("session", session);
 
   if (requestProductName) {
-    params.set('rpn', 't');
+    params.set("rpn", "t");
   }
 
   const paramsString = params.toString();
@@ -29,16 +29,16 @@ export function encodeData(
     const compressed = LZString.compressToBase64(paramsString);
 
     if (!compressed) {
-      throw new Error('Compression failed');
+      throw new Error("Compression failed");
     }
 
     // Convert to Base62 for URL-safe encoding
-    const buffer = Buffer.from(compressed, 'base64');
+    const buffer = Buffer.from(compressed, "base64");
     return base62.encode(buffer);
   } catch (error) {
-    console.error('Error encoding data:', error);
+    console.error("Error encoding data:", error);
     // Fallback to simple base64 if compression fails
-    return Buffer.from(paramsString).toString('base64').replace(/[+/=]/g, '');
+    return Buffer.from(paramsString).toString("base64").replace(/[+/=]/g, "");
   }
 }
 
@@ -56,7 +56,7 @@ export function decodeData(encoded: string): {
     const buffer = base62.decode(encoded);
 
     // Convert Uint8Array to base64 string (browser-compatible)
-    let binary = '';
+    let binary = "";
     for (let i = 0; i < buffer.length; i++) {
       binary += String.fromCharCode(buffer[i]);
     }
@@ -66,7 +66,7 @@ export function decodeData(encoded: string): {
     const decompressed = LZString.decompressFromBase64(compressed);
 
     if (!decompressed) {
-      throw new Error('Decompression failed');
+      throw new Error("Decompression failed");
     }
 
     // Parse as URLSearchParams
@@ -74,17 +74,17 @@ export function decodeData(encoded: string): {
 
     return {
       session: searchParams.get("session"),
-      requestProductName: searchParams.get("rpn") === 't'
+      requestProductName: searchParams.get("rpn") === "t",
     };
   } catch (error) {
-    console.error('Error decoding data:', error);
+    console.error("Error decoding data:", error);
 
     // Fallback: try to decode as simple base64
     try {
       // Add padding if needed
       let padded = encoded;
       while (padded.length % 4) {
-        padded += '=';
+        padded += "=";
       }
 
       const fallbackDecoded = atob(padded);
@@ -92,10 +92,10 @@ export function decodeData(encoded: string): {
 
       return {
         session: searchParams.get("session"),
-        requestProductName: searchParams.get("rpn") === 't'
+        requestProductName: searchParams.get("rpn") === "t",
       };
     } catch (fallbackError) {
-      console.error('Fallback decoding also failed:', fallbackError);
+      console.error("Fallback decoding also failed:", fallbackError);
       return null;
     }
   }
@@ -111,7 +111,7 @@ export function decodeData(encoded: string): {
 export function generateShortMobileUrl(
   baseUrl: string,
   session: string,
-  requestProductName?: boolean
+  requestProductName?: boolean,
 ): string {
   // Simplified URL generation without session parameter
   if (requestProductName) {

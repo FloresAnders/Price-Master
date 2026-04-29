@@ -1,27 +1,33 @@
-import { collection, doc, setDoc, query, where, getDocs, updateDoc, deleteDoc } from 'firebase/firestore';
-import { db } from '@/config/firebase';
-import { RecoveryToken } from '../types/recovery';
-import crypto from 'crypto';
+import {
+  collection,
+  doc,
+  setDoc,
+  query,
+  where,
+  getDocs,
+  updateDoc,
+  deleteDoc,
+} from "firebase/firestore";
+import { db } from "@/config/firebase";
+import { RecoveryToken } from "../types/recovery";
+import crypto from "crypto";
 
 export class RecoveryTokenService {
-  private static readonly COLLECTION = 'recovery_tokens';
+  private static readonly COLLECTION = "recovery_tokens";
   private static readonly TOKEN_EXPIRY = 1800000; // 30 minutos en ms
 
   /**
    * Genera un token criptográficamente seguro
    */
   private static generateSecureToken(length: number = 32): string {
-    return crypto.randomBytes(length).toString('hex');
+    return crypto.randomBytes(length).toString("hex");
   }
 
   /**
    * Hash del token para almacenamiento seguro en BD
    */
   private static hashToken(token: string): string {
-    return crypto
-      .createHash('sha256')
-      .update(token)
-      .digest('hex');
+    return crypto.createHash("sha256").update(token).digest("hex");
   }
 
   /**
@@ -29,12 +35,12 @@ export class RecoveryTokenService {
    */
   static async createRecoveryToken(
     email: string,
-    userId: string
+    userId: string,
   ): Promise<{ token: string; expiresAt: number }> {
     // Genera token único
     const plainToken = this.generateSecureToken();
     const hashedToken = this.hashToken(plainToken);
-    
+
     const now = Date.now();
     const expiresAt = now + this.TOKEN_EXPIRY;
 
@@ -47,7 +53,7 @@ export class RecoveryTokenService {
       userId,
       createdAt: now,
       expiresAt,
-      used: false
+      used: false,
     };
 
     // Guarda en Firestore
@@ -60,7 +66,7 @@ export class RecoveryTokenService {
     // Retorna el token SIN hashear para enviarlo por email
     return {
       token: plainToken,
-      expiresAt
+      expiresAt,
     };
   }
 
@@ -77,11 +83,11 @@ export class RecoveryTokenService {
 
     // Busca el token en la base de datos
     const tokensRef = collection(db, this.COLLECTION);
-    const q = query(tokensRef, where('token', '==', hashedToken));
+    const q = query(tokensRef, where("token", "==", hashedToken));
     const querySnapshot = await getDocs(q);
 
     if (querySnapshot.empty) {
-      return { valid: false, error: 'Token inválido' };
+      return { valid: false, error: "Token inválido" };
     }
 
     const tokenDoc = querySnapshot.docs[0];
@@ -89,20 +95,20 @@ export class RecoveryTokenService {
 
     // Verifica si ya fue usado
     if (recoveryToken.used) {
-      return { valid: false, error: 'Token ya utilizado' };
+      return { valid: false, error: "Token ya utilizado" };
     }
 
     // Verifica expiración
     if (Date.now() > recoveryToken.expiresAt) {
       // Elimina token expirado
       await deleteDoc(tokenDoc.ref);
-      return { valid: false, error: 'Token expirado' };
+      return { valid: false, error: "Token expirado" };
     }
 
     return {
       valid: true,
       email: recoveryToken.email,
-      userId: recoveryToken.userId
+      userId: recoveryToken.userId,
     };
   }
 
@@ -113,7 +119,7 @@ export class RecoveryTokenService {
     const hashedToken = this.hashToken(token);
 
     const tokensRef = collection(db, this.COLLECTION);
-    const q = query(tokensRef, where('token', '==', hashedToken));
+    const q = query(tokensRef, where("token", "==", hashedToken));
     const querySnapshot = await getDocs(q);
 
     if (!querySnapshot.empty) {
@@ -130,17 +136,15 @@ export class RecoveryTokenService {
     const tokensRef = collection(db, this.COLLECTION);
     const q = query(
       tokensRef,
-      where('email', '==', email),
-      where('used', '==', false)
+      where("email", "==", email),
+      where("used", "==", false),
     );
-    
+
     const querySnapshot = await getDocs(q);
-    
+
     // Elimina todos los tokens anteriores
-    const deletePromises = querySnapshot.docs.map(doc => 
-      deleteDoc(doc.ref)
-    );
-    
+    const deletePromises = querySnapshot.docs.map((doc) => deleteDoc(doc.ref));
+
     await Promise.all(deletePromises);
   }
 
@@ -149,15 +153,15 @@ export class RecoveryTokenService {
    */
   private static async logRecoveryRequest(
     email: string,
-    userId: string
+    userId: string,
   ): Promise<void> {
-    const logRef = doc(collection(db, 'security_logs'));
-    
+    const logRef = doc(collection(db, "security_logs"));
+
     await setDoc(logRef, {
-      type: 'password_recovery_request',
+      type: "password_recovery_request",
       email,
       userId,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
   }
 
@@ -167,13 +171,13 @@ export class RecoveryTokenService {
   static async cleanupExpiredTokens(): Promise<number> {
     const tokensRef = collection(db, this.COLLECTION);
     const now = Date.now();
-    
-    const q = query(tokensRef, where('expiresAt', '<', now));
+
+    const q = query(tokensRef, where("expiresAt", "<", now));
     const querySnapshot = await getDocs(q);
-    
-    const deletePromises = querySnapshot.docs.map(doc => deleteDoc(doc.ref));
+
+    const deletePromises = querySnapshot.docs.map((doc) => deleteDoc(doc.ref));
     await Promise.all(deletePromises);
-    
+
     return querySnapshot.size;
   }
 }

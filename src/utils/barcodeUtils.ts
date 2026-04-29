@@ -1,14 +1,22 @@
 // Funciones utilitarias para BarcodeScanner
 
 // --- Detección básica de patrones (mejorada para imágenes borrosas y decodificación a dígitos) ---
-export function detectBasicPatternWithOrientation(imageData: ImageData): string | null {
-  function blurImage(data: Uint8ClampedArray, width: number, height: number): Uint8ClampedArray {
+export function detectBasicPatternWithOrientation(
+  imageData: ImageData,
+): string | null {
+  function blurImage(
+    data: Uint8ClampedArray,
+    width: number,
+    height: number,
+  ): Uint8ClampedArray {
     const out = new Uint8ClampedArray(data.length);
     const kernel = [1, 2, 1, 2, 4, 2, 1, 2, 1];
     const kSum = 16;
     for (let y = 1; y < height - 1; y++) {
       for (let x = 1; x < width - 1; x++) {
-        let r = 0, g = 0, b = 0;
+        let r = 0,
+          g = 0,
+          b = 0;
         let idx = 0;
         for (let ky = -1; ky <= 1; ky++) {
           for (let kx = -1; kx <= 1; kx++) {
@@ -28,25 +36,40 @@ export function detectBasicPatternWithOrientation(imageData: ImageData): string 
     }
     return out;
   }
-  function adaptiveThresholdLine(data: Uint8ClampedArray, width: number, y: number): number {
+  function adaptiveThresholdLine(
+    data: Uint8ClampedArray,
+    width: number,
+    y: number,
+  ): number {
     let sum = 0;
     for (let x = 0; x < width; x++) {
       const idx = (y * width + x) * 4;
-      const gray = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
+      const gray =
+        0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
       sum += gray;
     }
     return sum / width;
   }
-  function analyzeLine(data: Uint8ClampedArray, width: number, y: number, threshold: number): string {
-    let bin = '';
+  function analyzeLine(
+    data: Uint8ClampedArray,
+    width: number,
+    y: number,
+    threshold: number,
+  ): string {
+    let bin = "";
     for (let x = 0; x < width; x++) {
       const idx = (y * width + x) * 4;
-      const gray = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
-      bin += gray < threshold ? '1' : '0';
+      const gray =
+        0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
+      bin += gray < threshold ? "1" : "0";
     }
     return bin;
   }
-  function getBestBinarySequence(data: Uint8ClampedArray, width: number, height: number): string {
+  function getBestBinarySequence(
+    data: Uint8ClampedArray,
+    width: number,
+    height: number,
+  ): string {
     const lines = 15;
     const startY = Math.floor(height * 0.3);
     const endY = Math.floor(height * 0.7);
@@ -68,26 +91,26 @@ export function detectBasicPatternWithOrientation(imageData: ImageData): string 
   // Decodifica la secuencia binaria a dígitos EAN/UPC aproximados
   function tryDecodeEANtoDigits(bin: string): string | null {
     // Busca patrones de guardas EAN-13: 101...101...101
-    const left = bin.indexOf('101');
-    const right = bin.lastIndexOf('101');
+    const left = bin.indexOf("101");
+    const right = bin.lastIndexOf("101");
     if (left !== -1 && right !== -1 && right > left + 30) {
       const payload = bin.slice(left + 3, right);
       // Divide en 12-13 segmentos (EAN-13)
       const seg = Math.floor(payload.length / 12);
       if (seg > 2) {
-        let digits = '';
+        let digits = "";
         for (let i = 0; i < 12; i++) {
           const chunk = payload.slice(i * seg, (i + 1) * seg);
           // Calcula la proporción de barras negras
-          const ones = chunk.split('').filter((c) => c === '1').length;
+          const ones = chunk.split("").filter((c) => c === "1").length;
           const ratio = ones / seg;
           //más de 70% negro = 1, menos de 30% = 0, intermedios = 7, 4, 3, etc.
-          if (ratio > 0.7) digits += '1';
-          else if (ratio < 0.3) digits += '0';
-          else if (ratio > 0.55) digits += '7';
-          else if (ratio > 0.45) digits += '4';
-          else if (ratio > 0.35) digits += '3';
-          else digits += '2';
+          if (ratio > 0.7) digits += "1";
+          else if (ratio < 0.3) digits += "0";
+          else if (ratio > 0.55) digits += "7";
+          else if (ratio > 0.45) digits += "4";
+          else if (ratio > 0.35) digits += "3";
+          else digits += "2";
         }
         return digits;
       }
@@ -127,7 +150,7 @@ export function preprocessImage(imageData: ImageData): ImageData {
   const histogram = new Array<number>(256).fill(0);
   for (let i = 0; i < data.length; i += 4) {
     const gray = Math.round(
-      0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]
+      0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2],
     );
     histogram[gray]++;
   }
@@ -146,9 +169,12 @@ export function preprocessImage(imageData: ImageData): ImageData {
   const range = maxVal - minVal || 1;
   for (let i = 0; i < data.length; i += 4) {
     const gray = Math.round(
-      0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]
+      0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2],
     );
-    const adjusted = Math.max(0, Math.min(255, ((gray - minVal) * 255) / range));
+    const adjusted = Math.max(
+      0,
+      Math.min(255, ((gray - minVal) * 255) / range),
+    );
     processedData.data[i] = adjusted;
     processedData.data[i + 1] = adjusted;
     processedData.data[i + 2] = adjusted;
@@ -158,19 +184,22 @@ export function preprocessImage(imageData: ImageData): ImageData {
 }
 
 // --- Decodificación con Quagga2 (imagen estática) ---
-export async function detectWithQuagga2(imageData: ImageData, fallbackDelay: number = 0): Promise<string | null> {
+export async function detectWithQuagga2(
+  imageData: ImageData,
+  fallbackDelay: number = 0,
+): Promise<string | null> {
   // Usar requestAnimationFrame para procesamiento inmediato sin bloquear UI
-  await new Promise(resolve => requestAnimationFrame(resolve));
+  await new Promise((resolve) => requestAnimationFrame(resolve));
 
   // El fallbackDelay ahora es 0 para análisis inmediato
   if (fallbackDelay > 0) {
-    await new Promise(resolve => setTimeout(resolve, fallbackDelay));
+    await new Promise((resolve) => setTimeout(resolve, fallbackDelay));
   }
 
   // Import dinámico para evitar require y problemas SSR
-  const Quagga = (await import('@ericblade/quagga2')).default;
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
+  const Quagga = (await import("@ericblade/quagga2")).default;
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
   if (!ctx) {
     return null;
   }
@@ -180,18 +209,18 @@ export async function detectWithQuagga2(imageData: ImageData, fallbackDelay: num
   return new Promise((resolve) => {
     Quagga.decodeSingle(
       {
-        src: canvas.toDataURL('image/png'),
+        src: canvas.toDataURL("image/png"),
         numOfWorkers: 0,
         decoder: {
           readers: [
-            'code_128_reader',
-            'ean_reader',
-            'ean_8_reader',
-            'code_39_reader',
-            'codabar_reader',
-            'upc_reader',
-            'i2of5_reader',
-            'code_93_reader',
+            "code_128_reader",
+            "ean_reader",
+            "ean_8_reader",
+            "code_39_reader",
+            "codabar_reader",
+            "upc_reader",
+            "i2of5_reader",
+            "code_93_reader",
           ],
         },
         locate: true,
@@ -203,7 +232,7 @@ export async function detectWithQuagga2(imageData: ImageData, fallbackDelay: num
         } else {
           resolve(null);
         }
-      }
+      },
     );
   });
 }

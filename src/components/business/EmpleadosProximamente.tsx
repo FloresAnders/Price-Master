@@ -1,16 +1,27 @@
-'use client';
+"use client";
 
-import React, { useEffect, useMemo, useState } from 'react';
-import { Users, Lock as LockIcon, Building2, Search, Pencil, Trash2 } from 'lucide-react';
-import { useAuth } from '../../hooks/useAuth';
-import { useActorOwnership } from '../../hooks/useActorOwnership';
-import { hasPermission } from '../../utils/permissions';
-import { EmpresasService } from '../../services/empresas';
-import { EmpleadosService } from '../../services/empleados';
-import useToast from '../../hooks/useToast';
-import EmpleadoDetailsModal from '../ui/EmpleadoDetailsModal';
-import ConfirmModal from '../ui/ConfirmModal';
-import type { Empresas, EmpresaEmpleado, Empleado } from '../../types/firestore';
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  Users,
+  Lock as LockIcon,
+  Building2,
+  Search,
+  Pencil,
+  Trash2,
+} from "lucide-react";
+import { useAuth } from "../../hooks/useAuth";
+import { useActorOwnership } from "../../hooks/useActorOwnership";
+import { hasPermission } from "../../utils/permissions";
+import { EmpresasService } from "../../services/empresas";
+import { EmpleadosService } from "../../services/empleados";
+import useToast from "../../hooks/useToast";
+import EmpleadoDetailsModal from "../ui/EmpleadoDetailsModal";
+import ConfirmModal from "../ui/ConfirmModal";
+import type {
+  Empresas,
+  EmpresaEmpleado,
+  Empleado,
+} from "../../types/firestore";
 
 type EmpresaOption = {
   key: string;
@@ -30,17 +41,19 @@ type DeleteTarget = {
 } | null;
 
 function normalizeStr(value: unknown) {
-  return String(value ?? '').trim().toLowerCase();
+  return String(value ?? "")
+    .trim()
+    .toLowerCase();
 }
 
 function formatLocalISODate(d: Date = new Date()): string {
   const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
   return `${dd}/${mm}/${yyyy}`;
 }
 function formatYMDToDMY(value: string): string {
-  const s = String(value || '').trim();
+  const s = String(value || "").trim();
   // Esperado: YYYY-MM-DD
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
   if (!m) return s; // si viene en otro formato, lo mostramos tal cual
@@ -48,26 +61,28 @@ function formatYMDToDMY(value: string): string {
   return `${dd}/${mm}/${yyyy}`;
 }
 function getDisplayedIngresoDate(e: Partial<Empleado> | undefined): string {
-  const useDynamicIngresoDate = !Boolean(e?.incluidoCCSS) && !Boolean(e?.incluidoINS);
+  const useDynamicIngresoDate =
+    !Boolean(e?.incluidoCCSS) && !Boolean(e?.incluidoINS);
   if (useDynamicIngresoDate) return formatLocalISODate();
 
-  const dia = String(e?.diaContratacion || '').trim();
-  if (!dia) return '—';
+  const dia = String(e?.diaContratacion || "").trim();
+  if (!dia) return "—";
   return formatYMDToDMY(dia);
 }
 
 function getEmpresaKey(e: Partial<Empresas>) {
-  const id = String(e.id ?? '').trim();
-  const ubic = String(e.ubicacion ?? '').trim();
-  const name = String(e.name ?? '').trim();
-  return [id || 'no-id', ubic || name || 'no-name'].join('::');
+  const id = String(e.id ?? "").trim();
+  const ubic = String(e.ubicacion ?? "").trim();
+  const name = String(e.name ?? "").trim();
+  return [id || "no-id", ubic || name || "no-name"].join("::");
 }
 
 function getEmpresaLabel(e: Partial<Empresas>) {
-  const name = String(e.name ?? '').trim();
-  const ubic = String(e.ubicacion ?? '').trim();
-  if (name && ubic && normalizeStr(name) !== normalizeStr(ubic)) return `${name} (${ubic})`;
-  return name || ubic || String(e.id ?? 'Empresa');
+  const name = String(e.name ?? "").trim();
+  const ubic = String(e.ubicacion ?? "").trim();
+  if (name && ubic && normalizeStr(name) !== normalizeStr(ubic))
+    return `${name} (${ubic})`;
+  return name || ubic || String(e.id ?? "Empresa");
 }
 
 function matchEmpresaByCompanyKey(e: Partial<Empresas>, companyKey: string) {
@@ -75,37 +90,57 @@ function matchEmpresaByCompanyKey(e: Partial<Empresas>, companyKey: string) {
   if (!key) return false;
   const name = normalizeStr(e.name);
   const ubic = normalizeStr(e.ubicacion);
-  return name === key || ubic === key || name.includes(key) || ubic.includes(key) || key.includes(name) || key.includes(ubic);
+  return (
+    name === key ||
+    ubic === key ||
+    name.includes(key) ||
+    ubic.includes(key) ||
+    key.includes(name) ||
+    key.includes(ubic)
+  );
 }
 
 function sortEmpleados(list: EmpresaEmpleado[]) {
   return [...(list || [])]
-    .filter((x) => String(x?.Empleado ?? '').trim().length > 0)
-    .sort((a, b) => String(a.Empleado || '').localeCompare(String(b.Empleado || ''), 'es', { sensitivity: 'base' }));
+    .filter((x) => String(x?.Empleado ?? "").trim().length > 0)
+    .sort((a, b) =>
+      String(a.Empleado || "").localeCompare(String(b.Empleado || ""), "es", {
+        sensitivity: "base",
+      }),
+    );
 }
 
 function isEmpleadoDetailsComplete(e: Partial<Empleado>) {
-  const pagoOk = typeof e.pagoHoraBruta === 'number' && Number.isFinite(e.pagoHoraBruta);
+  const pagoOk =
+    typeof e.pagoHoraBruta === "number" && Number.isFinite(e.pagoHoraBruta);
   const sinSeguros = !Boolean(e.incluidoCCSS) && !Boolean(e.incluidoINS);
-  const diaOk = String(e.diaContratacion || '').trim().length > 0 || sinSeguros;
-  const horasOk = typeof e.cantidadHorasTrabaja === 'number' && Number.isFinite(e.cantidadHorasTrabaja);
+  const diaOk = String(e.diaContratacion || "").trim().length > 0 || sinSeguros;
+  const horasOk =
+    typeof e.cantidadHorasTrabaja === "number" &&
+    Number.isFinite(e.cantidadHorasTrabaja);
   const stringsOk = [
     e.paganAguinaldo,
     e.danReciboPago,
     e.contratoFisico,
     e.espacioComida,
     e.brindanVacaciones,
-  ].every((v) => typeof v === 'string' && v.trim().length > 0);
+  ].every((v) => typeof v === "string" && v.trim().length > 0);
 
-  const boolsOk = [e.incluidoCCSS, e.incluidoINS].every((v) => typeof v === 'boolean');
+  const boolsOk = [e.incluidoCCSS, e.incluidoINS].every(
+    (v) => typeof v === "boolean",
+  );
   return pagoOk && diaOk && horasOk && stringsOk && boolsOk;
 }
 
-function mergeEmpleadosForEmpresa(empresaId: string, embedded: EmpresaEmpleado[], docs: Empleado[]): MergedEmpleadoEntry[] {
+function mergeEmpleadosForEmpresa(
+  empresaId: string,
+  embedded: EmpresaEmpleado[],
+  docs: Empleado[],
+): MergedEmpleadoEntry[] {
   const byKey = new Map<string, MergedEmpleadoEntry>();
 
   for (const emp of sortEmpleados(embedded || [])) {
-    const name = String(emp?.Empleado ?? '').trim();
+    const name = String(emp?.Empleado ?? "").trim();
     if (!name) continue;
     const key = normalizeStr(name);
     if (!key) continue;
@@ -117,7 +152,7 @@ function mergeEmpleadosForEmpresa(empresaId: string, embedded: EmpresaEmpleado[]
   }
 
   for (const doc of docs || []) {
-    const name = String(doc?.Empleado ?? '').trim();
+    const name = String(doc?.Empleado ?? "").trim();
     if (!name) continue;
     const key = normalizeStr(name);
     if (!key) continue;
@@ -133,7 +168,9 @@ function mergeEmpleadosForEmpresa(empresaId: string, embedded: EmpresaEmpleado[]
     });
   }
 
-  return [...byKey.values()].sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
+  return [...byKey.values()].sort((a, b) =>
+    a.name.localeCompare(b.name, "es", { sensitivity: "base" }),
+  );
 }
 
 export default function EmpleadosProximamente() {
@@ -145,10 +182,12 @@ export default function EmpleadosProximamente() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [selectedEmpresaKey, setSelectedEmpresaKey] = useState<string>('');
-  const [search, setSearch] = useState('');
+  const [selectedEmpresaKey, setSelectedEmpresaKey] = useState<string>("");
+  const [search, setSearch] = useState("");
 
-  const [empleadosByEmpresaId, setEmpleadosByEmpresaId] = useState<Record<string, Empleado[]>>({});
+  const [empleadosByEmpresaId, setEmpleadosByEmpresaId] = useState<
+    Record<string, Empleado[]>
+  >({});
   const [empleadosLoading, setEmpleadosLoading] = useState(false);
   const [empleadosError, setEmpleadosError] = useState<string | null>(null);
 
@@ -156,7 +195,7 @@ export default function EmpleadosProximamente() {
   const [modalEmpleado, setModalEmpleado] = useState<Empleado | null>(null);
   const [modalReadOnly, setModalReadOnly] = useState(true);
 
-  const canUse = hasPermission(user?.permissions, 'empleados');
+  const canUse = hasPermission(user?.permissions, "empleados");
 
   useEffect(() => {
     if (!canUse) return;
@@ -170,8 +209,8 @@ export default function EmpleadosProximamente() {
         if (cancelled) return;
         setEmpresas(all || []);
       } catch (e) {
-        console.error('Error loading empresas:', e);
-        if (!cancelled) setError('No se pudieron cargar las empresas.');
+        console.error("Error loading empresas:", e);
+        if (!cancelled) setError("No se pudieron cargar las empresas.");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -182,13 +221,13 @@ export default function EmpleadosProximamente() {
     };
   }, [canUse]);
 
-  const role = user?.role || 'user';
-  const isSuperAdmin = role === 'superadmin';
-  const isAdmin = role === 'admin';
-  const isUser = role === 'user';
+  const role = user?.role || "user";
+  const isSuperAdmin = role === "superadmin";
+  const isAdmin = role === "admin";
+  const isUser = role === "user";
   const canManageEmployees = isAdmin || isSuperAdmin;
 
-  const [deletingKey, setDeletingKey] = useState<string>('');
+  const [deletingKey, setDeletingKey] = useState<string>("");
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteModalLoading, setDeleteModalLoading] = useState(false);
@@ -200,14 +239,16 @@ export default function EmpleadosProximamente() {
     if (isSuperAdmin) return all;
 
     const ownerIdSet = new Set((ownerIds || []).map((id) => String(id)));
-    const companyKey = String(user.ownercompanie || '').trim();
+    const companyKey = String(user.ownercompanie || "").trim();
 
     // Admin: show empresas owned by the actor. Fallback-match by ownercompanie if present.
     if (isAdmin) {
       return all.filter((e) => {
         if (!e) return false;
         const ownerMatch = e.ownerId && ownerIdSet.has(String(e.ownerId));
-        const companyMatch = companyKey ? matchEmpresaByCompanyKey(e, companyKey) : false;
+        const companyMatch = companyKey
+          ? matchEmpresaByCompanyKey(e, companyKey)
+          : false;
         return Boolean(ownerMatch || companyMatch);
       });
     }
@@ -220,9 +261,9 @@ export default function EmpleadosProximamente() {
       if (byCompany.length > 0) return byCompany;
 
       // Fallback: if there's an ownerId relationship, use it.
-      const fallbackOwnerId = String(user.ownerId || user.id || '').trim();
+      const fallbackOwnerId = String(user.ownerId || user.id || "").trim();
       if (fallbackOwnerId) {
-        return all.filter((e) => String(e.ownerId || '') === fallbackOwnerId);
+        return all.filter((e) => String(e.ownerId || "") === fallbackOwnerId);
       }
       return [];
     }
@@ -235,7 +276,9 @@ export default function EmpleadosProximamente() {
     return (allowedEmpresas || [])
       .map((e) => ({ key: getEmpresaKey(e), label: getEmpresaLabel(e) }))
       .filter((x) => x.key && x.label)
-      .sort((a, b) => a.label.localeCompare(b.label, 'es', { sensitivity: 'base' }));
+      .sort((a, b) =>
+        a.label.localeCompare(b.label, "es", { sensitivity: "base" }),
+      );
   }, [allowedEmpresas]);
 
   // Default selection for admin: assigned company if matches; else first available.
@@ -246,22 +289,26 @@ export default function EmpleadosProximamente() {
 
     setSelectedEmpresaKey((prev) => {
       if (prev) return prev;
-      const assigned = String(user.ownercompanie || '').trim();
+      const assigned = String(user.ownercompanie || "").trim();
       if (assigned) {
-        const match = allowedEmpresas.find((e) => matchEmpresaByCompanyKey(e, assigned));
+        const match = allowedEmpresas.find((e) =>
+          matchEmpresaByCompanyKey(e, assigned),
+        );
         if (match) return getEmpresaKey(match);
       }
       return empresaOptions[0]!.key;
     });
   }, [allowedEmpresas, empresaOptions, isAdmin, user]);
 
-  const effectiveSelectedEmpresaKey = isAdmin ? selectedEmpresaKey : '';
+  const effectiveSelectedEmpresaKey = isAdmin ? selectedEmpresaKey : "";
 
   const visibleEmpresas = useMemo(() => {
     if (isSuperAdmin) return allowedEmpresas;
     if (isAdmin) {
       if (!effectiveSelectedEmpresaKey) return [];
-      return (allowedEmpresas || []).filter((e) => getEmpresaKey(e) === effectiveSelectedEmpresaKey);
+      return (allowedEmpresas || []).filter(
+        (e) => getEmpresaKey(e) === effectiveSelectedEmpresaKey,
+      );
     }
     // user
     return allowedEmpresas;
@@ -272,7 +319,7 @@ export default function EmpleadosProximamente() {
     if (!canUse) return;
 
     const empresaIds = (visibleEmpresas || [])
-      .map((e) => String(e.id || '').trim())
+      .map((e) => String(e.id || "").trim())
       .filter((id) => id.length > 0);
 
     if (empresaIds.length === 0) return;
@@ -286,7 +333,7 @@ export default function EmpleadosProximamente() {
           empresaIds.map(async (empresaId) => {
             const list = await EmpleadosService.getByEmpresaId(empresaId);
             return [empresaId, (list || []) as Empleado[]] as const;
-          })
+          }),
         );
 
         if (cancelled) return;
@@ -296,8 +343,9 @@ export default function EmpleadosProximamente() {
           return next;
         });
       } catch (e) {
-        console.error('Error loading empleados:', e);
-        if (!cancelled) setEmpleadosError('No se pudieron cargar los empleados.');
+        console.error("Error loading empleados:", e);
+        if (!cancelled)
+          setEmpleadosError("No se pudieron cargar los empleados.");
       } finally {
         if (!cancelled) setEmpleadosLoading(false);
       }
@@ -323,16 +371,19 @@ export default function EmpleadosProximamente() {
   };
 
   const refreshEmpresaEmpleados = async (empresaId: string) => {
-    const id = String(empresaId || '').trim();
+    const id = String(empresaId || "").trim();
     if (!id) return;
     // Use forceRefresh to bypass cache after updates
     const list = await EmpleadosService.getByEmpresaId(id, true);
-    setEmpleadosByEmpresaId((prev) => ({ ...prev, [id]: (list || []) as Empleado[] }));
+    setEmpleadosByEmpresaId((prev) => ({
+      ...prev,
+      [id]: (list || []) as Empleado[],
+    }));
   };
 
   const openDeleteModal = (empresaId: string, empleado: Empleado) => {
-    const id = String(empleado?.id || '').trim();
-    const eid = String(empresaId || '').trim();
+    const id = String(empleado?.id || "").trim();
+    const eid = String(empresaId || "").trim();
     if (!id || !eid) return;
     setDeleteTarget({ empresaId: eid, empleado });
     setDeleteModalOpen(true);
@@ -344,10 +395,13 @@ export default function EmpleadosProximamente() {
     setDeleteTarget(null);
   };
 
-  const performDeleteEmpleado = async (empresaId: string, empleado: Empleado) => {
-    const id = String(empleado?.id || '').trim();
-    const empName = String(empleado?.Empleado || '').trim();
-    const eid = String(empresaId || '').trim();
+  const performDeleteEmpleado = async (
+    empresaId: string,
+    empleado: Empleado,
+  ) => {
+    const id = String(empleado?.id || "").trim();
+    const empName = String(empleado?.Empleado || "").trim();
+    const eid = String(empresaId || "").trim();
 
     if (!id || !eid) return;
 
@@ -357,24 +411,31 @@ export default function EmpleadosProximamente() {
 
       // Validación fuerte: solo permitir borrar si ya NO existe en la lista de la empresa
       const empresa = await EmpresasService.getEmpresaById(eid);
-      const embedded = Array.isArray(empresa?.empleados) ? empresa!.empleados : [];
-      const existsInEmpresa = embedded.some((x) => normalizeStr(x?.Empleado) === normalizeStr(empName));
+      const embedded = Array.isArray(empresa?.empleados)
+        ? empresa!.empleados
+        : [];
+      const existsInEmpresa = embedded.some(
+        (x) => normalizeStr(x?.Empleado) === normalizeStr(empName),
+      );
       if (existsInEmpresa) {
-        showToast('No se puede eliminar: el empleado aún existe en la empresa.', 'error');
+        showToast(
+          "No se puede eliminar: el empleado aún existe en la empresa.",
+          "error",
+        );
         return;
       }
 
       await EmpleadosService.deleteEmpleado(id, eid);
       await refreshEmpresaEmpleados(eid);
-      showToast('Empleado eliminado correctamente.', 'success');
+      showToast("Empleado eliminado correctamente.", "success");
       setDeleteModalOpen(false);
       setDeleteTarget(null);
     } catch (e) {
-      console.error('Error deleting empleado:', e);
-      showToast('No se pudo eliminar el empleado.', 'error');
+      console.error("Error deleting empleado:", e);
+      showToast("No se pudo eliminar el empleado.", "error");
     } finally {
       setDeleteModalLoading(false);
-      setDeletingKey('');
+      setDeletingKey("");
     }
   };
 
@@ -383,9 +444,15 @@ export default function EmpleadosProximamente() {
       <div className="flex items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)]">
         <div className="text-center">
           <LockIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-[var(--foreground)] mb-2">Acceso Restringido</h3>
-          <p className="text-[var(--muted-foreground)]">No tienes permisos para acceder a Empleados.</p>
-          <p className="text-sm text-[var(--muted-foreground)] mt-2">Contacta a un administrador para obtener acceso.</p>
+          <h3 className="text-lg font-semibold text-[var(--foreground)] mb-2">
+            Acceso Restringido
+          </h3>
+          <p className="text-[var(--muted-foreground)]">
+            No tienes permisos para acceder a Empleados.
+          </p>
+          <p className="text-sm text-[var(--muted-foreground)] mt-2">
+            Contacta a un administrador para obtener acceso.
+          </p>
         </div>
       </div>
     );
@@ -397,9 +464,9 @@ export default function EmpleadosProximamente() {
         open={deleteModalOpen}
         title="Eliminar empleado"
         message={
-          `¿Eliminar a "${String(deleteTarget?.empleado?.Empleado || '').trim() || 'Empleado'}"?\n\n` +
-          'Esto borrará su ficha de detalles (colección empleados). ' +
-          'Solo se permite si ya no aparece en la empresa.'
+          `¿Eliminar a "${String(deleteTarget?.empleado?.Empleado || "").trim() || "Empleado"}"?\n\n` +
+          "Esto borrará su ficha de detalles (colección empleados). " +
+          "Solo se permite si ya no aparece en la empresa."
         }
         confirmText="Eliminar"
         cancelText="Cancelar"
@@ -409,7 +476,10 @@ export default function EmpleadosProximamente() {
         onCancel={closeDeleteModal}
         onConfirm={() => {
           if (!deleteTarget) return;
-          void performDeleteEmpleado(deleteTarget.empresaId, deleteTarget.empleado);
+          void performDeleteEmpleado(
+            deleteTarget.empresaId,
+            deleteTarget.empleado,
+          );
         }}
       />
 
@@ -420,8 +490,8 @@ export default function EmpleadosProximamente() {
         readOnly={modalReadOnly}
         onSave={async (patch) => {
           if (!modalEmpleado) return;
-          const empresaId = String(modalEmpleado.empresaId || '').trim();
-          if (!empresaId) throw new Error('empresaId faltante');
+          const empresaId = String(modalEmpleado.empresaId || "").trim();
+          if (!empresaId) throw new Error("empresaId faltante");
 
           // If employee doc already exists, update; otherwise upsert by empresaId+name
           if (modalEmpleado.id) {
@@ -431,8 +501,8 @@ export default function EmpleadosProximamente() {
               ...modalEmpleado,
               ...patch,
               empresaId,
-              Empleado: String(modalEmpleado.Empleado || '').trim(),
-              ccssType: patch.ccssType || modalEmpleado.ccssType || 'TC',
+              Empleado: String(modalEmpleado.Empleado || "").trim(),
+              ccssType: patch.ccssType || modalEmpleado.ccssType || "TC",
             });
           }
 
@@ -445,13 +515,15 @@ export default function EmpleadosProximamente() {
           <div className="flex items-center gap-3">
             <Users className="w-10 h-10 text-[var(--primary)]" />
             <div>
-              <h2 className="text-2xl font-bold text-[var(--foreground)]">Empleados</h2>
+              <h2 className="text-2xl font-bold text-[var(--foreground)]">
+                Empleados
+              </h2>
               <p className="text-sm text-[var(--muted-foreground)]">
                 {isSuperAdmin
-                  ? 'Viendo todas las empresas.'
+                  ? "Viendo todas las empresas."
                   : isAdmin
-                    ? 'Selecciona una empresa para ver sus empleados.'
-                    : 'Viendo tu empresa asignada.'}
+                    ? "Selecciona una empresa para ver sus empleados."
+                    : "Viendo tu empresa asignada."}
               </p>
             </div>
           </div>
@@ -490,7 +562,9 @@ export default function EmpleadosProximamente() {
       </div>
 
       {loading && (
-        <div className="text-sm text-[var(--muted-foreground)]">Cargando empresas...</div>
+        <div className="text-sm text-[var(--muted-foreground)]">
+          Cargando empresas...
+        </div>
       )}
 
       {error && (
@@ -507,128 +581,176 @@ export default function EmpleadosProximamente() {
 
       {!loading && !error && visibleEmpresas.length === 0 && (
         <div className="bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)] p-6">
-          <div className="text-[var(--foreground)] font-semibold">Sin empresas</div>
+          <div className="text-[var(--foreground)] font-semibold">
+            Sin empresas
+          </div>
           <div className="text-sm text-[var(--muted-foreground)] mt-1">
             {isAdmin
-              ? 'No se encontraron empresas asociadas a tu usuario.'
-              : 'No se pudo resolver tu empresa asignada o no hay empresas registradas.'}
+              ? "No se encontraron empresas asociadas a tu usuario."
+              : "No se pudo resolver tu empresa asignada o no hay empresas registradas."}
           </div>
         </div>
       )}
 
-      {!loading && !error && visibleEmpresas.map((empresa) => {
-        const label = getEmpresaLabel(empresa);
-        const empresaId = String(empresa.id || '').trim();
-        const empleadosDocs = empresaId ? (empleadosByEmpresaId[empresaId] || []) : [];
+      {!loading &&
+        !error &&
+        visibleEmpresas.map((empresa) => {
+          const label = getEmpresaLabel(empresa);
+          const empresaId = String(empresa.id || "").trim();
+          const empleadosDocs = empresaId
+            ? empleadosByEmpresaId[empresaId] || []
+            : [];
 
-        const embedded = Array.isArray(empresa.empleados) ? empresa.empleados : [];
-        const merged = mergeEmpleadosForEmpresa(empresaId, embedded, empleadosDocs);
-        const filtered = searchNorm ? merged.filter((x) => normalizeStr(x.name).includes(searchNorm)) : merged;
+          const embedded = Array.isArray(empresa.empleados)
+            ? empresa.empleados
+            : [];
+          const merged = mergeEmpleadosForEmpresa(
+            empresaId,
+            embedded,
+            empleadosDocs,
+          );
+          const filtered = searchNorm
+            ? merged.filter((x) => normalizeStr(x.name).includes(searchNorm))
+            : merged;
 
-        return (
-          <div key={getEmpresaKey(empresa)} className="bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)] p-6">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <div className="text-lg font-semibold text-[var(--foreground)]">{label}</div>
-                <div className="text-sm text-[var(--muted-foreground)]">
-                  {merged.length} empleado(s)
-                  {empleadosLoading && <span className="ml-2 text-xs">(cargando...)</span>}
+          return (
+            <div
+              key={getEmpresaKey(empresa)}
+              className="bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)] p-6"
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <div className="text-lg font-semibold text-[var(--foreground)]">
+                    {label}
+                  </div>
+                  <div className="text-sm text-[var(--muted-foreground)]">
+                    {merged.length} empleado(s)
+                    {empleadosLoading && (
+                      <span className="ml-2 text-xs">(cargando...)</span>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {filtered.length === 0 ? (
-                <div className="text-sm text-[var(--muted-foreground)]">
-                  {merged.length === 0 ? 'No hay empleados registrados.' : 'No hay coincidencias para tu búsqueda.'}
-                </div>
-              ) : (
-                filtered.map((entry) => {
-                  const doc = entry.doc;
-                  const emb = entry.embedded;
-                  const complete = doc ? isEmpleadoDetailsComplete(doc) : false;
-                  const ccss = String((doc?.ccssType || emb?.ccssType || 'TC') ?? 'TC');
-                  const horasDoc = typeof doc?.cantidadHorasTrabaja === 'number' ? doc.cantidadHorasTrabaja : undefined;
-                  const horasEmb = emb ? Number(emb.hoursPerShift || 0) : undefined;
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {filtered.length === 0 ? (
+                  <div className="text-sm text-[var(--muted-foreground)]">
+                    {merged.length === 0
+                      ? "No hay empleados registrados."
+                      : "No hay coincidencias para tu búsqueda."}
+                  </div>
+                ) : (
+                  filtered.map((entry) => {
+                    const doc = entry.doc;
+                    const emb = entry.embedded;
+                    const complete = doc
+                      ? isEmpleadoDetailsComplete(doc)
+                      : false;
+                    const ccss = String(
+                      (doc?.ccssType || emb?.ccssType || "TC") ?? "TC",
+                    );
+                    const horasDoc =
+                      typeof doc?.cantidadHorasTrabaja === "number"
+                        ? doc.cantidadHorasTrabaja
+                        : undefined;
+                    const horasEmb = emb
+                      ? Number(emb.hoursPerShift || 0)
+                      : undefined;
 
-                  const fallbackEmpleado: Empleado = {
-                    empresaId,
-                    Empleado: String(entry.name || '').trim(),
-                    ccssType: (ccss === 'MT' ? 'MT' : 'TC'),
-                  };
+                    const fallbackEmpleado: Empleado = {
+                      empresaId,
+                      Empleado: String(entry.name || "").trim(),
+                      ccssType: ccss === "MT" ? "MT" : "TC",
+                    };
 
-                  const modalEmp = doc || fallbackEmpleado;
+                    const modalEmp = doc || fallbackEmpleado;
 
-                  return (
-                    <div
-                      key={doc?.id || `${empresaId}::${entry.key}`}
-                      className="bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)] p-4"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="font-semibold text-[var(--foreground)] truncate">{String(entry.name || '').trim()}</div>
-                          <div className="mt-1 text-xs text-[var(--muted-foreground)]">
-                            <div>
-                              CCSS: {ccss} ·{' '}
-                              {horasDoc !== undefined ? (
-                                <>Horas: {horasDoc}</>
-                              ) : (
-                                <>Horas/turno: {horasEmb !== undefined ? horasEmb : '—'}</>
-                              )}
+                    return (
+                      <div
+                        key={doc?.id || `${empresaId}::${entry.key}`}
+                        className="bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)] p-4"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="font-semibold text-[var(--foreground)] truncate">
+                              {String(entry.name || "").trim()}
                             </div>
-
-                            Fecha Ingreso: {getDisplayedIngresoDate(modalEmp)}
+                            <div className="mt-1 text-xs text-[var(--muted-foreground)]">
+                              <div>
+                                CCSS: {ccss} ·{" "}
+                                {horasDoc !== undefined ? (
+                                  <>Horas: {horasDoc}</>
+                                ) : (
+                                  <>
+                                    Horas/turno:{" "}
+                                    {horasEmb !== undefined ? horasEmb : "—"}
+                                  </>
+                                )}
+                              </div>
+                              Fecha Ingreso: {getDisplayedIngresoDate(modalEmp)}
+                            </div>
+                            <div className="mt-1 text-xs">
+                              <span
+                                className={
+                                  complete
+                                    ? "text-green-600"
+                                    : "text-yellow-600"
+                                }
+                              >
+                                {complete
+                                  ? "Ficha completa"
+                                  : "Ficha incompleta"}
+                              </span>
+                            </div>
                           </div>
-                          <div className="mt-1 text-xs">
-                            <span className={complete ? 'text-green-600' : 'text-yellow-600'}>
-                              {complete ? 'Ficha completa' : 'Ficha incompleta'}
-                            </span>
-                          </div>
-                        </div>
 
-                        {canManageEmployees && (
-                          <div className="flex flex-col gap-2">
-                            <button
-                              type="button"
-                              className="p-2 rounded-md border border-[var(--input-border)] hover:bg-[var(--hover-bg)]"
-                              title="Editar empleado"
-                              onClick={() => openEmpleadoModal(modalEmp, false)}
-                            >
-                              <Pencil className="w-4 h-4" />
-                            </button>
-
-                            {doc?.id && !emb && (
+                          {canManageEmployees && (
+                            <div className="flex flex-col gap-2">
                               <button
                                 type="button"
-                                disabled={deletingKey === doc.id}
-                                className="p-2 rounded-md border border-[var(--input-border)] hover:bg-[var(--hover-bg)] disabled:opacity-50"
-                                title="Eliminar empleado"
-                                onClick={() => openDeleteModal(empresaId, doc)}
+                                className="p-2 rounded-md border border-[var(--input-border)] hover:bg-[var(--hover-bg)]"
+                                title="Editar empleado"
+                                onClick={() =>
+                                  openEmpleadoModal(modalEmp, false)
+                                }
                               >
-                                <Trash2 className="w-4 h-4 text-red-500" />
+                                <Pencil className="w-4 h-4" />
                               </button>
-                            )}
-                          </div>
+
+                              {doc?.id && !emb && (
+                                <button
+                                  type="button"
+                                  disabled={deletingKey === doc.id}
+                                  className="p-2 rounded-md border border-[var(--input-border)] hover:bg-[var(--hover-bg)] disabled:opacity-50"
+                                  title="Eliminar empleado"
+                                  onClick={() =>
+                                    openDeleteModal(empresaId, doc)
+                                  }
+                                >
+                                  <Trash2 className="w-4 h-4 text-red-500" />
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {!canManageEmployees && (
+                          <button
+                            type="button"
+                            className="mt-3 w-full px-3 py-2 rounded bg-[var(--button-bg)] text-[var(--button-text)] hover:bg-[var(--button-hover)]"
+                            onClick={() => openEmpleadoModal(modalEmp, true)}
+                          >
+                            Ver información
+                          </button>
                         )}
                       </div>
-
-                      {!canManageEmployees && (
-                        <button
-                          type="button"
-                          className="mt-3 w-full px-3 py-2 rounded bg-[var(--button-bg)] text-[var(--button-text)] hover:bg-[var(--button-hover)]"
-                          onClick={() => openEmpleadoModal(modalEmp, true)}
-                        >
-                          Ver información
-                        </button>
-                      )}
-                    </div>
-                  );
-                })
-              )}
+                    );
+                  })
+                )}
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
     </div>
   );
 }

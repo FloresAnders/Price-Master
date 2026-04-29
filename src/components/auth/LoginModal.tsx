@@ -14,7 +14,7 @@ interface LoginModalProps {
   onLoginSuccess: (
     user: UserType,
     keepActive?: boolean,
-    useTokens?: boolean
+    useTokens?: boolean,
   ) => void; // Agregar parámetro para tokens
   onClose: () => void;
   title: string;

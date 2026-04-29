@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect } from 'react';
-import { startVersionCheck, stopVersionCheck } from '../utils/versionChecker';
+import { useEffect } from "react";
+import { startVersionCheck, stopVersionCheck } from "../utils/versionChecker";
 
 export default function VersionCheckInitializer() {
   useEffect(() => {

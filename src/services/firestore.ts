@@ -8,11 +8,12 @@ import {
   updateDoc,
   deleteDoc,
   query,
-  where, orderBy,
+  where,
+  orderBy,
   limit,
-  getCountFromServer
-} from 'firebase/firestore';
-import { db } from '@/config/firebase';
+  getCountFromServer,
+} from "firebase/firestore";
+import { db } from "@/config/firebase";
 
 export class FirestoreService {
   // Remove undefined values recursively from an object or array
@@ -23,10 +24,10 @@ export class FirestoreService {
     if (value instanceof Date) return value;
     if (Array.isArray(value)) {
       return (value as unknown[])
-        .map(item => this.sanitizeForFirestore(item))
-        .filter(item => item !== undefined);
+        .map((item) => this.sanitizeForFirestore(item))
+        .filter((item) => item !== undefined);
     }
-    if (typeof value === 'object' && value !== null) {
+    if (typeof value === "object" && value !== null) {
       const out: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
         if (v === undefined) continue;
@@ -38,17 +39,23 @@ export class FirestoreService {
     return value;
   }
   /**
- * Get all documents from a collection
- */
-  static async getAll(collectionName: string, limitCount?: number): Promise<any[]> {
+   * Get all documents from a collection
+   */
+  static async getAll(
+    collectionName: string,
+    limitCount?: number,
+  ): Promise<any[]> {
     try {
       const colRef = collection(db, collectionName);
-      const querySnapshot = typeof limitCount === 'number' && Number.isFinite(limitCount)
-        ? await getDocs(query(colRef, limit(Math.max(1, Math.trunc(limitCount)))))
-        : await getDocs(colRef);
-      return querySnapshot.docs.map(doc => ({
+      const querySnapshot =
+        typeof limitCount === "number" && Number.isFinite(limitCount)
+          ? await getDocs(
+              query(colRef, limit(Math.max(1, Math.trunc(limitCount)))),
+            )
+          : await getDocs(colRef);
+      return querySnapshot.docs.map((doc) => ({
         id: doc.id,
-        ...doc.data()
+        ...doc.data(),
       }));
     } catch (error) {
       console.error(`Error getting documents from ${collectionName}:`, error);
@@ -58,7 +65,10 @@ export class FirestoreService {
   /**
    * Get a single document by ID
    */
-  static async getById(collectionName: string, id: string): Promise<any | null> {
+  static async getById(
+    collectionName: string,
+    id: string,
+  ): Promise<any | null> {
     try {
       const docRef = doc(db, collectionName, id);
       const docSnap = await getDoc(docRef);
@@ -66,13 +76,16 @@ export class FirestoreService {
       if (docSnap.exists()) {
         return {
           id: docSnap.id,
-          ...docSnap.data()
+          ...docSnap.data(),
         };
       } else {
         return null;
       }
     } catch (error) {
-      console.error(`Error getting document ${id} from ${collectionName}:`, error);
+      console.error(
+        `Error getting document ${id} from ${collectionName}:`,
+        error,
+      );
       throw error;
     }
   }
@@ -82,9 +95,15 @@ export class FirestoreService {
    */
   static async add(collectionName: string, data: any): Promise<string> {
     try {
-      const safeData = this.sanitizeForFirestore(data) as Record<string, unknown>;
+      const safeData = this.sanitizeForFirestore(data) as Record<
+        string,
+        unknown
+      >;
       // Allow passing through sanitized record to Firestore SDK; safeData is validated above
-      const docRef = await addDoc(collection(db, collectionName), safeData as any);
+      const docRef = await addDoc(
+        collection(db, collectionName),
+        safeData as any,
+      );
       return docRef.id;
     } catch (error) {
       console.error(`Error adding document to ${collectionName}:`, error);
@@ -95,10 +114,17 @@ export class FirestoreService {
   /**
    * Add a new document with a specific ID to a collection
    */
-  static async addWithId(collectionName: string, id: string, data: any): Promise<void> {
+  static async addWithId(
+    collectionName: string,
+    id: string,
+    data: any,
+  ): Promise<void> {
     try {
       const docRef = doc(db, collectionName, id);
-      const safeData = this.sanitizeForFirestore(data) as Record<string, unknown>;
+      const safeData = this.sanitizeForFirestore(data) as Record<
+        string,
+        unknown
+      >;
       await setDoc(docRef, safeData as any);
     } catch (error) {
       console.error(`Error adding document ${id} to ${collectionName}:`, error);
@@ -108,14 +134,24 @@ export class FirestoreService {
 
   /**
    * Update a document by ID
-  */
-  static async update(collectionName: string, id: string, data: any): Promise<void> {
+   */
+  static async update(
+    collectionName: string,
+    id: string,
+    data: any,
+  ): Promise<void> {
     try {
       const docRef = doc(db, collectionName, id);
-      const safeData = this.sanitizeForFirestore(data) as Record<string, unknown>;
+      const safeData = this.sanitizeForFirestore(data) as Record<
+        string,
+        unknown
+      >;
       await updateDoc(docRef, safeData as any);
     } catch (error) {
-      console.error(`Error updating document ${id} in ${collectionName}:`, error);
+      console.error(
+        `Error updating document ${id} in ${collectionName}:`,
+        error,
+      );
       throw error;
     }
   }
@@ -128,18 +164,21 @@ export class FirestoreService {
       const docRef = doc(db, collectionName, id);
       await deleteDoc(docRef);
     } catch (error) {
-      console.error(`Error deleting document ${id} from ${collectionName}:`, error);
+      console.error(
+        `Error deleting document ${id} from ${collectionName}:`,
+        error,
+      );
       throw error;
     }
-  }  /**
+  } /**
    * Query documents with conditions
    */
   static async query(
     collectionName: string,
     conditions: Array<{ field: string; operator: any; value: any }> = [],
     orderByField?: string,
-    orderDirection: 'asc' | 'desc' = 'asc',
-    limitCount?: number
+    orderDirection: "asc" | "desc" = "asc",
+    limitCount?: number,
   ): Promise<any[]> {
     try {
       // eslint-disable-next-line prefer-const
@@ -147,8 +186,10 @@ export class FirestoreService {
 
       // Apply where conditions
       const constraints = [];
-      conditions.forEach(condition => {
-        constraints.push(where(condition.field, condition.operator, condition.value));
+      conditions.forEach((condition) => {
+        constraints.push(
+          where(condition.field, condition.operator, condition.value),
+        );
       });
 
       // Apply order by
@@ -164,9 +205,9 @@ export class FirestoreService {
       const queryRef = query(q, ...constraints);
       const querySnapshot = await getDocs(queryRef);
 
-      return querySnapshot.docs.map(doc => ({
+      return querySnapshot.docs.map((doc) => ({
         id: doc.id,
-        ...doc.data()
+        ...doc.data(),
       }));
     } catch (error) {
       console.error(`Error querying ${collectionName}:`, error);
@@ -183,7 +224,10 @@ export class FirestoreService {
       const docSnap = await getDoc(docRef);
       return docSnap.exists();
     } catch (error) {
-      console.error(`Error checking if document ${id} exists in ${collectionName}:`, error);
+      console.error(
+        `Error checking if document ${id} exists in ${collectionName}:`,
+        error,
+      );
       throw error;
     }
   }

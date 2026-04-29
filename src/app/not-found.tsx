@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useEffect, useRef } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
-import Link from 'next/link';
-import Image from 'next/image';
+import { useEffect, useRef } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import Link from "next/link";
+import Image from "next/image";
 
 export default function NotFound() {
   const router = useRouter();
@@ -11,8 +11,8 @@ export default function NotFound() {
   const logoRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (pathname && pathname.startsWith('/mobile-scan/')) {
-      const code = pathname.split('/mobile-scan/')[1]?.replace(/\/$/, '');
+    if (pathname && pathname.startsWith("/mobile-scan/")) {
+      const code = pathname.split("/mobile-scan/")[1]?.replace(/\/$/, "");
       if (code) {
         router.replace(`/mobile-scan?code=${encodeURIComponent(code)}`);
         return;
@@ -25,29 +25,30 @@ export default function NotFound() {
     const el = logoRef.current;
     if (!el) return;
     let dragging = false;
-    let ox = 0, oy = 0;
+    let ox = 0,
+      oy = 0;
 
     const onMouseDown = (e: MouseEvent) => {
       dragging = true;
       const r = el.getBoundingClientRect();
       ox = e.clientX - r.left;
       oy = e.clientY - r.top;
-      el.style.animation = 'none';
-      el.style.position = 'fixed';
-      el.style.zIndex = '100';
-      el.style.cursor = 'grabbing';
+      el.style.animation = "none";
+      el.style.position = "fixed";
+      el.style.zIndex = "100";
+      el.style.cursor = "grabbing";
     };
     const onMouseMove = (e: MouseEvent) => {
       if (!dragging) return;
-      el.style.left = e.clientX - ox + 'px';
-      el.style.top = e.clientY - oy + 'px';
-      el.style.right = 'auto';
+      el.style.left = e.clientX - ox + "px";
+      el.style.top = e.clientY - oy + "px";
+      el.style.right = "auto";
     };
     const onMouseUp = () => {
       if (!dragging) return;
       dragging = false;
-      el.style.animation = '';
-      el.style.cursor = 'grab';
+      el.style.animation = "";
+      el.style.cursor = "grab";
     };
     const onTouchStart = (e: TouchEvent) => {
       const t = e.touches[0];
@@ -55,40 +56,40 @@ export default function NotFound() {
       const r = el.getBoundingClientRect();
       ox = t.clientX - r.left;
       oy = t.clientY - r.top;
-      el.style.animation = 'none';
-      el.style.position = 'fixed';
-      el.style.zIndex = '100';
+      el.style.animation = "none";
+      el.style.position = "fixed";
+      el.style.zIndex = "100";
     };
     const onTouchMove = (e: TouchEvent) => {
       if (!dragging) return;
       const t = e.touches[0];
-      el.style.left = t.clientX - ox + 'px';
-      el.style.top = t.clientY - oy + 'px';
-      el.style.right = 'auto';
+      el.style.left = t.clientX - ox + "px";
+      el.style.top = t.clientY - oy + "px";
+      el.style.right = "auto";
     };
     const onTouchEnd = () => {
       dragging = false;
-      el.style.animation = '';
+      el.style.animation = "";
     };
 
-    el.addEventListener('mousedown', onMouseDown);
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
-    el.addEventListener('touchstart', onTouchStart, { passive: true });
-    document.addEventListener('touchmove', onTouchMove, { passive: true });
-    document.addEventListener('touchend', onTouchEnd);
+    el.addEventListener("mousedown", onMouseDown);
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    document.addEventListener("touchmove", onTouchMove, { passive: true });
+    document.addEventListener("touchend", onTouchEnd);
 
     return () => {
-      el.removeEventListener('mousedown', onMouseDown);
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
-      el.removeEventListener('touchstart', onTouchStart);
-      document.removeEventListener('touchmove', onTouchMove);
-      document.removeEventListener('touchend', onTouchEnd);
+      el.removeEventListener("mousedown", onMouseDown);
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+      el.removeEventListener("touchstart", onTouchStart);
+      document.removeEventListener("touchmove", onTouchMove);
+      document.removeEventListener("touchend", onTouchEnd);
     };
   }, []);
 
-  if (pathname && pathname.startsWith('/mobile-scan/')) {
+  if (pathname && pathname.startsWith("/mobile-scan/")) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
@@ -269,19 +270,22 @@ export default function NotFound() {
 
       <div
         className="not-found-root min-h-screen flex items-center justify-center overflow-hidden relative"
-        style={{ background: '#05050f', color: '#e0e0ff' }}
+        style={{ background: "#05050f", color: "#e0e0ff" }}
       >
         {/* Stars */}
-        <div id="nf-stars" ref={(el) => {
-          if (!el || el.children.length > 0) return;
-          for (let i = 0; i < 120; i++) {
-            const s = document.createElement('div');
-            s.className = 'nf-star';
-            const size = Math.random() * 2.5 + 0.5;
-            s.style.cssText = `width:${size}px;height:${size}px;top:${Math.random() * 100}%;left:${Math.random() * 100}%;--d:${2 + Math.random() * 4}s;--delay:${Math.random() * 4}s;--op:${0.3 + Math.random() * 0.7};`;
-            el.appendChild(s);
-          }
-        }} />
+        <div
+          id="nf-stars"
+          ref={(el) => {
+            if (!el || el.children.length > 0) return;
+            for (let i = 0; i < 120; i++) {
+              const s = document.createElement("div");
+              s.className = "nf-star";
+              const size = Math.random() * 2.5 + 0.5;
+              s.style.cssText = `width:${size}px;height:${size}px;top:${Math.random() * 100}%;left:${Math.random() * 100}%;--d:${2 + Math.random() * 4}s;--delay:${Math.random() * 4}s;--op:${0.3 + Math.random() * 0.7};`;
+              el.appendChild(s);
+            }
+          }}
+        />
 
         {/* Planet deco */}
         <div className="nf-planet" />
@@ -301,35 +305,60 @@ export default function NotFound() {
             alt="Logo"
             width={110}
             height={110}
-            style={{ objectFit: 'contain', pointerEvents: 'none' }}
+            style={{ objectFit: "contain", pointerEvents: "none" }}
             draggable={false}
           />
         </div>
 
         {/* Main content */}
         <div className="text-center z-10 px-8 max-w-lg">
-          <div className="nf-code" style={{ fontSize: 'clamp(6rem, 20vw, 10rem)' }}>
+          <div
+            className="nf-code"
+            style={{ fontSize: "clamp(6rem, 20vw, 10rem)" }}
+          >
             404
           </div>
 
-          <div style={{
-            fontFamily: "'Syne', sans-serif",
-            fontWeight: 800,
-            fontSize: 'clamp(1rem, 3vw, 1.4rem)',
-            letterSpacing: '0.05em',
-            textTransform: 'uppercase',
-            marginTop: '0.25rem',
-          }}>
+          <div
+            style={{
+              fontFamily: "'Syne', sans-serif",
+              fontWeight: 800,
+              fontSize: "clamp(1rem, 3vw, 1.4rem)",
+              letterSpacing: "0.05em",
+              textTransform: "uppercase",
+              marginTop: "0.25rem",
+            }}
+          >
             Página perdida en el espacio
           </div>
 
-          <p style={{ color: '#6b6b8a', fontSize: '0.8rem', marginTop: '1rem', lineHeight: 1.8 }}>
-            Hemos buscado en toda la galaxia...<br />
-            esta página no orbita aquí.<span className="nf-cursor" />
+          <p
+            style={{
+              color: "#6b6b8a",
+              fontSize: "0.8rem",
+              marginTop: "1rem",
+              lineHeight: 1.8,
+            }}
+          >
+            Hemos buscado en toda la galaxia...
+            <br />
+            esta página no orbita aquí.
+            <span className="nf-cursor" />
           </p>
 
-          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '2.5rem', flexWrap: 'wrap' }}>
-            <Link href="/" className="px-6 py-3 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg transition-colors font-medium">
+          <div
+            style={{
+              display: "flex",
+              gap: "1rem",
+              justifyContent: "center",
+              marginTop: "2.5rem",
+              flexWrap: "wrap",
+            }}
+          >
+            <Link
+              href="/"
+              className="px-6 py-3 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg transition-colors font-medium"
+            >
               ← Volver al inicio
             </Link>
           </div>

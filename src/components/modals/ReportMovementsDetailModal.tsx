@@ -76,9 +76,24 @@ export default function ReportMovementsDetailModal({
     columns.map((c) => c.defaultWidth)
   );
 
+  const [isResizing, setIsResizing] = useState(false);
+
   useEffect(() => {
-    setColWidths(columns.map((c) => c.defaultWidth));
-  }, [columns]);
+    if (!isResizing) return;
+    if (typeof document === "undefined") return;
+
+    const body = document.body;
+    const previousCursor = body.style.cursor;
+    const previousUserSelect = body.style.userSelect;
+
+    body.style.cursor = "col-resize";
+    body.style.userSelect = "none";
+
+    return () => {
+      body.style.cursor = previousCursor;
+      body.style.userSelect = previousUserSelect;
+    };
+  }, [isResizing]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -132,8 +147,7 @@ export default function ReportMovementsDetailModal({
     const handleUp = () => {
       if (!resizeStateRef.current) return;
       resizeStateRef.current = null;
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
+      setIsResizing(false);
     };
 
     window.addEventListener("mousemove", handleMove);
@@ -152,8 +166,7 @@ export default function ReportMovementsDetailModal({
       startX: event.clientX,
       startWidth: colWidths[colIndex] ?? columns[colIndex]?.defaultWidth ?? 160,
     };
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
+    setIsResizing(true);
   };
 
   const grouped = useMemo(() => {

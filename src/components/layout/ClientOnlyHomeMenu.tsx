@@ -1,11 +1,10 @@
-'use client';
+"use client";
 
-import dynamic from 'next/dynamic';
-import React from 'react';
-import { useAuth } from '../../hooks/useAuth';
+import dynamic from "next/dynamic";
+import { useAuth } from "../../hooks/useAuth";
 
 // Import HomeMenu dynamically with SSR disabled to prevent hydration errors
-const HomeMenu = dynamic(() => import('./HomeMenu'), {
+const HomeMenu = dynamic(() => import("./HomeMenu"), {
   ssr: false,
   loading: () => (
     <div className="flex flex-col items-center justify-center min-h-[60vh] py-8">
@@ -27,7 +26,7 @@ const HomeMenu = dynamic(() => import('./HomeMenu'), {
         ))}
       </div>
     </div>
-  )
+  ),
 });
 
 export default function ClientOnlyHomeMenu() {

@@ -15,13 +15,18 @@ export class RecetasService {
     // Soportar entrada tipo "13" (porcentaje)
     if (rate > 1 && rate <= 100) rate = rate / 100;
     if (!(rate >= 0 && rate <= 1)) {
-      throw new Error("El IVA debe estar entre 0 y 1 (ej: 0.13) o 0-100 (ej: 13)." );
+      throw new Error(
+        "El IVA debe estar entre 0 y 1 (ej: 0.13) o 0-100 (ej: 13).",
+      );
     }
     // Si llega vacío (0) y se desea fallback explícito
     return Number.isFinite(rate) ? rate : fallback;
   }
 
-  private static coerceRateOrFallback(value: unknown, fallback: number): number {
+  private static coerceRateOrFallback(
+    value: unknown,
+    fallback: number,
+  ): number {
     let rate = this.sanitizeNumber(value);
     if (rate > 1 && rate <= 100) rate = rate / 100;
     if (!(rate >= 0 && rate <= 1)) return fallback;
@@ -54,12 +59,14 @@ export class RecetasService {
         company: companyKey,
         updatedAt: nowISO,
       },
-      { merge: true }
+      { merge: true },
     );
   }
 
   private static slugifyForId(value: string): string {
-    const raw = String(value || "").trim().toLowerCase();
+    const raw = String(value || "")
+      .trim()
+      .toLowerCase();
     if (!raw) return "receta";
 
     const cleaned = raw
@@ -104,7 +111,10 @@ export class RecetasService {
     return items;
   }
 
-  private static normalizeRecetaDoc(raw: unknown, fallbackId: string): RecetaEntry | null {
+  private static normalizeRecetaDoc(
+    raw: unknown,
+    fallbackId: string,
+  ): RecetaEntry | null {
     if (!raw || typeof raw !== "object") return null;
     const data = raw as Record<string, unknown>;
 
@@ -115,7 +125,9 @@ export class RecetasService {
     if (!id) return null;
 
     const descripcion =
-      typeof data.descripcion === "string" ? data.descripcion.trim() : undefined;
+      typeof data.descripcion === "string"
+        ? data.descripcion.trim()
+        : undefined;
 
     const margen = this.sanitizeNumber(data.margen);
     const iva = Object.prototype.hasOwnProperty.call(data, "iva")
@@ -123,16 +135,27 @@ export class RecetasService {
       : this.DEFAULT_IVA_RATE;
     const productos = this.normalizeProductos(data.productos);
 
-    const createdAt = typeof data.createdAt === "string" ? data.createdAt : undefined;
-    const updateAt = typeof (data as any).updateAt === "string" ? (data as any).updateAt : undefined;
+    const createdAt =
+      typeof data.createdAt === "string" ? data.createdAt : undefined;
+    const updateAt =
+      typeof (data as any).updateAt === "string"
+        ? (data as any).updateAt
+        : undefined;
 
-    const hasImagePath = Object.prototype.hasOwnProperty.call(data, "imagePath");
+    const hasImagePath = Object.prototype.hasOwnProperty.call(
+      data,
+      "imagePath",
+    );
     const hasImageUrl = Object.prototype.hasOwnProperty.call(data, "imageUrl");
     const imagePath = hasImagePath
-      ? (typeof (data as any).imagePath === "string" ? String((data as any).imagePath).trim() : "")
+      ? typeof (data as any).imagePath === "string"
+        ? String((data as any).imagePath).trim()
+        : ""
       : undefined;
     const imageUrl = hasImageUrl
-      ? (typeof (data as any).imageUrl === "string" ? String((data as any).imageUrl).trim() : "")
+      ? typeof (data as any).imageUrl === "string"
+        ? String((data as any).imageUrl).trim()
+        : ""
       : undefined;
 
     return {
@@ -149,13 +172,15 @@ export class RecetasService {
     };
   }
 
-  static async getRecetasOrderedByNombre(company: string): Promise<RecetaEntry[]> {
+  static async getRecetasOrderedByNombre(
+    company: string,
+  ): Promise<RecetaEntry[]> {
     const collectionPath = this.recetasCollectionPath(company);
     const rows = (await FirestoreService.query(
       collectionPath,
       [],
       "nombre",
-      "asc"
+      "asc",
     )) as Array<Record<string, unknown>>;
 
     return rows
@@ -173,7 +198,7 @@ export class RecetasService {
       margen: number;
       imagePath?: string;
       imageUrl?: string;
-    }
+    },
   ): Promise<RecetaEntry> {
     const collectionPath = this.recetasCollectionPath(company);
     const nombre = String(input.nombre || "").trim();
@@ -181,7 +206,7 @@ export class RecetasService {
 
     const margen = this.sanitizeNumber(input.margen);
     if (!(margen >= 0 && margen <= 1)) {
-      throw new Error("El margen debe estar entre 0 y 1 (ej: 0.35)." );
+      throw new Error("El margen debe estar entre 0 y 1 (ej: 0.35).");
     }
 
     const iva =
@@ -208,13 +233,17 @@ export class RecetasService {
 
     const nowISO = nowCostaRicaISO();
 
-    const imagePath = typeof input.imagePath === "string" ? input.imagePath.trim() : "";
-    const imageUrl = typeof input.imageUrl === "string" ? input.imageUrl.trim() : "";
+    const imagePath =
+      typeof input.imagePath === "string" ? input.imagePath.trim() : "";
+    const imageUrl =
+      typeof input.imageUrl === "string" ? input.imageUrl.trim() : "";
 
     const data: RecetaEntry = {
       id,
       nombre,
-      descripcion: input.descripcion ? String(input.descripcion).trim() : undefined,
+      descripcion: input.descripcion
+        ? String(input.descripcion).trim()
+        : undefined,
       productos,
       iva,
       margen,
@@ -247,7 +276,7 @@ export class RecetasService {
       margen: number;
       imagePath?: string;
       imageUrl?: string;
-    }
+    },
   ): Promise<RecetaEntry> {
     const collectionPath = this.recetasCollectionPath(company);
     const docId = String(id || "").trim();
@@ -258,7 +287,7 @@ export class RecetasService {
 
     const margen = this.sanitizeNumber(input.margen);
     if (!(margen >= 0 && margen <= 1)) {
-      throw new Error('El margen debe estar entre 0 y 1 (ej: 0.35).');
+      throw new Error("El margen debe estar entre 0 y 1 (ej: 0.35).");
     }
 
     const iva =
@@ -280,7 +309,8 @@ export class RecetasService {
     const descripcionValueRaw = input.descripcion;
     const descripcionTrimmed =
       typeof descripcionValueRaw === "string" ? descripcionValueRaw.trim() : "";
-    const descripcion = descripcionTrimmed.length > 0 ? descripcionTrimmed : null;
+    const descripcion =
+      descripcionTrimmed.length > 0 ? descripcionTrimmed : null;
 
     const nowISO = nowCostaRicaISO();
 
@@ -297,11 +327,13 @@ export class RecetasService {
     // - Si imagePath/imageUrl vienen omitidos, no tocamos los campos.
     // - Si vienen como string vacío, se limpian ("sin imagen").
     if (Object.prototype.hasOwnProperty.call(input, "imagePath")) {
-      const imagePath = typeof input.imagePath === "string" ? input.imagePath.trim() : "";
+      const imagePath =
+        typeof input.imagePath === "string" ? input.imagePath.trim() : "";
       updatePayload.imagePath = imagePath;
     }
     if (Object.prototype.hasOwnProperty.call(input, "imageUrl")) {
-      const imageUrl = typeof input.imageUrl === "string" ? input.imageUrl.trim() : "";
+      const imageUrl =
+        typeof input.imageUrl === "string" ? input.imageUrl.trim() : "";
       updatePayload.imageUrl = imageUrl;
     }
 
@@ -320,11 +352,13 @@ export class RecetasService {
 
     // Reflejar en el estado local solo si se incluyeron explícitamente.
     if (Object.prototype.hasOwnProperty.call(input, "imagePath")) {
-      const imagePath = typeof input.imagePath === "string" ? input.imagePath.trim() : "";
+      const imagePath =
+        typeof input.imagePath === "string" ? input.imagePath.trim() : "";
       updated.imagePath = imagePath;
     }
     if (Object.prototype.hasOwnProperty.call(input, "imageUrl")) {
-      const imageUrl = typeof input.imageUrl === "string" ? input.imageUrl.trim() : "";
+      const imageUrl =
+        typeof input.imageUrl === "string" ? input.imageUrl.trim() : "";
       updated.imageUrl = imageUrl;
     }
 

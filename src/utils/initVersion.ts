@@ -1,6 +1,6 @@
-import { db } from '@/config/firebase';
-import { doc, setDoc } from 'firebase/firestore';
-import versionData from '../data/version.json';
+import { db } from "@/config/firebase";
+import { doc, setDoc } from "firebase/firestore";
+import versionData from "../data/version.json";
 
 /**
  * Inicializa el documento de versión en Firestore
@@ -8,16 +8,16 @@ import versionData from '../data/version.json';
  */
 export const initVersionInFirestore = async () => {
   try {
-    const versionRef = doc(db, 'version', 'current');
+    const versionRef = doc(db, "version", "current");
     await setDoc(versionRef, {
       version: versionData.version,
       updatedAt: new Date().toISOString(),
-      description: 'Versión actual de la aplicación'
+      description: "Versión actual de la aplicación",
     });
-    console.log('✅ Versión inicializada en Firestore:', versionData.version);
+    console.log("✅ Versión inicializada en Firestore:", versionData.version);
     return { success: true, version: versionData.version };
   } catch (error) {
-    console.error('❌ Error inicializando versión en Firestore:', error);
+    console.error("❌ Error inicializando versión en Firestore:", error);
     return { success: false, error };
   }
 };
@@ -28,16 +28,16 @@ export const initVersionInFirestore = async () => {
  */
 export const updateVersionInFirestore = async (newVersion: string) => {
   try {
-    const versionRef = doc(db, 'version', 'current');
+    const versionRef = doc(db, "version", "current");
     await setDoc(versionRef, {
       version: newVersion,
       updatedAt: new Date().toISOString(),
-      description: 'Versión actual de la aplicación'
+      description: "Versión actual de la aplicación",
     });
-    console.log('✅ Versión actualizada en Firestore:', newVersion);
+    console.log("✅ Versión actualizada en Firestore:", newVersion);
     return { success: true, version: newVersion };
   } catch (error) {
-    console.error('❌ Error actualizando versión en Firestore:', error);
+    console.error("❌ Error actualizando versión en Firestore:", error);
     return { success: false, error };
   }
 };

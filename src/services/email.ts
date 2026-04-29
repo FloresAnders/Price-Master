@@ -1,5 +1,5 @@
-import { db } from '@/config/firebase';
-import { collection, addDoc, Timestamp } from 'firebase/firestore';
+import { db } from "@/config/firebase";
+import { collection, addDoc, Timestamp } from "firebase/firestore";
 
 interface EmailAttachment {
   filename: string;
@@ -25,7 +25,7 @@ export class EmailService {
     try {
       // Validar datos requeridos
       if (!options.to || !options.subject || !options.text) {
-        throw new Error('Missing required email fields: to, subject, text');
+        throw new Error("Missing required email fields: to, subject, text");
       }
 
       // Preparar datos del email - solo incluir campos definidos
@@ -34,7 +34,7 @@ export class EmailService {
         subject: options.subject,
         text: options.text,
         createdAt: Timestamp.now(),
-        status: 'pending'
+        status: "pending",
       };
 
       // Solo agregar campos opcionales si están definidos
@@ -47,12 +47,15 @@ export class EmailService {
       }
 
       // Guardar en Firestore - esto disparará la Cloud Function
-      await addDoc(collection(db, 'mail'), emailData);
+      await addDoc(collection(db, "mail"), emailData);
 
-      console.log('✅ Email queued successfully for:', options.to);
+      console.log("✅ Email queued successfully for:", options.to);
     } catch (error) {
-      console.error('❌ Error queueing email:', error);
-      throw new Error('Failed to queue email: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      console.error("❌ Error queueing email:", error);
+      throw new Error(
+        "Failed to queue email: " +
+          (error instanceof Error ? error.message : "Unknown error"),
+      );
     }
   }
 
@@ -62,15 +65,17 @@ export class EmailService {
   static async sendPasswordRecoveryEmail(
     email: string,
     token: string,
-    expiresAt: number
+    expiresAt: number,
   ): Promise<void> {
-    const expiryTime = new Date(expiresAt).toLocaleString('es-ES');
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ||
-      (process.env.VERCEL_ENV === 'production' && process.env.VERCEL_PROJECT_PRODUCTION_URL
+    const expiryTime = new Date(expiresAt).toLocaleString("es-ES");
+    const baseUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      (process.env.VERCEL_ENV === "production" &&
+      process.env.VERCEL_PROJECT_PRODUCTION_URL
         ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
         : process.env.VERCEL_URL
           ? `https://${process.env.VERCEL_URL}`
-          : 'http://localhost:3000');
+          : "http://localhost:3000");
     const recoveryUrl = `${baseUrl}/reset-password?token=${token}`;
 
     const htmlContent = `
@@ -175,11 +180,10 @@ Time Master System
 
     await this.queueEmail({
       to: email,
-      subject: 'Recuperación de Contraseña - Time Master',
+      subject: "Recuperación de Contraseña - Time Master",
       text: textContent,
-      html: htmlContent
+      html: htmlContent,
     });
-
   }
 
   /**
@@ -209,7 +213,7 @@ Time Master System
             <p>Tu contraseña ha sido actualizada exitosamente en Time Master.</p>
             
             <div class="info-box">
-              <strong>Fecha:</strong> ${new Date().toLocaleString('es-ES')}<br>
+              <strong>Fecha:</strong> ${new Date().toLocaleString("es-ES")}<br>
               <strong>Cuenta:</strong> ${email}
             </div>
             
@@ -229,7 +233,7 @@ Contraseña Actualizada - Time Master
 
 Tu contraseña ha sido actualizada exitosamente.
 
-Fecha: ${new Date().toLocaleString('es-ES')}
+Fecha: ${new Date().toLocaleString("es-ES")}
 Cuenta: ${email}
 
 ⚠️ Si no realizaste este cambio, contacta inmediatamente al administrador del sistema.
@@ -240,10 +244,9 @@ Time Master System
 
     await this.queueEmail({
       to: email,
-      subject: 'Contraseña Actualizada - Time Master',
+      subject: "Contraseña Actualizada - Time Master",
       text: textContent,
-      html: htmlContent
+      html: htmlContent,
     });
-
   }
 }

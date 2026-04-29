@@ -1,4 +1,4 @@
-import { FirestoreService } from './firestore';
+import { FirestoreService } from "./firestore";
 
 export interface CalculoHorasEntry {
   id?: string;
@@ -14,13 +14,17 @@ export interface CalculoHorasEntry {
 }
 
 export class CalculoHorasService {
-  private static readonly COLLECTION_NAME = 'calculohoras';
+  private static readonly COLLECTION_NAME = "calculohoras";
 
-  static async getEntriesByLocationMonth(locationValue: string, year: number, month: number): Promise<CalculoHorasEntry[]> {
+  static async getEntriesByLocationMonth(
+    locationValue: string,
+    year: number,
+    month: number,
+  ): Promise<CalculoHorasEntry[]> {
     return await FirestoreService.query(this.COLLECTION_NAME, [
-      { field: 'companieValue', operator: '==', value: locationValue },
-      { field: 'year', operator: '==', value: year },
-      { field: 'month', operator: '==', value: month }
+      { field: "companieValue", operator: "==", value: locationValue },
+      { field: "year", operator: "==", value: year },
+      { field: "month", operator: "==", value: month },
     ]);
   }
 
@@ -29,14 +33,14 @@ export class CalculoHorasService {
     employeeName: string,
     year: number,
     month: number,
-    day: number
+    day: number,
   ): Promise<CalculoHorasEntry | null> {
     const existing = await FirestoreService.query(this.COLLECTION_NAME, [
-      { field: 'companieValue', operator: '==', value: locationValue },
-      { field: 'employeeName', operator: '==', value: employeeName },
-      { field: 'year', operator: '==', value: year },
-      { field: 'month', operator: '==', value: month },
-      { field: 'day', operator: '==', value: day }
+      { field: "companieValue", operator: "==", value: locationValue },
+      { field: "employeeName", operator: "==", value: employeeName },
+      { field: "year", operator: "==", value: year },
+      { field: "month", operator: "==", value: month },
+      { field: "day", operator: "==", value: day },
     ]);
 
     return existing.length > 0 ? (existing[0] as CalculoHorasEntry) : null;
@@ -53,9 +57,15 @@ export class CalculoHorasService {
     month: number,
     day: number,
     timeHHMMSS: string,
-    totalSeconds: number
+    totalSeconds: number,
   ): Promise<void> {
-    const existing = await this.findEntry(locationValue, employeeName, year, month, day);
+    const existing = await this.findEntry(
+      locationValue,
+      employeeName,
+      year,
+      month,
+      day,
+    );
 
     if (totalSeconds <= 0) {
       if (existing?.id) {
@@ -64,7 +74,7 @@ export class CalculoHorasService {
       return;
     }
 
-    const payload: Omit<CalculoHorasEntry, 'id'> = {
+    const payload: Omit<CalculoHorasEntry, "id"> = {
       companieValue: locationValue,
       employeeName,
       year,
@@ -73,7 +83,7 @@ export class CalculoHorasService {
       timeHHMMSS,
       totalSeconds,
       updatedAt: new Date(),
-      createdAt: existing?.createdAt ?? new Date()
+      createdAt: existing?.createdAt ?? new Date(),
     };
 
     if (existing?.id) {

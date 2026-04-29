@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { X } from 'lucide-react';
-import { db } from '@/config/firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
-import versionData from '@/data/version.json';
+import React from "react";
+import { X } from "lucide-react";
+import { db } from "@/config/firebase";
+import { doc, onSnapshot } from "firebase/firestore";
+import versionData from "@/data/version.json";
 
 type SystemNote = {
   date: string;
@@ -12,11 +12,11 @@ type SystemNote = {
   description: string;
 };
 
-const STORAGE_KEY = 'system_notes_version';
+const STORAGE_KEY = "system_notes_version";
 
 export default function SystemNotesInitializer() {
   const [note, setNote] = React.useState<SystemNote | null>(null);
-  const [activeVersion, setActiveVersion] = React.useState<string>('');
+  const [activeVersion, setActiveVersion] = React.useState<string>("");
   const [isOpen, setIsOpen] = React.useState(false);
   const unsubscribeRef = React.useRef<(() => void) | null>(null);
   const lastNotifiedVersionRef = React.useRef<string | null>(null);
@@ -27,13 +27,13 @@ export default function SystemNotesInitializer() {
     try {
       localStorage.setItem(STORAGE_KEY, version);
     } catch (error) {
-      console.warn('Error guardando versión en localStorage:', error);
+      console.warn("Error guardando versión en localStorage:", error);
     }
   }, []);
 
   // Cargar la versión almacenada en localStorage al montar
   React.useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
 
     try {
       const storedVersion = localStorage.getItem(STORAGE_KEY);
@@ -41,30 +41,38 @@ export default function SystemNotesInitializer() {
         lastNotifiedVersionRef.current = storedVersion;
       }
     } catch (error) {
-      console.warn('Error cargando versión almacenada:', error);
+      console.warn("Error cargando versión almacenada:", error);
     }
   }, []);
 
   // Escuchar cambios en tiempo real desde Firestore
   React.useEffect(() => {
-    const versionRef = doc(db, 'version', 'current');
+    const versionRef = doc(db, "version", "current");
 
     unsubscribeRef.current = onSnapshot(
       versionRef,
       (docSnap) => {
         if (!docSnap.exists()) {
-          console.warn('No se encontró el documento de versión en Firestore');
+          console.warn("No se encontró el documento de versión en Firestore");
           return;
         }
 
         const firestoreData = docSnap.data();
-        const notasDeSistemasDb = String(firestoreData?.notasDeSistemas || '').trim();
+        const notasDeSistemasDb = String(
+          firestoreData?.notasDeSistemas || "",
+        ).trim();
         const systemNotesDb = Array.isArray(firestoreData?.systemNotes)
           ? firestoreData.systemNotes
           : [];
 
-        console.log('Sistema de Notas - Versión en Firestore:', notasDeSistemasDb);
-        console.log('Sistema de Notas - Última versión notificada:', lastNotifiedVersionRef.current);
+        console.log(
+          "Sistema de Notas - Versión en Firestore:",
+          notasDeSistemasDb,
+        );
+        console.log(
+          "Sistema de Notas - Última versión notificada:",
+          lastNotifiedVersionRef.current,
+        );
 
         const previousVersion = lastNotifiedVersionRef.current;
 
@@ -73,14 +81,17 @@ export default function SystemNotesInitializer() {
           const currentNote = (systemNotesDb as SystemNote[])[0] ?? null;
 
           if (currentNote) {
-            console.log('Mostrando nota del sistema para versión:', notasDeSistemasDb);
+            console.log(
+              "Mostrando nota del sistema para versión:",
+              notasDeSistemasDb,
+            );
             setNote(currentNote);
             setActiveVersion(notasDeSistemasDb);
             setIsOpen(true);
           } else {
             setNote({
               date: new Date().toISOString().slice(0, 10),
-              title: 'Actualización de Notas del Sistema',
+              title: "Actualización de Notas del Sistema",
               description: `Se detectó una actualización de notas (v${notasDeSistemasDb}). No se encontró detalle para esta versión en systemNotes.`,
             });
             setActiveVersion(notasDeSistemasDb);
@@ -97,8 +108,8 @@ export default function SystemNotesInitializer() {
         }
       },
       (error) => {
-        console.warn('Error escuchando cambios de notas del sistema:', error);
-      }
+        console.warn("Error escuchando cambios de notas del sistema:", error);
+      },
     );
 
     return () => {
@@ -111,15 +122,15 @@ export default function SystemNotesInitializer() {
 
   // Cargar versión local al montar (fallback si Firestore no está disponible)
   React.useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
 
     try {
       const storedVersion = localStorage.getItem(STORAGE_KEY);
       const currentVersion = versionData.notasDeSistemas;
       const systemNotes = versionData.systemNotes as SystemNote[];
 
-      console.log('Sistema de Notas - Versión local:', currentVersion);
-      console.log('Sistema de Notas - Versión almacenada:', storedVersion);
+      console.log("Sistema de Notas - Versión local:", currentVersion);
+      console.log("Sistema de Notas - Versión almacenada:", storedVersion);
 
       // Solo usar fallback si no tenemos datos de Firestore y es diferente
       if (storedVersion !== currentVersion && !isOpen) {
@@ -132,7 +143,7 @@ export default function SystemNotesInitializer() {
           } else {
             setNote({
               date: new Date().toISOString().slice(0, 10),
-              title: 'Actualización de Notas del Sistema',
+              title: "Actualización de Notas del Sistema",
               description: `Se detectó una actualización de notas (v${currentVersion}). No se encontró detalle para esta versión en systemNotes.`,
             });
             setActiveVersion(currentVersion);
@@ -143,14 +154,14 @@ export default function SystemNotesInitializer() {
         }
       }
     } catch (error) {
-      console.warn('Error cargando notas del sistema:', error);
+      console.warn("Error cargando notas del sistema:", error);
     }
   }, [isOpen, persistSeenVersion]);
 
   const handleClose = React.useCallback(() => {
     setIsOpen(false);
     setNote(null);
-    setActiveVersion('');
+    setActiveVersion("");
   }, []);
 
   if (!isOpen || !note) return null;
@@ -183,10 +194,10 @@ export default function SystemNotesInitializer() {
 
           {/* Fecha */}
           <div className="text-sm text-[var(--muted-foreground)]">
-            {new Date(note.date).toLocaleDateString('es-CR', {
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric',
+            {new Date(note.date).toLocaleDateString("es-CR", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
             })}
           </div>
 

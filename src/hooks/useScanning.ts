@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { ScanningService } from '../services/scanning';
-import type { ScanResult } from '../types/firestore';
-import { useAuth } from './useAuth';
-import { generateShortMobileUrl } from '../utils/shortEncoder';
+import { useState, useEffect, useCallback, useRef } from "react";
+import { ScanningService } from "../services/scanning";
+import type { ScanResult } from "../types/firestore";
+import { useAuth } from "./useAuth";
+import { generateShortMobileUrl } from "../utils/shortEncoder";
 
 interface UseScanningOptions {
   autoMarkProcessed?: boolean;
@@ -14,7 +14,7 @@ export function useScanning(options: UseScanningOptions = {}) {
   const {
     autoMarkProcessed = false,
     sessionId,
-    enableRealTime = true
+    enableRealTime = true,
   } = options;
 
   const [scans, setScans] = useState<ScanResult[]>([]);
@@ -24,7 +24,9 @@ export function useScanning(options: UseScanningOptions = {}) {
 
   const { user } = useAuth();
   const unsubscribeRef = useRef<(() => void) | null>(null);
-  const currentSessionId = useRef(sessionId || ScanningService.generateSessionId());
+  const currentSessionId = useRef(
+    sessionId || ScanningService.generateSessionId(),
+  );
 
   // Load initial scans
   const loadScans = useCallback(async () => {
@@ -34,37 +36,40 @@ export function useScanning(options: UseScanningOptions = {}) {
       const scansData = await ScanningService.getUnprocessedScans(sessionId);
       setScans(scansData);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error loading scans');
-      console.error('Error loading scans:', err);
+      setError(err instanceof Error ? err.message : "Error loading scans");
+      console.error("Error loading scans:", err);
     } finally {
       setLoading(false);
     }
   }, [sessionId]);
 
   // Add a new scan (typically called from mobile)
-  const addScan = useCallback(async (code: string, source: 'mobile' | 'web' = 'web') => {
-    try {
-      setError(null);
-      const scanId = await ScanningService.addScan({
-        code,
-        source,
-        userId: user?.id,
-        userName: user?.name,
-        sessionId: currentSessionId.current,
-        processed: false
-      });
+  const addScan = useCallback(
+    async (code: string, source: "mobile" | "web" = "web") => {
+      try {
+        setError(null);
+        const scanId = await ScanningService.addScan({
+          code,
+          source,
+          userId: user?.id,
+          userName: user?.name,
+          sessionId: currentSessionId.current,
+          processed: false,
+        });
 
-      // If real-time is disabled, reload scans manually
-      if (!enableRealTime) {
-        await loadScans();
+        // If real-time is disabled, reload scans manually
+        if (!enableRealTime) {
+          await loadScans();
+        }
+
+        return scanId;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Error adding scan");
+        throw err;
       }
-
-      return scanId;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error adding scan');
-      throw err;
-    }
-  }, [user, enableRealTime, loadScans]);
+    },
+    [user, enableRealTime, loadScans],
+  );
 
   // Mark scan as processed
   const markAsProcessed = useCallback(async (scanId: string) => {
@@ -73,14 +78,14 @@ export function useScanning(options: UseScanningOptions = {}) {
       await ScanningService.markAsProcessed(scanId);
 
       // Update local state
-      setScans(prevScans =>
-        prevScans.filter(scan => scan.id !== scanId)
-      );
+      setScans((prevScans) => prevScans.filter((scan) => scan.id !== scanId));
 
       // Decrease new scan count if it was unprocessed
-      setNewScanCount(prev => Math.max(0, prev - 1));
+      setNewScanCount((prev) => Math.max(0, prev - 1));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error marking scan as processed');
+      setError(
+        err instanceof Error ? err.message : "Error marking scan as processed",
+      );
       throw err;
     }
   }, []);
@@ -92,11 +97,9 @@ export function useScanning(options: UseScanningOptions = {}) {
       await ScanningService.deleteScan(scanId);
 
       // Update local state
-      setScans(prevScans =>
-        prevScans.filter(scan => scan.id !== scanId)
-      );
+      setScans((prevScans) => prevScans.filter((scan) => scan.id !== scanId));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error deleting scan');
+      setError(err instanceof Error ? err.message : "Error deleting scan");
       throw err;
     }
   }, []);
@@ -105,38 +108,45 @@ export function useScanning(options: UseScanningOptions = {}) {
   const clearAllScans = useCallback(async () => {
     try {
       setError(null);
-      const deletePromises = scans.map(scan =>
-        scan.id ? ScanningService.deleteScan(scan.id) : Promise.resolve()
+      const deletePromises = scans.map((scan) =>
+        scan.id ? ScanningService.deleteScan(scan.id) : Promise.resolve(),
       );
       await Promise.all(deletePromises);
       setScans([]);
       setNewScanCount(0);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error clearing scans');
+      setError(err instanceof Error ? err.message : "Error clearing scans");
       throw err;
     }
   }, [scans]);
 
   // Process a scan (mark as processed and optionally trigger callback)
-  const processScan = useCallback(async (scan: ScanResult, onProcess?: (code: string) => void) => {
-    try {
-      if (scan.id) {
-        await markAsProcessed(scan.id);
-      }
+  const processScan = useCallback(
+    async (scan: ScanResult, onProcess?: (code: string) => void) => {
+      try {
+        if (scan.id) {
+          await markAsProcessed(scan.id);
+        }
 
-      if (onProcess) {
-        onProcess(scan.code);
+        if (onProcess) {
+          onProcess(scan.code);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Error processing scan");
+        throw err;
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error processing scan');
-      throw err;
-    }
-  }, [markAsProcessed]);
+    },
+    [markAsProcessed],
+  );
 
   // Get session URL for mobile scanning (short URL only)
   const getMobileScanUrl = useCallback((requestProductName?: boolean) => {
     const baseUrl = window.location.origin;
-    return generateShortMobileUrl(baseUrl, currentSessionId.current, requestProductName);
+    return generateShortMobileUrl(
+      baseUrl,
+      currentSessionId.current,
+      requestProductName,
+    );
   }, []);
 
   // Setup real-time listener
@@ -144,18 +154,18 @@ export function useScanning(options: UseScanningOptions = {}) {
     if (!enableRealTime) return;
 
     const handleScansUpdate = (updatedScans: ScanResult[]) => {
-      setScans(prevScans => {
+      setScans((prevScans) => {
         // Count new scans that weren't in the previous state
-        const newScans = updatedScans.filter(newScan =>
-          !prevScans.some(oldScan => oldScan.id === newScan.id)
+        const newScans = updatedScans.filter(
+          (newScan) => !prevScans.some((oldScan) => oldScan.id === newScan.id),
         );
 
         if (newScans.length > 0) {
-          setNewScanCount(prev => prev + newScans.length);
+          setNewScanCount((prev) => prev + newScans.length);
 
           // Auto-mark as processed if enabled
           if (autoMarkProcessed && newScans.length > 0) {
-            newScans.forEach(scan => {
+            newScans.forEach((scan) => {
               if (scan.id) {
                 ScanningService.markAsProcessed(scan.id);
               }
@@ -169,14 +179,14 @@ export function useScanning(options: UseScanningOptions = {}) {
 
     const handleError = (err: Error) => {
       setError(err.message);
-      console.error('Real-time scan error:', err);
+      console.error("Real-time scan error:", err);
     };
 
     // Subscribe to real-time updates
     const unsubscribe = ScanningService.subscribeToScans(
       handleScansUpdate,
       handleError,
-      sessionId
+      sessionId,
     );
 
     unsubscribeRef.current = unsubscribe;
@@ -231,6 +241,6 @@ export function useScanning(options: UseScanningOptions = {}) {
 
     // State helpers
     hasNewScans: newScanCount > 0,
-    totalScans: scans.length
+    totalScans: scans.length,
   };
 }

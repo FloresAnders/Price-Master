@@ -1,18 +1,24 @@
-import { FirestoreService } from './firestore';
-import { FondoMovementTypeConfig } from '../types/firestore';
-import { db } from '@/config/firebase';
-import { collection, onSnapshot, query, orderBy, Unsubscribe } from 'firebase/firestore';
+import { FirestoreService } from "./firestore";
+import { FondoMovementTypeConfig } from "../types/firestore";
+import { db } from "@/config/firebase";
+import {
+  collection,
+  onSnapshot,
+  query,
+  orderBy,
+  Unsubscribe,
+} from "firebase/firestore";
 
 // Keys para localStorage
-const CACHE_KEY = 'fondoMovementTypes_cache';
-const CACHE_VERSION_KEY = 'fondoMovementTypes_version';
+const CACHE_KEY = "fondoMovementTypes_cache";
+const CACHE_VERSION_KEY = "fondoMovementTypes_version";
 
 // Listener global para detectar cambios en tiempo real
 let globalListener: Unsubscribe | null = null;
 let cacheVersion = 0;
 
 export class FondoMovementTypesService {
-  private static readonly COLLECTION_NAME = 'fondoMovementTypes';
+  private static readonly COLLECTION_NAME = "fondoMovementTypes";
 
   /**
    * Get all movement types
@@ -25,22 +31,28 @@ export class FondoMovementTypesService {
   /**
    * Get movement types by category
    */
-  static async getMovementTypesByCategory(category: 'INGRESO' | 'GASTO' | 'EGRESO'): Promise<FondoMovementTypeConfig[]> {
+  static async getMovementTypesByCategory(
+    category: "INGRESO" | "GASTO" | "EGRESO",
+  ): Promise<FondoMovementTypeConfig[]> {
     const allTypes = await this.getAllMovementTypes();
-    return allTypes.filter(type => type.category === category);
+    return allTypes.filter((type) => type.category === category);
   }
 
   /**
    * Get movement type by ID
    */
-  static async getMovementTypeById(id: string): Promise<FondoMovementTypeConfig | null> {
+  static async getMovementTypeById(
+    id: string,
+  ): Promise<FondoMovementTypeConfig | null> {
     return await FirestoreService.getById(this.COLLECTION_NAME, id);
   }
 
   /**
    * Add a new movement type
    */
-  static async addMovementType(type: Omit<FondoMovementTypeConfig, 'id'>): Promise<string> {
+  static async addMovementType(
+    type: Omit<FondoMovementTypeConfig, "id">,
+  ): Promise<string> {
     const typeWithDates = {
       ...type,
       createdAt: new Date(),
@@ -52,7 +64,10 @@ export class FondoMovementTypesService {
   /**
    * Update a movement type
    */
-  static async updateMovementType(id: string, type: Partial<FondoMovementTypeConfig>): Promise<void> {
+  static async updateMovementType(
+    id: string,
+    type: Partial<FondoMovementTypeConfig>,
+  ): Promise<void> {
     const updateData = {
       ...type,
       updatedAt: new Date(),
@@ -73,69 +88,69 @@ export class FondoMovementTypesService {
   static async seedInitialData(): Promise<void> {
     const existing = await this.getAllMovementTypes();
     if (existing.length > 0) {
-      console.log('Movement types already exist, skipping seed');
+      console.log("Movement types already exist, skipping seed");
       return;
     }
 
-    const FONDO_INGRESO_TYPES = ['VENTAS', 'OTROS INGRESOS'];
+    const FONDO_INGRESO_TYPES = ["VENTAS", "OTROS INGRESOS"];
     const FONDO_GASTO_TYPES = [
-      'SALARIOS',
-      'TELEFONOS',
-      'CARGAS SOCIALES',
-      'AGUINALDOS',
-      'VACACIONES',
-      'POLIZA RIESGOS DE TRABAJO',
-      'PAGO TIMBRE Y EDUCACION',
-      'PAGO IMPUESTOS A SOCIEDADES',
-      'PATENTES MUNICIPALES',
-      'ALQUILER LOCAL',
-      'ELECTRICIDAD',
-      'AGUA',
-      'INTERNET',
-      'MANTENIMIENTO INSTALACIONES',
-      'PAPELERIA Y UTILES',
-      'ASEO Y LIMPIEZA',
-      'REDES SOCIALES',
-      'MATERIALES DE EMPAQUE',
-      'CONTROL PLAGAS',
-      'MONITOREO DE ALARMAS',
-      'FACTURA ELECTRONICA',
-      'GASTOS VARIOS',
-      'TRANSPORTE',
-      'SERVICIOS PROFECIONALES',
-      'MANTENIMIENTO MOBILIARIO Y EQUIPO',
+      "SALARIOS",
+      "TELEFONOS",
+      "CARGAS SOCIALES",
+      "AGUINALDOS",
+      "VACACIONES",
+      "POLIZA RIESGOS DE TRABAJO",
+      "PAGO TIMBRE Y EDUCACION",
+      "PAGO IMPUESTOS A SOCIEDADES",
+      "PATENTES MUNICIPALES",
+      "ALQUILER LOCAL",
+      "ELECTRICIDAD",
+      "AGUA",
+      "INTERNET",
+      "MANTENIMIENTO INSTALACIONES",
+      "PAPELERIA Y UTILES",
+      "ASEO Y LIMPIEZA",
+      "REDES SOCIALES",
+      "MATERIALES DE EMPAQUE",
+      "CONTROL PLAGAS",
+      "MONITOREO DE ALARMAS",
+      "FACTURA ELECTRONICA",
+      "GASTOS VARIOS",
+      "TRANSPORTE",
+      "SERVICIOS PROFECIONALES",
+      "MANTENIMIENTO MOBILIARIO Y EQUIPO",
     ];
     const FONDO_EGRESO_TYPES = [
-      'EGRESOS VARIOS',
-      'PAGO TIEMPOS',
-      'PAGO BANCA',
-      'COMPRA INVENTARIO',
-      'COMPRA ACTIVOS',
-      'PAGO IMPUESTO RENTA',
-      'PAGO IMPUESTO IVA',
-      'RETIRO EFECTIVO'
+      "EGRESOS VARIOS",
+      "PAGO TIEMPOS",
+      "PAGO BANCA",
+      "COMPRA INVENTARIO",
+      "COMPRA ACTIVOS",
+      "PAGO IMPUESTO RENTA",
+      "PAGO IMPUESTO IVA",
+      "RETIRO EFECTIVO",
     ];
 
-    const allTypes: Omit<FondoMovementTypeConfig, 'id'>[] = [];
-    
+    const allTypes: Omit<FondoMovementTypeConfig, "id">[] = [];
+
     let order = 0;
-    FONDO_INGRESO_TYPES.forEach(name => {
-      allTypes.push({ category: 'INGRESO', name, order: order++ });
+    FONDO_INGRESO_TYPES.forEach((name) => {
+      allTypes.push({ category: "INGRESO", name, order: order++ });
     });
-    
-    FONDO_GASTO_TYPES.forEach(name => {
-      allTypes.push({ category: 'GASTO', name, order: order++ });
+
+    FONDO_GASTO_TYPES.forEach((name) => {
+      allTypes.push({ category: "GASTO", name, order: order++ });
     });
-    
-    FONDO_EGRESO_TYPES.forEach(name => {
-      allTypes.push({ category: 'EGRESO', name, order: order++ });
+
+    FONDO_EGRESO_TYPES.forEach((name) => {
+      allTypes.push({ category: "EGRESO", name, order: order++ });
     });
 
     for (const type of allTypes) {
       await this.addMovementType(type);
     }
 
-    console.log('Movement types seeded successfully');
+    console.log("Movement types seeded successfully");
   }
 
   /**
@@ -148,9 +163,13 @@ export class FondoMovementTypesService {
   }> {
     const allTypes = await this.getAllMovementTypes();
     return {
-      INGRESO: allTypes.filter(t => t.category === 'INGRESO').map(t => t.name),
-      GASTO: allTypes.filter(t => t.category === 'GASTO').map(t => t.name),
-      EGRESO: allTypes.filter(t => t.category === 'EGRESO').map(t => t.name),
+      INGRESO: allTypes
+        .filter((t) => t.category === "INGRESO")
+        .map((t) => t.name),
+      GASTO: allTypes.filter((t) => t.category === "GASTO").map((t) => t.name),
+      EGRESO: allTypes
+        .filter((t) => t.category === "EGRESO")
+        .map((t) => t.name),
     };
   }
 
@@ -158,20 +177,20 @@ export class FondoMovementTypesService {
    * Lee los tipos desde el caché de localStorage
    */
   private static readCache(): FondoMovementTypeConfig[] | null {
-    if (typeof window === 'undefined') return null;
-    
+    if (typeof window === "undefined") return null;
+
     try {
       const cached = localStorage.getItem(CACHE_KEY);
       const version = localStorage.getItem(CACHE_VERSION_KEY);
-      
+
       if (cached && version) {
         cacheVersion = parseInt(version, 10) || 0;
         return JSON.parse(cached) as FondoMovementTypeConfig[];
       }
     } catch (error) {
-      console.warn('[FondoMovementTypes] Error reading cache:', error);
+      console.warn("[FondoMovementTypes] Error reading cache:", error);
     }
-    
+
     return null;
   }
 
@@ -179,14 +198,14 @@ export class FondoMovementTypesService {
    * Escribe los tipos al caché de localStorage
    */
   private static writeCache(types: FondoMovementTypeConfig[]): void {
-    if (typeof window === 'undefined') return;
-    
+    if (typeof window === "undefined") return;
+
     try {
       cacheVersion++;
       localStorage.setItem(CACHE_KEY, JSON.stringify(types));
       localStorage.setItem(CACHE_VERSION_KEY, cacheVersion.toString());
     } catch (error) {
-      console.error('[FondoMovementTypes] Error writing cache:', error);
+      console.error("[FondoMovementTypes] Error writing cache:", error);
     }
   }
 
@@ -195,42 +214,44 @@ export class FondoMovementTypesService {
    */
   static initializeListener(): void {
     if (globalListener) {
-      console.log('[FondoMovementTypes] Listener already active');
+      console.log("[FondoMovementTypes] Listener already active");
       return;
     }
 
-    console.log('[FondoMovementTypes] Initializing Firestore listener...');
-    
+    console.log("[FondoMovementTypes] Initializing Firestore listener...");
+
     const q = query(
       collection(db, this.COLLECTION_NAME),
-      orderBy('order', 'asc')
+      orderBy("order", "asc"),
     );
-    
+
     globalListener = onSnapshot(
       q,
       (snapshot) => {
-        console.log('[FondoMovementTypes] Firestore change detected, updating cache...');
-        
+        console.log(
+          "[FondoMovementTypes] Firestore change detected, updating cache...",
+        );
+
         const types: FondoMovementTypeConfig[] = [];
         snapshot.forEach((doc) => {
           types.push({ id: doc.id, ...doc.data() } as FondoMovementTypeConfig);
         });
-        
+
         // Actualizar caché
         this.writeCache(types);
-        
+
         // Emitir evento personalizado para notificar a los componentes
-        if (typeof window !== 'undefined') {
+        if (typeof window !== "undefined") {
           window.dispatchEvent(
-            new CustomEvent('fondoMovementTypesUpdated', {
-              detail: { types, version: cacheVersion }
-            })
+            new CustomEvent("fondoMovementTypesUpdated", {
+              detail: { types, version: cacheVersion },
+            }),
           );
         }
       },
       (error) => {
-        console.error('[FondoMovementTypes] Listener error:', error);
-      }
+        console.error("[FondoMovementTypes] Listener error:", error);
+      },
     );
   }
 
@@ -239,7 +260,7 @@ export class FondoMovementTypesService {
    */
   static stopListener(): void {
     if (globalListener) {
-      console.log('[FondoMovementTypes] Stopping listener...');
+      console.log("[FondoMovementTypes] Stopping listener...");
       globalListener();
       globalListener = null;
     }
@@ -256,17 +277,17 @@ export class FondoMovementTypesService {
     // Intentar obtener del caché primero
     const cached = this.readCache();
     if (cached) {
-      console.log('[FondoMovementTypes] Loaded from cache');
+      console.log("[FondoMovementTypes] Loaded from cache");
       return cached;
     }
 
     // Si no hay caché, obtener de la base de datos
-    console.log('[FondoMovementTypes] Cache miss, fetching from Firestore...');
+    console.log("[FondoMovementTypes] Cache miss, fetching from Firestore...");
     const types = await this.getAllMovementTypes();
-    
+
     // Guardar en caché
     this.writeCache(types);
-    
+
     return types;
   }
 
@@ -279,11 +300,11 @@ export class FondoMovementTypesService {
     EGRESO: string[];
   }> {
     const types = await this.getTypesFromCacheOrDB();
-    
+
     return {
-      INGRESO: types.filter(t => t.category === 'INGRESO').map(t => t.name),
-      GASTO: types.filter(t => t.category === 'GASTO').map(t => t.name),
-      EGRESO: types.filter(t => t.category === 'EGRESO').map(t => t.name),
+      INGRESO: types.filter((t) => t.category === "INGRESO").map((t) => t.name),
+      GASTO: types.filter((t) => t.category === "GASTO").map((t) => t.name),
+      EGRESO: types.filter((t) => t.category === "EGRESO").map((t) => t.name),
     };
   }
 
@@ -291,15 +312,15 @@ export class FondoMovementTypesService {
    * Limpia el caché manualmente (útil para debugging)
    */
   static clearCache(): void {
-    if (typeof window === 'undefined') return;
-    
+    if (typeof window === "undefined") return;
+
     try {
       localStorage.removeItem(CACHE_KEY);
       localStorage.removeItem(CACHE_VERSION_KEY);
       cacheVersion = 0;
-      console.log('[FondoMovementTypes] Cache cleared');
+      console.log("[FondoMovementTypes] Cache cleared");
     } catch (error) {
-      console.error('[FondoMovementTypes] Error clearing cache:', error);
+      console.error("[FondoMovementTypes] Error clearing cache:", error);
     }
   }
 

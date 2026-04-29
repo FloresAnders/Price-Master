@@ -1,14 +1,14 @@
 // src/hooks/useRouteProtection.ts
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
-import { useAuth } from './useAuth';
+import { useEffect, useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import { useAuth } from "./useAuth";
 
 interface RouteProtectionConfig {
-  requiredRole?: 'user' | 'admin' | 'superadmin';
+  requiredRole?: "user" | "admin" | "superadmin";
   redirectTo?: string;
-  allowedRoles?: ('user' | 'admin' | 'superadmin')[];
+  allowedRoles?: ("user" | "admin" | "superadmin")[];
   requireAuth?: boolean;
   onUnauthorized?: () => void;
   onAccessDenied?: () => void;
@@ -17,11 +17,11 @@ interface RouteProtectionConfig {
 export function useRouteProtection(config: RouteProtectionConfig = {}) {
   const {
     requiredRole,
-    redirectTo = '/',
+    redirectTo = "/",
     allowedRoles = [],
     requireAuth = true,
     onUnauthorized,
-    onAccessDenied
+    onAccessDenied,
   } = config;
 
   const { user, isAuthenticated, loading, isSuperAdmin, isAdmin } = useAuth();
@@ -30,13 +30,20 @@ export function useRouteProtection(config: RouteProtectionConfig = {}) {
   const [accessGranted, setAccessGranted] = useState(false);
   const [accessChecked, setAccessChecked] = useState(false);
 
+  // Helper to defer state updates to avoid synchronous setState inside effects
+  const setAccess = (granted: boolean) => {
+    Promise.resolve().then(() => {
+      setAccessGranted(granted);
+      setAccessChecked(true);
+    });
+  };
+
   useEffect(() => {
     if (loading) return;
 
     // Verificar autenticación
     if (requireAuth && !isAuthenticated) {
-      setAccessGranted(false);
-      setAccessChecked(true);
+      setAccess(false);
       if (onUnauthorized) {
         onUnauthorized();
       } else {
@@ -50,20 +57,19 @@ export function useRouteProtection(config: RouteProtectionConfig = {}) {
       let hasRequiredRole = false;
 
       switch (requiredRole) {
-        case 'superadmin':
+        case "superadmin":
           hasRequiredRole = isSuperAdmin();
           break;
-        case 'admin':
+        case "admin":
           hasRequiredRole = isAdmin();
           break;
-        case 'user':
+        case "user":
           hasRequiredRole = !!user;
           break;
       }
 
       if (!hasRequiredRole) {
-        setAccessGranted(false);
-        setAccessChecked(true);
+        setAccess(false);
         if (onAccessDenied) {
           onAccessDenied();
         } else {
@@ -77,8 +83,7 @@ export function useRouteProtection(config: RouteProtectionConfig = {}) {
     if (allowedRoles.length > 0) {
       const userRole = user?.role;
       if (!userRole || !allowedRoles.includes(userRole)) {
-        setAccessGranted(false);
-        setAccessChecked(true);
+        setAccess(false);
         if (onAccessDenied) {
           onAccessDenied();
         } else {
@@ -89,8 +94,7 @@ export function useRouteProtection(config: RouteProtectionConfig = {}) {
     }
 
     // Acceso concedido
-    setAccessGranted(true);
-    setAccessChecked(true);
+    setAccess(true);
   }, [
     loading,
     isAuthenticated,
@@ -104,7 +108,7 @@ export function useRouteProtection(config: RouteProtectionConfig = {}) {
     router,
     redirectTo,
     onUnauthorized,
-    onAccessDenied
+    onAccessDenied,
   ]);
 
   return {
@@ -113,30 +117,36 @@ export function useRouteProtection(config: RouteProtectionConfig = {}) {
     loading: loading || !accessChecked,
     user,
     isAuthenticated,
-    userRole: user?.role
+    userRole: user?.role,
   };
 }
 
 // Hook específico para proteger rutas SuperAdmin
-export function useSuperAdminRoute(config: Omit<RouteProtectionConfig, 'requiredRole'> = {}) {
+export function useSuperAdminRoute(
+  config: Omit<RouteProtectionConfig, "requiredRole"> = {},
+) {
   return useRouteProtection({
     ...config,
-    requiredRole: 'superadmin'
+    requiredRole: "superadmin",
   });
 }
 
 // Hook específico para proteger rutas Admin
-export function useAdminRoute(config: Omit<RouteProtectionConfig, 'requiredRole'> = {}) {
+export function useAdminRoute(
+  config: Omit<RouteProtectionConfig, "requiredRole"> = {},
+) {
   return useRouteProtection({
     ...config,
-    allowedRoles: ['admin', 'superadmin']
+    allowedRoles: ["admin", "superadmin"],
   });
 }
 
 // Hook para rutas que requieren cualquier autenticación
-export function useAuthRoute(config: Omit<RouteProtectionConfig, 'requireAuth'> = {}) {
+export function useAuthRoute(
+  config: Omit<RouteProtectionConfig, "requireAuth"> = {},
+) {
   return useRouteProtection({
     ...config,
-    requireAuth: true
+    requireAuth: true,
   });
 }

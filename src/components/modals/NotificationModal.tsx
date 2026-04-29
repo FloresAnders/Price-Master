@@ -78,7 +78,7 @@ export default function NotificationModal({
         }
         const rows = await SolicitudesService.getSolicitudesByEmpresa(
           company,
-          200
+          200,
         );
         // Only show solicitudes that are not marked 'listo'
         const visible = (rows || []).filter((r: any) => !r?.listo);
@@ -105,7 +105,7 @@ export default function NotificationModal({
     const loadExistingImageCount = async () => {
       try {
         const count = await ScanningService.getImageCountForCode(
-          scannedCode.trim()
+          scannedCode.trim(),
         );
         if (!cancelled) setUploadedImagesCount(count);
       } catch {
@@ -228,7 +228,7 @@ export default function NotificationModal({
               toggleCamera={toggleCamera}
               handleClear={clearScanner}
               handleCopyCode={handleCopyCode}
-              onRemoveLeadingZero={() => { }}
+              onRemoveLeadingZero={() => {}}
             />
 
             <div className="mt-4 pt-4 border-t border-[var(--input-border)]">
@@ -260,7 +260,9 @@ export default function NotificationModal({
                 </button>
               </div>
               {manualCodeError ? (
-                <div className="mt-2 text-sm text-red-600">{manualCodeError}</div>
+                <div className="mt-2 text-sm text-red-600">
+                  {manualCodeError}
+                </div>
               ) : (
                 <div className="mt-2 text-xs text-[var(--muted-foreground)]">
                   El código manual tiene prioridad sobre el escaneado.
@@ -305,10 +307,13 @@ export default function NotificationModal({
             <div className="mb-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="text-sm text-[var(--foreground)]">
-                  Imágenes: <span className="font-semibold">{uploadedImagesCount}</span>
+                  Imágenes:{" "}
+                  <span className="font-semibold">{uploadedImagesCount}</span>
                 </div>
 
-                <label className={`px-3 py-2 rounded text-sm text-white ${uploadingImages ? "bg-gray-400" : "bg-blue-500 hover:bg-blue-600"} cursor-pointer`}>
+                <label
+                  className={`px-3 py-2 rounded text-sm text-white ${uploadingImages ? "bg-gray-400" : "bg-blue-500 hover:bg-blue-600"} cursor-pointer`}
+                >
                   {uploadingImages ? "Subiendo..." : "Agregar imagen"}
                   <input
                     type="file"
@@ -352,7 +357,9 @@ export default function NotificationModal({
                     const baseName = selectedSolicitud?.productName || "";
                     const trimmedNotes = notes.trim();
                     const productNameToSend = trimmedNotes
-                      ? (baseName ? `${baseName} - ${trimmedNotes}` : trimmedNotes)
+                      ? baseName
+                        ? `${baseName} - ${trimmedNotes}`
+                        : trimmedNotes
                       : baseName;
 
                     await ScanningService.addScan({
@@ -366,11 +373,11 @@ export default function NotificationModal({
                     // Mark the solicitud as listo
                     await SolicitudesService.setListo(
                       selectedSolicitud.id,
-                      true
+                      true,
                     );
                     // Remove from local list
                     setSolicitudes((prev) =>
-                      prev.filter((s) => s.id !== selectedSolicitud.id)
+                      prev.filter((s) => s.id !== selectedSolicitud.id),
                     );
                     // Close modal and reset states
                     setShowVerificationModal(false);

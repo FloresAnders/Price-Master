@@ -1,8 +1,8 @@
-import { FirestoreService } from './firestore';
-import { CcssConfig, companies } from '../types/firestore';
+import { FirestoreService } from "./firestore";
+import { CcssConfig, companies } from "../types/firestore";
 
 export class CcssConfigService {
-  private static readonly COLLECTION_NAME = 'ccss-config';
+  private static readonly COLLECTION_NAME = "ccss-config";
   private static readonly CACHE_TTL_MS = 5 * 60 * 1000;
   private static readonly cacheByOwnerId = new Map<
     string,
@@ -12,7 +12,10 @@ export class CcssConfigService {
   /**
    * Get CCSS configuration by owner
    */
-  static async getCcssConfig(ownerId: string, ownerCompanie?: string): Promise<CcssConfig | null> {
+  static async getCcssConfig(
+    ownerId: string,
+    ownerCompanie?: string,
+  ): Promise<CcssConfig | null> {
     try {
       if (!ownerId) return null;
 
@@ -24,7 +27,7 @@ export class CcssConfigService {
         configs = cached.configs;
       } else {
         configs = await FirestoreService.query(this.COLLECTION_NAME, [
-          { field: 'ownerId', operator: '==', value: ownerId }
+          { field: "ownerId", operator: "==", value: ownerId },
         ]);
         this.cacheByOwnerId.set(ownerId, { fetchedAt: now, configs });
       }
@@ -32,15 +35,19 @@ export class CcssConfigService {
       // Find config by ownerId and optionally by ownerCompanie
       const config = configs.find((config: CcssConfig) => {
         if (ownerCompanie) {
-          return config.ownerId === ownerId &&
-            config.companie?.some(company => company.ownerCompanie === ownerCompanie);
+          return (
+            config.ownerId === ownerId &&
+            config.companie?.some(
+              (company) => company.ownerCompanie === ownerCompanie,
+            )
+          );
         }
         return config.ownerId === ownerId;
       });
 
       return config || null;
     } catch (error) {
-      console.error('Error getting CCSS config:', error);
+      console.error("Error getting CCSS config:", error);
       return null;
     }
   }
@@ -48,10 +55,12 @@ export class CcssConfigService {
   /**
    * Update CCSS configuration
    */
-  static async updateCcssConfig(config: Omit<CcssConfig, 'id' | 'updatedAt'>): Promise<void> {
+  static async updateCcssConfig(
+    config: Omit<CcssConfig, "id" | "updatedAt">,
+  ): Promise<void> {
     const configWithTimestamp = {
       ...config,
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
 
     try {
@@ -60,7 +69,11 @@ export class CcssConfigService {
 
       if (existingConfig && existingConfig.id) {
         // Update existing config - merge or replace the companies array
-        await FirestoreService.update(this.COLLECTION_NAME, existingConfig.id, configWithTimestamp);
+        await FirestoreService.update(
+          this.COLLECTION_NAME,
+          existingConfig.id,
+          configWithTimestamp,
+        );
       } else {
         // Create new config document
         await FirestoreService.add(this.COLLECTION_NAME, configWithTimestamp);
@@ -69,7 +82,7 @@ export class CcssConfigService {
       // Invalidate cache for this owner
       this.cacheByOwnerId.delete(config.ownerId);
     } catch (error) {
-      console.error('Error updating CCSS config:', error);
+      console.error("Error updating CCSS config:", error);
       throw error;
     }
   }
@@ -77,7 +90,9 @@ export class CcssConfigService {
   /**
    * Get all CCSS configurations for an owner
    */
-  static async getAllCcssConfigsByOwner(ownerId: string): Promise<CcssConfig[]> {
+  static async getAllCcssConfigsByOwner(
+    ownerId: string,
+  ): Promise<CcssConfig[]> {
     try {
       if (!ownerId) return [];
 
@@ -88,12 +103,12 @@ export class CcssConfigService {
       }
 
       const configs = await FirestoreService.query(this.COLLECTION_NAME, [
-        { field: 'ownerId', operator: '==', value: ownerId }
+        { field: "ownerId", operator: "==", value: ownerId },
       ]);
       this.cacheByOwnerId.set(ownerId, { fetchedAt: now, configs });
       return configs;
     } catch (error) {
-      console.error('Error getting CCSS configs by owner:', error);
+      console.error("Error getting CCSS configs by owner:", error);
       return [];
     }
   }
@@ -105,7 +120,7 @@ export class CcssConfigService {
     try {
       await FirestoreService.delete(this.COLLECTION_NAME, configId);
     } catch (error) {
-      console.error('Error deleting CCSS config:', error);
+      console.error("Error deleting CCSS config:", error);
       throw error;
     }
   }
@@ -115,18 +130,18 @@ export class CcssConfigService {
    */
   static async createCcssConfig(
     ownerId: string,
-    companieData: companies[]
+    companieData: companies[],
   ): Promise<void> {
-    const configData: Omit<CcssConfig, 'id'> = {
+    const configData: Omit<CcssConfig, "id"> = {
       ownerId,
       companie: companieData,
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
 
     try {
       await FirestoreService.add(this.COLLECTION_NAME, configData);
     } catch (error) {
-      console.error('Error creating CCSS config:', error);
+      console.error("Error creating CCSS config:", error);
       throw error;
     }
   }
