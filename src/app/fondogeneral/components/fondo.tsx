@@ -102,14 +102,12 @@ export let FONDO_GASTO_TYPES: readonly string[] = [];
 export let FONDO_EGRESO_TYPES: readonly string[] = [];
 export let FONDO_TYPE_OPTIONS: readonly string[] = [];
 
-let AUTO_ADJUSTMENT_MOVEMENT_TYPE_EGRESO = "GASTOS VARIOS";
-let AUTO_ADJUSTMENT_MOVEMENT_TYPE_INGRESO = "OTROS INGRESOS";
-
 export type FondoMovementType = string;
 
 const AUTO_ADJUSTMENT_PROVIDER_CODE = "CIERRE DE FONDO GENERAL";
 const AUTO_ADJUSTMENT_PROVIDER_CODE_LEGACY = "AJUSTE FONDO GENERAL"; // Para compatibilidad con datos antiguos
 const AUTO_ADJUSTMENT_MANAGER = "SISTEMA";
+const AUTO_ADJUSTMENT_CLOSING_TYPE = "AJUSTE CIERRE";
 
 const CIERRE_FONDO_VENTAS_PROVIDER_NAME = "CIERRE FONDO VENTAS";
 
@@ -142,6 +140,46 @@ export const formatMovementType = (type: FondoMovementType | string) => {
     .split(" ")
     .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
     .join(" ");
+};
+
+const isGeneralClosingProviderName = (value: unknown): boolean => {
+  if (typeof value !== "string") return false;
+  const upper = value.trim().toUpperCase();
+  return (
+    upper === AUTO_ADJUSTMENT_PROVIDER_CODE ||
+    upper === AUTO_ADJUSTMENT_PROVIDER_CODE_LEGACY
+  );
+};
+
+const hasGeneralClosingAdjustmentNotes = (value: unknown): boolean => {
+  if (typeof value !== "string") return false;
+  const upper = value.toUpperCase();
+  return upper.includes("AJUSTE APLICADO AL SALDO ACTUAL");
+};
+
+const hasGeneralClosingNoDiffNotes = (value: unknown): boolean => {
+  if (typeof value !== "string") return false;
+  const upper = value.toUpperCase();
+  return upper.includes("SIN DIFERENCIAS");
+};
+
+const getCanonicalClosingPaymentType = (
+  movement: Partial<FondoEntry>,
+): FondoMovementType => {
+  const providerCode = String(movement.providerCode || "").trim();
+  const notes = movement.notes;
+  const isGeneralClosingAdjustment =
+    isAutoAdjustmentProvider(providerCode) ||
+    isGeneralClosingProviderName(providerCode) ||
+    hasGeneralClosingAdjustmentNotes(notes);
+
+  if (!isGeneralClosingAdjustment) {
+    return normalizeStoredType(movement.paymentType);
+  }
+
+  return hasGeneralClosingNoDiffNotes(notes)
+    ? ("INFORMATIVO" as FondoMovementType)
+    : (AUTO_ADJUSTMENT_CLOSING_TYPE as FondoMovementType);
 };
 
 // Normaliza valores historicos guardados en localStorage a las nuevas categorias
@@ -587,7 +625,20 @@ export const sanitizeFondoEntries = (
     const id = coerceIdentifier(entry.id);
     const providerCode = coerceIdentifier(entry.providerCode);
     const invoiceNumber = coerceInvoice(entry.invoiceNumber);
-    const paymentType = normalizeStoredType(entry.paymentType);
+    const notes = coerceNotes(entry.notes);
+    const isGeneralClosingAdjustment =
+      isAutoAdjustmentProvider(providerCode) ||
+      isGeneralClosingProviderName(providerCode) ||
+      hasGeneralClosingAdjustmentNotes(notes);
+
+    let paymentType = normalizeStoredType(entry.paymentType);
+    if (isGeneralClosingAdjustment) {
+      paymentType = getCanonicalClosingPaymentType({
+        providerCode,
+        notes,
+        paymentType: entry.paymentType,
+      });
+    }
     const manager = coerceIdentifier(entry.manager);
     const createdAt = resolveCreatedAt(entry.createdAt);
 
@@ -643,7 +694,7 @@ export const sanitizeFondoEntries = (
           : 0
         : amountIngreso,
       manager,
-      notes: coerceNotes(entry.notes),
+      notes,
       createdAt,
       closingBalanceCRC,
       closingBalanceUSD,
@@ -1422,15 +1473,7 @@ export function ProviderSection({ id }: { id?: string }) {
           ...types.EGRESO,
         ];
 
-        // Actualizar los tipos de ajuste automático
-        AUTO_ADJUSTMENT_MOVEMENT_TYPE_EGRESO =
-          types.GASTO.find((t) => t.toUpperCase() === "GASTOS VARIOS") ??
-          types.GASTO[types.GASTO.length - 1] ??
-          "";
-        AUTO_ADJUSTMENT_MOVEMENT_TYPE_INGRESO =
-          types.INGRESO.find((t) => t.toUpperCase() === "OTROS INGRESOS") ??
-          types.INGRESO[types.INGRESO.length - 1] ??
-          "";
+        // El paymentType de ajustes de cierre se normaliza al persistir.
 
         console.log("[FondoTypes] Loaded:", types);
       } catch (err) {
@@ -4063,15 +4106,7 @@ export function FondoSection({
           ...types.EGRESO,
         ];
 
-        // Actualizar los tipos de ajuste automático
-        AUTO_ADJUSTMENT_MOVEMENT_TYPE_EGRESO =
-          types.GASTO.find((t) => t.toUpperCase() === "GASTOS VARIOS") ??
-          types.GASTO[types.GASTO.length - 1] ??
-          "";
-        AUTO_ADJUSTMENT_MOVEMENT_TYPE_INGRESO =
-          types.INGRESO.find((t) => t.toUpperCase() === "OTROS INGRESOS") ??
-          types.INGRESO[types.INGRESO.length - 1] ??
-          "";
+        // El paymentType de ajustes de cierre se normaliza al persistir.
 
         console.log("[FondoTypes] Loaded:", types);
       } catch (err) {
@@ -5450,8 +5485,10 @@ export function FondoSection({
           }
           const normalizedCurrency: MovementCurrencyKey =
             movement.currency === "USD" ? "USD" : "CRC";
+          const canonicalPaymentType = getCanonicalClosingPaymentType(movement);
           const storedMovement: FondoEntry = {
             ...(movement as FondoEntry),
+            paymentType: canonicalPaymentType,
             accountId: accountKey,
             currency: normalizedCurrency,
             empresa: normalizedCompany,
@@ -7866,9 +7903,7 @@ export function FondoSection({
       if (adjustedDiffCRC && adjustedDiffCRC !== 0) {
         const diff = Math.trunc(adjustedDiffCRC);
         const isPositive = diff > 0;
-        const paymentType = isPositive
-          ? AUTO_ADJUSTMENT_MOVEMENT_TYPE_INGRESO
-          : AUTO_ADJUSTMENT_MOVEMENT_TYPE_EGRESO;
+        const paymentType = AUTO_ADJUSTMENT_CLOSING_TYPE;
         const invoiceDDMM = getTodayInvoiceDDMM(createdAtDate);
         const entry: FondoEntry = {
           id: cierreBaseId,
@@ -7896,9 +7931,7 @@ export function FondoSection({
       if (adjustedDiffUSD && adjustedDiffUSD !== 0) {
         const diff = Math.trunc(adjustedDiffUSD);
         const isPositive = diff > 0;
-        const paymentType = isPositive
-          ? AUTO_ADJUSTMENT_MOVEMENT_TYPE_INGRESO
-          : AUTO_ADJUSTMENT_MOVEMENT_TYPE_EGRESO;
+        const paymentType = AUTO_ADJUSTMENT_CLOSING_TYPE;
         const invoiceDDMM = getTodayInvoiceDDMM(createdAtDate);
         const entry: FondoEntry = {
           id: plannedCount > 1 ? `${cierreBaseId}_USD` : cierreBaseId,
@@ -10239,6 +10272,20 @@ export function FondoSection({
                       const isAutoAdjustment = isAutoAdjustmentProvider(
                         fe.providerCode,
                       );
+                      const providerNameUpper = String(providerName)
+                        .trim()
+                        .toUpperCase();
+                      const isGeneralClosingRow =
+                        providerNameUpper === AUTO_ADJUSTMENT_PROVIDER_CODE ||
+                        providerNameUpper ===
+                          AUTO_ADJUSTMENT_PROVIDER_CODE_LEGACY ||
+                        hasGeneralClosingAdjustmentNotes(fe.notes);
+                      const displayPaymentType =
+                        (isAutoAdjustment || isGeneralClosingRow) &&
+                        !hasGeneralClosingNoDiffNotes(fe.notes) &&
+                        fe.paymentType !== "INFORMATIVO"
+                          ? "AJUSTE CIERRE"
+                          : "INFORMATIVO";
                       const isSuccessfulClosing =
                         isAutoAdjustment && movementAmount === 0;
                       const amountPrefix = isEntryEgreso ? "-" : "+";
@@ -10466,7 +10513,9 @@ export function FondoSection({
                             )}
                           </td>
                           <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
-                            {formatMovementType(fe.paymentType)}
+                            {displayPaymentType === "INFORMATIVO"
+                              ? "-"
+                              : formatMovementType(displayPaymentType)}
                           </td>
                           <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
                             #{fe.invoiceNumber}
