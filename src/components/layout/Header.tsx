@@ -573,6 +573,11 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
           {/* Logo and title */}
           <Link
             href="/#"
+            onClick={(e) => {
+              // Force full navigation to home to ensure page reload and clear any hash
+              e.preventDefault();
+              window.location.href = "/#";
+            }}
             className="flex items-center gap-3 text-xl font-bold tracking-tight text-[var(--foreground)] hover:text-[var(--tab-text-active)] transition-colors cursor-pointer bg-transparent border-none p-0"
           >
             <Image
