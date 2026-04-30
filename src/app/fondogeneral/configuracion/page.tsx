@@ -169,6 +169,11 @@ export default function FondoGeneralConfigurationPage() {
     return Array.from(set).sort();
   }, [actorOwnerIds, user?.ownerId]);
 
+  const allowedOwnerIdsKey = useMemo(
+    () => allowedOwnerIds.join("|"),
+    [allowedOwnerIds],
+  );
+
   const [companies, setCompanies] = useState<string[]>([]);
   const [companiesLoading, setCompaniesLoading] = useState(false);
   const [selectedCompany, setSelectedCompanyState] = useState(() => {
@@ -281,8 +286,11 @@ export default function FondoGeneralConfigurationPage() {
   }, [success]);
 
   useEffect(() => {
+    const sameList = (a: string[], b: string[]) =>
+      a.length === b.length && a.every((v, i) => v === b[i]);
+
     if (!canAccess) {
-      setCompanies([]);
+      setCompanies((prev) => (prev.length === 0 ? prev : []));
       setSelectedCompany("");
       setStorage(null);
       setAccountSettings(createAccountState());
@@ -314,13 +322,15 @@ export default function FondoGeneralConfigurationPage() {
           ),
         );
         uniqueCompanyKeys.sort((a, b) => a.localeCompare(b, "es"));
-        setCompanies(uniqueCompanyKeys);
+        setCompanies((prev) =>
+          sameList(prev, uniqueCompanyKeys) ? prev : uniqueCompanyKeys,
+        );
       })
       .catch((err) => {
         console.error("Error loading empresas for configuration:", err);
         if (isActive) {
           setError("No se pudieron cargar las empresas disponibles.");
-          setCompanies([]);
+          setCompanies((prev) => (prev.length === 0 ? prev : []));
         }
       })
       .finally(() => {
@@ -332,7 +342,7 @@ export default function FondoGeneralConfigurationPage() {
     return () => {
       isActive = false;
     };
-  }, [allowedOwnerIds, canAccess, isSuperAdmin]);
+  }, [allowedOwnerIds, allowedOwnerIdsKey, canAccess, isSuperAdmin, setSelectedCompany]);
 
   useEffect(() => {
     if (!canAccess) {
@@ -366,7 +376,7 @@ export default function FondoGeneralConfigurationPage() {
       // Último recurso: usar la primera empresa
       return companies[0];
     });
-  }, [companies, preferredCompany, canAccess]);
+  }, [companies, preferredCompany, canAccess, setSelectedCompany]);
 
   const loadCompanyStorage = useCallback(
     async (

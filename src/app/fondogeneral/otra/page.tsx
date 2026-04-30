@@ -169,6 +169,11 @@ export default function ReporteMovimientosPage() {
     return set;
   }, [actorOwnerIds, user?.ownerId]);
 
+  const allowedOwnerIdsKey = useMemo(
+    () => Array.from(allowedOwnerIds).sort().join("|"),
+    [allowedOwnerIds],
+  );
+
   const accessibleAccountKeys = useMemo<MovementAccountKey[]>(() => {
     const list: MovementAccountKey[] = [];
     if (permissions.fondogeneral) list.push("FondoGeneral");
@@ -372,14 +377,20 @@ export default function ReporteMovimientosPage() {
   useEffect(() => {
     if (!hasGeneralAccess || authLoading) return;
 
+    const sameList = (a: string[], b: string[]) =>
+      a.length === b.length && a.every((v, i) => v === b[i]);
+
     if (!isAdminUser) {
       setCompaniesError(null);
       setCompaniesLoading(false);
       if (assignedCompany) {
-        setCompanies([assignedCompany]);
+        setCompanies((prev) => {
+          const next = [assignedCompany];
+          return sameList(prev, next) ? prev : next;
+        });
         setSelectedCompany(assignedCompany);
       } else {
-        setCompanies([]);
+        setCompanies((prev) => (prev.length === 0 ? prev : []));
         setSelectedCompany("");
       }
       return;
@@ -417,7 +428,7 @@ export default function ReporteMovimientosPage() {
               .filter((name) => name.length > 0),
           ),
         ).sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
-        setCompanies(names);
+        setCompanies((prev) => (sameList(prev, names) ? prev : names));
         setSelectedCompany((prev) => {
           if (prev === ALL_COMPANIES_VALUE) {
             return names.length > 1 ? ALL_COMPANIES_VALUE : (names[0] ?? "");
@@ -455,7 +466,7 @@ export default function ReporteMovimientosPage() {
     isAdminUser,
     isSuperAdmin,
     assignedCompany,
-    allowedOwnerIds,
+    allowedOwnerIdsKey,
   ]);
 
   useEffect(() => {

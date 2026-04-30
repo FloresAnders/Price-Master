@@ -508,7 +508,17 @@ export default function UsersEditorSection({
                     {isEditing ? "Cancelar edición" : "Editar"}
                   </button>
                   <button
-                    onClick={() => saveIndividualUser(index)}
+                    onClick={async () => {
+                      try {
+                        await Promise.resolve(saveIndividualUser(index));
+                        // After saving, lock editing again for existing users.
+                        if (user.id) {
+                          setEditMode((prev) => ({ ...prev, [key]: false }));
+                        }
+                      } catch {
+                        // Keep edit mode enabled if save fails.
+                      }
+                    }}
                     className="px-3 py-1.5 sm:px-4 sm:py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={!isEditing || isSaving}
                     title={

@@ -1,22 +1,20 @@
 // src/edit/DataEditor.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import useToast from "../hooks/useToast";
 import {
   Download,
   FileText,
   Users,
-  Clock,
   DollarSign,
   Building,
   List,
   Check,
   X,
-  Lock,
-  Edit,
-  Smartphone,
   Clipboard,
+  Smartphone,
+  Clock,
 } from "lucide-react";
 import { EmpresasService } from "../services/empresas";
 import { SorteosService } from "../services/sorteos";
@@ -37,6 +35,7 @@ import {
   getDefaultPermissions,
   getNoPermissions,
   hasPermission,
+  normalizeUserPermissions,
 } from "../utils/permissions";
 import ScheduleReportTab from "../components/business/ScheduleReportTab";
 import ConfirmModal from "../components/ui/ConfirmModal";
@@ -124,9 +123,6 @@ export default function DataEditor() {
   >({});
   const [savingUserKey, setSavingUserKey] = useState<string | null>(null);
   const [showPermissions, setShowPermissions] = useState<{
-    [key: string]: boolean;
-  }>({});
-  const [permissionsEditable, setPermissionsEditable] = useState<{
     [key: string]: boolean;
   }>({});
   const [changePasswordMode, setChangePasswordMode] = useState<{
@@ -406,6 +402,10 @@ export default function DataEditor() {
           passwordMap[key] = storedPassword;
           baselineMap[key] = storedPassword;
           sanitized.password = "";
+          sanitized.permissions = normalizeUserPermissions(
+            user.permissions,
+            (user.role || "user") as any,
+          );
           return sanitized;
         });
 
@@ -488,13 +488,24 @@ export default function DataEditor() {
     showToast,
   ]);
 
+  // Keep a ref so effects can call the latest loadData without
+  // re-triggering on every currentUser object identity change.
+  const loadDataRef = useRef(loadData);
+  useEffect(() => {
+    loadDataRef.current = loadData;
+  }, [loadData]);
+
+  const currentUserId = currentUser?.id ? String(currentUser.id) : null;
+
   // Cargar datos al montar el componente o cuando cambie el usuario autenticado
   useEffect(() => {
     // Solo ejecutar la carga (loadData) cuando React haya inicializado el componente.
     // loadData internamente chequea `currentUser` antes de pedir usuarios.
-    loadData();
+    loadDataRef.current();
+  }, [currentUserId]);
 
-    // Listener para actualizaciones en tiempo real de tipos de fondo
+  // Listener para actualizaciones en tiempo real de tipos de fondo
+  useEffect(() => {
     const handleFondoTypesUpdate = async () => {
       if (currentUser?.role !== "user") {
         try {
@@ -520,7 +531,7 @@ export default function DataEditor() {
         handleFondoTypesUpdate,
       );
     };
-  }, [loadData, currentUser]);
+  }, [currentUser?.role]);
 
   // Función para verificar si una ubicación específica ha cambiado (removed - locations tab deleted)
 
@@ -904,7 +915,6 @@ export default function DataEditor() {
 
     // Initialize per-user keyed UI state for the new user
     setPasswordVisibility((prev) => ({ ...prev, [localId]: false }));
-    setPermissionsEditable((prev) => ({ ...prev, [localId]: true }));
     setShowPermissions((prev) => ({ ...prev, [localId]: true }));
     setPasswordStore((prev) => ({ ...prev, [localId]: "" }));
     setPasswordBaseline((prev) => ({ ...prev, [localId]: "" }));
@@ -1128,11 +1138,10 @@ export default function DataEditor() {
 
   // Función para renderizar la lista de permisos editables
   const renderUserPermissions = (user: User, index: number) => {
-    const defaultPermissions = getDefaultPermissions(user.role || "user");
-    const userPermissions = {
-      ...defaultPermissions,
-      ...(user.permissions || {}),
-    };
+    const userPermissions = normalizeUserPermissions(
+      user.permissions,
+      (user.role || "user") as any,
+    );
     // allow editing permissions for new users; only disable while saving
     const key = getUserKey(user, index);
     const isDisabled = savingUserKey === key;
@@ -1174,28 +1183,6 @@ export default function DataEditor() {
                 <span className="sm:hidden flex items-center gap-1">
                   <X className="w-3 h-3" />
                   Todo
-                </span>
-              </button>
-              <button
-                onClick={() =>
-                  setPermissionsEditable((prev) => ({
-                    ...prev,
-                    [key]: !prev[key],
-                  }))
-                }
-                className="text-xs sm:text-sm px-3 py-2 bg-[var(--secondary)] text-white rounded-md hover:opacity-90 transition-colors whitespace-nowrap"
-              >
-                {permissionsEditable[key] ? (
-                  <span className="hidden sm:inline">Bloquear Permisos</span>
-                ) : (
-                  <span className="hidden sm:inline">Editar Permisos</span>
-                )}
-                <span className="sm:hidden flex items-center gap-1">
-                  {permissionsEditable[key] ? (
-                    <Lock className="w-3 h-3" />
-                  ) : (
-                    <Edit className="w-3 h-3" />
-                  )}
                 </span>
               </button>
               <button
@@ -1242,23 +1229,29 @@ export default function DataEditor() {
                   <input
                     type="checkbox"
                     id={`${index}-${permission}`}
-                    checked={Boolean(hasAccess)}
-                    disabled={!permissionsEditable[key] || isDisabled}
+                    checked={hasAccess === true}
+                    disabled={isDisabled}
                     onChange={(e) => {
                       // Only update in local state; do not auto-save
-                      const updated = [...usersData];
-                      if (!updated[index].permissions) {
-                        updated[index].permissions = getDefaultPermissions(
-                          updated[index].role || "user",
+                      const checked = e.target.checked;
+                      setUsersData((prev) => {
+                        const updated = [...prev];
+                        const current = updated[index];
+                        if (!current) return prev;
+
+                        const basePermissions = normalizeUserPermissions(
+                          current.permissions,
+                          (current.role || "user") as any,
                         );
-                      }
-                      (
-                        updated[index].permissions as unknown as Record<
-                          string,
-                          unknown
-                        >
-                      )[permission] = e.target.checked;
-                      setUsersData(updated);
+
+                        const nextPermissions = {
+                          ...basePermissions,
+                          [permission]: checked,
+                        } as any;
+
+                        updated[index] = { ...current, permissions: nextPermissions };
+                        return updated;
+                      });
                     }}
                     className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--success)] border-2 rounded focus:ring-[var(--success)] focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{
@@ -1320,22 +1313,28 @@ export default function DataEditor() {
                 >
                   <input
                     type="checkbox"
-                    checked={Boolean(hasAccess)}
-                    disabled={!permissionsEditable[key] || isDisabled}
+                    checked={hasAccess === true}
+                    disabled={isDisabled}
                     onChange={(e) => {
-                      const updated = [...usersData];
-                      if (!updated[index].permissions) {
-                        updated[index].permissions = getDefaultPermissions(
-                          updated[index].role || "user",
+                      const checked = e.target.checked;
+                      setUsersData((prev) => {
+                        const updated = [...prev];
+                        const current = updated[index];
+                        if (!current) return prev;
+
+                        const basePermissions = normalizeUserPermissions(
+                          current.permissions,
+                          (current.role || "user") as any,
                         );
-                      }
-                      (
-                        updated[index].permissions as unknown as Record<
-                          string,
-                          unknown
-                        >
-                      )[permission] = e.target.checked;
-                      setUsersData(updated);
+
+                        const nextPermissions = {
+                          ...basePermissions,
+                          [permission]: checked,
+                        } as any;
+
+                        updated[index] = { ...current, permissions: nextPermissions };
+                        return updated;
+                      });
                     }}
                     className="w-3 h-3 disabled:opacity-50"
                   />
@@ -1391,22 +1390,38 @@ export default function DataEditor() {
                           empresa.name,
                         ) || false
                       }
-                      disabled={!permissionsEditable[key] || isDisabled}
+                      disabled={isDisabled}
                       onChange={(e) => {
-                        const updated = [...usersData];
-                        if (!updated[index].permissions) {
-                          updated[index].permissions = getDefaultPermissions(
-                            updated[index].role || "user",
+                        const checked = e.target.checked;
+                        setUsersData((prev) => {
+                          const updated = [...prev];
+                          const currentUserRow = updated[index];
+                          if (!currentUserRow) return prev;
+
+                          const basePermissions = normalizeUserPermissions(
+                            currentUserRow.permissions,
+                            (currentUserRow.role || "user") as any,
                           );
-                        }
-                        const current =
-                          updated[index].permissions!.scanhistoryEmpresas || [];
-                        const newList = e.target.checked
-                          ? [...current, empresa.name]
-                          : current.filter((l) => l !== empresa.name);
-                        updated[index].permissions!.scanhistoryEmpresas =
-                          newList;
-                        setUsersData(updated);
+
+                          const currentList =
+                            (basePermissions as any).scanhistoryEmpresas || [];
+                          const nextList = checked
+                            ? Array.from(
+                                new Set([...currentList, empresa.name]),
+                              )
+                            : currentList.filter((l: string) => l !== empresa.name);
+
+                          const nextPermissions = {
+                            ...basePermissions,
+                            scanhistoryEmpresas: nextList,
+                          } as any;
+
+                          updated[index] = {
+                            ...currentUserRow,
+                            permissions: nextPermissions,
+                          };
+                          return updated;
+                        });
                       }}
                       className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50"
                     />
@@ -1525,8 +1540,6 @@ export default function DataEditor() {
           }
         }
 
-        // Bloquear edición de permisos para este usuario después de guardar
-        setPermissionsEditable((prev) => ({ ...prev, [key]: false }));
         // Resetear modo de cambio de contraseña
         setChangePasswordMode((prev) => ({ ...prev, [key]: false }));
       } else {
@@ -1550,8 +1563,6 @@ export default function DataEditor() {
         });
         // Recargar datos para obtener el ID generado
         await loadData();
-        // Después de recargar datos, asegurar que el control de edición de permisos está bloqueado
-        setPermissionsEditable((prev) => ({ ...prev, [key]: false }));
         // Resetear modo de cambio de contraseña
         setChangePasswordMode((prev) => ({ ...prev, [key]: false }));
       }

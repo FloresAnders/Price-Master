@@ -693,6 +693,10 @@ export function ProviderSection({ id }: { id?: string }) {
     }
     return set;
   }, [actorOwnerIds, user?.ownerId]);
+  const allowedOwnerIdsKey = useMemo(
+    () => Array.from(allowedOwnerIds).sort().join("|"),
+    [allowedOwnerIds],
+  );
   const isAdminUser = user?.role === "admin";
   const isSuperAdminUser = user?.role === "superadmin";
   const canSelectCompany = isAdminUser || isSuperAdminUser;
@@ -846,7 +850,7 @@ export function ProviderSection({ id }: { id?: string }) {
     return () => {
       isMounted = false;
     };
-  }, [allowedOwnerIds, canSelectCompany, isAdminUser]);
+  }, [allowedOwnerIdsKey, canSelectCompany, isAdminUser]);
 
   const [providerName, setProviderName] = useState("");
   const [providerType, setProviderType] = useState<FondoMovementType | "">("");
@@ -2781,6 +2785,10 @@ export function FondoSection({
     }
     return set;
   }, [actorOwnerIds, user?.ownerId]);
+  const allowedOwnerIdsKey = useMemo(
+    () => Array.from(allowedOwnerIds).sort().join("|"),
+    [allowedOwnerIds],
+  );
   const resolvedOwnerId = useMemo(() => {
     const normalizedPrimary = (primaryOwnerId || "").trim();
     if (normalizedPrimary) return normalizedPrimary;
@@ -2939,7 +2947,7 @@ export function FondoSection({
     return () => {
       isMounted = false;
     };
-  }, [allowedOwnerIds, canSelectCompany, isAdminUser]);
+  }, [allowedOwnerIdsKey, canSelectCompany, isAdminUser]);
 
   const activeOwnerId = useMemo(() => {
     const normalizeCompanyKey = (value: unknown) =>
