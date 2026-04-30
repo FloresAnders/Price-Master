@@ -3,8 +3,8 @@
 
 export const ZBAR_PRIORITY_CONFIG = {
   // Configuración principal - ZBar-WASM SIEMPRE primero
-  ZBAR_SCAN_INTERVAL: 300,     // ms - más frecuente para máxima prioridad
-  QUAGGA_FALLBACK_DELAY: 600,  // ms - retraso para dar prioridad a ZBar
+  ZBAR_SCAN_INTERVAL: 300, // ms - más frecuente para máxima prioridad
+  QUAGGA_FALLBACK_DELAY: 600, // ms - retraso para dar prioridad a ZBar
 
   // Configuración de validación
   MIN_CODE_LENGTH: 8,
@@ -16,18 +16,25 @@ export const ZBAR_PRIORITY_CONFIG = {
 
   // Mensajes de log
   LOGS: {
-    ZBAR_START: '🔍 [PRIORIDAD MÁXIMA] ZBar-WASM iniciando...',
-    ZBAR_SUCCESS: '✅ [ÉXITO ZBAR] Código detectado',
-    ZBAR_PROCESSING: '⚠️ [ZBAR] Procesando frame...',
-    QUAGGA_FALLBACK: '🔄 [FALLBACK] Configurando Quagga2 como respaldo...',
-    QUAGGA_SUCCESS: '⚠️ [QUAGGA] Código detectado como fallback',
-    QUAGGA_IGNORED: '🚫 [IGNORADO] Quagga2 ignorado - ZBar ya detectó'
-  }
+    ZBAR_START: "🔍 [PRIORIDAD MÁXIMA] ZBar-WASM iniciando...",
+    ZBAR_SUCCESS: "✅ [ÉXITO ZBAR] Código detectado",
+    ZBAR_PROCESSING: "⚠️ [ZBAR] Procesando frame...",
+    QUAGGA_FALLBACK: "🔄 [FALLBACK] Configurando Quagga2 como respaldo...",
+    QUAGGA_SUCCESS: "⚠️ [QUAGGA] Código detectado como fallback",
+    QUAGGA_IGNORED: "🚫 [IGNORADO] Quagga2 ignorado - ZBar ya detectó",
+  },
 };
 
-export const logZbarPriority = (type: string, message: string, data?: unknown) => {
+export const logZbarPriority = (
+  type: string,
+  message: string,
+  data?: unknown,
+) => {
   if (ZBAR_PRIORITY_CONFIG.ENABLE_PRIORITY_LOGS) {
-    const logMessage = ZBAR_PRIORITY_CONFIG.LOGS[type as keyof typeof ZBAR_PRIORITY_CONFIG.LOGS] || message;
+    const logMessage =
+      ZBAR_PRIORITY_CONFIG.LOGS[
+        type as keyof typeof ZBAR_PRIORITY_CONFIG.LOGS
+      ] || message;
   }
 };
 

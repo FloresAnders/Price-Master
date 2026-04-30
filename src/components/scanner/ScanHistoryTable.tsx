@@ -1,17 +1,33 @@
 // ...existing code...
 
-'use client'
+"use client";
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import Image from 'next/image';
-import QRCode from 'qrcode';
-import { History, Copy, Search, Eye, Calendar, MapPin, RefreshCw, Image as ImageIcon, X, Download, ChevronLeft, ChevronRight, Lock as LockIcon, Smartphone, QrCode } from 'lucide-react';
-import { useScanHistory, useScanImages } from '@/hooks/useScanHistory';
-import { useAuth } from '@/hooks/useAuth';
-import useToast from '@/hooks/useToast';
-import { EmpresasService } from '../../services/empresas';
-import { hasPermission } from '../../utils/permissions';
-import { generateShortMobileUrl } from '../../utils/shortEncoder';
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import Image from "next/image";
+import QRCode from "qrcode";
+import {
+  History,
+  Copy,
+  Search,
+  Eye,
+  Calendar,
+  MapPin,
+  RefreshCw,
+  Image as ImageIcon,
+  X,
+  Download,
+  ChevronLeft,
+  ChevronRight,
+  Lock as LockIcon,
+  Smartphone,
+  QrCode,
+} from "lucide-react";
+import { useScanHistory, useScanImages } from "@/hooks/useScanHistory";
+import { useAuth } from "@/hooks/useAuth";
+import useToast from "@/hooks/useToast";
+import { EmpresasService } from "../../services/empresas";
+import { hasPermission } from "../../utils/permissions";
+import { generateShortMobileUrl } from "../../utils/shortEncoder";
 
 export default function ScanHistoryTable() {
   /* Verificar permisos del usuario */
@@ -24,7 +40,7 @@ export default function ScanHistoryTable() {
     loading,
     refreshHistory,
     deleteScan: deleteScanService,
-    clearHistory: clearHistoryService
+    clearHistory: clearHistoryService,
   } = useScanHistory();
 
   const {
@@ -33,7 +49,7 @@ export default function ScanHistoryTable() {
     imageLoadError,
     loadImagesForCode,
     clearImages,
-    codeBU
+    codeBU,
   } = useScanImages();
 
   // Load locations from DB
@@ -45,23 +61,33 @@ export default function ScanHistoryTable() {
         const data = await EmpresasService.getAllEmpresas();
         setEmpresas(data);
       } catch (error) {
-        console.error('Error loading empresas:', error);
+        console.error("Error loading empresas:", error);
       }
     };
     loadEmpresas();
   }, []);
 
   // Local state
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedLocation, setSelectedLocation] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedLocation, setSelectedLocation] = useState<string>("all");
   const { showToast } = useToast();
-  const notify = useCallback((message: string, color: string = 'green') => {
-    const type = color === 'green' ? 'success' : color === 'red' ? 'error' : 'info';
-    showToast(message, type);
-  }, [showToast]);
+  const notify = useCallback(
+    (message: string, color: string = "green") => {
+      const type =
+        color === "green" ? "success" : color === "red" ? "error" : "info";
+      showToast(message, type);
+    },
+    [showToast],
+  );
   const [processingId, setProcessingId] = useState<string | null>(null);
-  const [showProcessModal, setShowProcessModal] = useState<{ code: string; open: boolean } | null>(null);
-  const [confirmProcess, setConfirmProcess] = useState<{ id: string; code: string } | null>(null);
+  const [showProcessModal, setShowProcessModal] = useState<{
+    code: string;
+    open: boolean;
+  } | null>(null);
+  const [confirmProcess, setConfirmProcess] = useState<{
+    id: string;
+    code: string;
+  } | null>(null);
 
   // Auto-close the "Código procesado" modal 2 seconds after it opens
   useEffect(() => {
@@ -77,7 +103,9 @@ export default function ScanHistoryTable() {
   // Ref for the "Código procesado" modal close button so Enter can close it
   const showProcessCloseRef = useRef<HTMLButtonElement | null>(null);
   // Ref to hold the current deleteScan function so effects can call it before it's declared
-  const deleteScanRef = useRef<((scanId: string, code: string) => Promise<void>) | null>(null);
+  const deleteScanRef = useRef<
+    ((scanId: string, code: string) => Promise<void>) | null
+  >(null);
 
   // When confirmProcess modal opens, focus the Procesar button
   useEffect(() => {
@@ -97,14 +125,14 @@ export default function ScanHistoryTable() {
     setTimeout(() => showProcessCloseRef.current?.focus(), 0);
 
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Enter' || e.key === 'Escape') {
+      if (e.key === "Enter" || e.key === "Escape") {
         e.preventDefault();
         setShowProcessModal(null);
       }
     };
 
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
   }, [showProcessModal?.open]);
 
   // Keyboard handler: Enter to confirm processing, Escape to cancel
@@ -112,65 +140,76 @@ export default function ScanHistoryTable() {
     if (!confirmProcess) return;
 
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Enter') {
+      if (e.key === "Enter") {
         e.preventDefault();
         // call the current deleteScan via ref without awaiting to keep UI responsive
         try {
           void deleteScanRef.current?.(confirmProcess.id, confirmProcess.code);
         } catch (err) {
-          console.error('Error processing scan via Enter key:', err);
+          console.error("Error processing scan via Enter key:", err);
         }
         setConfirmProcess(null);
       }
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
         setConfirmProcess(null);
       }
     };
 
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
   }, [confirmProcess]);
 
   // Date filter states
-  const [startDate, setStartDate] = useState<string>('');
-  const [endDate, setEndDate] = useState<string>('');
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
 
   // Image modal states
   const [showImagesModal, setShowImagesModal] = useState(false);
-  const [currentImageCode, setCurrentImageCode] = useState('');
-  const [thumbnailLoadingStates, setThumbnailLoadingStates] = useState<{ [key: number]: boolean }>({});
+  const [currentImageCode, setCurrentImageCode] = useState("");
+  const [thumbnailLoadingStates, setThumbnailLoadingStates] = useState<{
+    [key: number]: boolean;
+  }>({});
 
   // Individual image modal states
   const [showImageModal, setShowImageModal] = useState(false);
-  const [selectedImageUrl, setSelectedImageUrl] = useState<string>('');
+  const [selectedImageUrl, setSelectedImageUrl] = useState<string>("");
   const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0);
 
   // Mobile scanner modal state
   const [showMobileScannerModal, setShowMobileScannerModal] = useState(false);
-  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
-  const [requestProductNameModal, setRequestProductNameModal] = useState<boolean>(true);
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>("");
+  const [requestProductNameModal, setRequestProductNameModal] =
+    useState<boolean>(true);
 
   // Function to generate QR Code for mobile scanner
-  const generateQRCode = useCallback(async (sessionId: string, requestProductName: boolean) => {
-    try {
-      const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+  const generateQRCode = useCallback(
+    async (sessionId: string, requestProductName: boolean) => {
+      try {
+        const baseUrl =
+          typeof window !== "undefined" ? window.location.origin : "";
 
-      // Use short URL format only
-      const mobileScanUrl = generateShortMobileUrl(baseUrl, sessionId, requestProductName);
+        // Use short URL format only
+        const mobileScanUrl = generateShortMobileUrl(
+          baseUrl,
+          sessionId,
+          requestProductName,
+        );
 
-      const qrCodeDataUrl = await QRCode.toDataURL(mobileScanUrl, {
-        width: 200,
-        margin: 2,
-        color: {
-          dark: '#000000',
-          light: '#FFFFFF'
-        }
-      });
-      setQrCodeDataUrl(qrCodeDataUrl);
-    } catch (error) {
-      console.error('Error generating QR code:', error);
-    }
-  }, []);
+        const qrCodeDataUrl = await QRCode.toDataURL(mobileScanUrl, {
+          width: 200,
+          margin: 2,
+          color: {
+            dark: "#000000",
+            light: "#FFFFFF",
+          },
+        });
+        setQrCodeDataUrl(qrCodeDataUrl);
+      } catch (error) {
+        console.error("Error generating QR code:", error);
+      }
+    },
+    [],
+  );
 
   // notifications handled by ToastProvider via notify()
 
@@ -180,8 +219,8 @@ export default function ScanHistoryTable() {
     const start = new Date();
     start.setDate(end.getDate() - days);
 
-    setStartDate(start.toISOString().split('T')[0]);
-    setEndDate(end.toISOString().split('T')[0]);
+    setStartDate(start.toISOString().split("T")[0]);
+    setEndDate(end.toISOString().split("T")[0]);
   };
 
   const setThisWeek = () => {
@@ -190,16 +229,16 @@ export default function ScanHistoryTable() {
     const start = new Date(today);
     start.setDate(today.getDate() - dayOfWeek);
 
-    setStartDate(start.toISOString().split('T')[0]);
-    setEndDate(today.toISOString().split('T')[0]);
+    setStartDate(start.toISOString().split("T")[0]);
+    setEndDate(today.toISOString().split("T")[0]);
   };
 
   const setThisMonth = () => {
     const today = new Date();
     const start = new Date(today.getFullYear(), today.getMonth(), 1);
 
-    setStartDate(start.toISOString().split('T')[0]);
-    setEndDate(today.toISOString().split('T')[0]);
+    setStartDate(start.toISOString().split("T")[0]);
+    setEndDate(today.toISOString().split("T")[0]);
   };
 
   // Handle copy
@@ -209,54 +248,61 @@ export default function ScanHistoryTable() {
         await navigator.clipboard.writeText(code);
       } else {
         // Fallback for older browsers
-        const textArea = document.createElement('textarea');
+        const textArea = document.createElement("textarea");
         textArea.value = code;
-        textArea.style.position = 'fixed';
-        textArea.style.opacity = '0';
-        textArea.style.left = '-999999px';
-        textArea.style.top = '-999999px';
+        textArea.style.position = "fixed";
+        textArea.style.opacity = "0";
+        textArea.style.left = "-999999px";
+        textArea.style.top = "-999999px";
         document.body.appendChild(textArea);
         textArea.focus();
         textArea.select();
-        document.execCommand('copy');
+        document.execCommand("copy");
         document.body.removeChild(textArea);
       }
-      notify('¡Código copiado!', 'green');
+      notify("¡Código copiado!", "green");
     } catch (error) {
-      console.error('Error copying to clipboard:', error);
-      notify('Error al copiar código', 'red');
+      console.error("Error copying to clipboard:", error);
+      notify("Error al copiar código", "red");
     }
   };
 
   // Clear all history
   const clearHistory = async () => {
-    if (window.confirm('¿Estás seguro de que deseas eliminar todo el historial? Esta acción no se puede deshacer.')) {
+    if (
+      window.confirm(
+        "¿Estás seguro de que deseas eliminar todo el historial? Esta acción no se puede deshacer.",
+      )
+    ) {
       try {
         await clearHistoryService();
-        notify('Historial eliminado', 'red');
+        notify("Historial eliminado", "red");
       } catch (error) {
-        console.error('Error clearing history:', error);
-        notify('Error al eliminar el historial', 'red');
+        console.error("Error clearing history:", error);
+        notify("Error al eliminar el historial", "red");
       }
     }
   };
 
   // Delete individual scan (stable reference)
-  const deleteScan = useCallback(async (scanId: string, code: string) => {
-    setProcessingId(scanId);
-    setTimeout(async () => {
-      try {
-        await deleteScanService(scanId);
-        setShowProcessModal({ code, open: true });
-        notify('Código procesado y eliminado', 'green');
-      } catch (error) {
-        console.error('Error deleting scan:', error);
-        notify('Error al eliminar el código', 'red');
-      } finally {
-        setProcessingId(null);
-      }
-    }, 1200); // Simula procesamiento
-  }, [deleteScanService, notify]);
+  const deleteScan = useCallback(
+    async (scanId: string, code: string) => {
+      setProcessingId(scanId);
+      setTimeout(async () => {
+        try {
+          await deleteScanService(scanId);
+          setShowProcessModal({ code, open: true });
+          notify("Código procesado y eliminado", "green");
+        } catch (error) {
+          console.error("Error deleting scan:", error);
+          notify("Error al eliminar el código", "red");
+        } finally {
+          setProcessingId(null);
+        }
+      }, 1200); // Simula procesamiento
+    },
+    [deleteScanService, notify],
+  );
 
   // Keep ref updated with the latest deleteScan so effects can call it safely
   useEffect(() => {
@@ -271,55 +317,61 @@ export default function ScanHistoryTable() {
     try {
       const result = await refreshHistory();
       if (result.newCount > 0) {
-        notify(`Historial actualizado - ${result.newCount} código${result.newCount > 1 ? 's' : ''} nuevo${result.newCount > 1 ? 's' : ''}`, 'green');
+        notify(
+          `Historial actualizado - ${result.newCount} código${result.newCount > 1 ? "s" : ""} nuevo${result.newCount > 1 ? "s" : ""}`,
+          "green",
+        );
       } else {
-        notify('Historial actualizado - Sin cambios', 'green');
+        notify("Historial actualizado - Sin cambios", "green");
       }
     } catch (error) {
-      console.error('Error refreshing history:', error);
-      notify('Error al actualizar el historial', 'red');
+      console.error("Error refreshing history:", error);
+      notify("Error al actualizar el historial", "red");
     }
   };
 
   // Function to open images modal
-  const handleShowImages = useCallback(async (barcodeCode: string) => {
-    setCurrentImageCode(barcodeCode);
-    setShowImagesModal(true);
-    setThumbnailLoadingStates({});
-    clearImages(); // Clear previous images
-    await loadImagesForCode(barcodeCode);
-  }, [loadImagesForCode, clearImages]);
+  const handleShowImages = useCallback(
+    async (barcodeCode: string) => {
+      setCurrentImageCode(barcodeCode);
+      setShowImagesModal(true);
+      setThumbnailLoadingStates({});
+      clearImages(); // Clear previous images
+      await loadImagesForCode(barcodeCode);
+    },
+    [loadImagesForCode, clearImages],
+  );
 
   // Handle thumbnail load states
   const handleThumbnailLoad = (index: number) => {
-    setThumbnailLoadingStates(prev => ({ ...prev, [index]: false }));
+    setThumbnailLoadingStates((prev) => ({ ...prev, [index]: false }));
   };
 
   const handleThumbnailLoadStart = (index: number) => {
-    setThumbnailLoadingStates(prev => ({ ...prev, [index]: true }));
+    setThumbnailLoadingStates((prev) => ({ ...prev, [index]: true }));
   };
 
   // Download individual image
   const downloadImage = async (imageUrl: string, index: number) => {
     try {
       // Use a direct link approach instead of fetch to avoid CORS issues
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = imageUrl;
       link.download = `${currentImageCode}_imagen_${index + 1}.jpg`;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
 
       // Add crossorigin attribute to handle CORS
-      link.setAttribute('crossorigin', 'anonymous');
+      link.setAttribute("crossorigin", "anonymous");
 
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
 
-      notify('Descarga iniciada', 'green');
+      notify("Descarga iniciada", "green");
     } catch (error) {
-      console.error('Error downloading image:', error);
-      notify('Error al descargar la imagen', 'red');
+      console.error("Error downloading image:", error);
+      notify("Error al descargar la imagen", "red");
     }
   };
 
@@ -332,12 +384,12 @@ export default function ScanHistoryTable() {
       for (let i = 0; i < codeImages.length; i++) {
         const imageUrl = codeImages[i];
 
-        const link = document.createElement('a');
+        const link = document.createElement("a");
         link.href = imageUrl;
         link.download = `${currentImageCode}_imagen_${i + 1}.jpg`;
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        link.setAttribute('crossorigin', 'anonymous');
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.setAttribute("crossorigin", "anonymous");
 
         document.body.appendChild(link);
         link.click();
@@ -345,27 +397,30 @@ export default function ScanHistoryTable() {
 
         // Small delay between downloads to avoid overwhelming the browser
         if (i < codeImages.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise((resolve) => setTimeout(resolve, 500));
         }
       }
 
-      notify(`${codeImages.length} descargas iniciadas`, 'green');
+      notify(`${codeImages.length} descargas iniciadas`, "green");
     } catch (error) {
-      console.error('Error downloading images:', error);
-      notify('Error al descargar las imágenes', 'red');
+      console.error("Error downloading images:", error);
+      notify("Error al descargar las imágenes", "red");
     }
   };
 
   // Functions for individual image modal
-  const handleOpenImageModal = useCallback((imageUrl: string, index: number) => {
-    setSelectedImageUrl(imageUrl);
-    setSelectedImageIndex(index);
-    setShowImageModal(true);
-  }, []);
+  const handleOpenImageModal = useCallback(
+    (imageUrl: string, index: number) => {
+      setSelectedImageUrl(imageUrl);
+      setSelectedImageIndex(index);
+      setShowImageModal(true);
+    },
+    [],
+  );
 
   const handleCloseImageModal = useCallback(() => {
     setShowImageModal(false);
-    setSelectedImageUrl('');
+    setSelectedImageUrl("");
     setSelectedImageIndex(0);
   }, []);
 
@@ -379,7 +434,10 @@ export default function ScanHistoryTable() {
 
   const handlePreviousImage = useCallback(() => {
     if (codeImages.length > 1) {
-      const prevIndex = selectedImageIndex === 0 ? codeImages.length - 1 : selectedImageIndex - 1;
+      const prevIndex =
+        selectedImageIndex === 0
+          ? codeImages.length - 1
+          : selectedImageIndex - 1;
       setSelectedImageIndex(prevIndex);
       setSelectedImageUrl(codeImages[prevIndex]);
     }
@@ -390,32 +448,32 @@ export default function ScanHistoryTable() {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (showImageModal) {
         // Disable body scroll when individual image modal is open
-        document.body.style.overflow = 'hidden';
+        document.body.style.overflow = "hidden";
 
         switch (event.key) {
-          case 'Escape':
+          case "Escape":
             event.preventDefault();
             handleCloseImageModal();
             break;
-          case 'ArrowLeft':
+          case "ArrowLeft":
             event.preventDefault();
             handlePreviousImage();
             break;
-          case 'ArrowRight':
+          case "ArrowRight":
             event.preventDefault();
             handleNextImage();
             break;
         }
       } else if (showImagesModal) {
         switch (event.key) {
-          case 'Escape':
+          case "Escape":
             event.preventDefault();
             setShowImagesModal(false);
             break;
         }
       } else if (showMobileScannerModal) {
         switch (event.key) {
-          case 'Escape':
+          case "Escape":
             event.preventDefault();
             setShowMobileScannerModal(false);
             break;
@@ -424,47 +482,60 @@ export default function ScanHistoryTable() {
     };
 
     if (showImagesModal || showImageModal || showMobileScannerModal) {
-      document.addEventListener('keydown', handleKeyDown);
+      document.addEventListener("keydown", handleKeyDown);
       return () => {
         // Re-enable body scroll when modal is closed
         if (showImageModal) {
-          document.body.style.overflow = 'unset';
+          document.body.style.overflow = "unset";
         }
-        document.removeEventListener('keydown', handleKeyDown);
+        document.removeEventListener("keydown", handleKeyDown);
       };
     }
-  }, [showImagesModal, showImageModal, showMobileScannerModal, handleCloseImageModal, handlePreviousImage, handleNextImage]);
+  }, [
+    showImagesModal,
+    showImageModal,
+    showMobileScannerModal,
+    handleCloseImageModal,
+    handlePreviousImage,
+    handleNextImage,
+  ]);
 
   // Generate QR code when modal opens
   useEffect(() => {
-    if (showMobileScannerModal && typeof window !== 'undefined') {
+    if (showMobileScannerModal && typeof window !== "undefined") {
       // sessionId no longer needed, pass empty string
-      generateQRCode('', requestProductNameModal);
+      generateQRCode("", requestProductNameModal);
     }
   }, [showMobileScannerModal, generateQRCode, requestProductNameModal]);
 
   // Regenerate QR code when requestProductNameModal changes
   useEffect(() => {
-    if (showMobileScannerModal && typeof window !== 'undefined') {
+    if (showMobileScannerModal && typeof window !== "undefined") {
       // sessionId no longer needed, pass empty string
-      generateQRCode('', requestProductNameModal);
+      generateQRCode("", requestProductNameModal);
     }
   }, [requestProductNameModal, showMobileScannerModal, generateQRCode]);
 
   // Filter history based on search term, location, dates, and user permissions
-  const filteredHistory = scanHistory.filter(entry => {
-    const matchesSearch = entry.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (entry.productName && entry.productName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (entry.userName && entry.userName.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredHistory = scanHistory.filter((entry) => {
+    const matchesSearch =
+      entry.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (entry.productName &&
+        entry.productName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (entry.userName &&
+        entry.userName.toLowerCase().includes(searchTerm.toLowerCase()));
 
-    const matchesLocation = selectedLocation === 'all' || entry.ownercompanie === selectedLocation;
+    const matchesLocation =
+      selectedLocation === "all" || entry.ownercompanie === selectedLocation;
 
     // Date filtering
     let matchesDateRange = true;
     if (startDate || endDate) {
       const entryDate = new Date(entry.timestamp);
-      const startDateTime = startDate ? new Date(startDate + 'T00:00:00') : null;
-      const endDateTime = endDate ? new Date(endDate + 'T23:59:59') : null;
+      const startDateTime = startDate
+        ? new Date(startDate + "T00:00:00")
+        : null;
+      const endDateTime = endDate ? new Date(endDate + "T23:59:59") : null;
 
       if (startDateTime && entryDate < startDateTime) {
         matchesDateRange = false;
@@ -476,11 +547,15 @@ export default function ScanHistoryTable() {
 
     // Filtrar por empresas permitidas para el usuario
     let matchesUserLocations = true;
-    if (user?.permissions?.scanhistory && user.permissions.scanhistoryEmpresas) {
+    if (
+      user?.permissions?.scanhistory &&
+      user.permissions.scanhistoryEmpresas
+    ) {
       // Si el usuario tiene empresas específicas configuradas, filtrar por ellas
       if (user.permissions.scanhistoryEmpresas.length > 0) {
-        matchesUserLocations = entry.ownercompanie ?
-          user.permissions.scanhistoryEmpresas.includes(entry.ownercompanie) : false;
+        matchesUserLocations = entry.ownercompanie
+          ? user.permissions.scanhistoryEmpresas.includes(entry.ownercompanie)
+          : false;
       }
       // Si no tiene empresas específicas configuradas pero tiene permiso de scanhistory, puede ver todas
     } else if (!user?.permissions?.scanhistory) {
@@ -488,20 +563,28 @@ export default function ScanHistoryTable() {
       matchesUserLocations = false;
     }
 
-    return matchesSearch && matchesLocation && matchesDateRange && matchesUserLocations;
+    return (
+      matchesSearch &&
+      matchesLocation &&
+      matchesDateRange &&
+      matchesUserLocations
+    );
   });
 
   // Filtrar las ubicaciones disponibles en el selector basado en los permisos del usuario
   // Map companies to availableLocations-like array for selector; filter by user's empresa permissions
   const availableLocations = empresas
-    .map(empresa => ({
+    .map((empresa) => ({
       value: empresa.name,
-      label: `${empresa.name} - ${empresa.ubicacion}`
+      label: `${empresa.name} - ${empresa.ubicacion}`,
     }))
-    .filter(location => {
+    .filter((location) => {
       if (!user?.permissions?.scanhistory) return false;
       // If user has no specific empresas set, allow all locations
-      if (!user.permissions.scanhistoryEmpresas || user.permissions.scanhistoryEmpresas.length === 0) {
+      if (
+        !user.permissions.scanhistoryEmpresas ||
+        user.permissions.scanhistoryEmpresas.length === 0
+      ) {
         return true;
       }
       // Otherwise allow locations whose value (which corresponds to empresa name) is included in scanhistoryEmpresas
@@ -509,7 +592,7 @@ export default function ScanHistoryTable() {
     });
 
   // Verificar si el usuario tiene permiso para ver el historial de escaneos
-  if (!hasPermission(user?.permissions, 'scanhistory')) {
+  if (!hasPermission(user?.permissions, "scanhistory")) {
     return (
       <div className="flex items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)]">
         <div className="text-center">
@@ -540,7 +623,8 @@ export default function ScanHistoryTable() {
             Sin permisos para ver el historial
           </h3>
           <p className="text-[var(--muted-foreground)]">
-            No tienes permisos para acceder al historial de escaneos. Contacta a tu administrador para obtener acceso.
+            No tienes permisos para acceder al historial de escaneos. Contacta a
+            tu administrador para obtener acceso.
           </p>
         </div>
       ) : (
@@ -549,12 +633,16 @@ export default function ScanHistoryTable() {
           <div className="mb-6">
             <div className="flex items-center gap-2 sm:gap-3 mb-4 flex-wrap">
               <History className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
-              <h2 className="text-xl sm:text-2xl font-bold text-[var(--foreground)]">Historial de Escaneos</h2>
-              {user.permissions.scanhistoryEmpresas && user.permissions.scanhistoryEmpresas.length > 0 && (
-                <span className="text-xs sm:text-sm bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded">
-                  Limitado a: {user.permissions.scanhistoryEmpresas.join(', ')}
-                </span>
-              )}
+              <h2 className="text-xl sm:text-2xl font-bold text-[var(--foreground)]">
+                Historial de Escaneos
+              </h2>
+              {user.permissions.scanhistoryEmpresas &&
+                user.permissions.scanhistoryEmpresas.length > 0 && (
+                  <span className="text-xs sm:text-sm bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded">
+                    Limitado a:{" "}
+                    {user.permissions.scanhistoryEmpresas.join(", ")}
+                  </span>
+                )}
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -572,7 +660,9 @@ export default function ScanHistoryTable() {
                 className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
                 disabled={loading}
               >
-                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                <RefreshCw
+                  className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
+                />
                 <span className="hidden sm:inline">Actualizar</span>
               </button>
               {scanHistory.length > 0 && (
@@ -592,7 +682,9 @@ export default function ScanHistoryTable() {
           {loading && (
             <div className="text-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="text-[var(--muted-foreground)] mt-2">Cargando historial...</p>
+              <p className="text-[var(--muted-foreground)] mt-2">
+                Cargando historial...
+              </p>
             </div>
           )}
 
@@ -623,10 +715,14 @@ export default function ScanHistoryTable() {
                         onChange={(e) => setSelectedLocation(e.target.value)}
                         className="w-full pl-10 pr-4 py-2 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] text-[var(--foreground)] focus:outline-none focus:border-blue-500"
                       >
-                        <option value="all">Todas las empresas permitidas</option>
+                        <option value="all">
+                          Todas las empresas permitidas
+                        </option>
                         {availableLocations
-                          .filter(location => location.value !== 'DELIFOOD_TEST')
-                          .map(location => (
+                          .filter(
+                            (location) => location.value !== "DELIFOOD_TEST",
+                          )
+                          .map((location) => (
                             <option key={location.value} value={location.value}>
                               {location.label}
                             </option>
@@ -707,14 +803,17 @@ export default function ScanHistoryTable() {
                   </div>
 
                   {/* Clear filters button */}
-                  {(searchTerm || selectedLocation !== 'all' || startDate || endDate) && (
+                  {(searchTerm ||
+                    selectedLocation !== "all" ||
+                    startDate ||
+                    endDate) && (
                     <div className="flex justify-end">
                       <button
                         onClick={() => {
-                          setSearchTerm('');
-                          setSelectedLocation('all');
-                          setStartDate('');
-                          setEndDate('');
+                          setSearchTerm("");
+                          setSelectedLocation("all");
+                          setStartDate("");
+                          setEndDate("");
                         }}
                         className="px-4 py-2 text-sm bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors flex items-center gap-2"
                       >
@@ -732,46 +831,63 @@ export default function ScanHistoryTable() {
                   <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-3 sm:p-4">
                     <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
                       <Eye className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
-                      <span className="text-xs sm:text-sm font-medium text-blue-800 dark:text-blue-300">Total Escaneos</span>
+                      <span className="text-xs sm:text-sm font-medium text-blue-800 dark:text-blue-300">
+                        Total Escaneos
+                      </span>
                     </div>
-                    <p className="text-xl sm:text-2xl font-bold text-blue-600 mt-1">{scanHistory.length}</p>
+                    <p className="text-xl sm:text-2xl font-bold text-blue-600 mt-1">
+                      {scanHistory.length}
+                    </p>
                   </div>
 
                   <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-3 sm:p-4">
                     <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
                       <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
-                      <span className="text-xs sm:text-sm font-medium text-green-800 dark:text-green-300">Con Nombre</span>
+                      <span className="text-xs sm:text-sm font-medium text-green-800 dark:text-green-300">
+                        Con Nombre
+                      </span>
                     </div>
                     <p className="text-xl sm:text-2xl font-bold text-green-600 mt-1">
-                      {scanHistory.filter(entry => entry.productName).length}
+                      {scanHistory.filter((entry) => entry.productName).length}
                     </p>
                   </div>
 
                   <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 rounded-lg p-3 sm:p-4">
                     <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
                       <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
-                      <span className="text-xs sm:text-sm font-medium text-purple-800 dark:text-purple-300">Con Imágenes</span>
+                      <span className="text-xs sm:text-sm font-medium text-purple-800 dark:text-purple-300">
+                        Con Imágenes
+                      </span>
                     </div>
                     <p className="text-xl sm:text-2xl font-bold text-purple-600 mt-1">
-                      {scanHistory.filter(entry => entry.hasImages).length}
+                      {scanHistory.filter((entry) => entry.hasImages).length}
                     </p>
                   </div>
 
                   <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-3 sm:p-4">
                     <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
                       <Search className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" />
-                      <span className="text-xs sm:text-sm font-medium text-amber-800 dark:text-amber-300">Filtrados</span>
+                      <span className="text-xs sm:text-sm font-medium text-amber-800 dark:text-amber-300">
+                        Filtrados
+                      </span>
                     </div>
-                    <p className="text-xl sm:text-2xl font-bold text-amber-600 mt-1">{filteredHistory.length}</p>
+                    <p className="text-xl sm:text-2xl font-bold text-amber-600 mt-1">
+                      {filteredHistory.length}
+                    </p>
                   </div>
 
                   <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-lg p-3 sm:p-4 col-span-2 sm:col-span-1">
                     <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
                       <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600" />
-                      <span className="text-xs sm:text-sm font-medium text-orange-800 dark:text-orange-300">Con Ubicación</span>
+                      <span className="text-xs sm:text-sm font-medium text-orange-800 dark:text-orange-300">
+                        Con Ubicación
+                      </span>
                     </div>
                     <p className="text-xl sm:text-2xl font-bold text-orange-600 mt-1">
-                      {scanHistory.filter(entry => entry.ownercompanie).length}
+                      {
+                        scanHistory.filter((entry) => entry.ownercompanie)
+                          .length
+                      }
                     </p>
                   </div>
                 </div>
@@ -782,13 +898,14 @@ export default function ScanHistoryTable() {
                 <div className="text-center py-12">
                   <History className="w-16 h-16 text-[var(--muted-foreground)] mx-auto mb-4 opacity-50" />
                   <h3 className="text-lg font-medium text-[var(--foreground)] mb-2">
-                    {scanHistory.length === 0 ? 'No hay escaneos en el historial' : 'No se encontraron resultados'}
+                    {scanHistory.length === 0
+                      ? "No hay escaneos en el historial"
+                      : "No se encontraron resultados"}
                   </h3>
                   <p className="text-[var(--muted-foreground)]">
                     {scanHistory.length === 0
-                      ? 'Los códigos escaneados aparecerán aquí automáticamente'
-                      : 'Intenta con un término de búsqueda diferente o selecciona otra ubicación'
-                    }
+                      ? "Los códigos escaneados aparecerán aquí automáticamente"
+                      : "Intenta con un término de búsqueda diferente o selecciona otra ubicación"}
                   </p>
                 </div>
               ) : (
@@ -816,8 +933,10 @@ export default function ScanHistoryTable() {
                             {entry.productName && (
                               <button
                                 onClick={() => {
-                                  navigator.clipboard.writeText((entry.productName || '').toUpperCase());
-                                  notify('¡Nombre copiado!', 'blue');
+                                  navigator.clipboard.writeText(
+                                    (entry.productName || "").toUpperCase(),
+                                  );
+                                  notify("¡Nombre copiado!", "blue");
                                 }}
                                 className="text-sm sm:text-base text-[var(--foreground)] font-medium bg-blue-100 dark:bg-blue-900/30 px-3 py-2 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors cursor-pointer uppercase text-left break-words whitespace-normal leading-relaxed"
                                 title="Clic para copiar nombre"
@@ -830,7 +949,9 @@ export default function ScanHistoryTable() {
                             {entry.ownercompanie && (
                               <span className="text-sm sm:text-base text-[var(--foreground)] bg-green-100 dark:bg-green-900/30 px-3 py-2 rounded flex items-center gap-2 flex-shrink-0">
                                 <MapPin className="w-4 h-4 flex-shrink-0" />
-                                <span className="font-medium whitespace-nowrap">{entry.ownercompanie}</span>
+                                <span className="font-medium whitespace-nowrap">
+                                  {entry.ownercompanie}
+                                </span>
                               </span>
                             )}
                             <div className="flex items-center gap-2">
@@ -851,53 +972,73 @@ export default function ScanHistoryTable() {
                                     disabled={processingId === entry.id}
                                     onChange={() => {
                                       // Mostrar confirmación antes de procesar
-                                      setConfirmProcess({ id: entry.id!, code: entry.code });
+                                      setConfirmProcess({
+                                        id: entry.id!,
+                                        code: entry.code,
+                                      });
                                     }}
                                     className="w-5 h-5 text-green-600 bg-gray-100 border-gray-300 rounded focus:ring-green-500 dark:focus:ring-green-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
                                     title="Procesar y eliminar código"
                                   />
-                                  <span className="text-xs text-green-700 dark:text-green-300">Procesar</span>
+                                  <span className="text-xs text-green-700 dark:text-green-300">
+                                    Procesar
+                                  </span>
                                 </label>
                               )}
                             </div>
                             {confirmProcess && (
-                                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 px-2 sm:px-0">
-                                  <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg w-full max-w-sm flex flex-col items-center p-4 sm:p-8 gap-4 mx-2 sm:mx-auto">
-                                    <div className="mb-2 sm:mb-4 w-full flex justify-center">
-                                      <span className="inline-block bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 rounded-full px-3 py-1 text-sm font-semibold">Confirmar procesamiento</span>
-                                    </div>
-                                    <div className="text-center mb-4 sm:mb-6 break-words w-full">
-                                      <p className="text-base sm:text-lg font-medium text-gray-800 dark:text-gray-100 mb-2">¿Procesar el código <span className="font-mono text-green-700 dark:text-green-300 break-all">{confirmProcess.code}</span>?</p>
-                                      <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Esta acción eliminará el código y sus imágenes asociadas.</p>
-                                    </div>
-                                    <div className="flex flex-col sm:flex-row gap-2 w-full">
-                                      <button
-                                        type="button"
-                                        ref={confirmProcessButtonRef}
-                                        onClick={() => {
-                                          deleteScan(confirmProcess.id, confirmProcess.code);
-                                          setConfirmProcess(null);
-                                        }}
-                                        className="w-full sm:w-auto px-4 sm:px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
-                                      >
-                                        Procesar
-                                      </button>
-                                      <button
-                                        onClick={() => setConfirmProcess(null)}
-                                        className="w-full sm:w-auto px-4 sm:px-6 py-2 bg-gray-400 hover:bg-gray-500 text-white rounded-lg font-medium transition-colors"
-                                      >
-                                        Cancelar
-                                      </button>
-                                    </div>
+                              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 px-2 sm:px-0">
+                                <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg w-full max-w-sm flex flex-col items-center p-4 sm:p-8 gap-4 mx-2 sm:mx-auto">
+                                  <div className="mb-2 sm:mb-4 w-full flex justify-center">
+                                    <span className="inline-block bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 rounded-full px-3 py-1 text-sm font-semibold">
+                                      Confirmar procesamiento
+                                    </span>
+                                  </div>
+                                  <div className="text-center mb-4 sm:mb-6 break-words w-full">
+                                    <p className="text-base sm:text-lg font-medium text-gray-800 dark:text-gray-100 mb-2">
+                                      ¿Procesar el código{" "}
+                                      <span className="font-mono text-green-700 dark:text-green-300 break-all">
+                                        {confirmProcess.code}
+                                      </span>
+                                      ?
+                                    </p>
+                                    <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+                                      Esta acción eliminará el código y sus
+                                      imágenes asociadas.
+                                    </p>
+                                  </div>
+                                  <div className="flex flex-col sm:flex-row gap-2 w-full">
+                                    <button
+                                      type="button"
+                                      ref={confirmProcessButtonRef}
+                                      onClick={() => {
+                                        deleteScan(
+                                          confirmProcess.id,
+                                          confirmProcess.code,
+                                        );
+                                        setConfirmProcess(null);
+                                      }}
+                                      className="w-full sm:w-auto px-4 sm:px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+                                    >
+                                      Procesar
+                                    </button>
+                                    <button
+                                      onClick={() => setConfirmProcess(null)}
+                                      className="w-full sm:w-auto px-4 sm:px-6 py-2 bg-gray-400 hover:bg-gray-500 text-white rounded-lg font-medium transition-colors"
+                                    >
+                                      Cancelar
+                                    </button>
                                   </div>
                                 </div>
-                              )}
+                              </div>
+                            )}
                           </div>
                         </div>
                         <div className="actions flex flex-row flex-wrap items-center gap-2 pt-2 border-t border-[var(--input-border)]">
                           <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-[var(--muted-foreground)] w-full">
                             <span className="text-xs">
-                              {entry.timestamp.toLocaleDateString()} {entry.timestamp.toLocaleTimeString()}
+                              {entry.timestamp.toLocaleDateString()}{" "}
+                              {entry.timestamp.toLocaleTimeString()}
                             </span>
                           </div>
                         </div>
@@ -910,23 +1051,24 @@ export default function ScanHistoryTable() {
               {/* Footer info */}
               <div className="mt-6 pt-4 border-t border-[var(--input-border)]">
                 <p className="text-sm text-[var(--muted-foreground)] text-center">
-                  Mostrando escaneos • Filtrados por ubicación: {
-                    selectedLocation === 'all'
-                      ? (user?.permissions?.scanhistoryEmpresas && user.permissions.scanhistoryEmpresas.length > 0
-                        ? `Empresas permitidas (${user.permissions.scanhistoryEmpresas.join(', ')})`
-                        : 'Todas las ubicaciones')
-                      : availableLocations.find(loc => loc.value === selectedLocation)?.label || selectedLocation
-                  }
+                  Mostrando escaneos • Filtrados por ubicación:{" "}
+                  {selectedLocation === "all"
+                    ? user?.permissions?.scanhistoryEmpresas &&
+                      user.permissions.scanhistoryEmpresas.length > 0
+                      ? `Empresas permitidas (${user.permissions.scanhistoryEmpresas.join(", ")})`
+                      : "Todas las ubicaciones"
+                    : availableLocations.find(
+                        (loc) => loc.value === selectedLocation,
+                      )?.label || selectedLocation}
                   {(startDate || endDate) && (
                     <>
-                      {' • '}
-                      Rango de fechas: {
-                        startDate && endDate
-                          ? `${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}`
-                          : startDate
-                            ? `Desde ${new Date(startDate).toLocaleDateString()}`
-                            : `Hasta ${new Date(endDate).toLocaleDateString()}`
-                      }
+                      {" • "}
+                      Rango de fechas:{" "}
+                      {startDate && endDate
+                        ? `${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}`
+                        : startDate
+                          ? `Desde ${new Date(startDate).toLocaleDateString()}`
+                          : `Hasta ${new Date(endDate).toLocaleDateString()}`}
                     </>
                   )}
                 </p>
@@ -945,7 +1087,9 @@ export default function ScanHistoryTable() {
                   </h3>
                   {codeImages.length > 0 && (
                     <p className="text-sm text-gray-300 mt-1">
-                      {codeImages.length} imagen{codeImages.length > 1 ? 'es' : ''} encontrada{codeImages.length > 1 ? 's' : ''}
+                      {codeImages.length} imagen
+                      {codeImages.length > 1 ? "es" : ""} encontrada
+                      {codeImages.length > 1 ? "s" : ""}
                     </p>
                   )}
                 </div>
@@ -970,7 +1114,9 @@ export default function ScanHistoryTable() {
                   <div className="flex items-center justify-center h-full">
                     <div className="text-center text-white">
                       <ImageIcon className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                      <h3 className="text-lg font-medium mb-2">No se encontraron imágenes</h3>
+                      <h3 className="text-lg font-medium mb-2">
+                        No se encontraron imágenes
+                      </h3>
                       <p className="text-gray-300">{imageLoadError}</p>
                     </div>
                   </div>
@@ -1022,8 +1168,12 @@ export default function ScanHistoryTable() {
                   <div className="flex items-center justify-center h-full">
                     <div className="text-center text-white">
                       <ImageIcon className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                      <h3 className="text-lg font-medium mb-2">No se encontraron imágenes</h3>
-                      <p className="text-gray-300">Este código no tiene imágenes asociadas</p>
+                      <h3 className="text-lg font-medium mb-2">
+                        No se encontraron imágenes
+                      </h3>
+                      <p className="text-gray-300">
+                        Este código no tiene imágenes asociadas
+                      </p>
                     </div>
                   </div>
                 )}
@@ -1060,13 +1210,13 @@ export default function ScanHistoryTable() {
             <div
               className="fixed inset-0 bg-black bg-opacity-95 flex items-center justify-center p-4 z-[9999]"
               style={{
-                position: 'fixed',
+                position: "fixed",
                 top: 0,
                 left: 0,
                 right: 0,
                 bottom: 0,
                 zIndex: 9999,
-                isolation: 'isolate'
+                isolation: "isolate",
               }}
             >
               <div className="relative w-[90%] h-[90%] flex items-center justify-center">
@@ -1119,18 +1269,19 @@ export default function ScanHistoryTable() {
 
                 {/* Image Info */}
                 <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10 px-4 py-2 rounded-full bg-black bg-opacity-70 text-white text-sm">
-                  Código: {currentImageCode} • Imagen {selectedImageIndex + 1} de {codeImages.length}
+                  Código: {currentImageCode} • Imagen {selectedImageIndex + 1}{" "}
+                  de {codeImages.length}
                 </div>
 
                 {/* Download Button */}
                 <button
                   onClick={() => {
-                    const link = document.createElement('a');
+                    const link = document.createElement("a");
                     link.href = selectedImageUrl;
                     link.download = `${currentImageCode}_imagen_${selectedImageIndex + 1}.jpg`;
-                    link.target = '_blank';
-                    link.rel = 'noopener noreferrer';
-                    link.setAttribute('crossorigin', 'anonymous');
+                    link.target = "_blank";
+                    link.rel = "noopener noreferrer";
+                    link.setAttribute("crossorigin", "anonymous");
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
@@ -1158,7 +1309,7 @@ export default function ScanHistoryTable() {
                   <button
                     onClick={() => {
                       setShowMobileScannerModal(false);
-                      setQrCodeDataUrl('');
+                      setQrCodeDataUrl("");
                       setRequestProductNameModal(true);
                     }}
                     className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
@@ -1181,7 +1332,9 @@ export default function ScanHistoryTable() {
                         <input
                           type="checkbox"
                           checked={requestProductNameModal}
-                          onChange={(e) => setRequestProductNameModal(e.target.checked)}
+                          onChange={(e) =>
+                            setRequestProductNameModal(e.target.checked)
+                          }
                           className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600 mt-0.5"
                         />
                         <div className="text-left">
@@ -1191,8 +1344,7 @@ export default function ScanHistoryTable() {
                           <p className="text-xs text-blue-600 dark:text-blue-400 leading-relaxed">
                             {requestProductNameModal
                               ? "El móvil pedirá ingresar nombres opcionales para cada código escaneado"
-                              : "El móvil solo enviará códigos de barras sin solicitar nombres"
-                            }
+                              : "El móvil solo enviará códigos de barras sin solicitar nombres"}
                           </p>
                         </div>
                       </label>
@@ -1201,15 +1353,23 @@ export default function ScanHistoryTable() {
                     {/* QR Code o Link */}
                     <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-6 mb-6">
                       <p className="text-sm text-[var(--muted-foreground)] mb-4">
-                        Escanea este código QR con tu teléfono o haz clic en el botón para abrir el escáner móvil:
+                        Escanea este código QR con tu teléfono o haz clic en el
+                        botón para abrir el escáner móvil:
                       </p>
 
                       {/* Generate Mobile Scanner URL */}
                       {(() => {
-                        const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+                        const baseUrl =
+                          typeof window !== "undefined"
+                            ? window.location.origin
+                            : "";
 
                         // Use short URL format only (no session parameter)
-                        const mobileScanUrl = generateShortMobileUrl(baseUrl, '', requestProductNameModal);
+                        const mobileScanUrl = generateShortMobileUrl(
+                          baseUrl,
+                          "",
+                          requestProductNameModal,
+                        );
 
                         return (
                           <div className="space-y-4">
@@ -1226,7 +1386,9 @@ export default function ScanHistoryTable() {
                               ) : (
                                 <div className="text-center">
                                   <QrCode className="w-12 h-12 text-gray-400 mx-auto mb-2 animate-pulse" />
-                                  <p className="text-xs text-gray-500">Generando QR...</p>
+                                  <p className="text-xs text-gray-500">
+                                    Generando QR...
+                                  </p>
                                 </div>
                               )}
                             </div>
@@ -1248,7 +1410,7 @@ export default function ScanHistoryTable() {
                               {/* Mobile Link Button */}
                               <button
                                 onClick={() => {
-                                  window.open(mobileScanUrl, '_blank');
+                                  window.open(mobileScanUrl, "_blank");
                                 }}
                                 className="w-full px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2 font-medium"
                               >
@@ -1260,7 +1422,10 @@ export default function ScanHistoryTable() {
                               <button
                                 onClick={() => {
                                   navigator.clipboard.writeText(mobileScanUrl);
-                                  notify('¡Enlace copiado al portapapeles!', 'green');
+                                  notify(
+                                    "¡Enlace copiado al portapapeles!",
+                                    "green",
+                                  );
                                 }}
                                 className="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-[var(--foreground)] rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors flex items-center justify-center gap-2"
                               >
@@ -1275,13 +1440,25 @@ export default function ScanHistoryTable() {
 
                     {/* Instructions */}
                     <div className="text-left space-y-2 text-sm text-[var(--muted-foreground)]">
-                      <h5 className="font-semibold text-[var(--foreground)]">Instrucciones:</h5>
+                      <h5 className="font-semibold text-[var(--foreground)]">
+                        Instrucciones:
+                      </h5>
                       <ul className="list-disc list-inside space-y-1">
-                        <li>Asegúrate de que tu teléfono y computadora estén en la misma red</li>
+                        <li>
+                          Asegúrate de que tu teléfono y computadora estén en la
+                          misma red
+                        </li>
                         <li>Abre el enlace en tu teléfono móvil</li>
-                        <li>Permite el acceso a la cámara cuando se solicite</li>
-                        <li>Escanea códigos de barras con la cámara de tu teléfono</li>
-                        <li>Los códigos aparecerán automáticamente en este historial</li>
+                        <li>
+                          Permite el acceso a la cámara cuando se solicite
+                        </li>
+                        <li>
+                          Escanea códigos de barras con la cámara de tu teléfono
+                        </li>
+                        <li>
+                          Los códigos aparecerán automáticamente en este
+                          historial
+                        </li>
                       </ul>
                     </div>
                   </div>
@@ -1292,7 +1469,7 @@ export default function ScanHistoryTable() {
                   <button
                     onClick={() => {
                       setShowMobileScannerModal(false);
-                      setQrCodeDataUrl('');
+                      setQrCodeDataUrl("");
                       setRequestProductNameModal(true);
                     }}
                     className="w-full bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 px-6 py-3 rounded-lg text-white font-medium text-lg transition-colors"

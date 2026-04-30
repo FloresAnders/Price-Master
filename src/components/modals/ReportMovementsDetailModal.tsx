@@ -64,16 +64,26 @@ export default function ReportMovementsDetailModal({
     () => [
       { key: "createdAt", label: "Fecha", defaultWidth: 190, minWidth: 150 },
       { key: "manager", label: "Encargado", defaultWidth: 140, minWidth: 120 },
-      { key: "providerCode", label: "Proveedor", defaultWidth: 240, minWidth: 160 },
-      { key: "invoiceNumber", label: "Factura", defaultWidth: 120, minWidth: 90 },
+      {
+        key: "providerCode",
+        label: "Proveedor",
+        defaultWidth: 240,
+        minWidth: 160,
+      },
+      {
+        key: "invoiceNumber",
+        label: "Factura",
+        defaultWidth: 120,
+        minWidth: 90,
+      },
       { key: "amount", label: "Monto", defaultWidth: 130, minWidth: 110 },
       { key: "notes", label: "Notas", defaultWidth: 380, minWidth: 180 },
     ],
-    []
+    [],
   );
 
   const [colWidths, setColWidths] = useState<number[]>(() =>
-    columns.map((c) => c.defaultWidth)
+    columns.map((c) => c.defaultWidth),
   );
 
   const [isResizing, setIsResizing] = useState(false);
@@ -110,7 +120,8 @@ export default function ReportMovementsDetailModal({
     const body = document.body;
     const previousOverflow = body.style.overflow;
     const previousPaddingRight = body.style.paddingRight;
-    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+    const scrollbarWidth =
+      window.innerWidth - document.documentElement.clientWidth;
 
     body.style.overflow = "hidden";
     if (scrollbarWidth > 0) {
@@ -225,7 +236,10 @@ export default function ReportMovementsDetailModal({
               </p>
             ) : null}
             <p className="mt-2 text-sm text-[var(--muted-foreground)]">
-              Total: <span className="text-[var(--foreground)] font-semibold">{formatAmount(currency, overallTotal)}</span>
+              Total:{" "}
+              <span className="text-[var(--foreground)] font-semibold">
+                {formatAmount(currency, overallTotal)}
+              </span>
             </p>
           </div>
           <button
@@ -253,7 +267,7 @@ export default function ReportMovementsDetailModal({
               {grouped.map((group) => {
                 const groupTotal = group.movements.reduce(
                   (acc, m) => acc + (amountSelector(m) || 0),
-                  0
+                  0,
                 );
 
                 return (
@@ -279,7 +293,9 @@ export default function ReportMovementsDetailModal({
                             <div
                               key={col.key}
                               className={`relative px-3 py-2 font-semibold border-b border-[var(--input-border)] ${
-                                col.key === "amount" ? "text-right" : "text-left"
+                                col.key === "amount"
+                                  ? "text-right"
+                                  : "text-left"
                               }`}
                             >
                               <span className="pr-3">{col.label}</span>
@@ -299,7 +315,8 @@ export default function ReportMovementsDetailModal({
                             .slice()
                             .sort(
                               (a, b) =>
-                                Date.parse(a.createdAt) - Date.parse(b.createdAt)
+                                Date.parse(a.createdAt) -
+                                Date.parse(b.createdAt),
                             )
                             .map((m) => {
                               const amount = amountSelector(m) || 0;
@@ -307,10 +324,15 @@ export default function ReportMovementsDetailModal({
                                 <div
                                   key={m.id}
                                   className="text-sm"
-                                  style={{ display: "grid", gridTemplateColumns }}
+                                  style={{
+                                    display: "grid",
+                                    gridTemplateColumns,
+                                  }}
                                 >
                                   <div className="px-3 py-2 whitespace-nowrap">
-                                    {new Date(m.createdAt).toLocaleString("es-CR")}
+                                    {new Date(m.createdAt).toLocaleString(
+                                      "es-CR",
+                                    )}
                                   </div>
                                   <div className="px-3 py-2 whitespace-nowrap">
                                     {m.manager || "—"}
