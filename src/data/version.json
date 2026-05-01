@@ -1,8 +1,13 @@
 {
-  "version": "1.4.38",
+  "version": "1.4.40",
   "versionstorage": "1.1.12",
-  "notasDeSistemas": "1.1.11",
+  "notasDeSistemas": "1.1.12",
   "releaseNotes": [
+    {
+      "date": "2026-04-30",
+      "title": "Corrección de los filtros",
+      "description": "Corregido la información que se muestra en los filtros de la vista principal de agregar movimiento. Ahora, los filtros muestran la información correcta, lo que permite a los usuarios seleccionar las opciones adecuadas y mejorar la experiencia de navegación."
+    },
     {
       "date": "2026-04-25",
       "title": "Corrección en la visualización de topo de egresos",
@@ -11,9 +16,9 @@
   ],
   "systemNotes": [
     {
-      "date": "2026-04-24",
-      "title": "Implementación de la sección de Favoritos",
-      "description": "Se implementó la sección de Favoritos, permitiendo a los usuarios guardar accesos rápidos a diferentes secciones de la aplicación. Se añadió un botón de estrella en el header para acceder a los favoritos, y se creó un modal para gestionar los favoritos guardados. asegurando que los accesos rápidos se mantengan incluso después de cerrar sesión o recargar la página."
+      "date": "2026-04-30",
+      "title": "Corrección de los filtros",
+      "description": "Corregido la información que se muestra en los filtros de la vista principal de agregar movimiento. Ahora, los filtros muestran la información correcta, lo que permite a los usuarios seleccionar las opciones adecuadas y mejorar la experiencia de navegación."
     },
     {
       "date": "2026-04-23",

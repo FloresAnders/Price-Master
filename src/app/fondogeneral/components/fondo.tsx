@@ -3945,15 +3945,20 @@ export function FondoSection({
   // When using numeric pagination, load more remote pages only if needed.
   useEffect(() => {
     if (!entriesHydrated) return;
-    if (pageSize === "daily" || pageSize === "all") return;
-    if (typeof pageSize !== "number") return;
-    if (pageSize <= 0) return;
-
     const docKey = resolveV2DocKey();
     if (!docKey) return;
     const cached = v2MovementsCacheRef.current[docKey];
-    if (!cached?.loaded) return;
-    if (cached.loading || cached.exhausted) return;
+    if (!cached?.loaded || cached.loading || cached.exhausted) return;
+
+    if (pageSize === "daily") return;
+
+    if (pageSize === "all") {
+      // "Todos" should keep fetching batches until the active range is exhausted.
+      void ensureV2MovementsLoaded(docKey, { append: true });
+      return;
+    }
+
+    if (typeof pageSize !== "number" || pageSize <= 0) return;
 
     const needed = (pageIndex + 1) * pageSize;
     if (cached.movements.length >= needed) return;
@@ -3964,6 +3969,7 @@ export function FondoSection({
     entriesHydrated,
     pageSize,
     pageIndex,
+    fondoEntries.length,
     resolveV2DocKey,
     ensureV2MovementsLoaded,
   ]);
