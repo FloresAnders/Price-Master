@@ -6902,6 +6902,15 @@ export function FondoSection({
     providers.forEach((p) => map.set(p.code, p.name));
     return map;
   }, [providers]);
+  const providerTypesMap = useMemo(() => {
+    const map = new Map<string, FondoMovementType>();
+    providers.forEach((p) => {
+      if (p.type && isFondoMovementType(p.type)) {
+        map.set(p.code, p.type);
+      }
+    });
+    return map;
+  }, [providers]);
   const selectedProviderExists = selectedProvider
     ? providers.some((p) => p.code === selectedProvider)
     : false;
@@ -10235,6 +10244,7 @@ export function FondoSection({
                       const isMostRecent = fe.id === fondoEntries[0]?.id;
                       const providerName =
                         providersMap.get(fe.providerCode) ?? fe.providerCode;
+                      const providerType = providerTypesMap.get(fe.providerCode);
                       const entryCurrency =
                         (fe.currency as "CRC" | "USD") || "CRC";
                       const normalizedIngreso = Math.trunc(
@@ -10285,7 +10295,9 @@ export function FondoSection({
                         !hasGeneralClosingNoDiffNotes(fe.notes) &&
                         fe.paymentType !== "INFORMATIVO"
                           ? "AJUSTE CIERRE"
-                          : "INFORMATIVO";
+                          : fe.paymentType === "INFORMATIVO" && providerType
+                            ? providerType
+                            : fe.paymentType;
                       const isSuccessfulClosing =
                         isAutoAdjustment && movementAmount === 0;
                       const amountPrefix = isEntryEgreso ? "-" : "+";

@@ -467,6 +467,7 @@ export default function ReporteMovimientosPage() {
     isSuperAdmin,
     assignedCompany,
     allowedOwnerIdsKey,
+    allowedOwnerIds,
   ]);
 
   useEffect(() => {
@@ -1141,7 +1142,6 @@ export default function ReporteMovimientosPage() {
     const classifyBucket = (row: SummaryRow): Classification => {
       const ingreso = row.totals.CRC.ingreso + row.totals.USD.ingreso;
       const gasto = row.totals.CRC.gasto + row.totals.USD.gasto;
-      const egreso = row.totals.CRC.egreso + row.totals.USD.egreso;
       if (Math.trunc(ingreso) !== 0) return "ingreso";
       if (Math.trunc(gasto) !== 0) return "gasto";
       return "egreso";
