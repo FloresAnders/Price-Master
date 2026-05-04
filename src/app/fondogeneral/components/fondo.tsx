@@ -9061,7 +9061,7 @@ export function FondoSection({
             htmlFor={companySelectId}
             className="text-xs font-medium text-[var(--muted-foreground)]"
           >
-            Seleccionar empresas
+            Seleccionar empresa
           </label>
           <select
             id={companySelectId}
