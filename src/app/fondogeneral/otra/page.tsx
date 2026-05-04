@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useActorOwnership } from "@/hooks/useActorOwnership";
 import { getDefaultPermissions } from "@/utils/permissions";
 import { EmpresasService } from "@/services/empresas";
+import { FondoMovementTypesService } from "@/services/fondo-movement-types";
 import type {
   MovementAccountKey,
   MovementCurrencyKey,
@@ -222,8 +223,50 @@ export default function ReporteMovimientosPage() {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadMovementTypeCategories = async () => {
+      try {
+        const types =
+          await FondoMovementTypesService.getMovementTypesByCategoriesWithCache();
+        if (cancelled) return;
+
+        const lookup: Record<string, Classification> = {};
+        types.INGRESO.forEach((type) => {
+          lookup[type.trim().toUpperCase()] = "ingreso";
+        });
+        types.GASTO.forEach((type) => {
+          lookup[type.trim().toUpperCase()] = "gasto";
+        });
+        types.EGRESO.forEach((type) => {
+          lookup[type.trim().toUpperCase()] = "egreso";
+        });
+
+        setMovementTypeCategoryLookup(lookup);
+      } catch (error) {
+        console.error(
+          "Error loading movement type categories for report:",
+          error,
+        );
+        if (!cancelled) {
+          setMovementTypeCategoryLookup({});
+        }
+      }
+    };
+
+    void loadMovementTypeCategories();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const [providerNameLookup, setProviderNameLookup] = useState<
     Record<string, string>
+  >({});
+  const [movementTypeCategoryLookup, setMovementTypeCategoryLookup] = useState<
+    Record<string, Classification>
   >({});
   const loadedProviderCompaniesRef = useRef<Set<string>>(new Set());
   const [classificationFilter, setClassificationFilter] = useState<
@@ -683,6 +726,8 @@ export default function ReporteMovimientosPage() {
         >;
 
         Object.entries(byType).forEach(([paymentType, byCurrency]) => {
+          const paymentTypeCategory =
+            movementTypeCategoryLookup[paymentType.trim().toUpperCase()];
           (Object.keys(byCurrency || {}) as string[]).forEach((cur) => {
             const currency: MovementCurrencyKey = cur === "USD" ? "USD" : "CRC";
             const bucket = (byCurrency as any)?.[currency];
@@ -690,9 +735,34 @@ export default function ReporteMovimientosPage() {
             const ingreso = Math.trunc(Number(bucket.ingreso ?? 0)) || 0;
             const gasto = Math.trunc(Number(bucket.gasto ?? 0)) || 0;
             const egreso = Math.trunc(Number(bucket.egreso ?? 0)) || 0;
-            const amountIngreso = ingreso;
-            const amountGasto = gasto;
-            const amountEgreso = egreso;
+            let amountIngreso = ingreso;
+            let amountGasto = gasto;
+            let amountEgreso = egreso;
+
+            if (
+              paymentTypeCategory === "gasto" &&
+              amountGasto === 0 &&
+              amountEgreso > 0
+            ) {
+              amountGasto = amountEgreso;
+              amountEgreso = 0;
+            } else if (
+              paymentTypeCategory === "egreso" &&
+              amountEgreso === 0 &&
+              amountGasto > 0
+            ) {
+              amountEgreso = amountGasto;
+              amountGasto = 0;
+            } else if (
+              paymentTypeCategory === "ingreso" &&
+              amountIngreso === 0 &&
+              amountEgreso > 0 &&
+              amountGasto === 0
+            ) {
+              amountIngreso = amountEgreso;
+              amountEgreso = 0;
+            }
+
             if (
               Math.trunc(amountIngreso) === 0 &&
               Math.trunc(amountGasto) === 0 &&
@@ -744,6 +814,7 @@ export default function ReporteMovimientosPage() {
     accessibleAccountKeys,
     fromDate,
     toDate,
+    movementTypeCategoryLookup,
   ]);
 
   const [detailRequest, setDetailRequest] = useState<null | {
@@ -765,6 +836,7 @@ export default function ReporteMovimientosPage() {
     ) => {
       const amount = row.totals[currency][classification];
       if (!Number.isFinite(amount) || Math.trunc(amount) === 0) return;
+
       setDetailRequest({
         paymentType: row.paymentType,
         label: row.label,
@@ -833,6 +905,11 @@ export default function ReporteMovimientosPage() {
         }
 
         const queries: Array<Promise<any[]>> = [];
+        // Do not filter by stored classification in Firestore for totals.
+        // We normalize by movement type category below to avoid mixed gasto/egreso.
+        const queryClassification =
+          detailRequest.paymentType ? undefined : undefined;
+
         if (allowedCompanies.length === 1) {
           queries.push(
             ReportesMovimientosService.listDetailItems({
@@ -841,7 +918,7 @@ export default function ReporteMovimientosPage() {
               empresa: allowedCompanies[0],
               accountIds,
               currency: detailRequest.currency,
-              classification: detailRequest.classification,
+              classification: queryClassification,
               paymentType: detailRequest.paymentType,
             }) as any,
           );
@@ -855,7 +932,7 @@ export default function ReporteMovimientosPage() {
                   empresas: chunk,
                   accountIds: [accountId],
                   currency: detailRequest.currency,
-                  classification: detailRequest.classification,
+                  classification: queryClassification,
                   paymentType: detailRequest.paymentType,
                 }) as any,
               );
@@ -870,7 +947,7 @@ export default function ReporteMovimientosPage() {
                 empresas: chunk,
                 accountIds,
                 currency: detailRequest.currency,
-                classification: detailRequest.classification,
+                classification: queryClassification,
                 paymentType: detailRequest.paymentType,
               }) as any,
             );
@@ -904,12 +981,44 @@ export default function ReporteMovimientosPage() {
         });
         const items = Array.from(dedup.values());
 
+        const normalizeStoredClassification = (
+          value: unknown,
+        ): Classification | "" => {
+          const normalized = String(value || "").trim().toLowerCase();
+          if (normalized === "ingreso") return "ingreso";
+          if (normalized === "gasto") return "gasto";
+          if (normalized === "egreso") return "egreso";
+          return "";
+        };
+
+        const inferClassificationFromItem = (item: any): Classification => {
+          const paymentTypeKey = String(item?.paymentType || "")
+            .trim()
+            .toUpperCase();
+          const configuredCategory = movementTypeCategoryLookup[paymentTypeKey];
+          if (configuredCategory) return configuredCategory;
+
+          const stored = normalizeStoredClassification(item?.classification);
+          if (stored) return stored;
+
+          const ingreso = Math.trunc(Number(item?.amountIngreso ?? 0)) || 0;
+          if (ingreso !== 0) return "ingreso";
+          return "egreso";
+        };
+
+        const classificationScopedItems = detailRequest.paymentType
+          ? items
+          : items.filter(
+              (item) =>
+                inferClassificationFromItem(item) === detailRequest.classification,
+            );
+
         const filtered =
           selectedMovementTypes.length > 0 && !detailRequest.paymentType
-            ? items.filter((i) =>
+            ? classificationScopedItems.filter((i) =>
                 selectedMovementTypes.includes(i.paymentType as any),
               )
-            : items;
+            : classificationScopedItems;
 
         // Ensure this is still the latest load
         if (cancelled || detailLoadTokenRef.current !== token) return;
@@ -965,6 +1074,7 @@ export default function ReporteMovimientosPage() {
     fromDate,
     toDate,
     selectedMovementTypes,
+    movementTypeCategoryLookup,
     detailReloadTrigger,
   ]);
 
@@ -1140,6 +1250,10 @@ export default function ReporteMovimientosPage() {
     });
 
     const classifyBucket = (row: SummaryRow): Classification => {
+      const configuredCategory =
+        movementTypeCategoryLookup[row.paymentType.trim().toUpperCase()];
+      if (configuredCategory) return configuredCategory;
+
       const ingreso = row.totals.CRC.ingreso + row.totals.USD.ingreso;
       const gasto = row.totals.CRC.gasto + row.totals.USD.gasto;
       if (Math.trunc(ingreso) !== 0) return "ingreso";
@@ -1167,7 +1281,13 @@ export default function ReporteMovimientosPage() {
         if (byGroup !== 0) return byGroup;
         return a.label.localeCompare(b.label, "es", { sensitivity: "base" });
       });
-  }, [entries, dateRangeInvalid, classificationFilter, selectedMovementTypes]);
+  }, [
+    entries,
+    dateRangeInvalid,
+    classificationFilter,
+    selectedMovementTypes,
+    movementTypeCategoryLookup,
+  ]);
 
   const totals = useMemo(() => {
     return summaryRows.reduce<Record<MovementCurrencyKey, CurrencyBucket>>(
@@ -1905,11 +2025,16 @@ export default function ReporteMovimientosPage() {
         formatAmount={formatAmount}
         movements={detailMovements}
         loading={detailLoading}
-        amountSelector={(movement) =>
-          detailRequest?.classification === "ingreso"
-            ? movement.amountIngreso
-            : movement.amountEgreso
-        }
+        amountSelector={(movement) => {
+          const ingreso = Math.trunc(Number(movement.amountIngreso ?? 0)) || 0;
+          const egreso = Math.trunc(Number(movement.amountEgreso ?? 0)) || 0;
+
+          if (detailRequest?.classification === "ingreso") {
+            return ingreso || egreso;
+          }
+
+          return egreso || ingreso;
+        }}
         splitByCompany={selectedCompany === ALL_COMPANIES_VALUE}
       />
     </div>

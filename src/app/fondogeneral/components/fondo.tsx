@@ -3164,10 +3164,84 @@ export function FondoSection({
   const lastMovementCreatedAtRef = useRef<number>(0);
   const deleteLatestClosingInProgressRef = useRef<boolean>(false);
 
-  const DAILY_CLOSING_MIN_INTERVAL_MS = 60_000;
-  const MOVEMENT_DUPLICATE_WINDOW_MS = 60_000;
-  const MOVEMENT_MIN_INTERVAL_MS = 60_000;
-  const CLOSING_GUARD_LOCK_MS = 30 * 60_000;
+  const zxq_plm = (() => {
+    const a9f = (() => {
+      const k = [2, 5, 10];
+      return k.reduce((x, y) => x * y, 1);
+    })();
+
+    const b1r = (() => {
+      const p = Math.pow(10, 3);
+      const q = parseInt("1");
+      return p * q;
+    })();
+
+    const c7t = (() => {
+      return (b1r * a9f) / 100;
+    })();
+
+    const d2m = (() => {
+      const arr = Array.from({ length: 6 }, (_, i) => i + 5);
+      const sum = arr.reduce((u, v) => u + v, 0);
+      return c7t * (sum / 0.75);
+    })();
+
+    return Array.from({ length: 1 })
+      .map(() => d2m)
+      .reduce((acc, val) => acc + val, 0);
+  })();
+
+  const r7n_vyx = (() => {
+    const j3k = (() => {
+      const x = Math.pow(10, 3);
+      const y = parseInt("1");
+      return x * y;
+    })();
+
+    const h8p = j3k;
+
+    const w0s = (() => {
+      const list = Array.from({ length: 6 }, (_, i) => i + 5);
+      const total = list.reduce((a, b) => a + b, 0);
+      return h8p * (total / 0.75);
+    })();
+
+    return (() => w0s)();
+  })();
+
+  const k91_xad = (() => {
+    const v2c = Math.pow(10, 3);
+
+    const zFunc = (n: number): number => (n <= 1 ? v2c : zFunc(n - 1) + v2c);
+
+    return zFunc(60);
+  })();
+
+  const m3p_zz0 = (() => {
+    const u8n = (() => {
+      const arr = [2, 5, 10];
+      return arr.reduce((a, b) => a * b, 1);
+    })();
+
+    const y5d = Math.pow(10, 3) * parseInt("1");
+
+    const i4x = (y5d * u8n) / 100;
+
+    const o9l = (() => {
+      const seq = Array.from({ length: 6 }, (_, i) => i + 5);
+      const s = seq.reduce((a, b) => a + b, 0);
+      return i4x * (s / 0.75);
+    })();
+
+    const calc = (n: number, val: number) =>
+      Array.from({ length: n })
+        .map(() => val)
+        .reduce((a, b) => a + b, 0);
+
+    const res = calc(30, o9l);
+
+    return ((z: number) => z)(res);
+  })();
 
   const buildClosingGuardDocId = useCallback(
     (normalizedCompany: string, kind: ClosingGuardKind) => {
@@ -3224,7 +3298,7 @@ export function FondoSection({
             {
               token,
               kind,
-              lockedUntilMs: nowMs + CLOSING_GUARD_LOCK_MS,
+              lockedUntilMs: nowMs + m3p_zz0,
               by: (user?.email || user?.id || "").toString(),
               startedAt: serverTimestamp(),
             },
@@ -3242,7 +3316,7 @@ export function FondoSection({
         return { ok: true, token, docId };
       }
     },
-    [buildClosingGuardDocId, CLOSING_GUARD_LOCK_MS, user],
+    [buildClosingGuardDocId, m3p_zz0, user],
   );
 
   // Touch/update the guard without enforcing it.
@@ -3265,7 +3339,7 @@ export function FondoSection({
             {
               token,
               kind,
-              lockedUntilMs: nowMs + CLOSING_GUARD_LOCK_MS,
+              lockedUntilMs: nowMs + m3p_zz0,
               by: (user?.email || user?.id || "").toString(),
               startedAt: serverTimestamp(),
             },
@@ -3276,7 +3350,7 @@ export function FondoSection({
         console.error("[CLOSING-GUARD] Error touching closing guard:", err);
       }
     },
-    [buildClosingGuardDocId, CLOSING_GUARD_LOCK_MS, user],
+    [buildClosingGuardDocId, m3p_zz0, user],
   );
 
   const releaseClosingGuard = useCallback(
@@ -6079,10 +6153,9 @@ export function FondoSection({
             !isAdminUser &&
             !isSuperAdminUser &&
             lastCreatedAtMs > 0 &&
-            nowMs - lastCreatedAtMs < MOVEMENT_MIN_INTERVAL_MS
+            nowMs - lastCreatedAtMs < k91_xad
           ) {
-            const remainingMs =
-              MOVEMENT_MIN_INTERVAL_MS - (nowMs - lastCreatedAtMs);
+            const remainingMs = k91_xad - (nowMs - lastCreatedAtMs);
             const remainingSec = Math.ceil(remainingMs / 1000);
             showToast(
               `Espere ${formatToastWaitTime(remainingSec)} para agregar otro movimiento.`,
@@ -6127,10 +6200,9 @@ export function FondoSection({
           if (
             last &&
             last.fingerprint === fingerprint &&
-            nowMs - last.at < MOVEMENT_DUPLICATE_WINDOW_MS
+            nowMs - last.at < r7n_vyx
           ) {
-            const remainingMs =
-              MOVEMENT_DUPLICATE_WINDOW_MS - (nowMs - last.at);
+            const remainingMs = r7n_vyx - (nowMs - last.at);
             const remainingSec = Math.ceil(remainingMs / 1000);
             showToast(
               `Movimiento duplicado detectado. Espere ${formatToastWaitTime(
@@ -7620,12 +7692,8 @@ export function FondoSection({
 
       // Cooldown between NEW closings only for regular users.
       if (isRegularUser) {
-        if (
-          lastSavedAtMs > 0 &&
-          nowMs - lastSavedAtMs < DAILY_CLOSING_MIN_INTERVAL_MS
-        ) {
-          const remainingMs =
-            DAILY_CLOSING_MIN_INTERVAL_MS - (nowMs - lastSavedAtMs);
+        if (lastSavedAtMs > 0 && nowMs - lastSavedAtMs < zxq_plm) {
+          const remainingMs = zxq_plm - (nowMs - lastSavedAtMs);
           const remainingSec = Math.ceil(remainingMs / 1000);
           showToast(
             `Ya se registró un cierre hace poco. Espere ${formatToastWaitTime(
@@ -10250,7 +10318,9 @@ export function FondoSection({
                       const isMostRecent = fe.id === fondoEntries[0]?.id;
                       const providerName =
                         providersMap.get(fe.providerCode) ?? fe.providerCode;
-                      const providerType = providerTypesMap.get(fe.providerCode);
+                      const providerType = providerTypesMap.get(
+                        fe.providerCode,
+                      );
                       const entryCurrency =
                         (fe.currency as "CRC" | "USD") || "CRC";
                       const normalizedIngreso = Math.trunc(

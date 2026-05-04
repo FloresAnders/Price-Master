@@ -71,10 +71,13 @@ const ensureMovementTypeCategoryCache = async () => {
     const next = new Map();
     snap.forEach((doc) => {
       const id = String(doc.id || '').trim();
-      if (!id) return;
+      const name = String(doc.get('name') || '').trim();
+      const idKey = id.toUpperCase();
+      const nameKey = name.toUpperCase();
       const cat = String(doc.get('category') || '').toUpperCase().trim();
       if (cat === 'INGRESO' || cat === 'GASTO' || cat === 'EGRESO') {
-        next.set(id, cat);
+        if (idKey) next.set(idKey, cat);
+        if (nameKey) next.set(nameKey, cat);
       }
     });
     movementTypeCategoryCache = { loadedAtMs: now, map: next };
@@ -85,7 +88,7 @@ const ensureMovementTypeCategoryCache = async () => {
 };
 
 const resolveCategory = (paymentType, amountIngreso, amountEgreso) => {
-  const key = String(paymentType || '').trim();
+  const key = String(paymentType || '').trim().toUpperCase();
   const cached = key ? movementTypeCategoryCache.map.get(key) : null;
   if (cached === 'INGRESO' || cached === 'GASTO' || cached === 'EGRESO') return cached;
 
