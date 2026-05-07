@@ -53,6 +53,10 @@ import { FondoMovementTypesService } from "../../../services/fondo-movement-type
 import { SchedulesService } from "../../../services/schedules";
 import { generateMovementNotificationEmail } from "../../../services/email-templates/notificacion-movimiento";
 import { generateEgresoProviderCreatedEmail } from "../../../services/email-templates/proveedor-egreso-creado";
+import {
+  findLatestMovementByInvoiceNumber,
+  sendDuplicateInvoiceAlertEmail,
+} from "../../../services/duplicate-invoice-alert";
 import { AuditHistoryModal } from "./AuditHistoryModal";
 import {
   MovimientosFondosService,
@@ -161,6 +165,14 @@ const hasGeneralClosingNoDiffNotes = (value: unknown): boolean => {
   if (typeof value !== "string") return false;
   const upper = value.toUpperCase();
   return upper.includes("SIN DIFERENCIAS");
+};
+
+const isInventoryPurchasePaymentType = (value: unknown): boolean => {
+  if (typeof value !== "string") return false;
+  const normalized = value.trim().toUpperCase();
+  return (
+    normalized === "COMPRA INVENTARIO" || normalized === "COMPRA DE INVENTARIO"
+  );
 };
 
 const getCanonicalClosingPaymentType = (
@@ -6424,6 +6436,26 @@ export function FondoSection({
       let closingGuard: { token: string; docId: string } | null = null;
       try {
         const normalizedCompany = (company || "").trim();
+        const requiresDuplicateInvoiceCheck =
+          isInventoryPurchasePaymentType(paymentType);
+        const previousInvoiceMovement = requiresDuplicateInvoiceCheck
+          ? await findLatestMovementByInvoiceNumber(
+              normalizedCompany,
+              paddedInvoice,
+            )
+          : null;
+
+        if (previousInvoiceMovement) {
+          console.log(
+            "[INVOICE-DUPLICATE] Coincidencia detectada antes de guardar COMPRA DE INVENTARIO.",
+            {
+              company: normalizedCompany,
+              invoiceNumber: paddedInvoice,
+              previousMovementId: previousInvoiceMovement.id,
+            },
+          );
+        }
+
         const selectedProviderData = providers.find(
           (p) => p.code === selectedProvider,
         );
@@ -6485,6 +6517,20 @@ export function FondoSection({
         // Preparar la lista actualizada ANTES de persistir
         const updatedEntries = [entry, ...fondoEntries];
         const createdOk = await persistCreatedMovement(entry, updatedEntries);
+
+        if (createdOk && previousInvoiceMovement) {
+          void sendDuplicateInvoiceAlertEmail({
+            company,
+            ownerAdminEmail,
+            activeOwnerId,
+            userEmail: user?.email,
+            currentEntry: entry,
+            previousEntry: previousInvoiceMovement,
+            resolveProviderName: (providerCode: string) =>
+              providers.find((p) => p.code === providerCode)?.name ||
+              providerCode,
+          });
+        }
 
         if (createdOk) {
           try {
