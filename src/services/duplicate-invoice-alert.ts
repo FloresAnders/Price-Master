@@ -57,6 +57,14 @@ export type SendDuplicateInvoiceAlertParams = {
   resolveProviderName?: (providerCode: string) => string;
 };
 
+const isInventoryPurchasePaymentType = (value: unknown): boolean => {
+  if (typeof value !== "string") return false;
+  const normalized = value.trim().toUpperCase();
+  return (
+    normalized === "COMPRA INVENTARIO" || normalized === "COMPRA DE INVENTARIO"
+  );
+};
+
 export const findLatestMovementByInvoiceNumber = async (
   normalizedCompany: string,
   invoice: string,
@@ -114,6 +122,11 @@ export const findLatestMovementByInvoiceNumber = async (
         currency: data.currency === "USD" ? "USD" : "CRC",
       };
 
+      // Solo considerar movimientos de compra inventario para detectar el "anterior".
+      if (!isInventoryPurchasePaymentType(candidate.paymentType)) {
+        return;
+      }
+
       if (
         !latest ||
         ts > latestTs ||
@@ -147,9 +160,8 @@ export const sendDuplicateInvoiceAlertEmail = async (
     } else {
       const fallbackOwnerId = (params.activeOwnerId || "").trim();
       if (fallbackOwnerId.length > 0) {
-        const fallbackAdmin = await UsersService.getPrimaryAdminByOwner(
-          fallbackOwnerId,
-        );
+        const fallbackAdmin =
+          await UsersService.getPrimaryAdminByOwner(fallbackOwnerId);
         const fallbackEmail =
           typeof fallbackAdmin?.email === "string"
             ? fallbackAdmin.email.trim()
