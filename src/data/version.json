@@ -1,7 +1,7 @@
 {
   "version": "1.4.45",
   "versionstorage": "1.1.12",
-  "notasDeSistemas": "1.1.13",
+  "notasDeSistemas": "1.1.14",
   "releaseNotes": [
     {
       "date": "2026-05-07",
@@ -24,16 +24,6 @@
       "date": "2026-05-07",
       "title": "Corrección en la vista de empleados",
       "description": "Se eliminó el ciclo de actualización que se producía al cargar los empleados por empresa. La carga ahora depende de una lista estable de IDs para evitar re-ejecuciones innecesarias del efecto."
-    },
-    {
-      "date": "2026-04-30",
-      "title": "Corrección de los filtros",
-      "description": "Corregido la información que se muestra en los filtros de la vista principal de agregar movimiento. Ahora, los filtros muestran la información correcta, lo que permite a los usuarios seleccionar las opciones adecuadas y mejorar la experiencia de navegación."
-    },
-    {
-      "date": "2026-04-23",
-      "title": "Mejora en la gestión de proveedores frecuentes",
-      "description": "Se mejoró la lógica para mostrar los proveedores más frecuentes en la vista principal de agregar movimiento. Ahora, los proveedores más utilizados por el usuario se muestran al inicio de la lista, facilitando su selección y agilizando el proceso de agregar movimientos."
     }
   ],
   "_comment": "hacer una pagina de 'en mantenimiento' para secciones en desarrollo y a exepcion de un usuario admin"
