@@ -1,8 +1,13 @@
 {
-  "version": "1.4.44",
+  "version": "1.4.45",
   "versionstorage": "1.1.12",
   "notasDeSistemas": "1.1.13",
   "releaseNotes": [
+    {
+      "date": "2026-05-07",
+      "title": "Corrección en la vista de empleados",
+      "description": "Se corrigió un bucle de renderizado en la sección de empleados que impedía ver la información y congelaba la página. Ahora la carga de empleados usa una clave estable y la vista responde con normalidad."
+    },
     {
       "date": "2026-04-30",
       "title": "Corrección de los filtros",
@@ -15,6 +20,11 @@
     }
   ],
   "systemNotes": [
+    {
+      "date": "2026-05-07",
+      "title": "Corrección en la vista de empleados",
+      "description": "Se eliminó el ciclo de actualización que se producía al cargar los empleados por empresa. La carga ahora depende de una lista estable de IDs para evitar re-ejecuciones innecesarias del efecto."
+    },
     {
       "date": "2026-04-30",
       "title": "Corrección de los filtros",

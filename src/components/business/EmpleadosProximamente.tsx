@@ -314,15 +314,23 @@ export default function EmpleadosProximamente() {
     return allowedEmpresas;
   }, [allowedEmpresas, effectiveSelectedEmpresaKey, isAdmin, isSuperAdmin]);
 
+  const visibleEmpresaIds = useMemo(() => {
+    return Array.from(
+      new Set(
+        (visibleEmpresas || [])
+          .map((e) => String(e.id || "").trim())
+          .filter((id) => id.length > 0),
+      ),
+    ).sort();
+  }, [visibleEmpresas]);
+
+  const visibleEmpresaIdsKey = visibleEmpresaIds.join("|");
+
   // Load empleados docs from the new collection for the currently visible empresas
   useEffect(() => {
     if (!canUse) return;
 
-    const empresaIds = (visibleEmpresas || [])
-      .map((e) => String(e.id || "").trim())
-      .filter((id) => id.length > 0);
-
-    if (empresaIds.length === 0) return;
+    if (visibleEmpresaIds.length === 0) return;
 
     let cancelled = false;
     const loadEmpleados = async () => {
@@ -330,7 +338,7 @@ export default function EmpleadosProximamente() {
       setEmpleadosError(null);
       try {
         const pairs = await Promise.all(
-          empresaIds.map(async (empresaId) => {
+          visibleEmpresaIds.map(async (empresaId) => {
             const list = await EmpleadosService.getByEmpresaId(empresaId);
             return [empresaId, (list || []) as Empleado[]] as const;
           }),
@@ -355,7 +363,7 @@ export default function EmpleadosProximamente() {
     return () => {
       cancelled = true;
     };
-  }, [canUse, visibleEmpresas]);
+  }, [canUse, visibleEmpresaIdsKey]);
 
   const searchNorm = normalizeStr(search);
 
