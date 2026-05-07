@@ -6442,6 +6442,7 @@ export function FondoSection({
           ? await findLatestMovementByInvoiceNumber(
               normalizedCompany,
               paddedInvoice,
+              selectedProvider,
             )
           : null;
 

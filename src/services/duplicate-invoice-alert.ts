@@ -68,9 +68,10 @@ const isInventoryPurchasePaymentType = (value: unknown): boolean => {
 export const findLatestMovementByInvoiceNumber = async (
   normalizedCompany: string,
   invoice: string,
+  providerCode: string,
 ): Promise<DuplicateInvoiceMovementSnapshot | null> => {
   try {
-    if (!normalizedCompany || !invoice) return null;
+    if (!normalizedCompany || !invoice || !providerCode) return null;
 
     const docKey =
       MovimientosFondosService.buildCompanyMovementsKey(normalizedCompany);
@@ -85,6 +86,7 @@ export const findLatestMovementByInvoiceNumber = async (
     const duplicateQuery = query(
       movementsRef,
       where("invoiceNumber", "==", invoice),
+      where("providerCode", "==", providerCode),
     );
     const snapshot = await getDocs(duplicateQuery);
 
