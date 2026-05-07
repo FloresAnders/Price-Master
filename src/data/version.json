@@ -1,30 +1,20 @@
 {
-  "version": "1.4.45",
+  "version": "1.4.46",
   "versionstorage": "1.1.12",
-  "notasDeSistemas": "1.1.15",
+  "notasDeSistemas": "1.1.16",
   "releaseNotes": [
     {
       "date": "2026-05-07",
-      "title": "Corrección en la vista de empleados",
-      "description": "Se corrigió un bucle de renderizado en la sección de empleados que impedía ver la información y congelaba la página. Ahora la carga de empleados usa una clave estable y la vista responde con normalidad."
-    },
-    {
-      "date": "2026-04-30",
-      "title": "Corrección de los filtros",
-      "description": "Corregido la información que se muestra en los filtros de la vista principal de agregar movimiento. Ahora, los filtros muestran la información correcta, lo que permite a los usuarios seleccionar las opciones adecuadas y mejorar la experiencia de navegación."
-    },
-    {
-      "date": "2026-04-25",
-      "title": "Corrección en la visualización de topo de egresos",
-      "description": "Se corrigió un error que causaba que el topo de egresos no se mostrara correctamente en la vista principal de agregar movimiento. Ahora, el topo de egresos se muestra de manera adecuada, permitiendo a los usuarios identificar fácilmente esta sección y mejorar la experiencia de navegación."
+      "title": "Cambio en la vista del header a menú lateral",
+     "description": "Se ha realizado un cambio en la vista del header, ahora se ha implementado un menú lateral para mejorar la navegación y la experiencia del usuario. Este nuevo diseño permite un acceso más fácil a las diferentes secciones de la aplicación, optimizando el espacio y proporcionando una interfaz más intuitiva."
     }
   ],
   "systemNotes": [
     {
       "date": "2026-05-07",
-      "title": "Corrección en la vista de empleados",
-      "description": "Se eliminó el ciclo de actualización que se producía al cargar los empleados por empresa. La carga ahora depende de una lista estable de IDs para evitar re-ejecuciones innecesarias del efecto."
-    }
+      "title": "Cambio en la vista del header a menú lateral",
+     "description": "Se ha realizado un cambio en la vista del header, ahora se ha implementado un menú lateral para mejorar la navegación y la experiencia del usuario. Este nuevo diseño permite un acceso más fácil a las diferentes secciones de la aplicación, optimizando el espacio y proporcionando una interfaz más intuitiva."
+   }
   ],
   "_comment": "hacer una pagina de 'en mantenimiento' para secciones en desarrollo y a exepcion de un usuario admin"
 }

@@ -111,6 +111,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [showAdminSidebar, setShowAdminSidebar] = useState(false);
   const [showNotifModal, setShowNotifModal] = useState(false);
   const [hasNewSolicitudes, setHasNewSolicitudes] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
@@ -490,6 +491,38 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     return hasPermission;
   });
 
+  const canShowAdminSidebar = Boolean(
+    activeTab &&
+    activeTab !== "fondogeneral" &&
+    activeTab !== "agregarproveedor" &&
+    activeTab !== "reportes" &&
+    activeTab !== "recetas" &&
+    activeTab !== "agregarproducto" &&
+    visibleTabs.length > 0,
+  );
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const sidebarWidth = canShowAdminSidebar
+      ? showAdminSidebar
+        ? "320px"
+        : "72px"
+      : "0px";
+
+    document.documentElement.style.setProperty(
+      "--admin-sidebar-width",
+      sidebarWidth,
+    );
+
+    return () => {
+      document.documentElement.style.setProperty(
+        "--admin-sidebar-width",
+        "0px",
+      );
+    };
+  }, [canShowAdminSidebar, showAdminSidebar]);
+
   const handleLogoutClick = () => {
     // Si estamos en /home, limpiar sesión especial y redirigir
     if (pathname === "/home") {
@@ -564,31 +597,37 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
 
   return (
     <>
-      <header className="w-full border-b border-[var(--input-border)] bg-transparent backdrop-blur-sm relative overflow-hidden">
+      <header className="w-full border-b border-[var(--input-border)] bg-transparent backdrop-blur-sm relative overflow-hidden lg:pl-[var(--admin-sidebar-width)] transition-[padding] duration-300">
         {/* Main header row */}
         <div
           className="flex items-center justify-between p-4"
           suppressHydrationWarning
         >
           {/* Logo and title */}
-          <Link
-            href="/#"
-            onClick={(e) => {
-              // Force full navigation to home to ensure page reload and clear any hash
-              e.preventDefault();
-              window.location.href = "/#";
-            }}
-            className="flex items-center gap-3 text-xl font-bold tracking-tight text-[var(--foreground)] hover:text-[var(--tab-text-active)] transition-colors cursor-pointer bg-transparent border-none p-0"
-          >
-            <Image
-              src="/android-chrome-512x512.png"
-              alt="Time Master Logo"
-              width={32}
-              height={32}
-              className="rounded"
-            />
-            Time Master
-          </Link>
+          <div>
+            {!canShowAdminSidebar && (
+              <div>
+                <Link
+                  href="/#"
+                  onClick={(e) => {
+                    // Force full navigation to home to ensure page reload and clear any hash
+                    e.preventDefault();
+                    window.location.href = "/#";
+                  }}
+                  className="flex items-center gap-3 text-xl font-bold tracking-tight text-[var(--foreground)] hover:text-[var(--tab-text-active)] transition-colors cursor-pointer bg-transparent border-none p-0"
+                >
+                  <Image
+                    src="/android-chrome-512x512.png"
+                    alt="Time Master Logo"
+                    width={32}
+                    height={32}
+                    className="rounded"
+                  />
+                  Time Master
+                </Link>
+              </div>
+            )}
+          </div>
 
           {/* If we're on fondo-related sections, show quick actions in the header */}
           {isFondoSection && canManageFondoGeneral && (
@@ -717,39 +756,6 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               </button>
             </nav>
           )}
-
-          {/* Desktop navigation tabs - only show when inside a card and NOT in fondogeneral/agregarproveedor/reportes */}
-          {activeTab &&
-            activeTab !== "fondogeneral" &&
-            activeTab !== "agregarproveedor" &&
-            activeTab !== "reportes" &&
-            activeTab !== "recetas" &&
-            activeTab !== "agregarproducto" &&
-            visibleTabs.length > 0 && (
-              <nav className="hidden lg:flex items-center gap-1">
-                {visibleTabs.map((tab) => {
-                  const IconComponent = tab.icon;
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => handleTabClick(tab.id)}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${
-                        activeTab === tab.id
-                          ? "text-[var(--tab-text-active)] font-semibold"
-                          : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
-                      }`}
-                      title={tab.description}
-                    >
-                      <IconComponent className="w-4 h-4" />
-                      <span className="hidden xl:inline">{tab.name}</span>
-                      {activeTab === tab.id && (
-                        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
-                      )}
-                    </button>
-                  );
-                })}
-              </nav>
-            )}
 
           <div className="flex items-center gap-2" suppressHydrationWarning>
             {/* User dropdown menu - solo mostrar si hay usuario O si estamos en /home */}
@@ -1229,6 +1235,126 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
         isOpen={showEditProfileModal}
         onClose={() => setShowEditProfileModal(false)}
       />
+
+      {canShowAdminSidebar && (
+        <button
+          type="button"
+          aria-label="Cerrar menú lateral"
+          onClick={() => setShowAdminSidebar(false)}
+          className={`hidden lg:block fixed inset-0 z-30 bg-transparent ${
+            showAdminSidebar ? "pointer-events-auto" : "pointer-events-none"
+          }`}
+        />
+      )}
+
+      {canShowAdminSidebar && (
+        <aside
+          className={`hidden lg:flex fixed left-0 top-0 z-40 h-screen flex-col border-r border-[var(--input-border)] bg-[var(--background)] shadow-lg transition-[width] duration-300 ease-in-out overflow-hidden ${
+            showAdminSidebar ? "w-[320px]" : "w-[72px]"
+          }`}
+        >
+          <div className="px-3 py-3">
+            <Link
+              href="/#"
+              onClick={(e) => {
+                e.preventDefault();
+                window.location.href = "/#";
+              }}
+              className={`flex items-center gap-3 rounded-2xl transition-all ${
+                showAdminSidebar ? "justify-start" : "justify-center"
+              }`}
+            >
+              <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl">
+                <Image
+                  src="/Logos/LogoBlanco2.png"
+                  alt="Time Master"
+                  width={56}
+                  height={56}
+                  className="h-full w-full object-cover"
+                  priority
+                />
+              </div>
+
+              <div
+                className={`min-w-0 ${showAdminSidebar ? "block" : "hidden"}`}
+              >
+                <div className="text-[10px] uppercase tracking-[0.22em] text-[var(--muted-foreground)]">
+                  Navegación
+                </div>
+                <div className="text-sm font-semibold text-[var(--foreground)]">
+                  Menú lateral
+                </div>
+                <div className="text-xs text-[var(--muted-foreground)]">
+                  Accesos rápidos del sistema
+                </div>
+              </div>
+            </Link>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-2 py-3">
+            <div className="space-y-1">
+              {visibleTabs.map((tab) => {
+                const TabIcon = tab.icon;
+                const isActive = activeTab === tab.id;
+
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => {
+                      if (!showAdminSidebar) {
+                        setShowAdminSidebar(true);
+                        return;
+                      }
+                      handleTabClick(tab.id);
+                    }}
+                    className={`group flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors ${
+                      isActive
+                        ? "bg-[var(--hover-bg)] text-[var(--foreground)]"
+                        : "text-[var(--muted-foreground)] hover:bg-[var(--hover-bg)] hover:text-[var(--foreground)]"
+                    }`}
+                    title={tab.description}
+                  >
+                    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center">
+                      <TabIcon className="w-4 h-4" />
+                    </div>
+
+                    <div
+                      className={`min-w-0 flex-1 ${showAdminSidebar ? "block" : "hidden"}`}
+                    >
+                      <div className="text-sm font-medium truncate">
+                        {tab.name}
+                      </div>
+                      <div className="text-xs text-[var(--muted-foreground)] truncate">
+                        {tab.description}
+                      </div>
+                    </div>
+
+                    {showAdminSidebar && (
+                      <ChevronDown className="w-4 h-4 flex-shrink-0 -rotate-90 opacity-60" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="border-t border-[var(--input-border)] p-2">
+            <button
+              type="button"
+              onClick={() => setShowAdminSidebar((prev) => !prev)}
+              className="flex h-10 w-full items-center justify-center rounded-xl text-[var(--foreground)] transition-colors hover:bg-[var(--hover-bg)]"
+              title={showAdminSidebar ? "Colapsar menú" : "Expandir menú"}
+            >
+              <ChevronDown
+                className={`w-5 h-5 transition-transform ${
+                  showAdminSidebar ? "rotate-180" : "-rotate-90"
+                }`}
+              />
+            </button>
+          </div>
+        </aside>
+      )}
 
       {/* FloatingSessionTimer */}
       <FloatingSessionTimer
