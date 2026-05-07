@@ -79,7 +79,7 @@ export const buildDuplicateInvoiceAlertEmailTemplate = (
   ].join("\n");
 
   const html = `
-    <h2>Alerta de invoice repetido</h2>
+    <h2>Alerta de numero de factura repetido</h2>
     <p>Se detecto un numero de factura repetido en un movimiento de tipo <strong>COMPRA DE INVENTARIO</strong>.</p>
     <p><strong>Empresa:</strong> ${escapeHtml(companyLabel)}<br/>
     <strong>Numero Factura:</strong> ${escapeHtml(data.invoiceNumber)}</p>
