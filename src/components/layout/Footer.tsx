@@ -31,19 +31,19 @@ export default function Footer() {
   }, [isGitHubModalOpen, isAboutModalOpen, isNewsModalOpen]);
 
   return (
-    <footer className="w-full mt-auto">
-      <div className="bg-[var(--card-bg)] text-[var(--foreground)] border-t border-[var(--input-border)] pt-2 sm:pt-3 flex flex-col items-center px-3 sm:px-0">
+    <footer className="w-full mt-auto border-t border-white/10 bg-slate-950/85 text-slate-100 backdrop-blur-xl lg:pl-[var(--admin-sidebar-width)] transition-[padding] duration-300">
+      <div className="mx-auto flex w-full max-w-[2400px] flex-col items-center gap-4 px-4 py-4 sm:px-6 lg:px-8">
         {/* Social icons */}
-        <div className="flex gap-4 sm:gap-6 mb-2 sm:mb-1 flex-wrap justify-center sm:flex-nowrap">
+        <div className="flex flex-wrap justify-center gap-3">
           <a
             href="https://facebook.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:opacity-70 transition-opacity"
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-300 transition hover:border-cyan-400/30 hover:bg-cyan-400/10 hover:text-white"
             aria-label="Visitar nuestra página de Facebook"
           >
             <svg
-              className="w-6 h-6 sm:w-7 sm:h-7 fill-current text-black dark:text-white"
+              className="h-5 w-5 fill-current"
               viewBox="0 0 24 24"
               aria-hidden="true"
             >
@@ -54,10 +54,10 @@ export default function Footer() {
             type="button"
             aria-label="GitHub"
             onClick={() => setIsGitHubModalOpen(true)}
-            className="hover:opacity-70 transition-opacity"
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-300 transition hover:border-cyan-400/30 hover:bg-cyan-400/10 hover:text-white"
           >
             <svg
-              className="w-6 h-6 sm:w-7 sm:h-7 fill-current text-black dark:text-white"
+              className="h-5 w-5 fill-current"
               viewBox="0 0 24 24"
             >
               <path d="M12 2C6.477 2 2 6.484 2 12.021c0 4.428 2.865 8.186 6.839 9.504.5.092.682-.217.682-.482 0-.237-.009-.868-.014-1.703-2.782.605-3.369-1.342-3.369-1.342-.454-1.157-1.11-1.465-1.11-1.465-.908-.62.069-.608.069-.608 1.004.07 1.532 1.032 1.532 1.032.892 1.53 2.341 1.088 2.91.832.091-.647.35-1.088.636-1.339-2.221-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.295 2.748-1.025 2.748-1.025.546 1.378.202 2.397.1 2.65.64.7 1.028 1.595 1.028 2.688 0 3.847-2.337 4.695-4.566 4.944.359.309.678.919.678 1.852 0 1.336-.012 2.417-.012 2.747 0 .267.18.577.688.48C19.138 20.203 22 16.447 22 12.021 22 6.484 17.523 2 12 2z" />
@@ -67,11 +67,11 @@ export default function Footer() {
             href="https://plus.google.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:opacity-70 transition-opacity"
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-300 transition hover:border-cyan-400/30 hover:bg-cyan-400/10 hover:text-white"
             aria-label="Visitar nuestra página de Google Plus"
           >
             <svg
-              className="w-6 h-6 sm:w-7 sm:h-7 fill-current text-black dark:text-white"
+              className="h-5 w-5 fill-current"
               viewBox="0 0 24 24"
               aria-hidden="true"
             >
@@ -80,11 +80,11 @@ export default function Footer() {
           </a>
           <button
             type="button"
-            className="hover:opacity-70 transition-opacity"
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-300 transition hover:border-cyan-400/30 hover:bg-cyan-400/10 hover:text-white"
             aria-label="Limpiar caché y recargar"
           >
             <svg
-              className="w-6 h-6 sm:w-7 sm:h-7 fill-current text-black dark:text-white"
+              className="h-5 w-5 fill-current"
               viewBox="0 0 24 24"
               aria-hidden="true"
             >
@@ -294,26 +294,26 @@ export default function Footer() {
           </div>
         )}
         {/* Copyright + Logo */}
-        <div className="w-full text-[11px] sm:text-xs text-[var(--foreground)] opacity-80 border-t border-[var(--input-border)] pt-2 pb-2 sm:pb-1">
-          <div className="w-full max-w-7xl mx-auto px-2 sm:px-4 flex flex-col sm:flex-row sm:items-center sm:justify-center gap-2 sm:gap-3">
-            <div className="text-center">
-              <div className="flex flex-col items-center sm:flex-row sm:items-center sm:justify-center sm:gap-2 sm:flex-nowrap">
+        <div className="w-full rounded-[28px] border border-white/10 bg-white/5 px-4 py-4 text-[11px] text-slate-300 shadow-[0_18px_50px_rgba(0,0,0,0.18)] sm:text-xs">
+          <div className="mx-auto flex w-full max-w-[2400px] flex-col items-center gap-3 sm:flex-row sm:justify-between sm:gap-4">
+            <div className="text-center sm:text-left">
+              <div className="flex flex-col items-center gap-2 sm:flex-row sm:flex-nowrap sm:items-center sm:gap-2">
                 <span className="sm:whitespace-nowrap">
                   Copyright ©{new Date().getFullYear()}; Designed by{" "}
-                  <span className="font-semibold tracking-wide">
+                  <span className="font-semibold tracking-wide text-white">
                     Time Master
                   </span>
                 </span>
                 <span className="hidden sm:inline opacity-60">|</span>
-                <span className="opacity-90 flex items-center justify-center gap-2 sm:whitespace-nowrap">
+                <span className="flex items-center justify-center gap-2 sm:whitespace-nowrap">
                   <span>v{version}</span>
                   {isLocalNewer && (
                     <span
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 border border-yellow-500/30"
+                      className="inline-flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-400/15 px-2 py-0.5 text-[10px] font-semibold text-amber-100"
                       title={`Cambios desplegados.`}
                     >
                       <svg
-                        className="w-3 h-3"
+                        className="h-3 w-3"
                         fill="currentColor"
                         viewBox="0 0 20 20"
                       >
@@ -331,16 +331,16 @@ export default function Footer() {
             </div>
 
             <div
-              className="hidden sm:block h-6 w-px bg-[var(--input-border)] opacity-60"
+              className="hidden h-6 w-px bg-white/10 sm:block"
               aria-hidden="true"
             />
             <div
-              className="sm:hidden w-full h-px bg-[var(--input-border)] opacity-60"
+              className="h-px w-full bg-white/10 sm:hidden"
               aria-hidden="true"
             />
 
-            <div className="flex flex-col items-center justify-center">
-              <span className="text-[11px] sm:text-xs text-[var(--muted-foreground)]">
+            <div className="flex flex-col items-center justify-center gap-1">
+              <span className="text-[11px] sm:text-xs text-slate-400">
                 Sponsored by
               </span>
               <Image
@@ -349,7 +349,7 @@ export default function Footer() {
                 width={140}
                 height={36}
                 sizes="(min-width: 640px) 180px, 140px"
-                className="h-7 sm:h-9 w-auto object-contain"
+                className="h-7 w-auto object-contain sm:h-9"
               />
             </div>
           </div>

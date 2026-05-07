@@ -8,6 +8,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { motion } from "framer-motion";
 import {
   DndContext,
   PointerSensor,
@@ -37,6 +38,11 @@ import {
   Users,
   Star,
   Plus,
+  Search,
+  ArrowRight,
+  Sparkles,
+  Activity,
+  BarChart3,
 } from "lucide-react";
 import AnimatedStickman from "../ui/AnimatedStickman";
 import { CustomIcon } from "../../icons/icons";
@@ -187,6 +193,153 @@ const menuItems = [
   },
 ];
 
+const MENU_THEMES: Record<
+  string,
+  {
+    gradient: string;
+    accent: string;
+    chip: string;
+    glow: string;
+    border: string;
+  }
+> = {
+  default: {
+    gradient: "from-sky-400 via-cyan-400 to-blue-500",
+    accent: "text-sky-200",
+    chip: "bg-sky-500/15 text-sky-100",
+    glow: "shadow-sky-500/20",
+    border: "border-sky-400/20",
+  },
+  scanner: {
+    gradient: "from-cyan-400 via-sky-500 to-blue-600",
+    accent: "text-cyan-100",
+    chip: "bg-cyan-500/15 text-cyan-100",
+    glow: "shadow-cyan-500/20",
+    border: "border-cyan-400/20",
+  },
+  calculator: {
+    gradient: "from-violet-400 via-indigo-500 to-blue-600",
+    accent: "text-violet-100",
+    chip: "bg-violet-500/15 text-violet-100",
+    glow: "shadow-violet-500/20",
+    border: "border-violet-400/20",
+  },
+  converter: {
+    gradient: "from-amber-400 via-orange-500 to-rose-500",
+    accent: "text-amber-100",
+    chip: "bg-amber-500/15 text-amber-100",
+    glow: "shadow-amber-500/20",
+    border: "border-amber-400/20",
+  },
+  xml: {
+    gradient: "from-pink-400 via-fuchsia-500 to-purple-600",
+    accent: "text-pink-100",
+    chip: "bg-pink-500/15 text-pink-100",
+    glow: "shadow-pink-500/20",
+    border: "border-pink-400/20",
+  },
+  cashcounter: {
+    gradient: "from-emerald-400 via-teal-500 to-cyan-600",
+    accent: "text-emerald-100",
+    chip: "bg-emerald-500/15 text-emerald-100",
+    glow: "shadow-emerald-500/20",
+    border: "border-emerald-400/20",
+  },
+  fondogeneral: {
+    gradient: "from-sky-400 via-cyan-500 to-blue-600",
+    accent: "text-sky-100",
+    chip: "bg-sky-500/15 text-sky-100",
+    glow: "shadow-sky-500/20",
+    border: "border-sky-400/20",
+  },
+  timingcontrol: {
+    gradient: "from-cyan-400 via-sky-500 to-indigo-600",
+    accent: "text-cyan-100",
+    chip: "bg-cyan-500/15 text-cyan-100",
+    glow: "shadow-cyan-500/20",
+    border: "border-cyan-400/20",
+  },
+  controlhorario: {
+    gradient: "from-indigo-400 via-blue-500 to-sky-600",
+    accent: "text-indigo-100",
+    chip: "bg-indigo-500/15 text-indigo-100",
+    glow: "shadow-indigo-500/20",
+    border: "border-indigo-400/20",
+  },
+  empleados: {
+    gradient: "from-purple-400 via-violet-500 to-fuchsia-600",
+    accent: "text-purple-100",
+    chip: "bg-purple-500/15 text-purple-100",
+    glow: "shadow-purple-500/20",
+    border: "border-purple-400/20",
+  },
+  funciones: {
+    gradient: "from-rose-400 via-pink-500 to-fuchsia-600",
+    accent: "text-rose-100",
+    chip: "bg-rose-500/15 text-rose-100",
+    glow: "shadow-rose-500/20",
+    border: "border-rose-400/20",
+  },
+  recetas: {
+    gradient: "from-fuchsia-400 via-purple-500 to-indigo-600",
+    accent: "text-fuchsia-100",
+    chip: "bg-fuchsia-500/15 text-fuchsia-100",
+    glow: "shadow-fuchsia-500/20",
+    border: "border-fuchsia-400/20",
+  },
+  calculohorasprecios: {
+    gradient: "from-blue-400 via-sky-500 to-cyan-600",
+    accent: "text-blue-100",
+    chip: "bg-blue-500/15 text-blue-100",
+    glow: "shadow-blue-500/20",
+    border: "border-blue-400/20",
+  },
+  supplierorders: {
+    gradient: "from-amber-400 via-yellow-500 to-orange-600",
+    accent: "text-amber-100",
+    chip: "bg-amber-500/15 text-amber-100",
+    glow: "shadow-amber-500/20",
+    border: "border-amber-400/20",
+  },
+  scanhistory: {
+    gradient: "from-teal-400 via-cyan-500 to-sky-600",
+    accent: "text-teal-100",
+    chip: "bg-teal-500/15 text-teal-100",
+    glow: "shadow-teal-500/20",
+    border: "border-teal-400/20",
+  },
+  solicitud: {
+    gradient: "from-violet-400 via-fuchsia-500 to-pink-600",
+    accent: "text-violet-100",
+    chip: "bg-violet-500/15 text-violet-100",
+    glow: "shadow-violet-500/20",
+    border: "border-violet-400/20",
+  },
+  edit: {
+    gradient: "from-emerald-400 via-green-500 to-teal-600",
+    accent: "text-emerald-100",
+    chip: "bg-emerald-500/15 text-emerald-100",
+    glow: "shadow-emerald-500/20",
+    border: "border-emerald-400/20",
+  },
+};
+
+const FEATURED_MENU_IDS = new Set(["scanner", "fondogeneral", "recetas", "edit"]);
+
+function getMenuTheme(id: string) {
+  return MENU_THEMES[id] || MENU_THEMES.default;
+}
+
+function getMenuSpanClass(id: string) {
+  if (id === "scanner" || id === "fondogeneral") {
+    return "sm:col-span-6 xl:col-span-6";
+  }
+  if (id === "recetas" || id === "edit") {
+    return "sm:col-span-6 xl:col-span-4";
+  }
+  return "sm:col-span-3 xl:col-span-3";
+}
+
 interface HomeMenuProps {
   currentUser?: User | null;
 }
@@ -253,6 +406,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   const [hovered, setHovered] = useState(false);
   const [clickCount, setClickCount] = useState(0);
   const [showStickman, setShowStickman] = useState(false);
+  const [menuSearch, setMenuSearch] = useState("");
   const [showSupplierWeekInMenu, setShowSupplierWeekInMenu] = useState(false);
   const [enableHomeMenuSortMobile, setEnableHomeMenuSortMobile] =
     useState(false);
@@ -1380,6 +1534,113 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     });
   };
 
+  const activeMenuId = useMemo(() => {
+    const hash = currentHash.replace(/^#/, "");
+    if (hash === "agregarproducto") return "recetas";
+    if (hash === "scanhistory") return "scanhistory";
+    return hash;
+  }, [currentHash]);
+
+  const filteredDisplayedMenuItems = useMemo(() => {
+    const query = menuSearch.trim().toLowerCase();
+    if (!query) return displayedMenuItems;
+    return displayedMenuItems.filter((item) => {
+      const name = String(item.name || "").toLowerCase();
+      const description = String(item.description || "").toLowerCase();
+      return name.includes(query) || description.includes(query);
+    });
+  }, [displayedMenuItems, menuSearch]);
+
+  const dashboardStats = useMemo(() => {
+    return [
+      {
+        label: "Herramientas",
+        value: String(visibleMenuItems.length),
+        note: showFavoritesView ? "Vista filtrada" : "Disponibles para tu rol",
+        icon: BarChart3,
+        tone: "cyan",
+      },
+      {
+        label: "Favoritos",
+        value: String(favoriteMenuItems.length),
+        note: favoritesLoading ? "Sincronizando" : "Accesos guardados",
+        icon: Star,
+        tone: "amber",
+      },
+      {
+        label: "Proveedores",
+        value: String((weekModel.visitProviders || []).length),
+        note: supplierWeekRangeLabel || "Semana activa",
+        icon: Truck,
+        tone: "violet",
+      },
+      {
+        label: "Fondo CRC",
+        value:
+          fondoGeneralBalanceCRC !== null
+            ? `CRC ${formatAmount(fondoGeneralBalanceCRC)}`
+            : "—",
+        note: companyForProviders || "Saldo general",
+        icon: Banknote,
+        tone: "emerald",
+      },
+    ];
+  }, [
+    companyForProviders,
+    favoriteMenuItems.length,
+    favoritesLoading,
+    fondoGeneralBalanceCRC,
+    formatAmount,
+    showFavoritesView,
+    supplierWeekRangeLabel,
+    visibleMenuItems.length,
+    weekModel.visitProviders,
+  ]);
+
+  const dashboardActivity = useMemo(() => {
+    return [
+      {
+        title: supplierWeekRangeLabel || "Semana activa",
+        detail: `${(weekModel.visitProviders || []).length} proveedores programados`,
+        icon: Clock,
+        tone: "cyan",
+      },
+      {
+        title:
+          currentUser?.name || currentUser?.email || "Sesión del usuario",
+        detail: currentUser?.role || "Usuario conectado",
+        icon: Users,
+        tone: "violet",
+      },
+      {
+        title: showFavoritesView ? "Favoritos en pantalla" : "Vista general",
+        detail: showFavoritesView
+          ? "Atajos priorizados"
+          : "Todas las herramientas visibles",
+        icon: Star,
+        tone: "amber",
+      },
+      {
+        title:
+          fondoGeneralBalanceCRC !== null
+            ? `CRC ${formatAmount(fondoGeneralBalanceCRC)}`
+            : "Fondo sin saldo",
+        detail: "Estado financiero del día",
+        icon: Activity,
+        tone: "emerald",
+      },
+    ];
+  }, [
+    currentUser?.email,
+    currentUser?.name,
+    currentUser?.role,
+    fondoGeneralBalanceCRC,
+    formatAmount,
+    showFavoritesView,
+    supplierWeekRangeLabel,
+    weekModel.visitProviders,
+  ]);
+
   const effectiveControlEntries = controlPedidoEnabled
     ? controlEntries
     : cachedControlEntries;
@@ -1571,134 +1832,349 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   }, [showStickman]);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] py-8">
+    <div className="relative min-h-[calc(100vh-72px)] w-full overflow-hidden bg-[#050816] text-slate-100">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.18),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(124,58,237,0.16),transparent_30%),linear-gradient(180deg,rgba(2,6,23,0.94),rgba(2,6,23,0.98))]" />
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(148,163,184,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.06)_1px,transparent_1px)] bg-[size:56px_56px] opacity-20" />
+      </div>
+
       <div
         ref={fireworksRef}
         className="fixed inset-0 pointer-events-none z-40"
       />
-      <div className="mb-2 flex items-center justify-center relative">
-        <Image
-          src="/Logos/LogoBlanco2.png"
-          alt="Time Master logo"
-          className={`w-28 h-28 mr-2 transition-transform duration-300 ${
-            hovered ? "scale-110 rotate-12" : "scale-100"
-          }`}
-          width={56}
-          height={56}
-          onMouseEnter={() => setHovered(true)}
-          onMouseLeave={() => setHovered(false)}
-          onClick={handleLogoClick}
-          style={{
-            cursor: "pointer",
-            filter: hovered ? "drop-shadow(0 0 8px var(--foreground))" : "none",
-          }}
-        />
-      </div>
-      <div className="relative mb-8 w-full max-w-screen-xl px-2 sm:px-4">
-        <h1 className="text-3xl font-bold text-center">
-          {currentUser
-            ? `¡Qué gusto verte, ${
-                currentUser.name ?? currentUser.email ?? "Usuario"
-              } !`
-            : "¡Qué gusto verte!"}
-        </h1>
-        <button
-          type="button"
-          onClick={() => setShowFavoritesView((prev) => !prev)}
-          className={`absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-md transition-colors border border-[var(--input-border)] sm:right-4 ${
-            showFavoritesView
-              ? "bg-[var(--hover-bg)] text-amber-500"
-              : "text-[var(--muted-foreground)] hover:bg-[var(--hover-bg)]"
-          }`}
-          title={showFavoritesView ? "Ver menú normal" : "Ver favoritos"}
-          aria-label={
-            showFavoritesView ? "Cambiar a menú normal" : "Cambiar a favoritos"
-          }
-        >
-          <Star
-            className={`w-5 h-5 ${showFavoritesView ? "fill-current" : ""}`}
-          />
-        </button>
-      </div>
 
-      {visibleMenuItems.length === 0 ? (
-        <div className="text-center py-12">
-          <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl p-8 max-w-md mx-auto">
-            <Settings className="w-16 h-16 mx-auto mb-4 text-[var(--primary)]" />
-            <h3 className="text-xl font-semibold mb-2 text-[var(--foreground)]">
-              Sin herramientas disponibles
-            </h3>
-            <p className="text-[var(--muted-foreground)] mb-4">
-              No tienes permisos para acceder a ninguna herramienta en este
-              momento.
-            </p>
-            <p className="text-sm text-[var(--muted-foreground)]">
-              Contacta a tu administrador para obtener acceso a las
-              funcionalidades que necesitas.
-            </p>
+      <div className="relative mx-auto flex w-full max-w-[2400px] flex-col gap-6 px-4 py-6 sm:px-6 lg:px-10">
+        <motion.section
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, ease: "easeOut" }}
+          className="relative overflow-hidden rounded-[32px] border border-white/10 bg-white/5 p-5 shadow-[0_24px_80px_rgba(8,15,40,0.42)] backdrop-blur-xl sm:p-6"
+        >
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(56,189,248,0.18),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(168,85,247,0.16),transparent_32%)]" />
+
+          <div className="relative grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_420px]">
+            <div className="space-y-5">
+              <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-medium text-cyan-100">
+                <Sparkles className="h-3.5 w-3.5" />
+                Dashboard SaaS moderno
+              </div>
+
+              <div className="space-y-2">
+                <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl xl:text-5xl">
+                  {currentUser
+                    ? `¡Qué gusto verte, ${currentUser.name ?? currentUser.email ?? "Usuario"}!`
+                    : "¡Qué gusto verte!"}
+                </h1>
+                <p className="max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
+                  Todo lo que necesitás, en un solo lugar. Un centro de control
+                  más limpio, más serio y mucho más visual.
+                </p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+                <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-slate-950/55 px-4 py-3 text-slate-100 shadow-inner shadow-black/20 backdrop-blur-md">
+                  <Search className="h-4 w-4 text-slate-400" />
+                  <input
+                    value={menuSearch}
+                    onChange={(e) => setMenuSearch(e.target.value)}
+                    placeholder="Buscar acceso, tarjeta o función..."
+                    className="w-full bg-transparent text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none"
+                  />
+                </label>
+
+                <button
+                  type="button"
+                  onClick={() => setShowFavoritesView((prev) => !prev)}
+                  className={`inline-flex items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition-all ${
+                    showFavoritesView
+                      ? "border-amber-400/30 bg-amber-400/15 text-amber-100 shadow-[0_0_24px_rgba(245,158,11,0.12)]"
+                      : "border-white/10 bg-white/5 text-slate-100 hover:bg-white/10"
+                  }`}
+                  title={showFavoritesView ? "Ver menú normal" : "Ver favoritos"}
+                  aria-label={
+                    showFavoritesView
+                      ? "Cambiar a menú normal"
+                      : "Cambiar a favoritos"
+                  }
+                >
+                  <Star
+                    className={`h-4 w-4 ${showFavoritesView ? "fill-current" : ""}`}
+                  />
+                  {showFavoritesView ? "Favoritos activos" : "Ver favoritos"}
+                </button>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleNavigate("scanner")}
+                  className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20"
+                >
+                  Escáner
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleNavigate("fondogeneral")}
+                  className="rounded-full border border-sky-400/20 bg-sky-400/10 px-4 py-2 text-sm font-medium text-sky-100 transition hover:bg-sky-400/20"
+                >
+                  Fondo General
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleNavigate("controlhorario")}
+                  className="rounded-full border border-indigo-400/20 bg-indigo-400/10 px-4 py-2 text-sm font-medium text-indigo-100 transition hover:bg-indigo-400/20"
+                >
+                  Control Horario
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleNavigate("recetas")}
+                  className="rounded-full border border-fuchsia-400/20 bg-fuchsia-400/10 px-4 py-2 text-sm font-medium text-fuchsia-100 transition hover:bg-fuchsia-400/20"
+                >
+                  Recetas
+                </button>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-3">
+                {dashboardStats.slice(0, 3).map((stat) => {
+                  const toneClass =
+                    stat.tone === "cyan"
+                      ? "from-cyan-400/20 to-sky-500/10"
+                      : stat.tone === "amber"
+                        ? "from-amber-400/20 to-orange-500/10"
+                        : "from-violet-400/20 to-fuchsia-500/10";
+
+                  return (
+                    <div
+                      key={`hero-${stat.label}`}
+                      className={`rounded-2xl border border-white/10 bg-gradient-to-br ${toneClass} px-4 py-3 shadow-[0_18px_50px_rgba(0,0,0,0.2)]`}
+                    >
+                      <div className="text-[10px] uppercase tracking-[0.22em] text-slate-400">
+                        {stat.label}
+                      </div>
+                      <div className="mt-2 flex items-end justify-between gap-3">
+                        <div className="text-lg font-semibold text-white">
+                          {stat.value}
+                        </div>
+                        <div className="text-xs text-slate-300">{stat.note}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="rounded-[28px] border border-white/10 bg-slate-950/55 p-4 shadow-[0_20px_60px_rgba(0,0,0,0.28)] backdrop-blur-xl">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-[0.24em] text-slate-400">
+                      Time Master
+                    </div>
+                    <div className="mt-1 text-lg font-semibold text-white">
+                      Centro de control
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleLogoClick}
+                    className="group flex h-16 w-16 items-center justify-center overflow-hidden rounded-[22px] border border-white/10 bg-white/5 transition-all hover:scale-105 hover:bg-white/10"
+                  >
+                    <Image
+                      src="/Logos/LogoBlanco2.png"
+                      alt="Time Master logo"
+                      className={`h-full w-full object-cover transition-transform duration-300 ${
+                        hovered ? "scale-110 rotate-12" : "scale-100"
+                      }`}
+                      width={64}
+                      height={64}
+                      onMouseEnter={() => setHovered(true)}
+                      onMouseLeave={() => setHovered(false)}
+                      style={{
+                        cursor: "pointer",
+                        filter: hovered
+                          ? "drop-shadow(0 0 10px rgba(255,255,255,0.35))"
+                          : "none",
+                      }}
+                    />
+                  </button>
+                </div>
+
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  {dashboardStats.map((stat) => {
+                    const ThemeIcon = stat.icon;
+                    const toneClass =
+                      stat.tone === "cyan"
+                        ? "from-cyan-400 to-sky-500"
+                        : stat.tone === "amber"
+                          ? "from-amber-400 to-orange-500"
+                          : stat.tone === "violet"
+                            ? "from-violet-400 to-fuchsia-500"
+                            : "from-emerald-400 to-teal-500";
+
+                    return (
+                      <div
+                        key={stat.label}
+                        className="rounded-2xl border border-white/10 bg-white/5 p-3"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div>
+                            <div className="text-[10px] uppercase tracking-[0.22em] text-slate-400">
+                              {stat.label}
+                            </div>
+                            <div className="mt-1 text-xl font-semibold text-white">
+                              {stat.value}
+                            </div>
+                          </div>
+                          <div
+                            className={`flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br ${toneClass} text-white shadow-lg`}
+                          >
+                            <ThemeIcon className="h-4 w-4" />
+                          </div>
+                        </div>
+                        <div className="mt-2 text-xs text-slate-400">
+                          {stat.note}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="rounded-[28px] border border-white/10 bg-slate-950/55 p-4 shadow-[0_20px_60px_rgba(0,0,0,0.24)] backdrop-blur-xl">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-[0.24em] text-slate-400">
+                      Actividad reciente
+                    </div>
+                    <div className="mt-1 text-lg font-semibold text-white">
+                      Lectura del sistema
+                    </div>
+                  </div>
+                  <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300">
+                    Hoy
+                  </div>
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  {dashboardActivity.slice(0, 3).map((item) => {
+                    const ItemIcon = item.icon;
+                    const toneClass =
+                      item.tone === "cyan"
+                        ? "from-cyan-400 to-sky-500"
+                        : item.tone === "amber"
+                          ? "from-amber-400 to-orange-500"
+                          : item.tone === "violet"
+                            ? "from-violet-400 to-fuchsia-500"
+                            : "from-emerald-400 to-teal-500";
+
+                    return (
+                      <div
+                        key={item.title}
+                        className="flex items-start gap-3 rounded-2xl border border-white/5 bg-white/5 p-3"
+                      >
+                        <div
+                          className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${toneClass} text-white shadow-lg`}
+                        >
+                          <ItemIcon className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-white">
+                            {item.title}
+                          </p>
+                          <p className="text-xs text-slate-400">{item.detail}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
           </div>
+        </motion.section>
+
+      {!showOnlySupplierWeek && filteredDisplayedMenuItems.length === 0 ? (
+        <div className="rounded-[28px] border border-white/10 bg-white/5 px-6 py-12 text-center shadow-[0_20px_60px_rgba(8,15,40,0.28)] backdrop-blur-xl">
+          <Settings className="mx-auto mb-4 h-16 w-16 text-cyan-200" />
+          <h3 className="mb-2 text-xl font-semibold text-white">
+            {menuSearch.trim()
+              ? "Sin resultados"
+              : "Sin herramientas disponibles"}
+          </h3>
+          <p className="mb-4 text-slate-300">
+            {menuSearch.trim()
+              ? `No hay coincidencias para “${menuSearch.trim()}”.`
+              : "No tienes permisos para acceder a ninguna herramienta en este momento."}
+          </p>
+          <p className="text-sm text-slate-400">
+            {menuSearch.trim()
+              ? "Prueba con otro término o limpia la búsqueda para ver todo el catálogo."
+              : "Contacta a tu administrador para obtener acceso a las funcionalidades que necesitas."}
+          </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 w-full max-w-screen-xl pt-4">
+        <div className="grid w-full max-w-[2200px] grid-cols-1 gap-4 pt-2 sm:grid-cols-6 xl:grid-cols-12">
           {shouldShowSupplierWeekCard && (
-            <SupplierWeekSection
-              isSupplierWeekRoute={isSupplierWeekRoute}
-              showSupplierWeekInMenu={showSupplierWeekInMenu}
-              companyForProviders={companyForProviders}
-              companySelectorValue={supplierWeekCompanySelection}
-              canChangeCompanyForProviders={
-                canChangeSupplierWeekCompany &&
-                !supplierWeekCompanyOptionsLoading
-              }
-              companyOptionsForProviders={supplierWeekCompanyOptions}
-              onCompanyForProvidersChange={(value) => {
-                if (!canChangeSupplierWeekCompany) return;
-                setSupplierWeekCompanySelection(value);
-                setSupplierWeekCompany(value);
-              }}
-              weeklyProvidersLoading={weeklyProvidersLoading}
-              weeklyProvidersError={weeklyProvidersError}
-              weekModel={weekModel}
-              supplierWeekRangeLabel={supplierWeekRangeLabel}
-              fondoGeneralBalanceCRC={fondoGeneralBalanceCRC}
-              onNavigateSupplierWeek={() => handleNavigate("SupplierWeek")}
-              onPrevWeek={() =>
-                setSupplierWeekAnchorKey((prev) =>
-                  dateToKey(addDays(new Date(prev), -7)),
-                )
-              }
-              onNextWeek={() =>
-                setSupplierWeekAnchorKey((prev) =>
-                  dateToKey(addDays(new Date(prev), 7)),
-                )
-              }
-              selectedDay={selectedDay}
-              selectedProviderCode={selectedProviderCode}
-              selectedReceiveDateKey={selectedReceiveDateKey}
-              eligibleProviders={eligibleProviders.map((p) => ({
-                code: p.code,
-                name: p.name,
-              }))}
-              orderAmount={orderAmount}
-              orderSaving={orderSaving}
-              controlLoading={controlLoading}
-              controlError={controlError}
-              formatAmount={formatAmount}
-              receiveAmountByProviderCodeForDay={
-                receiveAmountByProviderCodeForDay
-              }
-              setSelectedCreateDateKey={setSelectedCreateDateKey}
-              setSelectedProviderCode={setSelectedProviderCode}
-              setSelectedReceiveDateKey={setSelectedReceiveDateKey}
-              setOrderAmount={setOrderAmount}
-              handleSaveControlPedido={handleSaveControlPedido}
-              handleDeleteControlPedido={handleDeleteControlPedido}
-            />
+            <div className="col-span-full overflow-hidden rounded-[30px] border border-white/10 bg-white/5 p-4 shadow-[0_24px_80px_rgba(8,15,40,0.32)] backdrop-blur-xl">
+              <SupplierWeekSection
+                isSupplierWeekRoute={isSupplierWeekRoute}
+                showSupplierWeekInMenu={showSupplierWeekInMenu}
+                companyForProviders={companyForProviders}
+                companySelectorValue={supplierWeekCompanySelection}
+                canChangeCompanyForProviders={
+                  canChangeSupplierWeekCompany &&
+                  !supplierWeekCompanyOptionsLoading
+                }
+                companyOptionsForProviders={supplierWeekCompanyOptions}
+                onCompanyForProvidersChange={(value) => {
+                  if (!canChangeSupplierWeekCompany) return;
+                  setSupplierWeekCompanySelection(value);
+                  setSupplierWeekCompany(value);
+                }}
+                weeklyProvidersLoading={weeklyProvidersLoading}
+                weeklyProvidersError={weeklyProvidersError}
+                weekModel={weekModel}
+                supplierWeekRangeLabel={supplierWeekRangeLabel}
+                fondoGeneralBalanceCRC={fondoGeneralBalanceCRC}
+                onNavigateSupplierWeek={() => handleNavigate("SupplierWeek")}
+                onPrevWeek={() =>
+                  setSupplierWeekAnchorKey((prev) =>
+                    dateToKey(addDays(new Date(prev), -7)),
+                  )
+                }
+                onNextWeek={() =>
+                  setSupplierWeekAnchorKey((prev) =>
+                    dateToKey(addDays(new Date(prev), 7)),
+                  )
+                }
+                selectedDay={selectedDay}
+                selectedProviderCode={selectedProviderCode}
+                selectedReceiveDateKey={selectedReceiveDateKey}
+                eligibleProviders={eligibleProviders.map((p) => ({
+                  code: p.code,
+                  name: p.name,
+                }))}
+                orderAmount={orderAmount}
+                orderSaving={orderSaving}
+                controlLoading={controlLoading}
+                controlError={controlError}
+                formatAmount={formatAmount}
+                receiveAmountByProviderCodeForDay={
+                  receiveAmountByProviderCodeForDay
+                }
+                setSelectedCreateDateKey={setSelectedCreateDateKey}
+                setSelectedProviderCode={setSelectedProviderCode}
+                setSelectedReceiveDateKey={setSelectedReceiveDateKey}
+                setOrderAmount={setOrderAmount}
+                handleSaveControlPedido={handleSaveControlPedido}
+                handleDeleteControlPedido={handleDeleteControlPedido}
+              />
+            </div>
           )}
 
           {!showOnlySupplierWeek &&
             !showFavoritesView &&
-            displayedMenuItems.length > 0 &&
+            filteredDisplayedMenuItems.length > 0 &&
             (reorderEnabled ? (
               <DndContext
                 sensors={sensors}
@@ -1735,49 +2211,89 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
                 }}
               >
                 <SortableContext
-                  items={orderedVisibleMenuItemIds}
+                  items={filteredDisplayedMenuItems.map((item) => item.id)}
                   strategy={rectSortingStrategy}
                 >
-                  {displayedMenuItems.map((item) => (
+                  {filteredDisplayedMenuItems.map((item) => (
                     <SortableHomeMenuCard
                       key={item.id}
                       id={item.id}
                       onClick={() => handleNavigate(item.id)}
                       lastDragEndAt={lastDragEndAt}
-                      className="bg-[var(--card-bg)] dark:bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl shadow-md p-6 flex flex-col items-center transition hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-[var(--primary)] group touch-manipulation"
-                      style={{ minHeight: 160 }}
+                      className="relative flex flex-col items-start overflow-hidden rounded-[28px] border border-white/10 bg-white/5 p-5 text-left text-white shadow-[0_20px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl transition-all hover:-translate-y-1 hover:bg-white/10 hover:shadow-[0_24px_80px_rgba(8,15,40,0.45)] focus:outline-none focus:ring-2 focus:ring-cyan-400/40 group touch-manipulation"
+                      style={{ minHeight: FEATURED_MENU_IDS.has(item.id) ? 232 : 190 }}
                     >
-                      <item.icon className="w-10 h-10 mb-3 text-[var(--primary)] group-hover:scale-110 group-hover:text-[var(--button-hover)] transition-all" />
-                      <span className="text-lg font-semibold mb-1 text-[var(--foreground)] dark:text-[var(--foreground)]">
+                      <div className="absolute inset-0 bg-gradient-to-br from-cyan-400/0 via-transparent to-fuchsia-400/0 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                      <div className="relative flex items-start justify-between gap-3 self-stretch">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-400 via-sky-500 to-blue-600 text-white shadow-[0_16px_40px_rgba(14,165,233,0.18)]">
+                          <item.icon className="h-5 w-5" />
+                        </div>
+                        <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] uppercase tracking-[0.24em] text-slate-300">
+                          {activeMenuId === item.id
+                            ? "Activo"
+                            : FEATURED_MENU_IDS.has(item.id)
+                              ? "Clave"
+                              : "Acceso"}
+                        </span>
+                      </div>
+                      <span className="relative mt-5 text-lg font-semibold text-white">
                         {item.name}
                       </span>
-                      <span className="text-sm text-[var(--muted-foreground)] text-center">
+                      <span className="relative mt-2 text-sm leading-6 text-slate-300">
                         {item.description}
                       </span>
-                      {/* No badge shown here; navigation goes to the Fondo General page */}
+                      <div className="relative mt-6 flex w-full items-center justify-between text-sm text-slate-400">
+                        <span>
+                          {favoriteMenuIds.includes(item.id)
+                            ? "En favoritos"
+                            : "Abrir módulo"}
+                        </span>
+                        <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+                      </div>
                     </SortableHomeMenuCard>
                   ))}
                 </SortableContext>
               </DndContext>
             ) : (
               <>
-                {displayedMenuItems.map((item) => (
+                {filteredDisplayedMenuItems.map((item) => {
+                  const theme = getMenuTheme(item.id);
+                  const isActive = activeMenuId === item.id;
+                  const featured = FEATURED_MENU_IDS.has(item.id);
+                  return (
                   <button
                     key={item.id}
                     type="button"
                     onClick={() => handleNavigate(item.id)}
-                    className="bg-[var(--card-bg)] dark:bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl shadow-md p-6 flex flex-col items-center transition hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-[var(--primary)] group touch-manipulation"
-                    style={{ minHeight: 160 }}
+                    className={`group relative flex flex-col items-start overflow-hidden rounded-[28px] border bg-white/5 p-5 text-left text-white shadow-[0_20px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl transition-all hover:-translate-y-1 hover:bg-white/10 hover:shadow-[0_24px_80px_rgba(8,15,40,0.45)] focus:outline-none focus:ring-2 focus:ring-cyan-400/40 touch-manipulation ${theme.border} ${getMenuSpanClass(item.id)} ${isActive ? "ring-1 ring-white/20" : ""}`}
+                    style={{ minHeight: featured ? 232 : 190 }}
                   >
-                    <item.icon className="w-10 h-10 mb-3 text-[var(--primary)] group-hover:scale-110 group-hover:text-[var(--button-hover)] transition-all" />
-                    <span className="text-lg font-semibold mb-1 text-[var(--foreground)] dark:text-[var(--foreground)]">
+                    <div className={`absolute inset-0 bg-gradient-to-br ${theme.gradient} opacity-0 transition-opacity duration-300 group-hover:opacity-20`} />
+                    <div className="relative flex items-start justify-between gap-3 self-stretch">
+                      <div className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${theme.gradient} text-white shadow-[0_16px_40px_rgba(14,165,233,0.18)]`}>
+                        <item.icon className="h-5 w-5" />
+                      </div>
+                      <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] uppercase tracking-[0.24em] text-slate-300">
+                        {isActive ? "Activo" : featured ? "Clave" : "Acceso"}
+                      </span>
+                    </div>
+                    <span className="relative mt-5 text-lg font-semibold text-white">
                       {item.name}
                     </span>
-                    <span className="text-sm text-[var(--muted-foreground)] text-center">
+                    <span className="relative mt-2 text-sm leading-6 text-slate-300">
                       {item.description}
                     </span>
+                    <div className="relative mt-6 flex w-full items-center justify-between text-sm text-slate-400">
+                      <span>
+                        {favoriteMenuIds.includes(item.id)
+                          ? "En favoritos"
+                          : "Abrir módulo"}
+                      </span>
+                      <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+                    </div>
                   </button>
-                ))}
+                  );
+                })}
               </>
             ))}
 
@@ -1785,14 +2301,14 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
             <>
               <div className="col-span-full flex items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-xl font-semibold text-[var(--foreground)]">
+                  <h2 className="text-xl font-semibold text-white">
                     Favoritos
                   </h2>
                 </div>
               </div>
 
               {favoritesLoading ? (
-                <div className="col-span-full rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] p-6 text-center text-[var(--muted-foreground)]">
+                <div className="col-span-full rounded-[28px] border border-white/10 bg-white/5 p-6 text-center text-slate-300 backdrop-blur-xl">
                   Cargando favoritos...
                 </div>
               ) : favoriteMenuItems.length > 0 ? (
@@ -1804,17 +2320,17 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
                         key={item.id}
                         type="button"
                         onClick={() => handleNavigateFavorite(item)}
-                        className="bg-[var(--card-bg)] dark:bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl shadow-md p-6 flex flex-col items-center transition hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-[var(--primary)] group touch-manipulation relative"
-                        style={{ minHeight: 160 }}
+                        className="relative flex flex-col items-start overflow-hidden rounded-[28px] border border-white/10 bg-white/5 p-5 text-left text-white shadow-[0_20px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl transition-all hover:-translate-y-1 hover:bg-white/10 hover:shadow-[0_24px_80px_rgba(8,15,40,0.45)] focus:outline-none focus:ring-2 focus:ring-amber-400/40 group touch-manipulation"
+                        style={{ minHeight: 180 }}
                       >
-                        <span className="absolute top-3 right-3 inline-flex items-center justify-center w-8 h-8 rounded-full bg-amber-500/15 text-amber-500">
+                        <span className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-400/15 text-amber-200">
                           <Star className="w-4 h-4 fill-current" />
                         </span>
-                        <IconComponent className="w-10 h-10 mb-3 text-[var(--primary)] group-hover:scale-110 group-hover:text-[var(--button-hover)] transition-all" />
-                        <span className="text-lg font-semibold mb-1 text-[var(--foreground)] dark:text-[var(--foreground)]">
+                        <IconComponent className="mb-3 h-10 w-10 text-cyan-100 transition-all group-hover:scale-110" />
+                        <span className="mb-1 text-lg font-semibold text-white">
                           {item.label}
                         </span>
-                        <span className="text-sm text-[var(--muted-foreground)] text-center">
+                        <span className="text-sm leading-6 text-slate-300">
                           {item.description}
                         </span>
                       </button>
@@ -1824,33 +2340,33 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
                   <button
                     type="button"
                     onClick={() => setShowAddFavoriteModal(true)}
-                    className="bg-[var(--card-bg)] dark:bg-[var(--card-bg)] border border-dashed border-[var(--input-border)] rounded-xl shadow-md p-6 flex flex-col items-center justify-center transition hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-[var(--primary)] group touch-manipulation"
-                    style={{ minHeight: 160 }}
+                    className="flex flex-col items-start justify-center rounded-[28px] border border-dashed border-white/15 bg-white/5 p-5 text-left text-white shadow-[0_20px_70px_rgba(0,0,0,0.24)] backdrop-blur-xl transition-all hover:-translate-y-1 hover:bg-white/10 hover:shadow-[0_24px_80px_rgba(8,15,40,0.45)] focus:outline-none focus:ring-2 focus:ring-cyan-400/40 group touch-manipulation"
+                    style={{ minHeight: 180 }}
                   >
-                    <Plus className="w-10 h-10 mb-3 text-[var(--primary)] group-hover:scale-110 transition-all" />
-                    <span className="text-lg font-semibold mb-1 text-[var(--foreground)] dark:text-[var(--foreground)]">
+                    <Plus className="mb-3 h-10 w-10 text-cyan-100 transition-all group-hover:scale-110" />
+                    <span className="mb-1 text-lg font-semibold text-white">
                       Agregar favorito
                     </span>
-                    <span className="text-sm text-[var(--muted-foreground)] text-center">
+                    <span className="text-sm leading-6 text-slate-300">
                       Selecciona accesos rápidos frecuentes
                     </span>
                   </button>
                 </>
               ) : (
-                <div className="col-span-full bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl p-6 text-center space-y-3">
-                  <Star className="w-10 h-10 mx-auto text-amber-500" />
+                <div className="col-span-full rounded-[28px] border border-white/10 bg-white/5 p-6 text-center space-y-3 backdrop-blur-xl">
+                  <Star className="mx-auto h-10 w-10 text-amber-200" />
                   <div>
-                    <p className="text-[var(--foreground)] font-semibold">
+                    <p className="font-semibold text-white">
                       No tienes favoritos aún
                     </p>
-                    <p className="text-sm text-[var(--muted-foreground)] mt-1">
+                    <p className="mt-1 text-sm text-slate-300">
                       Usa la tarjeta {"Agregar favorito"} para configurarlos.
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setShowAddFavoriteModal(true)}
-                    className="px-4 py-2 rounded-md bg-[var(--accent)] text-[var(--accent-foreground)] hover:opacity-90 transition-opacity"
+                    className="rounded-xl bg-cyan-400/15 px-4 py-2 text-cyan-100 transition hover:bg-cyan-400/25"
                   >
                     Agregar favorito
                   </button>
@@ -1972,6 +2488,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 }

@@ -597,10 +597,10 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
 
   return (
     <>
-      <header className="w-full border-b border-[var(--input-border)] bg-transparent backdrop-blur-sm relative overflow-hidden lg:pl-[var(--admin-sidebar-width)] transition-[padding] duration-300">
+      <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-slate-950/80 shadow-[0_18px_50px_rgba(2,6,23,0.35)] backdrop-blur-xl relative overflow-hidden lg:pl-[var(--admin-sidebar-width)] transition-[padding] duration-300">
         {/* Main header row */}
         <div
-          className="flex items-center justify-between p-4"
+          className="mx-auto flex w-full max-w-[2400px] items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8"
           suppressHydrationWarning
         >
           {/* Logo and title */}
@@ -614,14 +614,14 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                     e.preventDefault();
                     window.location.href = "/#";
                   }}
-                  className="flex items-center gap-3 text-xl font-bold tracking-tight text-[var(--foreground)] hover:text-[var(--tab-text-active)] transition-colors cursor-pointer bg-transparent border-none p-0"
+                  className="flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xl font-bold tracking-tight text-white shadow-[0_12px_30px_rgba(0,0,0,0.22)] transition-colors hover:border-cyan-400/30 hover:bg-cyan-400/10 cursor-pointer bg-transparent border-none p-0"
                 >
                   <Image
                     src="/android-chrome-512x512.png"
                     alt="Time Master Logo"
                     width={32}
                     height={32}
-                    className="rounded"
+                    className="rounded-full ring-1 ring-white/10"
                   />
                   Time Master
                 </Link>
@@ -631,7 +631,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
 
           {/* If we're on fondo-related sections, show quick actions in the header */}
           {isFondoSection && canManageFondoGeneral && (
-            <nav className="hidden lg:flex items-center gap-1">
+            <nav className="hidden lg:flex items-center gap-2 rounded-full border border-white/10 bg-white/5 p-1">
               {/* Agregar proveedor */}
               <button
                 onClick={() => {
@@ -716,7 +716,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
 
           {/* If we're on recetas-related sections, show only recetas sub-navigation in the header */}
           {isRecetasSection && canUseRecetas && (
-            <nav className="hidden lg:flex items-center gap-1">
+            <nav className="hidden lg:flex items-center gap-2 rounded-full border border-white/10 bg-white/5 p-1">
               {canAgregarProducto && (
                 <button
                   onClick={() => {
@@ -767,7 +767,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                     <div className="relative inline-block">
                       <button
                         onClick={handleUserDropdownClick}
-                        className={`flex items-center gap-3 px-3 py-2 bg-transparent rounded-lg border border-[var(--input-border)] hover:bg-[var(--hover-bg)] transition-colors`}
+                        className="flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-slate-100 transition-colors hover:border-white/20 hover:bg-white/10"
                       >
                         <div
                           className="w-9 h-9 rounded-full flex items-center justify-center overflow-hidden"
@@ -825,7 +825,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
 
                           {/* Dropdown content */}
                           <div
-                            className="min-w-[12rem] bg-transparent backdrop-blur-sm border border-[var(--input-border)] rounded-lg shadow-lg overflow-hidden"
+                            className="min-w-[12rem] overflow-hidden rounded-2xl border border-white/10 bg-slate-950/95 shadow-[0_24px_60px_rgba(2,6,23,0.45)] backdrop-blur-xl"
                             style={{
                               position: "fixed",
                               top: dropdownPosition.top,
@@ -843,9 +843,9 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                                   setShowEditProfileModal(true);
                                   setShowUserDropdown(false);
                                 }}
-                                className="flex items-center gap-3 w-full px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--hover-bg)] transition-colors"
+                                className="flex w-full items-center gap-3 px-4 py-2 text-sm text-slate-100 transition-colors hover:bg-white/10"
                               >
-                                <User className="w-4 h-4 text-[var(--muted-foreground)]" />
+                                <User className="w-4 h-4 text-slate-400" />
                                 <span className="truncate">Editar Perfil</span>
                               </button>
 
@@ -854,9 +854,9 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                                   setShowConfigModal(true);
                                   setShowUserDropdown(false);
                                 }}
-                                className="flex items-center gap-3 w-full px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--hover-bg)] transition-colors"
+                                className="flex w-full items-center gap-3 px-4 py-2 text-sm text-slate-100 transition-colors hover:bg-white/10"
                               >
-                                <Settings className="w-4 h-4 text-[var(--muted-foreground)]" />
+                                <Settings className="w-4 h-4 text-slate-400" />
                                 <span className="truncate">
                                   Configuración de Sesión
                                 </span>
@@ -866,9 +866,9 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                                   setShowUserDropdown(false);
                                   window.location.reload();
                                 }}
-                                className="flex items-center gap-3 w-full px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--hover-bg)] transition-colors"
+                                className="flex w-full items-center gap-3 px-4 py-2 text-sm text-slate-100 transition-colors hover:bg-white/10"
                               >
-                                <RefreshCw className="w-4 h-4 text-[var(--muted-foreground)]" />
+                                <RefreshCw className="w-4 h-4 text-slate-400" />
                                 <span className="truncate">Sincronizar</span>
                               </button>
                               <button
@@ -886,9 +886,9 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                                   }
                                   window.location.reload();
                                 }}
-                                className="flex items-center gap-3 w-full px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--hover-bg)] transition-colors"
+                                className="flex w-full items-center gap-3 px-4 py-2 text-sm text-slate-100 transition-colors hover:bg-white/10"
                               >
-                                <Trash2 className="w-4 h-4 text-[var(--muted-foreground)]" />
+                                <Trash2 className="w-4 h-4 text-slate-400" />
                                 <span className="truncate">Limpiar Cache</span>
                               </button>
                             </div>
@@ -926,7 +926,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                 }
                 setShowNotifModal(true);
               }}
-              className="relative p-2 rounded-md hover:bg-[var(--hover-bg)] transition-colors"
+              className="relative rounded-full border border-white/10 bg-white/5 p-2 transition-colors hover:border-white/20 hover:bg-white/10"
               title="Notificaciones"
             >
               <Bell className="w-5 h-5 text-[var(--foreground)]" />
@@ -938,7 +938,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
             {/* Mobile hamburger menu button */}
             <button
               onClick={() => setShowMobileMenu(!showMobileMenu)}
-              className="lg:hidden p-2 rounded-md hover:bg-[var(--hover-bg)] transition-colors"
+              className="lg:hidden rounded-full border border-white/10 bg-white/5 p-2 transition-colors hover:border-white/20 hover:bg-white/10"
               title="Menú"
             >
               {showMobileMenu ? (
@@ -954,7 +954,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
 
         {/* Mobile navigation menu */}
         {showMobileMenu && (
-          <div className="lg:hidden border-t border-[var(--input-border)] bg-[var(--background)] p-4">
+          <div className="lg:hidden border-t border-white/10 bg-slate-950/95 p-4 backdrop-blur-xl">
             {/* Main tabs - only show when NOT in fondo sections */}
             {!isFondoSection && !isRecetasSection && (
               <div className="grid grid-cols-2 gap-2">
