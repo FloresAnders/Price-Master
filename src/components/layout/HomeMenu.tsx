@@ -37,6 +37,7 @@ import {
   Users,
   Star,
   Plus,
+  ArrowRight,
 } from "lucide-react";
 import AnimatedStickman from "../ui/AnimatedStickman";
 import { CustomIcon } from "../../icons/icons";
@@ -46,6 +47,7 @@ import { useProviders } from "../../hooks/useProviders";
 import { useControlPedido } from "../../hooks/useControlPedido";
 import { MovimientosFondosService } from "../../services/movimientos-fondos";
 import { EmpresasService } from "../../services/empresas";
+import { getMenuCardTheme } from "../../config/menu-themes";
 import type { ControlPedidoEntry } from "../../services/controlpedido";
 import {
   addDays,
@@ -1571,7 +1573,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   }, [showStickman]);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] py-8">
+    <div className="relative flex min-h-[60vh] flex-col items-center justify-center py-8">
       <div
         ref={fireworksRef}
         className="fixed inset-0 pointer-events-none z-40"
@@ -1738,46 +1740,57 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
                   items={orderedVisibleMenuItemIds}
                   strategy={rectSortingStrategy}
                 >
-                  {displayedMenuItems.map((item) => (
-                    <SortableHomeMenuCard
-                      key={item.id}
-                      id={item.id}
-                      onClick={() => handleNavigate(item.id)}
-                      lastDragEndAt={lastDragEndAt}
-                      className="bg-[var(--card-bg)] dark:bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl shadow-md p-6 flex flex-col items-center transition hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-[var(--primary)] group touch-manipulation"
-                      style={{ minHeight: 160 }}
-                    >
-                      <item.icon className="w-10 h-10 mb-3 text-[var(--primary)] group-hover:scale-110 group-hover:text-[var(--button-hover)] transition-all" />
-                      <span className="text-lg font-semibold mb-1 text-[var(--foreground)] dark:text-[var(--foreground)]">
-                        {item.name}
-                      </span>
-                      <span className="text-sm text-[var(--muted-foreground)] text-center">
-                        {item.description}
-                      </span>
-                      {/* No badge shown here; navigation goes to the Fondo General page */}
-                    </SortableHomeMenuCard>
-                  ))}
+                  {displayedMenuItems.map((item) => {
+                    const theme = getMenuCardTheme(item.id);
+                    return (
+                      <SortableHomeMenuCard
+                        key={item.id}
+                        id={item.id}
+                        onClick={() => handleNavigate(item.id)}
+                        lastDragEndAt={lastDragEndAt}
+                        className={`home-menu-card ${theme.ring}`}
+                      >
+                        <div className={`home-menu-card-glow bg-gradient-to-br ${theme.glow}`} />
+                        <div className="home-menu-card-body">
+                          <div className="home-menu-card-header">
+                            <div className={`home-menu-card-icon ${theme.iconBg}`}>
+                              <item.icon className={`h-5 w-5 ${theme.iconText}`} />
+                            </div>
+                            <ArrowRight className={`home-menu-card-arrow ${theme.arrow}`} />
+                          </div>
+                          <span className="home-menu-card-title">{item.name}</span>
+                          <span className="home-menu-card-desc">{item.description}</span>
+                        </div>
+                      </SortableHomeMenuCard>
+                    );
+                  })}
                 </SortableContext>
               </DndContext>
             ) : (
               <>
-                {displayedMenuItems.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => handleNavigate(item.id)}
-                    className="bg-[var(--card-bg)] dark:bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl shadow-md p-6 flex flex-col items-center transition hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-[var(--primary)] group touch-manipulation"
-                    style={{ minHeight: 160 }}
-                  >
-                    <item.icon className="w-10 h-10 mb-3 text-[var(--primary)] group-hover:scale-110 group-hover:text-[var(--button-hover)] transition-all" />
-                    <span className="text-lg font-semibold mb-1 text-[var(--foreground)] dark:text-[var(--foreground)]">
-                      {item.name}
-                    </span>
-                    <span className="text-sm text-[var(--muted-foreground)] text-center">
-                      {item.description}
-                    </span>
-                  </button>
-                ))}
+                {displayedMenuItems.map((item) => {
+                  const theme = getMenuCardTheme(item.id);
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleNavigate(item.id)}
+                      className={`home-menu-card ${theme.ring}`}
+                    >
+                      <div className={`home-menu-card-glow bg-gradient-to-br ${theme.glow}`} />
+                      <div className="home-menu-card-body">
+                        <div className="home-menu-card-header">
+                          <div className={`home-menu-card-icon ${theme.iconBg}`}>
+                            <item.icon className={`h-5 w-5 ${theme.iconText}`} />
+                          </div>
+                          <ArrowRight className={`home-menu-card-arrow ${theme.arrow}`} />
+                        </div>
+                        <span className="home-menu-card-title">{item.name}</span>
+                        <span className="home-menu-card-desc">{item.description}</span>
+                      </div>
+                    </button>
+                  );
+                })}
               </>
             ))}
 
@@ -1799,24 +1812,25 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
                 <>
                   {favoriteMenuItems.map((item) => {
                     const IconComponent = item.icon;
+                    const theme = getMenuCardTheme(item.id);
                     return (
                       <button
                         key={item.id}
                         type="button"
                         onClick={() => handleNavigateFavorite(item)}
-                        className="bg-[var(--card-bg)] dark:bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl shadow-md p-6 flex flex-col items-center transition hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-[var(--primary)] group touch-manipulation relative"
-                        style={{ minHeight: 160 }}
+                        className={`home-menu-card ${theme.ring}`}
                       >
-                        <span className="absolute top-3 right-3 inline-flex items-center justify-center w-8 h-8 rounded-full bg-amber-500/15 text-amber-500">
-                          <Star className="w-4 h-4 fill-current" />
-                        </span>
-                        <IconComponent className="w-10 h-10 mb-3 text-[var(--primary)] group-hover:scale-110 group-hover:text-[var(--button-hover)] transition-all" />
-                        <span className="text-lg font-semibold mb-1 text-[var(--foreground)] dark:text-[var(--foreground)]">
-                          {item.label}
-                        </span>
-                        <span className="text-sm text-[var(--muted-foreground)] text-center">
-                          {item.description}
-                        </span>
+                        <div className={`home-menu-card-glow bg-gradient-to-br ${theme.glow}`} />
+                        <div className="home-menu-card-body">
+                          <div className="home-menu-card-header">
+                            <div className={`home-menu-card-icon ${theme.iconBg}`}>
+                              <IconComponent className={`h-5 w-5 ${theme.iconText}`} />
+                            </div>
+                            <ArrowRight className={`home-menu-card-arrow ${theme.arrow}`} />
+                          </div>
+                          <span className="home-menu-card-title">{item.label}</span>
+                          <span className="home-menu-card-desc">{item.description}</span>
+                        </div>
                       </button>
                     );
                   })}
@@ -1824,33 +1838,31 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
                   <button
                     type="button"
                     onClick={() => setShowAddFavoriteModal(true)}
-                    className="bg-[var(--card-bg)] dark:bg-[var(--card-bg)] border border-dashed border-[var(--input-border)] rounded-xl shadow-md p-6 flex flex-col items-center justify-center transition hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-[var(--primary)] group touch-manipulation"
-                    style={{ minHeight: 160 }}
+                    className="home-menu-card home-menu-card-add border-dashed border-[var(--input-border)]"
                   >
-                    <Plus className="w-10 h-10 mb-3 text-[var(--primary)] group-hover:scale-110 transition-all" />
-                    <span className="text-lg font-semibold mb-1 text-[var(--foreground)] dark:text-[var(--foreground)]">
-                      Agregar favorito
-                    </span>
-                    <span className="text-sm text-[var(--muted-foreground)] text-center">
-                      Selecciona accesos rápidos frecuentes
-                    </span>
+                    <div className="home-menu-card-header w-full">
+                      <div className="home-menu-card-icon bg-cyan-500/20 text-cyan-100">
+                        <Plus className="h-5 w-5" />
+                      </div>
+                      <ArrowRight className="home-menu-card-arrow text-cyan-100" />
+                    </div>
+                    <span className="home-menu-card-title">Agregar favorito</span>
+                    <span className="home-menu-card-desc">Selecciona accesos rápidos frecuentes</span>
                   </button>
                 </>
               ) : (
-                <div className="col-span-full bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl p-6 text-center space-y-3">
-                  <Star className="w-10 h-10 mx-auto text-amber-500" />
+                <div className="col-span-full rounded-[26px] border border-[var(--input-border)] bg-[#0d1117] p-6 text-center space-y-3" style={{ boxShadow: "0 16px 50px rgba(2,6,23,0.22)" }}>
+                  <Star className="mx-auto h-10 w-10 text-amber-300" />
                   <div>
-                    <p className="text-[var(--foreground)] font-semibold">
-                      No tienes favoritos aún
-                    </p>
-                    <p className="text-sm text-[var(--muted-foreground)] mt-1">
+                    <p className="font-semibold text-white">No tienes favoritos aún</p>
+                    <p className="mt-1 text-sm text-slate-300">
                       Usa la tarjeta {"Agregar favorito"} para configurarlos.
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setShowAddFavoriteModal(true)}
-                    className="px-4 py-2 rounded-md bg-[var(--accent)] text-[var(--accent-foreground)] hover:opacity-90 transition-opacity"
+                    className="rounded-xl bg-cyan-400/15 px-4 py-2 text-cyan-100 transition hover:bg-cyan-400/25"
                   >
                     Agregar favorito
                   </button>

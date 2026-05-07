@@ -880,7 +880,8 @@ export default function ControlHorario({
   };
 
   // Component helper functions and variables
-  const names = empresas.find((l) => l.value === empresa)?.names || [];
+  const rawNames = empresas.find((l) => l.value === empresa)?.names || [];
+  const names = Array.from(new Set(rawNames));
 
   // Funciones de autorización simplificadas
   const userCanChangeEmpresa = () => {

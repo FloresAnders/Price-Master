@@ -68,16 +68,16 @@
   /* Variables modo oscuro */
   .dark :root,
   :root.dark {
-    --background: #171717;
+    --background: #0d1117;
     --foreground: #ffffff;
     --font-base: Arial, Helvetica, sans-serif;
 
     /* Componentes generales */
-    --card: #1f2937;
-    --card-bg-900: #121820;
+    --card: #111827;
+    --card-bg-900: #0a0f18;
     /* gray-900 */
-    --card-bg: #1f2937;
-    /* gray-800 */
+    --card-bg: #0d1117;
+    /* igual al sidebar */
     --border: #4b5563;
     --muted: #374151;
     --muted-foreground: #d1d5db;
@@ -138,8 +138,11 @@
 
   .dark html,
   .dark body {
-    background: #101010 url("/background.png") no-repeat center center fixed;
-    background-size: cover;
+    background:
+      radial-gradient(circle at top left, #0ea5e9 0%, transparent 30%),
+      radial-gradient(circle at bottom right, #7c3aed 0%, transparent 30%),
+      #050816;
+    background-attachment: fixed;
   }
 
   @media (max-width: 640px) {
@@ -281,6 +284,136 @@
       padding: 0 !important;
     }
   }
+}
+
+/* ============================================================
+   Home Menu Cards — estilos centralizados
+   ============================================================ */
+
+/* Tarjeta base del HomeMenu */
+.home-menu-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 26px;
+  background-color: #0d1117;
+  padding: 1.25rem;
+  text-align: left;
+  box-shadow: 0 16px 50px rgba(2, 6, 23, 0.26);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+  min-height: 168px;
+  touch-action: manipulation;
+  cursor: pointer;
+  border-width: 1px;
+  border-style: solid;
+}
+
+.home-menu-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 24px 70px rgba(2, 6, 23, 0.34);
+}
+
+.home-menu-card:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.3);
+}
+
+/* Glow overlay (hover) */
+.home-menu-card-glow {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.home-menu-card:hover .home-menu-card-glow {
+  opacity: 1;
+}
+
+/* Cuerpo interior */
+.home-menu-card-body {
+  position: relative;
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+}
+
+.home-menu-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+/* Icono */
+.home-menu-card-icon {
+  display: flex;
+  height: 2.75rem;
+  width: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 1rem;
+}
+
+/* Flecha */
+.home-menu-card-arrow {
+  margin-top: 0.25rem;
+  height: 1rem;
+  width: 1rem;
+  flex-shrink: 0;
+  opacity: 0.8;
+  transition: transform 0.3s ease;
+}
+
+.home-menu-card:hover .home-menu-card-arrow {
+  transform: translateX(4px);
+}
+
+/* Título */
+.home-menu-card-title {
+  margin-top: 1.25rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: #ffffff;
+}
+
+/* Descripción */
+.home-menu-card-desc {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: #cbd5e1; /* slate-300 */
+}
+
+/* Variante: botón de agregar favorito (borde punteado) */
+.home-menu-card-add {
+  border-style: dashed;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+/* Tarjeta de Semana Proveedores con el mismo estilo */
+.supplier-week-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 26px;
+  background-color: #0d1117;
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  box-shadow: 0 16px 50px rgba(2, 6, 23, 0.26);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+  min-height: 160px;
+}
+
+.supplier-week-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 24px 70px rgba(2, 6, 23, 0.34);
 }
 
 /* Animaciones del Stickman */

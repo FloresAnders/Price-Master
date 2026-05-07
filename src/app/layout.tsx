@@ -83,7 +83,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className="min-h-full bg-white dark:bg-zinc-900"
+      className="min-h-full bg-white dark:bg-[#0d1117]"
     >
       <head suppressHydrationWarning>
         <link rel="preconnect" href="https://firebasestorage.googleapis.com" />

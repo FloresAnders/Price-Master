@@ -15,28 +15,18 @@ interface AuthWrapperProps {
 
 export default function AuthWrapper({ children }: AuthWrapperProps) {
   const { user, isAuthenticated, loading, login } = useAuth();
-  //delete this line if not needed
   const pathname = usePathname();
-  const [hasStoredSession, setHasStoredSession] = useState<boolean>(() => {
-    try {
-      const hasTraditional = Boolean(
-        safeLocalStorage.getItem("pricemaster_session"),
-      );
-      const hasToken = Boolean(
-        safeLocalStorage.getItem("pricemaster_token_session"),
-      );
-      return hasTraditional || hasToken;
-    } catch {
-      return false;
-    }
-  });
+  const [isMounted, setIsMounted] = useState(false);
+  const [hasStoredSession, setHasStoredSession] = useState<boolean>(false);
 
   // Rutas públicas que no requieren autenticación
   const publicRoutes = ["/home", "/reset-password", "/pruebas"];
   const isPublicRoute = publicRoutes.includes(pathname);
 
   useEffect(() => {
-    const onStorage = () => {
+    setIsMounted(true);
+    
+    const checkSession = () => {
       try {
         const hasTraditional = Boolean(
           safeLocalStorage.getItem("pricemaster_session"),
@@ -50,9 +40,29 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
       }
     };
 
+    checkSession();
+
+    const onStorage = () => checkSession();
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
   }, []);
+
+  // Para evitar hydration mismatch, el primer render debe ser idéntico entre servidor y cliente.
+  if (!isMounted) {
+    if (isPublicRoute) {
+      return <>{children}</>;
+    }
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[var(--background)] dark:bg-zinc-900">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[var(--primary)] mx-auto mb-4"></div>
+          <p className="text-[var(--muted-foreground)]">
+            Iniciando...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Si es ruta pública, renderizar sin autenticación
   if (isPublicRoute) {

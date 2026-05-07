@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Truck } from "lucide-react";
+import { ArrowRight, Truck } from "lucide-react";
 import ConfirmModal from "../ui/ConfirmModal";
 
 export type SupplierWeekVisitDay = "D" | "L" | "M" | "MI" | "J" | "V" | "S";
@@ -149,17 +149,20 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
       <button
         type="button"
         onClick={onNavigateSupplierWeek}
-        className="bg-[var(--card-bg)] dark:bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl shadow-md p-6 flex flex-col items-center transition hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-[var(--primary)] group"
-        style={{ minHeight: 160 }}
+        className="home-menu-card border-sky-400/20"
         aria-label="Abrir Semana actual (proveedores)"
       >
-        <Truck className="w-10 h-10 mb-3 text-[var(--primary)] group-hover:scale-110 group-hover:text-[var(--button-hover)] transition-all" />
-        <span className="text-lg font-semibold mb-1 text-[var(--foreground)] dark:text-[var(--foreground)] text-center">
-          Semana Proveedores
-        </span>
-        <span className="text-sm text-[var(--muted-foreground)] text-center">
-          Ver realizar/recibir pedidos
-        </span>
+        <div className="home-menu-card-glow bg-gradient-to-br from-sky-500/15 via-transparent to-transparent" />
+        <div className="home-menu-card-body">
+          <div className="home-menu-card-header">
+            <div className="home-menu-card-icon bg-sky-500/20">
+              <Truck className="w-5 h-5 text-sky-200" />
+            </div>
+            <ArrowRight className="home-menu-card-arrow text-sky-200" />
+          </div>
+          <span className="home-menu-card-title">Semana Proveedores</span>
+          <span className="home-menu-card-desc">Ver realizar/recibir pedidos</span>
+        </div>
       </button>
     );
   }
@@ -169,31 +172,31 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
       <button
         type="button"
         onClick={onNavigateSupplierWeek}
-        className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl shadow-md p-6 col-span-1 sm:col-span-2 md:col-span-3 lg:col-span-4 text-left transition hover:scale-[1.01] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
-        style={{ minHeight: 160 }}
+        className="supplier-week-card p-4 sm:p-6 col-span-1 sm:col-span-2 md:col-span-3 lg:col-span-4 text-left w-full"
         aria-label="Abrir Semana actual (proveedores)"
       >
         <div className="flex items-center justify-between gap-3 mb-4">
           <div className="min-w-0">
-            <h3 className="text-lg font-semibold text-[var(--foreground)]">
+            <h3 className="text-lg font-semibold text-white">
               Semana actual (proveedores)
             </h3>
-            <p className="text-xs text-[var(--muted-foreground)]">
+            <p className="text-xs text-slate-400">
               Crea pedido y recibe pedido (Domingo a Sábado)
             </p>
+          </div>
+          <div className="home-menu-card-icon bg-sky-500/20 flex-shrink-0">
+            <Truck className="w-5 h-5 text-sky-200" />
           </div>
         </div>
 
         {!companyForProviders ? (
-          <div className="text-sm text-[var(--muted-foreground)]">
+          <div className="text-sm text-slate-400">
             No se pudo determinar la empresa del usuario.
           </div>
         ) : weeklyProvidersLoading ? (
-          <div className="text-sm text-[var(--muted-foreground)]">
-            Cargando proveedores...
-          </div>
+          <div className="text-sm text-slate-400">Cargando proveedores...</div>
         ) : weeklyProvidersError ? (
-          <div className="text-sm text-red-500">{weeklyProvidersError}</div>
+          <div className="text-sm text-red-400">{weeklyProvidersError}</div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
             {weekModel.days.map((d) => {
@@ -202,9 +205,8 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
               const hasAny = createList.length > 0 || receiveList.length > 0;
               const todayStyle = d.isToday
                 ? {
-                    borderColor: "var(--success)",
-                    backgroundColor:
-                      "color-mix(in srgb, var(--success) 18%, var(--card-bg))",
+                    borderColor: "#0ea5e9",
+                    backgroundColor: "rgba(14, 165, 233, 0.12)",
                   }
                 : undefined;
 
@@ -228,66 +230,43 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
               return (
                 <div
                   key={`week-${d.code}`}
-                  className="rounded-lg border border-[var(--input-border)] p-2 bg-[var(--muted)]"
+                  className="rounded-lg border border-slate-700/60 p-2 bg-slate-800/50"
                   style={todayStyle}
                 >
                   <div className="flex items-baseline justify-between gap-2">
-                    <div className="text-xs font-semibold text-[var(--foreground)]">
-                      {d.code}
-                    </div>
-                    <div className="text-[10px] text-[var(--muted-foreground)]">
+                    <div className="text-xs font-semibold text-white">{d.code}</div>
+                    <div className="text-[10px] text-slate-400">
                       {d.date.getDate()}/{d.date.getMonth() + 1}
                     </div>
                   </div>
-                  <div className="text-[10px] text-[var(--muted-foreground)] mb-2">
-                    {d.label}
-                  </div>
+                  <div className="text-[10px] text-slate-400 mb-2">{d.label}</div>
 
                   {!hasAny ? (
-                    <div className="text-[10px] text-[var(--muted-foreground)]">
-                      Sin visitas
-                    </div>
+                    <div className="text-[10px] text-slate-400">Sin visitas</div>
                   ) : (
                     <div className="space-y-2">
                       {createList.length > 0 && (
                         <div>
-                          <div className="text-[10px] font-semibold text-[var(--foreground)]">
-                            Realizar
-                          </div>
-                          <div className="text-[10px] text-[var(--muted-foreground)] break-words">
-                            {createText}
-                          </div>
+                          <div className="text-[10px] font-semibold text-white">Realizar</div>
+                          <div className="text-[10px] text-slate-400 break-words">{createText}</div>
                         </div>
                       )}
                       {receiveList.length > 0 && (
                         <div>
-                          <div className="text-[10px] font-semibold text-[var(--foreground)]">
-                            Recibir
-                          </div>
-                          <div className="mt-0.5 text-[10px] text-[var(--muted-foreground)]">
+                          <div className="text-[10px] font-semibold text-white">Recibir</div>
+                          <div className="mt-0.5 text-[10px] text-slate-400">
                             <div className="space-y-0.5">
                               {receiveText.map((row) => (
-                                <div
-                                  key={row.name}
-                                  className="flex items-baseline justify-between gap-2"
-                                >
-                                  <span className="min-w-0 flex-1 truncate">
-                                    {row.name}
-                                  </span>
+                                <div key={row.name} className="flex items-baseline justify-between gap-2">
+                                  <span className="min-w-0 flex-1 truncate">{row.name}</span>
                                   <span className="flex-none tabular-nums">
-                                    {row.amount > 0
-                                      ? formatAmount(row.amount)
-                                      : ""}
+                                    {row.amount > 0 ? formatAmount(row.amount) : ""}
                                   </span>
                                 </div>
                               ))}
-                              <div className="mt-1 pt-1 border-t border-[var(--input-border)] flex items-baseline justify-between gap-2">
-                                <span className="font-semibold text-[var(--foreground)]">
-                                  TOTAL
-                                </span>
-                                <span
-                                  className={`flex-none tabular-nums font-semibold ${receiveTotalClassName}`}
-                                >
+                              <div className="mt-1 pt-1 border-t border-slate-700/60 flex items-baseline justify-between gap-2">
+                                <span className="font-semibold text-white">TOTAL</span>
+                                <span className={`flex-none tabular-nums font-semibold ${receiveTotalClassName}`}>
                                   {formatAmount(receiveTotal)}
                                 </span>
                               </div>
@@ -308,15 +287,14 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
 
   return (
     <div
-      className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl shadow-md p-4 sm:p-6 col-span-1 sm:col-span-2 md:col-span-3 lg:col-span-4"
-      style={{ minHeight: 160 }}
+      className="supplier-week-card p-4 sm:p-6 col-span-1 sm:col-span-2 md:col-span-3 lg:col-span-4"
     >
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div className="min-w-0">
-          <h3 className="text-lg font-semibold text-[var(--foreground)]">
+          <h3 className="text-lg font-semibold text-white">
             Semana recepcion de proveedores
           </h3>
-          <p className="text-xs text-[var(--muted-foreground)]">
+          <p className="text-xs text-slate-400">
             {supplierWeekRangeLabel
               ? `Semana: ${supplierWeekRangeLabel}`
               : "Crea pedido y recibe pedido (Domingo a Sábado)"}

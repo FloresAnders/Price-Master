@@ -491,15 +491,20 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     return hasPermission;
   });
 
+  const isHomeRoute = pathname === "/" || pathname === "/home";
+
   const canShowAdminSidebar = Boolean(
-    activeTab &&
-    activeTab !== "fondogeneral" &&
-    activeTab !== "agregarproveedor" &&
-    activeTab !== "reportes" &&
-    activeTab !== "recetas" &&
-    activeTab !== "agregarproducto" &&
-    visibleTabs.length > 0,
+    isHomeRoute ||
+      (activeTab &&
+        activeTab !== "fondogeneral" &&
+        activeTab !== "agregarproveedor" &&
+        activeTab !== "reportes" &&
+        activeTab !== "recetas" &&
+        activeTab !== "agregarproducto" &&
+        visibleTabs.length > 0),
   );
+
+  // El sidebar inicia cerrado; el usuario lo abre manualmente.
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -525,7 +530,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
 
   const handleLogoutClick = () => {
     // Si estamos en /home, limpiar sesión especial y redirigir
-    if (pathname === "/home") {
+    if (isHomeRoute) {
       // Limpiar la sesión especial del usuario SEBASTIAN
       localStorage.removeItem("pricemaster_session");
       localStorage.removeItem("pricemaster_session_id");
@@ -605,7 +610,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
         >
           {/* Logo and title */}
           <div>
-            {!canShowAdminSidebar && (
+            {!canShowAdminSidebar && pathname !== "/home" && (
               <div>
                 <Link
                   href="/#"
@@ -630,7 +635,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
           </div>
 
           {/* If we're on fondo-related sections, show quick actions in the header */}
-          {isFondoSection && canManageFondoGeneral && (
+          {pathname !== "/home" && isFondoSection && canManageFondoGeneral && (
             <nav className="hidden lg:flex items-center gap-1">
               {/* Agregar proveedor */}
               <button
@@ -715,7 +720,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
           )}
 
           {/* If we're on recetas-related sections, show only recetas sub-navigation in the header */}
-          {isRecetasSection && canUseRecetas && (
+          {pathname !== "/home" && isRecetasSection && canUseRecetas && (
             <nav className="hidden lg:flex items-center gap-1">
               {canAgregarProducto && (
                 <button
