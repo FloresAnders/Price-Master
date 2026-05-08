@@ -9888,11 +9888,11 @@ export function FondoSection({
                   (accountKey === "FondoGeneral" && pendingCierreDeCaja) ||
                   !entriesHydrated
                     ? "cursor-not-allowed border-[var(--input-border)] bg-[var(--muted)]/30 text-[var(--muted-foreground)] opacity-70"
-                    : "border-[var(--accent)] bg-[var(--accent)] text-white hover:-translate-y-0.5 hover:bg-[var(--accent)]/90 hover:shadow-md hover:shadow-sky-950/25 active:translate-y-0 active:scale-[0.99]"
+                    : "border-[var(--accent)] bg-transparent text-[var(--foreground)] hover:-translate-y-0.5 hover:border-cyan-300/70 hover:bg-transparent hover:shadow-md hover:shadow-sky-950/25 active:translate-y-0 active:scale-[0.99]"
                 }`}
               >
                 <Plus className="h-4 w-4 flex-shrink-0" />
-                <span className="truncate">Registrar movimiento</span>
+                <span className="truncate">Agregar movimiento</span>
               </button>
               {accountKey === "FondoGeneral" &&
                 pendingCierreDeCaja &&
@@ -10068,22 +10068,7 @@ export function FondoSection({
         )}
 
       <div className="mt-6">
-        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded border border-[var(--input-border)] bg-[var(--muted)]/20 text-[var(--accent)]">
-              <Layers className="h-4 w-4" />
-            </span>
-            <div>
-              <h3 className="text-sm font-semibold text-[var(--foreground)]">
-                Movimientos recientes
-              </h3>
-              <p className="text-xs text-[var(--muted-foreground)]">
-                {filteredEntries.length} registro
-                {filteredEntries.length === 1 ? "" : "s"} en la vista actual
-              </p>
-            </div>
-          </div>
-        </div>
+
         {fondoEntries.length === 0 ? (
           isFondoMovementsLoading ? (
             <div className="flex min-h-[180px] flex-col items-center justify-center rounded-lg border border-dashed border-[var(--input-border)] bg-[var(--card-bg)]/60 py-6 text-[var(--muted-foreground)]">

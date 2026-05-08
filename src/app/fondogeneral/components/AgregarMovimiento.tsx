@@ -218,12 +218,18 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
           </div>
           <span
             className={`shrink-0 rounded border px-2.5 py-1 text-xs font-semibold ${
-              isEgreso
-                ? "border-red-500/30 bg-red-500/10 text-red-300"
-                : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+              !selectedProviderExists
+                ? "border-slate-600 bg-slate-800/60 text-slate-300"
+                : isEgreso
+                  ? "border-red-500/30 bg-red-500/10 text-red-300"
+                  : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
             }`}
           >
-            {isEgreso ? "Salida" : "Entrada"}
+            {!selectedProviderExists
+              ? "Sin tipo"
+              : isEgreso
+                ? "Salida"
+                : "Entrada"}
           </span>
         </div>
 
@@ -234,20 +240,39 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
               Proveedor
             </label>
             <div className="relative group">
+              {selectedProvider && (
+                <button
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    onProviderChange("");
+                    setFilter("");
+                  }}
+                  className="absolute left-3 top-1/2 z-10 -translate-y-1/2 text-red-400 transition-colors hover:text-red-300"
+                >
+                  <XCircle className="h-4 w-4" />
+                </button>
+              )}
               <input
                 value={filter}
                 onChange={(e) => {
-                  setFilter(e.target.value);
+                  const value = e.target.value;
+
+                  setFilter(value);
                   setIsDropdownOpen(true);
+
+                  if (value.trim() === "") {
+                    onProviderChange("");
+                  }
                 }}
                 onFocus={() => setIsDropdownOpen(true)}
                 onBlur={() => {
                   setTimeout(() => setIsDropdownOpen(false), 200);
                 }}
                 onKeyDown={onFieldKeyDown}
-                className={`${fieldWithIcon} ${
-                  providerError ? "border-red-500" : ""
-                } ${
+                className={`${fieldBase} ${
+                  selectedProvider ? "pl-10 pr-11" : "pr-11"
+                } ${providerError ? "border-red-500" : ""} ${
                   isProviderSelectDisabled && providerDisabledTooltip
                     ? "cursor-not-allowed opacity-60"
                     : ""
@@ -259,7 +284,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                     : "Buscar proveedor"
                 }
               />
-              <span className="pointer-events-none absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded border border-cyan-700/35 bg-cyan-900/25 text-cyan-100/80">
+              <span className="pointer-events-none absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center text-cyan-100/80">
                 {providersLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
