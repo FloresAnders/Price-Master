@@ -1,10 +1,15 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
+  ArrowDownRight,
+  ArrowUpRight,
+  FileText,
+  Loader2,
+  MessageSquare,
   Save,
   Search,
-  Loader2,
-  ArrowUpRight,
-  ArrowDownRight,
+  UserCircle,
+  WalletCards,
+  XCircle,
 } from "lucide-react";
 import type { FondoMovementType } from "./fondo";
 import {
@@ -72,10 +77,12 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
   providersLoading,
   isProviderSelectDisabled,
   providerDisabledTooltip,
+  selectedProviderExists,
   invoiceNumber,
   onInvoiceNumberChange,
   invoiceValid,
   invoiceDisabled,
+  paymentType,
   isEgreso,
   egreso,
   onEgresoChange,
@@ -106,8 +113,9 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
 }) => {
   const invoiceBorderClass =
     invoiceValid || invoiceNumber.length === 0
-      ? "border-[var(--input-border)]"
+      ? "border-cyan-700/35"
       : "border-red-500";
+
   const inputFormatterCRC = React.useMemo(
     () =>
       new Intl.NumberFormat("es-CR", {
@@ -138,10 +146,9 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
 
   const [filter, setFilter] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isManagerDropdownOpen, setIsManagerDropdownOpen] = useState(false);
 
   useEffect(() => {
-    // Avoid calling setState synchronously within the effect to prevent cascading renders:
-    // schedule the update asynchronously so the effect doesn't synchronously trigger another render.
     if (selectedProvider) {
       const option = providers.find((p) => p.code === selectedProvider);
       const newFilter = option
@@ -149,10 +156,10 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
         : selectedProvider;
       const id = window.setTimeout(() => setFilter(newFilter), 0);
       return () => clearTimeout(id);
-    } else {
-      const id = window.setTimeout(() => setFilter(""), 0);
-      return () => clearTimeout(id);
     }
+
+    const id = window.setTimeout(() => setFilter(""), 0);
+    return () => clearTimeout(id);
   }, [selectedProvider, providers]);
 
   const filteredProviders = providers
@@ -176,274 +183,337 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
     return null;
   };
 
+  const fieldBase =
+    "h-11 w-full rounded border border-cyan-700/35 bg-cyan-950/25 px-3 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-cyan-100/70 hover:border-cyan-500/45 focus:border-[var(--accent)]";
+  const fieldWithIcon = `${fieldBase} pr-11`;
+  const sectionClass =
+    "rounded-xl border border-cyan-700/25 bg-cyan-950/10 p-3 sm:p-4";
+  const labelClass =
+    "mb-1.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-cyan-100/70";
+  const iconBoxClass =
+    "flex h-7 w-7 items-center justify-center rounded border border-cyan-700/35 bg-cyan-900/25 text-cyan-100/80";
+  const selectedPaymentLabel =
+    paymentType && paymentType !== "INFORMATIVO"
+      ? formatMovementType(paymentType)
+      : "Tipo segun proveedor";
+
   return (
-    <div className="space-y-5">
-      <div className="grid gap-4 grid-cols-1">
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
-            Proveedor
-          </label>
-          <div className="relative group">
-            <input
-              value={filter}
-              onChange={(e) => {
-                setFilter(e.target.value);
-                setIsDropdownOpen(true);
-              }}
-              onFocus={() => setIsDropdownOpen(true)}
-              onBlur={() => {
-                setTimeout(() => setIsDropdownOpen(false), 200);
-              }}
-              onKeyDown={onFieldKeyDown}
-              className={`w-full p-2 border rounded pr-10 ${
-                providerError
-                  ? "border-red-500"
-                  : "border-[var(--input-border)]"
-              } ${
-                isProviderSelectDisabled && providerDisabledTooltip
-                  ? "bg-gray-600 text-gray-400 cursor-not-allowed opacity-70"
-                  : "bg-[var(--input-bg)]"
-              }`}
-              disabled={isProviderSelectDisabled}
-              placeholder={
-                providersLoading
-                  ? "Cargando proveedores..."
-                  : "Buscar proveedor"
-              }
-            />
-            <Search
-              className={`absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 ${
-                isProviderSelectDisabled && providerDisabledTooltip
-                  ? "text-gray-500"
-                  : "text-[var(--muted-foreground)]"
-              }`}
-            />
-            {isProviderSelectDisabled && providerDisabledTooltip && (
-              <div className="absolute bottom-full left-0 right-0 mb-2 mx-auto w-fit max-w-[90vw] sm:max-w-sm px-3 py-2 bg-yellow-500 text-black text-sm font-medium rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity text-center z-50 pointer-events-none">
-                ⚠️ {providerDisabledTooltip}
-                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-yellow-500"></div>
+    <div className="space-y-4">
+      <section className={sectionClass}>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className={iconBoxClass}>
+              <WalletCards className="h-4 w-4" />
+            </span>
+            <div className="min-w-0">
+              <div className="text-sm font-semibold text-[var(--foreground)]">
+                Movimiento
               </div>
+              <div className="truncate text-xs text-cyan-100/60">
+                {selectedProviderExists
+                  ? selectedPaymentLabel
+                  : "Selecciona un proveedor"}
+              </div>
+            </div>
+          </div>
+          <span
+            className={`shrink-0 rounded border px-2.5 py-1 text-xs font-semibold ${
+              isEgreso
+                ? "border-red-500/30 bg-red-500/10 text-red-300"
+                : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+            }`}
+          >
+            {isEgreso ? "Salida" : "Entrada"}
+          </span>
+        </div>
+
+        <div className="grid gap-4">
+          <div>
+            <label className={labelClass}>
+              <Search className="h-3.5 w-3.5" />
+              Proveedor
+            </label>
+            <div className="relative group">
+              <input
+                value={filter}
+                onChange={(e) => {
+                  setFilter(e.target.value);
+                  setIsDropdownOpen(true);
+                }}
+                onFocus={() => setIsDropdownOpen(true)}
+                onBlur={() => {
+                  setTimeout(() => setIsDropdownOpen(false), 200);
+                }}
+                onKeyDown={onFieldKeyDown}
+                className={`${fieldWithIcon} ${
+                  providerError ? "border-red-500" : ""
+                } ${
+                  isProviderSelectDisabled && providerDisabledTooltip
+                    ? "cursor-not-allowed opacity-60"
+                    : ""
+                }`}
+                disabled={isProviderSelectDisabled}
+                placeholder={
+                  providersLoading
+                    ? "Cargando proveedores..."
+                    : "Buscar proveedor"
+                }
+              />
+              <span className="pointer-events-none absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded border border-cyan-700/35 bg-cyan-900/25 text-cyan-100/80">
+                {providersLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Search className="h-4 w-4" />
+                )}
+              </span>
+              {isProviderSelectDisabled && providerDisabledTooltip && (
+                <div className="absolute bottom-full left-0 right-0 z-50 mx-auto mb-2 w-fit max-w-[90vw] rounded border border-yellow-500/40 bg-yellow-500 px-3 py-2 text-center text-sm font-medium text-black opacity-0 shadow-lg transition-opacity pointer-events-none group-hover:opacity-100 sm:max-w-sm">
+                  {providerDisabledTooltip}
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-yellow-500" />
+                </div>
+              )}
+              {isDropdownOpen &&
+                filteredProviders.length > 0 &&
+                !isProviderSelectDisabled && (
+                  <div className="absolute z-[9999] mt-2 max-h-64 w-full overflow-y-auto rounded-lg border border-cyan-600/45 bg-[#0d1117] shadow-2xl shadow-black/70">
+                    {filteredProviders.map((p) => (
+                      <button
+                        key={p.code}
+                        type="button"
+                        className="w-full cursor-pointer border-b border-cyan-900/60 bg-[#0d1117] p-3 text-left transition-colors last:border-b-0 hover:bg-cyan-950/80"
+                        onMouseDown={() => {
+                          onProviderChange(p.code);
+                          setFilter(`${p.name} (${p.code})`);
+                          setIsDropdownOpen(false);
+                        }}
+                        onTouchEnd={(e) => {
+                          e.preventDefault();
+                          onProviderChange(p.code);
+                          setFilter(`${p.name} (${p.code})`);
+                          setIsDropdownOpen(false);
+                        }}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          {(() => {
+                            const category = getProviderCategory(p.type);
+                            const isIngreso = category === "INGRESO";
+                            const isEgresoProvider = category === "EGRESO";
+                            const isGasto = category === "GASTO";
+                            return (
+                              <div className="flex min-w-0 items-center gap-2">
+                                {isIngreso && (
+                                  <ArrowDownRight className="h-4 w-4 shrink-0 text-emerald-400" />
+                                )}
+                                {(isEgresoProvider || isGasto) && (
+                                  <ArrowUpRight className="h-4 w-4 shrink-0 text-red-400" />
+                                )}
+                                <div className="truncate text-sm text-[var(--foreground)]">
+                                  {p.name} ({p.code})
+                                </div>
+                              </div>
+                            );
+                          })()}
+
+                          {p.type && (
+                            <span className="shrink-0 rounded border border-cyan-700/35 bg-cyan-950/30 px-2 py-0.5 text-[11px] text-cyan-100/70">
+                              {formatMovementType(p.type)}
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+            </div>
+            {providerError && (
+              <p className="mt-1 text-xs text-red-400">{providerError}</p>
             )}
-            {isDropdownOpen &&
-              filteredProviders.length > 0 &&
-              !isProviderSelectDisabled && (
-                <div className="absolute z-10 w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded mt-1">
-                  {filteredProviders.map((p) => (
-                    <div
-                      key={p.code}
-                      className="p-2 hover:bg-blue-400 cursor-pointer transition-all duration-200"
+          </div>
+
+          <div>
+            <label className={labelClass}>
+              <FileText className="h-3.5 w-3.5" />
+              Numero factura
+            </label>
+            <input
+              placeholder="0000"
+              value={invoiceNumber}
+              onChange={(event) => onInvoiceNumberChange(event.target.value)}
+              onKeyDown={onFieldKeyDown}
+              className={`${fieldBase} ${
+                invoiceError ? "border-red-500" : invoiceBorderClass
+              } ${invoiceDisabled ? "cursor-not-allowed opacity-60" : ""}`}
+              disabled={invoiceDisabled}
+            />
+            {invoiceError && (
+              <p className="mt-1 text-xs text-red-400">{invoiceError}</p>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className={sectionClass}>
+        <label className={labelClass}>
+          <WalletCards className="h-3.5 w-3.5" />
+          Monto
+        </label>
+        <div className="mb-3 grid grid-cols-2 gap-2">
+          {(["CRC", "USD"] as const).map((option) => {
+            const enabled = currencyEnabled[option];
+            const active = currency === option;
+            return (
+              <button
+                key={option}
+                type="button"
+                onClick={() => enabled && onCurrencyChange?.(option)}
+                disabled={!enabled}
+                className={`h-10 rounded border px-3 text-sm font-semibold transition-all duration-150 ${
+                  active
+                    ? "border-cyan-300/45 bg-cyan-500/25 text-cyan-50 shadow-sm shadow-cyan-950/20"
+                    : "border-cyan-700/35 bg-cyan-950/25 text-cyan-100/75 hover:border-cyan-500/45 hover:bg-cyan-900/25"
+                } ${!enabled ? "cursor-not-allowed opacity-45" : "active:scale-[0.99]"}`}
+              >
+                {option === "CRC" ? "Colones (₡)" : "Dólares ($)"}
+              </button>
+            );
+          })}
+        </div>
+        <input
+          placeholder="0"
+          value={formatInputDisplay(isEgreso ? egreso : ingreso)}
+          onChange={(event) => {
+            const digits = extractDigits(event.target.value);
+            if (isEgreso) onEgresoChange(digits);
+            else onIngresoChange(digits);
+          }}
+          onKeyDown={onFieldKeyDown}
+          className={`${fieldBase} text-lg font-semibold ${
+            amountError
+              ? "border-red-500"
+              : isEgreso
+                ? egresoBorderClass
+                : ingresoBorderClass
+          } ${currencyEnabled[currency] ? "" : "cursor-not-allowed opacity-50"}`}
+          inputMode="numeric"
+          disabled={!currencyEnabled[currency]}
+        />
+        {amountError && (
+          <p className="mt-1 text-xs text-red-400">{amountError}</p>
+        )}
+      </section>
+
+      <section className={sectionClass}>
+        <div className="grid gap-4">
+          <div>
+            <label className={labelClass}>
+              <MessageSquare className="h-3.5 w-3.5" />
+              Observacion
+            </label>
+            <input
+              placeholder="Observacion"
+              value={notes}
+              onChange={(event) => onNotesChange(event.target.value)}
+              onKeyDown={onFieldKeyDown}
+              className={fieldBase}
+              maxLength={200}
+            />
+          </div>
+
+          <div>
+            <label className={labelClass}>
+              <UserCircle className="h-3.5 w-3.5" />
+              Encargado
+            </label>
+            <div
+              className="relative"
+              onBlur={() => {
+                setTimeout(() => setIsManagerDropdownOpen(false), 150);
+              }}
+            >
+              <button
+                type="button"
+                className={`${fieldBase} flex items-center justify-between text-left ${
+                  managerError ? "border-red-500" : ""
+                } ${
+                  managerSelectDisabled
+                    ? "cursor-not-allowed opacity-60"
+                    : "cursor-pointer"
+                }`}
+                disabled={managerSelectDisabled}
+                onClick={() => setIsManagerDropdownOpen((prev) => !prev)}
+              >
+                <span className={manager ? "" : "text-cyan-100/70"}>
+                  {manager ||
+                    (employeesLoading
+                      ? "Cargando encargados..."
+                      : "Seleccionar encargado")}
+                </span>
+                <span className="text-cyan-100/80">⌄</span>
+              </button>
+              {isManagerDropdownOpen && !managerSelectDisabled && (
+                <div className="absolute z-[9999] mt-2 max-h-56 w-full overflow-y-auto rounded-lg border border-cyan-600/45 bg-[#0d1117] p-1 shadow-2xl shadow-black/70">
+                  <button
+                    type="button"
+                    className="w-full rounded px-3 py-2 text-left text-sm text-cyan-100/70 transition-colors hover:bg-cyan-950/80"
+                    onMouseDown={() => {
+                      onManagerChange("");
+                      setIsManagerDropdownOpen(false);
+                    }}
+                  >
+                    Seleccionar encargado
+                  </button>
+                  {employeeOptions.map((name) => (
+                    <button
+                      key={name}
+                      type="button"
+                      className={`w-full rounded px-3 py-2 text-left text-sm transition-colors hover:bg-cyan-950/80 ${
+                        manager === name
+                          ? "bg-cyan-500/20 text-cyan-50"
+                          : "text-[var(--foreground)]"
+                      }`}
                       onMouseDown={() => {
-                        onProviderChange(p.code);
-                        setFilter(`${p.name} (${p.code})`);
-                        setIsDropdownOpen(false);
-                      }}
-                      onTouchEnd={(e) => {
-                        e.preventDefault();
-                        onProviderChange(p.code);
-                        setFilter(`${p.name} (${p.code})`);
-                        setIsDropdownOpen(false);
+                        onManagerChange(name);
+                        setIsManagerDropdownOpen(false);
                       }}
                     >
-                      <div className="flex items-center justify-between gap-3">
-                        {(() => {
-                          const category = getProviderCategory(p.type);
-                          const isIngreso = category === "INGRESO";
-                          const isEgreso = category === "EGRESO";
-                          const isGasto = category === "GASTO";
-                          return (
-                            <div className="min-w-0 flex items-center gap-2">
-                              {isIngreso && (
-                                <ArrowDownRight className="w-4 h-4 text-green-500 shrink-0" />
-                              )}
-                              {(isEgreso || isGasto) && (
-                                <ArrowUpRight className="w-4 h-4 text-red-500 shrink-0" />
-                              )}
-                              <div className="truncate text-[var(--foreground)]">
-                                {p.name} ({p.code})
-                              </div>
-                            </div>
-                          );
-                        })()}
-
-                        {p.type && (
-                          <span className="text-xs text-[var(--muted-foreground)] opacity-70 shrink-0">
-                            {formatMovementType(p.type)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
+                      {name}
+                    </button>
                   ))}
                 </div>
               )}
-          </div>
-          {providerError && (
-            <p className="text-red-500 text-xs mt-1">{providerError}</p>
-          )}
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
-            Numero factura
-          </label>
-          <input
-            placeholder="0000"
-            value={invoiceNumber}
-            onChange={(event) => onInvoiceNumberChange(event.target.value)}
-            onKeyDown={onFieldKeyDown}
-            className={`w-full p-2 bg-[var(--input-bg)] border ${
-              invoiceError ? "border-red-500" : invoiceBorderClass
-            } rounded`}
-            disabled={invoiceDisabled}
-          />
-          {invoiceError && (
-            <p className="text-red-500 text-xs mt-1">{invoiceError}</p>
-          )}
-        </div>
-
-        {/* Tipo ya se determina por el proveedor seleccionado; no se muestra selector aquí */}
-
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
-            Monto
-          </label>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-3 text-sm">
-              <label className="inline-flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="fg_currency"
-                  value="CRC"
-                  checked={currency === "CRC"}
-                  onChange={() => onCurrencyChange && onCurrencyChange("CRC")}
-                  className="accent-[var(--accent)]"
-                  disabled={!currencyEnabled.CRC}
-                />
-                <span
-                  className={`text-xs ${
-                    currencyEnabled.CRC
-                      ? "text-[var(--muted-foreground)]"
-                      : "text-[var(--muted-foreground)]/60"
-                  }`}
-                >
-                  Colones (₡){!currencyEnabled.CRC && " (desactivado)"}
-                </span>
-              </label>
-              <label className="inline-flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="fg_currency"
-                  value="USD"
-                  checked={currency === "USD"}
-                  onChange={() => onCurrencyChange && onCurrencyChange("USD")}
-                  className="accent-[var(--accent)]"
-                  disabled={!currencyEnabled.USD}
-                />
-                <span
-                  className={`text-xs ${
-                    currencyEnabled.USD
-                      ? "text-[var(--muted-foreground)]"
-                      : "text-[var(--muted-foreground)]/60"
-                  }`}
-                >
-                  Dólares ($){!currencyEnabled.USD && " (desactivado)"}
-                </span>
-              </label>
             </div>
-            <input
-              placeholder="0"
-              value={formatInputDisplay(isEgreso ? egreso : ingreso)}
-              onChange={(event) => {
-                const digits = extractDigits(event.target.value);
-                if (isEgreso) onEgresoChange(digits);
-                else onIngresoChange(digits);
-              }}
-              onKeyDown={onFieldKeyDown}
-              className={`flex-1 p-2 bg-[var(--input-bg)] border ${
-                amountError
-                  ? "border-red-500"
-                  : isEgreso
-                    ? egresoBorderClass
-                    : ingresoBorderClass
-              } rounded ${
-                currencyEnabled[currency] ? "" : "opacity-50 cursor-not-allowed"
-              }`}
-              inputMode="numeric"
-              disabled={!currencyEnabled[currency]}
-            />
+            {managerError && (
+              <p className="mt-1 text-xs text-red-400">{managerError}</p>
+            )}
           </div>
-          {amountError && (
-            <p className="text-red-500 text-xs mt-1">{amountError}</p>
-          )}
         </div>
+      </section>
 
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
-            Observacion
-          </label>
-          <input
-            placeholder="Observacion"
-            value={notes}
-            onChange={(event) => onNotesChange(event.target.value)}
-            onKeyDown={onFieldKeyDown}
-            className="w-full p-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded"
-            maxLength={200}
-          />
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
-            Encargado
-          </label>
-          <select
-            value={manager}
-            onChange={(event) => onManagerChange(event.target.value)}
-            onKeyDown={onFieldKeyDown}
-            className={`w-full p-2 bg-[var(--input-bg)] border ${
-              managerError ? "border-red-500" : "border-[var(--input-border)]"
-            } rounded`}
-            disabled={managerSelectDisabled}
-          >
-            <option value="">
-              {employeesLoading
-                ? "Cargando encargados..."
-                : "Seleccionar encargado"}
-            </option>
-            {employeeOptions.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
-          {managerError && (
-            <p className="text-red-500 text-xs mt-1">{managerError}</p>
-          )}
-        </div>
-      </div>
-
-      <div className="flex justify-center gap-2">
+      <div className="sticky bottom-0 -mx-3 flex justify-center gap-2 border-t border-cyan-700/25 bg-[#0d1117]/95 px-3 py-3 backdrop-blur sm:-mx-0 sm:px-0">
         {editingEntryId && (
           <button
             type="button"
-            className="px-4 py-2 border border-[var(--input-border)] rounded text-[var(--foreground)] hover:bg-[var(--muted)] disabled:opacity-50"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded border border-[var(--input-border)] px-4 text-sm font-semibold text-[var(--foreground)] transition-all duration-150 hover:border-cyan-500/45 hover:bg-cyan-950/25 active:scale-[0.99] disabled:opacity-50"
             onClick={onCancelEditing}
           >
-            Cancelar
+            <XCircle className="h-4 w-4" />
+            <span>Cancelar</span>
           </button>
         )}
         <button
           type="button"
-          className="px-4 py-2 bg-blue-400 text-white rounded hover:bg-blue-500 disabled:opacity-50 inline-flex items-center gap-2"
+          className="inline-flex h-11 min-w-[148px] items-center justify-center gap-2 rounded border border-cyan-400/45 bg-cyan-500/20 px-5 text-sm font-semibold text-cyan-50 shadow-sm shadow-cyan-950/20 transition-all duration-150 hover:-translate-y-0.5 hover:border-cyan-300/70 hover:bg-cyan-500/30 hover:shadow-md hover:shadow-cyan-950/30 active:translate-y-0 active:scale-[0.99] disabled:cursor-not-allowed disabled:translate-y-0 disabled:border-[var(--input-border)] disabled:bg-cyan-950/15 disabled:text-[var(--muted-foreground)] disabled:opacity-60"
           onClick={onSubmit}
           disabled={isSubmitDisabled || isSaving}
         >
           {isSaving ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin" />
               Guardando...
             </>
           ) : (
             <>
-              <Save className="w-4 h-4" />
+              <Save className="h-4 w-4" />
               {editingEntryId ? "Actualizar" : "Guardar"}
             </>
           )}

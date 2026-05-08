@@ -37,6 +37,7 @@ import {
   Search,
   AlertTriangle,
   CheckCircle,
+  RotateCcw,
   Mail,
 } from "lucide-react";
 import { useAuth } from "../../../hooks/useAuth";
@@ -2145,7 +2146,7 @@ export function ProviderSection({ id }: { id?: string }) {
           sx: {
             width: { xs: "100vw", sm: 460 },
             maxWidth: "100vw",
-            bgcolor: "#1f262a",
+            bgcolor: "#0d1117",
             color: "#ffffff",
           },
         }}
@@ -9088,13 +9089,13 @@ export function FondoSection({
     };
 
     return (
-      <div className="flex flex-col gap-2 text-sm text-[var(--foreground)] sm:flex-row sm:items-center sm:gap-4">
-        <div className="min-w-[180px]">
+      <div className="flex w-full min-w-0 flex-col gap-3 text-sm text-[var(--foreground)] xl:flex-row xl:items-end xl:gap-4">
+        <div className="min-w-0 flex-1">
           <p className="text-[11px] uppercase tracking-wide text-[var(--muted-foreground)]">
             Empresa actual
           </p>
           <p
-            className="text-sm font-semibold text-[var(--foreground)] truncate"
+            className="truncate text-sm font-semibold text-[var(--foreground)]"
             title={currentCompanyLabel}
           >
             {currentCompanyLabel}
@@ -9103,12 +9104,12 @@ export function FondoSection({
             <p className="text-xs text-red-500 mt-1">{ownerCompaniesError}</p>
           )}
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <label
             htmlFor={companySelectId}
-            className="text-xs font-medium text-[var(--muted-foreground)]"
+            className="text-[11px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]"
           >
-            Seleccionar empresa:
+            Seleccionar empresa
           </label>
           <select
             id={companySelectId}
@@ -9117,7 +9118,7 @@ export function FondoSection({
             disabled={
               ownerCompaniesLoading || sortedOwnerCompanies.length === 0
             }
-            className="min-w-[220px] px-3 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
+            className="w-full min-w-0 max-w-full truncate rounded border border-cyan-700/35 bg-cyan-950/25 px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-colors hover:border-cyan-500/45 focus:border-[var(--accent)]"
           >
             {ownerCompaniesLoading && (
               <option value="">Cargando empresas...</option>
@@ -9220,8 +9221,8 @@ export function FondoSection({
       )}
 
       <section className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/70 p-2 sm:p-3 md:p-4 space-y-3 sm:space-y-4">
-        <div className="grid gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          <div className="relative">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="relative min-w-0">
             <input
               value={providerFilter}
               onChange={(e) => {
@@ -9232,12 +9233,14 @@ export function FondoSection({
               onBlur={() => {
                 setTimeout(() => setIsProviderDropdownOpen(false), 200);
               }}
-              className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 pr-8 sm:pr-10 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-xs sm:text-sm text-[var(--muted-foreground)]"
+              className="h-11 w-full rounded border border-cyan-700/35 bg-cyan-950/25 py-2 pl-3 pr-11 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-cyan-100/70 hover:border-cyan-500/45 focus:border-[var(--accent)]"
               placeholder={providersLoading ? "Cargando..." : "Proveedor"}
               title="Filtrar por proveedor"
               aria-label="Filtrar por proveedor"
             />
-            <Search className="absolute right-2 sm:right-3 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-[var(--muted-foreground)]" />
+            <span className="pointer-events-none absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded border border-cyan-700/35 bg-cyan-900/25 text-cyan-100/80">
+              <Search className="h-4 w-4" />
+            </span>
             {isProviderDropdownOpen &&
               (() => {
                 const filteredProviders =
@@ -9288,7 +9291,7 @@ export function FondoSection({
               })()}
           </div>
 
-          <div className="relative">
+          <div className="relative min-w-0">
             <input
               value={typeFilter}
               onChange={(e) => {
@@ -9299,12 +9302,14 @@ export function FondoSection({
               onBlur={() => {
                 setTimeout(() => setIsTypeDropdownOpen(false), 200);
               }}
-              className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 pr-8 sm:pr-10 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-xs sm:text-sm text-[var(--muted-foreground)]"
+              className="h-11 w-full rounded border border-cyan-700/35 bg-cyan-950/25 py-2 pl-3 pr-11 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-cyan-100/70 hover:border-cyan-500/45 focus:border-[var(--accent)]"
               placeholder="Tipo movimiento"
               title="Filtrar por tipo"
               aria-label="Filtrar por tipo"
             />
-            <Search className="absolute right-2 sm:right-3 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-[var(--muted-foreground)]" />
+            <span className="pointer-events-none absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded border border-cyan-700/35 bg-cyan-900/25 text-cyan-100/80">
+              <Search className="h-4 w-4" />
+            </span>
             {isTypeDropdownOpen &&
               (() => {
                 const allTypes: Array<{
@@ -9388,26 +9393,31 @@ export function FondoSection({
               })()}
           </div>
 
-          <input
-            type="search"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Buscar factura, notas..."
-            className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-xs sm:text-sm text-[var(--muted-foreground)]"
-            aria-label="Buscar movimientos"
-          />
+          <div className="relative min-w-0">
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Buscar factura, notas..."
+              className="h-11 w-full rounded border border-cyan-700/35 bg-cyan-950/25 py-2 pl-3 pr-11 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-cyan-100/70 hover:border-cyan-500/45 focus:border-[var(--accent)]"
+              aria-label="Buscar movimientos"
+            />
+            <span className="pointer-events-none absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded border border-cyan-700/35 bg-cyan-900/25 text-cyan-100/80">
+              <Search className="h-4 w-4" />
+            </span>
+          </div>
 
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 rounded border border-dashed border-[var(--input-border)] px-2.5 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-[var(--muted-foreground)]">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
+          <div className="flex h-11 min-w-0 flex-col justify-center gap-2 rounded border border-cyan-700/35 bg-cyan-950/25 px-3 py-0 text-sm text-[var(--foreground)] sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center justify-between gap-3 sm:w-full">
               <div>
-                <label className="flex items-center gap-1.5 sm:gap-2">
+                <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
                     checked={filterEditedOnly}
                     onChange={(e) => setFilterEditedOnly(e.target.checked)}
-                    className="w-3.5 h-3.5 sm:w-4 sm:h-4"
+                    className="h-4 w-4 rounded border-[var(--input-border)] accent-[var(--accent)]"
                   />
-                  <span>Editados</span>
+                  <span className="text-sm">Editados</span>
                 </label>
               </div>
               <button
@@ -9432,33 +9442,36 @@ export function FondoSection({
                   setPageSize("daily");
                   setPageIndex(0);
                 }}
-                className="self-start sm:self-center px-2.5 sm:px-3 py-1 text-[10px] sm:text-xs font-semibold uppercase tracking-wide border border-[var(--input-border)] rounded hover:bg-[var(--muted)] transition-colors"
+                className="inline-flex h-8 items-center justify-center gap-1.5 rounded border border-[var(--input-border)] px-3 text-xs font-semibold uppercase tracking-wide text-[var(--foreground)] transition-all duration-150 hover:border-[var(--accent)] hover:bg-[var(--muted)] active:scale-[0.98]"
                 title="Limpiar filtros"
               >
-                Limpiar
+                <RotateCcw className="h-3.5 w-3.5" />
+                <span>Limpiar</span>
               </button>
             </div>
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center justify-between gap-2 sm:gap-3 border-t border-[var(--input-border)] pt-2 sm:pt-3">
-          <div className="flex flex-col sm:flex-row flex-1 flex-wrap items-start sm:items-center gap-2 sm:gap-3 w-full sm:w-auto sm:min-w-[260px]">
-            <div className="relative w-full sm:w-auto flex-1 sm:flex-initial min-w-[140px] sm:min-w-[160px]">
-              <label className="block text-[10px] sm:text-xs font-medium text-[var(--muted-foreground)] mb-0.5 sm:mb-1">
+        <div className="grid grid-cols-1 gap-3 border-t border-[var(--input-border)] pt-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
+          <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(150px,180px)_minmax(150px,180px)_minmax(150px,170px)_44px] lg:items-end">
+            <div className="relative min-w-0">
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
                 Desde
               </label>
               <button
                 type="button"
                 ref={fromButtonRef}
                 onClick={() => setCalendarFromOpen((prev) => !prev)}
-                className="flex w-full items-center justify-between gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 border border-[var(--input-border)] rounded hover:bg-[var(--muted)] bg-transparent text-[var(--muted-foreground)] transition-colors"
+                className="flex h-11 w-full items-center justify-between gap-2 rounded border border-cyan-700/35 bg-cyan-950/25 px-3 text-[var(--foreground)] transition-colors hover:border-cyan-500/45 hover:bg-cyan-900/25"
                 title="Seleccionar fecha desde"
                 aria-label="Seleccionar fecha desde"
               >
-                <span className="text-xs sm:text-sm font-medium truncate">
+                <span className="truncate text-sm font-medium">
                   {fromFilter ? formatKeyToDisplay(fromFilter) : "dd/mm/yyyy"}
                 </span>
-                <CalendarDays className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded border border-cyan-700/35 bg-cyan-900/25 text-cyan-100/80">
+                  <CalendarDays className="h-4 w-4" />
+                </span>
               </button>
 
               {calendarFromOpen && (
@@ -9590,22 +9603,24 @@ export function FondoSection({
               )}
             </div>
 
-            <div className="relative w-full sm:w-auto">
-              <label className="block text-xs font-medium text-[var(--muted-foreground)] mb-1">
+            <div className="relative min-w-0">
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
                 Hasta
               </label>
               <button
                 type="button"
                 ref={toButtonRef}
                 onClick={() => setCalendarToOpen((prev) => !prev)}
-                className="flex w-full items-center justify-between gap-2 px-3 py-2 border border-[var(--input-border)] rounded hover:bg-[var(--muted)] bg-transparent text-[var(--muted-foreground)]"
+                className="flex h-11 w-full items-center justify-between gap-2 rounded border border-cyan-700/35 bg-cyan-950/25 px-3 text-[var(--foreground)] transition-colors hover:border-cyan-500/45 hover:bg-cyan-900/25"
                 title="Seleccionar fecha hasta"
                 aria-label="Seleccionar fecha hasta"
               >
-                <span className="text-sm font-medium">
+                <span className="truncate text-sm font-medium">
                   {toFilter ? formatKeyToDisplay(toFilter) : "dd/mm/yyyy"}
                 </span>
-                <CalendarDays className="w-4 h-4" />
+                <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded border border-cyan-700/35 bg-cyan-900/25 text-cyan-100/80">
+                  <CalendarDays className="h-4 w-4" />
+                </span>
               </button>
 
               {calendarToOpen && (
@@ -9736,9 +9751,12 @@ export function FondoSection({
                 </div>
               )}
             </div>
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 mt-2">
+            <div className="min-w-0">
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+                Filtro
+              </label>
               <select
-                className="border border-[var(--input-border)] rounded px-2 py-1 text-xs sm:text-sm bg-[var(--input-bg)]"
+                className="h-11 w-full min-w-0 rounded border border-cyan-700/35 bg-cyan-950/25 px-3 text-sm font-medium text-[var(--foreground)] outline-none transition-colors hover:border-cyan-500/45 focus:border-[var(--accent)]"
                 value={quickRange || ""}
                 onChange={(e) => {
                   const v = e.target.value;
@@ -9811,7 +9829,7 @@ export function FondoSection({
               </select>
             </div>
             {accountKey === "FondoGeneral" && (
-              <div className="relative group mt-2 sm:mt-0">
+              <div className="relative group flex items-end">
                 <button
                   type="button"
                   onClick={() => {
@@ -9819,11 +9837,11 @@ export function FondoSection({
                     setDailyClosingHistoryOpen(true);
                   }}
                   disabled={closingsAreLoading}
-                  className="inline-flex items-center justify-center h-8 w-8 rounded border border-[var(--input-border)] bg-[var(--input-bg)] hover:bg-[var(--muted)] transition-colors disabled:opacity-60"
+                  className="inline-flex h-11 w-full items-center justify-center rounded border border-cyan-700/35 bg-cyan-950/25 text-cyan-100/80 transition-colors hover:border-cyan-500/45 hover:bg-cyan-900/25 hover:text-[var(--foreground)] disabled:opacity-60 sm:w-11"
                   title="Cierres anteriores"
                   aria-label="Cierres anteriores"
                 >
-                  <Clock className="w-4 h-4 text-[var(--muted-foreground)]" />
+                  <Clock className="h-4 w-4" />
                 </button>
                 <div className="hidden sm:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[var(--card-bg)] border border-[var(--input-border)] text-[var(--foreground)] text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
                   Cierres anteriores
@@ -9833,21 +9851,21 @@ export function FondoSection({
             )}
           </div>
 
-          <div className="flex flex-col sm:flex-row w-full sm:w-auto items-stretch sm:items-center gap-2">
+          <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 xl:w-auto xl:min-w-[348px]">
             {accountKey === "FondoGeneral" && (
-              <div className="relative group flex-1 sm:flex-initial ">
+              <div className="relative group min-w-0">
                 <button
                   type="button"
                   onClick={handleOpenDailyClosing}
                   disabled={!pendingCierreDeCaja}
-                  className={`flex items-center justify-center gap-1.5 sm:gap-2 rounded px-3 sm:px-4 py-2 sm:py-2.5 text-white text-xs sm:text-sm w-full ${
+                  className={`flex h-11 w-full items-center justify-center gap-2 rounded border px-3 text-sm font-semibold shadow-sm transition-all duration-150 ${
                     !pendingCierreDeCaja
-                      ? "bg-gray-400 cursor-not-allowed opacity-60"
-                      : "fg-add-mov-btn"
+                      ? "cursor-not-allowed border-[var(--input-border)] bg-[var(--muted)]/30 text-[var(--muted-foreground)] opacity-70"
+                      : "border-emerald-500/40 bg-emerald-500/15 text-emerald-400 hover:-translate-y-0.5 hover:border-emerald-400/70 hover:bg-emerald-500/25 hover:shadow-md hover:shadow-emerald-950/20 active:translate-y-0 active:scale-[0.99]"
                   }`}
                 >
-                  <Banknote className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  <span className="whitespace-nowrap">Registrar cierre</span>
+                  <Banknote className="h-4 w-4 flex-shrink-0" />
+                  <span className="truncate">Registrar cierre</span>
                 </button>
                 {!pendingCierreDeCaja && (
                   <div className="hidden sm:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-yellow-500 text-black text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
@@ -9858,7 +9876,7 @@ export function FondoSection({
                 )}
               </div>
             )}
-            <div className="relative group flex-1 sm:flex-initial">
+            <div className="relative group min-w-0">
               <button
                 type="button"
                 onClick={handleOpenCreateMovement}
@@ -9866,15 +9884,15 @@ export function FondoSection({
                   (accountKey === "FondoGeneral" && pendingCierreDeCaja) ||
                   !entriesHydrated
                 }
-                className={`flex items-center justify-center gap-1.5 sm:gap-2 rounded px-3 sm:px-4 py-2 sm:py-2.5 text-white text-xs sm:text-sm w-full ${
+                className={`flex h-11 w-full items-center justify-center gap-2 rounded border px-3 text-sm font-semibold shadow-sm transition-all duration-150 ${
                   (accountKey === "FondoGeneral" && pendingCierreDeCaja) ||
                   !entriesHydrated
-                    ? "bg-gray-400 cursor-not-allowed opacity-60"
-                    : "fg-add-mov-btn"
+                    ? "cursor-not-allowed border-[var(--input-border)] bg-[var(--muted)]/30 text-[var(--muted-foreground)] opacity-70"
+                    : "border-[var(--accent)] bg-[var(--accent)] text-white hover:-translate-y-0.5 hover:bg-[var(--accent)]/90 hover:shadow-md hover:shadow-sky-950/25 active:translate-y-0 active:scale-[0.99]"
                 }`}
               >
-                <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                <span className="whitespace-nowrap">Agregar movimiento</span>
+                <Plus className="h-4 w-4 flex-shrink-0" />
+                <span className="truncate">Registrar movimiento</span>
               </button>
               {accountKey === "FondoGeneral" &&
                 pendingCierreDeCaja &&
@@ -9910,7 +9928,7 @@ export function FondoSection({
           sx: {
             width: { xs: "100vw", sm: 520 },
             maxWidth: "100vw",
-            bgcolor: "#1f262a",
+            bgcolor: "#0d1117",
             color: "#ffffff",
           },
         }}
@@ -10050,25 +10068,49 @@ export function FondoSection({
         )}
 
       <div className="mt-6">
-        <h3 className="text-xs sm:text-sm font-medium text-[var(--muted-foreground)] mb-2 text-center">
-          Movimientos recientes
-        </h3>
+        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+            <span className="flex h-9 w-9 items-center justify-center rounded border border-[var(--input-border)] bg-[var(--muted)]/20 text-[var(--accent)]">
+              <Layers className="h-4 w-4" />
+            </span>
+            <div>
+              <h3 className="text-sm font-semibold text-[var(--foreground)]">
+                Movimientos recientes
+              </h3>
+              <p className="text-xs text-[var(--muted-foreground)]">
+                {filteredEntries.length} registro
+                {filteredEntries.length === 1 ? "" : "s"} en la vista actual
+              </p>
+            </div>
+          </div>
+        </div>
         {fondoEntries.length === 0 ? (
           isFondoMovementsLoading ? (
-            <div className="flex flex-col items-center justify-center py-6 text-[var(--muted-foreground)]">
-              <div className="h-6 w-6 rounded-full border-2 border-[var(--muted-foreground)] border-t-transparent animate-spin" />
+            <div className="flex min-h-[180px] flex-col items-center justify-center rounded-lg border border-dashed border-[var(--input-border)] bg-[var(--card-bg)]/60 py-6 text-[var(--muted-foreground)]">
+              <div className="h-7 w-7 animate-spin rounded-full border-2 border-[var(--accent)] border-t-transparent" />
               <p className="mt-2 text-xs sm:text-sm">Cargando movimientos...</p>
             </div>
           ) : (
-            <p className="text-xs sm:text-sm text-[var(--muted-foreground)] text-center py-4">
-              No hay movimientos aun.
-            </p>
+            <div className="flex min-h-[180px] flex-col items-center justify-center rounded-lg border border-dashed border-[var(--input-border)] bg-[var(--card-bg)]/60 px-4 py-6 text-center">
+              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded border border-[var(--input-border)] bg-[var(--muted)]/20 text-[var(--muted-foreground)]">
+                <FileText className="h-5 w-5" />
+              </div>
+              <p className="text-sm font-medium text-[var(--foreground)]">
+                No hay movimientos aun.
+              </p>
+              <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                Los registros apareceran aqui cuando se agregue el primer
+                movimiento.
+              </p>
+            </div>
           )
         ) : (
-          <div className="overflow-x-auto rounded border border-[var(--input-border)] bg-[#1f262a] text-white">
-            <div className="px-2 sm:px-3 py-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0 bg-transparent text-xs sm:text-sm text-[var(--muted-foreground)]">
+          <div className="overflow-hidden rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/80 text-white shadow-sm">
+            <div className="flex flex-col items-start justify-between gap-3 border-b border-[var(--input-border)] bg-[var(--muted)]/10 px-3 py-3 text-xs text-[var(--muted-foreground)] sm:flex-row sm:items-center">
               <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
-                <span className="text-xs sm:text-sm">Mostrar</span>
+                <span className="text-xs font-semibold uppercase tracking-wide">
+                  Mostrar
+                </span>
                 <select
                   value={
                     pageSize === "all"
@@ -10083,7 +10125,7 @@ export function FondoSection({
                     else if (v === "daily") setPageSize("daily");
                     else setPageSize(Number.parseInt(v, 10) || 10);
                   }}
-                  className="p-1 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-xs sm:text-sm flex-1 sm:flex-initial min-w-0"
+                  className="h-9 min-w-0 flex-1 rounded border border-cyan-700/35 bg-cyan-950/25 px-2 text-xs text-[var(--foreground)] outline-none transition-colors hover:border-cyan-500/45 sm:flex-initial"
                 >
                   <option value="daily">Diariamente</option>
                   <option value="5">5</option>
@@ -10099,33 +10141,33 @@ export function FondoSection({
                 )}
               </div>
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 text-[var(--muted-foreground)]">
-                  <label className="flex items-center gap-1.5 cursor-pointer">
+                <div className="flex flex-col items-start gap-2 text-[var(--muted-foreground)] sm:flex-row sm:items-center sm:gap-3">
+                  <label className="flex cursor-pointer items-center gap-2 rounded border border-cyan-700/35 bg-cyan-950/25 px-2.5 py-2 transition-colors hover:border-cyan-500/45">
                     <input
                       aria-label="Recordar filtros"
                       title="Recordar filtros"
-                      className="cursor-pointer w-3.5 h-3.5 sm:w-4 sm:h-4"
+                      className="h-4 w-4 cursor-pointer accent-[var(--accent)]"
                       type="checkbox"
                       checked={rememberFilters}
                       onChange={(e) => setRememberFilters(e.target.checked)}
                     />
-                    <span className="text-xs sm:text-sm whitespace-nowrap">
+                    <span className="whitespace-nowrap text-xs">
                       Recordar ajustes
                     </span>
                   </label>
                   {isAdminUser && (
-                    <label className="flex items-center gap-1.5 cursor-pointer">
+                    <label className="flex cursor-pointer items-center gap-2 rounded border border-cyan-700/35 bg-cyan-950/25 px-2.5 py-2 transition-colors hover:border-cyan-500/45">
                       <input
                         aria-label="Mantener filtros entre empresas"
                         title="Mantener filtros entre empresas"
-                        className="cursor-pointer w-3.5 h-3.5 sm:w-4 sm:h-4"
+                        className="h-4 w-4 cursor-pointer accent-[var(--accent)]"
                         type="checkbox"
                         checked={keepFiltersAcrossCompanies}
                         onChange={(e) =>
                           setKeepFiltersAcrossCompanies(e.target.checked)
                         }
                       />
-                      <span className="text-xs sm:text-sm whitespace-nowrap">
+                      <span className="whitespace-nowrap text-xs">
                         Mantener entre empresas
                       </span>
                     </label>
@@ -10136,11 +10178,11 @@ export function FondoSection({
                     type="button"
                     onClick={handlePrevPage}
                     disabled={disablePrevButton}
-                    className="px-2 sm:px-3 py-1 border border-[var(--input-border)] rounded disabled:opacity-50 text-xs sm:text-sm flex-1 sm:flex-initial"
+                    className="h-9 flex-1 rounded border border-[var(--input-border)] px-3 text-xs font-medium transition-colors hover:border-[var(--accent)] hover:bg-[var(--muted)] disabled:cursor-not-allowed disabled:opacity-45 sm:flex-initial"
                   >
                     Ant
                   </button>
-                  <div className="px-1 sm:px-2 text-[10px] sm:text-xs whitespace-nowrap">
+                  <div className="rounded border border-cyan-700/35 bg-cyan-950/25 px-2 py-2 text-[10px] font-medium text-[var(--foreground)] sm:text-xs whitespace-nowrap">
                     {isDailyMode
                       ? formatGroupLabel(currentDailyKey)
                       : `${Math.min(pageIndex + 1, totalPages)}/${totalPages}`}
@@ -10149,14 +10191,14 @@ export function FondoSection({
                     type="button"
                     onClick={handleNextPage}
                     disabled={disableNextButton}
-                    className="px-2 sm:px-3 py-1 border border-[var(--input-border)] rounded disabled:opacity-50 text-xs sm:text-sm flex-1 sm:flex-initial"
+                    className="h-9 flex-1 rounded border border-[var(--input-border)] px-3 text-xs font-medium transition-colors hover:border-[var(--accent)] hover:bg-[var(--muted)] disabled:cursor-not-allowed disabled:opacity-45 sm:flex-initial"
                   >
                     Sig
                   </button>
                 </div>
               </div>
             </div>
-            <div className="max-h-[28rem] sm:max-h-[36rem] overflow-y-auto">
+            <div className="max-h-[28rem] overflow-y-auto sm:max-h-[36rem]">
               {(fromFilter || toFilter) && (
                 <div className="px-2 sm:px-3 py-2">
                   <div className="text-xs sm:text-sm text-[var(--muted-foreground)] flex flex-col sm:flex-row sm:items-center gap-2">
@@ -10179,7 +10221,8 @@ export function FondoSection({
                   </div>
                 </div>
               )}
-              <table className="w-full min-w-[900px] text-xs sm:text-sm">
+              <div className="overflow-x-auto">
+              <table className="w-full min-w-[900px] border-separate border-spacing-0 text-xs sm:text-sm">
                 <colgroup>
                   <col style={{ width: columnWidths.hora }} />
                   <col style={{ width: columnWidths.motivo }} />
@@ -10189,7 +10232,7 @@ export function FondoSection({
                   <col style={{ width: columnWidths.encargado }} />
                   <col style={{ width: columnWidths.editar }} />
                 </colgroup>
-                <thead className="bg-[var(--muted)] text-xs uppercase tracking-wide text-[var(--muted-foreground)]">
+                <thead className="sticky top-0 z-10 bg-cyan-950/35 text-xs uppercase tracking-wide text-cyan-50/80">
                   <tr>
                     <th className="px-3 py-2 text-left font-semibold">
                       <div className="relative pr-2">
@@ -10559,8 +10602,8 @@ export function FondoSection({
                       return (
                         <tr
                           key={fe.id}
-                          className={`border-t border-[var(--input-border)] hover:bg-[var(--muted)] ${
-                            isMostRecent ? "bg-[#273238]" : ""
+                          className={`border-t border-[var(--input-border)] transition-colors hover:bg-[var(--muted)]/35 ${
+                            isMostRecent ? "bg-[var(--muted)]/20" : ""
                           } ${isMovementLocked(fe) ? "opacity-60" : ""}`}
                         >
                           <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
@@ -10568,7 +10611,7 @@ export function FondoSection({
                           </td>
                           <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
                             <div className="flex items-center gap-2">
-                              <div className="font-semibold text-[var(--muted-foreground)]">
+                              <div className="font-semibold text-[var(--foreground)]">
                                 {providerName}
                               </div>
                               {fe.isAudit && (
@@ -10591,7 +10634,7 @@ export function FondoSection({
                                     }
                                   }}
                                   title={auditTooltip}
-                                  className="inline-flex items-center gap-2 text-[11px] text-yellow-400 bg-yellow-900/10 px-2 py-0.5 rounded cursor-pointer"
+                                  className="inline-flex cursor-pointer items-center gap-1.5 rounded border border-yellow-500/25 bg-yellow-500/10 px-2 py-0.5 text-[11px] text-yellow-300 transition-colors hover:bg-yellow-500/20"
                                 >
                                   <Pencil className="w-3 h-3 text-yellow-300" />
                                   <span>Editado</span>
@@ -10648,12 +10691,16 @@ export function FondoSection({
                             )}
                           </td>
                           <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
-                            {displayPaymentType === "INFORMATIVO"
-                              ? "-"
-                              : formatMovementType(displayPaymentType)}
+                            <span className="inline-flex max-w-full items-center rounded border border-[var(--input-border)] bg-[var(--muted)]/15 px-2 py-1 text-xs text-[var(--foreground)]">
+                              {displayPaymentType === "INFORMATIVO"
+                                ? "-"
+                                : formatMovementType(displayPaymentType)}
+                            </span>
                           </td>
                           <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
-                            #{fe.invoiceNumber}
+                            <span className="font-medium text-[var(--foreground)]">
+                              #{fe.invoiceNumber}
+                            </span>
                           </td>
                           <td className="px-3 py-2 align-top">
                             {isAutoAdjustment ? (
@@ -10687,10 +10734,10 @@ export function FondoSection({
                                           <ArrowDownRight className="w-4 h-4 text-green-500" />
                                         )}
                                         <span
-                                          className={`font-semibold ${
+                                          className={`rounded px-2 py-1 text-xs font-semibold ${
                                             isEntryEgreso
-                                              ? "text-red-500"
-                                              : "text-green-600"
+                                              ? "bg-red-500/10 text-red-400"
+                                              : "bg-emerald-500/10 text-emerald-400"
                                           }`}
                                         >
                                           {`${amountPrefix} ${formatByCurrency(
@@ -10733,10 +10780,10 @@ export function FondoSection({
                                           <ArrowDownRight className="w-4 h-4 text-green-500" />
                                         )}
                                         <span
-                                          className={`font-semibold ${
+                                          className={`rounded px-2 py-1 text-xs font-semibold ${
                                             isEntryEgreso
-                                              ? "text-red-500"
-                                              : "text-green-600"
+                                              ? "bg-red-500/10 text-red-400"
+                                              : "bg-emerald-500/10 text-emerald-400"
                                           }`}
                                         >
                                           {`${amountPrefix} ${formatByCurrency(
@@ -10778,10 +10825,10 @@ export function FondoSection({
                                     <ArrowDownRight className="w-4 h-4 text-green-500" />
                                   )}
                                   <span
-                                    className={`font-semibold ${
+                                    className={`rounded px-2 py-1 text-xs font-semibold ${
                                       isEntryEgreso
-                                        ? "text-red-500"
-                                        : "text-green-600"
+                                        ? "bg-red-500/10 text-red-400"
+                                        : "bg-emerald-500/10 text-emerald-400"
                                     }`}
                                   >
                                     {`${amountPrefix} ${formatByCurrency(
@@ -10831,7 +10878,7 @@ export function FondoSection({
                                       {canEdit && (
                                         <button
                                           type="button"
-                                          className="inline-flex items-center gap-2 rounded border border-[var(--input-border)] px-3 py-1 text-xs font-medium text-[var(--muted-foreground)] hover:bg-[var(--muted)] disabled:opacity-50"
+                                          className="inline-flex items-center gap-1.5 rounded border border-[var(--input-border)] bg-[var(--input-bg)] px-2.5 py-1.5 text-xs font-medium text-[var(--foreground)] transition-all duration-150 hover:-translate-y-0.5 hover:border-[var(--accent)] hover:bg-[var(--muted)] disabled:translate-y-0 disabled:opacity-50"
                                           onClick={() => handleEditMovement(fe)}
                                           disabled={editingEntryId === fe.id}
                                           title={
@@ -10850,7 +10897,7 @@ export function FondoSection({
                                       {canDelete && (
                                         <button
                                           type="button"
-                                          className="inline-flex items-center gap-2 rounded border border-red-500/50 px-3 py-1 text-xs font-medium text-red-500 hover:bg-red-500/10"
+                                          className="inline-flex items-center gap-1.5 rounded border border-red-500/40 bg-red-500/10 px-2.5 py-1.5 text-xs font-medium text-red-400 transition-all duration-150 hover:-translate-y-0.5 hover:border-red-400 hover:bg-red-500/20"
                                           onClick={() =>
                                             handleDeleteMovement(fe)
                                           }
@@ -10879,6 +10926,7 @@ export function FondoSection({
                   </tbody>
                 ))}
               </table>
+            </div>
             </div>
           </div>
         )}
@@ -10981,13 +11029,18 @@ export function FondoSection({
 
       <div className="mt-5">
         <div className="flex justify-center">
-          <div className="w-full max-w-2xl space-y-4">
+          <div className="w-full max-w-3xl space-y-4">
             {enabledBalanceCurrencies.length > 0 && (
-              <div className="px-4 py-3 rounded min-w-[220px] fg-balance-card">
-                <div className="mb-3 text-center text-sm font-medium text-[var(--muted-foreground)]">
-                  Saldo Actual
+              <div className="overflow-hidden rounded-xl border border-cyan-700/35 bg-cyan-950/20 shadow-lg shadow-cyan-950/10">
+                <div className="flex items-center justify-center gap-2 border-b border-cyan-700/25 bg-cyan-950/25 px-4 py-3">
+                  <span className="flex h-8 w-8 items-center justify-center rounded border border-cyan-700/35 bg-cyan-900/25 text-cyan-100/80">
+                    <Banknote className="h-4 w-4" />
+                  </span>
+                  <div className="text-sm font-semibold text-[var(--foreground)]">
+                    Saldo Actual
+                  </div>
                 </div>
-                <div className="flex flex-col divide-y divide-[var(--input-border)] sm:flex-row sm:divide-y-0 sm:divide-x">
+                <div className="grid grid-cols-1 gap-px bg-cyan-700/25 sm:grid-cols-2">
                   {enabledBalanceCurrencies.map((currency) => {
                     const label = currency === "CRC" ? "Colones" : "Dólares";
                     const value =
@@ -10997,12 +11050,15 @@ export function FondoSection({
                     return (
                       <div
                         key={currency}
-                        className="flex-1 px-3 py-2 text-center"
+                        className="bg-[#11181d] px-5 py-5 text-center sm:px-6"
                       >
-                        <div className="text-xs uppercase tracking-wide text-[var(--foreground)]">
+                        <div className="mx-auto mb-3 flex h-9 w-9 items-center justify-center rounded border border-cyan-700/35 bg-cyan-950/35 text-cyan-100/80">
+                          <span className="text-xs font-bold">{currency}</span>
+                        </div>
+                        <div className="text-[11px] font-semibold uppercase tracking-wide text-cyan-100/70">
                           {label}
                         </div>
-                        <div className="text-lg font-semibold text-[var(--foreground)]">
+                        <div className="mt-1 text-xl font-bold text-[var(--foreground)] sm:text-2xl">
                           {formatByCurrency(currency, value)}
                         </div>
                       </div>

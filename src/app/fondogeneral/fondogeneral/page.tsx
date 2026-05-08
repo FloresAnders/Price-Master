@@ -1,7 +1,16 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Lock } from "lucide-react";
+import {
+  Banknote,
+  Building2,
+  Landmark,
+  Loader2,
+  Lock,
+  ShieldAlert,
+  WalletCards,
+  type LucideIcon,
+} from "lucide-react";
 import { FondoSection } from "../components/fondo";
 import { useAuth } from "@/hooks/useAuth";
 import { getDefaultPermissions } from "@/utils/permissions";
@@ -11,6 +20,46 @@ type FondoTab = {
   id: TabId;
   label: string;
   namespace: "fg" | "bcr" | "bn" | "bac";
+};
+
+const TAB_VISUALS: Record<
+  TabId,
+  {
+    icon: LucideIcon;
+    shortLabel: string;
+    helper: string;
+    tone: string;
+    activeTone: string;
+  }
+> = {
+  fondo: {
+    icon: WalletCards,
+    shortLabel: "General",
+    helper: "Caja principal",
+    tone: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
+    activeTone: "text-emerald-500 bg-emerald-500/15 border-emerald-500/30",
+  },
+  bcr: {
+    icon: Landmark,
+    shortLabel: "BCR",
+    helper: "Cuenta bancaria",
+    tone: "text-sky-500 bg-sky-500/10 border-sky-500/20",
+    activeTone: "text-sky-500 bg-sky-500/15 border-sky-500/30",
+  },
+  bn: {
+    icon: Building2,
+    shortLabel: "BN",
+    helper: "Cuenta bancaria",
+    tone: "text-amber-500 bg-amber-500/10 border-amber-500/20",
+    activeTone: "text-amber-500 bg-amber-500/15 border-amber-500/30",
+  },
+  bac: {
+    icon: Banknote,
+    shortLabel: "BAC",
+    helper: "Cuenta bancaria",
+    tone: "text-rose-500 bg-rose-500/10 border-rose-500/20",
+    activeTone: "text-rose-500 bg-rose-500/15 border-rose-500/30",
+  },
 };
 
 // Clave para persistir la selección del tab de cuenta en localStorage
@@ -106,11 +155,21 @@ export default function FondoPage() {
 
   if (loading) {
     return (
-      <div className="w-full max-w-7xl mx-auto py-3 px-2 sm:py-6 sm:px-4 lg:py-8">
-        <div className="flex items-center justify-center p-6 sm:p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)]">
-          <p className="text-sm sm:text-base text-[var(--muted-foreground)]">
-            Cargando permisos...
-          </p>
+      <div className="w-full max-w-7xl mx-auto px-2 py-3 sm:px-4 sm:py-6 lg:py-8">
+        <div className="flex min-h-[220px] items-center justify-center rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] p-6 shadow-sm sm:p-8">
+          <div className="flex flex-col items-center gap-3 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[var(--accent)]/25 bg-[var(--accent)]/10">
+              <Loader2 className="h-5 w-5 animate-spin text-[var(--accent)]" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-[var(--foreground)] sm:text-base">
+                Preparando Fondo General
+              </p>
+              <p className="mt-1 text-xs text-[var(--muted-foreground)] sm:text-sm">
+                Validando permisos y cuentas disponibles...
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -118,17 +177,17 @@ export default function FondoPage() {
 
   if (!hasGeneralAccess) {
     return (
-      <div className="w-full max-w-7xl mx-auto py-3 px-2 sm:py-6 sm:px-4 lg:py-8">
-        <div className="flex flex-col items-center justify-center p-6 sm:p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)] text-center">
-          <Lock className="w-8 h-8 sm:w-10 sm:h-10 text-[var(--muted-foreground)] mb-3 sm:mb-4" />
-          <h3 className="text-base sm:text-lg font-semibold text-[var(--foreground)] mb-2">
+      <div className="w-full max-w-7xl mx-auto px-2 py-3 sm:px-4 sm:py-6 lg:py-8">
+        <div className="flex min-h-[260px] flex-col items-center justify-center rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] p-6 text-center shadow-sm sm:p-8">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-red-500/25 bg-red-500/10">
+            <ShieldAlert className="h-7 w-7 text-red-500" />
+          </div>
+          <h3 className="text-base font-semibold text-[var(--foreground)] sm:text-lg">
             Acceso restringido
           </h3>
-          <p className="text-sm sm:text-base text-[var(--muted-foreground)]">
-            No tienes permisos para operar el Fondo General.
-          </p>
-          <p className="text-xs sm:text-sm text-[var(--muted-foreground)] mt-2">
-            Contacta a un administrador para obtener acceso.
+          <p className="mt-2 max-w-md text-sm text-[var(--muted-foreground)] sm:text-base">
+            No tienes permisos para operar el Fondo General. Contacta a un
+            administrador para obtener acceso.
           </p>
         </div>
       </div>
@@ -136,19 +195,66 @@ export default function FondoPage() {
   }
 
   return (
-    <div className="w-full max-w-7xl mx-auto py-3 px-2 sm:py-6 sm:px-4 lg:py-8">
-      <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6">
-        <div>
-          {/* Tabs de cuentas - Responsive */}
-          <div className="flex flex-col gap-3 border-b border-[var(--input-border)] pb-3 mb-3 sm:pb-4 sm:mb-4">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+    <div className="w-full max-w-7xl mx-auto px-2 py-3 sm:px-4 sm:py-6 lg:py-8">
+      <section className="mb-4 overflow-hidden rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] shadow-sm">
+        <div className="flex flex-col gap-4 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-start gap-3 sm:gap-4">
+            <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl border border-[var(--accent)]/25 bg-[var(--accent)]/10 sm:h-14 sm:w-14">
+              <WalletCards className="h-6 w-6 text-[var(--accent)] sm:h-7 sm:w-7" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-xl font-semibold text-[var(--foreground)] sm:text-2xl">
+                  Fondo General
+                </h1>
+                {activeTab && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--input-border)] bg-[var(--muted)]/30 px-2.5 py-1 text-xs font-medium text-[var(--muted-foreground)]">
+                    <Lock className="h-3.5 w-3.5" />
+                    {activeTab.label}
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-[var(--muted-foreground)]">
+                Administra movimientos, saldos y cierres por cuenta con una
+                vista ordenada para el trabajo diario.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+            <div className="rounded-lg border border-[var(--input-border)] bg-[var(--muted)]/20 px-3 py-2 text-center sm:min-w-[112px]">
+              <div className="text-lg font-semibold leading-none text-[var(--foreground)]">
+                {availableTabs.length}
+              </div>
+              <div className="mt-1 text-[11px] font-medium uppercase text-[var(--muted-foreground)]">
+                Cuentas
+              </div>
+            </div>
+            <div className="rounded-lg border border-[var(--input-border)] bg-[var(--muted)]/20 px-3 py-2 text-center sm:min-w-[112px]">
+              <div className="text-lg font-semibold leading-none text-[var(--foreground)]">
+                {activeTab ? TAB_VISUALS[activeTab.id].shortLabel : "-"}
+              </div>
+              <div className="mt-1 text-[11px] font-medium uppercase text-[var(--muted-foreground)]">
+                Activa
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] p-3 shadow-sm sm:p-4 md:p-5">
+        <div className="flex flex-col gap-4">
+          <div className="rounded-lg border border-[var(--input-border)] bg-[var(--muted)]/10 p-2 sm:p-3">
+            <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-stretch xl:justify-between">
               <div
                 role="tablist"
                 aria-label="Cuentas"
-                className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto scrollbar-hide -mx-3 px-3 sm:mx-0 sm:px-0"
+                className="grid min-w-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:flex xl:flex-wrap xl:items-center"
               >
                 {availableTabs.map((tab) => {
                   const isActive = effectiveActive === tab.id;
+                  const visual = TAB_VISUALS[tab.id];
+                  const Icon = visual.icon;
                   return (
                     <button
                       key={tab.id}
@@ -160,28 +266,40 @@ export default function FondoPage() {
                         setCompanySelectorSlot(null);
                         setActive(tab.id);
                       }}
-                      className={`relative flex-shrink-0 rounded-md px-3 py-2 sm:px-4 text-sm font-semibold whitespace-nowrap transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)] ${
+                      className={`group relative flex min-h-[64px] items-center gap-3 rounded-lg border px-3 py-2 text-left transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)] lg:min-w-[180px] ${
                         isActive
-                          ? "border-[var(--accent)] text-[var(--foreground)] bg-[var(--accent)]/15 shadow-md"
-                          : "border-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--muted)]/10"
+                          ? "border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--foreground)] shadow-sm"
+                          : "border-transparent bg-transparent text-[var(--muted-foreground)] hover:border-[var(--input-border)] hover:bg-[var(--card-bg)] hover:text-[var(--foreground)]"
                       }`}
                     >
-                      <span className="flex items-center gap-1.5">
-                        {isActive && (
-                          <div className="w-2 h-2 bg-[var(--accent)] rounded-full" />
-                        )}
-                        {tab.label}
+                      <span
+                        className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border ${
+                          isActive ? visual.activeTone : visual.tone
+                        }`}
+                      >
+                        <Icon className="h-5 w-5" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold">
+                          {tab.label}
+                        </span>
+                        <span className="mt-0.5 block truncate text-xs text-[var(--muted-foreground)]">
+                          {visual.helper}
+                        </span>
                       </span>
                       {isActive && (
-                        <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-[var(--accent)] rounded-full" />
+                        <span className="absolute bottom-1 left-3 right-3 h-0.5 rounded-full bg-[var(--accent)]" />
                       )}
                     </button>
                   );
                 })}
               </div>
               {activeTab && companySelectorSlot && (
-                <div className="w-full sm:w-auto sm:ml-auto">
-                  <div className="w-full sm:min-w-[220px] md:min-w-[260px]">
+                <div className="w-full min-w-0 xl:w-[380px] xl:flex-shrink-0">
+                  <div className="min-w-0 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-2 sm:p-3">
+                    <div className="mb-1 px-1 text-[11px] font-semibold uppercase text-[var(--muted-foreground)]">
+                      Empresa
+                    </div>
                     {companySelectorSlot}
                   </div>
                 </div>
@@ -190,7 +308,7 @@ export default function FondoPage() {
           </div>
 
           {/* Contenido principal */}
-          <div className="mt-3 sm:mt-4">
+          <div>
             {activeTab ? (
               <FondoSection
                 namespace={activeTab.namespace}
@@ -198,9 +316,10 @@ export default function FondoPage() {
                 onCompanySelectorChange={handleCompanySelectorChange}
               />
             ) : (
-              <div className="flex items-center justify-center p-4 sm:p-6 bg-[var(--muted)] rounded border border-[var(--input-border)]">
-                <p className="text-xs sm:text-sm text-[var(--muted-foreground)]">
-                  No hay cuentas disponibles para mostrar.
+              <div className="flex min-h-[180px] items-center justify-center rounded-lg border border-dashed border-[var(--input-border)] bg-[var(--muted)]/10 p-4 text-center sm:p-6">
+                <p className="max-w-sm text-xs text-[var(--muted-foreground)] sm:text-sm">
+                  No hay cuentas disponibles para mostrar con tus permisos
+                  actuales.
                 </p>
               </div>
             )}
