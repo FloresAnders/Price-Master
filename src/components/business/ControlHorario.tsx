@@ -2347,8 +2347,8 @@ export default function ControlHorario({
                   onChange={(e) => setSelectedEmployee(e.target.value)}
                 >
                   <option value="Todos">Todos</option>
-                  {names.map((name) => (
-                    <option key={name} value={name}>
+                  {names.map((name, index) => (
+                    <option key={`${name}-${index}`} value={name}>
                       {name}
                     </option>
                   ))}
@@ -2532,8 +2532,8 @@ export default function ControlHorario({
                 {(selectedEmployee === "Todos"
                   ? names
                   : [selectedEmployee]
-                ).map((name) => (
-                  <tr key={name}>
+                ).map((name, index) => (
+                  <tr key={`${name}-${index}`}>
                     <td
                       className="border border-[var(--input-border)] p-2 font-medium bg-[var(--input-bg)] text-[var(--foreground)] min-w-[80px] sm:min-w-[100px] sticky left-0 z-10 group cursor-pointer text-xs"
                       style={{

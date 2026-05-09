@@ -9222,177 +9222,119 @@ export function FondoSection({
 
       <section className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/70 p-2 sm:p-3 md:p-4 space-y-3 sm:space-y-4">
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-4">
+          {/* Proveedor: estilo parecido al dropdown de Encargado, manteniendo icono y nombre */}
           <div className="relative min-w-0">
-            <input
-              value={providerFilter}
-              onChange={(e) => {
-                setProviderFilter(e.target.value);
-                setIsProviderDropdownOpen(true);
-              }}
-              onFocus={() => setIsProviderDropdownOpen(true)}
-              onBlur={() => {
-                setTimeout(() => setIsProviderDropdownOpen(false), 200);
-              }}
-              className="h-11 w-full rounded border border-cyan-700/35 bg-cyan-950/25 py-2 pl-3 pr-11 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-cyan-100/70 hover:border-cyan-500/45 focus:border-[var(--accent)]"
-              placeholder={providersLoading ? "Cargando..." : "Proveedor"}
+            <button
+              type="button"
+              onClick={() => setIsProviderDropdownOpen((prev) => !prev)}
+              className="h-11 w-full rounded border border-cyan-700/35 bg-cyan-950/25 px-3 text-sm text-[var(--foreground)] outline-none transition-colors hover:border-cyan-500/45 focus:border-[var(--accent)] flex items-center justify-between"
               title="Filtrar por proveedor"
               aria-label="Filtrar por proveedor"
-            />
-            <span className="pointer-events-none absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded border border-cyan-700/35 bg-cyan-900/25 text-cyan-100/80">
-              <Search className="h-4 w-4" />
-            </span>
-            {isProviderDropdownOpen &&
-              (() => {
-                const filteredProviders =
-                  providerFilter.length === 0
-                    ? [
-                        { code: "all", name: "Todos los proveedores" },
-                        ...providers,
-                      ]
-                    : [
-                        { code: "all", name: "Todos los proveedores" },
-                        ...providers.filter(
-                          (p) =>
-                            p.name
-                              .toLowerCase()
-                              .includes(providerFilter.toLowerCase()) ||
-                            p.code
-                              .toLowerCase()
-                              .includes(providerFilter.toLowerCase()),
-                        ),
-                      ];
-                return filteredProviders.length > 0 ? (
-                  <div className="absolute z-10 w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded mt-1 max-h-60 overflow-y-auto shadow-lg">
-                    {filteredProviders.map((p) => (
-                      <div
-                        key={p.code}
-                        className="p-2 hover:bg-blue-400 cursor-pointer transition-all duration-200"
-                        onMouseDown={() => {
-                          setFilterProviderCode(p.code);
-                          setProviderFilter(
-                            p.code === "all" ? "" : `${p.name} (${p.code})`,
-                          );
-                          setIsProviderDropdownOpen(false);
-                        }}
-                        onTouchEnd={(e) => {
-                          e.preventDefault();
-                          setFilterProviderCode(p.code);
-                          setProviderFilter(
-                            p.code === "all" ? "" : `${p.name} (${p.code})`,
-                          );
-                          setIsProviderDropdownOpen(false);
-                        }}
-                      >
-                        {p.code === "all" ? p.name : `${p.name} (${p.code})`}
-                      </div>
-                    ))}
-                  </div>
-                ) : null;
-              })()}
+            >
+              <span className="flex items-center gap-2 truncate">
+                <Search className="h-4 w-4 text-cyan-100/80" />
+                <span className={providerFilter ? "" : "text-cyan-100/70"}>
+                  {providerFilter || (providersLoading ? "Cargando..." : "Proveedor")}
+                </span>
+              </span>
+              <span className="text-cyan-100/80">⌄</span>
+            </button>
+            {isProviderDropdownOpen && (
+              <div className="absolute z-[9999] mt-2 w-full max-h-56 overflow-y-auto rounded-lg border border-cyan-600/45 bg-[#0d1117] shadow-2xl shadow-black/70">
+                <button
+                  type="button"
+                  className="w-full rounded px-3 py-2 text-left text-sm text-cyan-100/70 transition-colors hover:bg-cyan-950/80"
+                  onMouseDown={() => {
+                    setFilterProviderCode("all");
+                    setProviderFilter("");
+                    setIsProviderDropdownOpen(false);
+                  }}
+                >
+                  Todos los proveedores
+                </button>
+                {providers.map((p) => (
+                  <button
+                    key={p.code}
+                    type="button"
+                    className={`w-full rounded px-3 py-2 text-left text-sm transition-colors hover:bg-cyan-950/80 ${
+                      filterProviderCode === p.code
+                        ? "bg-cyan-500/20 text-cyan-50"
+                        : "text-[var(--foreground)]"
+                    }`}
+                    onMouseDown={() => {
+                      setFilterProviderCode(p.code);
+                      setProviderFilter(`${p.name} (${p.code})`);
+                      setIsProviderDropdownOpen(false);
+                    }}
+                  >
+                    {p.name} ({p.code})
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
+          {/* Tipo de movimiento: estilo acorde a Encargado, sin cambiar nombres ni iconos */}
           <div className="relative min-w-0">
-            <input
-              value={typeFilter}
-              onChange={(e) => {
-                setTypeFilter(e.target.value);
-                setIsTypeDropdownOpen(true);
-              }}
-              onFocus={() => setIsTypeDropdownOpen(true)}
-              onBlur={() => {
-                setTimeout(() => setIsTypeDropdownOpen(false), 200);
-              }}
-              className="h-11 w-full rounded border border-cyan-700/35 bg-cyan-950/25 py-2 pl-3 pr-11 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-cyan-100/70 hover:border-cyan-500/45 focus:border-[var(--accent)]"
-              placeholder="Tipo movimiento"
+            <button
+              type="button"
+              onClick={() => setIsTypeDropdownOpen((prev) => !prev)}
+              className="h-11 w-full rounded border border-cyan-700/35 bg-cyan-950/25 px-3 text-sm text-[var(--foreground)] outline-none transition-colors hover:border-cyan-500/45 focus:border-[var(--accent)] flex items-center justify-between"
               title="Filtrar por tipo"
               aria-label="Filtrar por tipo"
-            />
-            <span className="pointer-events-none absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded border border-cyan-700/35 bg-cyan-900/25 text-cyan-100/80">
-              <Search className="h-4 w-4" />
-            </span>
-            {isTypeDropdownOpen &&
-              (() => {
-                const allTypes: Array<{
-                  value: string;
-                  label: string;
-                  group: string;
-                }> = [
-                  { value: "all", label: "Todos los tipos", group: "" },
-                  ...FONDO_INGRESO_TYPES.map((t) => ({
-                    value: t,
-                    label: formatMovementType(t),
-                    group: "Ingresos",
-                  })),
-                  ...FONDO_GASTO_TYPES.map((t) => ({
-                    value: t,
-                    label: formatMovementType(t),
-                    group: "Gastos",
-                  })),
-                  ...FONDO_EGRESO_TYPES.map((t) => ({
-                    value: t,
-                    label: formatMovementType(t),
-                    group: "Egresos",
-                  })),
-                ];
-                const filteredTypes =
-                  typeFilter.length === 0
-                    ? allTypes
-                    : allTypes.filter(
-                        (t) =>
-                          t.label
-                            .toLowerCase()
-                            .includes(typeFilter.toLowerCase()) ||
-                          t.value
-                            .toLowerCase()
-                            .includes(typeFilter.toLowerCase()),
-                      );
-                if (filteredTypes.length === 0) return null;
-
-                const groupedTypes = filteredTypes.reduce(
-                  (acc, type) => {
-                    const group = type.group || "general";
-                    if (!acc[group]) acc[group] = [];
-                    acc[group].push(type);
-                    return acc;
-                  },
-                  {} as Record<string, typeof filteredTypes>,
-                );
-
-                return (
-                  <div className="absolute z-10 w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded mt-1 max-h-60 overflow-y-auto shadow-lg">
-                    {Object.entries(groupedTypes).map(([group, types]) => (
-                      <React.Fragment key={group}>
-                        {group !== "general" && (
-                          <div className="px-3 py-1 text-xs font-semibold text-[var(--muted-foreground)] bg-[var(--muted)] uppercase">
-                            {group}
-                          </div>
-                        )}
-                        {types.map((t) => (
-                          <div
-                            key={t.value}
-                            className="p-2 hover:bg-blue-400 cursor-pointer transition-all duration-200"
-                            onMouseDown={() => {
-                              setFilterPaymentType(t.value as any);
-                              setTypeFilter(t.value === "all" ? "" : t.label);
-                              setIsTypeDropdownOpen(false);
-                            }}
-                            onTouchEnd={(e) => {
-                              e.preventDefault();
-                              setFilterPaymentType(t.value as any);
-                              setTypeFilter(t.value === "all" ? "" : t.label);
-                              setIsTypeDropdownOpen(false);
-                            }}
-                          >
-                            {t.label}
-                          </div>
-                        ))}
-                      </React.Fragment>
+            >
+              <span className={typeFilter ? "" : "text-cyan-100/70"}>
+                {typeFilter || "Tipo movimiento"}
+              </span>
+              <span className="text-cyan-100/80">⌄</span>
+            </button>
+            {isTypeDropdownOpen && (
+              <div className="absolute z-[9999] mt-2 w-full max-h-56 overflow-y-auto rounded-lg border border-cyan-600/45 bg-[#0d1117] shadow-2xl shadow-black/70">
+                <button
+                  type="button"
+                  className="w-full rounded px-3 py-2 text-left text-sm text-cyan-100/70 transition-colors hover:bg-cyan-950/80"
+                  onMouseDown={() => {
+                    setFilterPaymentType("all");
+                    setTypeFilter("");
+                    setIsTypeDropdownOpen(false);
+                  }}
+                >
+                  Todos los tipos
+                </button>
+                {[
+                  { group: "Ingresos", types: FONDO_INGRESO_TYPES },
+                  { group: "Gastos", types: FONDO_GASTO_TYPES },
+                  { group: "Egresos", types: FONDO_EGRESO_TYPES },
+                ].map(({ group, types }) => (
+                  <React.Fragment key={group}>
+                    <div className="px-3 py-1.5 text-xs font-semibold text-cyan-100/50 uppercase">
+                      {group}
+                    </div>
+                    {types.map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        className={`w-full rounded px-3 py-2 text-left text-sm transition-colors hover:bg-cyan-950/80 ${
+                          filterPaymentType === t
+                            ? "bg-cyan-500/20 text-cyan-50"
+                            : "text-[var(--foreground)]"
+                        }`}
+                        onMouseDown={() => {
+                          setFilterPaymentType(t);
+                          setTypeFilter(formatMovementType(t));
+                          setIsTypeDropdownOpen(false);
+                        }}
+                      >
+                        {formatMovementType(t)}
+                      </button>
                     ))}
-                  </div>
-                );
-              })()}
+                  </React.Fragment>
+                ))}
+              </div>
+            )}
           </div>
 
+          {/* Buscar factura: mantener input con icono tal como estaba */}
           <div className="relative min-w-0">
             <input
               type="search"
