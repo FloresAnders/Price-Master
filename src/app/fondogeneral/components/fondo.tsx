@@ -6116,15 +6116,30 @@ export function FondoSection({
     if (isEgreso && (Number.isNaN(egresoValue) || egresoValue <= 0)) return;
     if (isIngreso && (Number.isNaN(ingresoValue) || ingresoValue <= 0)) return;
 
-    // Validar que no quede con saldo negativo
-    if (isEgreso && !editingEntryId && isRegularUser) {
+    // Validar que no quede saldo negativo en la moneda del movimiento.
+    // En edición se revierte primero el impacto del movimiento original.
+    if (isEgreso) {
       const currentBalance =
         movementCurrency === "USD"
           ? ledgerSnapshot.currentUSD
           : ledgerSnapshot.currentCRC;
-      const resultingBalance = currentBalance - egresoValue;
+
+      let effectiveBalance = currentBalance;
+      if (editingEntryId) {
+        const originalEntry = fondoEntries.find((e) => e.id === editingEntryId);
+        if (originalEntry) {
+          const originalCurrency: MovementCurrencyKey =
+            originalEntry.currency === "USD" ? "USD" : "CRC";
+          if (originalCurrency === movementCurrency) {
+            effectiveBalance += Math.trunc(Number(originalEntry.amountEgreso) || 0);
+            effectiveBalance -= Math.trunc(Number(originalEntry.amountIngreso) || 0);
+          }
+        }
+      }
+
+      const resultingBalance = effectiveBalance - egresoValue;
       console.log(
-        `Validando saldo negativo: currentBalance=${currentBalance}, egresoValue=${egresoValue}, resultingBalance=${resultingBalance}`,
+        `Validando saldo negativo: effectiveBalance=${effectiveBalance}, egresoValue=${egresoValue}, resultingBalance=${resultingBalance}`,
       );
 
       if (resultingBalance < 0) {
@@ -6134,7 +6149,6 @@ export function FondoSection({
           currency: movementCurrency,
           resultingNegativeAmount: resultingBalance,
         });
-        setIsSaving(false);
         return;
       }
     }
