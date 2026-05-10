@@ -42,7 +42,7 @@ import { db } from "@/config/firebase";
 import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import { useAuth } from "../../hooks/useAuth";
-import { ThemeToggle } from "./ThemeToggle";
+//import { ThemeToggle } from "./ThemeToggle";
 import { safeLocalStorage, safeWindow } from "../../utils/client";
 import { getDefaultPermissions } from "../../utils/permissions";
 import FloatingSessionTimer from "../session/FloatingSessionTimer";
@@ -953,7 +953,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               )}
             </button>
 
-            <ThemeToggle />
+            {/* <ThemeToggle /> */}
           </div>
         </div>
 

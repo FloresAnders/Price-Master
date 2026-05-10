@@ -1,7 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, ChevronDown, Loader2, Lock } from "lucide-react";
+import {
+  AlertCircle,
+  CalendarDays,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Lock,
+} from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useActorOwnership } from "@/hooks/useActorOwnership";
 import { getDefaultPermissions } from "@/utils/permissions";
@@ -91,6 +99,12 @@ const buildDateString = (date: Date) => {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+};
+
+const formatKeyToDisplay = (key: string) => {
+  const [y, m, d] = String(key || "").split("-");
+  if (!y || !m || !d) return "dd/mm/yyyy";
+  return `${d.padStart(2, "0")}/${m.padStart(2, "0")}/${y}`;
 };
 
 const buildLocalDayIsoRange = (isoDateKey: string) => {
@@ -381,6 +395,62 @@ export default function ReporteMovimientosPage() {
   const [fromDate, setFromDate] = useState(initialFrom);
   const [toDate, setToDate] = useState(initialTo);
   const [quickRange, setQuickRange] = useState<string>("");
+
+  // Calendar popovers (same UX as Fondo General)
+  const todayKey = useMemo(() => buildDateString(new Date()), []);
+  const [calendarFromOpen, setCalendarFromOpen] = useState(false);
+  const [calendarToOpen, setCalendarToOpen] = useState(false);
+  const [calendarFromMonth, setCalendarFromMonth] = useState(() => {
+    const d = new Date();
+    d.setDate(1);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
+  const [calendarToMonth, setCalendarToMonth] = useState(() => {
+    const d = new Date();
+    d.setDate(1);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
+
+  const fromCalendarRef = useRef<HTMLDivElement | null>(null);
+  const toCalendarRef = useRef<HTMLDivElement | null>(null);
+  const fromButtonRef = useRef<HTMLButtonElement | null>(null);
+  const toButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (!calendarFromOpen && !calendarToOpen) return;
+
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Node | null;
+      if (calendarFromOpen) {
+        if (
+          fromCalendarRef.current &&
+          target &&
+          fromCalendarRef.current.contains(target)
+        )
+          return;
+        if (
+          fromButtonRef.current &&
+          target &&
+          fromButtonRef.current.contains(target)
+        )
+          return;
+        setCalendarFromOpen(false);
+      }
+
+      if (calendarToOpen) {
+        if (toCalendarRef.current && target && toCalendarRef.current.contains(target))
+          return;
+        if (toButtonRef.current && target && toButtonRef.current.contains(target))
+          return;
+        setCalendarToOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [calendarFromOpen, calendarToOpen]);
 
   const dateRangeInvalid = useMemo(() => {
     if (!fromDate || !toDate) return false;
@@ -1479,38 +1549,316 @@ export default function ReporteMovimientosPage() {
                 <label className="block text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide mb-2">
                   Desde
                 </label>
-                <input
-                  type="date"
-                  value={fromDate}
-                  max={toDate || undefined}
-                  onChange={(event) => {
-                    setFromDate(event.target.value);
-                    setQuickRange("");
-                  }}
-                  className="w-full rounded-md border border-[var(--input-border)] bg-transparent px-3 py-2 text-sm text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-                />
+                <div className="relative min-w-0">
+                  <button
+                    type="button"
+                    ref={fromButtonRef}
+                    onClick={() => setCalendarFromOpen((prev) => !prev)}
+                    className="flex h-11 w-full items-center justify-between gap-2 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
+                    title="Seleccionar fecha desde"
+                    aria-label="Seleccionar fecha desde"
+                  >
+                    <span className="truncate text-sm font-medium">
+                      {fromDate ? formatKeyToDisplay(fromDate) : "dd/mm/yyyy"}
+                    </span>
+                    <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded border border-[var(--input-border)] bg-[var(--muted)]/20 text-[var(--muted-foreground)]">
+                      <CalendarDays className="h-4 w-4" />
+                    </span>
+                  </button>
+
+                  {calendarFromOpen && (
+                    <div
+                      ref={fromCalendarRef}
+                      className="absolute left-0 top-full z-50 mt-1 w-full min-w-[280px] sm:mt-2 sm:w-72"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-2 text-[var(--foreground)] shadow-lg sm:p-3">
+                        <div className="mb-2 flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const m = new Date(calendarFromMonth);
+                              m.setMonth(m.getMonth() - 1);
+                              setCalendarFromMonth(new Date(m));
+                            }}
+                            className="rounded p-1 hover:bg-[var(--muted)]"
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                          </button>
+                          <div className="text-sm font-semibold capitalize">
+                            {calendarFromMonth.toLocaleString("es-CR", {
+                              month: "long",
+                              year: "numeric",
+                            })}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const m = new Date(calendarFromMonth);
+                              m.setMonth(m.getMonth() + 1);
+                              setCalendarFromMonth(new Date(m));
+                            }}
+                            className="rounded p-1 hover:bg-[var(--muted)]"
+                          >
+                            <ChevronRight className="h-4 w-4" />
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-7 gap-1 text-center text-xs text-[var(--muted-foreground)]">
+                          {["D", "L", "M", "M", "J", "V", "S"].map(
+                            (d, i) => (
+                              <div key={`${d}-${i}`} className="py-1">
+                                {d}
+                              </div>
+                            ),
+                          )}
+                        </div>
+
+                        <div className="mt-2 grid grid-cols-7 gap-1 text-sm">
+                          {(() => {
+                            const cells: React.ReactNode[] = [];
+                            const year = calendarFromMonth.getFullYear();
+                            const month = calendarFromMonth.getMonth();
+                            const first = new Date(year, month, 1);
+                            const start = first.getDay();
+                            const daysInMonth = new Date(
+                              year,
+                              month + 1,
+                              0,
+                            ).getDate();
+
+                            for (let i = 0; i < start; i++) {
+                              cells.push(<div key={`pad-rf-${i}`} />);
+                            }
+
+                            for (let day = 1; day <= daysInMonth; day++) {
+                              const d = new Date(year, month, day);
+                              const key = buildDateString(d);
+                              const enabledByRange = toDate ? key <= toDate : true;
+                              const enabled = key <= todayKey && enabledByRange;
+                              const isSelected = fromDate === key;
+
+                              if (enabled) {
+                                cells.push(
+                                  <button
+                                    key={key}
+                                    type="button"
+                                    onClick={() => {
+                                      setQuickRange("");
+                                      setFromDate(key);
+                                      setCalendarFromOpen(false);
+                                    }}
+                                    className={`rounded py-1 ${
+                                      isSelected
+                                        ? "bg-[var(--accent)] text-white"
+                                        : "hover:bg-[var(--muted)]"
+                                    }`}
+                                  >
+                                    {day}
+                                  </button>,
+                                );
+                              } else {
+                                cells.push(
+                                  <div
+                                    key={key}
+                                    className="py-1 text-[var(--muted-foreground)] opacity-60"
+                                  >
+                                    {day}
+                                  </div>,
+                                );
+                              }
+                            }
+
+                            return cells;
+                          })()}
+                        </div>
+
+                        <div className="mt-3 flex justify-between">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const k = buildDateString(new Date());
+                              setQuickRange("");
+                              setFromDate(k);
+                              setCalendarFromOpen(false);
+                            }}
+                            className="rounded border border-[var(--input-border)] px-2 py-1 text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+                          >
+                            Limpiar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setCalendarFromOpen(false)}
+                            className="rounded border border-[var(--input-border)] px-2 py-1 text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+                          >
+                            Cerrar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="flex-1 min-w-[180px]">
                 <label className="block text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide mb-2">
                   Hasta
                 </label>
-                <input
-                  type="date"
-                  value={toDate}
-                  min={fromDate || undefined}
-                  onChange={(event) => {
-                    setToDate(event.target.value);
-                    setQuickRange("");
-                  }}
-                  className="w-full rounded-md border border-[var(--input-border)] bg-transparent px-3 py-2 text-sm text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-                />
+                <div className="relative min-w-0">
+                  <button
+                    type="button"
+                    ref={toButtonRef}
+                    onClick={() => setCalendarToOpen((prev) => !prev)}
+                    className="flex h-11 w-full items-center justify-between gap-2 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
+                    title="Seleccionar fecha hasta"
+                    aria-label="Seleccionar fecha hasta"
+                  >
+                    <span className="truncate text-sm font-medium">
+                      {toDate ? formatKeyToDisplay(toDate) : "dd/mm/yyyy"}
+                    </span>
+                    <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded border border-[var(--input-border)] bg-[var(--muted)]/20 text-[var(--muted-foreground)]">
+                      <CalendarDays className="h-4 w-4" />
+                    </span>
+                  </button>
+
+                  {calendarToOpen && (
+                    <div
+                      ref={toCalendarRef}
+                      className="absolute left-0 top-full z-50 mt-2 w-full sm:w-64"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-3 text-[var(--foreground)] shadow-lg">
+                        <div className="mb-2 flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const m = new Date(calendarToMonth);
+                              m.setMonth(m.getMonth() - 1);
+                              setCalendarToMonth(new Date(m));
+                            }}
+                            className="rounded p-1 hover:bg-[var(--muted)]"
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                          </button>
+                          <div className="text-sm font-semibold capitalize">
+                            {calendarToMonth.toLocaleString("es-CR", {
+                              month: "long",
+                              year: "numeric",
+                            })}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const m = new Date(calendarToMonth);
+                              m.setMonth(m.getMonth() + 1);
+                              setCalendarToMonth(new Date(m));
+                            }}
+                            className="rounded p-1 hover:bg-[var(--muted)]"
+                          >
+                            <ChevronRight className="h-4 w-4" />
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-7 gap-1 text-center text-xs text-[var(--muted-foreground)]">
+                          {["D", "L", "M", "M", "J", "V", "S"].map(
+                            (d, i) => (
+                              <div key={`${d}-${i}`} className="py-1">
+                                {d}
+                              </div>
+                            ),
+                          )}
+                        </div>
+
+                        <div className="mt-2 grid grid-cols-7 gap-1 text-sm">
+                          {(() => {
+                            const cells: React.ReactNode[] = [];
+                            const year = calendarToMonth.getFullYear();
+                            const month = calendarToMonth.getMonth();
+                            const first = new Date(year, month, 1);
+                            const start = first.getDay();
+                            const daysInMonth = new Date(
+                              year,
+                              month + 1,
+                              0,
+                            ).getDate();
+
+                            for (let i = 0; i < start; i++) {
+                              cells.push(<div key={`pad-rt-${i}`} />);
+                            }
+
+                            for (let day = 1; day <= daysInMonth; day++) {
+                              const d = new Date(year, month, day);
+                              const key = buildDateString(d);
+                              const enabledByRange = fromDate ? key >= fromDate : true;
+                              const enabled = key <= todayKey && enabledByRange;
+                              const isSelected = toDate === key;
+
+                              if (enabled) {
+                                cells.push(
+                                  <button
+                                    key={key}
+                                    type="button"
+                                    onClick={() => {
+                                      setQuickRange("");
+                                      setToDate(key);
+                                      setCalendarToOpen(false);
+                                    }}
+                                    className={`rounded py-1 ${
+                                      isSelected
+                                        ? "bg-[var(--accent)] text-white"
+                                        : "hover:bg-[var(--muted)]"
+                                    }`}
+                                  >
+                                    {day}
+                                  </button>,
+                                );
+                              } else {
+                                cells.push(
+                                  <div
+                                    key={key}
+                                    className="py-1 text-[var(--muted-foreground)] opacity-60"
+                                  >
+                                    {day}
+                                  </div>,
+                                );
+                              }
+                            }
+
+                            return cells;
+                          })()}
+                        </div>
+
+                        <div className="mt-3 flex justify-between">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const k = buildDateString(new Date());
+                              setQuickRange("");
+                              setToDate(k);
+                              setCalendarToOpen(false);
+                            }}
+                            className="rounded border border-[var(--input-border)] px-2 py-1 text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+                          >
+                            Limpiar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setCalendarToOpen(false)}
+                            className="rounded border border-[var(--input-border)] px-2 py-1 text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+                          >
+                            Cerrar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="flex-1 min-w-[180px]">
                 <label className="block text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide mb-2">
                   Filtro de fecha
                 </label>
                 <select
-                  className="w-full rounded-md border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                  className="h-11 w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
                   style={{
                     backgroundColor: "var(--card-bg)",
                     color: "var(--foreground)",
