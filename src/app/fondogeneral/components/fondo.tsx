@@ -6131,8 +6131,12 @@ export function FondoSection({
           const originalCurrency: MovementCurrencyKey =
             originalEntry.currency === "USD" ? "USD" : "CRC";
           if (originalCurrency === movementCurrency) {
-            effectiveBalance += Math.trunc(Number(originalEntry.amountEgreso) || 0);
-            effectiveBalance -= Math.trunc(Number(originalEntry.amountIngreso) || 0);
+            effectiveBalance += Math.trunc(
+              Number(originalEntry.amountEgreso) || 0,
+            );
+            effectiveBalance -= Math.trunc(
+              Number(originalEntry.amountIngreso) || 0,
+            );
           }
         }
       }
@@ -9080,31 +9084,63 @@ export function FondoSection({
     return acc;
   }, [filteredEntries]);
 
+  const getCompanyKey = useCallback(
+    (emp: Empresas) =>
+      String(emp?.name || emp?.ubicacion || emp?.id || "").trim(),
+    [],
+  );
+
+  const getCompanyLabel = useCallback(
+    (emp: Empresas) => {
+      const name = String(emp?.name || "").trim();
+      const ubicacion = String(emp?.ubicacion || "").trim();
+      const key = getCompanyKey(emp);
+
+      if (!name && !ubicacion) return key || "Sin nombre";
+      if (!ubicacion) return name || key || "Sin nombre";
+      if (!name) return ubicacion || key || "Sin nombre";
+
+      const nameLower = name.toLowerCase();
+      const ubicLower = ubicacion.toLowerCase();
+
+      if (nameLower === ubicLower) return name;
+
+      let baseName = name;
+      if (nameLower.includes(ubicLower)) {
+        const escaped = ubicacion.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        baseName = name
+          .replace(new RegExp(escaped, "ig"), " ")
+          .replace(/\s{2,}/g, " ")
+          .trim();
+      }
+
+      return `${ubicacion} - ${baseName || name}`;
+    },
+    [getCompanyKey],
+  );
+
   const companySelectId = `fg-company-select-${namespace}`;
   const showCompanySelector =
     canSelectCompany &&
     (ownerCompaniesLoading ||
       sortedOwnerCompanies.length > 0 ||
       !!ownerCompaniesError);
-  const currentCompanyLabel = company || "Sin empresa seleccionada";
+  const currentCompanyLabel = useMemo(() => {
+    const selected = String(company || "").trim();
+    if (!selected) return "Sin empresa seleccionada";
+
+    const match = sortedOwnerCompanies.find(
+      (emp) => getCompanyKey(emp) === selected,
+    );
+    return match ? getCompanyLabel(match).split(" - ")[0] : selected;
+  }, [company, sortedOwnerCompanies, getCompanyKey, getCompanyLabel]);
   const companySelectorContent = useMemo(() => {
     if (!showCompanySelector) return null;
-
-    const getCompanyKey = (emp: Empresas) =>
-      String(emp?.name || emp?.ubicacion || emp?.id || "").trim();
-    const getCompanyLabel = (emp: Empresas) => {
-      const name = String(emp?.name || "").trim();
-      const ubicacion = String(emp?.ubicacion || "").trim();
-      if (name && ubicacion && name.toLowerCase() !== ubicacion.toLowerCase()) {
-        return `${name} (${ubicacion})`;
-      }
-      return name || ubicacion || getCompanyKey(emp) || "Sin nombre";
-    };
 
     return (
       <div className="flex w-full min-w-0 flex-col gap-3 text-sm text-[var(--foreground)] xl:flex-row xl:items-end xl:gap-4">
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] uppercase tracking-wide text-[var(--muted-foreground)]">
+          <p className="text-[11px] uppercase tracking-wide text-[var(--muted-foreground)] ">
             Empresa actual
           </p>
           <p
@@ -9118,12 +9154,6 @@ export function FondoSection({
           )}
         </div>
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-          <label
-            htmlFor={companySelectId}
-            className="text-[11px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]"
-          >
-            Seleccionar empresa
-          </label>
           <select
             id={companySelectId}
             value={company}
@@ -9131,7 +9161,7 @@ export function FondoSection({
             disabled={
               ownerCompaniesLoading || sortedOwnerCompanies.length === 0
             }
-            className="w-full min-w-0 max-w-full truncate rounded border border-cyan-700/35 bg-cyan-950/25 px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-colors hover:border-cyan-500/45 focus:border-[var(--accent)]"
+            className="w-full min-w-0 max-w-full truncate rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-colors hover:border-[var(--accent)]/60 focus:border-[var(--accent)]"
           >
             {ownerCompaniesLoading && (
               <option value="">Cargando empresas...</option>
@@ -9141,7 +9171,7 @@ export function FondoSection({
             )}
             {!ownerCompaniesLoading && sortedOwnerCompanies.length > 0 && (
               <>
-                <option value="" disabled>
+                <option value="" disabled hidden>
                   Selecciona una empresa
                 </option>
                 {sortedOwnerCompanies.map((emp, index) => (
@@ -9169,6 +9199,8 @@ export function FondoSection({
     ownerCompaniesLoading,
     sortedOwnerCompanies,
     handleAdminCompanyChange,
+    getCompanyKey,
+    getCompanyLabel,
   ]);
 
   useEffect(() => {
@@ -9247,7 +9279,8 @@ export function FondoSection({
               <span className="flex items-center gap-2 truncate">
                 <Search className="h-4 w-4 text-cyan-100/80" />
                 <span className={providerFilter ? "" : "text-cyan-100/70"}>
-                  {providerFilter || (providersLoading ? "Cargando..." : "Proveedor")}
+                  {providerFilter ||
+                    (providersLoading ? "Cargando..." : "Proveedor")}
                 </span>
               </span>
               <span className="text-cyan-100/80">⌄</span>
@@ -9417,14 +9450,14 @@ export function FondoSection({
                 type="button"
                 ref={fromButtonRef}
                 onClick={() => setCalendarFromOpen((prev) => !prev)}
-                className="flex h-11 w-full items-center justify-between gap-2 rounded border border-cyan-700/35 bg-cyan-950/25 px-3 text-[var(--foreground)] transition-colors hover:border-cyan-500/45 hover:bg-cyan-900/25"
+                className="flex h-11 w-full items-center justify-between gap-2 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)] [&_[aria-disabled='true']]:opacity-25"
                 title="Seleccionar fecha desde"
                 aria-label="Seleccionar fecha desde"
               >
                 <span className="truncate text-sm font-medium">
                   {fromFilter ? formatKeyToDisplay(fromFilter) : "dd/mm/yyyy"}
                 </span>
-                <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded border border-cyan-700/35 bg-cyan-900/25 text-cyan-100/80">
+                <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded border border-[var(--input-border)] bg-[var(--muted)]/20 text-[var(--muted-foreground)]">
                   <CalendarDays className="h-4 w-4" />
                 </span>
               </button>
@@ -9435,7 +9468,7 @@ export function FondoSection({
                   className="absolute left-0 top-full mt-1 sm:mt-2 z-50 w-full min-w-[280px] sm:w-72"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <div className="w-full rounded border border-[var(--input-border)] bg-[#1f262a] p-2 sm:p-3 text-white shadow-lg">
+                  <div className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-2 sm:p-3 text-[var(--foreground)] shadow-lg">
                     <div className="mb-2 flex items-center justify-between">
                       <button
                         type="button"
@@ -9566,14 +9599,14 @@ export function FondoSection({
                 type="button"
                 ref={toButtonRef}
                 onClick={() => setCalendarToOpen((prev) => !prev)}
-                className="flex h-11 w-full items-center justify-between gap-2 rounded border border-cyan-700/35 bg-cyan-950/25 px-3 text-[var(--foreground)] transition-colors hover:border-cyan-500/45 hover:bg-cyan-900/25"
+                className="flex h-11 w-full items-center justify-between gap-2 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
                 title="Seleccionar fecha hasta"
                 aria-label="Seleccionar fecha hasta"
               >
                 <span className="truncate text-sm font-medium">
                   {toFilter ? formatKeyToDisplay(toFilter) : "dd/mm/yyyy"}
                 </span>
-                <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded border border-cyan-700/35 bg-cyan-900/25 text-cyan-100/80">
+                <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded border border-[var(--input-border)] bg-[var(--muted)]/20 text-[var(--muted-foreground)]">
                   <CalendarDays className="h-4 w-4" />
                 </span>
               </button>
@@ -9584,7 +9617,7 @@ export function FondoSection({
                   className="absolute left-0 top-full mt-2 z-50 w-full sm:w-64"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <div className="w-full rounded border border-[var(--input-border)] bg-[#1f262a] p-3 text-white shadow-lg">
+                  <div className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-3 text-[var(--foreground)] shadow-lg">
                     <div className="mb-2 flex items-center justify-between">
                       <button
                         type="button"
@@ -9711,7 +9744,7 @@ export function FondoSection({
                 Filtro
               </label>
               <select
-                className="h-11 w-full min-w-0 rounded border border-cyan-700/35 bg-cyan-950/25 px-3 text-sm font-medium text-[var(--foreground)] outline-none transition-colors hover:border-cyan-500/45 focus:border-[var(--accent)]"
+                className="h-11 w-full min-w-0 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm font-medium text-[var(--foreground)] outline-none transition-colors hover:border-[var(--accent)]/60 focus:border-[var(--accent)]"
                 value={quickRange || ""}
                 onChange={(e) => {
                   const v = e.target.value;
@@ -10023,7 +10056,6 @@ export function FondoSection({
         )}
 
       <div className="mt-6">
-
         {fondoEntries.length === 0 ? (
           isFondoMovementsLoading ? (
             <div className="flex min-h-[180px] flex-col items-center justify-center rounded-lg border border-dashed border-[var(--input-border)] bg-[var(--card-bg)]/60 py-6 text-[var(--muted-foreground)]">
@@ -10162,711 +10194,739 @@ export function FondoSection({
                 </div>
               )}
               <div className="overflow-x-auto">
-              <table className="w-full min-w-[900px] border-separate border-spacing-0 text-xs sm:text-sm">
-                <colgroup>
-                  <col style={{ width: columnWidths.hora }} />
-                  <col style={{ width: columnWidths.motivo }} />
-                  <col style={{ width: columnWidths.tipo }} />
-                  <col style={{ width: columnWidths.factura }} />
-                  <col style={{ width: columnWidths.monto }} />
-                  <col style={{ width: columnWidths.encargado }} />
-                  <col style={{ width: columnWidths.editar }} />
-                </colgroup>
-                <thead className="sticky top-0 z-10 bg-cyan-950/35 text-xs uppercase tracking-wide text-cyan-50/80">
-                  <tr>
-                    <th className="px-3 py-2 text-left font-semibold">
-                      <div className="relative pr-2">
-                        <div className="flex items-center gap-2">
-                          <Clock className="w-4 h-4" />
-                          Hora
-                        </div>
-                        <div
-                          onMouseDown={(e) => startResizing(e, "hora")}
-                          className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
-                          style={{ touchAction: "none" }}
-                        >
+                <table className="w-full min-w-[900px] border-separate border-spacing-0 text-xs sm:text-sm">
+                  <colgroup>
+                    <col style={{ width: columnWidths.hora }} />
+                    <col style={{ width: columnWidths.motivo }} />
+                    <col style={{ width: columnWidths.tipo }} />
+                    <col style={{ width: columnWidths.factura }} />
+                    <col style={{ width: columnWidths.monto }} />
+                    <col style={{ width: columnWidths.encargado }} />
+                    <col style={{ width: columnWidths.editar }} />
+                  </colgroup>
+                  <thead className="sticky top-0 z-10 bg-cyan-950/35 text-xs uppercase tracking-wide text-cyan-50/80">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-semibold">
+                        <div className="relative pr-2">
+                          <div className="flex items-center gap-2">
+                            <Clock className="w-4 h-4" />
+                            Hora
+                          </div>
                           <div
-                            style={{
-                              width: 2,
-                              height: "70%",
-                              background: "rgba(255,255,255,0.18)",
-                              borderRadius: 3,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </th>
-                    <th className="px-3 py-2 text-left font-semibold">
-                      <div className="relative pr-2">
-                        <div className="flex items-center gap-2">
-                          <Layers className="w-4 h-4" />
-                          Motivo
-                        </div>
-                        <div
-                          onMouseDown={(e) => startResizing(e, "motivo")}
-                          className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
-                          style={{ touchAction: "none" }}
-                        >
-                          <div
-                            style={{
-                              width: 2,
-                              height: "70%",
-                              background: "rgba(255,255,255,0.18)",
-                              borderRadius: 3,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </th>
-                    <th className="px-3 py-2 text-left font-semibold">
-                      <div className="relative pr-2">
-                        <div className="flex items-center gap-2">
-                          <Tag className="w-4 h-4" />
-                          Tipo
-                        </div>
-                        <div
-                          onMouseDown={(e) => startResizing(e, "tipo")}
-                          className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
-                          style={{ touchAction: "none" }}
-                        >
-                          <div
-                            style={{
-                              width: 2,
-                              height: "70%",
-                              background: "rgba(255,255,255,0.18)",
-                              borderRadius: 3,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </th>
-                    <th className="px-3 py-2 text-left font-semibold">
-                      <div className="relative pr-2">
-                        <div className="flex items-center gap-2">
-                          <FileText className="w-4 h-4" />
-                          N° factura
-                        </div>
-                        <div
-                          onMouseDown={(e) => startResizing(e, "factura")}
-                          className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
-                          style={{ touchAction: "none" }}
-                        >
-                          <div
-                            style={{
-                              width: 2,
-                              height: "70%",
-                              background: "rgba(255,255,255,0.18)",
-                              borderRadius: 3,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </th>
-                    <th className="px-3 py-2 text-left font-semibold">
-                      <div className="relative pr-2">
-                        <div className="flex items-center gap-2">
-                          <Banknote className="w-4 h-4" />
-                          Monto
-                        </div>
-                        <div
-                          onMouseDown={(e) => startResizing(e, "monto")}
-                          className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
-                          style={{ touchAction: "none" }}
-                        >
-                          <div
-                            style={{
-                              width: 2,
-                              height: "70%",
-                              background: "rgba(255,255,255,0.18)",
-                              borderRadius: 3,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </th>
-                    <th className="px-3 py-2 text-left font-semibold">
-                      <div className="relative pr-2">
-                        <div className="flex items-center gap-2">
-                          <UserCircle className="w-4 h-4" />
-                          Encargado
-                        </div>
-                        <div
-                          onMouseDown={(e) => startResizing(e, "encargado")}
-                          className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
-                          style={{ touchAction: "none" }}
-                        >
-                          <div
-                            style={{
-                              width: 2,
-                              height: "70%",
-                              background: "rgba(255,255,255,0.18)",
-                              borderRadius: 3,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </th>
-                    <th className="px-3 py-2 text-left font-semibold">
-                      <div className="relative pr-2">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setSortAsc((prev: boolean) => !prev)}
-                            title={
-                              sortAsc
-                                ? "Mostrar más reciente arriba"
-                                : "Mostrar más reciente abajo"
-                            }
-                            aria-label="Invertir orden de movimientos"
-                            className="p-1 border border-[var(--input-border)] rounded hover:bg-[var(--muted)]"
+                            onMouseDown={(e) => startResizing(e, "hora")}
+                            className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
+                            style={{ touchAction: "none" }}
                           >
-                            <ArrowUpDown className="w-4 h-4" />
-                          </button>
+                            <div
+                              style={{
+                                width: 2,
+                                height: "70%",
+                                background: "rgba(255,255,255,0.18)",
+                                borderRadius: 3,
+                              }}
+                            />
+                          </div>
                         </div>
-                        <div
-                          onMouseDown={(e) => startResizing(e, "editar")}
-                          className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
-                          style={{ touchAction: "none" }}
-                        >
+                      </th>
+                      <th className="px-3 py-2 text-left font-semibold">
+                        <div className="relative pr-2">
+                          <div className="flex items-center gap-2">
+                            <Layers className="w-4 h-4" />
+                            Motivo
+                          </div>
                           <div
-                            style={{
-                              width: 2,
-                              height: "70%",
-                              background: "rgba(255,255,255,0.18)",
-                              borderRadius: 3,
-                            }}
-                          />
+                            onMouseDown={(e) => startResizing(e, "motivo")}
+                            className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
+                            style={{ touchAction: "none" }}
+                          >
+                            <div
+                              style={{
+                                width: 2,
+                                height: "70%",
+                                background: "rgba(255,255,255,0.18)",
+                                borderRadius: 3,
+                              }}
+                            />
+                          </div>
                         </div>
-                      </div>
-                    </th>
-                  </tr>
-                </thead>
-                {Array.from(groupedByDay.entries()).map(([dayKey, entries]) => (
-                  <tbody key={dayKey}>
-                    {entries.map((fe) => {
-                      // the newest entry is the first element in fondoEntries (inserted at index 0)
-                      const isMostRecent = fe.id === fondoEntries[0]?.id;
-                      const providerName =
-                        providersMap.get(fe.providerCode) ?? fe.providerCode;
-                      const providerType = providerTypesMap.get(
-                        fe.providerCode,
-                      );
-                      const entryCurrency =
-                        (fe.currency as "CRC" | "USD") || "CRC";
-                      const normalizedIngreso = Math.trunc(
-                        fe.amountIngreso || 0,
-                      );
-                      const normalizedEgreso = Math.trunc(fe.amountEgreso || 0);
-                      let isEntryEgreso =
-                        isEgresoType(fe.paymentType) ||
-                        isGastoType(fe.paymentType);
-                      if (normalizedIngreso > 0 && normalizedEgreso === 0) {
-                        isEntryEgreso = false;
-                      } else if (
-                        normalizedEgreso > 0 &&
-                        normalizedIngreso === 0
-                      ) {
-                        isEntryEgreso = true;
-                      }
-                      const movementAmount = isEntryEgreso
-                        ? normalizedEgreso
-                        : normalizedIngreso;
-                      const balanceAfter =
-                        entryCurrency === "USD"
-                          ? (balanceAfterByIdUSD.get(fe.id) ??
-                            Math.trunc(currentBalanceUSD))
-                          : (balanceAfterByIdCRC.get(fe.id) ??
-                            Math.trunc(currentBalanceCRC));
-                      // compute the balance immediately before this movement was applied (in the movement currency)
-                      const previousBalance = isEntryEgreso
-                        ? balanceAfter + normalizedEgreso
-                        : balanceAfter - normalizedIngreso;
-                      const recordedAt = new Date(fe.createdAt);
-                      const formattedDate = Number.isNaN(recordedAt.getTime())
-                        ? "Sin fecha"
-                        : dateTimeFormatter.format(recordedAt);
-                      const isAutoAdjustment = isAutoAdjustmentProvider(
-                        fe.providerCode,
-                      );
-                      const providerNameUpper = String(providerName)
-                        .trim()
-                        .toUpperCase();
-                      const isGeneralClosingRow =
-                        providerNameUpper === AUTO_ADJUSTMENT_PROVIDER_CODE ||
-                        providerNameUpper ===
-                          AUTO_ADJUSTMENT_PROVIDER_CODE_LEGACY ||
-                        hasGeneralClosingAdjustmentNotes(fe.notes);
-                      const displayPaymentType =
-                        (isAutoAdjustment || isGeneralClosingRow) &&
-                        !hasGeneralClosingNoDiffNotes(fe.notes) &&
-                        fe.paymentType !== "INFORMATIVO"
-                          ? "AJUSTE CIERRE"
-                          : fe.paymentType === "INFORMATIVO" && providerType
-                            ? providerType
-                            : fe.paymentType;
-                      const isSuccessfulClosing =
-                        isAutoAdjustment && movementAmount === 0;
-                      const amountPrefix = isEntryEgreso ? "-" : "+";
-                      // prepare tooltip text for edited entries
-                      let auditTooltip: string | undefined;
-                      let parsedAudit: any | null = null;
-                      if (fe.isAudit && fe.auditDetails) {
-                        try {
-                          const parsed = JSON.parse(fe.auditDetails) as any;
-                          // normalize to history array for backward compatibility
-                          let history: any[] = [];
-                          if (Array.isArray(parsed?.history)) {
-                            history = parsed.history;
-                          } else if (parsed?.before && parsed?.after) {
-                            history = [
-                              {
-                                at: parsed.at ?? fe.createdAt,
-                                before: parsed.before,
-                                after: parsed.after,
-                              },
-                            ];
-                          }
-                          parsedAudit = { history };
-
-                          // build tooltip from accumulated history (show each change timestamp + small summary)
-                          const lines: string[] = history.map((h) => {
-                            const at = h?.at
-                              ? dateTimeFormatter.format(new Date(h.at))
-                              : "—";
-                            const before = h?.before ?? {};
-                            const after = h?.after ?? {};
-                            const parts: string[] = [];
-
-                            // Con el nuevo formato simplificado, mostramos todos los campos presentes
-                            if (
-                              "providerCode" in before ||
-                              "providerCode" in after
-                            ) {
-                              parts.push(
-                                `Proveedor: ${before.providerCode ?? "—"} → ${
-                                  after.providerCode ?? "—"
-                                }`,
-                              );
-                            }
-                            if (
-                              "invoiceNumber" in before ||
-                              "invoiceNumber" in after
-                            ) {
-                              parts.push(
-                                `Factura: ${before.invoiceNumber ?? "—"} → ${
-                                  after.invoiceNumber ?? "—"
-                                }`,
-                              );
-                            }
-                            if (
-                              "paymentType" in before ||
-                              "paymentType" in after
-                            ) {
-                              parts.push(
-                                `Tipo: ${before.paymentType ?? "—"} → ${
-                                  after.paymentType ?? "—"
-                                }`,
-                              );
-                            }
-
-                            // Manejar cambio de moneda
-                            if ("currency" in before || "currency" in after) {
-                              const beforeCur =
-                                before.currency || entryCurrency || "CRC";
-                              const afterCur =
-                                after.currency || entryCurrency || "CRC";
-                              if (beforeCur !== afterCur) {
-                                parts.push(
-                                  `Moneda: ${beforeCur} → ${afterCur}`,
-                                );
+                      </th>
+                      <th className="px-3 py-2 text-left font-semibold">
+                        <div className="relative pr-2">
+                          <div className="flex items-center gap-2">
+                            <Tag className="w-4 h-4" />
+                            Tipo
+                          </div>
+                          <div
+                            onMouseDown={(e) => startResizing(e, "tipo")}
+                            className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
+                            style={{ touchAction: "none" }}
+                          >
+                            <div
+                              style={{
+                                width: 2,
+                                height: "70%",
+                                background: "rgba(255,255,255,0.18)",
+                                borderRadius: 3,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </th>
+                      <th className="px-3 py-2 text-left font-semibold">
+                        <div className="relative pr-2">
+                          <div className="flex items-center gap-2">
+                            <FileText className="w-4 h-4" />
+                            N° factura
+                          </div>
+                          <div
+                            onMouseDown={(e) => startResizing(e, "factura")}
+                            className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
+                            style={{ touchAction: "none" }}
+                          >
+                            <div
+                              style={{
+                                width: 2,
+                                height: "70%",
+                                background: "rgba(255,255,255,0.18)",
+                                borderRadius: 3,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </th>
+                      <th className="px-3 py-2 text-left font-semibold">
+                        <div className="relative pr-2">
+                          <div className="flex items-center gap-2">
+                            <Banknote className="w-4 h-4" />
+                            Monto
+                          </div>
+                          <div
+                            onMouseDown={(e) => startResizing(e, "monto")}
+                            className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
+                            style={{ touchAction: "none" }}
+                          >
+                            <div
+                              style={{
+                                width: 2,
+                                height: "70%",
+                                background: "rgba(255,255,255,0.18)",
+                                borderRadius: 3,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </th>
+                      <th className="px-3 py-2 text-left font-semibold">
+                        <div className="relative pr-2">
+                          <div className="flex items-center gap-2">
+                            <UserCircle className="w-4 h-4" />
+                            Encargado
+                          </div>
+                          <div
+                            onMouseDown={(e) => startResizing(e, "encargado")}
+                            className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
+                            style={{ touchAction: "none" }}
+                          >
+                            <div
+                              style={{
+                                width: 2,
+                                height: "70%",
+                                background: "rgba(255,255,255,0.18)",
+                                borderRadius: 3,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </th>
+                      <th className="px-3 py-2 text-left font-semibold">
+                        <div className="relative pr-2">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setSortAsc((prev: boolean) => !prev)
                               }
-                            }
+                              title={
+                                sortAsc
+                                  ? "Mostrar más reciente arriba"
+                                  : "Mostrar más reciente abajo"
+                              }
+                              aria-label="Invertir orden de movimientos"
+                              className="p-1 border border-[var(--input-border)] rounded hover:bg-[var(--muted)]"
+                            >
+                              <ArrowUpDown className="w-4 h-4" />
+                            </button>
+                          </div>
+                          <div
+                            onMouseDown={(e) => startResizing(e, "editar")}
+                            className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
+                            style={{ touchAction: "none" }}
+                          >
+                            <div
+                              style={{
+                                width: 2,
+                                height: "70%",
+                                background: "rgba(255,255,255,0.18)",
+                                borderRadius: 3,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </th>
+                    </tr>
+                  </thead>
+                  {Array.from(groupedByDay.entries()).map(
+                    ([dayKey, entries]) => (
+                      <tbody key={dayKey}>
+                        {entries.map((fe) => {
+                          // the newest entry is the first element in fondoEntries (inserted at index 0)
+                          const isMostRecent = fe.id === fondoEntries[0]?.id;
+                          const providerName =
+                            providersMap.get(fe.providerCode) ??
+                            fe.providerCode;
+                          const providerType = providerTypesMap.get(
+                            fe.providerCode,
+                          );
+                          const entryCurrency =
+                            (fe.currency as "CRC" | "USD") || "CRC";
+                          const normalizedIngreso = Math.trunc(
+                            fe.amountIngreso || 0,
+                          );
+                          const normalizedEgreso = Math.trunc(
+                            fe.amountEgreso || 0,
+                          );
+                          let isEntryEgreso =
+                            isEgresoType(fe.paymentType) ||
+                            isGastoType(fe.paymentType);
+                          if (normalizedIngreso > 0 && normalizedEgreso === 0) {
+                            isEntryEgreso = false;
+                          } else if (
+                            normalizedEgreso > 0 &&
+                            normalizedIngreso === 0
+                          ) {
+                            isEntryEgreso = true;
+                          }
+                          const movementAmount = isEntryEgreso
+                            ? normalizedEgreso
+                            : normalizedIngreso;
+                          const balanceAfter =
+                            entryCurrency === "USD"
+                              ? (balanceAfterByIdUSD.get(fe.id) ??
+                                Math.trunc(currentBalanceUSD))
+                              : (balanceAfterByIdCRC.get(fe.id) ??
+                                Math.trunc(currentBalanceCRC));
+                          // compute the balance immediately before this movement was applied (in the movement currency)
+                          const previousBalance = isEntryEgreso
+                            ? balanceAfter + normalizedEgreso
+                            : balanceAfter - normalizedIngreso;
+                          const recordedAt = new Date(fe.createdAt);
+                          const formattedDate = Number.isNaN(
+                            recordedAt.getTime(),
+                          )
+                            ? "Sin fecha"
+                            : dateTimeFormatter.format(recordedAt);
+                          const isAutoAdjustment = isAutoAdjustmentProvider(
+                            fe.providerCode,
+                          );
+                          const providerNameUpper = String(providerName)
+                            .trim()
+                            .toUpperCase();
+                          const isGeneralClosingRow =
+                            providerNameUpper ===
+                              AUTO_ADJUSTMENT_PROVIDER_CODE ||
+                            providerNameUpper ===
+                              AUTO_ADJUSTMENT_PROVIDER_CODE_LEGACY ||
+                            hasGeneralClosingAdjustmentNotes(fe.notes);
+                          const displayPaymentType =
+                            (isAutoAdjustment || isGeneralClosingRow) &&
+                            !hasGeneralClosingNoDiffNotes(fe.notes) &&
+                            fe.paymentType !== "INFORMATIVO"
+                              ? "AJUSTE CIERRE"
+                              : fe.paymentType === "INFORMATIVO" && providerType
+                                ? providerType
+                                : fe.paymentType;
+                          const isSuccessfulClosing =
+                            isAutoAdjustment && movementAmount === 0;
+                          const amountPrefix = isEntryEgreso ? "-" : "+";
+                          // prepare tooltip text for edited entries
+                          let auditTooltip: string | undefined;
+                          let parsedAudit: any | null = null;
+                          if (fe.isAudit && fe.auditDetails) {
+                            try {
+                              const parsed = JSON.parse(fe.auditDetails) as any;
+                              // normalize to history array for backward compatibility
+                              let history: any[] = [];
+                              if (Array.isArray(parsed?.history)) {
+                                history = parsed.history;
+                              } else if (parsed?.before && parsed?.after) {
+                                history = [
+                                  {
+                                    at: parsed.at ?? fe.createdAt,
+                                    before: parsed.before,
+                                    after: parsed.after,
+                                  },
+                                ];
+                              }
+                              parsedAudit = { history };
 
-                            // Manejar montos (pueden estar en amountEgreso o amountIngreso)
-                            if (
-                              "amountEgreso" in before ||
-                              "amountEgreso" in after ||
-                              "amountIngreso" in before ||
-                              "amountIngreso" in after
-                            ) {
-                              const beforeAmt = Number(
-                                before.amountEgreso ||
-                                  before.amountIngreso ||
-                                  0,
-                              );
-                              const afterAmt = Number(
-                                after.amountEgreso || after.amountIngreso || 0,
-                              );
-                              const beforeCur =
-                                (before.currency as "CRC" | "USD") ||
-                                entryCurrency ||
-                                "CRC";
-                              const afterCur =
-                                (after.currency as "CRC" | "USD") ||
-                                entryCurrency ||
-                                "CRC";
-                              parts.push(
-                                `Monto: ${formatByCurrency(
-                                  beforeCur,
-                                  beforeAmt,
-                                )} → ${formatByCurrency(afterCur, afterAmt)}`,
-                              );
-                            }
+                              // build tooltip from accumulated history (show each change timestamp + small summary)
+                              const lines: string[] = history.map((h) => {
+                                const at = h?.at
+                                  ? dateTimeFormatter.format(new Date(h.at))
+                                  : "—";
+                                const before = h?.before ?? {};
+                                const after = h?.after ?? {};
+                                const parts: string[] = [];
 
-                            if ("manager" in before || "manager" in after) {
-                              parts.push(
-                                `Encargado: ${before.manager ?? "—"} → ${
-                                  after.manager ?? "—"
-                                }`,
-                              );
-                            }
-                            if ("notes" in before || "notes" in after) {
-                              parts.push(
-                                `Notas: "${before.notes ?? ""}" → "${
-                                  after.notes ?? ""
-                                }"`,
-                              );
-                            }
-
-                            return `${at}: ${
-                              parts.join("; ") ||
-                              "Editado (sin cambios detectados)"
-                            } `;
-                          });
-                          auditTooltip = lines.join("\n");
-                        } catch {
-                          auditTooltip = "Editado";
-                          parsedAudit = null;
-                        }
-                      }
-                      return (
-                        <tr
-                          key={fe.id}
-                          className={`transition-colors hover:bg-[var(--muted)]/35 [&>td]:border-b [&>td]:border-cyan-900/35 ${
-                            isMostRecent ? "bg-[var(--muted)]/20" : ""
-                          } ${isMovementLocked(fe) ? "opacity-60" : ""}`}
-                        >
-                          <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
-                            {formattedDate}
-                          </td>
-                          <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
-                            <div className="flex items-center gap-2">
-                              <div className="font-semibold text-[var(--foreground)]">
-                                {providerName}
-                              </div>
-                              {fe.isAudit && (
-                                <div
-                                  role="button"
-                                  tabIndex={0}
-                                  onClick={() => {
-                                    if (parsedAudit) {
-                                      setAuditModalData(parsedAudit);
-                                      setAuditModalOpen(true);
-                                    }
-                                  }}
-                                  onKeyDown={(e) => {
-                                    if (
-                                      (e.key === "Enter" || e.key === " ") &&
-                                      parsedAudit
-                                    ) {
-                                      setAuditModalData(parsedAudit);
-                                      setAuditModalOpen(true);
-                                    }
-                                  }}
-                                  title={auditTooltip}
-                                  className="inline-flex cursor-pointer items-center gap-1.5 rounded border border-yellow-500/25 bg-yellow-500/10 px-2 py-0.5 text-[11px] text-yellow-300 transition-colors hover:bg-yellow-500/20"
-                                >
-                                  <Pencil className="w-3 h-3 text-yellow-300" />
-                                  <span>Editado</span>
-                                </div>
-                              )}
-                            </div>
-                            {fe.notes && (
-                              <div className="mt-1 text-xs text-[var(--muted-foreground)] break-words">
-                                {(() => {
-                                  // Renderizar iconos para movimientos de cierre con ajustes
-                                  if (fe.notes.includes("[ALERT_ICON]")) {
-                                    const parts = fe.notes.split("\n");
-                                    const headerText =
-                                      parts.find(
-                                        (p) => !p.includes("[ALERT_ICON]"),
-                                      ) || "";
-                                    const alertLine =
-                                      parts.find((p) =>
-                                        p.includes("[ALERT_ICON]"),
-                                      ) || "";
-                                    const noteText = alertLine.replace(
-                                      "[ALERT_ICON]",
-                                      "",
-                                    );
-                                    return (
-                                      <div className="flex flex-col gap-1">
-                                        {headerText && (
-                                          <div className="text-[10px] font-semibold text-[var(--foreground)] uppercase tracking-wide">
-                                            {headerText}
-                                          </div>
-                                        )}
-                                        <div className="flex items-center gap-1.5">
-                                          <AlertTriangle className="w-3.5 h-3.5 text-yellow-500 flex-shrink-0" />
-                                          <span>{noteText}</span>
-                                        </div>
-                                      </div>
-                                    );
-                                  }
-                                  if (fe.notes.startsWith("[CHECK_ICON]")) {
-                                    const noteText = fe.notes.replace(
-                                      "[CHECK_ICON]",
-                                      "",
-                                    );
-                                    return (
-                                      <div className="flex items-center gap-1.5">
-                                        <CheckCircle className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
-                                        <span>{noteText}</span>
-                                      </div>
-                                    );
-                                  }
-                                  return fe.notes;
-                                })()}
-                              </div>
-                            )}
-                          </td>
-                          <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
-                            <span className="inline-flex max-w-full items-center rounded border border-[var(--input-border)] bg-[var(--muted)]/15 px-2 py-1 text-xs text-[var(--foreground)]">
-                              {displayPaymentType === "INFORMATIVO"
-                                ? "-"
-                                : formatMovementType(displayPaymentType)}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
-                            <span className="font-medium text-[var(--foreground)]">
-                              #{fe.invoiceNumber}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2 align-top">
-                            {isAutoAdjustment ? (
-                              (() => {
-                                const closingRecord = fe.originalEntryId
-                                  ? dailyClosings.find(
-                                      (d) => d.id === fe.originalEntryId,
-                                    )
-                                  : null;
-
-                                const hasPersistedClosingBalance =
-                                  fe.closingBalanceCRC !== undefined ||
-                                  fe.closingBalanceUSD !== undefined ||
-                                  Boolean(closingRecord);
-
-                                if (!hasPersistedClosingBalance) {
-                                  if (isSuccessfulClosing) {
-                                    return (
-                                      <div className="text-center text-[var(--muted-foreground)]">
-                                        —
-                                      </div>
-                                    );
-                                  }
-
-                                  return (
-                                    <div className="flex flex-col gap-1 text-right">
-                                      <div className="flex items-center justify-end gap-2">
-                                        {isEntryEgreso ? (
-                                          <ArrowUpRight className="w-4 h-4 text-red-500" />
-                                        ) : (
-                                          <ArrowDownRight className="w-4 h-4 text-green-500" />
-                                        )}
-                                        <span
-                                          className={`rounded px-2 py-1 text-xs font-semibold ${
-                                            isEntryEgreso
-                                              ? "bg-red-500/10 text-red-400"
-                                              : "bg-emerald-500/10 text-emerald-400"
-                                          }`}
-                                        >
-                                          {`${amountPrefix} ${formatByCurrency(
-                                            entryCurrency,
-                                            movementAmount,
-                                          )}`}
-                                        </span>
-                                      </div>
-                                      <span className="text-xs text-[var(--muted-foreground)]">
-                                        Saldo anterior:{" "}
-                                        {formatByCurrency(
-                                          entryCurrency,
-                                          previousBalance,
-                                        )}
-                                      </span>
-                                    </div>
+                                // Con el nuevo formato simplificado, mostramos todos los campos presentes
+                                if (
+                                  "providerCode" in before ||
+                                  "providerCode" in after
+                                ) {
+                                  parts.push(
+                                    `Proveedor: ${before.providerCode ?? "—"} → ${
+                                      after.providerCode ?? "—"
+                                    }`,
+                                  );
+                                }
+                                if (
+                                  "invoiceNumber" in before ||
+                                  "invoiceNumber" in after
+                                ) {
+                                  parts.push(
+                                    `Factura: ${before.invoiceNumber ?? "—"} → ${
+                                      after.invoiceNumber ?? "—"
+                                    }`,
+                                  );
+                                }
+                                if (
+                                  "paymentType" in before ||
+                                  "paymentType" in after
+                                ) {
+                                  parts.push(
+                                    `Tipo: ${before.paymentType ?? "—"} → ${
+                                      after.paymentType ?? "—"
+                                    }`,
                                   );
                                 }
 
-                                const closingCRC = Math.trunc(
-                                  fe.closingBalanceCRC ??
-                                    closingRecord?.totalCRC ??
-                                    closingRecord?.recordedBalanceCRC ??
-                                    0,
-                                );
-                                const closingUSD = Math.trunc(
-                                  fe.closingBalanceUSD ??
-                                    closingRecord?.totalUSD ??
-                                    closingRecord?.recordedBalanceUSD ??
-                                    0,
-                                );
+                                // Manejar cambio de moneda
+                                if (
+                                  "currency" in before ||
+                                  "currency" in after
+                                ) {
+                                  const beforeCur =
+                                    before.currency || entryCurrency || "CRC";
+                                  const afterCur =
+                                    after.currency || entryCurrency || "CRC";
+                                  if (beforeCur !== afterCur) {
+                                    parts.push(
+                                      `Moneda: ${beforeCur} → ${afterCur}`,
+                                    );
+                                  }
+                                }
 
-                                return (
-                                  <div className="flex flex-col gap-1 text-right">
-                                    {movementAmount !== 0 ? (
-                                      <div className="flex items-center justify-end gap-2">
-                                        {isEntryEgreso ? (
-                                          <ArrowUpRight className="w-4 h-4 text-red-500" />
-                                        ) : (
-                                          <ArrowDownRight className="w-4 h-4 text-green-500" />
-                                        )}
-                                        <span
-                                          className={`rounded px-2 py-1 text-xs font-semibold ${
-                                            isEntryEgreso
-                                              ? "bg-red-500/10 text-red-400"
-                                              : "bg-emerald-500/10 text-emerald-400"
-                                          }`}
-                                        >
-                                          {`${amountPrefix} ${formatByCurrency(
-                                            entryCurrency,
-                                            movementAmount,
-                                          )}`}
-                                        </span>
-                                      </div>
-                                    ) : null}
-
-                                    <div className="text-xs text-[var(--muted-foreground)]">
-                                      Saldo al cierre
-                                    </div>
-                                    <div className="text-sm font-semibold text-[var(--foreground)] flex flex-col gap-0.5">
-                                      {currencyEnabled.CRC && (
-                                        <div>
-                                          {formatByCurrency("CRC", closingCRC)}
-                                        </div>
-                                      )}
-                                      {currencyEnabled.USD && (
-                                        <div>
-                                          {formatByCurrency("USD", closingUSD)}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              })()
-                            ) : isSuccessfulClosing ? (
-                              <div className="text-center text-[var(--muted-foreground)]">
-                                —
-                              </div>
-                            ) : (
-                              <div className="flex flex-col gap-1 text-right">
-                                <div className="flex items-center justify-end gap-2">
-                                  {isEntryEgreso ? (
-                                    <ArrowUpRight className="w-4 h-4 text-red-500" />
-                                  ) : (
-                                    <ArrowDownRight className="w-4 h-4 text-green-500" />
-                                  )}
-                                  <span
-                                    className={`rounded px-2 py-1 text-xs font-semibold ${
-                                      isEntryEgreso
-                                        ? "bg-red-500/10 text-red-400"
-                                        : "bg-emerald-500/10 text-emerald-400"
-                                    }`}
-                                  >
-                                    {`${amountPrefix} ${formatByCurrency(
-                                      entryCurrency,
-                                      movementAmount,
-                                    )}`}
-                                  </span>
-                                </div>
-                                <span className="text-xs text-[var(--muted-foreground)]">
-                                  Saldo anterior:{" "}
-                                  {formatByCurrency(
-                                    entryCurrency,
-                                    previousBalance,
-                                  )}
-                                </span>
-                              </div>
-                            )}
-                          </td>
-                          <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
-                            {fe.manager}
-                          </td>
-                          <td className="px-3 py-2 align-top">
-                            {!isMovementLocked(fe) && (
-                              <div className="flex items-center gap-2">
-                                {(() => {
-                                  const isCierreVentasRow =
-                                    isCierreFondoVentasMovement(fe);
-                                  const isLatestCierreVentas =
-                                    isCierreVentasRow &&
-                                    Boolean(
-                                      latestCierreFondoVentasMovementId,
-                                    ) &&
-                                    fe.id === latestCierreFondoVentasMovementId;
-                                  const canDelete =
-                                    !isAutoAdjustment &&
-                                    (isPrincipalAdmin ||
-                                      (isSuperAdminUser &&
-                                        isCierreVentasRow)) &&
-                                    (!isCierreVentasRow ||
-                                      isLatestCierreVentas);
-                                  const canEdit =
-                                    !isAutoAdjustment &&
-                                    (!isSuperAdminUser || !isCierreVentasRow);
-
-                                  return (
-                                    <>
-                                      {canEdit && (
-                                        <button
-                                          type="button"
-                                          className="inline-flex items-center gap-1.5 rounded border border-[var(--input-border)] bg-[var(--input-bg)] px-2.5 py-1.5 text-xs font-medium text-[var(--foreground)] transition-all duration-150 hover:-translate-y-0.5 hover:border-[var(--accent)] hover:bg-[var(--muted)] disabled:translate-y-0 disabled:opacity-50"
-                                          onClick={() => handleEditMovement(fe)}
-                                          disabled={editingEntryId === fe.id}
-                                          title={
-                                            isAutoAdjustment
-                                              ? "Los ajustes automáticos no se pueden editar"
-                                              : "Editar movimiento"
-                                          }
-                                        >
-                                          <Pencil className="w-4 h-4" />
-                                          {editingEntryId === fe.id
-                                            ? "Editando"
-                                            : "Editar"}
-                                        </button>
-                                      )}
-
-                                      {canDelete && (
-                                        <button
-                                          type="button"
-                                          className="inline-flex items-center gap-1.5 rounded border border-red-500/40 bg-red-500/10 px-2.5 py-1.5 text-xs font-medium text-red-400 transition-all duration-150 hover:-translate-y-0.5 hover:border-red-400 hover:bg-red-500/20"
-                                          onClick={() =>
-                                            handleDeleteMovement(fe)
-                                          }
-                                          title={
-                                            isCierreVentasRow &&
-                                            isSuperAdminUser
-                                              ? 'Eliminar "CIERRE FONDO VENTAS" (superadmin)'
-                                              : isCierreVentasRow
-                                                ? "Eliminar último cierre de Fondo Ventas"
-                                                : "Eliminar movimiento"
-                                          }
-                                        >
-                                          <Trash2 className="w-4 h-4" />
-                                          Eliminar
-                                        </button>
-                                      )}
-                                    </>
+                                // Manejar montos (pueden estar en amountEgreso o amountIngreso)
+                                if (
+                                  "amountEgreso" in before ||
+                                  "amountEgreso" in after ||
+                                  "amountIngreso" in before ||
+                                  "amountIngreso" in after
+                                ) {
+                                  const beforeAmt = Number(
+                                    before.amountEgreso ||
+                                      before.amountIngreso ||
+                                      0,
                                   );
-                                })()}
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                ))}
-              </table>
-            </div>
+                                  const afterAmt = Number(
+                                    after.amountEgreso ||
+                                      after.amountIngreso ||
+                                      0,
+                                  );
+                                  const beforeCur =
+                                    (before.currency as "CRC" | "USD") ||
+                                    entryCurrency ||
+                                    "CRC";
+                                  const afterCur =
+                                    (after.currency as "CRC" | "USD") ||
+                                    entryCurrency ||
+                                    "CRC";
+                                  parts.push(
+                                    `Monto: ${formatByCurrency(
+                                      beforeCur,
+                                      beforeAmt,
+                                    )} → ${formatByCurrency(afterCur, afterAmt)}`,
+                                  );
+                                }
+
+                                if ("manager" in before || "manager" in after) {
+                                  parts.push(
+                                    `Encargado: ${before.manager ?? "—"} → ${
+                                      after.manager ?? "—"
+                                    }`,
+                                  );
+                                }
+                                if ("notes" in before || "notes" in after) {
+                                  parts.push(
+                                    `Notas: "${before.notes ?? ""}" → "${
+                                      after.notes ?? ""
+                                    }"`,
+                                  );
+                                }
+
+                                return `${at}: ${
+                                  parts.join("; ") ||
+                                  "Editado (sin cambios detectados)"
+                                } `;
+                              });
+                              auditTooltip = lines.join("\n");
+                            } catch {
+                              auditTooltip = "Editado";
+                              parsedAudit = null;
+                            }
+                          }
+                          return (
+                            <tr
+                              key={fe.id}
+                              className={`transition-colors hover:bg-[var(--muted)]/35 [&>td]:border-b [&>td]:border-cyan-900/35 ${
+                                isMostRecent ? "bg-[var(--muted)]/20" : ""
+                              } ${isMovementLocked(fe) ? "opacity-60" : ""}`}
+                            >
+                              <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
+                                {formattedDate}
+                              </td>
+                              <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
+                                <div className="flex items-center gap-2">
+                                  <div className="font-semibold text-[var(--foreground)]">
+                                    {providerName}
+                                  </div>
+                                  {fe.isAudit && (
+                                    <div
+                                      role="button"
+                                      tabIndex={0}
+                                      onClick={() => {
+                                        if (parsedAudit) {
+                                          setAuditModalData(parsedAudit);
+                                          setAuditModalOpen(true);
+                                        }
+                                      }}
+                                      onKeyDown={(e) => {
+                                        if (
+                                          (e.key === "Enter" ||
+                                            e.key === " ") &&
+                                          parsedAudit
+                                        ) {
+                                          setAuditModalData(parsedAudit);
+                                          setAuditModalOpen(true);
+                                        }
+                                      }}
+                                      title={auditTooltip}
+                                      className="inline-flex cursor-pointer items-center gap-1.5 rounded border border-yellow-500/25 bg-yellow-500/10 px-2 py-0.5 text-[11px] text-yellow-300 transition-colors hover:bg-yellow-500/20"
+                                    >
+                                      <Pencil className="w-3 h-3 text-yellow-300" />
+                                      <span>Editado</span>
+                                    </div>
+                                  )}
+                                </div>
+                                {fe.notes && (
+                                  <div className="mt-1 text-xs text-[var(--muted-foreground)] break-words">
+                                    {(() => {
+                                      // Renderizar iconos para movimientos de cierre con ajustes
+                                      if (fe.notes.includes("[ALERT_ICON]")) {
+                                        const parts = fe.notes.split("\n");
+                                        const headerText =
+                                          parts.find(
+                                            (p) => !p.includes("[ALERT_ICON]"),
+                                          ) || "";
+                                        const alertLine =
+                                          parts.find((p) =>
+                                            p.includes("[ALERT_ICON]"),
+                                          ) || "";
+                                        const noteText = alertLine.replace(
+                                          "[ALERT_ICON]",
+                                          "",
+                                        );
+                                        return (
+                                          <div className="flex flex-col gap-1">
+                                            {headerText && (
+                                              <div className="text-[10px] font-semibold text-[var(--foreground)] uppercase tracking-wide">
+                                                {headerText}
+                                              </div>
+                                            )}
+                                            <div className="flex items-center gap-1.5">
+                                              <AlertTriangle className="w-3.5 h-3.5 text-yellow-500 flex-shrink-0" />
+                                              <span>{noteText}</span>
+                                            </div>
+                                          </div>
+                                        );
+                                      }
+                                      if (fe.notes.startsWith("[CHECK_ICON]")) {
+                                        const noteText = fe.notes.replace(
+                                          "[CHECK_ICON]",
+                                          "",
+                                        );
+                                        return (
+                                          <div className="flex items-center gap-1.5">
+                                            <CheckCircle className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+                                            <span>{noteText}</span>
+                                          </div>
+                                        );
+                                      }
+                                      return fe.notes;
+                                    })()}
+                                  </div>
+                                )}
+                              </td>
+                              <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
+                                <span className="inline-flex max-w-full items-center rounded border border-[var(--input-border)] bg-[var(--muted)]/15 px-2 py-1 text-xs text-[var(--foreground)]">
+                                  {displayPaymentType === "INFORMATIVO"
+                                    ? "-"
+                                    : formatMovementType(displayPaymentType)}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
+                                <span className="font-medium text-[var(--foreground)]">
+                                  #{fe.invoiceNumber}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2 align-top">
+                                {isAutoAdjustment ? (
+                                  (() => {
+                                    const closingRecord = fe.originalEntryId
+                                      ? dailyClosings.find(
+                                          (d) => d.id === fe.originalEntryId,
+                                        )
+                                      : null;
+
+                                    const hasPersistedClosingBalance =
+                                      fe.closingBalanceCRC !== undefined ||
+                                      fe.closingBalanceUSD !== undefined ||
+                                      Boolean(closingRecord);
+
+                                    if (!hasPersistedClosingBalance) {
+                                      if (isSuccessfulClosing) {
+                                        return (
+                                          <div className="text-center text-[var(--muted-foreground)]">
+                                            —
+                                          </div>
+                                        );
+                                      }
+
+                                      return (
+                                        <div className="flex flex-col gap-1 text-right">
+                                          <div className="flex items-center justify-end gap-2">
+                                            {isEntryEgreso ? (
+                                              <ArrowUpRight className="w-4 h-4 text-red-500" />
+                                            ) : (
+                                              <ArrowDownRight className="w-4 h-4 text-green-500" />
+                                            )}
+                                            <span
+                                              className={`rounded px-2 py-1 text-xs font-semibold ${
+                                                isEntryEgreso
+                                                  ? "bg-red-500/10 text-red-400"
+                                                  : "bg-emerald-500/10 text-emerald-400"
+                                              }`}
+                                            >
+                                              {`${amountPrefix} ${formatByCurrency(
+                                                entryCurrency,
+                                                movementAmount,
+                                              )}`}
+                                            </span>
+                                          </div>
+                                          <span className="text-xs text-[var(--muted-foreground)]">
+                                            Saldo anterior:{" "}
+                                            {formatByCurrency(
+                                              entryCurrency,
+                                              previousBalance,
+                                            )}
+                                          </span>
+                                        </div>
+                                      );
+                                    }
+
+                                    const closingCRC = Math.trunc(
+                                      fe.closingBalanceCRC ??
+                                        closingRecord?.totalCRC ??
+                                        closingRecord?.recordedBalanceCRC ??
+                                        0,
+                                    );
+                                    const closingUSD = Math.trunc(
+                                      fe.closingBalanceUSD ??
+                                        closingRecord?.totalUSD ??
+                                        closingRecord?.recordedBalanceUSD ??
+                                        0,
+                                    );
+
+                                    return (
+                                      <div className="flex flex-col gap-1 text-right">
+                                        {movementAmount !== 0 ? (
+                                          <div className="flex items-center justify-end gap-2">
+                                            {isEntryEgreso ? (
+                                              <ArrowUpRight className="w-4 h-4 text-red-500" />
+                                            ) : (
+                                              <ArrowDownRight className="w-4 h-4 text-green-500" />
+                                            )}
+                                            <span
+                                              className={`rounded px-2 py-1 text-xs font-semibold ${
+                                                isEntryEgreso
+                                                  ? "bg-red-500/10 text-red-400"
+                                                  : "bg-emerald-500/10 text-emerald-400"
+                                              }`}
+                                            >
+                                              {`${amountPrefix} ${formatByCurrency(
+                                                entryCurrency,
+                                                movementAmount,
+                                              )}`}
+                                            </span>
+                                          </div>
+                                        ) : null}
+
+                                        <div className="text-xs text-[var(--muted-foreground)]">
+                                          Saldo al cierre
+                                        </div>
+                                        <div className="text-sm font-semibold text-[var(--foreground)] flex flex-col gap-0.5">
+                                          {currencyEnabled.CRC && (
+                                            <div>
+                                              {formatByCurrency(
+                                                "CRC",
+                                                closingCRC,
+                                              )}
+                                            </div>
+                                          )}
+                                          {currencyEnabled.USD && (
+                                            <div>
+                                              {formatByCurrency(
+                                                "USD",
+                                                closingUSD,
+                                              )}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })()
+                                ) : isSuccessfulClosing ? (
+                                  <div className="text-center text-[var(--muted-foreground)]">
+                                    —
+                                  </div>
+                                ) : (
+                                  <div className="flex flex-col gap-1 text-right">
+                                    <div className="flex items-center justify-end gap-2">
+                                      {isEntryEgreso ? (
+                                        <ArrowUpRight className="w-4 h-4 text-red-500" />
+                                      ) : (
+                                        <ArrowDownRight className="w-4 h-4 text-green-500" />
+                                      )}
+                                      <span
+                                        className={`rounded px-2 py-1 text-xs font-semibold ${
+                                          isEntryEgreso
+                                            ? "bg-red-500/10 text-red-400"
+                                            : "bg-emerald-500/10 text-emerald-400"
+                                        }`}
+                                      >
+                                        {`${amountPrefix} ${formatByCurrency(
+                                          entryCurrency,
+                                          movementAmount,
+                                        )}`}
+                                      </span>
+                                    </div>
+                                    <span className="text-xs text-[var(--muted-foreground)]">
+                                      Saldo anterior:{" "}
+                                      {formatByCurrency(
+                                        entryCurrency,
+                                        previousBalance,
+                                      )}
+                                    </span>
+                                  </div>
+                                )}
+                              </td>
+                              <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
+                                {fe.manager}
+                              </td>
+                              <td className="px-3 py-2 align-top">
+                                {!isMovementLocked(fe) && (
+                                  <div className="flex items-center gap-2">
+                                    {(() => {
+                                      const isCierreVentasRow =
+                                        isCierreFondoVentasMovement(fe);
+                                      const isLatestCierreVentas =
+                                        isCierreVentasRow &&
+                                        Boolean(
+                                          latestCierreFondoVentasMovementId,
+                                        ) &&
+                                        fe.id ===
+                                          latestCierreFondoVentasMovementId;
+                                      const canDelete =
+                                        !isAutoAdjustment &&
+                                        (isPrincipalAdmin ||
+                                          (isSuperAdminUser &&
+                                            isCierreVentasRow)) &&
+                                        (!isCierreVentasRow ||
+                                          isLatestCierreVentas);
+                                      const canEdit =
+                                        !isAutoAdjustment &&
+                                        (!isSuperAdminUser ||
+                                          !isCierreVentasRow);
+
+                                      return (
+                                        <>
+                                          {canEdit && (
+                                            <button
+                                              type="button"
+                                              className="inline-flex items-center gap-1.5 rounded border border-[var(--input-border)] bg-[var(--input-bg)] px-2.5 py-1.5 text-xs font-medium text-[var(--foreground)] transition-all duration-150 hover:-translate-y-0.5 hover:border-[var(--accent)] hover:bg-[var(--muted)] disabled:translate-y-0 disabled:opacity-50"
+                                              onClick={() =>
+                                                handleEditMovement(fe)
+                                              }
+                                              disabled={
+                                                editingEntryId === fe.id
+                                              }
+                                              title={
+                                                isAutoAdjustment
+                                                  ? "Los ajustes automáticos no se pueden editar"
+                                                  : "Editar movimiento"
+                                              }
+                                            >
+                                              <Pencil className="w-4 h-4" />
+                                              {editingEntryId === fe.id
+                                                ? "Editando"
+                                                : "Editar"}
+                                            </button>
+                                          )}
+
+                                          {canDelete && (
+                                            <button
+                                              type="button"
+                                              className="inline-flex items-center gap-1.5 rounded border border-red-500/40 bg-red-500/10 px-2.5 py-1.5 text-xs font-medium text-red-400 transition-all duration-150 hover:-translate-y-0.5 hover:border-red-400 hover:bg-red-500/20"
+                                              onClick={() =>
+                                                handleDeleteMovement(fe)
+                                              }
+                                              title={
+                                                isCierreVentasRow &&
+                                                isSuperAdminUser
+                                                  ? 'Eliminar "CIERRE FONDO VENTAS" (superadmin)'
+                                                  : isCierreVentasRow
+                                                    ? "Eliminar último cierre de Fondo Ventas"
+                                                    : "Eliminar movimiento"
+                                              }
+                                            >
+                                              <Trash2 className="w-4 h-4" />
+                                              Eliminar
+                                            </button>
+                                          )}
+                                        </>
+                                      );
+                                    })()}
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    ),
+                  )}
+                </table>
+              </div>
             </div>
           </div>
         )}
@@ -10994,9 +11054,6 @@ export function FondoSection({
                       >
                         <div className="mx-auto mb-3 flex h-9 w-9 items-center justify-center rounded border border-cyan-700/35 bg-cyan-950/35 text-cyan-100/80">
                           <span className="text-xs font-bold">{currency}</span>
-                        </div>
-                        <div className="text-[11px] font-semibold uppercase tracking-wide text-cyan-100/70">
-                          {label}
                         </div>
                         <div className="mt-1 text-xl font-bold text-[var(--foreground)] sm:text-2xl">
                           {formatByCurrency(currency, value)}
