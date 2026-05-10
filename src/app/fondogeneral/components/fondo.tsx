@@ -5505,6 +5505,46 @@ export function FondoSection({
           prevCurrentCRC + (parsedInitialCRC - prevInitialCRC) + deltas.CRC;
         const nextCurrentUSD =
           prevCurrentUSD + (parsedInitialUSD - prevInitialUSD) + deltas.USD;
+
+        // Validación defensiva: evitar que un egreso persista dejando el saldo en negativo.
+        // Esto cubre edición/creación desde cualquier flujo (incl. ajustes de cierre) y evita
+        // que un snapshot stale o una ruta alternativa omita la validación de UI.
+        if (isRegularUser) {
+          const afterCurrency = afterEntry
+            ? normalizeCurrency(afterEntry.currency)
+            : null;
+          const afterEgreso = afterEntry
+            ? parseBalance((afterEntry as any).amountEgreso ?? 0)
+            : 0;
+
+          if (afterCurrency && afterEgreso > 0) {
+            const nextBalance =
+              afterCurrency === "USD" ? nextCurrentUSD : nextCurrentCRC;
+            if (nextBalance < 0) {
+              try {
+                setNegativeBalanceModal({
+                  open: true,
+                  amount: afterEgreso,
+                  currency: afterCurrency,
+                  resultingNegativeAmount: nextBalance,
+                });
+              } catch {
+                // ignore UI errors; hard-block the commit anyway
+              }
+              console.warn(
+                "[PERSIST-IMMEDIATE] Blocked movement that would leave negative balance",
+                {
+                  operationType,
+                  currency: afterCurrency,
+                  nextBalance,
+                  delta: deltas[afterCurrency],
+                  movementId: (afterEntry as any)?.id,
+                },
+              );
+              return { ok: false, confirmed: false };
+            }
+          }
+        }
         const nextAccountBalances = stateSnapshot.balancesByAccount.filter(
           (balance) => balance.accountId !== accountKey,
         );
@@ -5680,6 +5720,7 @@ export function FondoSection({
     },
     [
       company,
+      isRegularUser,
       accountKey,
       initialAmount,
       initialAmountUSD,
@@ -6115,15 +6156,37 @@ export function FondoSection({
     if (isEgreso && (Number.isNaN(egresoValue) || egresoValue <= 0)) return;
     if (isIngreso && (Number.isNaN(ingresoValue) || ingresoValue <= 0)) return;
 
-    // Validar que no quede con saldo negativo
-    if (isEgreso && !editingEntryId && isRegularUser) {
+    // Validar que no quede con saldo negativo (incluye ediciones)
+    // Nota: al editar, el saldo actual YA incluye el movimiento original.
+    // Para validar correctamente, primero “deshacemos” su efecto y luego aplicamos el nuevo egreso.
+    if (isEgreso && isRegularUser) {
       const currentBalance =
         movementCurrency === "USD"
           ? ledgerSnapshot.currentUSD
           : ledgerSnapshot.currentCRC;
-      const resultingBalance = currentBalance - egresoValue;
+
+      let resultingBalance = currentBalance - egresoValue;
+
+      if (editingEntryId) {
+        const original = fondoEntries.find((e) => e.id === editingEntryId);
+        if (original) {
+          const originalCurrency: "CRC" | "USD" =
+            original.currency === "USD" ? "USD" : "CRC";
+          const originalDelta =
+            (Number(original.amountIngreso) || 0) -
+            (Number(original.amountEgreso) || 0);
+
+          const balanceWithoutOriginal =
+            originalCurrency === movementCurrency
+              ? currentBalance - originalDelta
+              : currentBalance;
+
+          resultingBalance = balanceWithoutOriginal - egresoValue;
+        }
+      }
+
       console.log(
-        `Validando saldo negativo: currentBalance=${currentBalance}, egresoValue=${egresoValue}, resultingBalance=${resultingBalance}`,
+        `Validando saldo negativo: currentBalance=${currentBalance}, egresoValue=${egresoValue}, resultingBalance=${resultingBalance}, editingEntryId=${editingEntryId || ""}`,
       );
 
       if (resultingBalance < 0) {
