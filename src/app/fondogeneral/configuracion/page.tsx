@@ -753,7 +753,7 @@ export default function FondoGeneralConfigurationPage() {
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto py-8 px-4">
+      <div className="max-w-6xl mx-auto py-8 px-4">
         <div className="flex items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)]">
           <p className="text-[var(--muted-foreground)]">Cargando permisos...</p>
         </div>
@@ -763,7 +763,7 @@ export default function FondoGeneralConfigurationPage() {
 
   if (!canAccess) {
     return (
-      <div className="max-w-4xl mx-auto py-8 px-4">
+      <div className="max-w-6xl mx-auto py-8 px-4">
         <div className="flex flex-col items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)] text-center">
           <Lock className="w-10 h-10 text-[var(--muted-foreground)] mb-4" />
           <h3 className="text-lg font-semibold text-[var(--foreground)] mb-2">
@@ -808,7 +808,11 @@ export default function FondoGeneralConfigurationPage() {
               id="company-select"
               value={selectedCompany}
               onChange={(event) => setSelectedCompany(event.target.value)}
-              className="w-full max-w-xs rounded border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+              className="w-full max-w-xs h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
+              style={{
+                backgroundColor: "var(--card-bg)",
+                color: "var(--foreground)",
+              }}
               disabled={
                 companiesLoading ||
                 companies.length === 0 ||
@@ -939,7 +943,11 @@ export default function FondoGeneralConfigurationPage() {
                                 onBlur={() =>
                                   handleInitialBlur(accountId, currency)
                                 }
-                                className="w-full rounded border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+                                className="w-full h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
+                                style={{
+                                  backgroundColor: "var(--card-bg)",
+                                  color: "var(--foreground)",
+                                }}
                                 inputMode="numeric"
                                 pattern="[0-9]*"
                                 disabled={saving}
@@ -987,7 +995,11 @@ export default function FondoGeneralConfigurationPage() {
                                   onBlur={() =>
                                     handleCurrentBlur(accountId, currency)
                                   }
-                                  className={`mt-2 w-full rounded border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] ${isEditingCurrent ? "" : "opacity-70"}`}
+                                  className={`mt-2 w-full h-11 rounded-lg border bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)] ${isEditingCurrent ? "border-[var(--input-border)]" : "border-[var(--input-border)] opacity-70"}`}
+                                  style={{
+                                    backgroundColor: "var(--card-bg)",
+                                    color: "var(--foreground)",
+                                  }}
                                   inputMode="numeric"
                                   pattern="[0-9]*"
                                   placeholder="0"

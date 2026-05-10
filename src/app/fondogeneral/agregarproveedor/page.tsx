@@ -14,8 +14,8 @@ export default function AgregarProveedorPage() {
 
   if (loading) {
     return (
-      <div className="w-full max-w-4xl mx-auto py-3 px-2 sm:py-6 sm:px-4 lg:py-8">
-        <div className="flex items-center justify-center p-6 sm:p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)]">
+      <div className="max-w-6xl mx-auto py-8 px-4">
+        <div className="flex items-center justify-center p-6 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)]">
           <p className="text-sm sm:text-base text-[var(--muted-foreground)]">
             Cargando permisos...
           </p>
@@ -26,8 +26,8 @@ export default function AgregarProveedorPage() {
 
   if (!hasGeneralAccess) {
     return (
-      <div className="w-full max-w-4xl mx-auto py-3 px-2 sm:py-6 sm:px-4 lg:py-8">
-        <div className="flex flex-col items-center justify-center p-6 sm:p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)] text-center">
+      <div className="max-w-6xl mx-auto py-8 px-4">
+        <div className="flex flex-col items-center justify-center p-6 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)] text-center">
           <Lock className="w-8 h-8 sm:w-10 sm:h-10 text-[var(--muted-foreground)] mb-3 sm:mb-4" />
           <h3 className="text-base sm:text-lg font-semibold text-[var(--foreground)] mb-2">
             Acceso restringido
@@ -44,8 +44,8 @@ export default function AgregarProveedorPage() {
   }
 
   return (
-    <div className="w-full max-w-4xl mx-auto py-3 px-2 sm:py-6 sm:px-4 lg:py-8">
-      <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6">
+    <div className="max-w-6xl mx-auto py-8 px-4">
+      <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl p-6">
         <ProviderSection />
       </div>
     </div>

@@ -382,7 +382,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-full sm:max-w-3xl rounded border border-[var(--input-border)] bg-[#1f262a] text-white shadow-lg max-h-[80vh] overflow-hidden flex flex-col"
+        className="w-full max-w-full sm:max-w-3xl rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] shadow-lg max-h-[80vh] overflow-hidden flex flex-col"
         onClick={(event) => event.stopPropagation()}
         ref={modalRef}
       >
@@ -395,7 +395,11 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="rounded border border-[var(--input-border)] px-2 py-1 text-sm text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+              className="inline-flex h-11 items-center justify-center rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-4 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
+              style={{
+                backgroundColor: "var(--card-bg)",
+                color: "var(--foreground)",
+              }}
             >
               Cerrar
             </button>
@@ -424,7 +428,11 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                             handleCountChange("CRC", denom, event.target.value)
                           }
                           onKeyDown={(e) => handleCountKeyDown(e, "CRC", denom)}
-                          className="w-24 rounded border border-[var(--input-border)] bg-[var(--input-bg)] p-2 pr-8 text-sm text-center"
+                          className="w-24 h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-2 pr-8 text-sm text-center text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
+                          style={{
+                            backgroundColor: "var(--card-bg)",
+                            color: "var(--foreground)",
+                          }}
                           inputMode="numeric"
                           aria-label={`Cantidad ${denom} colones`}
                           data-cash-count-input="true"
@@ -434,7 +442,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                             type="button"
                             tabIndex={-1}
                             onClick={() => incrementCount("CRC", denom)}
-                            className="w-5 h-4 leading-[10px] rounded-t bg-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                            className="w-5 h-4 leading-[10px] rounded-t bg-transparent text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
                             aria-label={`Aumentar ${denom}`}
                           >
                             ▲
@@ -443,7 +451,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                             type="button"
                             tabIndex={-1}
                             onClick={() => decrementCount("CRC", denom)}
-                            className="w-5 h-4 leading-[10px] rounded-b bg-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                            className="w-5 h-4 leading-[10px] rounded-b bg-transparent text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
                             aria-label={`Disminuir ${denom}`}
                           >
                             ▼
@@ -488,7 +496,11 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                             handleCountChange("USD", denom, event.target.value)
                           }
                           onKeyDown={(e) => handleCountKeyDown(e, "USD", denom)}
-                          className="w-24 rounded border border-[var(--input-border)] bg-[var(--input-bg)] p-2 pr-8 text-sm text-center"
+                          className="w-24 h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-2 pr-8 text-sm text-center text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
+                          style={{
+                            backgroundColor: "var(--card-bg)",
+                            color: "var(--foreground)",
+                          }}
                           inputMode="numeric"
                           aria-label={`Cantidad ${denom} dólares`}
                           data-cash-count-input="true"
@@ -498,7 +510,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                             type="button"
                             tabIndex={-1}
                             onClick={() => incrementCount("USD", denom)}
-                            className="w-5 h-4 leading-[10px] rounded-t bg-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                            className="w-5 h-4 leading-[10px] rounded-t bg-transparent text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
                             aria-label={`Aumentar ${denom}`}
                           >
                             ▲
@@ -507,7 +519,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                             type="button"
                             tabIndex={-1}
                             onClick={() => decrementCount("USD", denom)}
-                            className="w-5 h-4 leading-[10px] rounded-b bg-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                            className="w-5 h-4 leading-[10px] rounded-b bg-transparent text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
                             aria-label={`Disminuir ${denom}`}
                           >
                             ▼
@@ -538,7 +550,13 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
               <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
                 Fecha de cierre
               </label>
-              <div className="rounded border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--foreground)]">
+              <div
+                className="h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 flex items-center text-sm text-[var(--foreground)]"
+                style={{
+                  backgroundColor: "var(--card-bg)",
+                  color: "var(--foreground)",
+                }}
+              >
                 {closingDateFormatter.format(new Date(closingDateISO))}
               </div>
             </div>
@@ -550,7 +568,11 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                 <select
                   value={displayedManager}
                   onChange={(event) => setManager(event.target.value)}
-                  className="rounded border border-[var(--input-border)] bg-[var(--input-bg)] p-2 text-sm"
+                  className="h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
+                  style={{
+                    backgroundColor: "var(--card-bg)",
+                    color: "var(--foreground)",
+                  }}
                   disabled={loadingEmployees || managerReadonly}
                   ref={(el) => {
                     managerFieldRef.current = el;
@@ -567,7 +589,11 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                 <input
                   value={displayedManager}
                   onChange={(event) => setManager(event.target.value)}
-                  className="rounded border border-[var(--input-border)] bg-[var(--input-bg)] p-2 text-sm"
+                  className="h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
+                  style={{
+                    backgroundColor: "var(--card-bg)",
+                    color: "var(--foreground)",
+                  }}
                   placeholder="Nombre del encargado"
                   readOnly={managerReadonly}
                   ref={(el) => {
@@ -585,7 +611,11 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
             <textarea
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
-              className="min-h-[80px] rounded border border-[var(--input-border)] bg-[var(--input-bg)] p-2 text-sm"
+              className="min-h-[96px] rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
+              style={{
+                backgroundColor: "var(--card-bg)",
+                color: "var(--foreground)",
+              }}
               maxLength={400}
               placeholder="Notas adicionales del cierre"
             />
@@ -597,7 +627,11 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
             <button
               type="button"
               onClick={handleClearCounts}
-              className="rounded border border-[var(--input-border)] px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--muted)]"
+              className="inline-flex h-11 items-center justify-center rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-4 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
+              style={{
+                backgroundColor: "var(--card-bg)",
+                color: "var(--foreground)",
+              }}
             >
               Limpiar conteo
             </button>
@@ -605,7 +639,11 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
               <button
                 type="button"
                 onClick={() => onShowHistory()}
-                className="rounded border border-[var(--input-border)] px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--muted)]"
+                className="inline-flex h-11 items-center justify-center rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-4 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
+                style={{
+                  backgroundColor: "var(--card-bg)",
+                  color: "var(--foreground)",
+                }}
               >
                 Ver historial
               </button>
@@ -615,7 +653,11 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="rounded border border-[var(--input-border)] px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--muted)]"
+              className="inline-flex h-11 items-center justify-center rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-4 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
+              style={{
+                backgroundColor: "var(--card-bg)",
+                color: "var(--foreground)",
+              }}
             >
               Cancelar
             </button>
@@ -624,13 +666,17 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                 type="button"
                 onClick={handleSubmit}
                 disabled={submitDisabled}
-                className="rounded bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:opacity-50"
+                className={`inline-flex h-11 items-center justify-center rounded-lg border px-4 text-sm font-semibold shadow-sm transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)] ${
+                  submitDisabled
+                    ? "cursor-not-allowed border-[var(--input-border)] bg-[var(--muted)]/60 text-[var(--muted-foreground)] opacity-70"
+                    : "border-[var(--accent)] bg-[var(--accent)] text-white hover:-translate-y-0.5 hover:border-cyan-300/70 hover:bg-[var(--accent-hover)] hover:shadow-md hover:shadow-sky-950/25 active:translate-y-0 active:scale-[0.99]"
+                }`}
               >
                 {editId ? "Actualizar cierre" : "Guardar cierre"}
               </button>
               {submitDisabled && submitDisabledReason ? (
                 <div
-                  className="pointer-events-none absolute bottom-full right-0 mb-2 w-72 rounded border border-yellow-300 bg-yellow-200 px-3 py-2 text-xs text-black opacity-0 shadow-lg transition-opacity group-hover:opacity-100 dark:border-yellow-600 dark:bg-yellow-500"
+                  className="pointer-events-none absolute bottom-full right-0 mb-2 w-72 rounded border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-200 opacity-0 shadow-lg transition-opacity group-hover:opacity-100"
                   role="tooltip"
                 >
                   {submitDisabledReason}

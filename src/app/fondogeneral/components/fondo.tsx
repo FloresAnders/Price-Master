@@ -1699,7 +1699,7 @@ export function ProviderSection({ id }: { id?: string }) {
               Proveedores
             </h2>
             {company && (
-              <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-[var(--input-border)] bg-[var(--input-bg)] px-2.5 py-1 text-[10px] sm:text-xs">
+              <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-[var(--input-border)] px-2.5 py-1 text-[10px] sm:text-xs text-[var(--foreground)] whitespace-nowrap">
                 <span className="text-[var(--muted-foreground)]">Empresa</span>
                 <span className="font-semibold text-[var(--foreground)] truncate max-w-[160px] sm:max-w-none">
                   {company}
@@ -1730,7 +1730,11 @@ export function ProviderSection({ id }: { id?: string }) {
                 disabled={
                   ownerCompaniesLoading || sortedOwnerCompanies.length === 0
                 }
-                className="w-full sm:min-w-[220px] lg:min-w-[260px] px-3 py-2.5 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-xs sm:text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40"
+                className="w-full sm:min-w-[220px] lg:min-w-[260px] h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
+                style={{
+                  backgroundColor: "var(--card-bg)",
+                  color: "var(--foreground)",
+                }}
               >
                 {(() => {
                   const getCompanyKey = (emp: Empresas) =>
@@ -1805,7 +1809,11 @@ export function ProviderSection({ id }: { id?: string }) {
               setVisitFrequency("");
             }}
             disabled={!company || saving || providersLoading}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--accent)] text-white rounded-lg shadow-sm ring-1 ring-white/10 hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold transition-colors whitespace-nowrap"
+            className={`flex h-11 w-full items-center justify-center gap-2 rounded border px-3 text-sm font-semibold shadow-sm transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)] disabled:pointer-events-none disabled:opacity-50 ${
+              !company || saving || providersLoading
+                ? "cursor-not-allowed border-[var(--input-border)] bg-[var(--muted)]/30 text-[var(--muted-foreground)] opacity-70"
+                : "border-[var(--accent)] bg-transparent text-[var(--foreground)] hover:-translate-y-0.5 hover:border-cyan-300/70 hover:bg-transparent hover:shadow-md hover:shadow-sky-950/25 active:translate-y-0 active:scale-[0.99]"
+            }`}
           >
             <Plus className="w-4 h-4" />
             <span>Agregar proveedor</span>
@@ -1845,7 +1853,11 @@ export function ProviderSection({ id }: { id?: string }) {
                   placeholder="Buscar por nombre, código o correo…"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 h-10 sm:h-11 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40"
+                  className="w-full h-10 sm:h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] pl-10 pr-4 text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
+                  style={{
+                    backgroundColor: "var(--card-bg)",
+                    color: "var(--foreground)",
+                  }}
                 />
               </div>
 
@@ -1853,7 +1865,11 @@ export function ProviderSection({ id }: { id?: string }) {
                 <label
                   htmlFor="filter-with-email"
                   title="Muestra solo proveedores con correo de notificación"
-                  className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 px-3 py-2 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/30 cursor-pointer select-none"
+                  className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 cursor-pointer select-none transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-within:ring-2 focus-within:ring-[var(--accent)]/40 focus-within:ring-offset-1 focus-within:ring-offset-[var(--card-bg)]"
+                  style={{
+                    backgroundColor: "var(--card-bg)",
+                    color: "var(--foreground)",
+                  }}
                 >
                   <input
                     type="checkbox"
@@ -1863,7 +1879,7 @@ export function ProviderSection({ id }: { id?: string }) {
                       setShowOnlyWithEmail(e.target.checked);
                       setCurrentPage(1);
                     }}
-                    className="mt-0.5 sm:mt-0 w-4 h-4 cursor-pointer"
+                    className="mt-0.5 sm:mt-0 h-4 w-4 cursor-pointer rounded border-[var(--input-border)] text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
                   />
                   <span className="text-xs sm:text-sm text-[var(--foreground)] whitespace-nowrap">
                     Solo con correo
@@ -1895,7 +1911,11 @@ export function ProviderSection({ id }: { id?: string }) {
                     setItemsPerPage(value === "all" ? "all" : parseInt(value));
                     setCurrentPage(1);
                   }}
-                  className="w-full sm:w-auto px-3 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg text-xs sm:text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40"
+                  className="w-full sm:w-auto h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
+                  style={{
+                    backgroundColor: "var(--card-bg)",
+                    color: "var(--foreground)",
+                  }}
                 >
                   <option value="all">Todos</option>
                   <option value="5">5</option>
@@ -1912,7 +1932,11 @@ export function ProviderSection({ id }: { id?: string }) {
                       setCurrentPage((prev) => Math.max(prev - 1, 1))
                     }
                     disabled={currentPage === 1}
-                    className="p-2.5 sm:p-2 bg-[var(--accent)] text-white rounded-lg disabled:opacity-50 transition-colors"
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)] disabled:opacity-50"
+                    style={{
+                      backgroundColor: "var(--card-bg)",
+                      color: "var(--foreground)",
+                    }}
                     aria-label="Página anterior"
                   >
                     <ChevronLeft className="w-4 h-4" />
@@ -1925,7 +1949,11 @@ export function ProviderSection({ id }: { id?: string }) {
                       setCurrentPage((prev) => Math.min(prev + 1, totalPages))
                     }
                     disabled={currentPage === totalPages}
-                    className="p-2.5 sm:p-2 bg-[var(--accent)] text-white rounded-lg disabled:opacity-50 transition-colors"
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)] disabled:opacity-50"
+                    style={{
+                      backgroundColor: "var(--card-bg)",
+                      color: "var(--foreground)",
+                    }}
                     aria-label="Página siguiente"
                   >
                     <ChevronRight className="w-4 h-4" />
@@ -1965,7 +1993,7 @@ export function ProviderSection({ id }: { id?: string }) {
                             {p.correonotifi?.trim() && (
                               <span
                                 title={`Correo: ${p.correonotifi}`}
-                                className="inline-flex max-w-full items-center gap-1 rounded-full border border-[var(--input-border)] bg-[var(--input-bg)] px-2 py-0.5 text-[10px] text-[var(--foreground)]"
+                                className="inline-flex max-w-full items-center gap-1 rounded-full border border-[var(--input-border)] bg-[var(--card-bg)]/35 px-2 py-0.5 text-[10px] text-[var(--foreground)]"
                               >
                                 <Mail className="w-3.5 h-3.5 text-[var(--accent)]" />
                                 <span className="truncate">Con correo</span>
@@ -1974,20 +2002,20 @@ export function ProviderSection({ id }: { id?: string }) {
                           </div>
 
                           <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] sm:text-xs text-[var(--muted-foreground)]">
-                            <span className="inline-flex items-center rounded-full border border-[var(--input-border)] bg-[var(--input-bg)] px-2 py-0.5">
+                            <span className="inline-flex items-center rounded-full border border-[var(--input-border)] bg-[var(--card-bg)]/35 px-2 py-0.5">
                               Código:{" "}
                               <span className="ml-1 text-[var(--foreground)]">
                                 {p.code}
                               </span>
                             </span>
-                            <span className="inline-flex items-center rounded-full border border-[var(--input-border)] bg-[var(--card-bg)]/25 px-2 py-0.5">
+                            <span className="inline-flex items-center rounded-full border border-[var(--input-border)] bg-[var(--card-bg)]/35 px-2 py-0.5">
                               Empresa:{" "}
                               <span className="ml-1 text-[var(--foreground)]">
                                 {p.company}
                               </span>
                             </span>
                             {p.type && (
-                              <span className="inline-flex items-center rounded-full border border-[var(--input-border)] bg-[var(--card-bg)]/25 px-2 py-0.5">
+                              <span className="inline-flex items-center rounded-full border border-[var(--input-border)] bg-[var(--card-bg)]/35 px-2 py-0.5">
                                 Tipo:{" "}
                                 <span className="ml-1 text-[var(--foreground)]">
                                   {p.type}
@@ -1995,7 +2023,7 @@ export function ProviderSection({ id }: { id?: string }) {
                               </span>
                             )}
                             {p.category && (
-                              <span className="inline-flex items-center rounded-full border border-[var(--input-border)] bg-[var(--input-bg)] px-2 py-0.5">
+                              <span className="inline-flex items-center rounded-full border border-[var(--input-border)] bg-[var(--card-bg)]/35 px-2 py-0.5">
                                 {p.category}
                               </span>
                             )}
@@ -2202,7 +2230,11 @@ export function ProviderSection({ id }: { id?: string }) {
 
             <div className="flex flex-col gap-3">
               <input
-                className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded"
+                className="w-full h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
+                style={{
+                  backgroundColor: "var(--card-bg)",
+                  color: "var(--foreground)",
+                }}
                 placeholder="Nombre del proveedor"
                 value={providerName}
                 onChange={(e) => setProviderName(e.target.value.toUpperCase())}
@@ -2231,11 +2263,15 @@ export function ProviderSection({ id }: { id?: string }) {
                     setVisitFrequency("");
                   }
                 }}
-                className={`w-full p-3 bg-[var(--input-bg)] border rounded ${
+                className={`w-full h-11 rounded-lg border bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)] ${
                   providerTypeError
                     ? "border-red-500"
                     : "border-[var(--input-border)]"
                 }`}
+                style={{
+                  backgroundColor: "var(--card-bg)",
+                  color: "var(--foreground)",
+                }}
                 disabled={!company || saving}
               >
                 <option value="">Seleccione un tipo</option>
@@ -2309,7 +2345,11 @@ export function ProviderSection({ id }: { id?: string }) {
                       <select
                         value={selectedAdminId}
                         onChange={(e) => setSelectedAdminId(e.target.value)}
-                        className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm"
+                        className="w-full h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
+                        style={{
+                          backgroundColor: "var(--card-bg)",
+                          color: "var(--foreground)",
+                        }}
                         disabled={!company || saving}
                       >
                         <option value="">Seleccione un administrador</option>
@@ -2421,7 +2461,11 @@ export function ProviderSection({ id }: { id?: string }) {
                               e.target.value as ProviderVisitFrequency | "",
                             )
                           }
-                          className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm"
+                          className="w-full h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
+                          style={{
+                            backgroundColor: "var(--card-bg)",
+                            color: "var(--foreground)",
+                          }}
                           disabled={!company || saving}
                         >
                           <option value="">Seleccione una frecuencia</option>
@@ -2444,7 +2488,11 @@ export function ProviderSection({ id }: { id?: string }) {
                             onChange={(e) =>
                               setVisitStartDateISO(e.target.value)
                             }
-                            className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm"
+                            className="w-full h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
+                            style={{
+                              backgroundColor: "var(--card-bg)",
+                              color: "var(--foreground)",
+                            }}
                             disabled={!company || saving}
                           />
                           <div className="mt-1 text-[10px] text-[var(--muted-foreground)]">
