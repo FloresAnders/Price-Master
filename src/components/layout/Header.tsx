@@ -47,12 +47,29 @@ import { safeLocalStorage, safeWindow } from "../../utils/client";
 import { getDefaultPermissions } from "../../utils/permissions";
 import FloatingSessionTimer from "../session/FloatingSessionTimer";
 import EditProfileModal from "../edicionPerfil/EditProfileModal";
+import { getLayoutPref, setLayoutPref } from "@/services/layoutPrefsDb";
 import {
   ConfigurationModal,
   CalculatorModal,
   NotificationModal,
 } from "../modals";
 import type { UserPermissions } from "../../types/firestore";
+
+const ADMIN_SIDEBAR_EXPANDED_WIDTH_PREF_KEY = "adminSidebarWidth";
+const ADMIN_SIDEBAR_COLLAPSED_WIDTH_PREF_KEY = "adminSidebarCollapsedWidth";
+
+const DEFAULT_ADMIN_SIDEBAR_EXPANDED_WIDTH = 320;
+const MIN_ADMIN_SIDEBAR_EXPANDED_WIDTH = 240;
+const MAX_ADMIN_SIDEBAR_EXPANDED_WIDTH = 520;
+
+const DEFAULT_ADMIN_SIDEBAR_COLLAPSED_WIDTH = 72;
+const MIN_ADMIN_SIDEBAR_COLLAPSED_WIDTH = 64;
+const MAX_ADMIN_SIDEBAR_COLLAPSED_WIDTH = 120;
+
+function clampNumber(value: number, min: number, max: number): number {
+  if (Number.isNaN(value)) return min;
+  return Math.min(max, Math.max(min, value));
+}
 
 const getCreatedAtDate = (value: any): Date | null => {
   if (!value) return null;
@@ -112,6 +129,13 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showAdminSidebar, setShowAdminSidebar] = useState(false);
+  const [adminSidebarExpandedWidth, setAdminSidebarExpandedWidth] = useState(
+    DEFAULT_ADMIN_SIDEBAR_EXPANDED_WIDTH,
+  );
+  const [adminSidebarCollapsedWidth, setAdminSidebarCollapsedWidth] = useState(
+    DEFAULT_ADMIN_SIDEBAR_COLLAPSED_WIDTH,
+  );
+  const [isResizingAdminSidebar, setIsResizingAdminSidebar] = useState(false);
   const [showNotifModal, setShowNotifModal] = useState(false);
   const [hasNewSolicitudes, setHasNewSolicitudes] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
@@ -141,6 +165,53 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   });
 
   const isClient = typeof window !== "undefined";
+
+  useEffect(() => {
+    if (!isClient) return;
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [savedExpandedWidth, savedCollapsedWidth] = await Promise.all([
+          getLayoutPref<number>(ADMIN_SIDEBAR_EXPANDED_WIDTH_PREF_KEY),
+          getLayoutPref<number>(ADMIN_SIDEBAR_COLLAPSED_WIDTH_PREF_KEY),
+        ]);
+        if (cancelled) return;
+
+        if (
+          typeof savedExpandedWidth === "number" &&
+          Number.isFinite(savedExpandedWidth)
+        ) {
+          setAdminSidebarExpandedWidth(
+            clampNumber(
+              savedExpandedWidth,
+              MIN_ADMIN_SIDEBAR_EXPANDED_WIDTH,
+              MAX_ADMIN_SIDEBAR_EXPANDED_WIDTH,
+            ),
+          );
+        }
+
+        if (
+          typeof savedCollapsedWidth === "number" &&
+          Number.isFinite(savedCollapsedWidth)
+        ) {
+          setAdminSidebarCollapsedWidth(
+            clampNumber(
+              savedCollapsedWidth,
+              MIN_ADMIN_SIDEBAR_COLLAPSED_WIDTH,
+              MAX_ADMIN_SIDEBAR_COLLAPSED_WIDTH,
+            ),
+          );
+        }
+      } catch {
+        // If IndexedDB isn't available, keep default width.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isClient]);
 
   useEffect(() => {
     if (!audioRef.current) {
@@ -509,10 +580,12 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   useEffect(() => {
     if (typeof document === "undefined") return;
 
+    const currentWidth = showAdminSidebar
+      ? adminSidebarExpandedWidth
+      : adminSidebarCollapsedWidth;
+
     const sidebarWidth = canShowAdminSidebar
-      ? showAdminSidebar
-        ? "320px"
-        : "72px"
+      ? `${currentWidth}px`
       : "0px";
 
     document.documentElement.style.setProperty(
@@ -526,7 +599,12 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
         "0px",
       );
     };
-  }, [canShowAdminSidebar, showAdminSidebar]);
+  }, [
+    adminSidebarCollapsedWidth,
+    adminSidebarExpandedWidth,
+    canShowAdminSidebar,
+    showAdminSidebar,
+  ]);
 
   const handleLogoutClick = () => {
     // Si estamos en /home, limpiar sesión especial y redirigir
@@ -1254,10 +1332,120 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
 
       {canShowAdminSidebar && (
         <aside
-          className={`hidden lg:flex fixed left-0 top-0 z-40 h-screen flex-col border-r border-[var(--input-border)] bg-[var(--background)] shadow-lg transition-[width] duration-300 ease-in-out overflow-hidden ${
-            showAdminSidebar ? "w-[320px]" : "w-[72px]"
+          className={`hidden lg:flex fixed left-0 top-0 z-40 h-screen flex-col border-r border-[var(--input-border)] bg-[var(--background)] shadow-lg overflow-hidden ${
+            isResizingAdminSidebar
+              ? "transition-none"
+              : "transition-[width] duration-300 ease-in-out"
           }`}
+          style={{
+            width: showAdminSidebar
+              ? adminSidebarExpandedWidth
+              : adminSidebarCollapsedWidth,
+          }}
         >
+          {/* Drag handle when expanded */}
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            title="Arrastra para ensanchar el menú (desplegado)"
+            className={`absolute right-0 top-0 h-full w-2 cursor-col-resize bg-transparent hover:bg-[var(--accent)]/10 ${
+              showAdminSidebar
+                ? "opacity-100"
+                : "opacity-0 pointer-events-none"
+            }`}
+            onPointerDown={(event) => {
+              if (event.button !== 0) return;
+              if (!showAdminSidebar) return;
+
+              event.preventDefault();
+              setIsResizingAdminSidebar(true);
+
+              const startX = event.clientX;
+              const startWidth = clampNumber(
+                adminSidebarExpandedWidth,
+                MIN_ADMIN_SIDEBAR_EXPANDED_WIDTH,
+                MAX_ADMIN_SIDEBAR_EXPANDED_WIDTH,
+              );
+              let latestWidth = startWidth;
+              setAdminSidebarExpandedWidth(startWidth);
+
+              const handlePointerMove = (moveEvent: PointerEvent) => {
+                latestWidth = clampNumber(
+                  startWidth + (moveEvent.clientX - startX),
+                  MIN_ADMIN_SIDEBAR_EXPANDED_WIDTH,
+                  MAX_ADMIN_SIDEBAR_EXPANDED_WIDTH,
+                );
+                setAdminSidebarExpandedWidth(latestWidth);
+              };
+
+              const handlePointerUp = () => {
+                window.removeEventListener("pointermove", handlePointerMove);
+                window.removeEventListener("pointerup", handlePointerUp);
+                setIsResizingAdminSidebar(false);
+                void setLayoutPref(
+                  ADMIN_SIDEBAR_EXPANDED_WIDTH_PREF_KEY,
+                  latestWidth,
+                );
+              };
+
+              window.addEventListener("pointermove", handlePointerMove);
+              window.addEventListener("pointerup", handlePointerUp, {
+                once: true,
+              });
+            }}
+          />
+
+          {/* Drag handle when collapsed */}
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            title="Arrastra para ensanchar el menú (contraído)"
+            className={`absolute right-0 top-0 h-full w-2 cursor-col-resize bg-transparent hover:bg-[var(--accent)]/10 ${
+              showAdminSidebar
+                ? "opacity-0 pointer-events-none"
+                : "opacity-100"
+            }`}
+            onPointerDown={(event) => {
+              if (event.button !== 0) return;
+              if (showAdminSidebar) return;
+
+              event.preventDefault();
+              setIsResizingAdminSidebar(true);
+
+              const startX = event.clientX;
+              const startWidth = clampNumber(
+                adminSidebarCollapsedWidth,
+                MIN_ADMIN_SIDEBAR_COLLAPSED_WIDTH,
+                MAX_ADMIN_SIDEBAR_COLLAPSED_WIDTH,
+              );
+              let latestWidth = startWidth;
+              setAdminSidebarCollapsedWidth(startWidth);
+
+              const handlePointerMove = (moveEvent: PointerEvent) => {
+                latestWidth = clampNumber(
+                  startWidth + (moveEvent.clientX - startX),
+                  MIN_ADMIN_SIDEBAR_COLLAPSED_WIDTH,
+                  MAX_ADMIN_SIDEBAR_COLLAPSED_WIDTH,
+                );
+                setAdminSidebarCollapsedWidth(latestWidth);
+              };
+
+              const handlePointerUp = () => {
+                window.removeEventListener("pointermove", handlePointerMove);
+                window.removeEventListener("pointerup", handlePointerUp);
+                setIsResizingAdminSidebar(false);
+                void setLayoutPref(
+                  ADMIN_SIDEBAR_COLLAPSED_WIDTH_PREF_KEY,
+                  latestWidth,
+                );
+              };
+
+              window.addEventListener("pointermove", handlePointerMove);
+              window.addEventListener("pointerup", handlePointerUp, {
+                once: true,
+              });
+            }}
+          />
           <div className="px-3 py-3">
             <Link
               href="/#"
@@ -1296,7 +1484,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
             </Link>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-2 py-3">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-3">
             <div className="space-y-1">
               {visibleTabs.map((tab) => {
                 const TabIcon = tab.icon;
