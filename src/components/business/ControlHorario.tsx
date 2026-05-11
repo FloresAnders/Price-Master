@@ -13,6 +13,8 @@ import {
   Info,
   Eye,
   EyeOff,
+  Layers,
+  ChevronDown,
 } from "lucide-react";
 import { EmpresasService } from "../../services/empresas";
 import { SchedulesService } from "../../services/schedules";
@@ -1981,44 +1983,12 @@ export default function ControlHorario({
       "⏳ COMPONENTE EN ESTADO LOADING - datos de ubicaciones aún no cargados",
     );
     return (
-      <div className="max-w-4xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4 sm:p-6">
+      <div className="max-w-4xl mx-auto bg-[var(--card-bg)] rounded-lg shadow-md border border-[var(--input-border)] p-4 sm:p-6">
         <div className="flex flex-col items-center justify-center py-12">
           <div className="relative flex items-center justify-center mb-4">
-            <svg
-              className="animate-spin-slow w-8 h-8 sm:w-12 sm:h-12 text-[var(--foreground)]"
-              viewBox="0 0 48 48"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <circle
-                cx="24"
-                cy="24"
-                r="22"
-                stroke="currentColor"
-                strokeWidth="4"
-                opacity="0.2"
-              />
-              <line
-                x1="24"
-                y1="24"
-                x2="24"
-                y2="10"
-                stroke="currentColor"
-                strokeWidth="3"
-                strokeLinecap="round"
-              />
-              <line
-                x1="24"
-                y1="24"
-                x2="36"
-                y2="24"
-                stroke="currentColor"
-                strokeWidth="3"
-                strokeLinecap="round"
-              />
-            </svg>
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-cyan-500/20 border-t-cyan-500"></div>
           </div>
-          <div className="text-sm sm:text-lg flex items-center">
+          <div className="text-sm sm:text-lg flex items-center text-[var(--foreground)]">
             Cargando
             <span className="inline-block w-6 text-left">
               <span className="loading-dot">.</span>
@@ -2038,44 +2008,12 @@ export default function ControlHorario({
         `⏳ MOSTRANDO LOADING para usuario ${user.name} con empresa asignada: ${assignedEmpresa}`,
       );
       return (
-        <div className="max-w-4xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4 sm:p-6">
+        <div className="max-w-4xl mx-auto bg-[var(--card-bg)] rounded-lg shadow-md border border-[var(--input-border)] p-4 sm:p-6">
           <div className="flex flex-col items-center justify-center py-12">
             <div className="relative flex items-center justify-center mb-4">
-              <svg
-                className="animate-spin-slow w-8 h-8 sm:w-12 sm:h-12 text-[var(--foreground)]"
-                viewBox="0 0 48 48"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <circle
-                  cx="24"
-                  cy="24"
-                  r="22"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                  opacity="0.2"
-                />
-                <line
-                  x1="24"
-                  y1="24"
-                  x2="24"
-                  y2="10"
-                  stroke="currentColor"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                />
-                <line
-                  x1="24"
-                  y1="24"
-                  x2="36"
-                  y2="24"
-                  stroke="currentColor"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                />
-              </svg>
+              <div className="animate-spin rounded-full h-12 w-12 border-4 border-cyan-500/20 border-t-cyan-500"></div>
             </div>
-            <div className="text-sm sm:text-lg flex items-center">
+            <div className="text-sm sm:text-lg flex items-center text-[var(--foreground)]">
               Cargando empresa asignada: {assignedEmpresa}
               <span className="inline-block w-6 text-left">
                 <span className="loading-dot">.</span>
@@ -2091,13 +2029,13 @@ export default function ControlHorario({
     // Si es usuario con rol "user" sin empresa asignada, mostrar error
     if (user?.role === "user" && !assignedEmpresa) {
       return (
-        <div className="max-w-4xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4 sm:p-6">
+        <div className="max-w-4xl mx-auto bg-[var(--card-bg)] rounded-lg shadow-md border border-[var(--input-border)] p-4 sm:p-6">
           <div className="text-center mb-8">
-            <Clock className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 text-red-600" />
-            <h3 className="text-xl sm:text-2xl font-semibold mb-4">
+            <Clock className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 text-red-500" />
+            <h3 className="text-xl sm:text-2xl font-bold text-[var(--foreground)] mb-4">
               Acceso Restringido
             </h3>
-            <p className="text-sm sm:text-base text-[var(--tab-text)] mb-6">
+            <p className="text-sm sm:text-base text-[var(--muted-foreground)] mb-6">
               No tienes una empresa asignada. Contacta al administrador.
             </p>
           </div>
@@ -2107,13 +2045,13 @@ export default function ControlHorario({
 
     // Solo para admin/superadmin SIN empresa asignada, mostrar selector manual
     return (
-      <div className="max-w-4xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4 sm:p-6">
+      <div className="max-w-4xl mx-auto bg-[var(--card-bg)] rounded-lg shadow-md border border-[var(--input-border)] p-4 sm:p-6">
         <div className="text-center mb-8">
-          <Clock className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 text-blue-600" />
-          <h3 className="text-xl sm:text-2xl font-semibold mb-4">
+          <Clock className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 text-cyan-500" />
+          <h3 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-cyan-500 to-blue-500 bg-clip-text text-transparent mb-4">
             Control de Horarios
           </h3>
-          <p className="text-sm sm:text-base text-[var(--tab-text)] mb-6">
+          <p className="text-sm sm:text-base text-[var(--muted-foreground)] mb-6">
             Selecciona una empresa para continuar
           </p>
         </div>
@@ -2121,16 +2059,14 @@ export default function ControlHorario({
         <div className="max-w-md mx-auto">
           <div className="mb-4">
             <label
-              className="block text-sm font-medium mb-2"
-              style={{ color: "var(--foreground)" }}
+              className="block text-sm font-semibold mb-2 text-[var(--foreground)]"
             >
               Empresa:
             </label>
             <select
-              className="w-full px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-4 py-2 rounded-lg border-2 border-[var(--input-border)] focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
               style={{
                 background: "var(--input-bg)",
-                border: "1px solid var(--input-border)",
                 color: "var(--foreground)",
               }}
               value={empresa}
@@ -2151,11 +2087,11 @@ export default function ControlHorario({
 
   return (
     <>
-      <div className="max-w-full mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4 sm:p-6">
+      <div className="max-w-full mx-auto bg-[var(--card-bg)] rounded-lg shadow-md border border-[var(--input-border)] p-4 sm:p-6">
         {/* notifications are rendered globally by ToastProvider */}
         {/* Loading indicator */}
         {saving && (
-          <div className="fixed top-16 sm:top-20 right-4 sm:right-6 z-40 px-3 sm:px-4 py-2 rounded-lg bg-blue-500 text-white flex items-center gap-2 text-sm sm:text-base">
+          <div className="fixed top-16 sm:top-20 right-4 sm:right-6 z-40 px-3 sm:px-4 py-2 rounded-lg bg-cyan-500 text-white flex items-center gap-2 text-sm sm:text-base shadow-lg">
             <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white"></div>
             Guardando...
           </div>
@@ -2164,12 +2100,12 @@ export default function ControlHorario({
         <div className="mb-6 flex flex-col gap-4">
           <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
             <div className="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
-              <Clock className="w-12 h-12 sm:w-16 sm:h-16 text-blue-600" />
+              <Clock className="w-12 h-12 sm:w-16 sm:h-16 text-cyan-500" />
               <div>
-                <h3 className="text-xl sm:text-2xl font-semibold mb-2 sm:mb-4">
+                <h3 className="text-xl sm:text-2xl font-bold text-[var(--foreground)] mb-2 sm:mb-4 bg-gradient-to-r from-cyan-500 to-blue-500 bg-clip-text text-transparent">
                   Control de Horarios
                 </h3>
-                <p className="text-sm sm:text-base text-[var(--tab-text)] mb-4 sm:mb-6">
+                <p className="text-sm sm:text-base text-[var(--muted-foreground)] mb-4 sm:mb-6">
                   {user?.name && (
                     <>
                       <span className="block sm:inline">
@@ -2187,26 +2123,23 @@ export default function ControlHorario({
               {/* Selector de empresa - solo para admin y superadmin
           TODOS los usuarios ven predeterminadamente su empresa asignada
           Los usuarios con rol "user" están restringidos solo a su empresa */}
-              {userCanChangeEmpresa() ? (
-                <select
-                  className="w-full sm:w-auto px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  style={{
-                    background: "var(--input-bg)",
-                    border: "1px solid var(--input-border)",
-                    color: "var(--foreground)",
-                  }}
-                  value={empresa}
-                  onChange={(e) => handleEmpresaChange(e.target.value)}
-                >
-                  <option value="">Seleccionar empresa</option>
-                  {empresas.map((empresaItem: MappedEmpresa) => (
-                    <option key={empresaItem.value} value={empresaItem.value}>
-                      {empresaItem.label}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <div className="hidden sm:block px-3 py-2 text-sm text-[var(--tab-text)]"></div>
+              {userCanChangeEmpresa() && empresas.length > 0 && (
+                <div className="flex items-center gap-2 bg-[var(--input-bg)] border-2 border-[var(--input-border)] rounded-lg px-3 py-2 hover:border-cyan-500 transition-colors">
+                  <Layers className="w-5 h-5 text-cyan-500 flex-shrink-0" />
+                  <select
+                    className="bg-transparent text-sm font-medium focus:outline-none text-[var(--foreground)] cursor-pointer"
+                    value={empresa}
+                    onChange={(e) => handleEmpresaChange(e.target.value)}
+                  >
+                    <option value="">Seleccionar empresa</option>
+                    {empresas.map((empresaItem: MappedEmpresa) => (
+                      <option key={empresaItem.value} value={empresaItem.value}>
+                        {empresaItem.label}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-[var(--muted-foreground)] flex-shrink-0 pointer-events-none" />
+                </div>
               )}
             </div>
           </div>
@@ -2217,11 +2150,11 @@ export default function ControlHorario({
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => changeMonth("prev")}
-                  className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                  className="p-2 rounded-lg hover:bg-[var(--input-bg)] border border-[var(--input-border)] transition-colors hover:border-cyan-500"
                 >
-                  <ChevronLeft className="w-5 h-5" />
+                  <ChevronLeft className="w-5 h-5 text-[var(--foreground)]" />
                 </button>
-                <h4 className="text-lg font-semibold capitalize flex items-center gap-2">
+                <h4 className="text-lg font-bold capitalize flex items-center gap-2 text-[var(--foreground)]">
                   {monthName}
                   {/* Mostrar candado si hay al menos un día pasado en la vista, sin importar el estado */}
                   {daysToShow.some((day) => {
@@ -2248,7 +2181,10 @@ export default function ControlHorario({
                           setUnlockPastDaysModal(true);
                         }
                       }}
-                      className="ml-2 p-1 rounded-full border border-gray-400 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                      className="ml-2 p-1 rounded-full border-2 border-[var(--input-border)] hover:border-cyan-500 transition-colors"
+                      style={{
+                        background: "var(--input-bg)",
+                      }}
                       title={
                         editPastDaysEnabled
                           ? "Bloquear edición de días pasados"
@@ -2257,27 +2193,27 @@ export default function ControlHorario({
                       type="button"
                     >
                       {editPastDaysEnabled ? (
-                        <Unlock className="w-5 h-5 text-green-600" />
+                        <Unlock className="w-5 h-5 text-cyan-500" />
                       ) : (
-                        <Lock className="w-5 h-5 text-gray-500" />
+                        <Lock className="w-5 h-5 text-[var(--muted-foreground)]" />
                       )}
                     </button>
                   )}
                 </h4>
                 <button
                   onClick={() => changeMonth("next")}
-                  className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                  className="p-2 rounded-lg hover:bg-[var(--input-bg)] border border-[var(--input-border)] transition-colors hover:border-cyan-500"
                 >
-                  <ChevronRight className="w-5 h-5" />
+                  <ChevronRight className="w-5 h-5 text-[var(--foreground)]" />
                 </button>
               </div>
 
               <div className="flex gap-2 flex-wrap">
                 <button
-                  className={`px-3 py-1 text-xs rounded transition-colors ${
+                  className={`px-4 py-2 text-xs font-semibold rounded-lg border-2 transition-all ${
                     selectedPeriod === "1-15"
-                      ? "bg-blue-500 text-white"
-                      : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                      ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white border-cyan-500"
+                      : "border-[var(--input-border)] text-[var(--foreground)] hover:border-cyan-500 hover:bg-[var(--input-bg)]"
                   }`}
                   onClick={() => {
                     setSelectedPeriod("1-15");
@@ -2288,10 +2224,10 @@ export default function ControlHorario({
                   1-15
                 </button>
                 <button
-                  className={`px-3 py-1 text-xs rounded transition-colors ${
+                  className={`px-4 py-2 text-xs font-semibold rounded-lg border-2 transition-all ${
                     selectedPeriod === "16-30"
-                      ? "bg-blue-500 text-white"
-                      : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                      ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white border-cyan-500"
+                      : "border-[var(--input-border)] text-[var(--foreground)] hover:border-cyan-500 hover:bg-[var(--input-bg)]"
                   }`}
                   onClick={() => {
                     setSelectedPeriod("16-30");
@@ -2302,10 +2238,10 @@ export default function ControlHorario({
                   16-{daysInMonth}
                 </button>
                 <button
-                  className={`px-3 py-1 text-xs rounded transition-colors ${
+                  className={`px-4 py-2 text-xs font-semibold rounded-lg border-2 transition-all ${
                     fullMonthView
-                      ? "bg-blue-500 text-white"
-                      : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                      ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white border-cyan-500"
+                      : "border-[var(--input-border)] text-[var(--foreground)] hover:border-cyan-500 hover:bg-[var(--input-bg)]"
                   }`}
                   onClick={() => {
                     if (fullMonthView) {
@@ -2335,12 +2271,11 @@ export default function ControlHorario({
             <div className="flex flex-col sm:flex-row items-center gap-4">
               {/* Filtro de empleados */}
               <div className="flex items-center gap-2">
-                <UserIcon className="w-4 h-4 text-[var(--foreground)]" />
+                <UserIcon className="w-4 h-4 text-cyan-500" />
                 <select
-                  className="px-3 py-1 text-sm rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="px-4 py-2 text-sm rounded-lg border-2 border-[var(--input-border)] focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
                   style={{
                     background: "var(--input-bg)",
-                    border: "1px solid var(--input-border)",
                     color: "var(--foreground)",
                   }}
                   value={selectedEmployee}
@@ -2359,7 +2294,7 @@ export default function ControlHorario({
               {userIsSuperAdmin() && (
                 <button
                   onClick={exportScheduleAsImage}
-                  className="flex items-center gap-2 px-3 py-1 text-sm bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-lg hover:shadow-lg transition-all border border-purple-600 hover:border-purple-400"
                   title="Exportar como imagen"
                 >
                   📷 Exportar Imagen
@@ -2368,7 +2303,7 @@ export default function ControlHorario({
               {/* Botón de exportar quincena con icono acorde (Download) */}
               <button
                 onClick={exportQuincenaToPNG}
-                className="flex items-center gap-2 px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-gradient-to-r from-cyan-500 to-teal-500 text-white rounded-lg hover:shadow-lg transition-all border border-cyan-600 hover:border-cyan-400"
                 title={
                   isDelifoodEmpresa
                     ? "Exportar horas DELIFOOD como imagen"
@@ -2403,58 +2338,58 @@ export default function ControlHorario({
         </div>
         {/* Leyenda de colores */}
         {isDelifoodEmpresa ? (
-          <div className="mb-6 flex flex-wrap gap-4 justify-center">
-            <div className="flex items-center gap-2">
+          <div className="mb-6 p-4 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg flex flex-wrap gap-6 justify-center">
+            <div className="flex items-center gap-3">
               <div
-                className="w-4 h-4 rounded"
-                style={{ backgroundColor: "#d1fae5" }}
+                className="w-5 h-5 rounded-md shadow-sm"
+                style={{ backgroundColor: "#06b6d4" }}
               ></div>
-              <span className="text-sm">Con horas registradas</span>
+              <span className="text-sm font-medium text-[var(--foreground)]">Con horas registradas</span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <div
-                className="w-4 h-4 rounded"
-                style={{ backgroundColor: "var(--input-bg)" }}
+                className="w-5 h-5 rounded-md shadow-sm border-2 border-[var(--input-border)]"
+                style={{ backgroundColor: "var(--card-bg)" }}
               ></div>
-              <span className="text-sm">Sin horas registradas</span>
+              <span className="text-sm font-medium text-[var(--foreground)]">Sin horas registradas</span>
             </div>
           </div>
         ) : (
-          <div className="mb-6 flex flex-wrap gap-4 justify-center">
-            <div className="flex items-center gap-2">
+          <div className="mb-6 p-4 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg flex flex-wrap gap-6 justify-center">
+            <div className="flex items-center gap-3">
               <div
-                className="w-4 h-4 rounded"
-                style={{ backgroundColor: "#87CEEB" }}
+                className="w-5 h-5 rounded-md shadow-sm"
+                style={{ backgroundColor: "#0ea5e9" }}
               ></div>
-              <span className="text-sm">N - Nocturno</span>
+              <span className="text-sm font-medium text-[var(--foreground)]">N - Nocturno</span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <div
-                className="w-4 h-4 rounded"
-                style={{ backgroundColor: "#FFFF00" }}
+                className="w-5 h-5 rounded-md shadow-sm"
+                style={{ backgroundColor: "#eab308" }}
               ></div>
-              <span className="text-sm">D - Diurno</span>
+              <span className="text-sm font-medium text-[var(--foreground)]">D - Diurno</span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <div
-                className="w-4 h-4 rounded"
-                style={{ backgroundColor: "#FF00FF" }}
+                className="w-5 h-5 rounded-md shadow-sm"
+                style={{ backgroundColor: "#a855f7" }}
               ></div>
-              <span className="text-sm">L - Libre</span>
+              <span className="text-sm font-medium text-[var(--foreground)]">L - Libre</span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <div
-                className="w-4 h-4 rounded"
-                style={{ backgroundColor: "#28a745" }}
+                className="w-5 h-5 rounded-md shadow-sm"
+                style={{ backgroundColor: "#10b981" }}
               ></div>
-              <span className="text-sm">V - Vacaciones</span>
+              <span className="text-sm font-medium text-[var(--foreground)]">V - Vacaciones</span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <div
-                className="w-4 h-4 rounded"
-                style={{ backgroundColor: "#fd7e14" }}
+                className="w-5 h-5 rounded-md shadow-sm"
+                style={{ backgroundColor: "#f59e0b" }}
               ></div>
-              <span className="text-sm">I - Incapacidad</span>
+              <span className="text-sm font-medium text-[var(--foreground)]">I - Incapacidad</span>
             </div>
           </div>
         )}{" "}
@@ -2469,10 +2404,8 @@ export default function ControlHorario({
               <thead>
                 <tr>
                   <th
-                    className="border border-[var(--input-border)] p-2 font-semibold text-center bg-[var(--input-bg)] text-[var(--foreground)] min-w-[80px] sm:min-w-[100px] sticky left-0 z-20 text-xs"
+                    className="border border-[var(--input-border)] p-2 font-bold text-center text-[var(--foreground)] min-w-[80px] sm:min-w-[100px] sticky left-0 z-20 text-xs bg-gradient-to-b from-cyan-500/10 to-blue-500/10"
                     style={{
-                      background: "var(--input-bg)",
-                      color: "var(--foreground)",
                       minWidth: "80px",
                       left: 0,
                       height: "40px",
@@ -2501,23 +2434,20 @@ export default function ControlHorario({
                     return (
                       <th
                         key={day}
-                        className={`border border-[var(--input-border)] p-2 font-semibold text-center transition-colors text-xs relative${
-                          isToday ? " bg-green-500 text-white" : ""
+                        className={`border border-[var(--input-border)] p-2 font-bold text-center transition-all text-xs relative${
+                          isToday ? " bg-gradient-to-b from-cyan-500 to-blue-500 text-white shadow-md" : " hover:bg-[var(--input-bg)]"
                         }`}
                         style={{
-                          background: isToday ? "#22c55e" : "var(--input-bg)",
-                          color: isToday ? "#fff" : "var(--foreground)",
                           minWidth: fullMonthView ? "40px" : "20px",
                           height: "40px",
                           zIndex: isToday ? 1 : undefined,
                           cursor: "pointer",
-                          borderColor: isToday ? "#4ade80" : undefined,
                         }}
                       >
                         <span className="relative group">
                           {day}
                           <span
-                            className="absolute left-1/2 -translate-x-1/2 mt-2 px-2 py-1 rounded bg-gray-900 text-white text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 shadow-lg"
+                            className="absolute left-1/2 -translate-x-1/2 mt-2 px-3 py-2 rounded-lg bg-gray-900 text-white text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 shadow-xl"
                             style={{ bottom: "-2.2rem" }}
                           >
                             {tooltip}
@@ -2535,10 +2465,8 @@ export default function ControlHorario({
                 ).map((name, index) => (
                   <tr key={`${name}-${index}`}>
                     <td
-                      className="border border-[var(--input-border)] p-2 font-medium bg-[var(--input-bg)] text-[var(--foreground)] min-w-[80px] sm:min-w-[100px] sticky left-0 z-10 group cursor-pointer text-xs"
+                      className="border border-[var(--input-border)] p-2 font-semibold text-[var(--foreground)] min-w-[80px] sm:min-w-[100px] sticky left-0 z-10 group cursor-pointer text-xs bg-gradient-to-r from-cyan-500/5 to-blue-500/5 hover:bg-gradient-to-r hover:from-cyan-500/10 hover:to-blue-500/10 transition-colors"
                       style={{
-                        background: "var(--input-bg)",
-                        color: "var(--foreground)",
                         minWidth: "80px",
                         left: 0,
                         height: "40px",
