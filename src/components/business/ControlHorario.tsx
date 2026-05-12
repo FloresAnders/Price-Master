@@ -10,7 +10,6 @@ import {
   User as UserIcon,
   Lock,
   Unlock,
-  Info,
   Eye,
   EyeOff,
   Layers,
@@ -22,6 +21,7 @@ import type { ScheduleEntry } from "../../services/schedules";
 import { CcssConfigService } from "../../services/ccss-config";
 import DelifoodHoursModal from "../ui/DelifoodHoursModal";
 import ConfirmModal from "../ui/ConfirmModal";
+import TapTooltip from "../ui/TapTooltip";
 import type { User as FirestoreUser } from "../../types/firestore";
 import { ref, deleteObject } from "firebase/storage";
 import { storage } from "@/config/firebase";
@@ -286,9 +286,6 @@ export default function ControlHorario({
     return today.getDate() > 15 ? "16-30" : "1-15";
   });
   const [fullMonthView, setFullMonthView] = useState<boolean>(false);
-  const [showEmployeeSummary, setShowEmployeeSummary] = useState<string | null>(
-    null,
-  );
   const [confirmModal, setConfirmModal] = useState<{
     open: boolean;
     message: string;
@@ -2446,15 +2443,9 @@ export default function ControlHorario({
                           cursor: "pointer",
                         }}
                       >
-                        <span className="relative group">
-                          {day}
-                          <span
-                            className="absolute left-1/2 -translate-x-1/2 mt-2 px-3 py-2 rounded-lg bg-gray-900 text-white text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 shadow-xl"
-                            style={{ bottom: "-2.2rem" }}
-                          >
-                            {tooltip}
-                          </span>
-                        </span>
+                        <TapTooltip content={<span className="text-xs whitespace-nowrap">{tooltip}</span>}>
+                          <span>{day}</span>
+                        </TapTooltip>
                       </th>
                     );
                   })}
@@ -2474,41 +2465,31 @@ export default function ControlHorario({
                         height: "40px",
                       }}
                     >
-                      <div className="flex items-center gap-1">
-                        <span className="block truncate flex-1">{name}</span>
-                        {/* Botón de información para móviles */}
-                        <button
-                          onClick={() =>
-                            setShowEmployeeSummary(
-                              showEmployeeSummary === name ? null : name,
-                            )
-                          }
-                          className="sm:hidden flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-800/50 text-blue-600 dark:text-blue-400 transition-colors"
-                          title="Ver resumen"
-                        >
-                          <Info className="w-3 h-3" />
-                        </button>
-                      </div>
-                      {/* Tooltip al pasar el mouse - solo en pantallas grandes */}{" "}
-                      <div className="hidden sm:block absolute left-full top-1/2 -translate-y-1/2 ml-2 bg-gray-900 text-white text-xs rounded shadow-lg px-4 py-2 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 min-w-[180px] text-left whitespace-pre-line">
-                        <EmployeeTooltipSummary
-                          employeeName={name}
-                          empresaValue={empresa}
-                          empresaLabel={
-                            empresas.find((e) => e.value === empresa)?.label
-                          }
-                          employeeConfig={empresas
-                            .find((e) => e.value === empresa)
-                            ?.employees?.find((e) => e.name === name)}
-                          shiftsByDay={scheduleData[name]}
-                          year={year}
-                          month={month}
-                          daysToShow={daysToShow}
-                          isDelifoodEmpresa={isDelifoodEmpresa}
-                          delifoodHoursData={delifoodHoursData}
-                          user={user}
-                        />
-                      </div>
+                      <TapTooltip
+                        content={
+                          <div className="min-w-[180px] text-left whitespace-pre-line">
+                            <EmployeeTooltipSummary
+                              employeeName={name}
+                              empresaValue={empresa}
+                              empresaLabel={
+                                empresas.find((e) => e.value === empresa)?.label
+                              }
+                              employeeConfig={empresas
+                                .find((e) => e.value === empresa)
+                                ?.employees?.find((e) => e.name === name)}
+                              shiftsByDay={scheduleData[name]}
+                              year={year}
+                              month={month}
+                              daysToShow={daysToShow}
+                              isDelifoodEmpresa={isDelifoodEmpresa}
+                              delifoodHoursData={delifoodHoursData}
+                              user={user}
+                            />
+                          </div>
+                        }
+                      >
+                        <span className="block truncate">{name}</span>
+                      </TapTooltip>
                     </td>
                     {daysToShow.map((day) => {
                       const value = scheduleData[name]?.[day.toString()] || "";
@@ -2663,43 +2644,7 @@ export default function ControlHorario({
             No hay empleados registrados para esta empresa.
           </div>
         )}{" "}
-        {/* Modal de resumen del empleado para móviles */}
-        {showEmployeeSummary && (
-          <div className="sm:hidden fixed inset-0 bg-black/60 dark:bg-black/80 z-50 flex items-center justify-center p-4">
-            <div className="bg-[var(--card-bg)] text-[var(--foreground)] rounded-xl shadow-2xl p-6 max-w-sm w-full border border-[var(--input-border)]">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold">
-                  Resumen - {showEmployeeSummary}
-                </h3>
-                <button
-                  onClick={() => setShowEmployeeSummary(null)}
-                  className="p-2 rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--muted-foreground)] hover:border-cyan-500 hover:bg-[var(--muted)] transition-colors"
-                >
-                  ✕
-                </button>
-              </div>
-              <div className="space-y-2 text-sm">
-                <EmployeeTooltipSummary
-                  employeeName={showEmployeeSummary}
-                  empresaValue={empresa}
-                  empresaLabel={
-                    empresas.find((e) => e.value === empresa)?.label
-                  }
-                  employeeConfig={empresas
-                    .find((e) => e.value === empresa)
-                    ?.employees?.find((e) => e.name === showEmployeeSummary)}
-                  shiftsByDay={scheduleData[showEmployeeSummary]}
-                  year={year}
-                  month={month}
-                  daysToShow={daysToShow}
-                  isDelifoodEmpresa={isDelifoodEmpresa}
-                  delifoodHoursData={delifoodHoursData}
-                  user={user}
-                />
-              </div>
-            </div>
-          </div>
-        )}
+
       </div>
 
       <ConfirmModal

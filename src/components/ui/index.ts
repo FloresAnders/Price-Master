@@ -5,3 +5,4 @@ export { default as ImageExporter } from "./ImageExporter";
 export { default as ProductNameCheckbox } from "./ProductNameCheckbox";
 export { default as TicketCarousel } from "./TicketCarousel";
 export { default as DelifoodHoursModal } from "./DelifoodHoursModal";
+export { default as TapTooltip } from "./TapTooltip";
