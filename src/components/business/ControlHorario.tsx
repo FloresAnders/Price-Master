@@ -1155,11 +1155,11 @@ export default function ControlHorario({
       color: "var(--card-bg)",
       textColor: "var(--foreground)",
     },
-    { value: "N", label: "N", color: "#0ea5e9", textColor: "#000" },
-    { value: "D", label: "D", color: "#eab308", textColor: "#000" },
-    { value: "L", label: "L", color: "#a855f7", textColor: "#FFF" },
-    { value: "V", label: "V", color: "#10b981", textColor: "#FFF" }, // Verde para Vacaciones
-    { value: "I", label: "I", color: "#f59e0b", textColor: "#FFF" }, // Naranja para Incapacidad
+    { value: "N", label: "N", color: "#0ea5e9", textColor: "#000" }, // Celeste para noche
+    { value: "D", label: "D", color: "#ffea00", textColor: "#000" }, // Amarillo brillante para día
+    { value: "L", label: "L", color: "#a855f7", textColor: "#FFF" }, // Lila para libres
+    { value: "V", label: "V", color: "#10b981", textColor: "#FFF" }, // Verde para vacaciones
+    { value: "I", label: "I", color: "#ea580c", textColor: "#FFF" }, // Naranja fuerte para incapacidad
   ];
 
   // Función para obtener el color de fondo según la letra (todos los usuarios ven todos los colores)
@@ -2058,9 +2058,7 @@ export default function ControlHorario({
 
         <div className="max-w-md mx-auto">
           <div className="mb-4">
-            <label
-              className="block text-sm font-semibold mb-2 text-[var(--foreground)]"
-            >
+            <label className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
               Empresa:
             </label>
             <select
@@ -2335,14 +2333,18 @@ export default function ControlHorario({
                 className="w-5 h-5 rounded-md shadow-sm"
                 style={{ backgroundColor: "#06b6d4" }}
               ></div>
-              <span className="text-sm font-medium text-[var(--foreground)]">Con horas registradas</span>
+              <span className="text-sm font-medium text-[var(--foreground)]">
+                Con horas registradas
+              </span>
             </div>
             <div className="flex items-center gap-3">
               <div
                 className="w-5 h-5 rounded-md shadow-sm border-2 border-[var(--input-border)]"
                 style={{ backgroundColor: "var(--card-bg)" }}
               ></div>
-              <span className="text-sm font-medium text-[var(--foreground)]">Sin horas registradas</span>
+              <span className="text-sm font-medium text-[var(--foreground)]">
+                Sin horas registradas
+              </span>
             </div>
           </div>
         ) : (
@@ -2352,35 +2354,45 @@ export default function ControlHorario({
                 className="w-5 h-5 rounded-md shadow-sm"
                 style={{ backgroundColor: "#0ea5e9" }}
               ></div>
-              <span className="text-sm font-medium text-[var(--foreground)]">N - Nocturno</span>
+              <span className="text-sm font-medium text-[var(--foreground)]">
+                N - Nocturno
+              </span>
             </div>
             <div className="flex items-center gap-3">
               <div
                 className="w-5 h-5 rounded-md shadow-sm"
                 style={{ backgroundColor: "#eab308" }}
               ></div>
-              <span className="text-sm font-medium text-[var(--foreground)]">D - Diurno</span>
+              <span className="text-sm font-medium text-[var(--foreground)]">
+                D - Diurno
+              </span>
             </div>
             <div className="flex items-center gap-3">
               <div
                 className="w-5 h-5 rounded-md shadow-sm"
                 style={{ backgroundColor: "#a855f7" }}
               ></div>
-              <span className="text-sm font-medium text-[var(--foreground)]">L - Libre</span>
+              <span className="text-sm font-medium text-[var(--foreground)]">
+                L - Libre
+              </span>
             </div>
             <div className="flex items-center gap-3">
               <div
                 className="w-5 h-5 rounded-md shadow-sm"
                 style={{ backgroundColor: "#10b981" }}
               ></div>
-              <span className="text-sm font-medium text-[var(--foreground)]">V - Vacaciones</span>
+              <span className="text-sm font-medium text-[var(--foreground)]">
+                V - Vacaciones
+              </span>
             </div>
             <div className="flex items-center gap-3">
               <div
                 className="w-5 h-5 rounded-md shadow-sm"
                 style={{ backgroundColor: "#f59e0b" }}
               ></div>
-              <span className="text-sm font-medium text-[var(--foreground)]">I - Incapacidad</span>
+              <span className="text-sm font-medium text-[var(--foreground)]">
+                I - Incapacidad
+              </span>
             </div>
           </div>
         )}{" "}
@@ -2426,7 +2438,9 @@ export default function ControlHorario({
                       <th
                         key={day}
                         className={`border border-[var(--input-border)] p-2 font-bold text-center transition-all text-xs relative${
-                          isToday ? " bg-gradient-to-b from-cyan-500 to-blue-500 text-white shadow-md" : " hover:bg-[var(--input-bg)]"
+                          isToday
+                            ? " bg-gradient-to-b from-cyan-500 to-blue-500 text-white shadow-md"
+                            : " hover:bg-[var(--input-bg)]"
                         }`}
                         style={{
                           minWidth: fullMonthView ? "40px" : "20px",
