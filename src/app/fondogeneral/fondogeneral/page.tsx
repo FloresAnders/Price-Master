@@ -202,8 +202,6 @@ export default function FondoPage() {
 
   return (
     <div className="w-full max-w-7xl mx-auto px-2 py-3 sm:px-4 sm:py-6 lg:py-8">
-      <section className="mb-4 overflow-hidden rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] shadow-sm"></section>
-
       <div className="rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] p-3 shadow-sm sm:p-4 md:p-5">
         <div className="flex flex-col gap-4">
           <div className="rounded-lg border border-[var(--input-border)] bg-[var(--muted)]/10 p-2 sm:p-3">
