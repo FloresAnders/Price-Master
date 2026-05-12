@@ -45,10 +45,10 @@ function BaseModal({ isOpen, onClose, title, children }: BaseModalProps) {
   if (!isOpen) return null;
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/70 backdrop-blur-2xl z-50 flex items-center justify-center p-4">
+      className="fixed inset-0 bg-black/70  z-50 flex items-center justify-center p-4">
       <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.95, opacity: 0, y: 20 }} transition={{ type: "spring", damping: 30, stiffness: 260 }}
-        className="bg-[#0a0e17]/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-white/[0.06] w-full max-w-[24rem] p-6 relative">
+        className="bg-[#0a0e17]/95  rounded-2xl shadow-2xl border border-gray-800 w-full max-w-[24rem] p-6 relative">
         <button onClick={onClose} className="absolute top-4 right-4 text-white/20 hover:text-white/50 transition-colors" aria-label={`Cerrar`}>
           <XCircle className="w-5 h-5" />
         </button>
@@ -72,7 +72,7 @@ function SinpeModal({ isOpen, onClose, currency }: SinpeModalProps) {
       <div className="space-y-4">
         <div>
           <label className="block text-white/40 text-xs font-medium mb-1.5">Monto Actual <span className="text-white/20">(pegar aquí)</span></label>
-          <div className="bg-white/[0.04] border border-white/[0.08] rounded-xl p-3 flex items-center">
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 flex items-center">
             <input type="number" min="0" step="0.01" value={ma || ""} onChange={(e) => setMa(e.target.value === "" ? 0 : Number(e.target.value))}
               onPaste={async (e) => { e.preventDefault(); try { const n = parseFloat(e.clipboardData.getData("text").replace(/[^\d.,]/g, "").replace(",", ".")); if (!isNaN(n)) setMa(n); } catch {} }}
               className="w-full bg-transparent text-white text-right text-base focus:outline-none placeholder-white/10" placeholder="0" />
@@ -81,27 +81,27 @@ function SinpeModal({ isOpen, onClose, currency }: SinpeModalProps) {
         </div>
         <div>
           <label className="block text-white/40 text-xs font-medium mb-1.5">Monto a Recibir</label>
-          <div className="bg-white/[0.04] border border-white/[0.08] rounded-xl p-3 flex items-center">
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 flex items-center">
             <input type="number" min="0" step="0.01" value={mr || ""} onChange={(e) => setMr(e.target.value === "" ? 0 : Number(e.target.value))}
               className="w-full bg-transparent text-white text-right text-base focus:outline-none placeholder-white/10" placeholder="0" />
           </div>
           <p className="text-xs text-white/20 mt-1">{fmt(mr)}</p>
         </div>
-        <div className="bg-white/[0.04] rounded-xl p-4 border border-white/[0.06] text-center">
+        <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 text-center">
           <p className="text-white/30 text-xs mb-1">Total Esperado</p>
           <p className="text-xl font-semibold text-white">{fmt(ma + mr)}</p>
         </div>
         <div className="flex gap-2">
           <button onClick={() => { setMa(ma + mr); setMr(0); }} disabled={ma + mr === 0}
-            className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${ma + mr > 0 ? "bg-white/10 hover:bg-white/15 text-white" : "bg-white/[0.03] text-white/20 cursor-not-allowed"}`}>
+            className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${ma + mr > 0 ? "bg-white/10 hover:bg-white/15 text-white" : "bg-gray-900 text-white/20 cursor-not-allowed"}`}>
             <RefreshCw className="w-4 h-4" /> Recargar
           </button>
           <button onClick={() => { setMa(0); setMr(0); }}
-            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/[0.04] hover:bg-white/[0.08] text-white/50 hover:text-white/70 transition-all duration-200">
+            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium bg-gray-900 hover:bg-gray-900 text-white/50 hover:text-white/70 transition-all duration-200">
             <Trash2 className="w-4 h-4" /> Limpiar
           </button>
         </div>
-        <div className="text-xs text-white/25 text-center p-3 bg-white/[0.02] rounded-xl border border-white/[0.04] leading-relaxed">
+        <div className="text-xs text-white/25 text-center p-3 bg-gray-900 rounded-xl border border-gray-800 leading-relaxed">
           💡 <span className="text-white/40">Instrucciones:</span><br />• Pega monto desde SINPE • Ingresa monto a recibir • Usa &ldquo;Recargar&rdquo;
         </div>
       </div>
@@ -199,7 +199,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
       {/* ── Header ── */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-gray-900 border border-gray-800 flex items-center justify-center">
             <Banknote className="w-5 h-5 text-white/50" />
           </div>
           <div>
@@ -215,7 +215,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
             { icon: DollarSign, label: "Moneda", action: onCurrencyOpen },
             { icon: Trash2, label: "Eliminar", action: () => { if (confirm("¿Eliminar?")) onDelete(id); } },
           ].map((b) => (
-            <button key={b.label} onClick={b.action} className="w-8 h-8 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.04] flex items-center justify-center text-white/30 hover:text-white/60 transition-all" aria-label={b.label}>
+            <button key={b.label} onClick={b.action} className="w-8 h-8 rounded-lg bg-gray-900 hover:bg-gray-900 border border-gray-800 flex items-center justify-center text-white/30 hover:text-white/60 transition-all" aria-label={b.label}>
               <b.icon className="w-3.5 h-3.5" />
             </button>
           ))}
@@ -227,39 +227,45 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
         {/* Main */}
         <div className="flex-1 min-w-0 space-y-5">
 
-          {/* ── Summary Cards (minimal) ── */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+          {/* ── Summary Cards ── */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {[
-              { label: "Total", value: fmt(t), icon: TrendingUp },
-              { label: "Billetes", value: `${Object.values(bills).reduce((a, b) => a + b, 0)}`, icon: Wallet },
-              { label: "Extra", value: fmt(extra), icon: Coins },
-              { label: "Diferencia", value: t - vt >= 0 ? fmt(t - vt) : `-${fmt(Math.abs(t - vt))}`, icon: TrendingUp },
+              { label: "Total", value: fmt(t), icon: TrendingUp, indicator: "↑", iconColor: "text-emerald-400", bgColor: "from-emerald-500/15 to-cyan-500/10", borderColor: "border-emerald-500/20" },
+              { label: "Billetes", value: `${Object.values(bills).reduce((a, b) => a + b, 0)}`, icon: Wallet, indicator: "#", iconColor: "text-cyan-400", bgColor: "from-cyan-500/15 to-blue-500/10", borderColor: "border-cyan-500/20" },
+              { label: "Extra", value: fmt(extra), icon: Coins, indicator: "+", iconColor: "text-amber-400", bgColor: "from-amber-500/15 to-orange-500/10", borderColor: "border-amber-500/20" },
+              { label: "Diferencia", value: t - vt >= 0 ? fmt(t - vt) : `-${fmt(Math.abs(t - vt))}`, icon: TrendingUp, indicator: "↗", iconColor: t - vt >= 0 ? "text-emerald-400" : "text-red-400", bgColor: t - vt >= 0 ? "from-emerald-500/15 to-teal-500/10" : "from-red-500/15 to-rose-500/10", borderColor: t - vt >= 0 ? "border-emerald-500/20" : "border-red-500/20" },
             ].map((c) => (
-              <div key={c.label} className="bg-white/[0.03] rounded-xl border border-white/[0.05] p-3.5">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[10px] font-medium text-white/25 uppercase tracking-wide">{c.label}</span>
-                  <c.icon className="w-3 h-3 text-white/10" />
+              <motion.div key={c.label} whileHover={{ y: -1 }}
+                className="bg-[#0f141e] rounded-xl border border-gray-800 p-4 shadow-sm transition-all duration-200 group">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-medium text-white/20 uppercase tracking-wider">{c.label}</span>
+                  <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${c.bgColor} border ${c.borderColor} flex items-center justify-center`}>
+                    <c.icon className={`w-4 h-4 ${c.iconColor}`} />
+                  </div>
                 </div>
-                <p className="text-base font-semibold text-white/90">{c.value}</p>
-              </div>
+                <p className="text-lg font-bold text-white/90 tracking-tight">{c.value}</p>
+              </motion.div>
             ))}
           </div>
 
           {/* ── Resumen Caja ── */}
           {ap > 0 && vt > 0 && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white/[0.03] rounded-xl border border-white/[0.05] p-3.5">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-gray-900  rounded-xl border border-gray-800 p-4">
               <div className="flex items-center justify-around text-xs">
                 <div className="text-center">
-                  <p className="text-white/25 mb-0.5">Apertura</p>
-                  <p className="font-medium text-white/80">{fmt(ap)}</p>
+                  <p className="text-white/20 uppercase tracking-wider mb-1">Apertura</p>
+                  <p className="font-semibold text-white/80">{fmt(ap)}</p>
                 </div>
-                <div className="w-px h-8 bg-white/[0.05]" />
+                <div className="w-px h-10 bg-gray-900" />
                 <div className="text-center">
-                  <p className="text-white/25 mb-0.5">Venta</p>
-                  <p className="font-medium text-white/80">{fmt(vt)}</p>
+                  <p className="text-white/20 uppercase tracking-wider mb-1">Venta</p>
+                  <p className="font-semibold text-white/80">{fmt(vt)}</p>
                 </div>
-                <div className="w-px h-8 bg-white/[0.05]" />
-                <div className="text-center">{diffMsg("")}</div>
+                <div className="w-px h-10 bg-gray-900" />
+                <div className="text-center">
+                  <p className="text-white/20 uppercase tracking-wider mb-1">Estado</p>
+                  <p className="font-semibold">{diffMsg("")}</p>
+                </div>
               </div>
             </motion.div>
           )}
@@ -273,9 +279,9 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
           <AnimatePresence>
             {showBD && (
               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                <div className="bg-white/[0.02] rounded-xl border border-white/[0.05] p-3 grid grid-cols-2 gap-2 text-xs">
+                <div className="bg-gray-900 rounded-xl border border-gray-800 p-3 grid grid-cols-2 gap-2 text-xs">
                   {calcBD().map((i) => (
-                    <div key={i.l} className="p-2.5 bg-white/[0.02] rounded-lg text-center">
+                    <div key={i.l} className="p-2.5 bg-gray-900 rounded-lg text-center">
                       <p className="text-white/20 mb-0.5">{i.l}</p>
                       <p className="font-medium text-white/70">{fmt(i.v)}</p>
                     </div>
@@ -286,48 +292,58 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
           </AnimatePresence>
 
           {/* ── Denominations ── */}
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             {denoms.map((den, i) => {
               const cnt = bills[den.value] || 0;
               const sub = den.value * cnt;
               const pct = maxSub > 0 ? (sub / maxSub) * 100 : 0;
               return (
-                <motion.div key={den.value} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }}
-                  className={`relative rounded-xl border transition-all duration-200 ${cnt > 0 ? "bg-white/[0.04] border-white/[0.08]" : "bg-white/[0.02] border-white/[0.04] opacity-50"}`}>
-                  {/* Subtle progress bar */}
-                  <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-white/[0.03] rounded-full overflow-hidden">
-                    <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.4 }}
-                      className="h-full bg-white/10" />
+                <motion.div key={den.value} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.025 }}
+                  className={`relative rounded-xl border transition-all duration-200 ${
+                    cnt > 0
+                      ? "bg-gray-900 border-gray-800 hover:bg-gray-900 hover:border-white/20 hover:shadow-lg hover:shadow-black/10"
+                      : "bg-gray-900 border-gray-800 opacity-40"
+                  }`}>
+                  {/* Progress bar */}
+                  <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-gray-900 rounded-full overflow-hidden">
+                    <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.6, ease: "easeOut" }}
+                      className="h-full bg-gradient-to-r from-cyan-500/30 to-teal-500/20" />
                   </div>
-                  <div className="p-2.5 flex items-center gap-3">
-                    {/* Badge (colored) */}
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-semibold border ${badgeColor(den.value)} flex-shrink-0`}>
+                  <div className="p-3 flex items-center gap-3">
+                    {/* Badge */}
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-[11px] font-bold border flex-shrink-0 ${cnt > 0 ? badgeColor(den.value) : "bg-gray-900 text-white/20 border-gray-800"}`}>
                       {badgeLabel(den.label)}
                     </div>
-                    {/* Label */}
-                    <span className="text-sm text-white/70 font-medium w-16 sm:w-20 flex-shrink-0">{den.label}</span>
-                    {/* Controls */}
-                    <div className="flex items-center gap-1.5 ml-auto sm:ml-0">
-                      <button onClick={() => dec(den.value)}
-                        className="w-7 h-7 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] flex items-center justify-center transition-all hover:scale-105 active:scale-95"
+                    {/* Label + unit count */}
+                    <div className="flex-shrink-0 w-16 sm:w-20">
+                      <p className="text-sm text-white/70 font-medium">{den.label}</p>
+                      {cnt > 0 && <p className="text-[10px] text-white/20 mt-0.5">{cnt} ud. &middot; {pct.toFixed(0)}%</p>}
+                    </div>
+                    {/* Spacer */}
+                    <div className="flex-1" />
+                    {/* Circular Controls */}
+                    <div className="flex items-center gap-2">
+                      <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                        onClick={() => dec(den.value)}
+                        className="w-9 h-9 rounded-full bg-gradient-to-br from-red-500/15 to-rose-500/10 border border-red-500/20 flex items-center justify-center transition-all active:scale-90"
                         aria-label={`-${den.label}`}>
-                        <MinusCircle className="w-3.5 h-3.5 text-white/40" />
-                      </button>
+                        <MinusCircle className="w-4 h-4 text-red-400" />
+                      </motion.button>
                       <input ref={(el) => { refs.current[i] = el; }} type="text" inputMode="numeric"
                         value={cnt === 0 ? "" : String(cnt)} onChange={(e) => manual(den.value, e.target.value)}
                         onKeyDown={(e) => kd(e, i)}
-                        className="w-11 text-center bg-white/[0.04] border border-white/[0.08] rounded-lg py-1.5 text-white text-xs font-medium focus:ring-1 focus:ring-white/20 focus:border-white/20 outline-none transition-all placeholder-white/10"
+                        className="w-12 text-center bg-[#0f141e] border border-gray-700 rounded-lg py-2 text-white text-sm font-bold focus:ring-1 focus:ring-emerald-500/30 focus:border-emerald-500/30 outline-none transition-all placeholder-white/10"
                         placeholder="0" />
-                      <button onClick={() => inc(den.value)}
-                        className="w-7 h-7 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] flex items-center justify-center transition-all hover:scale-105 active:scale-95"
+                      <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                        onClick={() => inc(den.value)}
+                        className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500/15 to-teal-500/10 border border-emerald-500/20 flex items-center justify-center transition-all active:scale-90"
                         aria-label={`+${den.label}`}>
-                        <PlusCircle className="w-3.5 h-3.5 text-white/40" />
-                      </button>
+                        <PlusCircle className="w-4 h-4 text-emerald-400" />
+                      </motion.button>
                     </div>
                     {/* Subtotal */}
-                    <div className="text-right min-w-[5rem]">
-                      <p className={`text-sm font-semibold ${cnt > 0 ? "text-white/90" : "text-white/20"}`}>{fmt(sub)}</p>
-                      {cnt > 0 && <p className="text-[10px] text-white/20">{cnt} ud.</p>}
+                    <div className="text-right min-w-[5.5rem]">
+                      <p className={`text-base font-bold tracking-tight ${cnt > 0 ? "text-white" : "text-white/15"}`}>{fmt(sub)}</p>
                     </div>
                   </div>
                 </motion.div>
@@ -337,34 +353,36 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
         </div>
 
         {/* ── Sidebar ── */}
-        <div className="w-full lg:w-64 flex-shrink-0">
+        <div className="w-full lg:w-72 flex-shrink-0">
           <div className="lg:sticky lg:top-6 space-y-3">
             {/* Total Card */}
-            <div className="bg-white/[0.03] rounded-xl border border-white/[0.05] p-4 text-center">
-              <div className="w-10 h-10 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center mx-auto mb-3">
-                <Wallet className="w-5 h-5 text-white/40" />
+            <div className="bg-[#0f141e] rounded-xl border border-gray-800 p-5 text-center shadow-sm">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500/15 to-cyan-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-4 shadow-sm">
+                <Wallet className="w-7 h-7 text-emerald-400" />
               </div>
-              <p className="text-[10px] text-white/25 uppercase tracking-wider mb-1">Total General</p>
-              <p className="text-2xl font-semibold text-white">{fmt(t)}</p>
-              <div className="mt-3 pt-3 border-t border-white/[0.05] space-y-1.5 text-xs">
-                <div className="flex justify-between"><span className="text-white/25">Billetes</span><span className="text-white/70">{fmt(t - extra)}</span></div>
-                <div className="flex justify-between"><span className="text-white/25">Extra</span><span className="text-white/70">{fmt(extra)}</span></div>
-                <div className="flex justify-between"><span className="text-white/25">Activas</span><span className="text-white/70">{Object.values(bills).filter((c) => c > 0).length}/{denoms.length}</span></div>
+              <p className="text-[10px] text-white/20 uppercase tracking-widest mb-1.5">Total General</p>
+              <p className="text-3xl font-bold text-white tracking-tight">{fmt(t)}</p>
+              <div className="mt-4 pt-4 border-t border-gray-800 space-y-2 text-xs">
+                <div className="flex justify-between"><span className="text-white/20">Billetes</span><span className="text-white/80 font-medium">{fmt(t - extra)}</span></div>
+                <div className="flex justify-between"><span className="text-white/20">Extra</span><span className="text-white/80 font-medium">{fmt(extra)}</span></div>
+                <div className="flex justify-between"><span className="text-white/20">Activas</span><span className="text-white/80 font-medium">{Object.values(bills).filter((c) => c > 0).length}/{denoms.length}</span></div>
               </div>
             </div>
 
             {/* Quick Actions */}
-            <div className="bg-white/[0.02] rounded-xl border border-white/[0.05] p-3">
-              <p className="text-[10px] text-white/20 uppercase tracking-wider mb-2.5 text-center">Acciones</p>
-              <div className="space-y-1.5">
-                <button onClick={() => setShowExtra((p) => !p)}
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-white/50 hover:text-white/70 text-xs font-medium transition-all duration-200 border border-white/[0.04]">
-                  <Plus className="w-3 h-3" /> {showExtra ? "Cerrar" : "Monto Adicional"}
-                </button>
-                <button onClick={() => setShowBD((p) => !p)}
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] text-white/40 hover:text-white/60 text-xs font-medium transition-all duration-200">
-                  <TrendingUp className="w-3 h-3" /> {showBD ? "Ocultar" : "Desglose"}
-                </button>
+            <div className="bg-gray-900  rounded-xl border border-gray-800 p-4">
+              <p className="text-[10px] text-white/20 uppercase tracking-wider mb-3 text-center">Acciones Rápidas</p>
+              <div className="space-y-2">
+                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                  onClick={() => setShowExtra((p) => !p)}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gray-900 hover:bg-gray-900 text-white/50 hover:text-white/80 text-xs font-medium transition-all duration-200 border border-gray-800">
+                  <Plus className="w-3.5 h-3.5" /> {showExtra ? "Cerrar Extra" : "Monto Adicional"}
+                </motion.button>
+                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                  onClick={() => setShowBD((p) => !p)}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gray-900 hover:bg-gray-900 text-white/40 hover:text-white/60 text-xs font-medium transition-all duration-200 border border-gray-800">
+                  <TrendingUp className="w-3.5 h-3.5" /> {showBD ? "Ocultar Desglose" : "Ver Desglose"}
+                </motion.button>
               </div>
             </div>
 
@@ -372,9 +390,9 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
             <AnimatePresence>
               {showExtra && (
                 <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-                  className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-3 space-y-2.5">
+                  className="bg-gray-900 rounded-xl border border-gray-800 p-3 space-y-2.5">
                   <p className="text-[10px] text-white/25 uppercase tracking-wider text-center">Extra</p>
-                  <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg p-2 flex items-center">
+                  <div className="bg-gray-900 border border-gray-800 rounded-lg p-2 flex items-center">
                     <input type="text" inputMode="numeric" value={extra === 0 ? "" : fmt(extra)} onChange={hEC}
                       onKeyDown={(e) => { const inc = cur === "CRC" ? 1000 : 1; nKD(e, extra, (v) => ntf(bills, v, cur), inc); }}
                       className="w-full bg-transparent text-white text-right text-sm focus:outline-none placeholder-white/10" placeholder="0" />
@@ -384,22 +402,22 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
                     <label className="text-[10px] text-white/20">Apertura</label>
                     <input type="number" min="0" value={ap || ""} onChange={(e) => ntf(bills, extra, cur, e.target.value === "" ? 0 : Number(e.target.value), vt)}
                       onKeyDown={(e) => { const inc = cur === "CRC" ? 1000 : 1; nKD(e, ap, (v) => ntf(bills, extra, cur, v, vt), inc); }}
-                      className="w-full px-2.5 py-1.5 mt-1 bg-white/[0.03] border border-white/[0.06] rounded-lg text-white text-xs focus:ring-1 focus:ring-white/20 outline-none transition-all placeholder-white/10" placeholder="0" />
+                      className="w-full px-2.5 py-1.5 mt-1 bg-gray-900 border border-gray-800 rounded-lg text-white text-xs focus:ring-1 focus:ring-white/20 outline-none transition-all placeholder-white/10" placeholder="0" />
                   </div>
                   <div>
                     <label className="text-[10px] text-white/20">Venta</label>
                     <input type="number" min="0" value={vt || ""} onChange={(e) => ntf(bills, extra, cur, ap, e.target.value === "" ? 0 : Number(e.target.value))}
                       onKeyDown={(e) => { const inc = cur === "CRC" ? 1000 : 1; nKD(e, vt, (v) => ntf(bills, extra, cur, ap, v), inc); }}
-                      className="w-full px-2.5 py-1.5 mt-1 bg-white/[0.03] border border-white/[0.06] rounded-lg text-white text-xs focus:ring-1 focus:ring-white/20 outline-none transition-all placeholder-white/10" placeholder="0" />
+                      className="w-full px-2.5 py-1.5 mt-1 bg-gray-900 border border-gray-800 rounded-lg text-white text-xs focus:ring-1 focus:ring-white/20 outline-none transition-all placeholder-white/10" placeholder="0" />
                   </div>
                   <div>
                     <label className="text-[10px] text-white/20">Agregar Venta</label>
                     <div className="flex gap-1.5 mt-1">
                       <input type="number" min="0" value={nv || ""} onChange={(e) => setNv(e.target.value === "" ? 0 : Number(e.target.value))}
                         onKeyDown={(e) => { if (e.key === "Enter" && nv > 0) { ntf(bills, extra, cur, ap, vt + nv); setNv(0); setVa(true); setTimeout(() => setVa(false), 2000); } }}
-                        className="flex-1 px-2.5 py-1.5 bg-white/[0.03] border border-white/[0.06] rounded-lg text-white text-xs focus:ring-1 focus:ring-white/20 outline-none transition-all placeholder-white/10" placeholder="0" />
+                        className="flex-1 px-2.5 py-1.5 bg-gray-900 border border-gray-800 rounded-lg text-white text-xs focus:ring-1 focus:ring-white/20 outline-none transition-all placeholder-white/10" placeholder="0" />
                       <button disabled={nv <= 0} onClick={() => { if (nv > 0) { ntf(bills, extra, cur, ap, vt + nv); setNv(0); setVa(true); setTimeout(() => setVa(false), 2000); } }}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${nv > 0 ? "bg-white/10 hover:bg-white/15 text-white" : "bg-white/[0.03] text-white/20 cursor-not-allowed"}`}>
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${nv > 0 ? "bg-white/10 hover:bg-white/15 text-white" : "bg-gray-900 text-white/20 cursor-not-allowed"}`}>
                         <Plus className="w-3 h-3" />
                       </button>
                     </div>
@@ -421,7 +439,7 @@ function RenameModal({ isOpen, currentName, onSave, onClose }: { isOpen: boolean
   useEffect(() => { if (isOpen && ref.current) setTimeout(() => { ref.current?.focus(); ref.current?.select(); }, 100); }, [isOpen]);
   return (
     <BaseModal isOpen={isOpen} onClose={onClose} title="Renombrar">
-      <div className="bg-white/[0.04] border border-white/[0.08] rounded-xl mb-3 flex items-center px-3 py-2">
+      <div className="bg-gray-900 border border-gray-800 rounded-xl mb-3 flex items-center px-3 py-2">
         <input ref={ref} type="text" key={currentName} defaultValue={currentName} onKeyDown={(e) => { if (e.key === "Enter") { const v = e.currentTarget.value; onSave(v.trim() === "" ? currentName : v); onClose(); } }}
           className="w-full bg-transparent text-white text-right text-sm focus:outline-none placeholder-white/10" />
       </div>
@@ -442,7 +460,7 @@ function CurrencyModal({ isOpen, currentCurrency, onSave, onClose }: { isOpen: b
       <div className="flex gap-3 mb-4">
         {(["CRC", "USD"] as const).map((opt) => (
           <button key={opt} onClick={() => { setTouched(true); setSel(opt); }}
-            className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${eff === opt ? "bg-white/10 text-white border border-white/10" : "bg-white/[0.03] text-white/40 hover:text-white/60 border border-white/[0.04]"}`}>
+            className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${eff === opt ? "bg-white/10 text-white border border-white/10" : "bg-gray-900 text-white/40 hover:text-white/60 border border-gray-800"}`}>
             {opt === "CRC" ? "Colones" : "Dólares"}
           </button>
         ))}
@@ -459,7 +477,7 @@ function MenuModal({ isOpen, onClose, onExport, onImport, onClear, storageInfo }
   return (
     <BaseModal isOpen={isOpen} onClose={onClose} title="Gestión">
       <div className="space-y-2.5">
-        <div className="bg-white/[0.03] rounded-xl p-2.5 text-center border border-white/[0.04]">
+        <div className="bg-gray-900 rounded-xl p-2.5 text-center border border-gray-800">
           <span className="text-xs text-white/30">{storageInfo}</span>
         </div>
         {[
@@ -468,7 +486,7 @@ function MenuModal({ isOpen, onClose, onExport, onImport, onClear, storageInfo }
           { label: "Restablecer", icon: RotateCcw, action: () => { onClear(); onClose(); } },
         ].map((b) => (
           <button key={b.label} onClick={b.action}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white/[0.04] hover:bg-white/[0.08] text-white/50 hover:text-white/70 rounded-xl text-sm font-medium transition-all duration-200 border border-white/[0.04]">
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-900 hover:bg-gray-900 text-white/50 hover:text-white/70 rounded-xl text-sm font-medium transition-all duration-200 border border-gray-800">
             <b.icon className="w-4 h-4" /> {b.label}
           </button>
         ))}
@@ -561,8 +579,8 @@ export default function CashCounterTabs() {
   if (!hasPermission(user?.permissions, "cashcounter")) {
     return (
       <div className="flex items-center justify-center min-h-[60vh] p-8">
-        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center max-w-sm bg-white/[0.03] backdrop-blur-2xl rounded-2xl border border-white/[0.05] p-10">
-          <div className="w-12 h-12 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center mx-auto mb-4">
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center max-w-sm bg-gray-900  rounded-2xl border border-gray-800 p-10">
+          <div className="w-12 h-12 rounded-xl bg-gray-900 border border-gray-800 flex items-center justify-center mx-auto mb-4">
             <LockIcon className="w-6 h-6 text-white/30" />
           </div>
           <h3 className="text-lg font-semibold text-white/80 mb-2">Acceso Restringido</h3>
@@ -575,33 +593,39 @@ export default function CashCounterTabs() {
 
   return (
     <div className="min-h-screen pb-32">
-      {/* ── Header ── */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center">
-              <Banknote className="w-6 h-6 text-white/50" />
+      {/* ── Hero Header ── */}
+      <div className="relative mb-10">
+        {/* Ambient glow behind header */}
+        <div className="absolute -top-10 -left-10 w-72 h-72 bg-cyan-500/5 rounded-full blur-[100px] pointer-events-none" />
+        <div className="absolute -top-10 -right-10 w-72 h-72 bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none" />
+        
+        <div className="relative flex items-center justify-between">
+          <div className="flex items-center gap-5">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500/15 to-cyan-500/10 border border-emerald-500/20 flex items-center justify-center shadow-lg">
+              <Banknote className="w-8 h-8 text-emerald-400" />
             </div>
             <div>
-              <h1 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">Cash Counter</h1>
-              <p className="text-xs text-white/20 mt-0.5">Contador de efectivo &middot; {data[active]?.currency === "CRC" ? "CRC" : "USD"}</p>
+              <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">Cash Counter</h1>
+              <p className="text-sm text-white/25 mt-1 font-medium tracking-wide">Contador de efectivo &middot; {data[active]?.currency === "CRC" ? "Colones (CRC)" : "Dólares (USD)"}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <AnimatePresence mode="wait">
               {saving ? (
-                <motion.span key="s" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-[11px] text-white/30 bg-white/[0.03] rounded-lg px-2.5 py-1.5 border border-white/[0.04] flex items-center">
+                <motion.span key="s" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-[11px] text-white/30 bg-gray-900  rounded-lg px-3 py-1.5 border border-gray-800 flex items-center">
                   <div className="animate-spin rounded-full h-2.5 w-2.5 border-b-2 border-white/30 mr-1.5" /> Guardando...
                 </motion.span>
               ) : lastSaved ? (
-                <motion.span key="d" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-[11px] text-white/20 bg-white/[0.03] rounded-lg px-2.5 py-1.5 border border-white/[0.04]">
+                <motion.span key="d" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-[11px] text-white/20 bg-gray-900  rounded-lg px-3 py-1.5 border border-gray-800">
                   Guardado {lastSaved}
                 </motion.span>
               ) : null}
             </AnimatePresence>
-            <button onClick={() => setMenuOpen(true)} className="w-8 h-8 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.04] flex items-center justify-center text-white/30 hover:text-white/50 transition-all">
-              <Layers className="w-4 h-4" />
-            </button>
+            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+              onClick={() => setMenuOpen(true)}
+              className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500/10 to-cyan-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400/60 hover:text-emerald-400 transition-all">
+              <Layers className="w-4.5 h-4.5" />
+            </motion.button>
           </div>
         </div>
       </div>
@@ -615,7 +639,7 @@ export default function CashCounterTabs() {
               <GripVertical className="w-3 h-3 text-white/15" />
             </div>
             <button onClick={() => { setActive(i); save(data, i); }}
-              className={`pl-6 pr-7 py-2 rounded-xl flex-shrink-0 text-xs font-medium flex items-center transition-all duration-200 border ${i === active ? "bg-white/[0.06] text-white/80 border-white/10" : "bg-white/[0.02] text-white/30 hover:text-white/50 border-transparent hover:border-white/[0.06]"}`}>
+              className={`pl-6 pr-7 py-2 rounded-xl flex-shrink-0 text-xs font-medium flex items-center transition-all duration-200 border ${i === active ? "bg-gradient-to-r from-emerald-500/20 to-cyan-500/15 text-white border-emerald-500/25 shadow-sm" : "bg-[#0f141e] text-white/30 hover:text-white/50 border-transparent hover:border-gray-700"}`}>
               <span className="truncate max-w-[6rem]">{tab.name}</span>
             </button>
             <button onClick={() => { setRenameIdx(i); setRenameOpen(true); }} className="absolute top-1/2 right-1 p-0.5 -translate-y-1/2 text-white/10 hover:text-white/40 transition-colors" aria-label="Renombrar">
@@ -623,13 +647,13 @@ export default function CashCounterTabs() {
             </button>
           </div>
         ))}
-        <button onClick={add} className="px-3.5 py-2 bg-white/10 hover:bg-white/15 text-white/70 rounded-xl flex-shrink-0 text-xs font-medium transition-all border border-white/[0.06]">
-          <PlusCircle className="w-3.5 h-3.5 mr-1 inline" /> Nuevo
+        <button onClick={add} className="px-4 py-2 bg-gradient-to-r from-emerald-500/20 to-teal-500/15 hover:from-emerald-500/30 hover:to-teal-500/25 text-emerald-400 rounded-xl flex-shrink-0 text-xs font-semibold transition-all border border-emerald-500/25">
+          <PlusCircle className="w-4 h-4 mr-1.5 inline" /> Nuevo
         </button>
       </div>
 
       {/* ── Content ── */}
-      <div className="bg-white/[0.02] backdrop-blur-2xl rounded-2xl border border-white/[0.05] p-4 sm:p-5">
+      <div className="bg-gray-900  rounded-2xl border border-gray-800 p-5 sm:p-6 shadow-sm">
         {data.length > 0 ? (
           <CashCounter id={active} data={data[active]} onUpdate={upd} onDelete={del} onCurrencyOpen={() => setCurrencyOpen(true)} />
         ) : (
@@ -644,13 +668,13 @@ export default function CashCounterTabs() {
       <div className="fixed bottom-6 right-6 z-30 flex flex-col gap-2.5">
         <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
           onClick={() => setSinpeOpen(true)}
-          className="w-11 h-11 rounded-xl bg-white/10 backdrop-blur-xl border border-white/10 flex items-center justify-center shadow-lg text-white/60 hover:text-white/80 transition-colors"
+          className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/15 border border-emerald-500/25 flex items-center justify-center shadow-lg text-emerald-400 hover:text-emerald-300 transition-all"
           aria-label="SINPE">
           <Smartphone className="w-5 h-5" />
         </motion.button>
         <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
           onClick={() => setCalcOpen(true)}
-          className="w-11 h-11 rounded-xl bg-white/10 backdrop-blur-xl border border-white/10 flex items-center justify-center shadow-lg text-white/60 hover:text-white/80 transition-colors"
+          className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-500/15 border border-cyan-500/25 flex items-center justify-center shadow-lg text-cyan-400 hover:text-cyan-300 transition-all"
           aria-label="Calculadora">
           <CalculatorIcon className="w-5 h-5" />
         </motion.button>
