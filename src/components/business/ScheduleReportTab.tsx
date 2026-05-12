@@ -485,7 +485,7 @@ export default function ScheduleReportTab() {
         return { backgroundColor: "#FF00FF", color: "#FFFFFF" };
       default:
         return {
-          backgroundColor: "var(--input-bg)",
+          backgroundColor: "var(--card-bg)",
           color: "var(--foreground)",
         };
     }
@@ -620,7 +620,7 @@ export default function ScheduleReportTab() {
     return (
       <div className="max-w-full mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4 sm:p-6">
         <div className="text-center py-8 sm:py-12">
-          <div className="animate-spin rounded-full h-8 w-8 sm:h-12 sm:w-12 border-b-2 border-blue-600 mx-auto mb-3 sm:mb-4"></div>
+          <div className="animate-spin rounded-full h-8 w-8 sm:h-12 sm:w-12 border-b-2 border-cyan-500 mx-auto mb-3 sm:mb-4"></div>
           <div className="text-base sm:text-lg text-[var(--foreground)]">
             Cargando planillas...
           </div>
@@ -642,7 +642,7 @@ export default function ScheduleReportTab() {
           {/* Título y descripción */}
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-start sm:items-center justify-between">
             <div className="flex items-center gap-3 sm:gap-4">
-              <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600 flex-shrink-0" />
+              <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-cyan-500 flex-shrink-0" />
               <div>
                 <h3 className="text-lg sm:text-xl font-semibold">
                   Planilla de Horarios
@@ -655,7 +655,7 @@ export default function ScheduleReportTab() {
           </div>
 
           {/* Tabs de navegación - estilo pills */}
-          <div className="flex flex-wrap gap-2 bg-gray-100 dark:bg-gray-800/60 border border-[var(--input-border)] rounded-2xl p-2 w-full sm:w-auto sm:self-end">
+          <div className="flex flex-wrap gap-2 bg-[var(--muted)] border-2 border-[var(--input-border)] rounded-2xl p-2 w-full sm:w-auto sm:self-end">
             {tabConfigurations.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -663,15 +663,15 @@ export default function ScheduleReportTab() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`relative flex-1 sm:flex-none min-w-[110px] px-3 py-2 sm:px-4 rounded-xl border text-left transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 ${
+                  className={`relative flex-1 sm:flex-none min-w-[110px] px-3 py-2 sm:px-4 rounded-xl border-2 text-left transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-cyan-500 ${
                     isActive
                       ? tab.activeClasses
-                      : "bg-white/40 dark:bg-gray-900/40 text-[var(--tab-text)] border-transparent hover:border-[var(--input-border)] hover:bg-white dark:hover:bg-gray-900"
+                      : "bg-[var(--card-bg)] text-[var(--foreground)] border-[var(--input-border)] hover:border-cyan-500 hover:bg-[var(--muted)]"
                   }`}
                 >
                   <div className="flex items-center gap-3">
                     <span
-                      className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${isActive ? "bg-white/20 text-white" : "bg-gray-200 dark:bg-gray-700 text-[var(--tab-text)]"}`}
+                      className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${isActive ? "bg-white/20 text-white" : "bg-[var(--muted)] text-[var(--foreground)] border border-[var(--input-border)]"}`}
                     >
                       <Icon className="w-4 h-4" />
                     </span>
@@ -681,7 +681,7 @@ export default function ScheduleReportTab() {
                         <span className="sm:hidden">{tab.shortLabel}</span>
                       </span>
                       <span
-                        className={`text-[10px] uppercase tracking-wide ${isActive ? "text-white/90" : "text-gray-500 dark:text-gray-400"} hidden sm:inline`}
+                        className={`text-[10px] uppercase tracking-wide ${isActive ? "text-white/90" : "text-[var(--muted-foreground)]"} hidden sm:inline`}
                       >
                         {tab.helper}
                       </span>
@@ -699,11 +699,11 @@ export default function ScheduleReportTab() {
         <>
           {/* Controles específicos del tab de horarios */}
           <div className="mb-4 sm:mb-6">
-            <div className="bg-gray-50/80 dark:bg-gray-900/30 border border-[var(--input-border)] rounded-2xl p-4 sm:p-5 space-y-4 transition-colors">
+            <div className="bg-[var(--card-bg)] border-2 border-[var(--input-border)] rounded-2xl p-4 sm:p-5 space-y-4 transition-colors">
               {/* Fila 1: Empresa + modo edición */}
               <div className="flex flex-col lg:flex-row gap-3 lg:gap-4 items-stretch">
-                <div className="flex items-center gap-3 flex-1 w-full bg-white/80 dark:bg-gray-900/60 border border-[var(--input-border)] rounded-xl px-3 py-2">
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200">
+                <div className="flex items-center gap-3 flex-1 w-full bg-[var(--card-bg)] border-2 border-[var(--input-border)] rounded-xl px-3 py-2">
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--muted)] text-cyan-500 border border-[var(--input-border)]">
                     <MapPin className="w-5 h-5" />
                   </span>
                   <div className="flex-1">
@@ -764,8 +764,8 @@ export default function ScheduleReportTab() {
 
               {/* Fila 2: Período */}
               <div className="flex flex-col xl:flex-row gap-3 xl:gap-4 items-stretch">
-                <div className="flex items-center gap-3 flex-1 w-full bg-white/80 dark:bg-gray-900/60 border border-[var(--input-border)] rounded-xl px-3 py-2">
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200">
+                <div className="flex items-center gap-3 flex-1 w-full bg-[var(--card-bg)] border-2 border-[var(--input-border)] rounded-xl px-3 py-2">
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--muted)] text-cyan-500 border border-[var(--input-border)]">
                     <Calendar className="w-5 h-5" />
                   </span>
                   <div className="flex-1">
@@ -815,7 +815,7 @@ export default function ScheduleReportTab() {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between gap-3 bg-white dark:bg-gray-900/70 border border-[var(--input-border)] rounded-xl px-3 py-3 w-full xl:w-auto">
+                <div className="flex items-center justify-between gap-3 bg-[var(--card-bg)] border-2 border-[var(--input-border)] rounded-xl px-3 py-3 w-full xl:w-auto">
                   <button
                     onClick={() => navigatePeriod("prev")}
                     disabled={
@@ -828,7 +828,7 @@ export default function ScheduleReportTab() {
                       ) >=
                         availablePeriods.length - 1
                     }
-                    className="h-10 w-10 rounded-full border border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-500/50 dark:text-blue-200 dark:hover:bg-blue-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="h-10 w-10 rounded-full border-2 border-[var(--input-border)] text-[var(--foreground)] hover:border-cyan-500 hover:bg-[var(--muted)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                     title="Quincena anterior"
                   >
                     <ChevronLeft className="w-5 h-5 mx-auto" />
@@ -852,7 +852,7 @@ export default function ScheduleReportTab() {
                           p.period === currentPeriod.period,
                       ) <= 0
                     }
-                    className="h-10 w-10 rounded-full border border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-500/50 dark:text-blue-200 dark:hover:bg-blue-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="h-10 w-10 rounded-full border-2 border-[var(--input-border)] text-[var(--foreground)] hover:border-cyan-500 hover:bg-[var(--muted)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                     title="Quincena siguiente"
                   >
                     <ChevronRight className="w-5 h-5 mx-auto" />
@@ -864,28 +864,28 @@ export default function ScheduleReportTab() {
 
           {/* Leyenda de colores */}
           <div className="mb-4 sm:mb-6">
-            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 sm:p-4">
+            <div className="bg-[var(--card-bg)] border-2 border-[var(--input-border)] rounded-lg p-3 sm:p-4">
               <h5 className="text-sm font-medium text-[var(--foreground)] mb-3 text-center sm:text-left">
                 Leyenda de Turnos:
               </h5>
               <div className="flex flex-wrap gap-3 sm:gap-4 justify-center sm:justify-start">
                 <div className="flex items-center gap-2">
                   <div
-                    className="w-4 h-4 rounded border border-gray-300"
+                    className="w-4 h-4 rounded border border-[var(--input-border)]"
                     style={{ backgroundColor: "#FFFF00" }}
                   ></div>
                   <span className="text-sm font-medium">D - Diurno</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div
-                    className="w-4 h-4 rounded border border-gray-300"
+                    className="w-4 h-4 rounded border border-[var(--input-border)]"
                     style={{ backgroundColor: "#87CEEB" }}
                   ></div>
                   <span className="text-sm font-medium">N - Nocturno</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div
-                    className="w-4 h-4 rounded border border-gray-300"
+                    className="w-4 h-4 rounded border border-[var(--input-border)]"
                     style={{ backgroundColor: "#FF00FF" }}
                   ></div>
                   <span className="text-sm font-medium">L - Libre</span>
@@ -901,10 +901,10 @@ export default function ScheduleReportTab() {
                 key={locationIndex}
                 className="border border-[var(--input-border)] rounded-lg overflow-hidden"
               >
-                <div className="bg-gray-50 dark:bg-gray-800/50 px-4 py-3 sm:px-6 sm:py-4 border-b border-[var(--input-border)]">
+                <div className="bg-[var(--muted)] px-4 py-3 sm:px-6 sm:py-4 border-b border-[var(--input-border)]">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
                     <h4 className="text-base sm:text-lg font-semibold flex items-center gap-2">
-                      <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+                      <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-500" />
                       <span className="truncate">
                         {locationData.location.label}
                       </span>
@@ -965,7 +965,7 @@ export default function ScheduleReportTab() {
                           {locationData.employees.map((employee, empIndex) => (
                             <tr
                               key={empIndex}
-                              className="hover:bg-gray-50 dark:hover:bg-gray-800/30"
+                              className="hover:bg-[var(--muted)] transition-colors"
                             >
                               <td
                                 className="border-b border-r border-[var(--input-border)] p-2 sm:p-3 font-medium sticky left-0 z-10 bg-inherit"
@@ -1012,7 +1012,7 @@ export default function ScheduleReportTab() {
                                             day,
                                           )
                                         }
-                                        className="w-full h-full p-1 text-center font-semibold text-xs sm:text-sm border-none focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                        className="w-full h-full p-1 text-center font-semibold text-xs sm:text-sm border-none focus:outline-none focus:ring-1 focus:ring-cyan-500"
                                         style={{
                                           ...getCellStyle(currentValue),
                                           minHeight: "32px",
@@ -1035,7 +1035,7 @@ export default function ScheduleReportTab() {
                                 );
                               })}
                               <td
-                                className="border-b border-[var(--input-border)] p-2 sm:p-3 text-center font-medium bg-gray-50 dark:bg-gray-800/50"
+                                className="border-b border-[var(--input-border)] p-2 sm:p-3 text-center font-medium bg-[var(--muted)]"
                                 style={{ color: "var(--foreground)" }}
                               >
                                 <span className="text-sm sm:text-base">

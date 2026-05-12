@@ -1125,8 +1125,8 @@ export default function ControlHorario({
     const baseOptions = [
       {
         value: "",
-        label: "",
-        color: "var(--input-bg)",
+        label: "▼",
+        color: "var(--card-bg)",
         textColor: "var(--foreground)",
       },
       { value: "N", label: "N", color: "#87CEEB", textColor: "#000" },
@@ -1151,7 +1151,7 @@ export default function ControlHorario({
   const getAllShiftColors = () => [
     {
       value: "",
-      label: "",
+      label: "▼",
       color: "var(--card-bg)",
       textColor: "var(--foreground)",
     },
@@ -1172,7 +1172,7 @@ export default function ControlHorario({
           color: option.textColor,
         }
       : {
-          backgroundColor: "var(--input-bg)",
+          backgroundColor: "var(--card-bg)",
           color: "var(--foreground)",
         };
   };
@@ -2143,7 +2143,7 @@ export default function ControlHorario({
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => changeMonth("prev")}
-                  className="p-2 rounded-lg hover:bg-[var(--input-bg)] border border-[var(--input-border)] transition-colors hover:border-cyan-500"
+                  className="p-2 rounded-lg hover:bg-[var(--muted)] border border-[var(--input-border)] transition-colors hover:border-cyan-500"
                 >
                   <ChevronLeft className="w-5 h-5 text-[var(--foreground)]" />
                 </button>
@@ -2174,10 +2174,7 @@ export default function ControlHorario({
                           setUnlockPastDaysModal(true);
                         }
                       }}
-                      className="ml-2 p-1 rounded-full border-2 border-[var(--input-border)] hover:border-cyan-500 transition-colors"
-                      style={{
-                        background: "var(--input-bg)",
-                      }}
+                      className="ml-2 p-1 rounded-full border-2 border-[var(--input-border)] bg-[var(--card-bg)] hover:border-cyan-500 hover:bg-[var(--muted)] transition-colors"
                       title={
                         editPastDaysEnabled
                           ? "Bloquear edición de días pasados"
@@ -2195,7 +2192,7 @@ export default function ControlHorario({
                 </h4>
                 <button
                   onClick={() => changeMonth("next")}
-                  className="p-2 rounded-lg hover:bg-[var(--input-bg)] border border-[var(--input-border)] transition-colors hover:border-cyan-500"
+                  className="p-2 rounded-lg hover:bg-[var(--muted)] border border-[var(--input-border)] transition-colors hover:border-cyan-500"
                 >
                   <ChevronRight className="w-5 h-5 text-[var(--foreground)]" />
                 </button>
@@ -2206,7 +2203,7 @@ export default function ControlHorario({
                   className={`px-4 py-2 text-xs font-semibold rounded-lg border-2 transition-all ${
                     selectedPeriod === "1-15"
                       ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white border-cyan-500"
-                      : "border-[var(--input-border)] text-[var(--foreground)] hover:border-cyan-500 hover:bg-[var(--input-bg)]"
+                      : "border-[var(--input-border)] text-[var(--foreground)] hover:border-cyan-500 hover:bg-[var(--muted)]"
                   }`}
                   onClick={() => {
                     setSelectedPeriod("1-15");
@@ -2220,7 +2217,7 @@ export default function ControlHorario({
                   className={`px-4 py-2 text-xs font-semibold rounded-lg border-2 transition-all ${
                     selectedPeriod === "16-30"
                       ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white border-cyan-500"
-                      : "border-[var(--input-border)] text-[var(--foreground)] hover:border-cyan-500 hover:bg-[var(--input-bg)]"
+                      : "border-[var(--input-border)] text-[var(--foreground)] hover:border-cyan-500 hover:bg-[var(--muted)]"
                   }`}
                   onClick={() => {
                     setSelectedPeriod("16-30");
@@ -2234,7 +2231,7 @@ export default function ControlHorario({
                   className={`px-4 py-2 text-xs font-semibold rounded-lg border-2 transition-all ${
                     fullMonthView
                       ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white border-cyan-500"
-                      : "border-[var(--input-border)] text-[var(--foreground)] hover:border-cyan-500 hover:bg-[var(--input-bg)]"
+                      : "border-[var(--input-border)] text-[var(--foreground)] hover:border-cyan-500 hover:bg-[var(--muted)]"
                   }`}
                   onClick={() => {
                     if (fullMonthView) {
@@ -2440,7 +2437,7 @@ export default function ControlHorario({
                         className={`border border-[var(--input-border)] p-2 font-bold text-center transition-all text-xs relative${
                           isToday
                             ? " bg-gradient-to-b from-cyan-500 to-blue-500 text-white shadow-md"
-                            : " hover:bg-[var(--input-bg)]"
+                            : " hover:bg-[var(--muted)]"
                         }`}
                         style={{
                           minWidth: fullMonthView ? "40px" : "20px",
@@ -2559,14 +2556,14 @@ export default function ControlHorario({
                               }
                               className={`w-full h-full p-1 text-center font-semibold cursor-pointer text-xs border-none outline-none ${
                                 disabled
-                                  ? "bg-gray-200 text-gray-400 dark:bg-gray-800 dark:text-gray-500"
+                                  ? "bg-[var(--muted)] text-[var(--muted-foreground)] cursor-not-allowed"
                                   : ""
                               }`}
                               style={{
                                 minWidth: fullMonthView ? "32px" : "40px",
                                 height: "40px",
                                 backgroundColor:
-                                  hours > 0 ? "#d1fae5" : "var(--input-bg)",
+                                  hours > 0 ? "#d1fae5" : "var(--card-bg)",
                                 color:
                                   hours > 0 ? "#065f46" : "var(--foreground)",
                               }}
@@ -2635,7 +2632,7 @@ export default function ControlHorario({
                             }
                             className={`w-full h-full p-1 border-none outline-none text-center font-semibold cursor-pointer text-xs appearance-none ${
                               disabled
-                                ? "bg-gray-200 text-gray-400 dark:bg-gray-800 dark:text-gray-500"
+                                ? "bg-[var(--muted)] text-[var(--muted-foreground)] cursor-not-allowed"
                                 : ""
                             }`}
                             style={{
@@ -2668,15 +2665,15 @@ export default function ControlHorario({
         )}{" "}
         {/* Modal de resumen del empleado para móviles */}
         {showEmployeeSummary && (
-          <div className="sm:hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-sm w-full">
+          <div className="sm:hidden fixed inset-0 bg-black/60 dark:bg-black/80 z-50 flex items-center justify-center p-4">
+            <div className="bg-[var(--card-bg)] text-[var(--foreground)] rounded-xl shadow-2xl p-6 max-w-sm w-full border border-[var(--input-border)]">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold">
                   Resumen - {showEmployeeSummary}
                 </h3>
                 <button
                   onClick={() => setShowEmployeeSummary(null)}
-                  className="text-gray-500 hover:text-gray-700"
+                  className="p-2 rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--muted-foreground)] hover:border-cyan-500 hover:bg-[var(--muted)] transition-colors"
                 >
                   ✕
                 </button>
@@ -2762,14 +2759,14 @@ export default function ControlHorario({
                   }
                 }}
                 placeholder="Contraseña"
-                className="w-full pr-10 pl-3 py-2 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                className="w-full pr-10 pl-3 py-2 border-2 border-[var(--input-border)] rounded-lg bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                 autoFocus
                 disabled={unlockPastDays.submitting}
               />
               <button
                 type="button"
                 onClick={() => setShowUnlockPassword((v) => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-indigo-500 transition-colors"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)] hover:text-cyan-500 transition-colors"
                 tabIndex={-1}
               >
                 {showUnlockPassword ? (
@@ -2797,7 +2794,7 @@ export default function ControlHorario({
                 Cancelar
               </button>
               <button
-                className="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2 justify-center w-full sm:w-auto disabled:opacity-60 disabled:cursor-not-allowed"
+                className="px-4 py-2 rounded bg-gradient-to-r from-cyan-500 to-blue-500 text-white flex items-center gap-2 justify-center w-full sm:w-auto disabled:opacity-60 disabled:cursor-not-allowed border border-cyan-600 hover:border-cyan-400 hover:shadow-lg transition-all"
                 onClick={() => void unlockPastDays.unlock()}
                 disabled={
                   unlockPastDays.submitting ||
@@ -2859,20 +2856,20 @@ export default function ControlHorario({
 
       {/* Modal QR para descarga con funcionalidad de descarga de imagen */}
       {showQRModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-sm w-full flex flex-col items-center">
-            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200 mb-4 text-center">
+        <div className="fixed inset-0 bg-black/60 dark:bg-black/80 z-50 flex items-center justify-center p-4">
+          <div className="bg-[var(--card-bg)] text-[var(--foreground)] rounded-xl shadow-2xl p-6 max-w-sm w-full flex flex-col items-center border border-[var(--input-border)]">
+            <h3 className="text-lg font-bold mb-4 text-center">
               📱 Descargar en tu móvil
             </h3>
             <Image
               src={qrCodeDataURL}
               alt="QR para descargar imagen"
-              className="mb-4 rounded-lg border-2 border-gray-200 dark:border-gray-600"
+              className="mb-4 rounded-lg border-2 border-[var(--input-border)]"
               width={300}
               height={300}
               unoptimized
             />
-            <div className="text-xs text-gray-600 dark:text-gray-400 mb-4 text-center">
+            <div className="text-xs text-[var(--muted-foreground)] mb-4 text-center">
               Escanea este QR con tu móvil para descargar la imagen
             </div>
 
@@ -2897,7 +2894,7 @@ export default function ControlHorario({
                   setQRCodeDataURL("");
                   setImageBlob(null);
                 }}
-                className="flex-1 px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                className="flex-1 px-4 py-2 rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] hover:border-cyan-500 hover:bg-[var(--muted)] transition-colors"
               >
                 Cerrar
               </button>
@@ -2933,7 +2930,7 @@ export default function ControlHorario({
                     showToast("❌ Error al descargar el horario", "error");
                   }
                 }}
-                className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                className="flex-1 px-4 py-2 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 text-white border border-cyan-600 hover:border-cyan-400 hover:shadow-lg transition-all"
                 title="Descargar imagen del horario"
               >
                 📥 Descargar Horario
@@ -2941,7 +2938,7 @@ export default function ControlHorario({
             </div>
 
             {qrCountdown !== null && qrCountdown > 0 && (
-              <div className="text-xs text-red-600 mt-2 text-center">
+              <div className="text-xs text-red-500 mt-2 text-center">
                 Este enlace expira en {qrCountdown} segundo
                 {qrCountdown === 1 ? "" : "s"}
               </div>
@@ -2952,7 +2949,7 @@ export default function ControlHorario({
 
       {/* Toast de countdown para QR */}
       {qrCountdown !== null && qrCountdown > 0 && (
-        <div className="fixed bottom-4 right-4 z-50 bg-red-600 text-white px-4 py-2 rounded shadow-lg animate-pulse font-semibold text-sm">
+        <div className="fixed bottom-4 right-4 z-50 bg-[var(--card-bg)] text-[var(--foreground)] px-4 py-2 rounded-lg border border-[var(--input-border)] shadow-lg animate-pulse font-semibold text-sm">
           El enlace y QR expiran en {qrCountdown} segundo
           {qrCountdown === 1 ? "" : "s"}
         </div>

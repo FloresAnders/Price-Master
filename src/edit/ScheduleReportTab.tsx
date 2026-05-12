@@ -391,7 +391,7 @@ export default function ScheduleReportTab() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500 mx-auto mb-2"></div>
           <p className="text-[var(--tab-text)]">Cargando planillas...</p>
         </div>
       </div>
@@ -415,7 +415,7 @@ export default function ScheduleReportTab() {
           <button
             onClick={exportData}
             disabled={scheduleData.length === 0}
-            className="px-3 py-2 sm:px-4 bg-[var(--success)] hover:bg-[var(--button-hover)] disabled:opacity-50 text-white rounded-md flex items-center justify-center gap-2 transition-colors text-sm sm:text-base whitespace-nowrap w-full sm:w-auto"
+            className="px-3 py-2 sm:px-4 bg-gradient-to-r from-cyan-500 to-blue-500 text-white border border-cyan-600 hover:border-cyan-400 hover:shadow-lg disabled:opacity-50 rounded-lg flex items-center justify-center gap-2 transition-all text-sm sm:text-base whitespace-nowrap w-full sm:w-auto"
           >
             <Download className="w-4 h-4" />
             <span>Exportar</span>
@@ -432,7 +432,7 @@ export default function ScheduleReportTab() {
         <select
           value={selectedLocation}
           onChange={(e) => setSelectedLocation(e.target.value)}
-          className="w-full sm:w-auto px-3 py-2 border border-[var(--input-border)] rounded-md bg-[var(--input-bg)] text-[var(--text-color)] text-sm"
+          className="w-full sm:w-auto px-3 py-2 border-2 border-[var(--input-border)] rounded-lg bg-[var(--card-bg)] text-[var(--foreground)] text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
         >
           <option value="all">Todas las empresas</option>
           {locations
@@ -471,7 +471,7 @@ export default function ScheduleReportTab() {
               );
               if (selected) setCurrentPeriod(selected);
             }}
-            className="flex-1 sm:flex-none sm:min-w-[250px] px-3 py-2 border border-[var(--input-border)] rounded-md bg-[var(--input-bg)] text-[var(--text-color)] text-sm"
+            className="flex-1 sm:flex-none sm:min-w-[250px] px-3 py-2 border-2 border-[var(--input-border)] rounded-lg bg-[var(--card-bg)] text-[var(--foreground)] text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
           >
             {availablePeriods.map((period) => (
               <option
@@ -496,7 +496,7 @@ export default function ScheduleReportTab() {
                 ) >=
                   availablePeriods.length - 1
               }
-              className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="p-2 rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] hover:border-cyan-500 hover:bg-[var(--muted)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               aria-label="Período anterior"
             >
               <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -513,7 +513,7 @@ export default function ScheduleReportTab() {
                     p.period === currentPeriod.period,
                 ) <= 0
               }
-              className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="p-2 rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] hover:border-cyan-500 hover:bg-[var(--muted)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               aria-label="Período siguiente"
             >
               <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -525,8 +525,8 @@ export default function ScheduleReportTab() {
       {/* Contenido de horarios */}
       {scheduleData.length === 0 ? (
         <div className="text-center py-12">
-          <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-[var(--text-color)] mb-2">
+          <FileText className="w-12 h-12 text-[var(--muted-foreground)] mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-[var(--foreground)] mb-2">
             No hay datos de horarios
           </h3>
           <p className="text-[var(--tab-text)]">
@@ -538,7 +538,7 @@ export default function ScheduleReportTab() {
           {scheduleData.map((locationData, locationIndex) => (
             <div
               key={locationIndex}
-              className="border border-[var(--input-border)] rounded-lg p-3 sm:p-4 md:p-6"
+              className="border border-[var(--input-border)] bg-[var(--card-bg)] rounded-lg p-3 sm:p-4 md:p-6"
             >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0 mb-3 sm:mb-4">
                 <h4 className="text-base sm:text-lg font-semibold flex items-center gap-2">
@@ -576,8 +576,8 @@ export default function ScheduleReportTab() {
                   <div className="overflow-hidden">
                     <table className="min-w-full border-collapse">
                       <thead>
-                        <tr className="border-b border-[var(--input-border)] bg-gray-50 dark:bg-gray-800/50">
-                          <th className="sticky left-0 z-10 bg-gray-50 dark:bg-gray-800/50 text-left p-2 sm:p-3 font-medium text-xs sm:text-sm min-w-[120px] sm:min-w-[150px]">
+                        <tr className="border-b border-[var(--input-border)] bg-[var(--muted)]">
+                          <th className="sticky left-0 z-10 bg-[var(--muted)] text-left p-2 sm:p-3 font-medium text-xs sm:text-sm min-w-[120px] sm:min-w-[150px]">
                             Empleado
                           </th>
                           {getDaysInPeriod().map((day) => (
@@ -597,9 +597,9 @@ export default function ScheduleReportTab() {
                         {locationData.employees.map((employee, empIndex) => (
                           <tr
                             key={empIndex}
-                            className="border-b border-[var(--input-border)] hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors"
+                            className="border-b border-[var(--input-border)] hover:bg-[var(--muted)] transition-colors"
                           >
-                            <td className="sticky left-0 z-10 bg-white dark:bg-gray-900 p-2 sm:p-3 font-medium text-xs sm:text-sm">
+                            <td className="sticky left-0 z-10 bg-[var(--card-bg)] p-2 sm:p-3 font-medium text-xs sm:text-sm">
                               <span className="block truncate max-w-[100px] sm:max-w-none">
                                 {employee.employeeName}
                               </span>

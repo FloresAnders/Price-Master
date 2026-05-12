@@ -239,26 +239,28 @@ export default function CalculoHorasModal({
     !saving && (timerRunning || (parsedTimer.ok && parsedTimer.seconds > 0));
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="bg-[var(--card-bg)] rounded-xl shadow-xl max-w-md w-full border-2 border-[var(--input-border)]">
+        <div className="flex items-center justify-between p-6 border-b border-[var(--input-border)]">
           <div className="flex items-center gap-3">
-            <Clock className="w-6 h-6 text-blue-600" />
+            <Clock className="w-6 h-6 text-cyan-500" />
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              <h3 className="text-lg font-semibold text-[var(--foreground)]">
                 Cálculo horas
               </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-sm text-[var(--muted-foreground)]">
                 {employeeName} - {day} de {monthName} {year}
               </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
+              <p className="text-xs text-[var(--muted-foreground)]">
                 Empresa: {empresaValue}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            className="p-2 rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:border-cyan-500 hover:bg-[var(--muted)] transition-all"
+            aria-label="Cerrar"
+            title="Cerrar"
           >
             <X className="w-5 h-5" />
           </button>
@@ -266,7 +268,7 @@ export default function CalculoHorasModal({
 
         <div className="p-6">
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
               Tiempo (hh:mm:ss)
             </label>
             <input
@@ -274,27 +276,27 @@ export default function CalculoHorasModal({
               value={timeText}
               onChange={(e) => setTimeText(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-lg font-semibold text-center"
+              className="w-full px-4 py-3 border-2 border-[var(--input-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent bg-[var(--card-bg)] text-[var(--foreground)] text-lg font-semibold text-center transition-all"
               placeholder="00:00:00"
               autoFocus
             />
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            <p className="text-xs text-[var(--muted-foreground)] mt-1">
               Ejemplo: 08:30:00
             </p>
-            <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 font-medium">
+            <p className="text-xs text-cyan-500 mt-1 font-semibold">
               00:00:00 eliminará este registro
             </p>
           </div>
 
-          <div className="mb-4 p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/20">
+          <div className="mb-4 p-4 rounded-lg border-2 border-[var(--input-border)] bg-[var(--muted)]">
             <div className="flex items-center justify-between mb-2">
               <div className="relative flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                <span className="text-sm font-semibold text-[var(--foreground)]">
                   Cronómetro
                 </span>
                 <button
                   type="button"
-                  className="p-1 rounded-full text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  className="p-1.5 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:border-cyan-500 hover:bg-[var(--muted)] transition-all"
                   title="Info: cronómetro editable"
                   aria-label="Info del cronómetro"
                   onClick={() => setShowTimerInfo((v) => !v)}
@@ -307,8 +309,8 @@ export default function CalculoHorasModal({
                 </button>
 
                 {showTimerInfo && (
-                  <div className="absolute left-0 top-7 z-20 w-72 max-w-[80vw] p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
-                    <p className="text-xs text-gray-700 dark:text-gray-200">
+                  <div className="absolute left-0 top-8 z-20 w-72 max-w-[80vw] p-3 rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] shadow-lg">
+                    <p className="text-xs text-[var(--foreground)]">
                       Ahora puedes escribir un tiempo (hh:mm:ss) en el
                       cronómetro. Si el valor es distinto de 00:00:00, se
                       habilita el botón Fin para sumar ese tiempo al campo
@@ -319,7 +321,7 @@ export default function CalculoHorasModal({
               </div>
               <input
                 type="text"
-                className="text-sm font-semibold text-gray-900 dark:text-gray-100 tabular-nums px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-right w-28"
+                className="text-sm font-semibold text-[var(--foreground)] tabular-nums px-3 py-1.5 rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] text-right w-28 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
                 value={timerRunning ? timerDisplay : timerText}
                 readOnly={timerRunning}
                 disabled={saving}
@@ -341,34 +343,34 @@ export default function CalculoHorasModal({
               <button
                 onClick={startTimer}
                 disabled={saving || timerRunning}
-                className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="flex-1 px-4 py-2 border-2 border-[var(--input-border)] rounded-lg bg-[var(--card-bg)] text-[var(--foreground)] hover:border-cyan-500 hover:bg-[var(--muted)] disabled:opacity-50 disabled:cursor-not-allowed transition-all font-semibold"
               >
                 Inicio
               </button>
               <button
                 onClick={stopTimer}
                 disabled={!canFinishTimer}
-                className="flex-1 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="flex-1 px-4 py-2 text-white rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 hover:shadow-lg transition-all border border-cyan-600 hover:border-cyan-400 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
               >
                 Fin
               </button>
             </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+            <p className="text-xs text-[var(--muted-foreground)] mt-2">
               Al dar &apos;Fin&apos;, el tiempo se suma al campo manual.
             </p>
           </div>
 
           {error && (
-            <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-600 rounded-lg">
-              <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
+            <div className="mb-4 p-3 bg-red-500/10 border-2 border-red-500/40 rounded-lg">
+              <p className="text-sm text-red-500">{error}</p>
             </div>
           )}
         </div>
 
-        <div className="flex gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex gap-3 p-6 border-t border-[var(--input-border)]">
           <button
             onClick={onClose}
-            className="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+            className="flex-1 px-4 py-2 border-2 border-[var(--input-border)] rounded-lg bg-[var(--card-bg)] text-[var(--foreground)] hover:border-cyan-500 hover:bg-[var(--muted)] transition-all font-semibold"
             disabled={saving}
           >
             Cancelar
@@ -376,11 +378,12 @@ export default function CalculoHorasModal({
           <button
             onClick={handleSave}
             disabled={saving}
-            className={`flex-1 px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 ${
-              isDelete
-                ? "bg-red-600 hover:bg-red-700 text-white"
-                : "bg-blue-600 hover:bg-blue-700 text-white"
-            }`}
+            className={
+              "flex-1 px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 font-semibold " +
+              (isDelete
+                ? "border-2 border-red-500/40 text-white bg-red-600 hover:bg-red-700"
+                : "text-white bg-gradient-to-r from-cyan-500 to-blue-500 hover:shadow-lg border border-cyan-600 hover:border-cyan-400")
+            }
           >
             {saving ? (
               <>

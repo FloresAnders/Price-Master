@@ -352,7 +352,7 @@ function TapTooltip({
                       <button
                         type="button"
                         onClick={closeTooltip}
-                        className="flex-none rounded-md border border-[var(--input-border)] bg-[var(--hover-bg)] px-2 py-1 text-xs"
+                        className="flex-none rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] hover:border-cyan-500 hover:bg-[var(--muted)] transition-all px-3 py-1.5 text-xs"
                       >
                         Cerrar
                       </button>
@@ -370,7 +370,7 @@ function TapTooltip({
             <div
               ref={tooltipRef}
               role="dialog"
-              className="z-[9999] rounded-md border border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] shadow-lg px-3 py-2"
+              className="z-[9999] rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] shadow-lg px-3 py-2"
               style={{
                 position: "fixed",
                 left: pos.left,
@@ -821,9 +821,9 @@ export default function CalculoHorasPrecios() {
 
   if (!user || !canUse) {
     return (
-      <div className="flex items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)]">
+      <div className="flex items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg border-2 border-[var(--input-border)]">
         <div className="text-center">
-          <Lock className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <Lock className="w-12 h-12 text-[var(--muted-foreground)] mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-[var(--foreground)] mb-2">
             Acceso Restringido
           </h3>
@@ -837,7 +837,7 @@ export default function CalculoHorasPrecios() {
 
   return (
     <>
-      <div className="max-w-7xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4 sm:p-6 border border-[var(--input-border)]">
+      <div className="max-w-7xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-4 sm:p-6 border-2 border-[var(--input-border)]">
         <div className="flex flex-col gap-4 mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -855,14 +855,14 @@ export default function CalculoHorasPrecios() {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => changeMonth("prev")}
-                className="p-2 rounded-md border border-[var(--input-border)] hover:bg-[var(--hover-bg)] transition-colors"
+                className="p-2 rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] hover:border-cyan-500 hover:bg-[var(--muted)] transition-all"
                 title="Mes anterior"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
               <button
                 onClick={() => changeMonth("next")}
-                className="p-2 rounded-md border border-[var(--input-border)] hover:bg-[var(--hover-bg)] transition-colors"
+                className="p-2 rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] hover:border-cyan-500 hover:bg-[var(--muted)] transition-all"
                 title="Mes siguiente"
               >
                 <ChevronRight className="w-5 h-5" />
@@ -876,12 +876,7 @@ export default function CalculoHorasPrecios() {
                 Empresa
               </label>
               <select
-                className="w-full px-3 py-2 text-sm rounded focus:outline-none"
-                style={{
-                  background: "var(--input-bg)",
-                  border: "1px solid var(--input-border)",
-                  color: "var(--foreground)",
-                }}
+                className="w-full px-4 py-2.5 bg-[var(--card-bg)] border-2 border-[var(--input-border)] rounded-lg text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
                 value={empresa}
                 onChange={(e) => {
                   if (isUserRole) {
@@ -911,12 +906,7 @@ export default function CalculoHorasPrecios() {
                 Vista
               </label>
               <select
-                className="w-full px-3 py-2 text-sm rounded focus:outline-none"
-                style={{
-                  background: "var(--input-bg)",
-                  border: "1px solid var(--input-border)",
-                  color: "var(--foreground)",
-                }}
+                className="w-full px-4 py-2.5 bg-[var(--card-bg)] border-2 border-[var(--input-border)] rounded-lg text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
                 value={period}
                 onChange={(e) => setPeriod(e.target.value as PeriodMode)}
               >
@@ -931,14 +921,9 @@ export default function CalculoHorasPrecios() {
                 Empleado
               </label>
               <div className="flex items-center gap-2">
-                <UserIcon className="w-4 h-4 text-[var(--foreground)]" />
+                <UserIcon className="w-4 h-4 text-[var(--muted-foreground)]" />
                 <select
-                  className="flex-1 px-3 py-2 text-sm rounded focus:outline-none"
-                  style={{
-                    background: "var(--input-bg)",
-                    border: "1px solid var(--input-border)",
-                    color: "var(--foreground)",
-                  }}
+                  className="flex-1 px-4 py-2.5 bg-[var(--card-bg)] border-2 border-[var(--input-border)] rounded-lg text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
                   value={selectedEmployee}
                   onChange={(e) => setSelectedEmployee(e.target.value)}
                 >
@@ -959,19 +944,10 @@ export default function CalculoHorasPrecios() {
           style={{ overflowY: "hidden" }}
         >
           <div className="min-w-full inline-block">
-            <table className="w-full border-collapse border border-[var(--input-border)]">
+            <table className="w-full border-collapse border-2 border-[var(--input-border)]">
               <thead>
                 <tr>
-                  <th
-                    className="border border-[var(--input-border)] p-2 font-semibold text-center bg-[var(--input-bg)] text-[var(--foreground)] min-w-[90px] sticky left-0 z-20 text-xs"
-                    style={{
-                      background: "var(--input-bg)",
-                      color: "var(--foreground)",
-                      minWidth: "90px",
-                      left: 0,
-                      height: "40px",
-                    }}
-                  >
+                  <th className="border border-[var(--input-border)] p-2 font-semibold text-center bg-[var(--muted)] text-[var(--foreground)] min-w-[90px] sticky left-0 z-20 text-xs h-10">
                     Nombre
                   </th>
                   {daysToShow.map((day) => {
@@ -989,13 +965,12 @@ export default function CalculoHorasPrecios() {
                     return (
                       <th
                         key={day}
-                        className="border border-[var(--input-border)] p-2 font-semibold text-center text-xs"
-                        style={{
-                          background: isToday ? "#bbf7d0" : "var(--input-bg)",
-                          color: isToday ? "#065f46" : "var(--foreground)",
-                          minWidth: "32px",
-                          height: "40px",
-                        }}
+                        className={
+                          "border border-[var(--input-border)] p-2 font-semibold text-center text-xs min-w-[32px] h-10 " +
+                          (isToday
+                            ? "bg-emerald-200 text-emerald-900"
+                            : "bg-[var(--muted)] text-[var(--foreground)]")
+                        }
                       >
                         <span
                           className="relative group"
@@ -1003,7 +978,7 @@ export default function CalculoHorasPrecios() {
                         >
                           {day}
                           <span
-                            className="absolute left-1/2 -translate-x-1/2 mt-2 px-2 py-1 rounded bg-gray-900 text-white text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 shadow-lg"
+                            className="absolute left-1/2 -translate-x-1/2 mt-2 px-2 py-1 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 shadow-lg"
                             style={{ bottom: "-2.2rem" }}
                           >
                             {tooltip}
@@ -1020,16 +995,7 @@ export default function CalculoHorasPrecios() {
                   : [selectedEmployee]
                 ).map((name) => (
                   <tr key={name}>
-                    <td
-                      className="border border-[var(--input-border)] p-2 font-medium bg-[var(--input-bg)] text-[var(--foreground)] min-w-[90px] sticky left-0 z-10 text-xs"
-                      style={{
-                        background: "var(--input-bg)",
-                        color: "var(--foreground)",
-                        minWidth: "90px",
-                        left: 0,
-                        height: "40px",
-                      }}
-                    >
+                    <td className="border border-[var(--input-border)] p-2 font-medium bg-[var(--muted)] text-[var(--foreground)] min-w-[90px] sticky left-0 z-10 text-xs h-10">
                       {(() => {
                         const totalSeconds = daysToShow.reduce(
                           (acc, day) =>
@@ -1078,23 +1044,19 @@ export default function CalculoHorasPrecios() {
                       return (
                         <td
                           key={day}
-                          className="border border-[var(--input-border)] p-0"
-                          style={{ minWidth: "32px" }}
+                          className="border border-[var(--input-border)] p-0 min-w-[32px]"
                         >
                           <button
                             onClick={() => openHoursModal(name, day)}
-                            className="w-full h-full p-1 text-center font-semibold cursor-pointer text-xs border-none outline-none"
-                            style={{
-                              minWidth: "32px",
-                              height: "40px",
-                              backgroundColor:
-                                seconds > 0 ? "#d1fae5" : "var(--input-bg)",
-                              color:
-                                seconds > 0 ? "#065f46" : "var(--foreground)",
-                              boxShadow: isToday
-                                ? "inset 0 0 0 2px #22c55e"
-                                : undefined,
-                            }}
+                            className={
+                              "w-full h-10 p-1 text-center font-semibold cursor-pointer text-xs outline-none transition-colors focus-visible:ring-2 focus-visible:ring-cyan-500/60 focus-visible:ring-inset disabled:opacity-50 " +
+                              (seconds > 0
+                                ? "bg-emerald-100 text-emerald-900 hover:bg-emerald-200"
+                                : "bg-[var(--card-bg)] text-[var(--foreground)] hover:bg-[var(--muted)]") +
+                              (isToday
+                                ? " ring-inset ring-2 ring-emerald-500"
+                                : "")
+                            }
                             disabled={saving}
                             title={
                               seconds > 0
