@@ -11089,6 +11089,7 @@ export function FondoSection({
       />
       {/* daily closings block removed from inline view */}
       <DailyClosingModal
+        key={`${dailyClosingModalOpen ? "open" : "closed"}-${editingDailyClosingId ?? dailyClosingInitialValues?.closingDate ?? "new"}`}
         open={dailyClosingModalOpen}
         onClose={handleCloseDailyClosing}
         onConfirm={handleConfirmDailyClosing}
