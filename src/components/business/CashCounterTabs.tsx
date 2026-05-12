@@ -14,14 +14,15 @@ import { CalculatorModal } from "../modals";
 
 /* ── Accent colors for denomination badges only ── */
 const DENOM_ACCENTS: Record<string, string> = {
-  "20000": "bg-emerald-500/20 text-emerald-400 border-emerald-500/25",
-  "10000": "bg-cyan-500/20 text-cyan-400 border-cyan-500/25",
-  "5000":  "bg-blue-500/20 text-blue-400 border-blue-500/25",
-  "2000":  "bg-violet-500/20 text-violet-400 border-violet-500/25",
-  "1000":  "bg-purple-500/20 text-purple-400 border-purple-500/25",
-  "500":   "bg-pink-500/20 text-pink-400 border-pink-500/25",
-  "100":   "bg-rose-500/20 text-rose-400 border-rose-500/25",
-  "50":    "bg-orange-500/20 text-orange-400 border-orange-500/25",
+  "20000": "bg-orange-500/20 text-orange-400 border-orange-500/25", // naranja
+  "10000": "bg-emerald-500/20 text-emerald-400 border-emerald-500/25", // verde
+  "5000":  "bg-amber-500/20 text-amber-400 border-amber-500/25", // amarillo
+  "2000":  "bg-blue-500/20 text-blue-400 border-blue-500/25", // azul
+  "1000":  "bg-rose-500/20 text-rose-400 border-rose-500/25", // carmesí
+  // oro para valores menores
+  "500":   "bg-amber-500/20 text-amber-400 border-amber-500/25",
+  "100":   "bg-amber-500/20 text-amber-400 border-amber-500/25",
+  "50":    "bg-amber-500/20 text-amber-400 border-amber-500/25",
   "25":    "bg-amber-500/20 text-amber-400 border-amber-500/25",
   // USD fallback
   "1":     "bg-neutral-500/20 text-neutral-400 border-neutral-500/25",
@@ -31,10 +32,9 @@ function badgeColor(value: number): string {
   return DENOM_ACCENTS[value] || "bg-neutral-500/20 text-neutral-400 border-neutral-500/25";
 }
 
-function badgeLabel(label: string): string {
-  const c = label.replace(/[$₡\s]/g, "");
-  if (c.length > 3) return c.replace("000", "K");
-  return c;
+function badgeLabel(value: number): string {
+  if (value >= 1000 && value % 1000 === 0) return `${value / 1000}K`;
+  return String(value);
 }
 
 /* ── Types ── */
@@ -48,7 +48,7 @@ function BaseModal({ isOpen, onClose, title, children }: BaseModalProps) {
       className="fixed inset-0 bg-black/70  z-50 flex items-center justify-center p-4">
       <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.95, opacity: 0, y: 20 }} transition={{ type: "spring", damping: 30, stiffness: 260 }}
-        className="bg-[#0a0e17]/95  rounded-2xl shadow-2xl border border-gray-800 w-full max-w-[24rem] p-6 relative">
+        className="bg-gray-900 rounded-2xl shadow-2xl border border-gray-800 w-full max-w-[24rem] p-6 relative">
         <button onClick={onClose} className="absolute top-4 right-4 text-white/20 hover:text-white/50 transition-colors" aria-label={`Cerrar`}>
           <XCircle className="w-5 h-5" />
         </button>
@@ -162,8 +162,6 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
   const total = () => Object.entries(bills).reduce((a, [d, c]) => a + Number(d) * Number(c), 0) + extra;
   const fmt = (n: number) => new Intl.NumberFormat(cur === "CRC" ? "es-CR" : "en-US", { style: "currency", currency: cur, minimumFractionDigits: 0 }).format(n);
   const t = total();
-  const maxSub = denoms.reduce((m, d) => { const s = (bills[d.value] || 0) * d.value; return s > m ? s : m; }, 0);
-
   const diffMsg = (cn = "") => {
     if (ap === 0 && vt === 0) return null;
     const r = t - vt, d = Math.abs(r - ap);
@@ -193,21 +191,22 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
     const b20 = (bills[20] || 0) * 20 + (bills[10] || 0) * 10;
     return [{ l: "$20+$10", v: b20 }, { l: "$+$5", v: b20 + (bills[5] || 0) * 5 }, { l: "$1", v: (bills[1] || 0) * 1 }];
   };
+  const denomGridCols = "grid-cols-[minmax(170px,1fr)_200px_minmax(220px,1fr)]";
 
   return (
     <div className="relative">
       {/* ── Header ── */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gray-900 border border-gray-800 flex items-center justify-center">
-            <Banknote className="w-5 h-5 text-white/50" />
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-500/15 to-cyan-500/10 border border-emerald-400/25 shadow-[0_10px_30px_rgba(16,185,129,0.12)] flex items-center justify-center">
+            <Banknote className="w-5 h-5 text-emerald-300" />
           </div>
           <div>
-            <h3 className="text-base font-semibold text-white/90">{data.name}</h3>
-            <p className="text-xs text-white/30">{cur === "CRC" ? "Colones" : "Dólares"}</p>
+            <h3 className="text-base font-semibold text-white/90 tracking-tight">{data.name}</h3>
+            <p className="text-[11px] text-white/35 tracking-wide">{cur === "CRC" ? "Colones" : "Dólares"}</p>
           </div>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           {[
             { icon: Eraser, label: "Limpiar", action: () => { if (confirm("¿Seguro?")) { const r: BillsMap = {}; denoms.forEach((d) => { r[d.value] = 0; }); ntf(r, 0, cur, 0, 0); } } },
             { icon: Download, label: "Exportar", action: () => { const c = JSON.stringify({ name: data.name, bills, extraAmount: extra, currency: cur, aperturaCaja: ap, ventaActual: vt }); const b = new Blob([c], { type: "application/json" }); const u = URL.createObjectURL(b); const a = document.createElement("a"); a.href = u; a.download = `${data.name}.json`; a.click(); URL.revokeObjectURL(u); } },
@@ -215,74 +214,69 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
             { icon: DollarSign, label: "Moneda", action: onCurrencyOpen },
             { icon: Trash2, label: "Eliminar", action: () => { if (confirm("¿Eliminar?")) onDelete(id); } },
           ].map((b) => (
-            <button key={b.label} onClick={b.action} className="w-8 h-8 rounded-lg bg-gray-900 hover:bg-gray-900 border border-gray-800 flex items-center justify-center text-white/30 hover:text-white/60 transition-all" aria-label={b.label}>
-              <b.icon className="w-3.5 h-3.5" />
+            <button key={b.label} onClick={b.action} className="w-8 h-8 rounded-lg bg-[#0d1117]/95 hover:bg-[#111722] border border-white/10 hover:border-cyan-400/30 flex items-center justify-center text-white/55 hover:text-cyan-100 transition-all" aria-label={b.label}>
+              <b.icon className="w-4 h-4" />
             </button>
           ))}
         </div>
       </div>
 
       {/* ── Layout ── */}
-      <div className="flex flex-col lg:flex-row gap-6">
+      <div className="flex flex-col xl:flex-row gap-6">
         {/* Main */}
         <div className="flex-1 min-w-0 space-y-5">
 
           {/* ── Summary Cards ── */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 gap-3">
             {[
-              { label: "Total", value: fmt(t), icon: TrendingUp, indicator: "↑", iconColor: "text-emerald-400", bgColor: "from-emerald-500/15 to-cyan-500/10", borderColor: "border-emerald-500/20" },
-              { label: "Billetes", value: `${Object.values(bills).reduce((a, b) => a + b, 0)}`, icon: Wallet, indicator: "#", iconColor: "text-cyan-400", bgColor: "from-cyan-500/15 to-blue-500/10", borderColor: "border-cyan-500/20" },
-              { label: "Extra", value: fmt(extra), icon: Coins, indicator: "+", iconColor: "text-amber-400", bgColor: "from-amber-500/15 to-orange-500/10", borderColor: "border-amber-500/20" },
-              { label: "Diferencia", value: t - vt >= 0 ? fmt(t - vt) : `-${fmt(Math.abs(t - vt))}`, icon: TrendingUp, indicator: "↗", iconColor: t - vt >= 0 ? "text-emerald-400" : "text-red-400", bgColor: t - vt >= 0 ? "from-emerald-500/15 to-teal-500/10" : "from-red-500/15 to-rose-500/10", borderColor: t - vt >= 0 ? "border-emerald-500/20" : "border-red-500/20" },
+              { label: "Total general", value: fmt(t), helper: "↑ +12.5% vs ayer", icon: TrendingUp, iconColor: "text-emerald-300", bgColor: "from-emerald-500/20 to-teal-500/10", borderColor: "border-emerald-400/25" },
+              { label: "Total billetes", value: `${Object.values(bills).reduce((a, b) => a + b, 0)}`, helper: "Billetes registrados", icon: Wallet, iconColor: "text-cyan-300", bgColor: "from-cyan-500/20 to-blue-500/10", borderColor: "border-cyan-400/25" },
+              { label: "Denominaciones", value: `${Object.values(bills).filter((v) => v > 0).length}`, helper: "Tipos de billetes", icon: Coins, iconColor: "text-amber-300", bgColor: "from-amber-500/20 to-orange-500/10", borderColor: "border-amber-400/25" },
+              { label: "Última actualización", value: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }), helper: "por Administrador", icon: Layers, iconColor: "text-violet-300", bgColor: "from-violet-500/20 to-fuchsia-500/10", borderColor: "border-violet-400/25" },
             ].map((c) => (
-              <motion.div key={c.label} whileHover={{ y: -1 }}
-                className="bg-[#0f141e] rounded-xl border border-gray-800 p-4 shadow-sm transition-all duration-200 group">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-medium text-white/20 uppercase tracking-wider">{c.label}</span>
-                  <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${c.bgColor} border ${c.borderColor} flex items-center justify-center`}>
+              <motion.div key={c.label} whileHover={{ y: -2 }}
+                className="rounded-2xl border border-white/10 bg-[linear-gradient(145deg,rgba(13,17,23,0.96),rgba(16,22,31,0.78))] backdrop-blur-xl p-4 shadow-[0_10px_35px_rgba(0,0,0,0.35)] transition-all duration-200 group">
+                <div className="flex items-center justify-between mb-2.5">
+                  <span className="text-[10px] font-medium text-white/35 uppercase tracking-[0.16em]">{c.label}</span>
+                  <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${c.bgColor} border ${c.borderColor} flex items-center justify-center shadow-[0_10px_25px_rgba(0,0,0,0.25)]`}>
                     <c.icon className={`w-4 h-4 ${c.iconColor}`} />
                   </div>
                 </div>
-                <p className="text-lg font-bold text-white/90 tracking-tight">{c.value}</p>
+                <p className="text-[1.72rem] leading-none font-semibold text-white tracking-tight">{c.value}</p>
+                <p className="text-xs text-white/45 mt-2">{c.helper}</p>
               </motion.div>
             ))}
           </div>
 
           {/* ── Resumen Caja ── */}
           {ap > 0 && vt > 0 && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-gray-900  rounded-xl border border-gray-800 p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-2xl border border-white/10 bg-[#0d1117]/90 backdrop-blur-xl p-4">
               <div className="flex items-center justify-around text-xs">
                 <div className="text-center">
-                  <p className="text-white/20 uppercase tracking-wider mb-1">Apertura</p>
+                  <p className="text-white/30 uppercase tracking-wider mb-1">Apertura</p>
                   <p className="font-semibold text-white/80">{fmt(ap)}</p>
                 </div>
-                <div className="w-px h-10 bg-gray-900" />
+                <div className="w-px h-10 bg-white/10" />
                 <div className="text-center">
-                  <p className="text-white/20 uppercase tracking-wider mb-1">Venta</p>
+                  <p className="text-white/30 uppercase tracking-wider mb-1">Venta</p>
                   <p className="font-semibold text-white/80">{fmt(vt)}</p>
                 </div>
-                <div className="w-px h-10 bg-gray-900" />
+                <div className="w-px h-10 bg-white/10" />
                 <div className="text-center">
-                  <p className="text-white/20 uppercase tracking-wider mb-1">Estado</p>
+                  <p className="text-white/30 uppercase tracking-wider mb-1">Estado</p>
                   <p className="font-semibold">{diffMsg("")}</p>
                 </div>
               </div>
             </motion.div>
           )}
 
-          {/* ── Checkbox ── */}
-          <label className="flex items-center gap-2 cursor-pointer group w-fit">
-            <input type="checkbox" checked={showBD} onChange={(e) => setShowBD(e.target.checked)}
-              className="w-3.5 h-3.5 rounded border-white/20 bg-white/5 text-white/60 focus:ring-0 accent-white/30" />
-            <span className="text-[11px] text-white/30 group-hover:text-white/50 transition-colors">Desglose</span>
-          </label>
           <AnimatePresence>
             {showBD && (
               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                <div className="bg-gray-900 rounded-xl border border-gray-800 p-3 grid grid-cols-2 gap-2 text-xs">
+                <div className="rounded-2xl border border-white/10 bg-[#0d1117]/90 backdrop-blur-xl p-3 grid grid-cols-2 gap-2 text-xs">
                   {calcBD().map((i) => (
-                    <div key={i.l} className="p-2.5 bg-gray-900 rounded-lg text-center">
-                      <p className="text-white/20 mb-0.5">{i.l}</p>
+                    <div key={i.l} className="p-2.5 bg-[#121822] rounded-xl text-center border border-white/10">
+                      <p className="text-white/30 mb-0.5">{i.l}</p>
                       <p className="font-medium text-white/70">{fmt(i.v)}</p>
                     </div>
                   ))}
@@ -292,95 +286,101 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
           </AnimatePresence>
 
           {/* ── Denominations ── */}
-          <div className="space-y-2">
+          <div className="rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(13,17,23,0.98),rgba(15,21,30,0.9))] backdrop-blur-xl overflow-hidden">
+            <div className={`grid ${denomGridCols} items-center gap-3 px-4 sm:px-5 py-3 border-b border-white/10`}>
+              <p className="text-[11px] uppercase tracking-[0.14em] text-white/35 font-medium">Denominación</p>
+              <p className="text-[11px] uppercase tracking-[0.14em] text-cyan-200/75 font-semibold text-center">Cantidad</p>
+              <p className="text-[11px] uppercase tracking-[0.14em] text-white/35 font-medium text-right">Subtotal</p>
+            </div>
+            <div className="space-y-1.5 p-2 sm:p-3">
             {denoms.map((den, i) => {
               const cnt = bills[den.value] || 0;
               const sub = den.value * cnt;
-              const pct = maxSub > 0 ? (sub / maxSub) * 100 : 0;
+              const pct = t > 0 ? (sub / t) * 100 : 0;
               return (
                 <motion.div key={den.value} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.025 }}
                   className={`relative rounded-xl border transition-all duration-200 ${
                     cnt > 0
-                      ? "bg-gray-900 border-gray-800 hover:bg-gray-900 hover:border-white/20 hover:shadow-lg hover:shadow-black/10"
-                      : "bg-gray-900 border-gray-800 opacity-40"
+                      ? "bg-[linear-gradient(120deg,rgba(13,17,23,0.96),rgba(16,24,34,0.9))] border-white/10 hover:border-cyan-400/25 hover:shadow-[0_12px_30px_rgba(0,0,0,0.28)]"
+                      : "bg-[linear-gradient(120deg,rgba(13,17,23,0.8),rgba(16,24,34,0.7))] border-white/10 opacity-55"
                   }`}>
-                  {/* Progress bar */}
-                  <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-gray-900 rounded-full overflow-hidden">
+                  <div className="absolute inset-0 rounded-xl pointer-events-none bg-[radial-gradient(circle_at_92%_50%,rgba(56,189,248,0.07),transparent_55%)]" />
+                  <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-white/5 rounded-full overflow-hidden">
                     <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.6, ease: "easeOut" }}
-                      className="h-full bg-gradient-to-r from-cyan-500/30 to-teal-500/20" />
+                      className="h-full bg-gradient-to-r from-emerald-400/60 via-cyan-400/55 to-blue-400/45" />
                   </div>
-                  <div className="p-3 flex items-center gap-3">
-                    {/* Badge */}
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-[11px] font-bold border flex-shrink-0 ${cnt > 0 ? badgeColor(den.value) : "bg-gray-900 text-white/20 border-gray-800"}`}>
-                      {badgeLabel(den.label)}
+                  <div className={`relative p-3 sm:p-3.5 grid ${denomGridCols} items-center gap-3`}>
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className={`w-16 h-12 rounded-lg flex items-center justify-center text-[11px] font-bold border flex-shrink-0 ${cnt > 0 ? badgeColor(den.value) : "bg-[#151f31] text-white/25 border-white/10"}`}>
+                        <Banknote className="w-4 h-4 mr-1 text-white/70" />
+                        {badgeLabel(den.value)}
+                      </div>
+                      <p className="text-sm text-white/85 font-medium whitespace-nowrap">{den.label}</p>
                     </div>
-                    {/* Label + unit count */}
-                    <div className="flex-shrink-0 w-16 sm:w-20">
-                      <p className="text-sm text-white/70 font-medium">{den.label}</p>
-                      {cnt > 0 && <p className="text-[10px] text-white/20 mt-0.5">{cnt} ud. &middot; {pct.toFixed(0)}%</p>}
-                    </div>
-                    {/* Spacer */}
-                    <div className="flex-1" />
-                    {/* Circular Controls */}
-                    <div className="flex items-center gap-2">
-                      <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                    <div className="flex items-center justify-center gap-2">
+                      <motion.button whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.92 }}
                         onClick={() => dec(den.value)}
-                        className="w-9 h-9 rounded-full bg-gradient-to-br from-red-500/15 to-rose-500/10 border border-red-500/20 flex items-center justify-center transition-all active:scale-90"
+                        className="w-9 h-9 rounded-full bg-[#0d1117] border border-white/30 hover:border-rose-300/55 hover:bg-rose-500/15 flex items-center justify-center transition-all shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]"
                         aria-label={`-${den.label}`}>
-                        <MinusCircle className="w-4 h-4 text-red-400" />
+                        <MinusCircle className="w-[18px] h-[18px] text-rose-200" />
                       </motion.button>
                       <input ref={(el) => { refs.current[i] = el; }} type="text" inputMode="numeric"
                         value={cnt === 0 ? "" : String(cnt)} onChange={(e) => manual(den.value, e.target.value)}
                         onKeyDown={(e) => kd(e, i)}
-                        className="w-12 text-center bg-[#0f141e] border border-gray-700 rounded-lg py-2 text-white text-sm font-bold focus:ring-1 focus:ring-emerald-500/30 focus:border-emerald-500/30 outline-none transition-all placeholder-white/10"
+                        className="w-14 text-center bg-[#0a1323] border border-white/10 rounded-xl py-2 text-white text-sm font-semibold focus:ring-1 focus:ring-cyan-400/35 focus:border-cyan-400/35 outline-none transition-all placeholder-white/10"
                         placeholder="0" />
-                      <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                      <motion.button whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.92 }}
                         onClick={() => inc(den.value)}
-                        className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500/15 to-teal-500/10 border border-emerald-500/20 flex items-center justify-center transition-all active:scale-90"
+                        className="w-9 h-9 rounded-full bg-[#0d1117] border border-white/30 hover:border-emerald-300/55 hover:bg-emerald-500/15 flex items-center justify-center transition-all shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]"
                         aria-label={`+${den.label}`}>
-                        <PlusCircle className="w-4 h-4 text-emerald-400" />
+                        <PlusCircle className="w-[18px] h-[18px] text-emerald-200" />
                       </motion.button>
                     </div>
-                    {/* Subtotal */}
-                    <div className="text-right min-w-[5.5rem]">
-                      <p className={`text-base font-bold tracking-tight ${cnt > 0 ? "text-white" : "text-white/15"}`}>{fmt(sub)}</p>
+                    <div className="w-full text-right min-w-[5.5rem]">
+                      <div className="flex items-center justify-end gap-2">
+                        <p className={`text-base font-semibold tracking-tight ${cnt > 0 ? "text-white" : "text-white/20"}`}>{fmt(sub)}</p>
+                        <p className="text-xs text-white/45 min-w-8">{pct.toFixed(1)}%</p>
+                      </div>
+                      <div className="mt-1 h-1.5 w-28 bg-white/10 rounded-full overflow-hidden ml-auto">
+                        <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.55, ease: "easeOut" }} className="h-full rounded-full bg-gradient-to-r from-cyan-300/70 to-emerald-300/65" />
+                      </div>
                     </div>
                   </div>
                 </motion.div>
               );
             })}
+            </div>
           </div>
         </div>
 
         {/* ── Sidebar ── */}
-        <div className="w-full lg:w-72 flex-shrink-0">
-          <div className="lg:sticky lg:top-6 space-y-3">
-            {/* Total Card */}
-            <div className="bg-[#0f141e] rounded-xl border border-gray-800 p-5 text-center shadow-sm">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500/15 to-cyan-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-4 shadow-sm">
+        <div className="w-full xl:w-[19.5rem] flex-shrink-0">
+          <div className="xl:sticky xl:top-6 space-y-3">
+            <div className="rounded-2xl border border-white/10 bg-[linear-gradient(165deg,rgba(13,17,23,0.96),rgba(16,22,31,0.86))] backdrop-blur-xl p-5 shadow-[0_12px_40px_rgba(0,0,0,0.35)]">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500/18 to-cyan-500/12 border border-emerald-400/25 flex items-center justify-center mx-auto mb-4 shadow-[0_10px_35px_rgba(16,185,129,0.12)]">
                 <Wallet className="w-7 h-7 text-emerald-400" />
               </div>
-              <p className="text-[10px] text-white/20 uppercase tracking-widest mb-1.5">Total General</p>
-              <p className="text-3xl font-bold text-white tracking-tight">{fmt(t)}</p>
-              <div className="mt-4 pt-4 border-t border-gray-800 space-y-2 text-xs">
-                <div className="flex justify-between"><span className="text-white/20">Billetes</span><span className="text-white/80 font-medium">{fmt(t - extra)}</span></div>
-                <div className="flex justify-between"><span className="text-white/20">Extra</span><span className="text-white/80 font-medium">{fmt(extra)}</span></div>
-                <div className="flex justify-between"><span className="text-white/20">Activas</span><span className="text-white/80 font-medium">{Object.values(bills).filter((c) => c > 0).length}/{denoms.length}</span></div>
+              <p className="text-[10px] text-white/30 uppercase tracking-[0.18em] mb-1.5">Resumen</p>
+              <p className="text-[2rem] leading-none font-semibold text-white tracking-tight">{fmt(t)}</p>
+              <div className="mt-4 pt-4 border-t border-white/10 space-y-2 text-xs">
+                <div className="flex justify-between"><span className="text-white/45">Billetes</span><span className="text-white/90 font-medium">{fmt(t - extra)}</span></div>
+                <div className="flex justify-between"><span className="text-white/45">Extra</span><span className="text-white/90 font-medium">{fmt(extra)}</span></div>
+                <div className="flex justify-between"><span className="text-white/45">Activas</span><span className="text-white/90 font-medium">{Object.values(bills).filter((c) => c > 0).length}/{denoms.length}</span></div>
               </div>
             </div>
 
             {/* Quick Actions */}
-            <div className="bg-gray-900  rounded-xl border border-gray-800 p-4">
-              <p className="text-[10px] text-white/20 uppercase tracking-wider mb-3 text-center">Acciones Rápidas</p>
+            <div className="rounded-2xl border border-white/10 bg-[#0d1117]/92 backdrop-blur-xl p-4">
+              <p className="text-[10px] text-white/30 uppercase tracking-[0.16em] mb-3">Acciones rápidas</p>
               <div className="space-y-2">
                 <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                   onClick={() => setShowExtra((p) => !p)}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gray-900 hover:bg-gray-900 text-white/50 hover:text-white/80 text-xs font-medium transition-all duration-200 border border-gray-800">
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500/30 to-cyan-500/25 hover:from-emerald-500/40 hover:to-cyan-500/30 text-emerald-50 text-xs font-medium transition-all duration-200 border border-emerald-400/30">
                   <Plus className="w-3.5 h-3.5" /> {showExtra ? "Cerrar Extra" : "Monto Adicional"}
                 </motion.button>
                 <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                   onClick={() => setShowBD((p) => !p)}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gray-900 hover:bg-gray-900 text-white/40 hover:text-white/60 text-xs font-medium transition-all duration-200 border border-gray-800">
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#111722] hover:bg-[#172133] text-white/75 hover:text-white text-xs font-medium transition-all duration-200 border border-white/10">
                   <TrendingUp className="w-3.5 h-3.5" /> {showBD ? "Ocultar Desglose" : "Ver Desglose"}
                 </motion.button>
               </div>
@@ -390,34 +390,34 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
             <AnimatePresence>
               {showExtra && (
                 <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-                  className="bg-gray-900 rounded-xl border border-gray-800 p-3 space-y-2.5">
-                  <p className="text-[10px] text-white/25 uppercase tracking-wider text-center">Extra</p>
-                  <div className="bg-gray-900 border border-gray-800 rounded-lg p-2 flex items-center">
+                  className="rounded-2xl border border-white/10 bg-[#0d1117]/92 backdrop-blur-xl p-3 space-y-2.5">
+                  <p className="text-[10px] text-white/35 uppercase tracking-[0.16em]">Extra</p>
+                  <div className="bg-[#111722] border border-white/10 rounded-xl p-2 flex items-center">
                     <input type="text" inputMode="numeric" value={extra === 0 ? "" : fmt(extra)} onChange={hEC}
                       onKeyDown={(e) => { const inc = cur === "CRC" ? 1000 : 1; nKD(e, extra, (v) => ntf(bills, v, cur), inc); }}
                       className="w-full bg-transparent text-white text-right text-sm focus:outline-none placeholder-white/10" placeholder="0" />
                     <button onClick={() => ntf(bills, 0, cur)} className="ml-2 text-white/20 hover:text-red-400/60 transition-colors"><Trash2 className="w-3 h-3" /></button>
                   </div>
                   <div>
-                    <label className="text-[10px] text-white/20">Apertura</label>
+                    <label className="text-[10px] text-white/35">Apertura</label>
                     <input type="number" min="0" value={ap || ""} onChange={(e) => ntf(bills, extra, cur, e.target.value === "" ? 0 : Number(e.target.value), vt)}
                       onKeyDown={(e) => { const inc = cur === "CRC" ? 1000 : 1; nKD(e, ap, (v) => ntf(bills, extra, cur, v, vt), inc); }}
-                      className="w-full px-2.5 py-1.5 mt-1 bg-gray-900 border border-gray-800 rounded-lg text-white text-xs focus:ring-1 focus:ring-white/20 outline-none transition-all placeholder-white/10" placeholder="0" />
+                      className="w-full px-2.5 py-1.5 mt-1 bg-[#111722] border border-white/10 rounded-xl text-white text-xs focus:ring-1 focus:ring-cyan-400/30 outline-none transition-all placeholder-white/10" placeholder="0" />
                   </div>
                   <div>
-                    <label className="text-[10px] text-white/20">Venta</label>
+                    <label className="text-[10px] text-white/35">Venta</label>
                     <input type="number" min="0" value={vt || ""} onChange={(e) => ntf(bills, extra, cur, ap, e.target.value === "" ? 0 : Number(e.target.value))}
                       onKeyDown={(e) => { const inc = cur === "CRC" ? 1000 : 1; nKD(e, vt, (v) => ntf(bills, extra, cur, ap, v), inc); }}
-                      className="w-full px-2.5 py-1.5 mt-1 bg-gray-900 border border-gray-800 rounded-lg text-white text-xs focus:ring-1 focus:ring-white/20 outline-none transition-all placeholder-white/10" placeholder="0" />
+                      className="w-full px-2.5 py-1.5 mt-1 bg-[#111722] border border-white/10 rounded-xl text-white text-xs focus:ring-1 focus:ring-cyan-400/30 outline-none transition-all placeholder-white/10" placeholder="0" />
                   </div>
                   <div>
-                    <label className="text-[10px] text-white/20">Agregar Venta</label>
+                    <label className="text-[10px] text-white/35">Agregar Venta</label>
                     <div className="flex gap-1.5 mt-1">
                       <input type="number" min="0" value={nv || ""} onChange={(e) => setNv(e.target.value === "" ? 0 : Number(e.target.value))}
                         onKeyDown={(e) => { if (e.key === "Enter" && nv > 0) { ntf(bills, extra, cur, ap, vt + nv); setNv(0); setVa(true); setTimeout(() => setVa(false), 2000); } }}
-                        className="flex-1 px-2.5 py-1.5 bg-gray-900 border border-gray-800 rounded-lg text-white text-xs focus:ring-1 focus:ring-white/20 outline-none transition-all placeholder-white/10" placeholder="0" />
+                        className="flex-1 px-2.5 py-1.5 bg-[#111722] border border-white/10 rounded-xl text-white text-xs focus:ring-1 focus:ring-cyan-400/30 outline-none transition-all placeholder-white/10" placeholder="0" />
                       <button disabled={nv <= 0} onClick={() => { if (nv > 0) { ntf(bills, extra, cur, ap, vt + nv); setNv(0); setVa(true); setTimeout(() => setVa(false), 2000); } }}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${nv > 0 ? "bg-white/10 hover:bg-white/15 text-white" : "bg-gray-900 text-white/20 cursor-not-allowed"}`}>
+                        className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${nv > 0 ? "bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-100 border border-cyan-400/30" : "bg-[#111722] text-white/20 cursor-not-allowed border border-white/10"}`}>
                         <Plus className="w-3 h-3" />
                       </button>
                     </div>
@@ -592,38 +592,37 @@ export default function CashCounterTabs() {
   }
 
   return (
-    <div className="min-h-screen pb-32">
+    <div className="min-h-screen pb-28">
       {/* ── Hero Header ── */}
-      <div className="relative mb-10">
-        {/* Ambient glow behind header */}
-        <div className="absolute -top-10 -left-10 w-72 h-72 bg-cyan-500/5 rounded-full blur-[100px] pointer-events-none" />
-        <div className="absolute -top-10 -right-10 w-72 h-72 bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none" />
+      <div className="relative mb-7 rounded-3xl border border-white/10 bg-[linear-gradient(165deg,rgba(13,17,23,0.97),rgba(16,24,34,0.86))] backdrop-blur-xl p-5 sm:p-6 shadow-[0_20px_50px_rgba(0,0,0,0.35)] overflow-hidden">
+        <div className="absolute -top-20 -left-10 w-72 h-72 bg-cyan-400/10 rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute -bottom-20 right-10 w-72 h-72 bg-indigo-500/10 rounded-full blur-[130px] pointer-events-none" />
         
-        <div className="relative flex items-center justify-between">
+        <div className="relative flex items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-5">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500/15 to-cyan-500/10 border border-emerald-500/20 flex items-center justify-center shadow-lg">
-              <Banknote className="w-8 h-8 text-emerald-400" />
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-cyan-500/15 border border-emerald-400/30 flex items-center justify-center shadow-[0_12px_35px_rgba(16,185,129,0.18)]">
+              <Banknote className="w-8 h-8 text-emerald-300" />
             </div>
             <div>
               <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">Cash Counter</h1>
-              <p className="text-sm text-white/25 mt-1 font-medium tracking-wide">Contador de efectivo &middot; {data[active]?.currency === "CRC" ? "Colones (CRC)" : "Dólares (USD)"}</p>
+              <p className="text-sm text-white/45 mt-1 font-medium tracking-wide">Administra y controla el efectivo por tipos de billetes</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 pt-1">
             <AnimatePresence mode="wait">
               {saving ? (
-                <motion.span key="s" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-[11px] text-white/30 bg-gray-900  rounded-lg px-3 py-1.5 border border-gray-800 flex items-center">
-                  <div className="animate-spin rounded-full h-2.5 w-2.5 border-b-2 border-white/30 mr-1.5" /> Guardando...
+                <motion.span key="s" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-[11px] text-emerald-300/90 bg-emerald-500/10 rounded-lg px-3 py-1.5 border border-emerald-400/20 flex items-center">
+                  <div className="animate-spin rounded-full h-2.5 w-2.5 border-b-2 border-emerald-200/70 mr-1.5" /> Guardando...
                 </motion.span>
               ) : lastSaved ? (
-                <motion.span key="d" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-[11px] text-white/20 bg-gray-900  rounded-lg px-3 py-1.5 border border-gray-800">
+                <motion.span key="d" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-[11px] text-emerald-300/90 bg-emerald-500/10 rounded-lg px-3 py-1.5 border border-emerald-400/20">
                   Guardado {lastSaved}
                 </motion.span>
               ) : null}
             </AnimatePresence>
             <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
               onClick={() => setMenuOpen(true)}
-              className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500/10 to-cyan-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400/60 hover:text-emerald-400 transition-all">
+              className="w-10 h-10 rounded-xl bg-[#0d1117] border border-white/10 flex items-center justify-center text-cyan-200/70 hover:text-cyan-200 hover:border-cyan-400/30 transition-all">
               <Layers className="w-4.5 h-4.5" />
             </motion.button>
           </div>
@@ -631,7 +630,7 @@ export default function CashCounterTabs() {
       </div>
 
       {/* ── Tabs ── */}
-      <div className="flex gap-1.5 mb-6 overflow-x-auto pb-1 scrollbar-thin">
+      <div className="flex gap-2 mb-5 overflow-x-auto pb-1 scrollbar-thin">
         {data.map((tab, i) => (
           <div key={i} className={`relative flex-shrink-0 transition-all ${overIdx === i && dragIdx !== i ? "scale-105 opacity-80" : ""} ${dragIdx === i ? "opacity-30" : ""}`}
             draggable={data.length > 1} onDragStart={(e: React.DragEvent) => hDS(e, i)} onDragOver={(e: React.DragEvent) => hDO(e, i)} onDragLeave={(e: React.DragEvent) => hDL(e)} onDrop={(e: React.DragEvent) => hDrop(e, i)} onDragEnd={hDE}>
@@ -639,21 +638,23 @@ export default function CashCounterTabs() {
               <GripVertical className="w-3 h-3 text-white/15" />
             </div>
             <button onClick={() => { setActive(i); save(data, i); }}
-              className={`pl-6 pr-7 py-2 rounded-xl flex-shrink-0 text-xs font-medium flex items-center transition-all duration-200 border ${i === active ? "bg-gradient-to-r from-emerald-500/20 to-cyan-500/15 text-white border-emerald-500/25 shadow-sm" : "bg-[#0f141e] text-white/30 hover:text-white/50 border-transparent hover:border-gray-700"}`}>
+              className={`pl-6 pr-7 py-2.5 rounded-xl flex-shrink-0 text-xs font-medium flex items-center transition-all duration-200 border ${i === active ? "bg-gradient-to-r from-emerald-500/25 to-cyan-500/20 text-white border-emerald-400/30 shadow-[0_8px_25px_rgba(16,185,129,0.16)]" : "bg-[#0d1117]/95 text-white/55 hover:text-white/85 border-white/10 hover:border-cyan-400/30"}`}>
               <span className="truncate max-w-[6rem]">{tab.name}</span>
             </button>
-            <button onClick={() => { setRenameIdx(i); setRenameOpen(true); }} className="absolute top-1/2 right-1 p-0.5 -translate-y-1/2 text-white/10 hover:text-white/40 transition-colors" aria-label="Renombrar">
+            <button onClick={() => { setRenameIdx(i); setRenameOpen(true); }} className="absolute top-1/2 right-1 p-0.5 -translate-y-1/2 text-white/20 hover:text-cyan-200 transition-colors" aria-label="Renombrar">
               <Edit3 className="w-3 h-3" />
             </button>
           </div>
         ))}
-        <button onClick={add} className="px-4 py-2 bg-gradient-to-r from-emerald-500/20 to-teal-500/15 hover:from-emerald-500/30 hover:to-teal-500/25 text-emerald-400 rounded-xl flex-shrink-0 text-xs font-semibold transition-all border border-emerald-500/25">
-          <PlusCircle className="w-4 h-4 mr-1.5 inline" /> Nuevo
+        <button onClick={add} className="px-4 py-2.5 bg-gradient-to-r from-indigo-500/65 to-violet-500/65 hover:from-indigo-500/80 hover:to-violet-500/80 text-white rounded-xl flex-shrink-0 text-xs font-semibold transition-all border border-indigo-300/20 shadow-[0_10px_24px_rgba(79,70,229,0.35)]">
+          <PlusCircle className="w-4 h-4 mr-1.5 inline" /> Nuevo contador
         </button>
       </div>
 
       {/* ── Content ── */}
-      <div className="bg-gray-900  rounded-2xl border border-gray-800 p-5 sm:p-6 shadow-sm">
+      <div className="relative rounded-3xl border border-white/10 bg-[linear-gradient(160deg,rgba(13,17,23,0.98),rgba(16,24,34,0.88))] backdrop-blur-xl p-4 sm:p-5 shadow-[0_18px_60px_rgba(0,0,0,0.35)] overflow-hidden">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_82%_22%,rgba(34,211,238,0.08),transparent_45%),radial-gradient(circle_at_96%_88%,rgba(99,102,241,0.08),transparent_35%)]" />
+        <div className="relative">
         {data.length > 0 ? (
           <CashCounter id={active} data={data[active]} onUpdate={upd} onDelete={del} onCurrencyOpen={() => setCurrencyOpen(true)} />
         ) : (
@@ -662,6 +663,7 @@ export default function CashCounterTabs() {
             <p className="text-sm">No hay contadores. Presiona &ldquo;+ Nuevo&rdquo;.</p>
           </div>
         )}
+        </div>
       </div>
 
       {/* ── FABs ── */}
