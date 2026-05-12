@@ -1152,14 +1152,14 @@ export default function ControlHorario({
     {
       value: "",
       label: "",
-      color: "var(--input-bg)",
+      color: "var(--card-bg)",
       textColor: "var(--foreground)",
     },
-    { value: "N", label: "N", color: "#87CEEB", textColor: "#000" },
-    { value: "D", label: "D", color: "#FFFF00", textColor: "#000" },
-    { value: "L", label: "L", color: "#FF00FF", textColor: "#FFF" },
-    { value: "V", label: "V", color: "#28a745", textColor: "#FFF" }, // Verde para Vacaciones
-    { value: "I", label: "I", color: "#fd7e14", textColor: "#FFF" }, // Naranja para Incapacidad
+    { value: "N", label: "N", color: "#0ea5e9", textColor: "#000" },
+    { value: "D", label: "D", color: "#eab308", textColor: "#000" },
+    { value: "L", label: "L", color: "#a855f7", textColor: "#FFF" },
+    { value: "V", label: "V", color: "#10b981", textColor: "#FFF" }, // Verde para Vacaciones
+    { value: "I", label: "I", color: "#f59e0b", textColor: "#FFF" }, // Naranja para Incapacidad
   ];
 
   // Función para obtener el color de fondo según la letra (todos los usuarios ven todos los colores)
@@ -2064,11 +2064,7 @@ export default function ControlHorario({
               Empresa:
             </label>
             <select
-              className="w-full px-4 py-2 rounded-lg border-2 border-[var(--input-border)] focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
-              style={{
-                background: "var(--input-bg)",
-                color: "var(--foreground)",
-              }}
+              className="w-full px-4 py-2 rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
               value={empresa}
               onChange={(e) => handleEmpresaChange(e.target.value)}
             >
@@ -2124,10 +2120,10 @@ export default function ControlHorario({
           TODOS los usuarios ven predeterminadamente su empresa asignada
           Los usuarios con rol "user" están restringidos solo a su empresa */}
               {userCanChangeEmpresa() && empresas.length > 0 && (
-                <div className="flex items-center gap-2 bg-[var(--input-bg)] border-2 border-[var(--input-border)] rounded-lg px-3 py-2 hover:border-cyan-500 transition-colors">
+                <div className="flex items-center gap-2">
                   <Layers className="w-5 h-5 text-cyan-500 flex-shrink-0" />
                   <select
-                    className="bg-transparent text-sm font-medium focus:outline-none text-[var(--foreground)] cursor-pointer"
+                    className="px-4 py-2 text-sm rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
                     value={empresa}
                     onChange={(e) => handleEmpresaChange(e.target.value)}
                   >
@@ -2138,7 +2134,6 @@ export default function ControlHorario({
                       </option>
                     ))}
                   </select>
-                  <ChevronDown className="w-4 h-4 text-[var(--muted-foreground)] flex-shrink-0 pointer-events-none" />
                 </div>
               )}
             </div>
@@ -2273,11 +2268,7 @@ export default function ControlHorario({
               <div className="flex items-center gap-2">
                 <UserIcon className="w-4 h-4 text-cyan-500" />
                 <select
-                  className="px-4 py-2 text-sm rounded-lg border-2 border-[var(--input-border)] focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
-                  style={{
-                    background: "var(--input-bg)",
-                    color: "var(--foreground)",
-                  }}
+                  className="px-4 py-2 text-sm rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
                   value={selectedEmployee}
                   onChange={(e) => setSelectedEmployee(e.target.value)}
                 >
@@ -2338,7 +2329,7 @@ export default function ControlHorario({
         </div>
         {/* Leyenda de colores */}
         {isDelifoodEmpresa ? (
-          <div className="mb-6 p-4 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg flex flex-wrap gap-6 justify-center">
+          <div className="mb-6 p-4 bg-[var(--card-bg)] border border-[var(--input-border)] rounded-lg flex flex-wrap gap-6 justify-center">
             <div className="flex items-center gap-3">
               <div
                 className="w-5 h-5 rounded-md shadow-sm"
@@ -2355,7 +2346,7 @@ export default function ControlHorario({
             </div>
           </div>
         ) : (
-          <div className="mb-6 p-4 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg flex flex-wrap gap-6 justify-center">
+          <div className="mb-6 p-4 bg-[var(--card-bg)] border border-[var(--input-border)] rounded-lg flex flex-wrap gap-6 justify-center">
             <div className="flex items-center gap-3">
               <div
                 className="w-5 h-5 rounded-md shadow-sm"
@@ -2628,7 +2619,7 @@ export default function ControlHorario({
                             onChange={(e) =>
                               handleCellChange(name, day, e.target.value)
                             }
-                            className={`w-full h-full p-1 border-none outline-none text-center font-semibold cursor-pointer text-xs ${
+                            className={`w-full h-full p-1 border-none outline-none text-center font-semibold cursor-pointer text-xs appearance-none ${
                               disabled
                                 ? "bg-gray-200 text-gray-400 dark:bg-gray-800 dark:text-gray-500"
                                 : ""
