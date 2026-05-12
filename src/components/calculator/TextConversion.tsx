@@ -1,6 +1,14 @@
 "use client";
 import React, { useState } from "react";
-import { Lock as LockIcon } from "lucide-react";
+import {
+  ArrowDownAZ,
+  ArrowUpAZ,
+  ClipboardPaste,
+  Copy,
+  Lock as LockIcon,
+  Sparkles,
+  Trash2,
+} from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { hasPermission } from "../../utils/permissions";
 
@@ -28,7 +36,6 @@ export default function TextConversion() {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(value);
       } else {
-        // Fallback for older browsers or insecure contexts
         const textArea = document.createElement("textarea");
         textArea.value = value;
         textArea.style.position = "fixed";
@@ -94,7 +101,7 @@ export default function TextConversion() {
 
   const toTitleCase = (str: string) => {
     return str.replace(/\w\S*/g, (txt) => {
-      return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
+      return txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase();
     });
   };
 
@@ -102,19 +109,18 @@ export default function TextConversion() {
     setText("");
   };
 
-  // Verificar si el usuario tiene permiso para usar el conversor
   if (!hasPermission(user?.permissions, "converter")) {
     return (
-      <div className="flex items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)]">
-        <div className="text-center">
-          <LockIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-[var(--foreground)] mb-2">
-            Acceso Restringido
-          </h3>
-          <p className="text-[var(--muted-foreground)]">
+      <div className="flex min-h-[60vh] items-center justify-center px-4 py-10">
+        <div className="w-full max-w-2xl rounded-2xl border border-white/10 bg-slate-950/70 p-8 text-center">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-500/10 text-cyan-300">
+            <LockIcon className="h-6 w-6" />
+          </div>
+          <h3 className="mb-2 text-xl font-semibold text-white">Acceso Restringido</h3>
+          <p className="text-sm text-slate-400">
             No tienes permisos para acceder al Conversor de Texto.
           </p>
-          <p className="text-sm text-[var(--muted-foreground)] mt-2">
+          <p className="mt-2 text-xs text-slate-500">
             Contacta a un administrador para obtener acceso.
           </p>
         </div>
@@ -123,131 +129,86 @@ export default function TextConversion() {
   }
 
   return (
-    <div
-      className="flex flex-col items-center justify-center gap-6 p-8 rounded-xl shadow-lg w-full max-w-4xl mx-auto"
-      style={{ background: "var(--card-bg)" }}
-    >
-      {/* Notificación animada de copiado */}
-      {copySuccess && (
-        <div
-          className="fixed top-6 right-6 z-50 px-6 py-3 rounded-xl shadow-2xl flex items-center gap-2 bg-[var(--success)] text-white font-semibold animate-bounce"
-          style={{ pointerEvents: "none" }}
-        >
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M5 13l4 4L19 7"
-            />
-          </svg>
-          <span>¡Texto copiado automáticamente!</span>
+    <div className="flex min-h-[calc(100vh-10rem)] w-full items-center justify-center px-4 py-8">
+      <div className="w-full max-w-4xl">
+        <div className="text-center mb-8">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-500/10 text-cyan-300">
+            <Sparkles className="h-6 w-6" />
+          </div>
+          <h2 className="text-2xl font-bold text-white">Conversor de Texto</h2>
+          <p className="mt-2 text-sm text-slate-400">
+            Convierte el texto al formato que necesites
+          </p>
         </div>
-      )}
-      <input
-        type="text"
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        className="form-input w-full text-xl px-6 py-4 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        placeholder="Escribe aquí..."
-        style={{
-          background: "var(--input-bg)",
-          borderColor: "var(--input-border)",
-          color: "var(--foreground)",
-        }}
-      />
-      <div className="flex flex-col sm:flex-row gap-4 w-full mt-4">
-        <button
-          onClick={uppercaseFromClipboardAndCopy}
-          className="w-full px-6 py-4 text-xl rounded-md transition-colors font-medium"
-          style={{
-            background: "var(--button-bg)",
-            color: "var(--button-text)",
-          }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.background = "var(--button-hover)")
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.background = "var(--button-bg)")
-          }
-        >
-          To Uppercase
-        </button>
-        <button
-          onClick={lowercaseFromClipboardAndCopy}
-          className="w-full px-6 py-4 text-xl rounded-md transition-colors font-medium"
-          style={{
-            background: "var(--button-bg)",
-            color: "var(--button-text)",
-          }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.background = "var(--button-hover)")
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.background = "var(--button-bg)")
-          }
-        >
-          To Lowercase
-        </button>
-        <button
-          onClick={() => {
-            const titleCaseText = toTitleCase(text);
-            setText(titleCaseText);
-            copyToClipboard(titleCaseText);
-          }}
-          className="w-full px-6 py-4 text-xl rounded-md transition-colors font-medium"
-          style={{
-            background: "var(--button-bg)",
-            color: "var(--button-text)",
-          }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.background = "var(--button-hover)")
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.background = "var(--button-bg)")
-          }
-        >
-          To Title Case (Aa)
-        </button>
-      </div>
-      <div className="flex flex-col sm:flex-row gap-4 w-full mt-4">
-        <button
-          onClick={clearInput}
-          className="w-full px-6 py-4 text-xl rounded-md transition-colors font-medium"
-          style={{
-            background: "var(--button-bg)",
-            color: "var(--button-text)",
-          }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.background = "var(--button-hover)")
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.background = "var(--button-bg)")
-          }
-        >
-          Limpiar
-        </button>
-        <button
-          onClick={pasteFromClipboard}
-          className="w-full px-6 py-4 text-xl rounded-md transition-colors font-medium"
-          style={{
-            background: "var(--button-bg)",
-            color: "var(--button-text)",
-          }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.background = "var(--button-hover)")
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.background = "var(--button-bg)")
-          }
-        >
-          Pegar
-        </button>
+
+        {copySuccess && (
+          <div className="fixed top-6 right-6 z-50 flex items-center gap-2 rounded-lg border border-emerald-400/20 bg-emerald-500/15 px-4 py-2 text-sm text-emerald-100">
+            <Copy className="h-4 w-4" />
+            <span>Copiado</span>
+          </div>
+        )}
+
+        <div className="space-y-6">
+          <div className="rounded-2xl border border-white/10 bg-slate-950/70 p-6">
+            <label className="block text-sm font-semibold text-slate-300 mb-3">
+              Texto de entrada
+            </label>
+            <input
+              type="text"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              className="w-full rounded-lg border border-white/10 bg-slate-900/80 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400/30 focus:ring-1 focus:ring-cyan-400/20"
+              placeholder="Escribe o pega tu texto..."
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <button
+              onClick={pasteFromClipboard}
+              className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-slate-900/50 px-4 py-3 text-sm font-medium text-slate-200 transition hover:bg-slate-900/80 hover:border-white/20"
+            >
+              <ClipboardPaste className="h-4 w-4" />
+              Pegar
+            </button>
+            <button
+              onClick={clearInput}
+              className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-slate-900/50 px-4 py-3 text-sm font-medium text-slate-200 transition hover:bg-slate-900/80 hover:border-white/20"
+            >
+              <Trash2 className="h-4 w-4" />
+              Limpiar
+            </button>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            <button
+              onClick={uppercaseFromClipboardAndCopy}
+              className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-slate-900/50 px-4 py-3 text-sm font-medium text-slate-200 transition hover:bg-slate-900/80 hover:border-white/20"
+            >
+              <ArrowUpAZ className="h-4 w-4" />
+              Mayúsculas
+            </button>
+
+            <button
+              onClick={lowercaseFromClipboardAndCopy}
+              className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-slate-900/50 px-4 py-3 text-sm font-medium text-slate-200 transition hover:bg-slate-900/80 hover:border-white/20"
+            >
+              <ArrowDownAZ className="h-4 w-4" />
+              Minúsculas
+            </button>
+
+            <button
+              onClick={() => {
+                const titleCaseText = toTitleCase(text);
+                setText(titleCaseText);
+                copyToClipboard(titleCaseText);
+              }}
+              className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-slate-900/50 px-4 py-3 text-sm font-medium text-slate-200 transition hover:bg-slate-900/80 hover:border-white/20"
+            >
+              <Sparkles className="h-4 w-4" />
+              Título
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
