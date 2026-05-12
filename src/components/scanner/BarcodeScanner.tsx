@@ -1,11 +1,9 @@
 "use client";
-import React, { useCallback, useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Check as CheckIcon,
   Copy as CopyIcon,
-  Trash as TrashIcon,
   AlertCircle as AlertIcon,
   ScanBarcode,
   Lock as LockIcon,
@@ -42,7 +40,6 @@ export default function BarcodeScanner({
     code,
     error,
     imagePreview,
-    copySuccess,
     detectionMethod,
     cameraActive,
     fileInputRef,
@@ -53,7 +50,6 @@ export default function BarcodeScanner({
     handleClear,
     handleCopyCode,
     toggleCamera,
-    setCode,
     processImage,
   } = useBarcodeScanner((detectedCode: string, productName?: string) => {
     onDetect?.(detectedCode, productName);
@@ -102,7 +98,6 @@ export default function BarcodeScanner({
     };
   }, [processImage]);
 
-  const fadeIn = { initial: { opacity: 0 }, animate: { opacity: 1 } };
   const slideUp = {
     initial: { opacity: 0, y: 20 },
     animate: { opacity: 1, y: 0 },
@@ -122,7 +117,9 @@ export default function BarcodeScanner({
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (code && !error) {
+    if (!code || error) return;
+
+    const timeoutId = window.setTimeout(() => {
       const id = String(Date.now());
       const newResult: ScanResult = {
         id,
@@ -133,7 +130,9 @@ export default function BarcodeScanner({
         open: true,
       };
       setResults((prev) => [newResult, ...prev.map((r) => ({ ...r, open: false }))]);
-    }
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, [code, error, imagePreview, detectionMethod]);
 
   const openResult = (id: string) => setResults((prev) => prev.map((r) => ({ ...r, open: r.id === id })));
@@ -165,7 +164,7 @@ export default function BarcodeScanner({
   return (
     <div
       ref={containerRef}
-      className="w-full max-w-4xl mx-auto bg-[var(--card-bg)] rounded-2xl border border-[var(--input-border)] shadow-lg overflow-hidden"
+      className="w-full max-w-5xl mx-auto bg-[var(--card-bg)] rounded-2xl border border-[var(--input-border)] shadow-lg overflow-hidden"
       tabIndex={0}
     >
       {/* Header con título y botón PiP */}
@@ -350,7 +349,7 @@ export default function BarcodeScanner({
                                 }}
                                 className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
                               >
-                                <ArrowLeftIcon className="w-4 h-4" /> Quitar "0"
+                                <ArrowLeftIcon className="w-4 h-4" /> Quitar &quot;0&quot;
                               </button>
                             )}
                           </div>

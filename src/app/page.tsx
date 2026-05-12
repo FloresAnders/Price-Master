@@ -281,13 +281,8 @@ export default function HomePage() {
             <div className="space-y-8">
               {/* SCANNER */}
               {activeTab === "scanner" && (
-                <div className="max-w-7xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-6">
-                  <div className="flex flex-col gap-8">
-                    {/* Área de escáner */}
-                    <div className="flex-1 w-full">
-                      <BarcodeScanner />
-                    </div>
-                  </div>
+                <div className="w-full">
+                  <BarcodeScanner />
                 </div>
               )}
 
