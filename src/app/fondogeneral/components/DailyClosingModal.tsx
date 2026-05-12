@@ -39,6 +39,24 @@ const buildCountsFromBreakdown = (
   return initial;
 };
 
+const buildFormState = (
+  initialValues: DailyClosingFormValues | null | undefined,
+) => {
+  return {
+    closingDateISO: initialValues?.closingDate || new Date().toISOString(),
+    manager: initialValues?.manager || "",
+    notes: initialValues?.notes || "",
+    crcCounts: buildCountsFromBreakdown(
+      CRC_DENOMINATIONS,
+      initialValues?.breakdownCRC,
+    ),
+    usdCounts: buildCountsFromBreakdown(
+      USD_DENOMINATIONS,
+      initialValues?.breakdownUSD,
+    ),
+  };
+};
+
 export type DailyClosingFormValues = {
   closingDate: string;
   manager: string;
@@ -85,22 +103,21 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     null,
   );
 
-  const [closingDateISO] = useState(
-    () => initialValues?.closingDate || new Date().toISOString(),
+  const [closingDateISO] = useState(() =>
+    buildFormState(initialValues).closingDateISO,
   );
 
-  const [manager, setManager] = useState(() => initialValues?.manager || "");
-  const displayedManager = useMemo(
-    () => manager || (employees[0] ?? ""),
-    [manager, employees],
+  const [manager, setManager] = useState(() =>
+    buildFormState(initialValues).manager,
   );
+  const displayedManager = useMemo(() => manager, [manager]);
 
-  const [notes, setNotes] = useState(() => initialValues?.notes || "");
+  const [notes, setNotes] = useState(() => buildFormState(initialValues).notes);
   const [crcCounts, setCrcCounts] = useState<CountState>(() =>
-    buildCountsFromBreakdown(CRC_DENOMINATIONS, initialValues?.breakdownCRC),
+    buildFormState(initialValues).crcCounts,
   );
   const [usdCounts, setUsdCounts] = useState<CountState>(() =>
-    buildCountsFromBreakdown(USD_DENOMINATIONS, initialValues?.breakdownUSD),
+    buildFormState(initialValues).usdCounts,
   );
 
   const [confirmDiffOpen, setConfirmDiffOpen] = useState(false);

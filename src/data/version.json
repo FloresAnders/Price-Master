@@ -1,19 +1,19 @@
 {
-  "version": "1.4.47",
+  "version": "1.4.48",
   "versionstorage": "1.1.12",
-  "notasDeSistemas": "1.1.16",
+  "notasDeSistemas": "1.1.17",
   "releaseNotes": [
     {
       "date": "2026-05-07",
-      "title": "Cambio en la vista del header a menú lateral",
-     "description": "Se ha realizado un cambio en la vista del header, ahora se ha implementado un menú lateral para mejorar la navegación y la experiencia del usuario. Este nuevo diseño permite un acceso más fácil a las diferentes secciones de la aplicación, optimizando el espacio y proporcionando una interfaz más intuitiva."
+      "title": "Correccion en el encargado del cierre ",
+    "description": "Se corrigio un error en el encargado del cierre, ahora se ha implementado una función que permite asignar correctamente el encargado del cierre de cada turno. Esto garantiza que la información sea precisa y que el proceso de cierre se realice de manera eficiente, evitando confusiones y mejorando la gestión de los turnos."
     }
   ],
   "systemNotes": [
     {
       "date": "2026-05-07",
-      "title": "Cambio en la vista del header a menú lateral",
-     "description": "Se ha realizado un cambio en la vista del header, ahora se ha implementado un menú lateral para mejorar la navegación y la experiencia del usuario. Este nuevo diseño permite un acceso más fácil a las diferentes secciones de la aplicación, optimizando el espacio y proporcionando una interfaz más intuitiva."
+      "title": "Correccion en el encargado del cierre ",
+     "description": "Se corrigio un error en el encargado del cierre, ahora se ha implementado una función que permite asignar correctamente el encargado del cierre de cada turno. Esto garantiza que la información sea precisa y que el proceso de cierre se realice de manera eficiente, evitando confusiones y mejorando la gestión de los turnos."
    }
   ],
   "_comment": "hacer una pagina de 'en mantenimiento' para secciones en desarrollo y a exepcion de un usuario admin"
