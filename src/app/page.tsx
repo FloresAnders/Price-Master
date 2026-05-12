@@ -1,17 +1,13 @@
 // app/page.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { useAuth } from "@/hooks/useAuth";
-import useToast from "@/hooks/useToast";
 /*import { Calculator, Smartphone, Type, Banknote, Scan, Clock, Truck, Settings, History, } from lucide-react'*/
-import type { ScanHistoryEntry } from "@/types/barcode";
 import { ClientOnlyHomeMenu } from "@/components/layout";
-import { ref, listAll } from "firebase/storage";
 import Pruebas from "@/components/xpruebas/Pruebas";
-import { storage } from "@/config/firebase";
-import { safeLocalStorage, safeWindow } from "@/utils/client";
+import { safeWindow } from "@/utils/client";
 
 // Dynamic imports for code splitting
 const BarcodeScanner = dynamic(
@@ -32,13 +28,6 @@ const TextConversion = dynamic(
   () =>
     import("@/components/calculator").then((mod) => ({
       default: mod.TextConversion,
-    })),
-  { ssr: false },
-);
-const ScanHistory = dynamic(
-  () =>
-    import("@/components/scanner").then((mod) => ({
-      default: mod.ScanHistory,
     })),
   { ssr: false },
 );
@@ -88,13 +77,6 @@ const Mantenimiento = dynamic(
   () =>
     import("@/components/admin").then((mod) => ({
       default: mod.Mantenimiento,
-    })),
-  { ssr: false },
-);
-const ScanHistoryTable = dynamic(
-  () =>
-    import("@/components/scanner").then((mod) => ({
-      default: mod.ScanHistoryTable,
     })),
   { ssr: false },
 );
@@ -172,167 +154,7 @@ export default function HomePage() {
 
   // 2) Estado para la pestaña activa - now managed by URL hash only
   const [activeTab, setActiveTab] = useState<ActiveTab | null>(null);
-  const [scanHistory, setScanHistory] = useState<ScanHistoryEntry[]>(() => {
-    const stored = safeLocalStorage.getItem("scanHistory");
-    if (!stored) return [];
-    try {
-      const parsed = JSON.parse(stored);
-      return Array.isArray(parsed) ? (parsed as ScanHistoryEntry[]) : [];
-    } catch {
-      return [];
-    }
-  });
-  const { showToast } = useToast();
-
-  // Memoize notify so callbacks can depend on a stable reference
-  const notify = useCallback(
-    (message: string, color: string = "green") => {
-      const type =
-        color === "green" ? "success" : color === "red" ? "error" : "info";
-      showToast(message, type);
-    },
-    [showToast],
-  );
   // Helper function to get tab info
-  // LocalStorage: save on change
-  useEffect(() => {
-    safeLocalStorage.setItem("scanHistory", JSON.stringify(scanHistory));
-  }, [scanHistory]);
-
-  // Function to check if a code has images in Firebase Storage
-  const checkCodeHasImages = useCallback(
-    async (barcodeCode: string): Promise<boolean> => {
-      try {
-        const storageRef = ref(storage, "barcode-images/");
-        const result = await listAll(storageRef);
-
-        const hasImages = result.items.some((item) => {
-          const fileName = item.name;
-          return (
-            fileName === `${barcodeCode}.jpg` ||
-            fileName.match(
-              new RegExp(
-                `^${barcodeCode.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\(\\d+\\)\\.jpg$`,
-              ),
-            )
-          );
-        });
-
-        return hasImages;
-      } catch (error) {
-        console.error("Error checking if code has images:", error);
-        return false;
-      }
-    },
-    [],
-  );
-
-  // Función para manejar códigos detectados por el escáner
-  const handleCodeDetected = useCallback(
-    async (code: string, productName?: string) => {
-      // Check if code has images
-      const hasImages = await checkCodeHasImages(code);
-
-      setScanHistory((prev) => {
-        if (prev[0]?.code === code) return prev;
-        // Si ya existe, lo sube al tope pero mantiene el nombre existente o usa el nuevo
-        const existing = prev.find((e) => e.code === code);
-        const newEntry: ScanHistoryEntry = existing
-          ? { ...existing, code, name: productName || existing.name, hasImages }
-          : { code, name: productName, hasImages };
-        const filtered = prev.filter((e) => e.code !== code);
-        return [newEntry, ...filtered].slice(0, 20);
-      });
-    },
-    [checkCodeHasImages],
-  );
-
-  // Use global toast
-
-  // Handler: copiar
-  const handleCopy = async (code: string) => {
-    try {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(code);
-      } else {
-        // Fallback for older browsers or insecure contexts
-        const textArea = document.createElement("textarea");
-        textArea.value = code;
-        textArea.style.position = "fixed";
-        textArea.style.opacity = "0";
-        textArea.style.left = "-999999px";
-        textArea.style.top = "-999999px";
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        document.execCommand("copy");
-        document.body.removeChild(textArea);
-      }
-      notify("¡Código copiado!", "green");
-    } catch (error) {
-      console.error("Error copying to clipboard:", error);
-      notify("Error al copiar código", "red");
-    }
-  };
-  // Handler: eliminar
-  const handleDelete = (code: string) => {
-    setScanHistory((prev) => prev.filter((e) => e.code !== code));
-    notify("Código eliminado", "red");
-  };
-  // Handler: eliminar primer dígito
-  const handleRemoveLeadingZero = (code: string) => {
-    setScanHistory((prev) =>
-      prev.map((e) =>
-        e.code === code && code.length > 1 && code[0] === "0"
-          ? { ...e, code: code.slice(1) }
-          : e,
-      ),
-    );
-    notify("Primer dígito eliminado", "blue");
-  };
-  // Handler: renombrar
-  const handleRename = (code: string, name: string) => {
-    setScanHistory((prev) =>
-      prev.map((e) => (e.code === code ? { ...e, name } : e)),
-    );
-    notify("Nombre actualizado", "indigo");
-  };
-
-  // Handler: mostrar imágenes
-  const handleShowImages = useCallback(
-    (code: string) => {
-      notify(`Mostrando imágenes de: ${code}`, "purple");
-    },
-    [notify],
-  );
-
-  // Effect to check if existing codes in history have images
-  useEffect(() => {
-    if (scanHistory.length === 0) return;
-
-    const updateHistoryWithImages = async () => {
-      const updatedHistory = await Promise.all(
-        scanHistory.map(async (entry) => {
-          if (entry.hasImages === undefined) {
-            const hasImages = await checkCodeHasImages(entry.code);
-            return { ...entry, hasImages };
-          }
-          return entry;
-        }),
-      );
-
-      // Only update if there are changes
-      const hasChanges = updatedHistory.some(
-        (entry, index) => entry.hasImages !== scanHistory[index]?.hasImages,
-      );
-
-      if (hasChanges) {
-        setScanHistory(updatedHistory);
-      }
-    };
-
-    updateHistoryWithImages();
-  }, [checkCodeHasImages, scanHistory]); // Added scanHistory back as dependency
 
   const isSuperAdmin = user?.role === "superadmin";
 
@@ -460,25 +282,10 @@ export default function HomePage() {
               {/* SCANNER */}
               {activeTab === "scanner" && (
                 <div className="max-w-7xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-6">
-                  <div className="flex flex-col xl:flex-row gap-8">
-                    {/* Área de escáner - lado izquierdo */}
-                    <div className="flex-1 xl:max-w-3xl">
-                      <BarcodeScanner onDetect={handleCodeDetected} />
-                    </div>
-
-                    {/* Historial - lado derecho */}
-                    <div className="xl:w-96 xl:flex-shrink-0">
-                      <div className="sticky top-6">
-                        <ScanHistory
-                          history={scanHistory}
-                          onCopy={handleCopy}
-                          onDelete={handleDelete}
-                          onRemoveLeadingZero={handleRemoveLeadingZero}
-                          onRename={handleRename}
-                          onShowImages={handleShowImages}
-                          notify={notify}
-                        />
-                      </div>
+                  <div className="flex flex-col gap-8">
+                    {/* Área de escáner */}
+                    <div className="flex-1 w-full">
+                      <BarcodeScanner />
                     </div>
                   </div>
                 </div>
@@ -522,9 +329,6 @@ export default function HomePage() {
 
               {/* SUPPLIER ORDERS */}
               {activeTab === "supplierorders" && <SupplierOrders />}
-
-              {/* HISTORIAL DE ESCANEOS */}
-              {activeTab === "scanhistory" && <ScanHistoryTable />}
 
               {/* FONDO GENERAL */}
               {activeTab === "fondogeneral" && <FondoPage />}
