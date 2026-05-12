@@ -135,7 +135,7 @@ export function EmpresaSelector({
           onCompanyChanged?.(next);
         }}
         disabled={empresaLoading}
-        className="w-full md:min-w-[260px] px-3 py-2.5 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40"
+        className="w-full md:min-w-[260px] px-4 py-2.5 bg-[var(--card-bg)] border-2 border-[var(--input-border)] rounded-lg text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
         aria-label="Seleccionar empresa"
       >
         {empresaOptions.length === 0 ? (

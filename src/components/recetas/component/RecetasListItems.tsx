@@ -77,7 +77,7 @@ export function RecetasListItems(props: {
           return (
             <li
               key={r.id}
-              className="group border border-[var(--input-border)] rounded-lg overflow-hidden bg-[var(--input-bg)] transition-colors duration-150 hover:bg-[var(--muted)] focus-within:ring-2 focus-within:ring-[var(--accent)]/40"
+              className="group border border-[var(--input-border)] rounded-lg overflow-hidden bg-[var(--card-bg)] transition-colors duration-150 hover:bg-[var(--muted)] focus-within:ring-2 focus-within:ring-cyan-500/40"
             >
               <div className="p-5 sm:p-6 min-w-0">
                 <div className="flex items-start justify-between gap-4">
@@ -116,7 +116,7 @@ export function RecetasListItems(props: {
 
                   <div className="shrink-0 flex items-start gap-3">
                     {r.imageUrl && (
-                      <div className="shrink-0 w-24 h-24 sm:w-28 sm:h-28 rounded-md overflow-hidden border border-[var(--input-border)] bg-black/5 dark:bg-white/5">
+                      <div className="shrink-0 w-24 h-24 sm:w-28 sm:h-28 rounded-lg overflow-hidden border border-[var(--input-border)] bg-[var(--muted)]">
                         <img
                           src={r.imageUrl}
                           alt={r.nombre}
@@ -145,10 +145,10 @@ export function RecetasListItems(props: {
                       </div>
                     </div>
 
-                    <div className="flex flex-col items-center gap-1 rounded-lg bg-black/5 dark:bg-white/5 p-1 ring-1 ring-black/10 dark:ring-white/10">
+                    <div className="flex flex-col items-center gap-1 rounded-lg bg-[var(--muted)] p-1 ring-1 ring-[var(--input-border)]/60">
                       <button
                         type="button"
-                        className="opacity-70 hover:opacity-100 disabled:opacity-40 p-2.5 rounded-md hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 transition-all duration-150 transform-gpu hover:scale-[1.08]"
+                        className="opacity-70 hover:opacity-100 disabled:opacity-40 p-2.5 rounded-md hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 transition-all duration-150 transform-gpu hover:scale-[1.08]"
                         onClick={() => onEdit(r)}
                         disabled={saving || deletingId !== null}
                         title="Editar receta"
@@ -158,7 +158,7 @@ export function RecetasListItems(props: {
                       </button>
                       <button
                         type="button"
-                        className="opacity-70 hover:opacity-100 disabled:opacity-40 p-2.5 rounded-md hover:bg-red-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 transition-all duration-150 transform-gpu hover:scale-[1.08]"
+                        className="opacity-70 hover:opacity-100 disabled:opacity-40 p-2.5 rounded-md hover:bg-red-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 transition-all duration-150 transform-gpu hover:scale-[1.08]"
                         onClick={() => onRemove(r.id, r.nombre || r.id)}
                         disabled={saving || deletingId !== null}
                         title="Eliminar receta"
@@ -178,7 +178,7 @@ export function RecetasListItems(props: {
                       </div>
                       <button
                         type="button"
-                        className="text-xs px-2.5 py-1 rounded-md border border-[var(--input-border)] hover:bg-[var(--muted)] transition-colors"
+                        className="text-xs px-3 py-1.5 rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] hover:border-cyan-500 hover:bg-[var(--muted)] transition-all"
                         onClick={() =>
                           setCollapsedById((prev) => ({
                             ...prev,
@@ -215,7 +215,7 @@ export function RecetasListItems(props: {
                           return (
                             <div
                               key={`${i.productId || "row"}-${idx}`}
-                              className="flex items-center justify-between gap-3 rounded-lg border border-[var(--input-border)] bg-black/5 dark:bg-white/5 px-3.5 py-2.5 transition-colors duration-150 hover:bg-black/10 dark:hover:bg-white/10"
+                              className="flex items-center justify-between gap-3 rounded-lg border border-[var(--input-border)] bg-[var(--muted)] px-3.5 py-2.5 transition-colors duration-150 hover:bg-[var(--card-bg)]"
                             >
                               <div className="min-w-0">
                                 <div className="text-sm font-medium text-[var(--foreground)]/90 truncate">

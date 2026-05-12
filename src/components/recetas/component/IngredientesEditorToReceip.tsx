@@ -119,7 +119,7 @@ export function IngredientesEditorToReceip(props: {
           </div>
           <button
             onClick={onAddIngredient}
-            className="text-sm px-3 py-1.5 rounded-md border border-[var(--input-border)] hover:bg-[var(--muted)] transition-colors"
+            className="text-sm px-3 py-1.5 rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] hover:border-cyan-500 hover:bg-[var(--muted)] transition-all"
             type="button"
             disabled={saving}
           >
@@ -152,7 +152,7 @@ export function IngredientesEditorToReceip(props: {
                       setProductoSearchTerm(row.productId);
                     }}
                     list={datalistId}
-                    className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
+                    className="w-full px-4 py-3 bg-[var(--card-bg)] border-2 border-[var(--input-border)] rounded-lg text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
                     placeholder="Busca por nombre (min 2 letras) y elige el id"
                     disabled={saving}
                   />
@@ -187,7 +187,7 @@ export function IngredientesEditorToReceip(props: {
                     onChange={(e) =>
                       onUpdateIngredient(index, { gramos: e.target.value })
                     }
-                    className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
+                    className="w-full px-4 py-3 bg-[var(--card-bg)] border-2 border-[var(--input-border)] rounded-lg text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
                     placeholder="Ej: 200"
                     inputMode="decimal"
                     disabled={saving}
@@ -197,7 +197,7 @@ export function IngredientesEditorToReceip(props: {
                 <div className="sm:col-span-2 flex sm:justify-end">
                   <button
                     onClick={() => openRemoveIngredientModal(row)}
-                    className="px-3 py-2 rounded-md border border-[var(--input-border)] hover:bg-[var(--muted)] transition-colors text-sm"
+                    className="px-3 py-2 rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] hover:border-cyan-500 hover:bg-[var(--muted)] transition-all text-sm"
                     type="button"
                     disabled={saving || ingredientes.length <= 1}
                     title={

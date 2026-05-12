@@ -34,7 +34,7 @@ export function RecetasListContent(props: {
         {Array.from({ length: 6 }).map((_, idx) => (
           <li
             key={idx}
-            className="animate-pulse flex flex-col sm:flex-row sm:items-stretch border border-[var(--input-border)] rounded-lg overflow-hidden bg-[var(--input-bg)]"
+            className="animate-pulse flex flex-col sm:flex-row sm:items-stretch border border-[var(--input-border)] rounded-lg overflow-hidden bg-[var(--card-bg)]"
           >
             <div className="flex-1 p-4 sm:p-5 min-w-0">
               <div className="flex items-start justify-between gap-4">
@@ -48,7 +48,7 @@ export function RecetasListContent(props: {
                 </div>
               </div>
             </div>
-            <div className="px-3 py-3 sm:px-3 sm:py-3 border-t sm:border-t-0 sm:border-l border-[var(--input-border)] bg-black/10">
+            <div className="px-3 py-3 sm:px-3 sm:py-3 border-t sm:border-t-0 sm:border-l border-[var(--input-border)] bg-[var(--muted)]">
               <div className="h-8 w-20 rounded bg-black/20" />
             </div>
           </li>
@@ -60,7 +60,7 @@ export function RecetasListContent(props: {
   return (
     <ul className="space-y-1.5 sm:space-y-2">
       {filteredCount === 0 && (
-        <li className="border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] p-6 text-center">
+        <li className="border border-[var(--input-border)] rounded-lg bg-[var(--card-bg)] p-6 text-center">
           <div className="text-sm font-semibold text-[var(--foreground)]">
             {searchTerm ? "Sin resultados" : "Aún no hay recetas"}
           </div>

@@ -32,7 +32,7 @@ export function Paginacion(props: {
           const val = e.target.value;
           setItemsPerPage(val === "all" ? "all" : Number(val));
         }}
-        className="w-24 px-2.5 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
+        className="w-24 px-4 py-2 text-sm rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
         aria-label="Items por página"
         title="Items por página"
         disabled={disabled}
@@ -47,7 +47,7 @@ export function Paginacion(props: {
         <>
           <button
             type="button"
-            className="p-2 rounded border border-[var(--input-border)] text-[var(--foreground)] disabled:opacity-50"
+            className="p-2 rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] hover:border-cyan-500 hover:bg-[var(--muted)] transition-all disabled:opacity-50"
             disabled={currentPage <= 1 || disabled}
             onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
             aria-label="Página anterior"
@@ -60,7 +60,7 @@ export function Paginacion(props: {
           </div>
           <button
             type="button"
-            className="p-2 rounded border border-[var(--input-border)] text-[var(--foreground)] disabled:opacity-50"
+            className="p-2 rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] hover:border-cyan-500 hover:bg-[var(--muted)] transition-all disabled:opacity-50"
             disabled={currentPage >= totalPages || disabled}
             onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
             aria-label="Página siguiente"

@@ -586,7 +586,7 @@ export function RecetasTab() {
             <button
               type="button"
               onClick={closeAddDrawer}
-              className="px-4 py-2 border border-[var(--input-border)] rounded text-[var(--foreground)] hover:bg-[var(--muted)] bg-transparent"
+              className="px-4 py-2 border-2 border-[var(--input-border)] rounded-lg bg-[var(--card-bg)] text-[var(--foreground)] hover:border-cyan-500 hover:bg-[var(--muted)] transition-all"
               disabled={saving}
             >
               Cancelar
@@ -594,7 +594,7 @@ export function RecetasTab() {
             <button
               type="button"
               onClick={handleSave}
-              className="px-4 py-2 bg-[var(--accent)] text-white rounded disabled:opacity-50"
+              className="px-4 py-2 text-white rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 hover:shadow-lg transition-all border border-cyan-600 hover:border-cyan-400 disabled:opacity-50"
               disabled={
                 saving || isLoading || (isAdminLike && !selectedEmpresa)
               }
@@ -623,7 +623,7 @@ export function RecetasTab() {
                   Nombre
                 </label>
                 <input
-                  className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
+                  className="w-full px-4 py-3 bg-[var(--card-bg)] border-2 border-[var(--input-border)] rounded-lg text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
                   placeholder="Ej: Hamburguesa clásica"
                   value={nombre}
                   onChange={(e) => setNombre(e.target.value)}
@@ -639,7 +639,7 @@ export function RecetasTab() {
 
                 <div className="flex items-center gap-3">
                   {imagePreviewUrl ? (
-                    <div className="shrink-0 w-14 h-14 rounded-md overflow-hidden border border-[var(--input-border)] bg-black/5 dark:bg-white/5">
+                    <div className="shrink-0 w-14 h-14 rounded-lg overflow-hidden border border-[var(--input-border)] bg-[var(--muted)]">
                       <img
                         src={imagePreviewUrl}
                         alt="Preview"
@@ -649,7 +649,7 @@ export function RecetasTab() {
                   ) : (
                     !imageMarkedForDeletion &&
                     existingImageUrl && (
-                      <div className="shrink-0 w-14 h-14 rounded-md overflow-hidden border border-[var(--input-border)] bg-black/5 dark:bg-white/5">
+                      <div className="shrink-0 w-14 h-14 rounded-lg overflow-hidden border border-[var(--input-border)] bg-[var(--muted)]">
                         <img
                           src={existingImageUrl}
                           alt="Imagen actual"
@@ -662,7 +662,7 @@ export function RecetasTab() {
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
-                      className="px-3 py-2 text-xs rounded-md border border-[var(--input-border)] hover:bg-[var(--muted)] transition-colors"
+                      className="px-3 py-2 text-xs rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] hover:border-cyan-500 hover:bg-[var(--muted)] transition-all"
                       onClick={() => filePickerRef.current?.click()}
                       disabled={saving}
                     >
@@ -670,7 +670,7 @@ export function RecetasTab() {
                     </button>
                     <button
                       type="button"
-                      className="px-3 py-2 text-xs rounded-md border border-[var(--input-border)] hover:bg-[var(--muted)] transition-colors"
+                      className="px-3 py-2 text-xs rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] hover:border-cyan-500 hover:bg-[var(--muted)] transition-all"
                       onClick={() => cameraPickerRef.current?.click()}
                       disabled={saving}
                     >
@@ -680,7 +680,7 @@ export function RecetasTab() {
                     {canDeleteExistingImage && !imagePreviewUrl && (
                       <button
                         type="button"
-                        className="px-3 py-2 text-xs rounded-md border border-red-500/40 text-red-500 hover:bg-red-500/10 transition-colors"
+                        className="px-3 py-2 text-xs rounded-lg border-2 border-red-500/40 text-red-500 bg-[var(--card-bg)] hover:bg-red-500/10 transition-all"
                         onClick={markImageForDeletion}
                         disabled={saving}
                       >
@@ -712,7 +712,7 @@ export function RecetasTab() {
                   Descripción (opcional)
                 </label>
                 <textarea
-                  className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)] min-h-[90px]"
+                  className="w-full px-4 py-3 bg-[var(--card-bg)] border-2 border-[var(--input-border)] rounded-lg text-sm text-[var(--foreground)] min-h-[90px] focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
                   placeholder="Notas o detalles"
                   value={descripcion}
                   onChange={(e) => setDescripcion(e.target.value)}
@@ -727,7 +727,7 @@ export function RecetasTab() {
                       IVA
                     </label>
                     <input
-                      className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
+                      className="w-full px-4 py-3 bg-[var(--card-bg)] border-2 border-[var(--input-border)] rounded-lg text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
                       placeholder="0.13 ó 13"
                       value={iva}
                       onChange={(e) => setIva(e.target.value)}
@@ -744,7 +744,7 @@ export function RecetasTab() {
                       Margen
                     </label>
                     <input
-                      className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
+                      className="w-full px-4 py-3 bg-[var(--card-bg)] border-2 border-[var(--input-border)] rounded-lg text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
                       placeholder="0.35 ó 35"
                       value={margen}
                       onChange={(e) => setMargen(e.target.value)}

@@ -84,7 +84,7 @@ export function EmpresaSearchAddSection({
             <input
               value={searchValue}
               onChange={(e) => onSearchValueChange(e.target.value)}
-              className="w-full px-3 py-2.5 pr-10 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40"
+              className="w-full px-4 py-2.5 pr-10 bg-[var(--card-bg)] border-2 border-[var(--input-border)] rounded-lg text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
               placeholder={searchPlaceholder}
               aria-label={searchAriaLabel}
               disabled={Boolean(searchDisabled)}
@@ -97,7 +97,7 @@ export function EmpresaSearchAddSection({
             type="button"
             onClick={onRefreshClick}
             disabled={Boolean(refreshDisabled)}
-            className="w-full md:w-auto flex items-center justify-center px-4 py-2.5 border border-[var(--input-border)] rounded-lg bg-transparent text-[var(--foreground)] hover:bg-[var(--muted)] disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold transition-colors whitespace-nowrap"
+            className="w-full md:w-auto flex items-center justify-center px-4 py-2.5 border-2 border-[var(--input-border)] rounded-lg bg-[var(--card-bg)] text-[var(--foreground)] hover:border-cyan-500 hover:bg-[var(--muted)] disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold transition-all whitespace-nowrap"
           >
             {refreshButtonText}
           </button>
@@ -108,7 +108,7 @@ export function EmpresaSearchAddSection({
             type="button"
             onClick={onAddClick}
             disabled={Boolean(addDisabled)}
-            className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--accent)] text-white rounded-lg shadow-sm ring-1 ring-white/10 hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold transition-colors whitespace-nowrap"
+            className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2.5 text-white rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 hover:shadow-lg transition-all border border-cyan-600 hover:border-cyan-400 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold whitespace-nowrap"
           >
             <Plus className="w-4 h-4" />
             <span>{addButtonText}</span>

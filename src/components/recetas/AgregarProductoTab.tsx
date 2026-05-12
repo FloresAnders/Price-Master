@@ -409,7 +409,7 @@ export function AgregarProductoTab() {
                   const val = e.target.value;
                   setItemsPerPage(val === "all" ? "all" : Number(val));
                 }}
-                className="w-24 px-2.5 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
+                className="w-24 px-4 py-2 text-sm rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
                 aria-label="Items por página"
                 title="Items por página"
               >
@@ -423,7 +423,7 @@ export function AgregarProductoTab() {
                 <>
                   <button
                     type="button"
-                    className="p-2 rounded border border-[var(--input-border)] text-[var(--foreground)] disabled:opacity-50"
+                    className="p-2 rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] hover:border-cyan-500 hover:bg-[var(--muted)] transition-all disabled:opacity-50"
                     disabled={currentPage <= 1}
                     onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                     aria-label="Página anterior"
@@ -436,7 +436,7 @@ export function AgregarProductoTab() {
                   </div>
                   <button
                     type="button"
-                    className="p-2 rounded border border-[var(--input-border)] text-[var(--foreground)] disabled:opacity-50"
+                    className="p-2 rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] hover:border-cyan-500 hover:bg-[var(--muted)] transition-all disabled:opacity-50"
                     disabled={currentPage >= totalPages}
                     onClick={() =>
                       setCurrentPage((p) => Math.min(totalPages, p + 1))
@@ -457,7 +457,7 @@ export function AgregarProductoTab() {
             {Array.from({ length: 6 }).map((_, idx) => (
               <li
                 key={idx}
-                className="animate-pulse flex flex-col sm:flex-row sm:items-stretch border border-[var(--input-border)] rounded-lg overflow-hidden bg-[var(--input-bg)]"
+                className="animate-pulse flex flex-col sm:flex-row sm:items-stretch border border-[var(--input-border)] rounded-lg overflow-hidden bg-[var(--card-bg)]"
               >
                 <div className="flex-1 p-4 sm:p-5 min-w-0">
                   <div className="flex items-start justify-between gap-4">
@@ -471,7 +471,7 @@ export function AgregarProductoTab() {
                     </div>
                   </div>
                 </div>
-                <div className="px-3 py-3 sm:px-3 sm:py-3 border-t sm:border-t-0 sm:border-l border-[var(--input-border)] bg-black/10">
+                <div className="px-3 py-3 sm:px-3 sm:py-3 border-t sm:border-t-0 sm:border-l border-[var(--input-border)] bg-[var(--muted)]">
                   <div className="h-8 w-20 rounded bg-black/20" />
                 </div>
               </li>
@@ -480,7 +480,7 @@ export function AgregarProductoTab() {
         ) : (
           <ul className="space-y-1.5 sm:space-y-2">
             {filteredProductos.length === 0 && (
-              <li className="border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] p-6 text-center">
+              <li className="border border-[var(--input-border)] rounded-lg bg-[var(--card-bg)] p-6 text-center">
                 <div className="text-sm font-semibold text-[var(--foreground)]">
                   {searchTerm ? "Sin resultados" : "Aún no hay productos"}
                 </div>
@@ -495,7 +495,7 @@ export function AgregarProductoTab() {
             {paginatedProductos.map((p) => (
               <li
                 key={p.id}
-                className="group flex flex-col sm:flex-row sm:items-stretch border border-[var(--input-border)] rounded-lg overflow-hidden bg-[var(--input-bg)] transition-colors duration-150 hover:bg-[var(--muted)] focus-within:ring-2 focus-within:ring-[var(--accent)]/40"
+                className="group flex flex-col sm:flex-row sm:items-stretch border border-[var(--input-border)] rounded-lg overflow-hidden bg-[var(--card-bg)] transition-colors duration-150 hover:bg-[var(--muted)] focus-within:ring-2 focus-within:ring-cyan-500/40"
               >
                 <div className="flex-1 p-4 sm:p-5 min-w-0">
                   <div className="flex items-start justify-between gap-3">
@@ -521,10 +521,10 @@ export function AgregarProductoTab() {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-end gap-2 px-2.5 py-2 sm:px-3 sm:py-3 border-t sm:border-t-0 sm:border-l border-[var(--input-border)] bg-black/10 transition-colors duration-150 group-hover:bg-black/20">
+                <div className="flex items-center justify-end gap-2 px-2.5 py-2 sm:px-3 sm:py-3 border-t sm:border-t-0 sm:border-l border-[var(--input-border)] bg-[var(--muted)] transition-colors duration-150">
                   <button
                     type="button"
-                    className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] disabled:opacity-50 p-2.5 rounded-md hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 transition-colors"
+                    className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] disabled:opacity-50 p-2.5 rounded-md hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 transition-colors"
                     onClick={() => openEditDrawer(p)}
                     disabled={saving || deletingId !== null}
                     title="Editar producto"
@@ -537,7 +537,7 @@ export function AgregarProductoTab() {
 
                   <button
                     type="button"
-                    className="text-red-400 hover:text-red-300 disabled:opacity-50 p-2.5 rounded-md hover:bg-red-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 transition-colors"
+                    className="text-red-400 hover:text-red-300 disabled:opacity-50 p-2.5 rounded-md hover:bg-red-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 transition-colors"
                     onClick={() => openRemoveModal(p)}
                     disabled={saving || deletingId !== null}
                     title="Eliminar producto"
@@ -573,7 +573,7 @@ export function AgregarProductoTab() {
             <button
               type="button"
               onClick={closeDrawer}
-              className="px-4 py-2 border border-[var(--input-border)] rounded text-[var(--foreground)] hover:bg-[var(--muted)] bg-transparent"
+              className="px-4 py-2 border-2 border-[var(--input-border)] rounded-lg bg-[var(--card-bg)] text-[var(--foreground)] hover:border-cyan-500 hover:bg-[var(--muted)] transition-all"
               disabled={saving}
             >
               Cancelar
@@ -588,7 +588,7 @@ export function AgregarProductoTab() {
                 }
                 requestSaveConfirm();
               }}
-              className="px-4 py-2 bg-[var(--accent)] text-white rounded disabled:opacity-50"
+              className="px-4 py-2 text-white rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 hover:shadow-lg transition-all border border-cyan-600 hover:border-cyan-400 disabled:opacity-50"
               disabled={saving || deletingId !== null || !isFormValid}
             >
               {saving
@@ -617,7 +617,7 @@ export function AgregarProductoTab() {
                   Nombre
                 </label>
                 <input
-                  className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
+                  className="w-full px-4 py-3 bg-[var(--card-bg)] border-2 border-[var(--input-border)] rounded-lg text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
                   placeholder="Ej: Arroz 1kg"
                   value={nombre}
                   onChange={(e) => {
@@ -638,7 +638,7 @@ export function AgregarProductoTab() {
                   Descripción (opcional)
                 </label>
                 <textarea
-                  className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)] min-h-[90px]"
+                  className="w-full px-4 py-3 bg-[var(--card-bg)] border-2 border-[var(--input-border)] rounded-lg text-sm text-[var(--foreground)] min-h-[90px] focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
                   placeholder="Ej: Marca, presentación, notas..."
                   value={descripcion}
                   onChange={(e) => setDescripcion(e.target.value)}
@@ -657,9 +657,9 @@ export function AgregarProductoTab() {
                 <label className="block text-xs text-[var(--muted-foreground)] mb-1">
                   Peso
                 </label>
-                <div className="flex items-stretch rounded border border-[var(--input-border)] bg-[var(--input-bg)] overflow-hidden">
+                <div className="flex items-stretch rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] overflow-hidden focus-within:ring-2 focus-within:ring-cyan-500 focus-within:border-transparent transition-all">
                   <input
-                    className="flex-1 p-3 bg-transparent text-sm text-[var(--foreground)] focus:outline-none"
+                    className="flex-1 px-4 py-3 bg-transparent text-sm text-[var(--foreground)] focus:outline-none"
                     placeholder="Ej: 1000"
                     inputMode="decimal"
                     value={pesoEnGramos}
@@ -683,12 +683,12 @@ export function AgregarProductoTab() {
                 <label className="block text-xs text-[var(--muted-foreground)] mb-1">
                   Precio
                 </label>
-                <div className="flex items-stretch rounded border border-[var(--input-border)] bg-[var(--input-bg)] overflow-hidden">
+                <div className="flex items-stretch rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] overflow-hidden focus-within:ring-2 focus-within:ring-cyan-500 focus-within:border-transparent transition-all">
                   <div className="px-3 grid place-items-center text-xs text-[var(--muted-foreground)] border-r border-[var(--input-border)]">
                     ₡
                   </div>
                   <input
-                    className="flex-1 p-3 bg-transparent text-sm text-[var(--foreground)] focus:outline-none"
+                    className="flex-1 px-4 py-3 bg-transparent text-sm text-[var(--foreground)] focus:outline-none"
                     placeholder="Ej: 1500"
                     inputMode="decimal"
                     value={precio}
@@ -706,7 +706,7 @@ export function AgregarProductoTab() {
               </div>
             </div>
 
-            <div className="mt-4 rounded border border-[var(--input-border)] p-3 bg-[var(--input-bg)]">
+            <div className="mt-4 rounded-lg border-2 border-[var(--input-border)] p-3 bg-[var(--card-bg)]">
               <div className="text-xs text-[var(--muted-foreground)]">
                 Precio por gramo (solo lectura)
               </div>
