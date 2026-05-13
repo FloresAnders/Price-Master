@@ -46,7 +46,7 @@ function BaseModal({ isOpen, onClose, title, children }: BaseModalProps) {
       className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
       <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.95, opacity: 0, y: 20 }} transition={{ type: "spring", damping: 30, stiffness: 260 }}
-        className="bg-[#0B1120] rounded-2xl shadow-2xl border border-white/10 w-full max-w-[24rem] p-6 relative">
+        className="bg-[#0d1117] rounded-2xl shadow-2xl border border-white/10 w-full max-w-[24rem] p-6 relative">
         <button onClick={onClose} className="absolute top-4 right-4 text-white/20 hover:text-white/50 transition-colors" aria-label="Cerrar">
           <XCircle className="w-5 h-5" />
         </button>
@@ -70,7 +70,7 @@ function SinpeModal({ isOpen, onClose, currency }: SinpeModalProps) {
       <div className="space-y-4">
         <div>
           <label className="block text-white/40 text-xs font-medium mb-1.5">Monto Actual <span className="text-white/20">(pegar aquí)</span></label>
-          <div className="bg-[#0B1120] border border-white/10 rounded-xl p-3 flex items-center">
+          <div className="bg-[#0d1117] border border-white/10 rounded-xl p-3 flex items-center">
             <input type="number" min="0" step="0.01" value={ma || ""} onChange={(e) => setMa(e.target.value === "" ? 0 : Number(e.target.value))}
               onPaste={async (e) => { e.preventDefault(); try { const n = parseFloat(e.clipboardData.getData("text").replace(/[^\d.,]/g, "").replace(",", ".")); if (!isNaN(n)) setMa(n); } catch {} }}
               className="w-full bg-transparent text-white text-right text-base focus:outline-none placeholder-white/10" placeholder="0" />
@@ -79,27 +79,27 @@ function SinpeModal({ isOpen, onClose, currency }: SinpeModalProps) {
         </div>
         <div>
           <label className="block text-white/40 text-xs font-medium mb-1.5">Monto a Recibir</label>
-          <div className="bg-[#0B1120] border border-white/10 rounded-xl p-3 flex items-center">
+          <div className="bg-[#0d1117] border border-white/10 rounded-xl p-3 flex items-center">
             <input type="number" min="0" step="0.01" value={mr || ""} onChange={(e) => setMr(e.target.value === "" ? 0 : Number(e.target.value))}
               className="w-full bg-transparent text-white text-right text-base focus:outline-none placeholder-white/10" placeholder="0" />
           </div>
           <p className="text-xs text-white/20 mt-1">{fmt(mr)}</p>
         </div>
-        <div className="bg-[#0B1120] rounded-xl p-4 border border-white/10 text-center">
+        <div className="bg-[#0d1117] rounded-xl p-4 border border-white/10 text-center">
           <p className="text-white/30 text-xs mb-1">Total Esperado</p>
           <p className="text-xl font-semibold text-white">{fmt(ma + mr)}</p>
         </div>
         <div className="flex gap-2">
           <button onClick={() => { setMa(ma + mr); setMr(0); }} disabled={ma + mr === 0}
-            className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${ma + mr > 0 ? "bg-white/10 hover:bg-white/15 text-white" : "bg-[#0B1120] text-white/20 cursor-not-allowed"}`}>
+            className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${ma + mr > 0 ? "bg-white/10 hover:bg-white/15 text-white" : "bg-[#0d1117] text-white/20 cursor-not-allowed"}`}>
             <RefreshCw className="w-4 h-4" /> Recargar
           </button>
           <button onClick={() => { setMa(0); setMr(0); }}
-            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium bg-[#0B1120] hover:bg-[#0B1120] text-white/50 hover:text-white/70 transition-all duration-200">
+            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium bg-[#0d1117] hover:bg-[#0d1117] text-white/50 hover:text-white/70 transition-all duration-200">
             <Trash2 className="w-4 h-4" /> Limpiar
           </button>
         </div>
-        <div className="text-xs text-white/25 text-center p-3 bg-[#0B1120] rounded-xl border border-white/10 leading-relaxed">
+        <div className="text-xs text-white/25 text-center p-3 bg-[#0d1117] rounded-xl border border-white/10 leading-relaxed">
           💡 <span className="text-white/40">Instrucciones:</span><br />• Pega monto desde SINPE • Ingresa monto a recibir • Usa &ldquo;Recargar&rdquo;
         </div>
       </div>
@@ -208,7 +208,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
 
       {/* ── Stats Row (Compact Horizontal) ── */}
       {ap > 0 && vt > 0 && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-2xl border border-white/10 bg-[#0B1120] p-4 mb-5">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-2xl border border-white/10 bg-[#0d1117] p-4 mb-5">
           <div className="flex items-center justify-around text-xs">
             <div className="text-center">
               <p className="text-white/30 uppercase tracking-wider mb-1">Apertura</p>
@@ -231,9 +231,9 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
       <AnimatePresence>
         {showBD && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden mb-5">
-            <div className="rounded-2xl border border-white/10 bg-[#0B1120] p-3 grid grid-cols-2 gap-2 text-xs">
+            <div className="rounded-2xl border border-white/10 bg-[#0d1117] p-3 grid grid-cols-2 gap-2 text-xs">
               {calcBD().map((i) => (
-                <div key={i.l} className="p-2.5 bg-[#0B1120] rounded-xl text-center border border-white/10">
+                <div key={i.l} className="p-2.5 bg-[#0d1117] rounded-xl text-center border border-white/10">
                   <p className="text-white/30 mb-0.5">{i.l}</p>
                   <p className="font-medium text-white/70">{fmt(i.v)}</p>
                 </div>
@@ -244,7 +244,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
       </AnimatePresence>
 
       {/* ── Denominations Table (Wider) ── */}
-      <div className="rounded-2xl border border-white/10 bg-[#0B1120] overflow-hidden">
+      <div className="rounded-2xl border border-white/10 bg-[#0d1117] overflow-hidden">
         <div className={`grid ${denomGridCols} items-center gap-3 px-4 sm:px-5 py-3 border-b border-white/10`}>
           <p className="text-[11px] uppercase tracking-[0.14em] text-white/35 font-medium">Denominación</p>
           <p className="text-[11px] uppercase tracking-[0.14em] text-cyan-200/75 font-semibold text-center">Cantidad</p>
@@ -259,8 +259,8 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
             <motion.div key={den.value} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.025 }}
               className={`relative rounded-xl border transition-all duration-200 ${
                 cnt > 0
-                  ? "bg-[#0B1120] border-white/10 hover:border-cyan-400/25 hover:shadow-[0_12px_30px_rgba(0,0,0,0.28)]"
-                  : "bg-[#0B1120] border-white/10 opacity-55"
+                  ? "bg-[#0d1117] border-white/10 hover:border-cyan-400/25 hover:shadow-[0_12px_30px_rgba(0,0,0,0.28)]"
+                  : "bg-[#0d1117] border-white/10 opacity-55"
               }`}>
               <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-white/5 rounded-full overflow-hidden">
                 <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.6, ease: "easeOut" }}
@@ -277,7 +277,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
                 <div className="flex items-center justify-center gap-2">
                   <motion.button whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.92 }}
                     onClick={() => dec(den.value)}
-                    className="w-9 h-9 rounded-full bg-[#0B1120] border border-white/30 hover:border-rose-300/55 hover:bg-rose-500/15 flex items-center justify-center transition-all shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]"
+                    className="w-9 h-9 rounded-full bg-[#0d1117] border border-white/30 hover:border-rose-300/55 hover:bg-rose-500/15 flex items-center justify-center transition-all shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]"
                     aria-label={`-${den.label}`}>
                     <MinusCircle className="w-[18px] h-[18px] text-rose-200" />
                   </motion.button>
@@ -288,7 +288,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
                     placeholder="0" />
                   <motion.button whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.92 }}
                     onClick={() => inc(den.value)}
-                    className="w-9 h-9 rounded-full bg-[#0B1120] border border-white/30 hover:border-emerald-300/55 hover:bg-emerald-500/15 flex items-center justify-center transition-all shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]"
+                    className="w-9 h-9 rounded-full bg-[#0d1117] border border-white/30 hover:border-emerald-300/55 hover:bg-emerald-500/15 flex items-center justify-center transition-all shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]"
                     aria-label={`+${den.label}`}>
                     <PlusCircle className="w-[18px] h-[18px] text-emerald-200" />
                   </motion.button>
@@ -340,7 +340,7 @@ function CounterSidebar({
   const filtered = data.filter(c => c.name.toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <div className="w-[240px] flex-shrink-0 bg-[#050816] rounded-2xl border border-white/10 flex flex-col h-[calc(100vh-120px)] overflow-hidden">
+    <div className="w-[240px] flex-shrink-0 bg-[#0d1117] rounded-2xl border border-white/10 flex flex-col h-[calc(100vh-120px)] overflow-hidden">
       {/* Title */}
       <div className="p-4 border-b border-white/10">
         <h3 className="text-[10px] font-bold bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent uppercase tracking-[0.2em] mb-3">Contadores</h3>
@@ -352,7 +352,7 @@ function CounterSidebar({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar contador..."
-            className="w-full pl-9 pr-3 py-2 bg-[#0B1120] border border-white/10 rounded-xl text-white/70 text-xs placeholder-cyan-500/30 focus:outline-none focus:border-cyan-500/40 focus:shadow-[0_0_12px_rgba(6,182,212,0.25)] transition-all duration-300"
+            className="w-full pl-9 pr-3 py-2 bg-[#0d1117] border border-white/10 rounded-xl text-white/70 text-xs placeholder-cyan-500/30 focus:outline-none focus:border-cyan-500/40 focus:shadow-[0_0_12px_rgba(6,182,212,0.25)] transition-all duration-300"
           />
         </div>
       </div>
@@ -375,14 +375,14 @@ function CounterSidebar({
               className={`w-full text-left p-3 rounded-xl border transition-all duration-200 ${
                 i === active
                   ? "bg-gradient-to-br from-cyan-500/20 to-teal-500/15 border-cyan-400/70 shadow-[0_0_20px_rgba(6,182,212,0.5)] relative before:absolute before:inset-0 before:rounded-xl before:bg-cyan-500/5 before:opacity-0 before:transition-opacity before:duration-300 group-hover:before:opacity-100"
-                  : "bg-transparent border-transparent hover:bg-[#0B1120]/60 hover:border-cyan-400/30 hover:shadow-[0_0_12px_rgba(6,182,212,0.25)]"
+                  : "bg-transparent border-transparent hover:bg-[#0d1117]/60 hover:border-cyan-400/30 hover:shadow-[0_0_12px_rgba(6,182,212,0.25)]"
               }`}
             >
               <div className="flex items-center gap-3 relative">
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-300 ${
                   i === active
                     ? "bg-gradient-to-br from-cyan-500/25 to-teal-500/20 border border-cyan-400/40 shadow-[0_0_12px_rgba(6,182,212,0.3)]"
-                    : "bg-[#0B1120] border border-white/10 group-hover:border-cyan-400/20"
+                    : "bg-[#0d1117] border border-white/10 group-hover:border-cyan-400/20"
                 }`}>
                   <Wallet className={`w-5 h-5 ${i === active ? "text-cyan-300" : "text-white/30 group-hover:text-cyan-200/60"}`} />
                 </div>
@@ -457,7 +457,7 @@ function RightPanel({ data, showExtra, setShowExtra, showBD, setShowBD, onUpdate
     <div className="w-[19.5rem] flex-shrink-0">
       <div className="lg:sticky lg:top-20 space-y-3">
         {/* Summary Card */}
-        <div className="rounded-2xl border border-white/10 bg-[#0B1120] p-5 text-center">
+        <div className="rounded-2xl border border-white/10 bg-[#0d1117] p-5 text-center">
           <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-teal-500/15 border border-cyan-400/25 flex items-center justify-center mx-auto mb-4 shadow-[0_10px_35px_rgba(6,182,212,0.12)]">
             <Wallet className="w-7 h-7 text-cyan-400" />
           </div>
@@ -472,7 +472,7 @@ function RightPanel({ data, showExtra, setShowExtra, showBD, setShowBD, onUpdate
         </div>
 
         {/* Quick Actions */}
-        <div className="rounded-2xl border border-white/10 bg-[#0B1120] p-4">
+        <div className="rounded-2xl border border-white/10 bg-[#0d1117] p-4">
           <p className="text-[10px] text-white/30 uppercase tracking-[0.16em] mb-3">Acciones rápidas</p>
           <div className="space-y-2">
             <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
@@ -482,14 +482,14 @@ function RightPanel({ data, showExtra, setShowExtra, showBD, setShowBD, onUpdate
             </motion.button>
             <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
               onClick={() => setShowBD(!showBD)}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#0B1120] hover:bg-[#0B1120] text-white/75 hover:text-white text-xs font-medium transition-all duration-200 border border-white/10">
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#0d1117] hover:bg-[#0d1117] text-white/75 hover:text-white text-xs font-medium transition-all duration-200 border border-white/10">
               <TrendingUp className="w-3.5 h-3.5" /> {showBD ? "Ocultar Desglose" : "Ver Desglose"}
             </motion.button>
           </div>
         </div>
 
         {/* Tools */}
-        <div className="rounded-2xl border border-white/10 bg-[#0B1120] p-4">
+        <div className="rounded-2xl border border-white/10 bg-[#0d1117] p-4">
           <p className="text-[10px] text-white/30 uppercase tracking-[0.16em] mb-3">Herramientas</p>
           <div className="flex items-center justify-center gap-2">
             {[
@@ -510,7 +510,7 @@ function RightPanel({ data, showExtra, setShowExtra, showBD, setShowBD, onUpdate
         <AnimatePresence>
           {showExtra && (
             <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-              className="rounded-2xl border border-white/10 bg-[#0B1120] p-3 space-y-2.5">
+              className="rounded-2xl border border-white/10 bg-[#0d1117] p-3 space-y-2.5">
               <p className="text-[10px] text-white/35 uppercase tracking-[0.16em]">Extra</p>
               <div className="bg-[#050816] border border-white/10 rounded-xl p-2 flex items-center">
                 <input type="text" inputMode="numeric" value={extra === 0 ? "" : fmt(extra)} onChange={(e) => {
@@ -555,7 +555,7 @@ function RenameModal({ isOpen, currentName, onSave, onClose }: { isOpen: boolean
   useEffect(() => { if (isOpen && ref.current) setTimeout(() => { ref.current?.focus(); ref.current?.select(); }, 100); }, [isOpen]);
   return (
     <BaseModal isOpen={isOpen} onClose={onClose} title="Renombrar">
-      <div className="bg-[#0B1120] border border-white/10 rounded-xl mb-3 flex items-center px-3 py-2">
+      <div className="bg-[#0d1117] border border-white/10 rounded-xl mb-3 flex items-center px-3 py-2">
         <input ref={ref} type="text" key={currentName} defaultValue={currentName} onKeyDown={(e) => { if (e.key === "Enter") { const v = e.currentTarget.value; onSave(v.trim() === "" ? currentName : v); onClose(); } }}
           className="w-full bg-transparent text-white text-right text-sm focus:outline-none placeholder-white/10" />
       </div>
@@ -576,7 +576,7 @@ function CurrencyModal({ isOpen, currentCurrency, onSave, onClose }: { isOpen: b
       <div className="flex gap-3 mb-4">
         {(["CRC", "USD"] as const).map((opt) => (
           <button key={opt} onClick={() => { setTouched(true); setSel(opt); }}
-            className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${eff === opt ? "bg-white/10 text-white border border-white/10" : "bg-[#0B1120] text-white/40 hover:text-white/60 border border-white/10"}`}>
+            className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${eff === opt ? "bg-white/10 text-white border border-white/10" : "bg-[#0d1117] text-white/40 hover:text-white/60 border border-white/10"}`}>
             {opt === "CRC" ? "Colones" : "Dólares"}
           </button>
         ))}
@@ -593,7 +593,7 @@ function MenuModal({ isOpen, onClose, onExport, onImport, onClear, storageInfo }
   return (
     <BaseModal isOpen={isOpen} onClose={onClose} title="Gestión">
       <div className="space-y-2.5">
-        <div className="bg-[#0B1120] rounded-xl p-2.5 text-center border border-white/10">
+        <div className="bg-[#0d1117] rounded-xl p-2.5 text-center border border-white/10">
           <span className="text-xs text-white/30">{storageInfo}</span>
         </div>
         {[
@@ -602,7 +602,7 @@ function MenuModal({ isOpen, onClose, onExport, onImport, onClear, storageInfo }
           { label: "Restablecer", icon: RotateCcw, action: () => { onClear(); onClose(); } },
         ].map((b) => (
           <button key={b.label} onClick={b.action}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#0B1120] hover:bg-[#0B1120] text-white/50 hover:text-white/70 rounded-xl text-sm font-medium transition-all duration-200 border border-white/10">
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#0d1117] hover:bg-[#0d1117] text-white/50 hover:text-white/70 rounded-xl text-sm font-medium transition-all duration-200 border border-white/10">
             <b.icon className="w-4 h-4" /> {b.label}
           </button>
         ))}
@@ -697,8 +697,8 @@ export default function CashCounterTabs() {
   if (!hasPermission(user?.permissions, "cashcounter")) {
     return (
       <div className="flex items-center justify-center min-h-[60vh] p-8">
-        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center max-w-sm bg-[#0B1120] rounded-2xl border border-white/10 p-10">
-          <div className="w-12 h-12 rounded-xl bg-[#0B1120] border border-white/10 flex items-center justify-center mx-auto mb-4">
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center max-w-sm bg-[#0d1117] rounded-2xl border border-white/10 p-10">
+          <div className="w-12 h-12 rounded-xl bg-[#0d1117] border border-white/10 flex items-center justify-center mx-auto mb-4">
             <LockIcon className="w-6 h-6 text-white/30" />
           </div>
           <h3 className="text-lg font-semibold text-white/80 mb-2">Acceso Restringido</h3>
@@ -737,7 +737,7 @@ export default function CashCounterTabs() {
             </AnimatePresence>
             <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
               onClick={() => setMenuOpen(true)}
-              className="w-10 h-10 rounded-xl bg-[#0B1120] border border-white/10 flex items-center justify-center text-cyan-200/70 hover:text-cyan-200 hover:border-cyan-400/30 transition-all">
+              className="w-10 h-10 rounded-xl bg-[#0d1117] border border-white/10 flex items-center justify-center text-cyan-200/70 hover:text-cyan-200 hover:border-cyan-400/30 transition-all">
               <Layers className="w-4.5 h-4.5" />
             </motion.button>
           </div>
