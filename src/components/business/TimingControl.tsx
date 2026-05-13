@@ -764,7 +764,7 @@ export default function TimingControl() {
               }}
             >
               <button
-                className="absolute top-2 right-2 hover:text-gray-500"
+                className="absolute top-2 right-2 rounded p-1 text-[var(--foreground)] hover:text-[var(--muted-foreground)] hover:bg-[var(--muted)]/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
                 style={{ color: "var(--foreground)" }}
                 onClick={() => setShowSummary(false)}
                 aria-label="Cerrar resumen"
@@ -826,7 +826,7 @@ export default function TimingControl() {
                 style={{ color: "var(--foreground)" }}
               >
                 Total:{" "}
-                <span className="font-mono text-green-700">
+                <span className="font-mono text-[var(--accent)]">
                   ₡ {totalGeneral.toLocaleString("es-CR")}
                 </span>
               </div>
@@ -844,7 +844,7 @@ export default function TimingControl() {
               }}
             >
               <button
-                className="absolute top-2 right-2 hover:text-gray-500"
+                className="absolute top-2 right-2 rounded p-1 text-[var(--foreground)] hover:text-[var(--muted-foreground)] hover:bg-[var(--muted)]/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
                 style={{ color: "var(--foreground)" }}
                 onClick={() => {
                   setShowCodeModal(false);
@@ -907,25 +907,13 @@ export default function TimingControl() {
                       return (
                         <button
                           key={sorteo.id || sorteo.name}
-                          className={`px-3 py-3 rounded-md text-left focus:outline-none transition-colors text-sm ${
+                          className={`px-3 py-3 rounded-lg text-left text-sm border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 ${
                             isSelected
-                              ? "ring-2 ring-blue-500"
+                              ? "bg-[var(--accent)] text-white border-[var(--accent)]"
                               : isKeyboardFocused
-                                ? "ring-2 ring-yellow-400"
-                                : "hover:opacity-80"
+                                ? "bg-[var(--muted)]/20 text-[var(--foreground)] border-[var(--accent)]/80"
+                                : "bg-[var(--card-bg)] text-[var(--foreground)] border-[var(--input-border)] hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20"
                           }`}
-                          style={{
-                            background: isSelected
-                              ? "#3b82f6"
-                              : isKeyboardFocused
-                                ? "#fbbf24"
-                                : "var(--input-bg)",
-                            border: "1px solid var(--input-border)",
-                            color:
-                              isSelected || isKeyboardFocused
-                                ? "#ffffff"
-                                : "var(--foreground)",
-                          }}
                           onClick={() => {
                             setSelectedSorteo(sorteo.name);
                             setSelectedSorteoIndex(index);
@@ -953,7 +941,7 @@ export default function TimingControl() {
                       ref={amountInputRef}
                       type="number"
                       min="0"
-                      className="w-full px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)] hover:border-[var(--accent)]/60 focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
                       style={{
                         background: "var(--input-bg)",
                         border: "1px solid var(--input-border)",
@@ -972,7 +960,7 @@ export default function TimingControl() {
                 )}
                 {selectedSorteo && (
                   <button
-                    className="w-full px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-green-600 hover:bg-green-700 text-white font-semibold disabled:opacity-50"
+                    className="w-full h-11 rounded-lg bg-[var(--button-bg)] px-4 text-[var(--button-text)] font-semibold hover:bg-[var(--button-hover)] transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
                     onClick={handleAddTicket}
                     disabled={
                       !modalAmount ||
@@ -1017,7 +1005,7 @@ export default function TimingControl() {
                 </div>
                 <div className="flex justify-between">
                   <span className="font-medium">Monto:</span>
-                  <span className="font-mono font-bold text-green-700">
+                  <span className="font-mono font-bold text-[var(--accent)]">
                     ₡{ticketToDelete.amount.toLocaleString("es-CR")}
                   </span>
                 </div>
@@ -1029,18 +1017,13 @@ export default function TimingControl() {
 
               <div className="flex gap-3 justify-end">
                 <button
-                  className="px-6 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 hover:opacity-80 transition-opacity"
-                  style={{
-                    background: "var(--button-bg)",
-                    color: "var(--button-text)",
-                    border: "1px solid var(--input-border)",
-                  }}
+                  className="h-11 px-6 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
                   onClick={cancelDeleteTicket}
                 >
                   Cancelar
                 </button>
                 <button
-                  className="px-6 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 bg-red-600 hover:bg-red-700 text-white font-semibold transition-colors"
+                  className="h-11 px-6 rounded-lg border border-red-500/30 bg-[var(--card-bg)] text-red-500 hover:bg-red-500/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40"
                   onClick={confirmDeleteTicket}
                 >
                   Eliminar
@@ -1074,7 +1057,7 @@ export default function TimingControl() {
               }}
             >
               <button
-                className="absolute top-3 right-3 hover:text-gray-400 p-1 rounded"
+                className="absolute top-3 right-3 rounded p-1 text-[var(--foreground)] hover:text-[var(--muted-foreground)] hover:bg-[var(--muted)]/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
                 style={{ color: "var(--foreground)" }}
                 onClick={handleCloseQRModal}
                 aria-label="Cerrar modal QR"
@@ -1097,7 +1080,7 @@ export default function TimingControl() {
 
               <div className="text-center">
                 <div className="flex items-center justify-center gap-2 mb-3">
-                  <Smartphone className="w-6 h-6 text-blue-600" />
+                  <Smartphone className="w-6 h-6 text-[var(--accent)]" />
                   <h2
                     className="text-lg font-semibold"
                     style={{ color: "var(--foreground)" }}
@@ -1132,7 +1115,7 @@ export default function TimingControl() {
 
                 <div className="space-y-3">
                   <button
-                    className="w-full px-4 py-3 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-blue-600 hover:bg-blue-700 text-white font-semibold flex items-center justify-center gap-2"
+                    className="w-full rounded-lg bg-[var(--button-bg)] px-4 py-3 text-[var(--button-text)] font-semibold hover:bg-[var(--button-hover)] transition-colors flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
                     onClick={handleDirectDownload}
                   >
                     <Download className="w-5 h-5" />
@@ -1140,12 +1123,7 @@ export default function TimingControl() {
                   </button>
 
                   <button
-                    className="w-full px-4 py-3 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 hover:opacity-80 transition-opacity"
-                    style={{
-                      background: "var(--button-bg)",
-                      color: "var(--button-text)",
-                      border: "1px solid var(--input-border)",
-                    }}
+                    className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-4 py-3 text-[var(--foreground)] hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
                     onClick={handleCloseQRModal}
                   >
                     Cerrar
@@ -1177,7 +1155,7 @@ export default function TimingControl() {
             {/* Panel principal: controles y tickets */}
             <div className="flex-1 min-w-0 max-w-full flex flex-col">
               <div className="mb-4 sm:mb-6 flex items-center gap-4">
-                <Timer className="w-6 h-6 text-blue-600" />
+                <Timer className="w-6 h-6 text-[var(--accent)]" />
                 <h3
                   className="text-lg font-semibold"
                   style={{ color: "var(--foreground)" }}
@@ -1195,12 +1173,7 @@ export default function TimingControl() {
                 </label>
                 <input
                   type="text"
-                  className="w-full sm:max-w-md px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  style={{
-                    background: "var(--input-bg)",
-                    border: "1px solid var(--input-border)",
-                    color: "var(--foreground)",
-                  }}
+                  className="w-full sm:max-w-md h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)] hover:border-[var(--accent)]/60 focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
                   value={personName}
                   onChange={(e) => setPersonName(e.target.value)}
                   placeholder="Ingresa tu nombre"
@@ -1220,12 +1193,7 @@ export default function TimingControl() {
                   <div className="flex flex-col sm:flex-row gap-2 w-full sm:max-w-md">
                     <input
                       type="text"
-                      className="flex-1 px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 uppercase"
-                      style={{
-                        background: "var(--input-bg)",
-                        border: "1px solid var(--input-border)",
-                        color: "var(--foreground)",
-                      }}
+                      className="flex-1 h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)] uppercase hover:border-[var(--accent)]/60 focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
                       value={mobileCodeInput}
                       onChange={(e) => setMobileCodeInput(e.target.value)}
                       onKeyDown={handleMobileCodeKeyDown}
@@ -1233,7 +1201,7 @@ export default function TimingControl() {
                       maxLength={3}
                     />
                     <button
-                      className="w-full sm:w-auto px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-blue-600 hover:bg-blue-700 text-white font-medium disabled:opacity-50"
+                      className="w-full sm:w-auto h-11 px-4 rounded-lg bg-[var(--button-bg)] text-[var(--button-text)] font-medium hover:bg-[var(--button-hover)] transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
                       onClick={handleMobileCodeSubmit}
                       disabled={!mobileCodeInput.trim()}
                     >
@@ -1241,7 +1209,7 @@ export default function TimingControl() {
                     </button>
                   </div>
                   <p
-                    className="text-xs mt-1 text-gray-500"
+                    className="text-xs mt-1"
                     style={{ color: "var(--foreground)", opacity: 0.7 }}
                   >
                     Códigos válidos: T11 (COMODIN), T10 (ANGUILA), NNN (NICA),
@@ -1268,13 +1236,13 @@ export default function TimingControl() {
               <div className="mb-4">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <button
-                    className="w-full px-4 py-3 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-[var(--button-bg)] text-[var(--button-text)] font-medium"
+                    className="w-full rounded-lg bg-[var(--button-bg)] px-4 py-3 text-[var(--button-text)] font-medium hover:bg-[var(--button-hover)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
                     onClick={() => setShowSummary(true)}
                   >
                     Ver resumen
                   </button>
                   <button
-                    className="w-full px-4 py-3 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center gap-2 font-semibold disabled:opacity-50"
+                    className="w-full rounded-lg bg-[var(--button-bg)] px-4 py-3 text-[var(--button-text)] flex items-center justify-center gap-2 font-semibold hover:bg-[var(--button-hover)] transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
                     onClick={exportToPNG}
                     disabled={!personName.trim() || isExporting}
                   >
@@ -1282,7 +1250,7 @@ export default function TimingControl() {
                     {isExporting ? "Exportando..." : "Exportar + QR"}
                   </button>
                   <button
-                    className="w-full px-4 py-3 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 bg-red-600 hover:bg-red-700 text-white font-semibold"
+                    className="w-full rounded-lg border border-red-500/30 bg-[var(--card-bg)] px-4 py-3 text-red-500 font-semibold hover:bg-red-500/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40"
                     onClick={() => {
                       if (
                         window.confirm(
@@ -1340,7 +1308,7 @@ export default function TimingControl() {
                       }}
                     >
                       <div className="mb-4">
-                        <Timer className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+                        <Timer className="w-16 h-16 mx-auto text-[var(--muted-foreground)] mb-4" />
                         <h4
                           className="text-xl font-semibold mb-2"
                           style={{ color: "var(--foreground)" }}
@@ -1421,7 +1389,7 @@ export default function TimingControl() {
                             </>
                           ) : (
                             <div className="text-center">
-                              <Smartphone className="w-6 h-6 mx-auto mb-2 text-blue-500" />
+                              <Smartphone className="w-6 h-6 mx-auto mb-2 text-[var(--accent)]" />
                               <span>
                                 Usa el campo &quot;Código de tiempo
                                 (móvil)&quot; arriba
@@ -1481,7 +1449,7 @@ export default function TimingControl() {
                     }}
                   >
                     Total:{" "}
-                    <span className="font-mono text-green-700">
+                    <span className="font-mono text-[var(--accent)]">
                       ₡ {totalGeneral.toLocaleString("es-CR")}
                     </span>
                   </div>

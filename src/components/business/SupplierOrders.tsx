@@ -1,11 +1,14 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Trash2,
   Plus,
   Package,
   Calendar,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
   User,
   FileText,
   Edit,
@@ -72,6 +75,61 @@ export default function SupplierOrders() {
   const [exportTarget, setExportTarget] = useState<SupplierOrderView | null>(
     null,
   );
+
+  // Fondo General style calendar helpers (YYYY-MM-DD)
+  const dateKeyFromDate = (d: Date) => {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  };
+  const formatKeyToDisplay = (isoDateKey: string | null) => {
+    if (!isoDateKey) return "dd/mm/yyyy";
+    const [y, m, d] = isoDateKey.split("-").map(Number);
+    const dd = String(d).padStart(2, "0");
+    const mm = String(m).padStart(2, "0");
+    const yyyy = String(y);
+    return `${dd}/${mm}/${yyyy}`;
+  };
+  const todayKey = useMemo(() => dateKeyFromDate(new Date()), []);
+
+  // Calendar popovers (order date + expected delivery)
+  const [orderCalendarOpen, setOrderCalendarOpen] = useState(false);
+  const [deliveryCalendarOpen, setDeliveryCalendarOpen] = useState(false);
+  const [orderCalendarMonth, setOrderCalendarMonth] = useState(() => new Date());
+  const [deliveryCalendarMonth, setDeliveryCalendarMonth] = useState(
+    () => new Date(),
+  );
+  const orderCalendarRef = React.useRef<HTMLDivElement | null>(null);
+  const deliveryCalendarRef = React.useRef<HTMLDivElement | null>(null);
+  const orderButtonRef = React.useRef<HTMLButtonElement | null>(null);
+  const deliveryButtonRef = React.useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (!orderCalendarOpen && !deliveryCalendarOpen) return;
+    const handler = (evt: MouseEvent) => {
+      const target = evt.target as Node | null;
+      if (!target) return;
+
+      if (orderCalendarOpen) {
+        const clickedInsideCalendar =
+          orderCalendarRef.current?.contains(target) ?? false;
+        const clickedButton = orderButtonRef.current?.contains(target) ?? false;
+        if (!clickedInsideCalendar && !clickedButton) setOrderCalendarOpen(false);
+      }
+
+      if (deliveryCalendarOpen) {
+        const clickedInsideCalendar =
+          deliveryCalendarRef.current?.contains(target) ?? false;
+        const clickedButton =
+          deliveryButtonRef.current?.contains(target) ?? false;
+        if (!clickedInsideCalendar && !clickedButton)
+          setDeliveryCalendarOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [orderCalendarOpen, deliveryCalendarOpen]);
 
   // Auto-complete order date on component mount
   useEffect(() => {
@@ -470,12 +528,7 @@ export default function SupplierOrders() {
           onClick={closeExportModal}
         >
           <div
-            className="w-full max-w-sm rounded-lg border p-6 shadow-lg"
-            style={{
-              background: "var(--card-bg)",
-              borderColor: "var(--border)",
-              color: "var(--foreground)",
-            }}
+            className="w-full max-w-sm rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-6 text-[var(--foreground)] shadow-lg"
             onClick={(event) => event.stopPropagation()}
           >
             <h3 className="text-lg font-semibold mb-2">Exportar orden</h3>
@@ -489,23 +542,19 @@ export default function SupplierOrders() {
             <div className="space-y-2">
               <button
                 onClick={() => handleExportSelection("json")}
-                className="w-full rounded-md bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full h-11 rounded-lg bg-[var(--button-bg)] px-4 text-[var(--button-text)] hover:bg-[var(--button-hover)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
               >
                 Descargar JSON
               </button>
               <button
                 onClick={() => handleExportSelection("txt")}
-                className="w-full rounded-md bg-emerald-500 px-4 py-2 text-white hover:bg-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="w-full h-11 rounded-lg bg-[var(--button-bg)] px-4 text-[var(--button-text)] hover:bg-[var(--button-hover)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
               >
                 Descargar TXT
               </button>
               <button
                 onClick={closeExportModal}
-                className="w-full rounded-md px-4 py-2 hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-gray-400"
-                style={{
-                  background: "var(--button-bg)",
-                  color: "var(--button-text)",
-                }}
+                className="w-full h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-4 text-[var(--foreground)] hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
               >
                 Cancelar
               </button>
@@ -529,13 +578,11 @@ export default function SupplierOrders() {
             }
             setShowOrdersList(false);
           }}
-          className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-            !showOrdersList ? "bg-blue-500 text-white" : "hover:opacity-80"
-          }`}
-          style={{
-            background: !showOrdersList ? "#3b82f6" : "var(--button-bg)",
-            color: !showOrdersList ? "#ffffff" : "var(--button-text)",
-          }}
+          className={`px-6 py-2 rounded-lg font-medium transition-colors border-2 ${
+            !showOrdersList
+              ? "bg-[var(--accent)] text-white border-[var(--accent)]"
+              : "bg-[var(--card-bg)] text-[var(--foreground)] border-[var(--input-border)] hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20"
+          } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40`}
         >
           {isEditing ? "Editando Orden" : "Nueva Orden"}
         </button>
@@ -546,13 +593,11 @@ export default function SupplierOrders() {
             }
             setShowOrdersList(true);
           }}
-          className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-            showOrdersList ? "bg-blue-500 text-white" : "hover:opacity-80"
-          }`}
-          style={{
-            background: showOrdersList ? "#3b82f6" : "var(--button-bg)",
-            color: showOrdersList ? "#ffffff" : "var(--button-text)",
-          }}
+          className={`px-6 py-2 rounded-lg font-medium transition-colors border-2 ${
+            showOrdersList
+              ? "bg-[var(--accent)] text-white border-[var(--accent)]"
+              : "bg-[var(--card-bg)] text-[var(--foreground)] border-[var(--input-border)] hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20"
+          } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40`}
         >
           Órdenes Guardadas ({orders.length})
         </button>
@@ -563,11 +608,7 @@ export default function SupplierOrders() {
         <div className="space-y-6">
           {/* Main Order Form */}
           <div
-            className="rounded-lg border p-6"
-            style={{
-              background: "var(--card-bg)",
-              borderColor: "var(--border)",
-            }}
+            className="rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-6"
           >
             <h3
               className="text-lg font-semibold mb-4 flex items-center gap-2"
@@ -580,8 +621,7 @@ export default function SupplierOrders() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="relative">
                 <label
-                  className="text-sm font-medium mb-1 flex items-center gap-1"
-                  style={{ color: "var(--foreground)" }}
+                  className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]"
                 >
                   <User className="w-4 h-4" />
                   Nombre del Proveedor
@@ -603,31 +643,18 @@ export default function SupplierOrders() {
                   onBlur={() =>
                     setTimeout(() => setShowSupplierDropdown(false), 200)
                   }
-                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  style={{
-                    background: "var(--input-bg)",
-                    borderColor: "var(--input-border)",
-                    color: "var(--foreground)",
-                  }}
+                  className="w-full h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)] hover:border-[var(--accent)]/60 focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
                   placeholder="Ingresa el nombre del proveedor"
                 />
                 {showSupplierDropdown && filteredSuppliers.length > 0 && (
                   <div
-                    className="absolute z-10 w-full mt-1 border rounded-md shadow-lg"
-                    style={{
-                      background: "var(--card-bg)",
-                      borderColor: "var(--border)",
-                    }}
+                    className="absolute z-10 w-full mt-2 overflow-hidden rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] shadow-lg"
                   >
                     {filteredSuppliers.map((supplier, index) => (
                       <button
                         key={index}
                         onClick={() => selectSupplier(supplier)}
-                        className="w-full px-3 py-2 text-left hover:opacity-80 first:rounded-t-md last:rounded-b-md"
-                        style={{
-                          color: "var(--foreground)",
-                          background: "var(--card-bg)",
-                        }}
+                        className="w-full px-3 py-2 text-left text-sm text-[var(--foreground)] hover:bg-[var(--muted)]/20"
                       >
                         {supplier}
                       </button>
@@ -638,50 +665,285 @@ export default function SupplierOrders() {
 
               <div>
                 <label
-                  className="block text-sm font-medium mb-1 items-center gap-1"
-                  style={{ color: "var(--foreground)" }}
+                  className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]"
                 >
                   <Calendar className="w-4 h-4" />
                   Fecha de Orden
                 </label>
-                <input
-                  type="date"
-                  value={orderDate}
-                  onChange={(e) => setOrderDate(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  style={{
-                    background: "var(--input-bg)",
-                    borderColor: "var(--input-border)",
-                    color: "var(--foreground)",
-                  }}
-                />
+                <div className="relative">
+                  <button
+                    type="button"
+                    ref={orderButtonRef}
+                    onClick={() => {
+                      const base = orderDate ? new Date(`${orderDate}T00:00:00`) : new Date();
+                      if (!Number.isNaN(base.getTime())) setOrderCalendarMonth(base);
+                      setOrderCalendarOpen((prev) => !prev);
+                      setDeliveryCalendarOpen(false);
+                    }}
+                    className="flex h-11 w-full items-center justify-between gap-2 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
+                    title="Seleccionar fecha de orden"
+                    aria-label="Seleccionar fecha de orden"
+                  >
+                    <span className="truncate text-sm font-medium">
+                      {orderDate ? formatKeyToDisplay(orderDate) : "dd/mm/yyyy"}
+                    </span>
+                    <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded border border-[var(--input-border)] bg-[var(--muted)]/20 text-[var(--muted-foreground)]">
+                      <CalendarDays className="h-4 w-4" />
+                    </span>
+                  </button>
+
+                  {orderCalendarOpen && (
+                    <div
+                      ref={orderCalendarRef}
+                      className="absolute left-0 top-full z-50 mt-2 w-full min-w-[280px] sm:w-72"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-3 text-[var(--foreground)] shadow-lg">
+                        <div className="mb-2 flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const m = new Date(orderCalendarMonth);
+                              m.setMonth(m.getMonth() - 1);
+                              setOrderCalendarMonth(new Date(m));
+                            }}
+                            className="p-1 rounded hover:bg-[var(--muted)]"
+                          >
+                            <ChevronLeft className="w-4 h-4" />
+                          </button>
+                          <div className="text-sm font-semibold capitalize">
+                            {orderCalendarMonth.toLocaleString("es-CR", {
+                              month: "long",
+                              year: "numeric",
+                            })}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const m = new Date(orderCalendarMonth);
+                              m.setMonth(m.getMonth() + 1);
+                              setOrderCalendarMonth(new Date(m));
+                            }}
+                            className="p-1 rounded hover:bg-[var(--muted)]"
+                          >
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-7 gap-1 text-center text-xs text-[var(--muted-foreground)]">
+                          {["D", "L", "M", "M", "J", "V", "S"].map((d, i) => (
+                            <div key={`${d}-${i}`} className="py-1">
+                              {d}
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="mt-2 grid grid-cols-7 gap-1 text-sm">
+                          {(() => {
+                            const cells: React.ReactNode[] = [];
+                            const year = orderCalendarMonth.getFullYear();
+                            const month = orderCalendarMonth.getMonth();
+                            const first = new Date(year, month, 1);
+                            const start = first.getDay();
+                            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+                            for (let i = 0; i < start; i++) cells.push(<div key={`pad-o-${i}`} />);
+
+                            for (let day = 1; day <= daysInMonth; day++) {
+                              const d = new Date(year, month, day);
+                              const key = dateKeyFromDate(d);
+                              const isSelected = orderDate === key;
+                              cells.push(
+                                <button
+                                  key={key}
+                                  type="button"
+                                  onClick={() => {
+                                    setOrderDate(key);
+                                    setOrderCalendarOpen(false);
+                                  }}
+                                  className={`py-1 rounded ${
+                                    isSelected
+                                      ? "bg-[var(--accent)] text-white"
+                                      : "hover:bg-[var(--muted)]"
+                                  }`}
+                                >
+                                  {day}
+                                </button>,
+                              );
+                            }
+                            return cells;
+                          })()}
+                        </div>
+
+                        <div className="mt-3 flex justify-between">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOrderDate(todayKey);
+                              setOrderCalendarOpen(false);
+                            }}
+                            className="px-2 py-1 rounded border border-[var(--input-border)] text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+                          >
+                            Hoy
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setOrderCalendarOpen(false)}
+                            className="px-2 py-1 rounded border border-[var(--input-border)] text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+                          >
+                            Cerrar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div>
                 <label
-                  className="block text-sm font-medium mb-1 items-center gap-1"
-                  style={{ color: "var(--foreground)" }}
+                  className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]"
                 >
                   <Calendar className="w-4 h-4" />
                   Fecha Esperada de Entrega
                 </label>
-                <input
-                  type="date"
-                  value={expectedDeliveryDate}
-                  onChange={(e) => setExpectedDeliveryDate(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  style={{
-                    background: "var(--input-bg)",
-                    borderColor: "var(--input-border)",
-                    color: "var(--foreground)",
-                  }}
-                />
+                <div className="relative">
+                  <button
+                    type="button"
+                    ref={deliveryButtonRef}
+                    onClick={() => {
+                      const base = expectedDeliveryDate
+                        ? new Date(`${expectedDeliveryDate}T00:00:00`)
+                        : new Date();
+                      if (!Number.isNaN(base.getTime())) setDeliveryCalendarMonth(base);
+                      setDeliveryCalendarOpen((prev) => !prev);
+                      setOrderCalendarOpen(false);
+                    }}
+                    className="flex h-11 w-full items-center justify-between gap-2 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
+                    title="Seleccionar fecha esperada"
+                    aria-label="Seleccionar fecha esperada"
+                  >
+                    <span className="truncate text-sm font-medium">
+                      {expectedDeliveryDate
+                        ? formatKeyToDisplay(expectedDeliveryDate)
+                        : "dd/mm/yyyy"}
+                    </span>
+                    <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded border border-[var(--input-border)] bg-[var(--muted)]/20 text-[var(--muted-foreground)]">
+                      <CalendarDays className="h-4 w-4" />
+                    </span>
+                  </button>
+
+                  {deliveryCalendarOpen && (
+                    <div
+                      ref={deliveryCalendarRef}
+                      className="absolute left-0 top-full z-50 mt-2 w-full min-w-[280px] sm:w-72"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-3 text-[var(--foreground)] shadow-lg">
+                        <div className="mb-2 flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const m = new Date(deliveryCalendarMonth);
+                              m.setMonth(m.getMonth() - 1);
+                              setDeliveryCalendarMonth(new Date(m));
+                            }}
+                            className="p-1 rounded hover:bg-[var(--muted)]"
+                          >
+                            <ChevronLeft className="w-4 h-4" />
+                          </button>
+                          <div className="text-sm font-semibold capitalize">
+                            {deliveryCalendarMonth.toLocaleString("es-CR", {
+                              month: "long",
+                              year: "numeric",
+                            })}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const m = new Date(deliveryCalendarMonth);
+                              m.setMonth(m.getMonth() + 1);
+                              setDeliveryCalendarMonth(new Date(m));
+                            }}
+                            className="p-1 rounded hover:bg-[var(--muted)]"
+                          >
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-7 gap-1 text-center text-xs text-[var(--muted-foreground)]">
+                          {["D", "L", "M", "M", "J", "V", "S"].map((d, i) => (
+                            <div key={`${d}-${i}`} className="py-1">
+                              {d}
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="mt-2 grid grid-cols-7 gap-1 text-sm">
+                          {(() => {
+                            const cells: React.ReactNode[] = [];
+                            const year = deliveryCalendarMonth.getFullYear();
+                            const month = deliveryCalendarMonth.getMonth();
+                            const first = new Date(year, month, 1);
+                            const start = first.getDay();
+                            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+                            for (let i = 0; i < start; i++) cells.push(<div key={`pad-d-${i}`} />);
+
+                            for (let day = 1; day <= daysInMonth; day++) {
+                              const d = new Date(year, month, day);
+                              const key = dateKeyFromDate(d);
+                              const isSelected = expectedDeliveryDate === key;
+                              cells.push(
+                                <button
+                                  key={key}
+                                  type="button"
+                                  onClick={() => {
+                                    setExpectedDeliveryDate(key);
+                                    setDeliveryCalendarOpen(false);
+                                  }}
+                                  className={`py-1 rounded ${
+                                    isSelected
+                                      ? "bg-[var(--accent)] text-white"
+                                      : "hover:bg-[var(--muted)]"
+                                  }`}
+                                >
+                                  {day}
+                                </button>,
+                              );
+                            }
+                            return cells;
+                          })()}
+                        </div>
+
+                        <div className="mt-3 flex justify-between">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setExpectedDeliveryDate("");
+                              setDeliveryCalendarOpen(false);
+                            }}
+                            className="px-2 py-1 rounded border border-[var(--input-border)] text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+                          >
+                            Limpiar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeliveryCalendarOpen(false)}
+                            className="px-2 py-1 rounded border border-[var(--input-border)] text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+                          >
+                            Cerrar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div>
                 <label
-                  className="block text-sm font-medium mb-1 items-center gap-1"
-                  style={{ color: "var(--foreground)" }}
+                  className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]"
                 >
                   <FileText className="w-4 h-4" />
                   Notas
@@ -689,12 +951,7 @@ export default function SupplierOrders() {
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  style={{
-                    background: "var(--input-bg)",
-                    borderColor: "var(--input-border)",
-                    color: "var(--foreground)",
-                  }}
+                  className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)] hover:border-[var(--accent)]/60 focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
                   placeholder="Notas adicionales..."
                   rows={3}
                 />
@@ -704,11 +961,7 @@ export default function SupplierOrders() {
 
           {/* Add Products Form */}
           <div
-            className="rounded-lg border p-6"
-            style={{
-              background: "var(--card-bg)",
-              borderColor: "var(--border)",
-            }}
+            className="rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-6"
           >
             <h3
               className="text-lg font-semibold mb-4 flex items-center gap-2"
@@ -721,8 +974,7 @@ export default function SupplierOrders() {
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
               <div className="relative">
                 <label
-                  className="block text-sm font-medium mb-1"
-                  style={{ color: "var(--foreground)" }}
+                  className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]"
                 >
                   Nombre del Producto
                 </label>
@@ -743,32 +995,19 @@ export default function SupplierOrders() {
                   onBlur={() =>
                     setTimeout(() => setShowProductDropdown(false), 200)
                   }
-                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  style={{
-                    background: "var(--input-bg)",
-                    borderColor: "var(--input-border)",
-                    color: "var(--foreground)",
-                  }}
+                  className="w-full h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)] hover:border-[var(--accent)]/60 focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
                   placeholder="Nombre del producto"
                   onKeyDown={(e) => e.key === "Enter" && addProduct()}
                 />
                 {showProductDropdown && filteredProducts.length > 0 && (
                   <div
-                    className="absolute z-10 w-full mt-1 border rounded-md shadow-lg"
-                    style={{
-                      background: "var(--card-bg)",
-                      borderColor: "var(--border)",
-                    }}
+                    className="absolute z-10 w-full mt-2 overflow-hidden rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] shadow-lg"
                   >
                     {filteredProducts.map((product, index) => (
                       <button
                         key={index}
                         onClick={() => selectProduct(product)}
-                        className="w-full px-3 py-2 text-left hover:opacity-80 first:rounded-t-md last:rounded-b-md"
-                        style={{
-                          color: "var(--foreground)",
-                          background: "var(--card-bg)",
-                        }}
+                        className="w-full px-3 py-2 text-left text-sm text-[var(--foreground)] hover:bg-[var(--muted)]/20"
                       >
                         {product}
                       </button>
@@ -779,8 +1018,7 @@ export default function SupplierOrders() {
 
               <div>
                 <label
-                  className="block text-sm font-medium mb-1"
-                  style={{ color: "var(--foreground)" }}
+                  className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]"
                 >
                   Cantidad
                 </label>
@@ -795,19 +1033,13 @@ export default function SupplierOrders() {
                       addProduct();
                     }
                   }}
-                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  style={{
-                    background: "var(--input-bg)",
-                    borderColor: "var(--input-border)",
-                    color: "var(--foreground)",
-                  }}
+                  className="w-full h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] outline-none transition-colors hover:border-[var(--accent)]/60 focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
                 />
               </div>
 
               <div>
                 <label
-                  className="block text-sm font-medium mb-1"
-                  style={{ color: "var(--foreground)" }}
+                  className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]"
                 >
                   Código de Barras (opcional)
                 </label>
@@ -815,20 +1047,14 @@ export default function SupplierOrders() {
                   type="text"
                   value={barcode}
                   onChange={(e) => setBarcode(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  style={{
-                    background: "var(--input-bg)",
-                    borderColor: "var(--input-border)",
-                    color: "var(--foreground)",
-                  }}
+                  className="w-full h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)] hover:border-[var(--accent)]/60 focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
                   placeholder="Código de barras"
                 />
               </div>
 
               <div>
                 <label
-                  className="block text-sm font-medium mb-1"
-                  style={{ color: "var(--foreground)" }}
+                  className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]"
                 >
                   Precio Unitario (opcional)
                 </label>
@@ -838,12 +1064,7 @@ export default function SupplierOrders() {
                   min="0"
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  style={{
-                    background: "var(--input-bg)",
-                    borderColor: "var(--input-border)",
-                    color: "var(--foreground)",
-                  }}
+                  className="w-full h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)] hover:border-[var(--accent)]/60 focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
                   placeholder="0.00"
                 />
               </div>
@@ -851,7 +1072,7 @@ export default function SupplierOrders() {
               <button
                 onClick={addProduct}
                 disabled={!productName.trim()}
-                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="h-11 px-4 rounded-lg bg-[var(--button-bg)] text-[var(--button-text)] hover:bg-[var(--button-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
               >
                 <Plus className="w-4 h-4" />
                 Agregar
@@ -862,11 +1083,7 @@ export default function SupplierOrders() {
           {/* Products List */}
           {products.length > 0 && (
             <div
-              className="rounded-lg border p-6"
-              style={{
-                background: "var(--card-bg)",
-                borderColor: "var(--border)",
-              }}
+              className="rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-6"
             >
               <h3
                 className="text-lg font-semibold mb-4"
@@ -961,7 +1178,7 @@ export default function SupplierOrders() {
                         <td className="py-2 px-3 text-center">
                           <button
                             onClick={() => removeProduct(product.id)}
-                            className="text-red-500 hover:text-red-700 p-1"
+                            className="p-1 rounded text-red-500 hover:text-red-600 hover:bg-[var(--muted)]/20 transition-colors"
                             title="Eliminar producto"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -1005,7 +1222,7 @@ export default function SupplierOrders() {
               disabled={
                 isSaving || !supplierName.trim() || products.length === 0
               }
-              className="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="h-11 px-6 rounded-lg bg-[var(--button-bg)] text-[var(--button-text)] hover:bg-[var(--button-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
             >
               {isSaving
                 ? isEditing
@@ -1020,7 +1237,7 @@ export default function SupplierOrders() {
               <button
                 onClick={cancelEdit}
                 disabled={isSaving}
-                className="px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="h-11 px-6 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
               >
                 Cancelar Edición
               </button>
@@ -1029,11 +1246,7 @@ export default function SupplierOrders() {
             <button
               onClick={clearForm}
               disabled={isSaving}
-              className="px-6 py-2 rounded-lg hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{
-                background: "var(--button-bg)",
-                color: "var(--button-text)",
-              }}
+              className="h-11 px-6 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
             >
               Limpiar Formulario
             </button>
@@ -1078,11 +1291,7 @@ export default function SupplierOrders() {
               return (
                 <div
                   key={orderKey}
-                  className="rounded-lg border p-6"
-                  style={{
-                    background: "var(--card-bg)",
-                    borderColor: "var(--border)",
-                  }}
+                  className="rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-6"
                 >
                   <div className="flex justify-between items-start mb-4">
                     <div>
@@ -1105,21 +1314,21 @@ export default function SupplierOrders() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => startEdit(order)}
-                        className="text-blue-500 hover:text-blue-700 p-2"
+                        className="p-2 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 transition-colors"
                         title="Editar orden"
                       >
                         <Edit className="w-5 h-5" />
                       </button>
                       <button
                         onClick={() => openExportModal(order)}
-                        className="text-green-500 hover:text-green-600 p-2"
+                        className="p-2 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 transition-colors"
                         title="Exportar orden"
                       >
                         <Download className="w-5 h-5" />
                       </button>
                       <button
                         onClick={() => deleteOrder(order.id, order.documentId)}
-                        className="text-red-500 hover:text-red-700 p-2"
+                        className="p-2 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] text-red-500 hover:text-red-600 hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 transition-colors"
                         title="Eliminar orden"
                       >
                         <Trash2 className="w-5 h-5" />
